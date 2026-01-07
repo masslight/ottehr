@@ -121,6 +121,7 @@ export default function Appointments(): ReactElement {
 
   const externalLabOrders = usePatientLabOrders({
     searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+    itemsPerPage: 100,
   });
   const externalLabOrdersByAppointmentId = useMemo(() => {
     return externalLabOrders?.labOrders?.reduce(
@@ -134,6 +135,7 @@ export default function Appointments(): ReactElement {
 
   const inHouseOrders = useInHouseLabOrders({
     searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+    itemsPerPage: 100,
   });
   const inHouseLabOrdersByAppointmentId = useMemo(() => {
     return inHouseOrders?.labOrders?.reduce(
