@@ -1844,6 +1844,10 @@
           ],
           "extension": [
             {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+              "valueString": "Button"
+            },
+            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
                 {

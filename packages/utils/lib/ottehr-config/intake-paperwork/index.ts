@@ -771,6 +771,7 @@ const FormFields = {
         label: 'Add secondary insurance',
         text: 'Add secondary insurance',
         type: 'boolean',
+        element: 'Button',
         triggers: [
           {
             targetQuestionLinkId: 'payment-option',
