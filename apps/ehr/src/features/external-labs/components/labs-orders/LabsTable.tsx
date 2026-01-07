@@ -3,26 +3,28 @@ import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDrExternalLabEditUrl, getExternalLabOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
 import {
+  ExternalLabsStatus,
   getColumnHeader,
   getColumnWidth,
   LabOrderDTO,
   LabOrderListPageDTO,
   LabOrdersSearchBy,
   LabsTableColumn,
-  PdfAttachmentDTO,
   ReflexLabDTO,
 } from 'utils';
 import { LabsTableRow } from './LabsTableRow';
 
 interface LabsTableProps {
   columns: LabsTableColumn[];
-  labOrders: (LabOrderDTO<LabOrdersSearchBy> | ReflexLabDTO | PdfAttachmentDTO)[];
+  labOrders: (LabOrderDTO<LabOrdersSearchBy> | ReflexLabDTO)[];
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
+    testItemStatus,
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
   allowDelete?: boolean;
   bundleRow?: ReactElement;
@@ -43,7 +45,7 @@ export const LabsTable = ({
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
-  const onRowClickForDrDrivenResult = (result: ReflexLabDTO | PdfAttachmentDTO): void => {
+  const onRowClickForDrDrivenResult = (result: ReflexLabDTO): void => {
     if (!result.appointmentId || !result.resultsDetails?.[0].diagnosticReportId) {
       console.error(`Unable to navigate to dr result row, missing appointmentId or dr id`, result);
       throw new Error('Unable to navigate to dr result row, missing appointmentId or dr id');
@@ -95,6 +97,7 @@ export const LabsTable = ({
                     showDeleteLabOrderDialog({
                       serviceRequestId: order.serviceRequestId,
                       testItemName: order.testItem,
+                      testItemStatus: order.orderStatus,
                     })
                   }
                   onRowClick={() => onRowClick(order)}

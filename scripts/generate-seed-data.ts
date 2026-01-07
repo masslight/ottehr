@@ -63,6 +63,8 @@ async function main(): Promise<void> {
     await handler.waitTillHarvestingDone(appointmentId);
     console.log('Harvesting complete');
 
+    await handler.waitForListIndexing(handler.patient.id!);
+
     console.log('Fetching all related resources...');
     const apiClient = await handler.apiClient;
     const resources = (
