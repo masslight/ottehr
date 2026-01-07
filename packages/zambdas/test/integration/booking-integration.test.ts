@@ -654,7 +654,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     oystehrAdmin = setup.oystehr;
 
     existingTestPatient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehrAdmin);
-  });
+  }, 60_000);
   afterAll(async () => {
     if (!oystehrAdmin || !processId) {
       throw new Error('oystehr or processId is null! could not clean up!');

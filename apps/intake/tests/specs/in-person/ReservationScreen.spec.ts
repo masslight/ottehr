@@ -37,23 +37,30 @@ test('RS. Reservation Screen check data is correct', async () => {
 
   await test.step('RS-2. Check patient details', async () => {
     await expect.soft(locator.titlePatient).toBeVisible();
-    const firstName = visitData.firstName;
-    const lastName = visitData.lastName;
+    const firstName = visitData.patientBasicInfo.firstName;
+    const lastName = visitData.patientBasicInfo.lastName;
     await commonLocators.checkPatientNameIsCorrect({ firstName, lastName });
   });
 
   await test.step('RS-3. Check location details', async () => {
     await expect.soft(page.getByText(scheduleOwnerTypeExpected)).toBeVisible();
-    await flowClass.checkValueIsNotEmpty(locator.locationName);
+
     await expect.soft(locator.locationName).toBeVisible();
+    const locationNameTextContent = await locator.locationName.textContent();
+    expect.soft(locationNameTextContent).not.toBeNull();
+    expect.soft(locationNameTextContent?.trim()).not.toBe('');
+    expect.soft(locationNameTextContent?.trim().toLowerCase()).not.toBe('unknown');
     expect.soft(visitData.slotDetails?.ownerName).toBeDefined();
     await commonLocators.checkLocationValueIsCorrect(visitData.slotDetails?.ownerName ?? null);
   });
 
   await test.step('RS-4. Check slot details', async () => {
-    await flowClass.checkValueIsNotEmpty(locator.prebookSlotReviewScreen);
     await expect.soft(locator.prebookSlotReviewScreen).toBeVisible();
-    await commonLocators.checkSlotIsCorrect(visitData.selectedSlot?.selectedSlot);
+    const prebookSlotTextContent = await locator.prebookSlotReviewScreen.textContent();
+    expect.soft(prebookSlotTextContent).not.toBeNull();
+    expect.soft(prebookSlotTextContent?.trim()).not.toBe('');
+    expect.soft(prebookSlotTextContent?.trim().toLowerCase()).not.toBe('unknown');
+    await commonLocators.checkSlotIsCorrect(visitData.slotAndLocation?.slot);
   });
 
   await test.step('RS-5. Check links', async () => {

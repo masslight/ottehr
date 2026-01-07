@@ -1,26 +1,19 @@
 import { expect, Page } from '@playwright/test';
 import { assert } from 'console';
-import { BOOKING_CONFIG, VALUE_SETS } from 'utils';
+import { TEST_PATIENT_EMAIL, TEST_PATIENT_FIRST_NAME, TEST_PATIENT_LAST_NAME } from 'test-utils';
+import { BOOKING_CONFIG, genderMap, VALUE_SETS } from 'utils';
+import { BaseFillingInfo } from '../BaseFillingInfo';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
-export class FillingInfo {
+export class FillingInfo extends BaseFillingInfo {
   page: Page;
   constructor(page: Page) {
+    super(page);
     this.page = page;
-  }
-  // Helper method to get a random element from an array
-  getRandomElement(arr: string[]) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  // Helper method to get a random integer between min and max (inclusive)
-  private getRandomInt(min: number, max: number) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   private reasonForVisit = [VALUE_SETS.reasonForVisitOptions[0].value];
   private cancelReason = VALUE_SETS.cancelReasonOptions.slice();
-  private months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   getRandomString() {
     return Math.random().toString().slice(2, 7);
@@ -57,10 +50,10 @@ export class FillingInfo {
     await selectedButton.click();
     const selectButton = await this.page.getByRole('button', { name: /^Select/ });
     const selectButtonContent = await selectButton.textContent();
-    const selectedSlot = selectButtonContent?.replace('Select ', '').trim();
+    const slot = selectButtonContent?.replace('Select ', '').trim();
     await selectButton.click();
-    console.log(`Selected slot: ${selectedSlot}`);
-    return { buttonName, selectedSlot };
+    console.log(`Selected slot: ${slot}`);
+    return { buttonName, slot };
   }
 
   async fillNewPatientInfo() {
@@ -69,21 +62,43 @@ export class FillingInfo {
     const birthSexes = ['Male', 'Female', 'Intersex'];
     // cspell:disable-next ykulik
     const email = `ykulik+${firstName}@masslight.com`;
-    const reason = this.getRandomElement(this.reasonForVisit);
+    const reasonForVisit = this.getRandomElement(this.reasonForVisit);
     const enteredReason = this.getRandomString();
     await this.page.locator('#patient-first-name').click();
     await this.page.locator('#patient-first-name').fill(firstName);
     await this.page.locator('#patient-last-name').click();
     await this.page.locator('#patient-last-name').fill(lastName);
     await this.page.locator('#patient-birth-sex').click();
-    const BirthSex = this.getRandomElement(birthSexes);
-    await this.page.getByRole('option', { name: BirthSex, exact: true }).click();
+    const birthSex = this.getRandomElement(birthSexes);
+    await this.page.getByRole('option', { name: birthSex, exact: true }).click();
     await this.page.locator('#patient-email').click();
     await this.page.locator('#patient-email').fill(email);
     await this.page.getByLabel('Reason for visit *', { exact: true }).click();
-    await this.page.getByRole('option', { name: reason, exact: true }).click();
+    await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click();
     await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
-    return { firstName, lastName, BirthSex, email, reason, enteredReason };
+    return { firstName, lastName, birthSex, email, reasonForVisit, enteredReason };
+  }
+
+  async fillNewPatientInfoSmoke() {
+    const firstName = TEST_PATIENT_FIRST_NAME;
+    const lastName = TEST_PATIENT_LAST_NAME;
+    // cspell:disable-next ykulik
+    const email = TEST_PATIENT_EMAIL;
+    const reasonForVisit = this.getRandomElement(this.reasonForVisit);
+    const enteredReason = this.getRandomString();
+    await this.page.locator('#patient-first-name').click();
+    await this.page.locator('#patient-first-name').fill(firstName);
+    await this.page.locator('#patient-last-name').click();
+    await this.page.locator('#patient-last-name').fill(lastName);
+    await this.page.locator('#patient-birth-sex').click();
+    const birthSex = genderMap.female;
+    await this.page.getByRole('option', { name: birthSex, exact: true }).click();
+    await this.page.locator('#patient-email').click();
+    await this.page.locator('#patient-email').fill(email);
+    await this.page.getByLabel('Reason for visit *', { exact: true }).click();
+    await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click();
+    await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
+    return { firstName, lastName, birthSex, email, reasonForVisit, enteredReason };
   }
 
   async fillDOBgreater18() {
@@ -124,16 +139,6 @@ export class FillingInfo {
     await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
     return { reason, enteredReason };
   }
-  async fillCorrectDOB(month: string, day: string, year: string) {
-    await this.page.getByRole('combobox').nth(0).click();
-    await this.page.getByRole('option', { name: month }).click();
-
-    await this.page.getByRole('combobox').nth(1).click();
-    await this.page.getByRole('option', { name: day, exact: true }).click();
-
-    await this.page.getByRole('combobox').nth(2).click();
-    await this.page.getByRole('option', { name: year }).click();
-  }
 
   async selectFirstServiceCategory() {
     // Check if we're on the service category selection page
@@ -143,7 +148,7 @@ export class FillingInfo {
     assert(firstCategory.display);
 
     if (firstCategory) {
-      await this.page.getByText(firstCategory.display).click();
+      await this.page.getByRole('button', { name: firstCategory.display }).click();
     }
   }
 }

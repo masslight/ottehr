@@ -7,11 +7,10 @@ import {
   DR_CONTAINED_PRACTITIONER_REF,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
-  OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
-import { DR_UNSOLICITED_RESULT_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
-import { createAttachmentDocRef, createPdfAttachmentObs } from './lab-script-helpers';
+import { DR_UNSOLICITED_RESULT_TAG } from './lab-script-consts';
+import { createAttachmentDocRef } from './lab-script-helpers';
 
 type PatientDetails = {
   first: string;
@@ -110,17 +109,6 @@ const main = async (): Promise<void> => {
   });
   const drFullUrl = `urn:uuid:${randomUUID()}`;
 
-  // old logic, will be phased out soon
-  const pdfAttachmentObs = createPdfAttachmentObs();
-  const pdfAttachmentObsFullUrl = `urn:uuid:${randomUUID()}`;
-  const pdfAttachmentDr = createUnsolicitedPdfAttachmentDr(
-    drIdentifier,
-    pdfAttachmentObsFullUrl,
-    autoLabOrgId,
-    drFullUrl
-  );
-
-  // new attachment logic
   const projectId = envConfig.PROJECT_ID;
   if (!projectId) throw new Error(`Could not get projectId`);
   const attachmentDocRef = createAttachmentDocRef({
@@ -134,9 +122,7 @@ const main = async (): Promise<void> => {
   const requests: BatchInputPostRequest<Observation | DocumentReference | DiagnosticReport>[] = [
     { method: 'POST', fullUrl: obsFullUrl, url: '/Observation', resource: obs },
     { method: 'POST', fullUrl: drFullUrl, url: '/DiagnosticReport', resource: dr },
-    { method: 'POST', fullUrl: pdfAttachmentObsFullUrl, url: '/Observation', resource: pdfAttachmentObs },
     { method: 'POST', url: '/DocumentReference', resource: attachmentDocRef },
-    { method: 'POST', url: '/DiagnosticReport', resource: pdfAttachmentDr },
   ];
 
   try {
@@ -295,40 +281,6 @@ const createUnsolicitedResultDr = ({
     category: [{ coding: [OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY] }],
   };
 
-  return dr;
-};
-
-const createUnsolicitedPdfAttachmentDr = (
-  drIdentifier: Identifier[],
-  obsFullUrl: string,
-  labOrgId: string,
-  parentDrFullUrl: string
-): DiagnosticReport => {
-  const dr: DiagnosticReport = {
-    resourceType: 'DiagnosticReport',
-    identifier: drIdentifier,
-    result: [{ reference: obsFullUrl }],
-    status: 'final',
-    code: PDF_ATTACHMENT_CODE,
-    effectiveDateTime: DateTime.now().toISO(),
-    category: [{ coding: [OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY] }],
-    performer: [
-      {
-        reference: `Organization/${labOrgId}`,
-      },
-    ],
-    extension: [
-      {
-        url: OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
-        valueReference: {
-          reference: parentDrFullUrl,
-        },
-      },
-    ],
-    meta: {
-      tag: [LAB_PDF_ATTACHMENT_DR_TAG, DR_UNSOLICITED_RESULT_TAG],
-    },
-  };
   return dr;
 };
 

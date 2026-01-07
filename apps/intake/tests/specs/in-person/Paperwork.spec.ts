@@ -8,7 +8,7 @@ import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { UploadDocs } from '../../utils/UploadDocs';
-import { InPersonPatientTestData } from '../0_paperworkSetup/types';
+import { InPersonNoPwPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
@@ -16,7 +16,7 @@ let paperwork: Paperwork;
 let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: InPersonPatientTestData;
+let patient: InPersonNoPwPatient;
 const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 test.beforeAll(async ({ browser }) => {
@@ -27,7 +27,7 @@ test.beforeAll(async ({ browser }) => {
   uploadPhoto = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'patientWithoutPaperwork.json');
+  const testDataPath = path.join('test-data', 'inPersonNoPwPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {
@@ -145,14 +145,14 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await paperwork.checkCorrectPageOpens('Credit card details');
     });
 
-    // if you skip the previous step, this step will fail, so we have to skip it as well
-    /*test('PPO-4. Go back and select insurance', async () => {
-      await locator.clickBackButton();
+    await test.step('PPO-4. Go back and select insurance', async () => {
+      // if you skip the previous step, this step will fail, so we have to skip it as well
+      // await locator.clickBackButton();
       await paperwork.selectInsurancePayment();
       await locator.clickContinueButton();
       // won't navigate without insurance details. expect same page.
       await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
-    });*/
+    });
   });
 
   test('PPI. Primary insurance', async () => {
@@ -369,16 +369,18 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PRPI-6. Select self - check fields are prefilled with correct values', async () => {
-      const [year, month, day] = patient.dateOfBirth.split('-');
-      const dob = commonLocatorsHelper.getMonthDay(month, day);
-      if (!dob) {
+      const { y, m, d } = patient.dob;
+      const humanReadableDob = commonLocatorsHelper.getMonthDay(m, d);
+      if (!humanReadableDob) {
         throw new Error('DOB data is null');
       }
       await paperwork.fillResponsiblePartyDataSelf();
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+        `${humanReadableDob?.monthNumber}/${humanReadableDob?.dayNumber}/${y}`
+      );
     });
 
     await test.step('PRPI-7. Select self - check fields are disabled', async () => {

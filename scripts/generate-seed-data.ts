@@ -63,6 +63,8 @@ async function main(): Promise<void> {
     await handler.waitTillHarvestingDone(appointmentId);
     console.log('Harvesting complete');
 
+    await handler.waitForListIndexing(handler.patient.id!);
+
     console.log('Fetching all related resources...');
     const apiClient = await handler.apiClient;
     const resources = (
@@ -174,6 +176,8 @@ async function main(): Promise<void> {
       }
       jsonStr = jsonStr.split(questionnaireUrl).join('{{questionnaireUrl}}');
       jsonStr = jsonStr.split(today).join('{{date}}');
+      // eliminate timezone issues with early morning appointments
+      jsonStr = jsonStr.replace(/\{\{date\}\}T\d\d:/g, '{{date}}T12:');
 
       const entry = {
         fullUrl,
