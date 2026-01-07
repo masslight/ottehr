@@ -8,9 +8,10 @@ dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
 
 export default defineConfig({
   test: {
-    globals: true,
+    // Disable globals to avoid conflicts with Playwright's expect in CI
+    globals: false,
     include: ['**/*.test.tsx'],
-    setupFiles: './tests/component/setup.ts',
+    setupFiles: ['vitest/globals', './tests/component/setup.ts'],
     environment: 'jsdom',
   },
   plugins: [tsconfigPaths(), react()],
