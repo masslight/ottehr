@@ -4,6 +4,7 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
@@ -147,6 +148,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.heightItem}
             />
           );
         }}
@@ -160,6 +162,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
         label={`Height (cm) ${latestHeightValue ?? ''}`}
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.heightHeader}
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -195,6 +198,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                       disabled={isSaving}
                       isInputError={isHeightValidationError}
                       onChange={handleTextInputChangeCm}
+                      data-testid={dataTestIds.vitalsPage.heightInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
@@ -236,6 +240,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.heightAddButton}
                   >
                     Add
                   </RoundedButton>

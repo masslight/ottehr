@@ -4,6 +4,7 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   formatWeight,
   formatWeightKg,
@@ -110,6 +111,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.weightItem}
             />
           );
         }}
@@ -127,7 +129,12 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
 
   return (
     <Box sx={{ mt: 3 }}>
-      <AccordionCard label={title} collapsed={isCollapsed} onSwitch={handleSectionCollapse}>
+      <AccordionCard
+        label={title}
+        collapsed={isCollapsed}
+        onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.weightHeader}
+      >
         {isReadOnly ? (
           renderRightColumn()
         ) : (
@@ -162,6 +169,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                       disabled={isSaving || isPatientRefusedOptionSelected}
                       isInputError={false}
                       onChange={handleKgInput}
+                      data-testid={dataTestIds.vitalsPage.weightInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
@@ -196,6 +204,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.weightAddButton}
                   >
                     Add
                   </RoundedButton>
@@ -223,6 +232,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                           disabled={isSaving}
                           checked={isPatientRefusedOptionSelected}
                           onChange={(e) => handleWeightOptionChanged(e.target.checked, 'patient_refused')}
+                          data-testid={dataTestIds.vitalsPage.weightPatientRefusedCheckbox}
                         />
                       }
                       label={

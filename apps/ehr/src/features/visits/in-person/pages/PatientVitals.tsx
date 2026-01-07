@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React, { useMemo } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import VitalsNotesCard from 'src/features/visits/shared/components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from 'src/features/visits/shared/components/vitals/blood-pressure/VitalsBloodPressureCard';
@@ -65,7 +66,11 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Vitals" showIntakeNotesButton={interactionMode === 'main'} />
+      <PageTitle
+        label="Vitals"
+        showIntakeNotesButton={interactionMode === 'main'}
+        dataTestId={dataTestIds.vitalsPage.title}
+      />
       <VitalsTemperaturesCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
