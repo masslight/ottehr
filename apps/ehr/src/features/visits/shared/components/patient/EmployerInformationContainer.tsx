@@ -20,12 +20,6 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={items.workersCompPlanType}
-        isLoading={isLoading}
-        hiddenFormFields={hiddenFields}
-        requiredFormFields={requiredFields}
-      />
-      <PatientRecordFormField
         item={items.workersCompMemberId}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}

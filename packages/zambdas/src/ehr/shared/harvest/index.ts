@@ -1966,7 +1966,6 @@ function getInsuranceDetailsFromAnswers(
 
 interface EmployerInformation {
   workersCompInsurance?: string;
-  workersCompPlanType?: string;
   workersCompMemberId?: string;
   employerName?: string;
   addressLine1?: string;
@@ -2143,7 +2142,6 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
 
   const workersCompInsurance = items.find((item) => item.linkId === 'workers-comp-insurance-name')?.answer?.[0]
     ?.valueReference?.reference;
-  const workersCompPlanType = getAnswerString('workers-comp-insurance-plan-type');
   const workersCompMemberId = getAnswerString('workers-comp-insurance-member-id');
   const employerName = getAnswerString('employer-name');
   const addressLine1 = getAnswerString('employer-address');
@@ -2156,7 +2154,6 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
 
   const hasAnyValue = [
     workersCompInsurance,
-    workersCompPlanType,
     workersCompMemberId,
     employerName,
     addressLine1,
@@ -2178,7 +2175,6 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
 
   return {
     workersCompInsurance,
-    workersCompPlanType,
     workersCompMemberId,
     employerName,
     addressLine1,
@@ -2662,7 +2658,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     let workersCompCoverage: Coverage | undefined = undefined;
     let workersCompCoverageReference: string | undefined = undefined;
     const workersCompInsurance = employerInformation.workersCompInsurance;
-    const workersCompPlanType = employerInformation.workersCompPlanType;
     const workersCompMemberId = employerInformation.workersCompMemberId;
     const workersCompInsuranceOrg = organizationResources.find(
       (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
@@ -2676,9 +2671,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         updatedWorkersCompCoverage.identifier = [
           createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
         ];
-      }
-      if (workersCompPlanType) {
-        updatedWorkersCompCoverage.type = { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: workersCompPlanType }] };
       }
       if (workersCompInsuranceOrg) {
         updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
@@ -2713,17 +2705,11 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
           : undefined,
         resourceType: 'Coverage',
         status: 'active',
-        subscriber: {
-          reference: `Patient/${patient.id}`,
-        },
         beneficiary: {
           type: 'Patient',
           reference: `Patient/${patient.id}`,
         },
-        type:
-          workersCompPlanType !== undefined
-            ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: workersCompPlanType }] }
-            : undefined,
+        type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
         payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
         class: [
           {

@@ -1049,11 +1049,6 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
           answer = makeAnswer(coverageReference, 'Reference');
         }
         break;
-      case 'workers-comp-insurance-plan-type':
-        if (coverage) {
-          answer = makeAnswer(getCandidPlanTypeCodeFromCoverage(coverage));
-        }
-        break;
       case 'workers-comp-insurance-member-id':
         if (coverage) {
           const workersCompMemberId =
