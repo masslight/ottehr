@@ -440,7 +440,7 @@ export default function VisitDetailsPage(): ReactElement {
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
 
   useEffect(() => {
-    if (serverConsentAttested !== null && consentAttested === null) {
+    if (consentAttested === null) {
       setConsentAttested(serverConsentAttested);
     }
   }, [serverConsentAttested, consentAttested]);
