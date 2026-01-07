@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { examConfig } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { useChartData } from '../../stores/appointment/appointment.store';
+import { useExamObservationsInitializationStore } from '../../stores/appointment/exam-observations.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { ExaminationContainer } from '../review-tab/components/ExaminationContainer';
 import { ExamTable } from './ExamTable';
@@ -11,13 +11,13 @@ import { ExamTable } from './ExamTable';
 export const ExamTab: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { isInPerson } = useAppFlags();
-  const { isChartDataLoading } = useChartData();
+  const hasInitialData = useExamObservationsInitializationStore((state) => state.hasInitialData);
 
   const config = examConfig[isInPerson ? 'inPerson' : 'telemed'].default.components;
 
   return (
     <Stack direction="column" gap={1}>
-      {isChartDataLoading ? (
+      {!hasInitialData ? (
         <Stack direction="row" justifyContent="center">
           <CircularProgress />
         </Stack>

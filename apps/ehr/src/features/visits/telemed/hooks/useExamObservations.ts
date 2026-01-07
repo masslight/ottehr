@@ -2,7 +2,10 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useRef } from 'react';
 import { ExamObservationDTO } from 'utils';
 import { useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
-import { useExamObservationsStore } from '../../shared/stores/appointment/exam-observations.store';
+import {
+  useExamObservationsInitializationStore,
+  useExamObservationsStore,
+} from '../../shared/stores/appointment/exam-observations.store';
 
 type ExamRecord = { [field: string]: ExamObservationDTO };
 type Update = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
@@ -157,6 +160,7 @@ export function useExamObservations(param?: string | string[]): {
     );
 
     if (noFetch) {
+      useExamObservationsInitializationStore.setState({ hasInitialData: true });
       return;
     }
 
