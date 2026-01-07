@@ -3804,7 +3804,7 @@
             "type": "group",
             "enableWhen": [
               {
-                "question": "appointment-service-category",
+                "question": "payment-option-page.appointment-service-category",
                 "operator": "=",
                 "answerString": "urgent-care"
               }
@@ -3829,7 +3829,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                        "valueString": "appointment-service-category"
+                        "valueString": "payment-option-page.appointment-service-category"
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",

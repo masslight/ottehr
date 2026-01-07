@@ -606,7 +606,7 @@ const evalEnableWhenItem = (
     return operator === '!=';
   }
 
-  const valueDef = questionPathNodes.reduce((accum, current) => {
+  let valueDef = questionPathNodes.reduce((accum, current) => {
     if (accum === undefined) {
       return undefined;
     }
@@ -616,6 +616,16 @@ const evalEnableWhenItem = (
     }
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
+
+  // Fallback: if path-based lookup failed but we have a path with multiple parts, try direct lookup using final linkId
+  // This handles the case where values are stored flat by linkId but items are nested in the questionnaire structure
+  if (valueDef === undefined && questionPathNodes.length > 1) {
+    const finalLinkId = questionPathNodes[questionPathNodes.length - 1];
+    const directValue = (values as any)[finalLinkId];
+    if (directValue) {
+      valueDef = directValue;
+    }
+  }
 
   if (operator === 'exists' && answerBoolean !== undefined) {
     return evalBoolean(
