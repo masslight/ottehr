@@ -10,14 +10,14 @@ import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   dedupeObjectsByKey,
+  FormFieldsDisplayItem,
   FormFieldsInputItem,
-  FormFieldsItem,
   FormFieldTrigger,
   REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 
 interface PatientRecordFormFieldProps {
-  item: FormFieldsItem;
+  item: FormFieldsInputItem | FormFieldsDisplayItem;
   isLoading: boolean;
   hiddenFormFields?: string[];
   requiredFormFields?: string[];
@@ -423,7 +423,7 @@ type AnswerSourceStrategy = {
 };
 
 interface DynamicReferenceFieldProps {
-  item: Omit<FormFieldsItem, 'options'>;
+  item: Omit<FormFieldsInputItem | FormFieldsDisplayItem, 'options'>;
   optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
   id?: string;
 }

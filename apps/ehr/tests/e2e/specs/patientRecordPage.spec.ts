@@ -30,7 +30,6 @@ import {
   FormFieldsAttachmentItem,
   FormFieldsDisplayItem,
   FormFieldsInputItem,
-  FormFieldsItem,
   PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
   VALUE_SETS,
@@ -148,7 +147,7 @@ const PatientSummaryHidden = HIDDEN_SECTIONS.includes(SECTIONS.patientSummary.li
 
 // Helper to get conditionally rendered fields from config
 const getConditionalFields = (
-  items: Record<string, FormFieldsItem | FormFieldsDisplayItem | FormFieldsAttachmentItem>,
+  items: Record<string, FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsAttachmentItem>,
   controlFieldKey: string
 ): { key: string; label: string; shouldBeRequired: boolean; disabledDisplay: string }[] => {
   return Object.values(items)

@@ -138,8 +138,14 @@ const FormFieldsAttachmentFieldSchema = FormFieldsValueTypeBaseSchema.extend({
   documentType: z.string().optional(),
 });
 
+export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
+export type FormFieldsAttachmentItem = z.infer<typeof FormFieldsAttachmentFieldSchema>;
+export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
+export type FormFieldsInputItem = z.infer<typeof FormFieldsValueTypeSchema> | FormFieldsAttachmentItem;
+
 // Nested group schema - uses z.lazy() for recursion
-const FormFieldsGroupFieldSchema: z.ZodType<any> = z.lazy(() =>
+// Using z.ZodType<any> to avoid complex circular type inference issues
+const FormFieldsGroupFieldSchema = z.lazy(() =>
   z.object({
     key: z.string(),
     type: z.literal('group'),
@@ -156,13 +162,19 @@ const FormFieldsGroupFieldSchema: z.ZodType<any> = z.lazy(() =>
     enableBehavior: z.enum(['all', 'any']).default('any').optional(),
     extension: z.array(z.any()).optional(),
   })
-);
+) as z.ZodType<any>;
 
-export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
-export type FormFieldsAttachmentItem = z.infer<typeof FormFieldsAttachmentFieldSchema>;
-export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
-export type FormFieldsGroupItem = z.infer<typeof FormFieldsGroupFieldSchema>;
-export type FormFieldsInputItem = z.infer<typeof FormFieldsValueTypeSchema> | FormFieldsAttachmentItem;
+// Define the TypeScript type for group field manually (for proper type inference)
+export type FormFieldsGroupItem = {
+  key: string;
+  type: 'group';
+  text?: string;
+  items: Record<string, FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsAttachmentItem | FormFieldsGroupItem>;
+  triggers?: FormFieldTrigger[];
+  enableBehavior?: 'all' | 'any';
+  extension?: any[];
+};
+
 export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
 
 export const FormFieldItemRecordSchema = z.record(
