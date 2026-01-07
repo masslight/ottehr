@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
+import { ExternalLabsStatus } from 'utils';
 
 interface UseDeleteCommonLabOrderDialogProps {
   deleteOrder: ({
@@ -27,12 +28,21 @@ const defaultLocalesConstants = {
   errorOccurredDuringDeletion: 'An error occurred during deletion',
   errorConfirmingDelete: 'Error confirming delete:',
   deleteOrderDialogTitle: 'Delete Lab Order',
-  deleteOrderDialogContent: (testItemName: string) => (
+  deleteOrderDialogContent: (testItemName: string, testItemStatus: ExternalLabsStatus | undefined) => (
     <>
       Are you sure you want to delete this order <strong>{testItemName}</strong>?
       <br />
       <br />
       Deleting this order will also remove any additional associated diagnoses.
+      {testItemStatus && ['sent', 'received'].includes(testItemStatus) && (
+        <>
+          <br />
+          <br />
+          <strong>{`This lab is already ${testItemStatus}. Are you sure you want to delete the electronic record of it? This action cannot be undone.`}</strong>
+          <br />
+          {testItemStatus === 'sent' && <>Deleting this lab order may result in unsolicited results.</>}
+        </>
+      )}
     </>
   ),
   deleteOrderDialogKeepButton: 'Keep',
@@ -44,9 +54,11 @@ interface UseDeleteCommonLabOrderDialogResult {
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
+    testItemStatus,
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus?: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
 }
@@ -60,13 +72,23 @@ export const useDeleteCommonLabOrderDialog = ({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [serviceRequestIdToDelete, setServiceRequestIdToDelete] = useState<string>('');
   const [testItemNameToDelete, setTestItemNameToDelete] = useState<string>('');
+  const [testItemToDeleteStatus, setTestItemToDeleteStatus] = useState<ExternalLabsStatus | undefined>(undefined);
 
   const showDeleteLabOrderDialog = useCallback(
-    ({ serviceRequestId, testItemName }: { serviceRequestId: string; testItemName: string }): void => {
+    ({
+      serviceRequestId,
+      testItemName,
+      testItemStatus,
+    }: {
+      serviceRequestId: string;
+      testItemName: string;
+      testItemStatus?: ExternalLabsStatus;
+    }): void => {
       setServiceRequestIdToDelete(serviceRequestId);
       setTestItemNameToDelete(testItemName);
       setIsDeleteDialogOpen(true);
       setDeleteError(null);
+      setTestItemToDeleteStatus(testItemStatus);
     },
     []
   );
@@ -117,7 +139,9 @@ export const useDeleteCommonLabOrderDialog = ({
           {locales.deleteOrderDialogTitle}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>{locales.deleteOrderDialogContent(testItemNameToDelete)}</DialogContentText>
+          <DialogContentText>
+            {locales.deleteOrderDialogContent(testItemNameToDelete, testItemToDeleteStatus)}
+          </DialogContentText>
           {deleteError && (
             <Box sx={{ mt: 2, color: 'error.main' }}>
               <DialogContentText color="error">{deleteError}</DialogContentText>

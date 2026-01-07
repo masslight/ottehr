@@ -524,6 +524,7 @@ export const dataTestIds = {
     knownAllergiesPatientProvidedList: 'known-allergies-patient-provided-list',
     knownAllergiesInput: 'known-allergies-input',
     knownAllergiesListItem: 'known-allergies-list-item',
+    knownAllergiesListItemDeleteButton: 'known-allergies-list-item-delete-button',
   },
   medicalConditions: {
     medicalConditionsPageTitle: 'medical-conditions-title',

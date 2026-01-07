@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { DispositionCard } from '../../shared/components/DispositionCard';
 import { FormsCard } from '../../shared/components/FormsCard';
 import { Loader } from '../../shared/components/Loader';
@@ -32,7 +33,7 @@ export const Plan: FC<PlanProps> = () => {
       <PatientInstructionsCard />
       <DispositionCard />
       <SchoolWorkExcuseCard />
-      <FormsCard />
+      {FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
     </Stack>
   );
 };

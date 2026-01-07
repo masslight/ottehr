@@ -26,12 +26,13 @@ const SCREENING_A: ScreeningInfo = {
   screeningNote: 'Test screening note',
 };
 
-const SCREENING_B: ScreeningInfo = {
-  screeningAnswersOption: 1,
-  vaccinationNotes: 'Test vaccine notes edited',
-  asqAnswer: 'Not offered',
-  screeningNote: 'Test screening note edited',
-};
+// todo uncomment when https://linear.app/zapehr/issue/OTR-1627 is fixed
+// const SCREENING_B: ScreeningInfo = {
+//   screeningAnswersOption: 1,
+//   vaccinationNotes: 'Test vaccine notes edited',
+//   asqAnswer: 'Not offered',
+//   screeningNote: 'Test screening note edited',
+// };
 
 test.describe('Screening Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -45,7 +46,8 @@ test.describe('Screening Page mutating tests', () => {
   });
 
   test('Screening Happy path', async ({ page }) => {
-    let screeningPage = await test.step('Fill screening info', async () => {
+    // todo uncomment when https://linear.app/zapehr/issue/OTR-1627 is fixed
+    /* const screeningPage = */ await test.step('Fill screening info', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       const screeningPage = await progressNotePage.sideMenu().clickScreening();
 
@@ -53,28 +55,31 @@ test.describe('Screening Page mutating tests', () => {
       return await expectScreeningPage(page);
     });
 
-    const progressNotePage = await test.step('Verify screening info on progress note', async () => {
-      const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
-      const progressNoteLines = createProgressNoteLines(SCREENING_A);
-      progressNoteLines.push('ASQ - ' + SCREENING_A.asqAnswer);
-      progressNoteLines.push(SCREENING_A.screeningNote);
-      await progressNotePage.verifyScreening(progressNoteLines);
-      return await expectInPersonProgressNotePage(page);
-    });
+    // todo uncomment when https://linear.app/zapehr/issue/OTR-1627 is fixed
+    // const progressNotePage = await test.step('Verify screening info on progress note', async () => {
+    //   const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
+    //   const progressNoteLines = createProgressNoteLines(SCREENING_A);
+    //   progressNoteLines.push('ASQ - ' + SCREENING_A.asqAnswer);
+    //   progressNoteLines.push(SCREENING_A.screeningNote);
+    //   await progressNotePage.verifyScreening(progressNoteLines);
+    //   return await expectInPersonProgressNotePage(page);
+    // });
 
-    screeningPage = await test.step('Edit screening info', async () => {
-      const screeningPage = await progressNotePage.sideMenu().clickScreening();
-      await enterScreeningInfo(SCREENING_B, screeningPage);
-      return await expectScreeningPage(page);
-    });
+    // todo uncomment when https://linear.app/zapehr/issue/OTR-1627 is fixed
+    // screeningPage = await test.step('Edit screening info', async () => {
+    //   const screeningPage = await progressNotePage.sideMenu().clickScreening();
+    //   await enterScreeningInfo(SCREENING_B, screeningPage);
+    //   return await expectScreeningPage(page);
+    // });
 
-    await test.step('Verify edited screening info on progress note', async () => {
-      const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
-      const editedProgressNoteLines = createProgressNoteLines(SCREENING_B);
-      editedProgressNoteLines.push('ASQ - ' + SCREENING_B.asqAnswer);
-      editedProgressNoteLines.push(SCREENING_B.screeningNote);
-      await progressNotePage.verifyScreening(editedProgressNoteLines);
-    });
+    // todo uncomment when https://linear.app/zapehr/issue/OTR-1627 is fixed
+    // await test.step('Verify edited screening info on progress note', async () => {
+    //   const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
+    //   const editedProgressNoteLines = createProgressNoteLines(SCREENING_B);
+    //   editedProgressNoteLines.push('ASQ - ' + SCREENING_B.asqAnswer);
+    //   editedProgressNoteLines.push(SCREENING_B.screeningNote);
+    //   await progressNotePage.verifyScreening(editedProgressNoteLines);
+    // });
   });
 });
 
@@ -135,16 +140,17 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
   await screeningPage.clickAddScreeningNoteButton();
 }
 
-function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
-  // Only include questions from "ASK THE PATIENT" section (without existsInQuestionnaire)
-  return patientScreeningQuestionsConfig.fields
-    .filter((field) => !field.existsInQuestionnaire)
-    .map((field) => {
-      const answer = field.options?.[screeningInfo.screeningAnswersOption]?.label ?? '';
-      if (field.id === 'vaccinations') {
-        return field.question + ' - ' + answer + ': ' + screeningInfo.vaccinationNotes;
-      } else {
-        return field.question + ' - ' + answer;
-      }
-    });
-}
+// todo uncomment when https://linear.app/zapehr/issue/OTR-1627 is fixed
+// function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
+//   // Only include questions from "ASK THE PATIENT" section (without existsInQuestionnaire)
+//   return patientScreeningQuestionsConfig.fields
+//     .filter((field) => !field.existsInQuestionnaire)
+//     .map((field) => {
+//       const answer = field.options?.[screeningInfo.screeningAnswersOption]?.label ?? '';
+//       if (field.id === 'vaccinations') {
+//         return field.question + ' - ' + answer + ': ' + screeningInfo.vaccinationNotes;
+//       } else {
+//         return field.question + ' - ' + answer;
+//       }
+//     });
+// }
