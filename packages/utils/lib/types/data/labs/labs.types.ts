@@ -192,10 +192,6 @@ export type ReflexLabDTO = DiagnosticReportDrivenResultDTO & {
   drCentricResultType: 'reflex';
 };
 
-export type PdfAttachmentDTO = DiagnosticReportDrivenResultDTO & {
-  drCentricResultType: 'pdfAttachment';
-};
-
 // todo labs can probably leverage drCentricResultType here as well
 export type UnsolicitedLabDTO = DiagnosticReportLabDetailPageDTO & {
   isUnsolicited: true;
@@ -212,7 +208,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
-  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
+  drDrivenResults: ReflexLabDTO[];
 };
 
 type orderBundleDTO = {
@@ -220,7 +216,7 @@ type orderBundleDTO = {
   bundleNote: string | undefined;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
-  orders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
+  orders: (LabOrderListPageDTO | ReflexLabDTO)[];
 };
 export type LabOrderListPageDTOGrouped = {
   pendingActionOrResults: Record<string, orderBundleDTO>;
@@ -252,10 +248,9 @@ export enum LabType {
   // do not change the following values as they are linked to LAB_DR_TYPE_TAG which is defined in oystehr
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
-  pdfAttachment = 'pdfAttachment', // external but has less fhir resources available since it did not originate from ottehr
 }
 /**
- * 'unsolicited', 'reflex', 'pdfAttachment'
+ * 'unsolicited', 'reflex'
  */
 export type LabDrTypeTagCode = (typeof LAB_DR_TYPE_TAG.code)[keyof typeof LAB_DR_TYPE_TAG.code];
 
