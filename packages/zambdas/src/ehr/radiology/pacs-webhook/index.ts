@@ -57,8 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
     const validatedInput = await validateInput(unsafeInput);
 
-    // todo sarah revert
-    // await accessCheck(unsafeInput.headers, secrets);
+    await accessCheck(unsafeInput.headers, secrets);
 
     await performEffect(validatedInput, oystehr, secrets);
 
@@ -72,16 +71,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   }
 });
 
-// todo sarah revert
-// const accessCheck = async (headers: any, secrets: Secrets): Promise<void> => {
-//   if (headers == null || !headers.Authorization) {
-//     throw new Error('Unauthorized');
-//   }
+const accessCheck = async (headers: any, secrets: Secrets): Promise<void> => {
+  if (headers == null || !headers.Authorization) {
+    throw new Error('Unauthorized');
+  }
 
-//   if (headers.Authorization.split('Bearer ')[1] !== getSecret(SecretsKeys.ADVAPACS_WEBHOOK_SECRET, secrets)) {
-//     throw new Error('Forbidden');
-//   }
-// };
+  if (headers.Authorization.split('Bearer ')[1] !== getSecret(SecretsKeys.ADVAPACS_WEBHOOK_SECRET, secrets)) {
+    throw new Error('Forbidden');
+  }
+};
 
 const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, secrets: Secrets): Promise<void> => {
   const { resource } = validatedInput;
