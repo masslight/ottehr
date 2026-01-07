@@ -13,8 +13,8 @@ import fs from 'fs';
 import { DateTime } from 'luxon';
 import { LAB_DR_TYPE_TAG } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
-import { DR_REFLEX_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
-import { createAttachmentDocRef, createPdfAttachmentObs } from './lab-script-helpers';
+import { DR_REFLEX_TAG } from './lab-script-consts';
+import { createAttachmentDocRef } from './lab-script-helpers';
 
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -172,30 +172,6 @@ const main = async (): Promise<void> => {
     resource: reflexDR,
   });
 
-  // old logic
-  // mock pdf attachment for reflex
-  const pdfAttachmentDR: DiagnosticReport = {
-    ...reflexDR,
-    code: PDF_ATTACHMENT_CODE,
-    meta: { tag: [DR_REFLEX_TAG, LAB_PDF_ATTACHMENT_DR_TAG] },
-  };
-  const pdfAttachmentObsFullUrl = `urn:uuid:${randomUUID()}`;
-  const pdfAttachmentResultRefs = [{ reference: pdfAttachmentObsFullUrl }];
-  const newObsResource: Observation = createPdfAttachmentObs();
-  requests.push({
-    method: 'POST',
-    url: '/Observation',
-    resource: newObsResource,
-    fullUrl: pdfAttachmentObsFullUrl,
-  });
-  pdfAttachmentDR.result = pdfAttachmentResultRefs;
-  requests.push({
-    method: 'POST',
-    url: '/DiagnosticReport',
-    resource: pdfAttachmentDR,
-  });
-
-  // new attachment logic
   const projectId = envConfig.PROJECT_ID;
   if (!projectId) throw new Error(`Could not get projectId`);
   const patientRef = serviceRequest.subject.reference?.startsWith('Patient/') ? serviceRequest.subject : undefined;

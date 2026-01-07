@@ -327,15 +327,34 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
-    const employerInformation = this.employerInformationPageExists
-      ? await (async () => {
-          await this.checkCorrectPageOpens('Employer information');
-          const data = await this.fillEmployerInformation();
-          await this.locator.clickContinueButton();
-          return data;
-        })()
-      : null;
+    // Check if employer information page appears (it may be conditionally hidden in the actual app)
+    let employerInformation = null;
 
+    // Wait for the page to transition away from "Responsible party information"
+    await this.page.waitForFunction(
+      () => {
+        const heading = document.querySelector('[data-testid="flow-page-title"]');
+        return heading && heading.textContent !== 'Responsible party information';
+      },
+      { timeout: 30000 }
+    );
+
+    // Now check which page we're on
+    const currentPage = await this.locator.flowHeading.textContent();
+
+    if (currentPage === 'Employer information') {
+      // Employer information page is shown, fill it
+      employerInformation = await this.fillEmployerInformation();
+      await this.locator.clickContinueButton();
+    } else if (currentPage === 'Emergency Contact') {
+      // Employer information page was skipped, already on emergency contact
+      // Continue with emergency contact form below
+    } else {
+      // Unexpected page
+      throw new Error(`Expected 'Employer information' or 'Emergency Contact', but got '${currentPage}'`);
+    }
+
+    // Now we should be on Emergency Contact page
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
