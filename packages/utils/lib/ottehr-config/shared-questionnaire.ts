@@ -191,13 +191,6 @@ export const FormFieldItemRecordSchema = z.record(
 export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
 export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
 export type FormFieldLogicalItemRecord = z.infer<typeof FormFieldLogicalItemRecordSchema>;
-const GroupLevelEnableWhenSchema = z.object({
-  question: z.string(),
-  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
-  answerBoolean: z.boolean().optional(),
-  answerString: z.string().optional(),
-  answerDateTime: z.string().optional(),
-});
 
 const ComplexValidationTriggerWhenSchema = z.object({
   question: z.string(),
@@ -218,7 +211,6 @@ export const FormSectionSimpleSchema = z.object({
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
   // Group-level properties
-  enableWhen: z.array(GroupLevelEnableWhenSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
   textWhen: z.array(TextWhenSchema).optional(),
@@ -235,7 +227,6 @@ export const FormSectionArraySchema = z.object({
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
   // Group-level properties
-  enableWhen: z.array(GroupLevelEnableWhenSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
   textWhen: z.array(TextWhenSchema).optional(),
@@ -477,23 +468,6 @@ const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableW
   }
 
   return enableWhen;
-};
-
-const createGroupEnableWhen = (enableWhen: z.infer<typeof GroupLevelEnableWhenSchema>): any => {
-  const result: any = {
-    question: enableWhen.question,
-    operator: enableWhen.operator,
-  };
-
-  if (enableWhen.answerBoolean !== undefined) {
-    result.answerBoolean = enableWhen.answerBoolean;
-  } else if (enableWhen.answerString !== undefined) {
-    result.answerString = enableWhen.answerString;
-  } else if (enableWhen.answerDateTime !== undefined) {
-    result.answerDateTime = enableWhen.answerDateTime;
-  }
-
-  return result;
 };
 
 const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): QuestionnaireItem => {
@@ -822,10 +796,6 @@ const applyGroupLevelProperties = (
 ): void => {
   // Convert triggers with 'enable' effect to enableWhen
   const enableWhens: any[] = [];
-
-  if (section.enableWhen && section.enableWhen.length > 0) {
-    enableWhens.push(...section.enableWhen.map((ew) => createGroupEnableWhen(ew)));
-  }
 
   if (section.triggers && section.triggers.length > 0) {
     const enableTriggers = section.triggers.filter((t) => t.effect.includes('enable'));

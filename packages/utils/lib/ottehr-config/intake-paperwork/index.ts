@@ -241,9 +241,10 @@ const FormFields = {
   primaryCarePhysician: {
     linkId: 'primary-care-physician-page',
     title: 'Primary Care Physician',
-    enableWhen: [
+    triggers: [
       {
-        question: 'contact-information-page.patient-street-address-2',
+        targetQuestionLinkId: 'contact-information-page.patient-street-address-2',
+        effect: ['enable'],
         operator: '!=',
         answerString: 'conditional-filter-test-1234',
       },
@@ -315,9 +316,10 @@ const FormFields = {
     linkId: 'payment-option-page',
     title: 'How would you like to pay for your visit?',
     reviewText: 'Insurance details',
-    enableWhen: [
+    triggers: [
       {
-        question: 'contact-information-page.appointment-service-category',
+        targetQuestionLinkId: 'contact-information-page.appointment-service-category',
+        effect: ['enable'],
         operator: '!=',
         answerString: 'occupational-medicine',
       },
@@ -1024,9 +1026,10 @@ const FormFields = {
     linkId: 'payment-option-occ-med-page',
     title: 'Who is paying for the visit?',
     reviewText: 'Insurance details',
-    enableWhen: [
+    triggers: [
       {
-        question: 'contact-information-page.appointment-service-category',
+        targetQuestionLinkId: 'contact-information-page.appointment-service-category',
+        effect: ['enable'],
         operator: '=',
         answerString: 'occupational-medicine',
       },
@@ -1060,9 +1063,10 @@ const FormFields = {
   occupationalMedicineEmployerInformation: {
     linkId: 'occupational-medicine-employer-information-page',
     title: 'Employer information',
-    enableWhen: [
+    triggers: [
       {
-        question: 'contact-information-page.appointment-service-category',
+        targetQuestionLinkId: 'contact-information-page.appointment-service-category',
+        effect: ['enable'],
         operator: '=',
         answerString: 'occupational-medicine',
       },
@@ -1686,14 +1690,16 @@ const FormFields = {
     linkId: 'consent-forms-page',
     title: 'Complete consent forms',
     reviewText: 'Consent forms',
-    enableWhen: [
+    triggers: [
       {
-        question: '$status',
+        targetQuestionLinkId: '$status',
+        effect: ['enable'],
         operator: '!=',
         answerString: 'completed',
       },
       {
-        question: '$status',
+        targetQuestionLinkId: '$status',
+        effect: ['enable'],
         operator: '!=',
         answerString: 'amended',
       },

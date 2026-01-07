@@ -4,12 +4,22 @@ import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   PATIENT_RECORD_CONFIG,
 } from 'utils';
+import InPersonIntakeQuestionnaireConfig from '../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import BookingQuestionnaire from './data/booking-questionnaire.json' assert { type: 'json' };
 import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json' assert { type: 'json' };
 import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json' assert { type: 'json' };
-// this is for testing the generation logic with a specific reference Q resource. this will almost always break
-// downstream so this will be commented out and exist here only as a local dev tool
+
 describe('testing Questionnaire generation from config objects', () => {
+  test.concurrent('intake paperwork config JSON matches generated questionnaire', () => {
+    const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
+    const actualConfigQuestionnaire = (InPersonIntakeQuestionnaireConfig as any).fhirResources[
+      'questionnaire-in-person-previsit-paperwork'
+    ].resource;
+
+    expect(actualConfigQuestionnaire).toBeDefined();
+    expect(generatedQuestionnaire).toEqual(actualConfigQuestionnaire);
+  });
+
   test.concurrent('patient record questionnaire config generates expected questionnaire items', async () => {
     const questionnaireItems = createQuestionnaireItemFromConfig(PATIENT_RECORD_CONFIG);
     expect(questionnaireItems).toBeDefined();
@@ -26,14 +36,6 @@ describe('testing Questionnaire generation from config objects', () => {
 
     const generatedSections = generatedQuestionnaire.item;
     const expectedSections = (IntakePaperworkQuestionnaire as any).item;
-
-    // Write generated to file for debugging
-    await import('fs/promises')
-      .then(
-        (fs): Promise<void> =>
-          fs.writeFile('./test/data/generated-intake-paperwork.json', JSON.stringify(generatedSections, null, 2))
-      )
-      .catch((): void => {});
 
     // Compare each section
     expect(generatedSections?.length).toBe(expectedSections?.length);
