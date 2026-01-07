@@ -942,23 +942,14 @@ export const getAllDrTags = (dr: DiagnosticReport): LabDrTypeTagCode[] | undefin
  * Returns diagnostic report result-type tag if any exists and validates the code is one of the known LabDrTypeTagCode values.
  *
  * @param dr - The diagnostic report to extract the tag code from.
- * @returns The validated tag ('unsolicited', 'reflex', 'pdfAttachment') or undefined.
+ * @returns The validated tag ('unsolicited', 'reflex') or undefined.
  */
 export const diagnosticReportSpecificResultType = (dr: DiagnosticReport): LabDrTypeTagCode | undefined => {
   const labDrCodes = getAllDrTags(dr);
   console.log('labDrCodes:', labDrCodes);
   if (!labDrCodes || labDrCodes.length === 0) return;
 
-  // it is possible for two codes to be assigned, unsolicited and pdfAttachment (this may be expanded in the future)
-  if (labDrCodes.length === 2) {
-    const containsPdfAttachment = labDrCodes.includes(LabType.pdfAttachment);
-    if (containsPdfAttachment) {
-      // pdfAttachment should drive the logic for pdf generation
-      return LabType.pdfAttachment;
-    } else {
-      throw new Error(`an unexpected result-type tag has been assigned: ${labDrCodes} on DR: ${dr.id}`);
-    }
-  } else if (labDrCodes.length === 1) {
+  if (labDrCodes.length === 1) {
     return labDrCodes[0];
   } else {
     throw new Error(`an unexpected number of result-type tag have been assigned: ${labDrCodes} on DR: ${dr.id}`);
