@@ -22,12 +22,13 @@ interface getCandidPagesRecursiveParams {
   onlyInvoiceable?: boolean;
   limitPerPage?: number;
   maxPages?: number;
+  since?: Date;
 }
 
 export async function getCandidInventoryPagesRecursive(
   input: getCandidPagesRecursiveParams
 ): Promise<{ claims: InventoryRecord[]; pageCount: number } | undefined> {
-  const { candid, pageToken, limitPerPage, claims, pageCount, onlyInvoiceable, maxPages } = input;
+  const { candid, pageToken, limitPerPage, claims, pageCount, onlyInvoiceable, maxPages, since } = input;
   if (limitPerPage && limitPerPage > 100)
     throw new Error('Limit per page cannot be greater than 100 according to Candid API');
 
@@ -36,6 +37,7 @@ export async function getCandidInventoryPagesRecursive(
   console.log(`📄 Fetching page ${pageCount}`);
   const inventoryResponse = await candid.patientAr.v1.listInventory({
     limit: limitPerPage,
+    since: since,
     pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
   });
 
