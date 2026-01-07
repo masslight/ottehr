@@ -33,6 +33,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 const canDeleteInHouseLabOrder = (serviceRequest: ServiceRequest): boolean => {
+  // these SR statuses cover the currently supported states of an order, so a user will be able to delete an order "at any point"
+  // but it will reject already soft-deleted orders or any unexpected statuses
   return ['draft', 'active', 'completed'].includes(serviceRequest.status);
 };
 
@@ -55,10 +57,12 @@ const getInHouseLabOrderRelatedResources = async (
             name: '_id',
             value: serviceRequestId,
           },
+          // this will grab any results for orders being deleted once results are already entered
           {
             name: '_revinclude',
             value: 'DiagnosticReport:based-on',
           },
+          // this will grab the result pdf if the order has had results entered
           {
             name: '_revinclude:iterate',
             value: 'DocumentReference:related',
