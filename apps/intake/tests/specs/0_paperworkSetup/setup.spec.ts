@@ -59,8 +59,9 @@ test.afterAll(async () => {
 const appointmentIdsByPage = new Map<Page, string[]>();
 
 const processId = process.env.PLAYWRIGHT_SUITE_ID;
+
 if (!processId) {
-  throw new Error('Global setup has failed us.');
+  throw new Error('PLAYWRIGHT_SUITE_ID environment variable is not set');
 }
 
 function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
