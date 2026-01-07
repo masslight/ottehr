@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { FhirResource, Provenance } from 'fhir/r4b';
+import { FhirResource, Provenance, Task } from 'fhir/r4b';
 import {
   extractExtensionValue,
   findExtensionIndex,
@@ -117,15 +117,32 @@ export const performEffect = async (
       throw new Error('Appointment ID is not defined');
     }
 
+    const tasks: Promise<Task>[] = [];
     // Create Task that will kick off subscription to send the claim
     const sendClaimTaskResource = getTaskResource(TaskIndicator.sendClaim, appointment.id);
-    const sendClaimTaskPromise = oystehr.fhir.create(sendClaimTaskResource);
+    tasks.push(oystehr.fhir.create(sendClaimTaskResource));
 
     // Create Task that will kick off subscription to create visit-note PDF and send an email to the patient
-    const visitNoteAndEmailTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id);
-    const visitNoteTaskPromise = oystehr.fhir.create(visitNoteAndEmailTaskResource);
+    let shouldCreateVisitNoteTask = true;
+    if (supervisorApprovalEnabled) {
+      const extensionIndex = findExtensionIndex(
+        visitResources.encounter.extension || [],
+        'awaiting-supervisor-approval'
+      );
 
-    const taskCreationResults = await Promise.all([sendClaimTaskPromise, visitNoteTaskPromise]);
+      if (extensionIndex != null && extensionIndex >= 0) {
+        const awaitingSupervisorApproval = extractExtensionValue(visitResources.encounter.extension?.[extensionIndex]);
+        if (awaitingSupervisorApproval) {
+          shouldCreateVisitNoteTask = false;
+        }
+      }
+    }
+    if (shouldCreateVisitNoteTask) {
+      const visitNoteTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id);
+      tasks.push(oystehr.fhir.create(visitNoteTaskResource));
+    }
+
+    const taskCreationResults = await Promise.all(tasks);
     console.log('Task creation results ', taskCreationResults);
   }
 

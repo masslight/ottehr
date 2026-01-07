@@ -1,8 +1,10 @@
-import { CancellationReasonOptionsProviderSideTelemed, CancellationReasonOptionsTelemed } from '../../telemed';
+import { VALUE_SETS } from '../../ottehr-config/value-sets';
 
 export interface CancelTelemedAppointmentZambdaInput {
   appointmentID: string;
-  cancellationReason: CancellationReasonOptionsTelemed | CancellationReasonOptionsProviderSideTelemed;
+  cancellationReason:
+    | (typeof VALUE_SETS)['cancelReasonOptionsVirtual'][number]
+    | (typeof VALUE_SETS)['cancelReasonOptionsVirtualProviderSide'][number];
   cancellationReasonAdditional?: string;
 }
 

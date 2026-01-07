@@ -22,10 +22,8 @@ import {
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
-import { VisitDetailsPage } from 'tests/e2e/page/VisitDetailsPage';
 import { fileURLToPath } from 'url';
 import {
-  CancellationReasonOptionsInPerson,
   cleanAppointmentGraph,
   CreateAppointmentResponse,
   createFetchClientWithOystehrAuth,
@@ -41,6 +39,7 @@ import {
   VALUE_SETS,
 } from 'utils';
 import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
   inviteTestEmployeeUser,
@@ -422,7 +421,7 @@ export class ResourceHandler {
       await page?.goto(`/visit/${this.appointment.id!}`);
       const visitDetails = new VisitDetailsPage(page!);
       await visitDetails.clickCancelVisitButton();
-      await visitDetails.selectCancelationReason(CancellationReasonOptionsInPerson['Patient improved']);
+      await visitDetails.selectCancelationReason(VALUE_SETS.cancelReasonOptions[0].label);
       await visitDetails.clickCancelButtonFromDialogue();
       return;
     }
@@ -500,6 +499,79 @@ export class ResourceHandler {
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
     } catch (e) {
       console.error('Error during waitTillHarvestingDone', e);
+      throw e;
+    }
+  }
+
+  async waitForListIndexing(patientId: string): Promise<void> {
+    const apiClient = await this.apiClient;
+    // Lists that should have entries after consent creation
+    const requiredLists = ['consent-forms', 'privacy-policy'];
+
+    console.log(`Waiting for Lists to be indexed: ${requiredLists.join(', ')}`);
+
+    try {
+      for (let i = 0; i < 30; i++) {
+        const lists = (
+          await apiClient.fhir.search({
+            resourceType: 'List',
+            params: [{ name: 'subject', value: `Patient/${patientId}` }],
+          })
+        ).unbundle() as List[];
+
+        const missingLists: string[] = [];
+        for (const title of requiredLists) {
+          const list = lists.find((l) => l.title === title);
+          if (!list || !list.entry || list.entry.length === 0) {
+            missingLists.push(title);
+          }
+        }
+
+        if (missingLists.length === 0) {
+          console.log(`All Lists indexed successfully (attempt ${i + 1})`);
+          return;
+        }
+
+        if (i % 5 === 0 && i > 0) {
+          console.log(`Still waiting for Lists: ${missingLists.join(', ')} (attempt ${i + 1}/30)`);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      throw new Error(`Lists not indexed after 15 seconds: ${requiredLists.join(', ')}`);
+    } catch (e) {
+      console.error('Error during waitForListIndexing', e);
+      throw e;
+    }
+  }
+
+  async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {
+    const apiClient = await this.apiClient;
+
+    try {
+      for (let i = 0; i < 20; i++) {
+        const searchResult = await apiClient.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            { name: 'encounter', value: `Encounter/${this.encounter.id}` },
+            { name: 'patient', value: `Patient/${this.patient.id}` },
+            { name: 'type', value: '75498-6' },
+          ],
+        });
+
+        const documentReferences = searchResult.unbundle() as DocumentReference[];
+
+        if (documentReferences.length > 0) {
+          return documentReferences[0];
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      throw new Error(`Visit Note PDF DocumentReference wasn't created for encounter ${this.encounter.id}`);
+    } catch (e) {
+      console.error('Error during waitTillVisitNotePdfCreated', e);
       throw e;
     }
   }

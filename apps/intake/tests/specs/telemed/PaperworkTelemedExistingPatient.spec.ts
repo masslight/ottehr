@@ -2,6 +2,7 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { BOOKING_CONFIG } from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
 import { TelemedRpInsNoReqPatient } from '../0_paperworkSetup/types';
@@ -26,7 +27,11 @@ test.afterAll(async () => {
   await context.close();
 });
 
-test.describe.parallel('Telemed - Prefilled Paperwork, Responsible Party: not self, Payment: Insurance', () => {
+const VirtualPrebookDependentTests = BOOKING_CONFIG.homepageOptions?.includes('schedule-virtual-visit')
+  ? test.describe.parallel
+  : test.describe.skip;
+
+VirtualPrebookDependentTests('Telemed - Prefilled Paperwork, Responsible Party: not self, Payment: Insurance', () => {
   test('VVPP-1. Contact information', async () => {
     await test.step('VVPP-1.1. Open Contact information page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/contact-information`);
