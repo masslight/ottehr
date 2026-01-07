@@ -1847,6 +1847,27 @@
             "valueString": "Button"
           },
           {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                "valueString": "display-secondary-insurance"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                "valueBoolean": true
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                "valueString": "Remove Secondary Insurance"
+              }
+            ]
+          },
+          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
             "extension": [
               {

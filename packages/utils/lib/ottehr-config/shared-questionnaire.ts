@@ -64,7 +64,9 @@ const FormFieldsLogicalFieldSchema = z.object({
 const TextWhenSchema = z.object({
   question: z.string(),
   operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
-  answer: z.string(),
+  answerString: z.string().optional(),
+  answerBoolean: z.boolean().optional(),
+  answerDateTime: z.string().optional(),
   substituteText: z.string(),
 });
 
@@ -104,6 +106,7 @@ const FormFieldsValueTypeBaseSchema = z.object({
   placeholder: z.string().optional(),
   infoTextSecondary: z.string().optional(),
   element: z.string().optional(),
+  textWhen: z.array(TextWhenSchema).optional(),
 });
 
 const FormFieldsValueTypeSchema = FormFieldsValueTypeBaseSchema.refine(
@@ -397,27 +400,38 @@ const createReviewTextExtension = (reviewText: string): NonNullable<Questionnair
 
 const createTextWhenExtension = (
   textWhen: z.infer<typeof TextWhenSchema>
-): NonNullable<QuestionnaireItem['extension']>[number] => ({
-  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when',
-  extension: [
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question',
-      valueString: textWhen.question,
-    },
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator',
-      valueString: textWhen.operator,
-    },
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer',
-      valueString: textWhen.answer,
-    },
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text',
-      valueString: textWhen.substituteText,
-    },
-  ],
-});
+): NonNullable<QuestionnaireItem['extension']>[number] => {
+  const answerExtension: any = {
+    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer',
+  };
+
+  if (textWhen.answerString !== undefined) {
+    answerExtension.valueString = textWhen.answerString;
+  } else if (textWhen.answerBoolean !== undefined) {
+    answerExtension.valueBoolean = textWhen.answerBoolean;
+  } else if (textWhen.answerDateTime !== undefined) {
+    answerExtension.valueDateTime = textWhen.answerDateTime;
+  }
+
+  return {
+    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when',
+    extension: [
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question',
+        valueString: textWhen.question,
+      },
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator',
+        valueString: textWhen.operator,
+      },
+      answerExtension,
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text',
+        valueString: textWhen.substituteText,
+      },
+    ],
+  };
+};
 
 const createComplexValidationExtension = (
   validation: z.infer<typeof ComplexValidationSchema>
@@ -700,6 +714,13 @@ const convertFormFieldToQuestionnaireItem = (
 
   if (field.element) {
     extensions.push(createPreferredElementExtension(field.element));
+  }
+
+  // Add textWhen extensions
+  if (field.textWhen && field.textWhen.length > 0) {
+    field.textWhen.forEach((tw) => {
+      extensions.push(createTextWhenExtension(tw));
+    });
   }
 
   // Add enableWhen from triggers

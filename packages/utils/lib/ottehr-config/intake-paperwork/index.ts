@@ -348,7 +348,7 @@ const FormFields = {
           {
             question: 'appointment-service-category',
             operator: '=',
-            answer: 'workmans-comp',
+            answerString: 'workmans-comp',
             substituteText:
               'By clicking "Continue," I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance.',
           },
@@ -772,6 +772,14 @@ const FormFields = {
         text: 'Add secondary insurance',
         type: 'boolean',
         element: 'Button',
+        textWhen: [
+          {
+            question: 'display-secondary-insurance',
+            operator: '=',
+            answerBoolean: true,
+            substituteText: 'Remove Secondary Insurance',
+          },
+        ],
         triggers: [
           {
             targetQuestionLinkId: 'payment-option',
