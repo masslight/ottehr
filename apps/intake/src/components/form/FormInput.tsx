@@ -218,7 +218,7 @@ const BoldInputLabel = styled(InputLabel)(({ theme }) => ({
   fontSize: 16,
   position: 'relative',
   transform: 'translate(0, 9px) scale(1)',
-  color: theme.palette.secondary.main,
+  color: theme.palette.primary.main,
   maxWidth: '100%',
   whiteSpace: 'wrap',
   height: 'auto',

@@ -6,6 +6,7 @@ import {
   getFullestAvailableName,
   getSecret,
   getTestNameOrCodeFromDr,
+  LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
   LabType,
   NonNormalResult,
@@ -20,7 +21,7 @@ import {
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
 import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
-import { fetchRelatedResources, getCodeForNewTask, isUnsolicitedResult } from './helpers';
+import { fetchRelatedResources, getCodeForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -47,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
-    const isUnsolicited = isUnsolicitedResult(specificDrTypeFromTag, diagnosticReport);
+    const isUnsolicited = specificDrTypeFromTag === LAB_DR_TYPE_TAG.code.unsolicited;
     const isUnsolicitedAndMatched = isUnsolicited && !!diagnosticReport.subject?.reference?.startsWith('Patient/');
 
     const serviceRequestId = diagnosticReport?.basedOn
@@ -166,22 +167,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       newTask.status = 'completed';
     }
 
-    // no task will be created for an unsolicited result pdf attachment
-    // no result pdf can be created until it is matched and it should come in with at least one other DR that will trigger the task
-    // after the matching is complete we can create the review task / generate the pdf
-    const skipTaskCreation =
-      specificDrTypeFromTag === LabType.pdfAttachment && isUnsolicited && !isUnsolicitedAndMatched;
-
-    if (!skipTaskCreation) {
-      requests.push({
-        method: 'POST',
-        url: '/Task',
-        resource: newTask,
-      });
-      console.log('creating a new task with code: ', JSON.stringify(newTask.code));
-    } else {
-      console.log('skipTaskCreation', skipTaskCreation);
-    }
+    requests.push({
+      method: 'POST',
+      url: '/Task',
+      resource: newTask,
+    });
+    console.log('creating a new task with code: ', JSON.stringify(newTask.code));
 
     const oystehrResponse = await oystehr.fhir.transaction<Task>({ requests });
 
@@ -201,10 +192,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, false, secrets, oystehrToken);
     } else if (specificDrTypeFromTag !== undefined) {
       // unsolicited result pdfs will be created after matching to a patient
-      if (
-        (isUnsolicitedAndMatched || [LabType.reflex, LabType.pdfAttachment].includes(specificDrTypeFromTag)) &&
-        !skipTaskCreation
-      ) {
+      if (isUnsolicitedAndMatched || specificDrTypeFromTag === LabType.reflex) {
         if (!diagnosticReport.id) throw Error('unable to parse id from diagnostic report');
         console.log(`creating pdf for ${specificDrTypeFromTag} result`);
         await createExternalLabResultPDFBasedOnDr(

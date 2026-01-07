@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-53a95c79-7503-47b0-82d9-d1948bdc3d50",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-2f1d639f-4f8b-4eba-b97a-b90363f4d34d"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-b9495e6f-6880-4fc5-bcd8-4a1bfa264b81"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Normal appearance of neck"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "normal-appearance-of-neck",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

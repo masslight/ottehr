@@ -70,7 +70,17 @@
       },
       {
         "target": {
-          "reference": "urn:uuid:RelatedPerson-d404ef3a-7624-4f6f-bd9b-d22502a941f3"
+          "reference": "RelatedPerson/8df12f1f-5c0b-46c9-aa24-a3333cbcbaca"
+        }
+      },
+      {
+        "target": {
+          "reference": "RelatedPerson/0f517db5-457a-43cd-989d-61603fe983c4"
+        }
+      },
+      {
+        "target": {
+          "reference": "urn:uuid:RelatedPerson-c61e603c-52d7-4a0b-b161-040d6cf4b3b4"
         }
       }
     ]

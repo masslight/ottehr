@@ -1,5 +1,6 @@
 import { Locator } from '@playwright/test';
-import { PatientBasicInfo as InPersonPatientBasicInfo, SlotAndLocation } from 'tests/utils/in-person/BaseInPersonFlow';
+import { PatientBasicInfo } from 'tests/utils/BaseFlow';
+import { SlotAndLocation } from 'tests/utils/in-person/BaseInPersonFlow';
 import {
   EmergencyContactData,
   EmployerInformationData,
@@ -12,7 +13,6 @@ import {
   ResponsiblePartyData,
   TelemedPaperworkData,
 } from 'tests/utils/Paperwork';
-import { PatientBasicInfo as TelemedPatientBasicInfo } from 'tests/utils/telemed/BaseTelemedFlow';
 import { GetSlotDetailsResponse } from 'utils';
 
 // common interfaces
@@ -47,7 +47,7 @@ interface CancelledSlotDetails extends GetSlotDetailsResponse {
 // in-person patients
 
 export interface InPersonNoRpNoInsReqPatient
-  extends InPersonPatientBasicInfo,
+  extends PatientBasicInfo,
     MinimumAppointmentData,
     SlotAndLocation,
     InPersonMinimumPaperworkData {
@@ -57,7 +57,7 @@ export interface InPersonNoRpNoInsReqPatient
 }
 
 export interface InPersonRpInsNoReqPatient
-  extends InPersonPatientBasicInfo,
+  extends PatientBasicInfo,
     MinimumAppointmentData,
     SlotAndLocation,
     InPersonMinimumPaperworkData,
@@ -69,9 +69,9 @@ export interface InPersonRpInsNoReqPatient
   responsiblePartyData: ResponsiblePartyData;
 }
 
-export interface InPersonNoPwPatient extends InPersonPatientBasicInfo, MinimumAppointmentData {}
+export interface InPersonNoPwPatient extends PatientBasicInfo, MinimumAppointmentData {}
 
-export interface InPersonReservationModificationPatient extends InPersonPatientBasicInfo, MinimumAppointmentData {
+export interface InPersonReservationModificationPatient extends PatientBasicInfo, MinimumAppointmentData {
   slotDetails: GetSlotDetailsResponse;
 }
 
@@ -85,14 +85,14 @@ interface TelemedMinimumPaperworkData {
 // telemed patients
 
 export interface TelemedNoRpNoInsReqPatient
-  extends TelemedPatientBasicInfo,
+  extends PatientBasicInfo,
     MinimumAppointmentData,
     TelemedMinimumPaperworkData {
   patientDetailsData: PatientDetailsRequiredData;
 }
 
 export interface TelemedRpInsNoReqPatient
-  extends TelemedPatientBasicInfo,
+  extends PatientBasicInfo,
     MinimumAppointmentData,
     TelemedMinimumPaperworkData,
     InsurancePayment {
@@ -108,8 +108,8 @@ export interface TelemedRpInsNoReqPatient
 }
 
 export interface TelemedWaitingRoomPatient
-  extends TelemedPatientBasicInfo,
+  extends PatientBasicInfo,
     MinimumAppointmentData,
     TelemedMinimumPaperworkData {}
 
-export interface TelemedNoPwPatient extends TelemedPatientBasicInfo, MinimumAppointmentData {}
+export interface TelemedNoPwPatient extends PatientBasicInfo, MinimumAppointmentData {}

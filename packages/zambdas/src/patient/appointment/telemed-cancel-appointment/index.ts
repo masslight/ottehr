@@ -167,8 +167,8 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
       {
         // todo reassess codes and reasons, just using custom codes atm
         system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
-        code: cancellationReason,
-        display: cancellationReasonAdditional || cancellationReason,
+        code: cancellationReason.value,
+        display: cancellationReasonAdditional || cancellationReason.label,
       },
     ],
     oystehr

@@ -10,7 +10,7 @@ terraform {
 ##### EHR Bucket #####
 
 resource "aws_s3_bucket" "ehr_bucket" {
-  bucket        = "ottehr-${var.project_id}-ehr.ottehr.com"
+  bucket        = var.ehr_bucket_name == null ? "ottehr-${var.project_id}-ehr.ottehr.com" : var.ehr_bucket_name
   force_destroy = true
   lifecycle {
     prevent_destroy = true
@@ -129,7 +129,7 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
 ##### Patient Portal Bucket #####
 
 resource "aws_s3_bucket" "patient_portal_bucket" {
-  bucket        = "ottehr-${var.project_id}-intake.ottehr.com"
+  bucket        = var.patient_portal_bucket_name == null ? "ottehr-${var.project_id}-intake.ottehr.com" : var.patient_portal_bucket_name
   force_destroy = true
   lifecycle {
     prevent_destroy = true

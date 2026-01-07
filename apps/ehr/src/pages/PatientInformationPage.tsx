@@ -26,10 +26,10 @@ import {
   extractFirstValueFromAnswer,
   flattenItems,
   InsurancePlanDTO,
-  makePrepopulatedItemsFromPatientRecord,
   OrderedCoveragesWithSubscribers,
   PATIENT_RECORD_QUESTIONNAIRE,
   PatientAccountResponse,
+  prepopulatePatientRecordItems,
   pruneEmptySections,
   VALUE_SETS,
 } from 'utils';
@@ -95,7 +95,7 @@ const makePrepopulatedCoveragesFormDefaults = ({
     item: questionnaire.item.filter((item) => COVERAGE_ITEMS.includes(item.linkId)),
   };
 
-  const prepopulatedItems = makePrepopulatedItemsFromPatientRecord({
+  const prepopulatedItems = prepopulatePatientRecordItems({
     coverages,
     patient,
     insuranceOrgs,
@@ -148,15 +148,25 @@ const usePatientData = (
 } => {
   const apiClient = useOystehrAPIClient();
 
-  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({
+  const {
+    isFetching: accountFetching,
+    data: accountData,
+    status: accountStatus,
+  } = useGetPatientAccount({
     apiClient,
     patientId: id ?? null,
   });
 
-  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages({
-    apiClient,
-    patientId: id ?? null,
-  });
+  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages(
+    {
+      apiClient,
+      patientId: id ?? null,
+    },
+    undefined,
+    {
+      enabled: accountStatus === 'success',
+    }
+  );
 
   const coverages: CoverageWithPriority[] = useMemo(() => {
     if (!insuranceData?.coverages) return [];
@@ -178,7 +188,7 @@ const usePatientData = (
 
     let defaultFormVals: any;
     if (!isFetching && accountData && questionnaire) {
-      const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({
+      const prepopulatedForm = prepopulatePatientRecordItems({
         ...accountData,
         coverages: {},
         insuranceOrgs: [],

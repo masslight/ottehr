@@ -3967,18 +3967,6 @@
                     "valueString": "Phone Number"
                   }
                 ]
-              },
-              {
-                "linkId": "appointment-service-category",
-                "type": "string",
-                "required": true,
-                "readOnly": true,
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "hidden"
-                  }
-                ]
               }
             ]
           },

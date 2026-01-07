@@ -5,11 +5,11 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
 import {
+  BRANDING_CONFIG,
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
   getPractitionerNPIIdentifier,
   initialsFromName,
-  PROJECT_NAME,
   RoleType,
   SyncUserResponse,
   User,
@@ -105,12 +105,15 @@ export default function useEvolveUser(): EvolveUser | undefined {
 
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
-      const userName = getFullestAvailableName(profile) ?? `${PROJECT_NAME} Team`;
+      const userName = getFullestAvailableName(profile) ?? `${BRANDING_CONFIG.projectName} Team`;
       const userInitials = initialsFromName(userName);
       const lastLogin = profile.meta?.tag?.find((tag) => tag.system === 'last-login')?.code;
       return { userName, userInitials, lastLogin };
     }
-    return { userName: `${PROJECT_NAME} team`, userInitials: initialsFromName(`${PROJECT_NAME} Team`) };
+    return {
+      userName: `${BRANDING_CONFIG.projectName} team`,
+      userInitials: initialsFromName(`${BRANDING_CONFIG.projectName} Team`),
+    };
   }, [profile]);
 
   return useMemo(() => {

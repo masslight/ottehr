@@ -3,7 +3,7 @@ import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
-import { hideTooltip } from 'tests/e2e-utils/helpers/tests-utils';
+import { hideTooltip, verifyVisitNotePdfDocumentReference } from 'tests/e2e-utils/helpers/tests-utils';
 import {
   chooseJson,
   getAttorneyInformationStepAnswers,
@@ -53,6 +53,8 @@ import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonPro
 import { expectPatientInfoPage } from '../../page/PatientInfo';
 import { openVisitsPage } from '../../page/VisitsPage';
 
+const SUPERVISOR_APPROVAL_ENABLED = process.env.VITE_APP_IS_SUPERVISOR_APPROVAL_ENABLED_FEATURE_FLAG === 'true';
+
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99202 New Patient - E/M Level 2';
@@ -65,7 +67,7 @@ test.describe('In-person visit', async () => {
   //   await patientInfoPage.inPersonHeader().verifyStatus('ready for provider');
   // });
 
-  test.describe('happy path', () => {
+  test.describe('happy path', { tag: '@smoke' }, () => {
     const PROCESS_ID = `inPersonVisit.spec.ts-${DateTime.now().toMillis()}`;
     let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined;
     let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined;
@@ -149,7 +151,7 @@ test.describe('In-person visit', async () => {
     });
 
     test.afterAll(async () => {
-      await resourceHandler.cleanupResources();
+      await resourceHandler.cleanupResources(page);
       await page.close();
       await context.close();
     });
@@ -199,10 +201,166 @@ test.describe('In-person visit', async () => {
       }
       await progressNotePage.clickSignButton();
       await patientInfoPage.inPersonHeader().verifyStatus('completed');
+
+      const visitNoteDocRef = await resourceHandler.waitTillVisitNotePdfCreated();
+      verifyVisitNotePdfDocumentReference(visitNoteDocRef, resourceHandler);
+
       await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
       await visitsPage.clickDischargedTab();
       await visitsPage.verifyVisitPresent(resourceHandler.appointment.id!);
+    });
+  });
+
+  test.describe('awaiting for approval flow', () => {
+    test.skip(
+      !SUPERVISOR_APPROVAL_ENABLED,
+      'Approval flow is not available when supervisor approval feature flag is disabled'
+    );
+
+    const PROCESS_ID = `inPersonVisit-approval.spec.ts-${DateTime.now().toMillis()}`;
+    let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined;
+    let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined;
+
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person', async ({ patientInfo }) => {
+      return [
+        getContactInformationAnswers({
+          firstName: patientInfo.firstName,
+          lastName: patientInfo.lastName,
+          birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+          email: patientInfo.email,
+          phoneNumber: patientInfo.phoneNumber,
+          birthSex: patientInfo.sex,
+        }),
+        getPatientDetailsStepAnswers({}),
+        getPaymentOptionInsuranceAnswers({
+          insuranceCarrier: insuranceCarrier1!,
+          insurancePlanType: PATIENT_INSURANCE_PLAN_TYPE,
+          insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
+          insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
+          insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
+          insurancePolicyHolderMiddleName: PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth: PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex: PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity: PATIENT_INSURANCE_POLICY_HOLDER_CITY,
+          insurancePolicyHolderState: PATIENT_INSURANCE_POLICY_HOLDER_STATE,
+          insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
+          insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
+          insuranceCarrier2: insuranceCarrier2!,
+          insurancePlanType2: PATIENT_INSURANCE_PLAN_TYPE_2,
+          insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID,
+          insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
+          insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
+          insurancePolicyHolderMiddleName2: PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth2: PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex2: PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity2: PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
+          insurancePolicyHolderState2: PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
+          insurancePolicyHolderZip2: PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
+          insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
+        }),
+        getResponsiblePartyStepAnswers({}),
+        getEmployerInformationStepAnswers({}),
+        getEmergencyContactStepAnswers({}),
+        getConsentStepAnswers({}),
+      ];
+    });
+
+    let page: Page;
+    let context: BrowserContext;
+
+    test.beforeAll(async ({ browser }) => {
+      const oystehr = await ResourceHandler.getOystehr();
+      const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
+        id: 'get-answer-options',
+        answerSource: {
+          resourceType: 'InsurancePlan',
+          query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
+        },
+      });
+      const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
+
+      insuranceCarrier1 = insuranceCarriersOptions.at(0);
+      insuranceCarrier2 = insuranceCarriersOptions.at(1);
+
+      if (process.env.INTEGRATION_TEST === 'true') {
+        await resourceHandler.setResourcesFast();
+      } else {
+        await resourceHandler.setResources();
+        await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
+        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+      }
+
+      context = await browser.newContext();
+      page = await context.newPage();
+    });
+
+    test.afterAll(async () => {
+      await resourceHandler.cleanupResources();
+      await page.close();
+      await context.close();
+    });
+
+    test('Complete visit with supervisor approval required and verify PDF creation', async ({ page }) => {
+      test.setTimeout(240000);
+
+      const visitsPage = await openVisitsPage(page);
+      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      await visitsPage.clickPrebookedTab();
+      await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+      await visitsPage.clickInOfficeTab();
+      await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
+      await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
+      await expect(async () => {
+        const content = await page.getByTestId(dataTestIds.inPersonHeader.container).textContent();
+        return content?.includes(resourceHandler.patient.name![0].family!) ?? false;
+      }).toPass({ timeout: 30_000 });
+
+      const inPersonHeader = new InPersonHeader(page);
+      await inPersonHeader.selectIntakePractitioner();
+      await inPersonHeader.selectProviderPractitioner();
+      const patientInfoPage = await expectPatientInfoPage(page);
+
+      await patientInfoPage.inPersonHeader().verifyStatus('intake');
+      await patientInfoPage.sideMenu().clickCompleteIntakeButton();
+      await patientInfoPage.inPersonHeader().verifyStatus('ready for provider');
+      await hideTooltip(page);
+      await patientInfoPage.sideMenu().clickReviewAndSign();
+      const progressNotePage = await expectInPersonProgressNotePage(page);
+      await progressNotePage.verifyReviewAndSignButtonDisabled();
+      await patientInfoPage.sideMenu().clickCcAndIntakeNotes();
+      await patientInfoPage.fillChiefComplaints();
+      const hpiAndTemplatesPages = await patientInfoPage.sideMenu().clickHpiAndTemplates();
+      await hpiAndTemplatesPages.fillHPI();
+      await hpiAndTemplatesPages.sideMenu().clickAssessment();
+      const assessmentPage = await expectAssessmentPage(page);
+      await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
+      await assessmentPage.selectEmCode(EM_CODE);
+      await patientInfoPage.sideMenu().clickReviewAndSign();
+      await progressNotePage.clickDischargeButton();
+      await progressNotePage.clickReviewAndSignButton();
+
+      const supervisorCheckbox = page.getByTestId(dataTestIds.progressNotePage.supervisorApprovalCheckbox);
+
+      await expect(supervisorCheckbox).toBeVisible();
+      await supervisorCheckbox.check();
+
+      await progressNotePage.clickSignButton();
+      await patientInfoPage.inPersonHeader().verifyStatus('awaiting supervisor approval');
+
+      const visitNoteDocRef = await resourceHandler.waitTillVisitNotePdfCreated();
+      verifyVisitNotePdfDocumentReference(visitNoteDocRef, resourceHandler);
+
+      // TODO: the following steps need to be added:
+      // 1. Re-login as a user with supervisor permissions
+      // 2. Approve the visit
+      // 3. Verify that the status has changed to 'completed'
     });
   });
 });
