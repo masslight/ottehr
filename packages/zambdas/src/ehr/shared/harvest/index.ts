@@ -2664,8 +2664,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     const workersCompInsurance = employerInformation.workersCompInsurance;
     const workersCompPlanType = employerInformation.workersCompPlanType;
     const workersCompMemberId = employerInformation.workersCompMemberId;
-    const workersCompInsuranceOrg = organizationResources.find((org) =>
-      workersCompInsurance ? `${org.resourceType}/${org.id}` === workersCompInsurance : false
+    const workersCompInsuranceOrg = organizationResources.find(
+      (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
     );
     const payerId = getPayerId(workersCompInsuranceOrg);
     if (existingCoverages.workersComp) {
