@@ -92,7 +92,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
     }
 
     const response: PaymentMethodSetupZambdaOutput = {
-      clientSecret: setupIntent!.client_secret,
+      clientSecret: setupIntent.client_secret,
       stripeAccount,
     };
 
