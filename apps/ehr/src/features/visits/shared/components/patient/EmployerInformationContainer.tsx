@@ -12,6 +12,26 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
   const theme = useTheme();
   return (
     <PatientRecordFormSection formSection={employerInformation}>
+      <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Insurance Information</Typography>
+      <PatientRecordFormField
+        item={items.workersCompInsurance}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={items.workersCompPlanType}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={items.workersCompMemberId}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Employer Information</Typography>
       <PatientRecordFormField
         item={items.employerName}
         isLoading={isLoading}
