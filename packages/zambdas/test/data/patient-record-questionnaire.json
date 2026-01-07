@@ -2971,5 +2971,36 @@
         ]
       }
     ]
+  },
+  {
+    "linkId": "occupational-medicine-employer-information-page",
+    "type": "group",
+    "text": "Employer - Occupational Medicine",
+    "item": [
+      {
+        "linkId": "occupational-medicine-employer",
+        "type": "choice",
+        "text": "Employer name",
+        "required": false,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
+                "valueString": "dynamic"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                "valueExpression": {
+                  "language": "application/x-fhir-query",
+                  "expression": "Organization?type=undefined|undefined"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 ]
