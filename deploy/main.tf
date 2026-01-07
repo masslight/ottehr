@@ -47,8 +47,10 @@ module "infra" {
   source                     = "./infra/no-cloud"
   count                      = local.not_local_env_resource_count
   project_id                 = var.project_id
+  ehr_bucket_name            = var.ehr_bucket_name
   ehr_domain                 = var.ehr_domain
   ehr_cert_domain            = var.ehr_cert_domain
+  patient_portal_bucket_name = var.patient_portal_bucket_name
   patient_portal_domain      = var.patient_portal_domain
   patient_portal_cert_domain = var.patient_portal_cert_domain
 }

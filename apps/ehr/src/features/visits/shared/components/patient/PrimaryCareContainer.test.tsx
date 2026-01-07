@@ -234,6 +234,7 @@ describe('PrimaryCareContainer', () => {
       });
 
       // Check if error appears based on config
+
       if (field.shouldBeRequired) {
         // Field should show required error
         await waitFor(() => {
@@ -242,9 +243,11 @@ describe('PrimaryCareContainer', () => {
           expect(errorElement).toHaveTextContent('This field is required');
         });
       } else {
-        // Field should NOT show required error
-        const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
-        expect(errorElement).not.toBeInTheDocument();
+        // Field should NOT show required error - wait a bit to ensure no error appears
+        await waitFor(() => {
+          const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
+          expect(errorElement).not.toBeInTheDocument();
+        });
       }
     }
   });

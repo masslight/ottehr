@@ -14,7 +14,6 @@ import {
   LabOrdersSearchBy,
   PaginatedResponse,
   PatientLabItem,
-  PdfAttachmentDTO,
   ReflexLabDTO,
   SpecimenDateChangedParameters,
   TaskReviewedParameters,
@@ -26,7 +25,7 @@ import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLa
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
-  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
+  drDrivenResults: ReflexLabDTO[];
   loading: boolean;
   error: Error | null;
   totalPages: number;
@@ -44,9 +43,11 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
+    testItemStatus,
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
@@ -65,7 +66,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const [groupedLabOrdersForChartTable, setGroupedLabOrdersForChartTable] = useState<
     LabOrderListPageDTOGrouped | undefined
   >(undefined);
-  const [drDrivenResults, setDrDrivenResults] = useState<(ReflexLabDTO | PdfAttachmentDTO)[]>([]);
+  const [drDrivenResults, setDrDrivenResults] = useState<ReflexLabDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -328,7 +329,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
 const groupLabOrderListPageDTOs = (
   labOrders: LabOrderListPageDTO[],
-  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[]
+  drDrivenResults: ReflexLabDTO[]
 ): LabOrderListPageDTOGrouped | undefined => {
   if (!labOrders.length) return;
 
@@ -340,10 +341,7 @@ const groupLabOrderListPageDTOs = (
     ExternalLabsStatus.corrected,
   ]);
 
-  const addToGroup = (
-    item: LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO,
-    orders: LabOrderListPageDTOGrouped
-  ): void => {
+  const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, orders: LabOrderListPageDTOGrouped): void => {
     const requisitionNumber = item.orderNumber;
 
     if (!requisitionNumber) {

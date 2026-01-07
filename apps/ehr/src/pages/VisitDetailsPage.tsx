@@ -43,14 +43,16 @@ import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
-  BOOKING_CONFIG,
   DocumentInfo,
   DocumentType,
   EHRVisitDetails,
   FHIR_EXTENSION,
   FhirAppointmentType,
+  formatDateForDisplay,
   getFirstName,
   getFullName,
   getInPersonVisitStatus,
@@ -65,6 +67,7 @@ import {
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  VALUE_SETS,
   VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
@@ -98,7 +101,6 @@ import {
   getCriticalUpdateTagOp,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
-import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
@@ -222,6 +224,24 @@ export default function VisitDetailsPage(): ReactElement {
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const user = useEvolveUser();
+
+  const apiClient = useOystehrAPIClient();
+
+  const { status: accountStatus } = useGetPatientAccount({
+    apiClient,
+    patientId: patient?.id ?? null,
+  });
+
+  const { data: insuranceData } = useGetPatientCoverages(
+    {
+      apiClient,
+      patientId: patient?.id ?? null,
+    },
+    undefined,
+    {
+      enabled: accountStatus === 'success',
+    }
+  );
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
@@ -573,7 +593,7 @@ export default function VisitDetailsPage(): ReactElement {
   const locationTimeZone = visitDetailsData?.visitTimezone || '';
   const appointmentStartTime = DateTime.fromISO(appointment?.start ?? '').setZone(locationTimeZone);
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
-  const appointmentDate = formatDateUsingSlashes(appointmentStartTime.toISO() || '', locationTimeZone);
+  const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -1021,7 +1041,7 @@ export default function VisitDetailsPage(): ReactElement {
                         patientDetails={{
                           ...(unconfirmedDOB
                             ? {
-                                "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
+                                "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
                               }
                             : {}),
                           'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
@@ -1159,6 +1179,7 @@ export default function VisitDetailsPage(): ReactElement {
                           fullName: visitDetailsData?.responsiblePartyName || '',
                           email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
+                        insuranceCoverages={insuranceData}
                       />
                     </Grid>
                     <Grid item>
@@ -1305,9 +1326,9 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.reasonForVisitOptions.map((reason) => (
-                          <MenuItem key={reason} value={reason}>
-                            {reason}
+                        {VALUE_SETS.reasonForVisitOptions.map((reason) => (
+                          <MenuItem key={reason.value} value={reason.value}>
+                            {reason.label}
                           </MenuItem>
                         ))}
                       </Select>
@@ -1357,7 +1378,7 @@ export default function VisitDetailsPage(): ReactElement {
                   <Grid item width="35%">
                     Original DOB:
                   </Grid>
-                  <Grid item>{formatDateUsingSlashes(patient?.birthDate)}</Grid>
+                  <Grid item>{formatDateForDisplay(patient?.birthDate)}</Grid>
                 </Grid>
 
                 {unconfirmedDOB && (
@@ -1365,7 +1386,7 @@ export default function VisitDetailsPage(): ReactElement {
                     <Grid item width="35%">
                       Unmatched DOB:
                     </Grid>
-                    <Grid item>{formatDateUsingSlashes(unconfirmedDOB)}</Grid>
+                    <Grid item>{formatDateForDisplay(unconfirmedDOB)}</Grid>
                   </Grid>
                 )}
               </Grid>

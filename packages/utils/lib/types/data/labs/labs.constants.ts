@@ -84,12 +84,10 @@ export const LAB_DR_TYPE_TAG = {
   code: {
     reflex: LabType.reflex,
     unsolicited: LabType.unsolicited,
-    attachment: LabType.pdfAttachment,
   },
   display: {
     reflex: 'reflex',
     unsolicited: 'unsolicited',
-    attachment: 'PDF Attachment',
   },
 } as const;
 
@@ -212,6 +210,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   inputResults: 'INPUT RESULTS',
   completePstTask: 'COMPLETE PST TASK',
   abnRejected: 'ABN REJECTED',
+  deleteOrder: 'DELETE EXTERNAL LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -221,6 +220,7 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   inputResults: 'input results',
   completePstTask: 'complete pst task',
   abnRejected: 'ABN marked rejected',
+  deleteOrder: 'Delete external lab order and related resources', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -253,6 +253,12 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   abnRejected: {
     code: PROVENANCE_ACTIVITY_CODES.abnRejected,
     display: PROVENANCE_ACTIVITY_DISPLAY.abnRejected,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  // this is a soft delete, resources are marked as cancelled or entered-in-error
+  deleteOrder: {
+    code: PROVENANCE_ACTIVITY_CODES.deleteOrder,
+    display: PROVENANCE_ACTIVITY_DISPLAY.deleteOrder,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;

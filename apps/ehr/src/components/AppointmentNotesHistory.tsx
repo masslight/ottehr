@@ -111,7 +111,7 @@ export default function AppointmentNotesHistory({
           }}
           variant="body2"
         >
-          {note === '' && `note removed `}
+          {note === '' && 'note removed '}
           {dtAdded}
         </Typography>
         {note === '' && showEdit && (

@@ -11,3 +11,4 @@ export * from './patient-record';
 export * from './value-sets';
 export * from './types';
 export * from './forms';
+export * from './shared-questionnaire';
