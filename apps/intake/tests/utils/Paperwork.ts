@@ -330,8 +330,16 @@ export class Paperwork {
     // Check if employer information page appears (it may be conditionally hidden in the actual app)
     let employerInformation = null;
 
-    // Wait for the page to load and check which page we're on
-    await this.page.waitForSelector('[data-testid="flow-page-title"]', { timeout: 10000 });
+    // Wait for the page to transition away from "Responsible party information"
+    await this.page.waitForFunction(
+      () => {
+        const heading = document.querySelector('[data-testid="flow-page-title"]');
+        return heading && heading.textContent !== 'Responsible party information';
+      },
+      { timeout: 30000 }
+    );
+
+    // Now check which page we're on
     const currentPage = await this.locator.flowHeading.textContent();
 
     if (currentPage === 'Employer information') {
