@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import PeopleIcon from '@mui/icons-material/People';
 import {
   Alert,
   Box,
@@ -363,13 +364,16 @@ export default function RecentPatients(): React.ReactElement {
     <PageContainer>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={handleBack} aria-label="back to reports">
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <IconButton onClick={handleBack} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h4" component="h1">
-            Recent Patients Report
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <PeopleIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
+              Recent Patients Report
+            </Typography>
+          </Box>
         </Box>
 
         {/* Filters */}
