@@ -1,8 +1,10 @@
 // cSpell:ignore PPCP, PRPI
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import * as fs from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
+import { BOOKING_CONFIG } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
@@ -437,8 +439,30 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
   test('PEI. Employer information', async () => {
     test.skip(
-      !QuestionnaireHelper.hasEmployerInformationPage(),
-      "Employer information page doesn't exist. Skipping test."
+      (() => {
+        // Get the appointment service category that would be selected during test flow
+        const firstServiceCategory = BOOKING_CONFIG.serviceCategories[0];
+        if (!firstServiceCategory) {
+          return true; // Skip if no service categories configured
+        }
+
+        // Create minimal response context with just the service category
+        const responseItems: QuestionnaireResponseItem[] = [
+          {
+            linkId: 'contact-information-page',
+            item: [
+              {
+                linkId: 'appointment-service-category',
+                answer: [{ valueString: firstServiceCategory.code }],
+              },
+            ],
+          },
+        ];
+
+        // Check if employer page would be visible for this service category
+        return !QuestionnaireHelper.employerInformationPageIsVisible(responseItems);
+      })(),
+      'Employer information page not visible for this appointment type'
     );
     await test.step('PEI-1. Open employer information page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/employer-information`);
