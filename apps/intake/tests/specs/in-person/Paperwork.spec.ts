@@ -490,6 +490,9 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PAI-3. Check required fields', async () => {
+      // Select "I have an attorney" option
+      await locator.attorneyHasAttorney.click();
+
       await paperwork.checkRequiredFields('"Firm"', 'Attorney for Motor Vehicle Accident', false);
     });
 
