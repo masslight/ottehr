@@ -413,10 +413,8 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       const currentPageTitle = await locator.flowHeading.textContent();
       if (currentPageTitle === 'Employer information') {
         // If employer information page is shown, we'll handle it in the PEI test
-        await locator.clickBackButton();
       } else {
         await paperwork.checkCorrectPageOpens('Emergency Contact');
-        await locator.clickBackButton();
       }
       return responsiblePartyData;
     });
