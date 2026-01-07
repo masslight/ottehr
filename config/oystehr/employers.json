@@ -15,21 +15,9 @@
               }
             ]
           }
-        ],
-        "identifier": [
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "employer-id",
-                  "code": "example-employer-1"
-                }
-              ]
-            }
-          }
         ]
       },
-      "managedFields": ["identifier", "type"]
+      "managedFields": ["type"]
     },
     "example-employer-2": {
       "resource": {
@@ -45,21 +33,9 @@
               }
             ]
           }
-        ],
-        "identifier": [
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "employer-id",
-                  "code": "example-employer-2"
-                }
-              ]
-            }
-          }
         ]
       },
-      "managedFields": ["identifier", "type"]
+      "managedFields": ["type"]
     }
   }
 }
