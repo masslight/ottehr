@@ -1,5 +1,6 @@
+import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
+import { Appointment, Bundle, Encounter, FhirResource, Location, Patient } from 'fhir/r4b';
 import {
   getEmailForIndividual,
   getInPersonVisitStatus,
@@ -207,34 +208,64 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // For each patient, check if they had appointments before the date range to determine if new or existing
     console.log('Checking patient history to determine new vs existing status...');
-    const patientHistoryChecks = Array.from(patientAppointmentsMap.keys()).map(async (patientId) => {
-      // Search for any appointments for this patient before the date range
-      const historicalSearch = await oystehr.fhir.search<Appointment>({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: 'patient',
-            value: `Patient/${patientId}`,
-          },
-          {
-            name: 'date',
-            value: `lt${dateRange.start}`,
-          },
-          {
-            name: '_count',
-            value: '1', // We only need to know if at least one exists
-          },
-        ],
+
+    // Build batch requests for all patient history searches
+    const allBatchRequests: BatchInputGetRequest[] = Array.from(patientAppointmentsMap.keys()).map((patientId) => {
+      const queryParams = new URLSearchParams({
+        patient: `Patient/${patientId}`,
+        date: `lt${dateRange.start}`,
+        _count: '1',
       });
 
-      const hasHistoricalAppointments = historicalSearch.unbundle().length > 0;
-      return { patientId, hasHistoricalAppointments };
+      return {
+        method: 'GET',
+        url: `/Appointment?${queryParams.toString()}`,
+      };
     });
 
-    const patientHistoryResults = await Promise.all(patientHistoryChecks);
+    // Split requests into batches of 50
+    const BATCH_SIZE = 50;
+    const requestBatches: BatchInputGetRequest[][] = [];
+    for (let i = 0; i < allBatchRequests.length; i += BATCH_SIZE) {
+      requestBatches.push(allBatchRequests.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(
+      `Executing ${allBatchRequests.length} patient history checks in ${requestBatches.length} batch(es) of up to ${BATCH_SIZE}`
+    );
+
+    // Execute all batches in parallel
+    const allBatchResults = await Promise.all(
+      requestBatches.map(async (batchRequests, batchIndex) => {
+        console.log(`Executing batch ${batchIndex + 1}/${requestBatches.length} with ${batchRequests.length} requests`);
+        return await oystehr.fhir.batch<FhirResource>({
+          requests: batchRequests,
+        });
+      })
+    );
+
+    // Process batch results to determine patient history
     const patientHistoryMap = new Map<string, boolean>();
-    patientHistoryResults.forEach(({ patientId, hasHistoricalAppointments }) => {
-      patientHistoryMap.set(patientId, hasHistoricalAppointments);
+    const patientIds = Array.from(patientAppointmentsMap.keys());
+
+    let processedIndex = 0;
+    allBatchResults.forEach((batchResult) => {
+      batchResult.entry?.forEach((entry) => {
+        const patientId = patientIds[processedIndex++];
+        let hasHistoricalAppointments = false;
+
+        if (
+          entry.response?.outcome?.id === 'ok' &&
+          entry.resource &&
+          entry.resource.resourceType === 'Bundle' &&
+          entry.resource.type === 'searchset'
+        ) {
+          const innerBundle = entry.resource as Bundle;
+          hasHistoricalAppointments = (innerBundle.entry?.length ?? 0) > 0;
+        }
+
+        patientHistoryMap.set(patientId, hasHistoricalAppointments);
+      });
     });
 
     console.log('Patient history checks completed');
