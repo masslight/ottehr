@@ -67,10 +67,11 @@ test.afterAll(async () => {
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
   test('SNPRF-1 Fill required contact information', async () => {
-    await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}`);
+    await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}/select-service-category`);
+    const fillingInfo = new FillingInfo(page);
+    await fillingInfo.selectFirstServiceCategory();
     await locator.clickContinueButton();
     await locator.selectDifferentFamilyMember();
-    const fillingInfo = new FillingInfo(page);
     await fillingInfo.fillNewPatientInfo();
     await fillingInfo.fillDOBgreater18();
     await locator.clickContinueButton();
