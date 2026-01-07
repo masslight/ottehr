@@ -21,6 +21,7 @@ import {
 import { DateTime } from 'luxon';
 import { Color, PDFImage } from 'pdf-lib';
 import {
+  BRANDING_CONFIG,
   BUCKET_NAMES,
   compareDates,
   convertActivityDefinitionToTestItem,
@@ -63,7 +64,6 @@ import {
   OYSTEHR_OBS_CONTENT_TYPES,
   PERFORMING_PHYSICIAN_EXTENSION_URLS,
   PERFORMING_SITE_INFO_EXTENSION_URLS,
-  PROJECT_NAME,
   quantityRangeFormat,
   Secrets,
   SupportedObsImgAttachmentTypes,
@@ -217,8 +217,8 @@ const getResultDataConfigForDrResources = (
     collectionDate,
   };
 
-  if (type === LabType.reflex || type === LabType.pdfAttachment) {
-    console.log('reflex or pdf attachment result pdf to be made');
+  if (type === LabType.reflex) {
+    console.log('reflex result pdf to be made');
     const orderNumber = getOrderNumberFromDr(diagnosticReport) || '';
     const reflexResultData: Omit<ReflexExternalLabResultsData, keyof LabResultsData> = {
       ...unsolicitedResultData,
@@ -782,12 +782,7 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   const { type, data } = dataConfig;
 
   let pdfBytes: Uint8Array | undefined;
-  if (
-    type === LabType.unsolicited ||
-    type === LabType.reflex ||
-    type === LabType.external ||
-    type === LabType.pdfAttachment
-  ) {
+  if (type === LabType.unsolicited || type === LabType.reflex || type === LabType.external) {
     console.log('Getting pdf bytes for general external lab results');
     pdfBytes = await setUpAndDrawAllExternalLabResultTypesFormPdfBytes(dataConfig);
   } else if (type === LabType.inHouse) {
@@ -835,7 +830,10 @@ async function drawCommonLabsElements(
   console.log(
     `Drawing location name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
-  pdfClient.drawText(`${PROJECT_NAME ? PROJECT_NAME + ' ' : ''}${data.locationName || ''}`, textStyles.textBoldRight);
+  pdfClient.drawText(
+    `${BRANDING_CONFIG.projectName ? BRANDING_CONFIG.projectName + ' ' : ''}${data.locationName || ''}`,
+    textStyles.textBoldRight
+  );
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
@@ -1121,8 +1119,8 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
   if (type === LabType.external) {
     console.log('Getting pdf bytes for external lab results');
     return await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
-  } else if (type === LabType.unsolicited || type === LabType.reflex || type === LabType.pdfAttachment) {
-    console.log('Getting pdf bytes for unsolicited/reflex/attachment external lab results');
+  } else if (type === LabType.unsolicited || type === LabType.reflex) {
+    console.log('Getting pdf bytes for unsolicited or reflex external lab results');
     return await createDiagnosticReportExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else {
     // this is an issue
@@ -1388,12 +1386,7 @@ async function createLabsResultsFormPDF(
   const bucketName = BUCKET_NAMES.LABS;
   let fileName = undefined;
   const { type, data } = dataConfig;
-  if (
-    type === LabType.external ||
-    type === LabType.unsolicited ||
-    type === LabType.reflex ||
-    type === LabType.pdfAttachment
-  ) {
+  if (type === LabType.external || type === LabType.unsolicited || type === LabType.reflex) {
     fileName = generateLabResultFileName(
       type,
       dataConfig.data.testName,

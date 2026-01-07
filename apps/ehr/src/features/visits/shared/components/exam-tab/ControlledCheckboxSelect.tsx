@@ -1,5 +1,5 @@
 import { Box, ListItemText, MenuItem, Select } from '@mui/material';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
@@ -15,23 +15,31 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
   const { label, name, options } = props;
 
   const params = [name].concat(options.map((option) => option.name));
-  const { value, update, delete: deleteObservations, isLoading } = useExamObservations(params);
+  const { value, update, isLoading } = useExamObservations(params);
   // appointments made before https://github.com/masslight/ottehr/issues/4055 is ready might have some undefined fields
   const fields = value.filter((field) => field !== undefined);
   const [booleanValue, setBooleanValue] = useState(fields.some((field) => field.value === true));
 
+  // Sync booleanValue with fields state to ensure UI reflects actual data
+  useEffect(() => {
+    const hasSelectedFields = fields.some((field) => field.value === true);
+    setBooleanValue(hasSelectedFields);
+  }, [fields]);
+
   const onCheckboxChange = (value: boolean): void => {
-    setBooleanValue(!booleanValue);
-    // if the checkbox is unchecked, delete observations
+    setBooleanValue(value);
     if (value === false) {
-      // get fields that are checked and delete them
-      const fieldsToDelete = fields.filter((field) => field.value === true);
-      if (fieldsToDelete.length > 0) {
-        deleteObservations(fieldsToDelete);
+      // When unchecking, set all selected fields to value: false
+      // Use update instead of delete to prevent 410 Gone errors
+      const fieldsToUncheck = fields.filter((field) => field.value === true);
+
+      if (fieldsToUncheck.length > 0) {
+        update(fieldsToUncheck.map((field) => ({ ...field, value: false })));
       }
     } else {
-      // if the checkbox is checked, update only the checkbox
-      const field = fields.filter((field) => field.field === name)?.[0];
+      // When checking, update only the main checkbox field
+      const field = fields.find((field) => field.field === name);
+
       if (field) {
         update({ ...field, value });
       }
@@ -60,14 +68,28 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
               .map((field) => field.field)}
             onChange={(event) => {
               const selectedFields = event.target.value as string[];
-              const fieldsToChange = fields.filter((field) => {
-                const fieldValues = fields.find((f) => f.field !== name && f.field === field.field)?.value;
-                return selectedFields.includes(field.field) ? !fieldValues : fieldValues;
-              });
-              const fieldsToDelete = fieldsToChange.filter((f) => f.value === true);
-              const fieldsToAdd = fieldsToChange.filter((f) => f.value === false);
-              if (fieldsToDelete.length > 0) deleteObservations(fieldsToDelete);
-              if (fieldsToAdd.length > 0) update(fieldsToAdd.map((field) => ({ ...field, value: true })));
+              // Get option fields (exclude main checkbox field)
+              const optionFields = fields.filter((field) => field.field !== name);
+
+              // Determine which options to add: in selectedFields but not currently selected
+              const fieldsToAdd = optionFields.filter(
+                (field) => selectedFields.includes(field.field) && field.value === false
+              );
+
+              // Determine which options to remove: currently selected but not in selectedFields
+              const fieldsToRemove = optionFields.filter(
+                (field) => !selectedFields.includes(field.field) && field.value === true
+              );
+
+              // Combine all changes into a single update call
+              const allFieldsToUpdate = [
+                ...fieldsToAdd.map((field) => ({ ...field, value: true })),
+                ...fieldsToRemove.map((field) => ({ ...field, value: false })),
+              ];
+
+              if (allFieldsToUpdate.length > 0) {
+                update(allFieldsToUpdate);
+              }
             }}
             renderValue={(selected) =>
               selected

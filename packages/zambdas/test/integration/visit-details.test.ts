@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BOOKING_CONFIG,
   CONSENT_ATTESTATION_SIG_TYPE,
   DOB_DATE_FORMAT,
   EHRVisitDetails,
@@ -15,6 +14,7 @@ import {
   isValidUUID,
   REASON_ADDITIONAL_MAX_CHAR,
   UpdateVisitDetailsInput,
+  VALUE_SETS,
 } from 'utils';
 import { assert, inject } from 'vitest';
 import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
@@ -229,8 +229,8 @@ describe('saving and getting visit details', () => {
     const reasonForVisit = getReasonForVisitFromAppointment(appointment);
     expect(reasonForVisit).toBeUndefined();
 
-    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
-    const reasonText = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
+    const reasonText = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
 
     await updateVisitDetails({
       appointmentId: appointment.id!,
@@ -266,8 +266,8 @@ describe('saving and getting visit details', () => {
     const reasonForVisit = getReasonForVisitFromAppointment(appointment);
     expect(reasonForVisit).toBeUndefined();
 
-    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
-    const reasonText = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
+    const reasonText = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
 
     await updateVisitDetails({
       appointmentId: appointment.id!,
@@ -300,8 +300,8 @@ describe('saving and getting visit details', () => {
     expect(newAdditionalDetails).toBeDefined();
     expect(newAdditionalDetails).toEqual('Mom says speech a bit slurred');
 
-    const randomIndex2 = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
-    const reasonText2 = BOOKING_CONFIG.reasonForVisitOptions[randomIndex2];
+    const randomIndex2 = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
+    const reasonText2 = VALUE_SETS.reasonForVisitOptions[randomIndex2].value;
 
     // both main reason for visit and additional details updated when both included
     await updateVisitDetails({
@@ -715,8 +715,8 @@ describe('saving and getting visit details', () => {
     expect(visitDetails.patient).toBeDefined();
     expect(visitDetails.consentIsAttested).toBe(false);
 
-    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
-    const reasonForVisit = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
+    const reasonForVisit = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
     const guardiansText = 'Aunt Becky';
     const newBirthDate = '2020-05-05';
     const newFirstName = `AllAtOnceFirst${randomUUID().substring(0, 5)}`;
@@ -888,8 +888,8 @@ describe('saving and getting visit details', () => {
       patientSex: 'female',
     });
     expect(appointment).toBeDefined();
-    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
-    const reasonText = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
+    const reasonText = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
     let errorFound = false;
     try {
       await updateVisitDetails({

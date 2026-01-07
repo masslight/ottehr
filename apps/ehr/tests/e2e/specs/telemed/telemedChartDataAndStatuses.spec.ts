@@ -313,11 +313,15 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
     await test.step('Condition photo provided by patient', async () => {
       const block = page.getByTestId(dataTestIds.telemedEhrFlow.hpiPatientConditionPhotos);
-      const image = block.locator('img');
-      await expect(image).toHaveCount(1);
-      const imageSrc = await image.getAttribute('src');
+      const images = block.locator('img');
+
+      // Patient can upload multiple photos, check that at least one is present
+      expect(await images.count()).toBeGreaterThanOrEqual(1);
+
+      const firstImage = images.first();
+      const imageSrc = await firstImage.getAttribute('src');
       expect(imageSrc).toContain(myPatientsTabAppointmentResources.patient.id);
-      await image.click();
+      await firstImage.click();
 
       const zoomedImage = page.locator("div[role='dialog'] img[alt='Patient condition photo #1']");
       await expect(zoomedImage).toBeVisible();
@@ -738,7 +742,12 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             .first();
           await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
           await waitForChartDataDeletion(page);
-          await expect(medicalConditionListItem).not.toBeVisible();
+          // Check that there are no more medical condition items with this text
+          await expect(
+            page
+              .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
+              .filter({ hasText: new RegExp(conditionName, 'i') })
+          ).toHaveCount(0);
         });
 
         await test.step('Confirm deletion in hpi tab', async () => {
