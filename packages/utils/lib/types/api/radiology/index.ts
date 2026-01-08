@@ -1,4 +1,4 @@
-import { DetailPageTask, Pagination } from 'utils';
+import { Pagination, Task } from 'utils';
 
 export interface CreateRadiologyZambdaOrderInput {
   encounterId: string;
@@ -54,7 +54,7 @@ export interface GetRadiologyOrderListZambdaOrder {
   result?: string;
   clinicalHistory?: string;
   history?: RadiologyOrderHistoryRow[];
-  task?: DetailPageTask;
+  task?: Task;
 }
 
 export type RadiologyOrderHistoryRow = {

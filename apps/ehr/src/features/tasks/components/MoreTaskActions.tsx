@@ -6,11 +6,11 @@ import { IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
 import React, { useState } from 'react';
 import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { EvolveUser } from 'src/hooks/useEvolveUser';
-import { DetailPageTask } from 'utils';
+import { Task } from 'utils';
 import { AssignTaskDialog } from './AssignTaskDialog';
 
 interface MoreTaskActionsProps {
-  task: DetailPageTask;
+  task: Task;
   currentUser: EvolveUser | undefined;
   refetchData?: () => void;
 }
@@ -18,9 +18,9 @@ interface MoreTaskActionsProps {
 export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentUser, refetchData }) => {
   const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
     element: HTMLButtonElement;
-    task: DetailPageTask;
+    task: Task;
   } | null>(null);
-  const [taskToAssign, setTaskToAssign] = useState<DetailPageTask | null>(null);
+  const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
 
   const { mutateAsync: assignTask } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();

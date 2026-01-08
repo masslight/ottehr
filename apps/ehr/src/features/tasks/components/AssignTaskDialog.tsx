@@ -4,11 +4,11 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { formatDate, useAssignTask } from 'src/features/visits/in-person/hooks/useTasks';
-import { DetailPageTask, Task } from 'utils';
+import { Task } from 'utils';
 import { CategoryChip } from './CategoryChip';
 
 interface Props {
-  task: Task | DetailPageTask;
+  task: Task;
   handleClose: () => void;
   refetchData?: () => void;
 }

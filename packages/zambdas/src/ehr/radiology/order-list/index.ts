@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import {
-  DetailPageTask,
   formatDate,
   getExtension,
   GetRadiologyOrderListZambdaInput,
@@ -15,6 +14,7 @@ import {
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
   SecretsKeys,
+  Task as OttehrTask,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
 import {
@@ -227,7 +227,7 @@ const parseResultsToOrder = (
     return basedOnSr && isRadiologyTask && isFinalReview;
   });
   console.log('finalReviewTask found: ', finalReviewTask?.id);
-  let formattedFinalReviewTask: DetailPageTask | undefined;
+  let formattedFinalReviewTask: OttehrTask | undefined;
 
   // Get all diagnostic reports related to this service request
   const relatedDiagnosticReports = diagnosticReports.filter(

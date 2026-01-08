@@ -4,11 +4,11 @@ import { Box, Paper, Typography } from '@mui/material';
 import React, { ReactElement } from 'react';
 import { useCompleteTask } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { DetailPageTask } from 'utils';
+import { Task } from 'utils';
 import { MoreTaskActions } from './MoreTaskActions';
 
 interface DetailTaskCardProps {
-  task: DetailPageTask;
+  task: Task;
   fetchOrders: () => void;
 }
 
@@ -17,7 +17,7 @@ export const DetailTaskCard: React.FC<DetailTaskCardProps> = ({ task, fetchOrder
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
 
-  const renderCompleteButton = (task: DetailPageTask): ReactElement | null => {
+  const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== 'completed' && task.completable && currentUserProviderId === task.assignee?.id) {
       return (
         <LoadingButton

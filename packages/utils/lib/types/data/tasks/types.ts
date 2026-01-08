@@ -18,8 +18,6 @@ export interface Task {
   alert?: TaskAlertCode;
   completable: boolean;
 }
-
-export type DetailPageTask = Omit<Task, 'details' | 'action' | 'alert'>;
 export interface CreateManualTaskRequest {
   category: string;
   appointmentId?: string;
