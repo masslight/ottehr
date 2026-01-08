@@ -2,18 +2,32 @@ import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import { type Options } from 'execa';
+import path from 'path';
 
-const injectSourceMaps = async (): Promise<void> => {
-  if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
-    console.warn('Sentry environment variables are not set');
-    return;
+const pathToSentryEnvFile = path.resolve(__dirname, '.env/sentry.json');
+
+interface SentryConfig {
+  authToken: string;
+  org: string;
+  project: string;
+}
+
+const loadSentryConfiguration = async (): Promise<SentryConfig> => {
+  const sentryConfig = await import(pathToSentryEnvFile);
+  if (!sentryConfig.authToken || !sentryConfig.org || !sentryConfig.project) {
+    console.error('Invalid sentry config!');
   }
+
+  return sentryConfig;
+};
+
+const injectSourceMaps = async (sentryConfig: SentryConfig): Promise<void> => {
   // dynamic import because this library is pure ESM
   const { $ } = await import('execa');
   const sentryEnv = {
-    SENTRY_ORG: process.env.SENTRY_ORG,
-    SENTRY_PROJECT: process.env.SENTRY_PROJECT,
-    SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
+    SENTRY_ORG: sentryConfig.org,
+    SENTRY_PROJECT: sentryConfig.project,
+    SENTRY_AUTH_TOKEN: sentryConfig.authToken,
   };
   const shellConfig: Options = {
     env: sentryEnv,
@@ -29,6 +43,10 @@ const injectSourceMaps = async (): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
+  console.log('Loading Sentry configuration...');
+  const sentryConfig = await loadSentryConfiguration();
+
+  console.log('the sentry config, ', sentryConfig);
   console.log('Bundling...');
   console.time('Bundle time');
   await esbuild
@@ -48,9 +66,9 @@ const main = async (): Promise<void> => {
           },
         }),
         sentryEsbuildPlugin({
-          authToken: process.env.SENTRY_AUTH_TOKEN,
-          org: process.env.SENTRY_ORG,
-          project: process.env.SENTRY_PROJECT,
+          authToken: sentryConfig.authToken,
+          org: sentryConfig.org,
+          project: sentryConfig.project,
           sourcemaps: {
             // if enabled, creates unstable js builds, so we will add debug IDs using CLI
             // see this issue for more information https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/500
@@ -71,7 +89,7 @@ const main = async (): Promise<void> => {
 
   console.log('Source maps...');
   console.time('Source maps time');
-  await injectSourceMaps();
+  await injectSourceMaps(sentryConfig);
   console.timeEnd('Source maps time');
 };
 
