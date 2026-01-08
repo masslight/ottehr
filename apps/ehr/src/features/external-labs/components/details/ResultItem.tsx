@@ -1,19 +1,12 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import {
-  LabOrderDetailedPageDTO,
-  LabOrderResultDetails,
-  PdfAttachmentDTO,
-  PSC_LOCALE,
-  ReflexLabDTO,
-  UnsolicitedLabDTO,
-} from 'utils';
+import { LabOrderDetailedPageDTO, LabOrderResultDetails, PSC_LOCALE, ReflexLabDTO, UnsolicitedLabDTO } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
 
 interface ResultItemProps {
-  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO | PdfAttachmentDTO;
+  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
   onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
   loading: boolean;

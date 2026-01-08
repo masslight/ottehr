@@ -10,7 +10,6 @@ import {
   formatDateForLabs,
   LabOrderListPageDTO,
   LabsTableColumn,
-  PdfAttachmentDTO,
   PSC_LOCALE,
   ReflexLabDTO,
   UnsolicitedLabListPageDTO,
@@ -19,7 +18,7 @@ import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
-  labOrderData: LabOrderListPageDTO | ReflexLabDTO | UnsolicitedLabListPageDTO | PdfAttachmentDTO;
+  labOrderData: LabOrderListPageDTO | ReflexLabDTO | UnsolicitedLabListPageDTO;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
   onDeleteOrder?: () => void;
   allowDelete?: boolean;
@@ -74,7 +73,7 @@ export const LabsTableRow = ({
     }
   };
 
-  const getLabDetail = (lab: ReflexLabDTO | UnsolicitedLabListPageDTO | PdfAttachmentDTO): string => {
+  const getLabDetail = (lab: ReflexLabDTO | UnsolicitedLabListPageDTO): string => {
     if ('isUnsolicited' in lab) {
       return 'UNS';
     } else if ('drCentricResultType' in lab) {
@@ -85,7 +84,7 @@ export const LabsTableRow = ({
 
   const renderCellContentForLabWithoutSR = (
     column: LabsTableColumn,
-    lab: ReflexLabDTO | UnsolicitedLabListPageDTO | PdfAttachmentDTO
+    lab: ReflexLabDTO | UnsolicitedLabListPageDTO
   ): React.ReactNode => {
     switch (column) {
       case 'testType':
@@ -174,7 +173,7 @@ export const LabsTableRow = ({
       case 'detail':
         return lab.isPSC ? PSC_LOCALE : '';
       case 'actions':
-        if (allowDelete && (lab.orderStatus === 'pending' || lab.orderStatus === 'ready')) {
+        if (allowDelete) {
           return (
             <Button
               onClick={handleDeleteClick}
