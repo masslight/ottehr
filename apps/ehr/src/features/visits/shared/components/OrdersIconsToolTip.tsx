@@ -1,4 +1,4 @@
-import { Box } from '@mui/material';
+import { Badge, Box } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { MappedStatusChip } from 'src/components/MappedStatusChip';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
@@ -23,10 +23,14 @@ import {
 import { sidebarMenuIcons } from 'src/features/visits/shared/components/Sidebar';
 import { hasAtLeastOneOrder } from 'src/helpers';
 import {
+  ExternalLabsStatus,
   InPersonAppointmentInformation,
+  MedicationOrderStatuses,
   NursingOrdersStatus,
   OrdersForTrackingBoardRow,
   OrderToolTipConfig,
+  RadiologyOrderStatus,
+  TestStatus,
 } from 'utils';
 import { GenericToolTip } from '../../../../components/GenericToolTip';
 import { medicationStatusMapper } from './plan-tab/ERxContainer';
@@ -35,11 +39,30 @@ interface OrdersIconsToolTipProps {
   appointment: InPersonAppointmentInformation;
   orders: OrdersForTrackingBoardRow;
 }
+
+const EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES = [
+  ExternalLabsStatus.pending,
+  ExternalLabsStatus.prelim,
+  ExternalLabsStatus.corrected,
+  ExternalLabsStatus['rejected abn'],
+  ExternalLabsStatus['cancelled by lab'],
+];
+const IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL'];
+const NURSING_ORDERS_PENDING_BADGE_STATUSES = [NursingOrdersStatus.pending];
+const FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES = [MedicationOrderStatuses.pending];
+const RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES = [
+  RadiologyOrderStatus.pending,
+  RadiologyOrderStatus.preliminary,
+  RadiologyOrderStatus.final,
+];
+
 export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointment, orders }) => {
   const ordersExistForAppointment = hasAtLeastOneOrder(orders);
   if (!ordersExistForAppointment) return null;
 
   const { externalLabOrders, inHouseLabOrders, nursingOrders, inHouseMedications, radiologyOrders, erxOrders } = orders;
+
+  const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
 
   const orderConfigs: OrderToolTipConfig[] = [];
 
@@ -48,11 +71,15 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['External Labs'],
       title: 'External Labs',
       tableUrl: getExternalLabOrdersUrl(appointment.id),
+      unreadBadge: Boolean(
+        externalLabOrders.find((ord) => EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(ord.orderStatus))
+      ),
       orders: externalLabOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.testItem,
         detailPageUrl: getExternalLabOrderEditUrl(appointment.id, order.serviceRequestId),
         statusChip: <LabsOrderStatusChip status={order.orderStatus} />,
+        unreadBadge: EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.orderStatus),
       })),
     };
     orderConfigs.push(externalLabOrderConfig);
@@ -63,11 +90,15 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['In-House Labs'],
       title: 'In-House Labs',
       tableUrl: getInHouseLabsUrl(appointment.id),
+      unreadBadge: Boolean(
+        inHouseLabOrders.find((ord) => IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))
+      ),
       orders: inHouseLabOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.testItemName,
         detailPageUrl: getInHouseLabOrderDetailsUrl(appointment.id, order.serviceRequestId),
         statusChip: <InHouseLabsStatusChip status={order.status} />,
+        unreadBadge: IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
       })),
     };
     orderConfigs.push(inHouseLabOrderConfig);
@@ -78,6 +109,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['Nursing Orders'],
       title: 'Nursing Orders',
       tableUrl: getNursingOrdersUrl(appointment.id),
+      unreadBadge: Boolean(nursingOrders.find((ord) => NURSING_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))),
       orders: nursingOrders
         .filter((order) => order.status !== NursingOrdersStatus.cancelled)
         .map((order) => ({
@@ -85,17 +117,23 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
           itemDescription: order.note,
           detailPageUrl: getNursingOrderDetailsUrl(appointment.id, order.serviceRequestId),
           statusChip: <NursingOrdersStatusChip status={order.status} />,
+          unreadBadge: NURSING_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
         })),
     };
     if (nursingOrdersConfig.orders.length > 0) orderConfigs.push(nursingOrdersConfig);
   }
 
-  if (inHouseMedications?.length) {
+  if (filteredInHouseMedications?.length) {
     const inHouseMedicationConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Med. Administration'],
       title: 'In-House Medications',
       tableUrl: getInHouseMedicationMARUrl(appointment.id),
-      orders: inHouseMedications.map((med) => {
+      unreadBadge: Boolean(
+        filteredInHouseMedications.find((ord) =>
+          FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES.includes(ord.status as MedicationOrderStatuses)
+        )
+      ),
+      orders: filteredInHouseMedications.map((med) => {
         const isPending = med.status === 'pending';
         const targetUrl = isPending
           ? `${getInHouseMedicationDetailsUrl(appointment.id)}?scrollTo=${med.id}`
@@ -106,6 +144,9 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
           itemDescription: med.medicationName,
           detailPageUrl: targetUrl,
           statusChip: <MedicationStatusChip medication={med} />,
+          unreadBadge: FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES.includes(
+            med.status as MedicationOrderStatuses
+          ),
         };
       }),
     };
@@ -117,11 +158,13 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['Radiology'],
       title: 'Radiology Orders',
       tableUrl: getRadiologyUrl(appointment.id),
+      unreadBadge: Boolean(radiologyOrders.find((ord) => RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))),
       orders: radiologyOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.studyType,
         detailPageUrl: getRadiologyOrderEditUrl(appointment.id, order.serviceRequestId),
         statusChip: <RadiologyTableStatusChip status={order.status} />,
+        unreadBadge: RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
       })),
     };
     orderConfigs.push(radiologyOrdersConfig);
@@ -145,26 +188,51 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   return (
     <GenericToolTip title={<OrdersToolTip orderConfigs={orderConfigs} />} customWidth="none" placement="top">
       <Box sx={{ display: 'flex', width: '100%' }}>
-        {orderConfigs.map((config) => (
-          <Link to={config.tableUrl} style={{ textDecoration: 'none' }} key={`${config.title}-icon-indicator`}>
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 0,
-                color: '#0F347C',
-                backgroundColor: '#2169F514',
-                borderRadius: '50%',
-                width: '28px',
-                height: '28px',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: '8px',
-              }}
-            >
-              {config.icon}
+        {orderConfigs.map((config) => {
+          const button = (
+            <Link to={config.tableUrl} style={{ textDecoration: 'none' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 0,
+                  color: '#0F347C',
+                  backgroundColor: '#2169F514',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: '8px',
+                }}
+              >
+                {config.icon}
+              </Box>
+            </Link>
+          );
+          return (
+            <Box key={`${config.title}-icon-indicator`}>
+              {config.unreadBadge ? (
+                <Badge
+                  variant="dot"
+                  color="warning"
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '50%',
+                      top: '4px',
+                      right: '11px',
+                    },
+                  }}
+                >
+                  {button}
+                </Badge>
+              ) : (
+                button
+              )}
             </Box>
-          </Link>
-        ))}
+          );
+        })}
       </Box>
     </GenericToolTip>
   );

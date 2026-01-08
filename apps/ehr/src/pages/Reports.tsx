@@ -1,7 +1,9 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import SpeedIcon from '@mui/icons-material/Speed';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
@@ -112,8 +114,14 @@ export default function Reports(): React.ReactElement {
     {
       title: 'Workflow Efficiency',
       description: 'Analyze visit metrics, time-to-provider statistics, and appointment status workflows',
-      icon: <AssessmentIcon />,
+      icon: <SpeedIcon />,
       path: '/reports/workflow-efficiency',
+    },
+    {
+      title: 'Recent Patients',
+      description: 'View list of recent patients with contact information and visit details',
+      icon: <PeopleIcon />,
+      path: '/reports/recent-patients',
     },
     {
       title: 'Invoiceable patients',

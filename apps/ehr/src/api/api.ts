@@ -89,6 +89,8 @@ import {
   PresignUploadUrlResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
+  RecentPatientsReportZambdaInput,
+  RecentPatientsReportZambdaOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   ScheduleDTO,
@@ -128,6 +130,7 @@ const INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
+const RECENT_PATIENTS_REPORT_ZAMBDA_ID = 'recent-patients-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
@@ -373,6 +376,26 @@ export const getVisitsOverviewReport = async (
 
     const response = await oystehr.zambda.execute({
       id: VISITS_OVERVIEW_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getRecentPatientsReport = async (
+  oystehr: Oystehr,
+  parameters: RecentPatientsReportZambdaInput
+): Promise<RecentPatientsReportZambdaOutput> => {
+  try {
+    if (RECENT_PATIENTS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('recent patients report environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: RECENT_PATIENTS_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

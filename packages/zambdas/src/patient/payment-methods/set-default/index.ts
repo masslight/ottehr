@@ -1,5 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkForStripeCustomerDeletedError, getSecret, SecretsKeys } from 'utils';
+import {
+  checkForStripeCustomerDeletedError,
+  getSecret,
+  getStripeAccountForAppointmentOrEncounter,
+  SecretsKeys,
+} from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -18,7 +23,7 @@ export const index = wrapHandler('payment-set-default', async (input: ZambdaInpu
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
 
-    const { beneficiaryPatientId, paymentMethodId, secrets } = validatedParameters;
+    const { beneficiaryPatientId, paymentMethodId, appointmentId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -34,15 +39,28 @@ export const index = wrapHandler('payment-set-default', async (input: ZambdaInpu
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient
     ));
-    const { stripeCustomerId } = await complexValidation({ patientId: beneficiaryPatientId, oystehrClient });
+    const { stripeCustomerId } = await complexValidation({
+      patientId: beneficiaryPatientId,
+      appointmentId,
+      oystehrClient,
+    });
 
     const stripeClient = getStripeClient(secrets);
+
+    const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
+
     try {
-      const customer = await stripeClient.customers.update(stripeCustomerId, {
-        invoice_settings: {
-          default_payment_method: paymentMethodId,
+      const customer = await stripeClient.customers.update(
+        stripeCustomerId,
+        {
+          invoice_settings: {
+            default_payment_method: paymentMethodId,
+          },
         },
-      });
+        {
+          stripeAccount, // Connected account ID if any
+        }
+      );
       console.log('customer updated', customer);
     } catch (stripeError: any) {
       throw checkForStripeCustomerDeletedError(stripeError);

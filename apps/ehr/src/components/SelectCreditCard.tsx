@@ -15,12 +15,12 @@ import { FC, useState } from 'react';
 import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod';
 import { useSetupStripe } from 'src/hooks/useSetupStripe';
-import { AddCreditCardForm } from 'ui-components';
+import { AddCreditCardForm, loadStripe } from 'ui-components';
 import { CreditCardInfo } from 'utils';
-import { stripePromise } from '../index';
 
 interface CreditCardContentProps {
   patient: Patient;
+  appointmentId: string | undefined;
   selectedCardId: string;
   handleCardSelected: (newVal: string | undefined) => void;
   error?: string;
@@ -33,7 +33,7 @@ const labelForCard = (card: CreditCardInfo): string => {
 const NEW_CARD = { id: 'new', label: 'Add new card' };
 
 const CreditCardContent: FC<CreditCardContentProps> = (props) => {
-  const { patient, selectedCardId, handleCardSelected, error } = props;
+  const { patient, appointmentId, selectedCardId, handleCardSelected, error } = props;
   const [cards, setCards] = useState<CreditCardInfo[]>([]);
 
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
@@ -44,9 +44,11 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     isLoading: isSetupDataLoading,
     refetch: refetchSetupData,
     isRefetching: isSetupDataRefetching,
-  } = useSetupStripe(patient?.id);
+  } = useSetupStripe(patient?.id, appointmentId);
 
-  const { mutate: setDefault } = useSetDefaultPaymentMethod(patient?.id);
+  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.clientSecret);
+
+  const { mutate: setDefault } = useSetDefaultPaymentMethod(patient?.id, appointmentId);
 
   const {
     isFetching: cardsAreLoading,
@@ -54,6 +56,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     refetch: refetchPaymentMethods,
   } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
+    appointmentId,
     setupCompleted: Boolean(setupData),
     onSuccess: (data) => {
       if (!data) return;
@@ -163,7 +166,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         }}
       />
 
-      <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
+      <Elements stripe={stripePromise} options={{ clientSecret: setupData?.clientSecret }}>
         <Box
           sx={{
             width: '100%',
@@ -175,7 +178,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
           }}
         >
           <AddCreditCardForm
-            clientSecret={setupData ?? ''}
+            clientSecret={setupData?.clientSecret ?? ''}
             isLoading={false}
             disabled={false}
             selectPaymentMethod={(id) => {

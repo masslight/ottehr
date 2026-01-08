@@ -574,6 +574,9 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 };
 
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
+export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
+export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
+
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
   coding: [
