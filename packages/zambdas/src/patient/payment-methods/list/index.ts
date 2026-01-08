@@ -7,6 +7,7 @@ import {
   CreditCardInfo,
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
+  getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   ListPaymentMethodsZambdaOutput,
   SecretsKeys,
@@ -37,7 +38,7 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
       return lambdaResponse(400, { message: error.message });
     }
 
-    const { beneficiaryPatientId, secrets } = validatedParameters;
+    const { beneficiaryPatientId, appointmentId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -56,6 +57,8 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
 
     const stripeClient = getStripeClient(secrets);
 
+    const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
+
     const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
     const account: Account | undefined = accountResources.account;
 
@@ -63,18 +66,30 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
       throw FHIR_RESOURCE_NOT_FOUND('Account');
     }
     const output: ListPaymentMethodsZambdaOutput = { cards: [] };
-    const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+    const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
 
     // we're performing effect at this point...
     try {
       if (customerId !== undefined) {
-        const customer = await stripeClient.customers.retrieve(customerId, {
-          expand: ['invoice_settings.default_payment_method', 'sources'],
-        });
+        const customer = await stripeClient.customers.retrieve(
+          customerId,
+          {
+            expand: ['invoice_settings.default_payment_method', 'sources'],
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        );
         const paymentMethods = (
-          await stripeClient.customers.listPaymentMethods(customer.id, {
-            type: 'card',
-          })
+          await stripeClient.customers.listPaymentMethods(
+            customer.id,
+            {
+              type: 'card',
+            },
+            {
+              stripeAccount, // Connected account ID if any
+            }
+          )
         )?.data;
         console.log('payment methods', paymentMethods, JSON.stringify(customer, null, 2));
         if (

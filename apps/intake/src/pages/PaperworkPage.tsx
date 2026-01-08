@@ -214,7 +214,7 @@ export const PaperworkHome: FC = () => {
     });
   }, [allItems]);
 
-  const { data: stripeSetupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id);
+  const { data: stripeSetupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id, appointmentId);
 
   const {
     data: cardData,
@@ -222,6 +222,7 @@ export const PaperworkHome: FC = () => {
     refetch: refetchPaymentMethods,
   } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
+    appointmentId,
     setupCompleted: Boolean(stripeSetupData),
   });
 
