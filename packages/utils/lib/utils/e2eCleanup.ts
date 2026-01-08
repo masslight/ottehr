@@ -4,6 +4,7 @@ import { Appointment, Coding, FhirResource, Observation, Patient, Person } from 
 import { chunkThings } from '../fhir';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
 import { sleep } from '../helpers';
+import { CLEANUP_CUTOFF_DATE } from './e2eCleanupExclusions';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
@@ -263,11 +264,23 @@ const getAppointmentGraphByTag = async (
     },
   ];
   if (!code) {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    params.push({
-      name: '_lastUpdated',
-      value: `lt${oneHourAgo}`,
-    });
+    if (CLEANUP_CUTOFF_DATE) {
+      // CLEANUP_CUTOFF_DATE: fetch resources NEWER than cutoff (>= cutoff) to DELETE them
+      // This protects OLD resources (< cutoff) which are investigation resources
+      params.push({
+        name: '_lastUpdated',
+        value: `ge${CLEANUP_CUTOFF_DATE}`,
+      });
+      console.log(`Fetching resources with _lastUpdated >= ${CLEANUP_CUTOFF_DATE} (will DELETE newer resources)`);
+    } else {
+      // Default: fetch resources older than 1 hour to delete them
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      params.push({
+        name: '_lastUpdated',
+        value: `lt${oneHourAgo}`,
+      });
+      console.log(`Fetching resources with _lastUpdated < ${oneHourAgo} (default 1-hour cleanup)`);
+    }
   }
   const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
