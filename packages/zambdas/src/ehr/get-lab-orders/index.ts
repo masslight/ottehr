@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EMPTY_PAGINATION, getSecret, PdfAttachmentDTO, ReflexLabDTO, SecretsKeys } from 'utils';
+import { EMPTY_PAGINATION, getSecret, ReflexLabDTO, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -31,7 +31,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
     console.log('searchBy:', JSON.stringify(searchBy));
 
     // todo labs future can probably refactor to do less data massaging for when this is being called from the table view
-    let drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[] = [];
+    let drDrivenResults: ReflexLabDTO[] = [];
 
     // for reflex results, should only be called from the detail page
     if (searchBy.field === 'diagnosticReportId') {

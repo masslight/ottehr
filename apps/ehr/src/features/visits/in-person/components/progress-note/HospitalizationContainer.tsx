@@ -1,6 +1,7 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { NoteDTO } from 'utils';
 
@@ -11,7 +12,10 @@ export const HospitalizationContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) =
   const episodeOfCare = chartData?.episodeOfCare;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+    <Box
+      data-testid={dataTestIds.progressNotePage.hospitalizationContainer}
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+    >
       <Typography variant="h5" color="primary.dark">
         Hospitalization
       </Typography>

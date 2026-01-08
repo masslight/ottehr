@@ -90,6 +90,7 @@ export interface OrderToolTipConfig {
   icon: JSX.Element;
   title: string;
   tableUrl: string;
+  unreadBadge?: boolean;
   orders: {
     // lab orders & nursing orders use ServiceRequests
     // inHouse Medications use MedicationAdministration
@@ -97,6 +98,7 @@ export interface OrderToolTipConfig {
     itemDescription: string;
     detailPageUrl: string;
     statusChip: JSX.Element;
+    unreadBadge?: boolean;
   }[];
 }
 
