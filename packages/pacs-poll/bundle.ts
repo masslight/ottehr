@@ -56,6 +56,7 @@ const main = async (): Promise<void> => {
       outdir: '.dist',
       sourcemap: true,
       platform: 'node',
+      format: 'esm',
       treeShaking: true,
       plugins: [
         copy({

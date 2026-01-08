@@ -3,6 +3,7 @@ import { ServiceRequest } from 'fhir/r4b';
 import { readdirSync } from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 import {
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getPatchOperationToUpdateExtension,
@@ -10,6 +11,9 @@ import {
   SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const createOystehrClientFromConfig = async (config: ProjectConfig): Promise<any> => {
   const tokenResponse = await fetch('https://auth.zapehr.com/oauth/token', {
@@ -56,8 +60,10 @@ const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
   for (const file of envFiles) {
     if (file.endsWith('.env.json')) {
       const configPath = path.resolve(pathToEnvFiles, file);
-      const config = await import(configPath);
-      if (!config.projectId || !config.clientId || !config.clientSecret) {
+      const configUrl = pathToFileURL(configPath).href;
+      const configModule = await import(configUrl, { with: { type: 'json' } });
+      const config = configModule.default;
+      if (!config.projectId || !config.clientId || !config.clientSecret || config.isProduction === undefined) {
         console.error('Invalid config in file: ', file);
         // TODO: We don't want to let one bum config file break the whole thing. But we do want this to be a noisy error.
         continue;
