@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.24.26",
+  "version": "1.25.1",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
