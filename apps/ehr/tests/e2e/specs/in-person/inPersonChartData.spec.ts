@@ -180,14 +180,14 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Temperature vitals', () => {
       test('User can add, view and remove temperature observation', async () => {
-        await test.step('Add temperature observation', async () => {
+        await test.step('VIT-1.1 Add temperature observation', async () => {
           await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedTemperatureObservationInHistory(TEMPERATURE_C);
           await vitalsPage.checkAddedTemperatureIsShownInHeader(TEMPERATURE_C);
         });
 
-        await test.step('Verify temperature in progress note', async () => {
+        await test.step('VIT-1.2 Verify temperature in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -200,7 +200,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete temperature observation', async () => {
+        await test.step('VIT-1.3 Delete temperature observation', async () => {
           await vitalsPage.removeTemperatureObservationFromHistory();
 
           await waitForChartDataDeletion(page);
@@ -212,14 +212,14 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Heartbeat vitals', () => {
       test('User can add, view and remove heartbeat observation', async () => {
-        await test.step('Add heartbeat observation', async () => {
+        await test.step('VIT-2.1 Add heartbeat observation', async () => {
           await vitalsPage.addHeartbeatObservation(HEARTBEAT_BPM);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedHeartbeatObservationInHistory(HEARTBEAT_BPM);
           await vitalsPage.checkAddedHeartbeatIsShownInHeader(HEARTBEAT_BPM);
         });
 
-        await test.step('Verify heartbeat in progress note', async () => {
+        await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -232,7 +232,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete heartbeat observation', async () => {
+        await test.step('VIT-2.3 Delete heartbeat observation', async () => {
           await vitalsPage.removeHeartbeatObservationFromHistory();
           await waitForChartDataDeletion(page);
 
@@ -243,14 +243,14 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Respiration Rate vitals', () => {
       test('User can add, view and remove respiration rate observation', async () => {
-        await test.step('Add respiration rate observation', async () => {
+        await test.step('VIT-3.1 Add respiration rate observation', async () => {
           await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedRespirationRateObservationInHistory(RESPIRATION_RATE);
           await vitalsPage.checkAddedRespirationRateIsShownInHeader(RESPIRATION_RATE);
         });
 
-        await test.step('Verify respiration rate in progress note', async () => {
+        await test.step('VIT-3.2 Verify respiration rate in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -263,7 +263,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete respiration rate observation', async () => {
+        await test.step('VIT-3.3 Delete respiration rate observation', async () => {
           await vitalsPage.removeRespirationRateObservationFromHistory();
           await waitForChartDataDeletion(page);
 
@@ -274,7 +274,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Blood Pressure vitals', () => {
       test('User can add, view and remove blood pressure observation', async () => {
-        await test.step('Add blood pressure observation', async () => {
+        await test.step('VIT-4.1 Add blood pressure observation', async () => {
           await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedBloodPressureObservationInHistory(
@@ -284,7 +284,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await vitalsPage.checkAddedBloodPressureIsShownInHeader(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
         });
 
-        await test.step('Verify blood pressure in progress note', async () => {
+        await test.step('VIT-4.2 Verify blood pressure in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -297,7 +297,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete blood pressure observation', async () => {
+        await test.step('VIT-4.3 Delete blood pressure observation', async () => {
           await vitalsPage.removeBloodPressureObservationFromHistory();
           await waitForChartDataDeletion(page);
 
@@ -310,14 +310,14 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Oxygen Saturation vitals', () => {
       test('User can add, view and remove oxygen saturation observation', async () => {
-        await test.step('Add oxygen saturation observation', async () => {
+        await test.step('VIT-5.1 Add oxygen saturation observation', async () => {
           await vitalsPage.addOxygenSaturationObservation(OXYGEN_SAT);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedOxygenSaturationObservationInHistory(OXYGEN_SAT);
           await vitalsPage.checkAddedOxygenSaturationIsShownInHeader(OXYGEN_SAT);
         });
 
-        await test.step('Verify oxygen saturation in progress note', async () => {
+        await test.step('VIT-5.2 Verify oxygen saturation in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -330,7 +330,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete oxygen saturation observation', async () => {
+        await test.step('VIT-5.3 Delete oxygen saturation observation', async () => {
           await vitalsPage.removeOxygenSaturationObservationFromHistory();
           await waitForChartDataDeletion(page);
 
@@ -341,14 +341,14 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Weight vitals', () => {
       test('User can add, view and remove weight observation', async () => {
-        await test.step('Add weight observation', async () => {
+        await test.step('VIT-6.1 Add weight observation', async () => {
           await vitalsPage.addWeightObservation(WEIGHT_KG);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedWeightObservationInHistory(WEIGHT_KG);
           await vitalsPage.checkAddedWeightIsShownInHeader(WEIGHT_KG);
         });
 
-        await test.step('Verify weight in progress note', async () => {
+        await test.step('VIT-6.2 Verify weight in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -361,7 +361,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete weight observation', async () => {
+        await test.step('VIT-6.3 Delete weight observation', async () => {
           await vitalsPage.removeWeightObservationFromHistory();
           await waitForChartDataDeletion(page);
 
@@ -370,14 +370,14 @@ test.describe('In-Person Visit Chart Data', async () => {
       });
 
       test('User can add weight observation with Patient Refused option', async () => {
-        await test.step('Add weight observation with Patient Refused', async () => {
+        await test.step('VIT-7.1 Add weight observation with Patient Refused', async () => {
           await vitalsPage.addWeightObservationPatientRefused();
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkPatientRefusedInHistory();
           await vitalsPage.checkAddedWeightIsShownInHeader('Patient Refused');
         });
 
-        await test.step('Verify Patient Refused in progress note', async () => {
+        await test.step('VIT-7.2 Verify Patient Refused in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -393,7 +393,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete Patient Refused weight observation', async () => {
+        await test.step('VIT-7.3 Delete Patient Refused weight observation', async () => {
           await vitalsPage.removeWeightObservationFromHistory();
           await waitForChartDataDeletion(page);
           await expect(
@@ -405,13 +405,13 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Height vitals', () => {
       test('User can add, view and remove height observation', async () => {
-        await test.step('Add height observation', async () => {
+        await test.step('VIT-8.1 Add height observation', async () => {
           await vitalsPage.addHeightObservation(HEIGHT_CM);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedHeightObservationInHistory(HEIGHT_CM);
         });
 
-        await test.step('Verify height in progress note', async () => {
+        await test.step('VIT-8.2 Verify height in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -424,7 +424,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete height observation', async () => {
+        await test.step('VIT-8.3 Delete height observation', async () => {
           await vitalsPage.removeHeightObservationFromHistory();
           await waitForChartDataDeletion(page);
 
@@ -435,13 +435,13 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Vision vitals', () => {
       test('User can add, view and remove vision observation', async () => {
-        await test.step('Add vision observation', async () => {
+        await test.step('VIT-9.1 Add vision observation', async () => {
           await vitalsPage.addVisionObservation(VISION_LEFT, VISION_RIGHT);
           await waitForSaveChartDataResponse(page);
           await vitalsPage.checkAddedVisionObservationInHistory(VISION_LEFT, VISION_RIGHT);
         });
 
-        await test.step('Verify vision in progress note', async () => {
+        await test.step('VIT-9.2 Verify vision in progress note', async () => {
           await sideMenu.clickReviewAndSign();
           await progressNotePage.expectLoaded();
 
@@ -455,7 +455,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await sideMenu.clickVitals();
         });
 
-        await test.step('Delete vision observation', async () => {
+        await test.step('VIT-9.3 Delete vision observation', async () => {
           await vitalsPage.removeVisionObservationFromHistory();
           await waitForChartDataDeletion(page);
 
