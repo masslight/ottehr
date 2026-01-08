@@ -4,7 +4,7 @@ import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils';
-import { BRANDING_CONFIG, getAllPractitionerCredentials, getQuestionnaireResponseByLinkId } from 'utils';
+import { getAllPractitionerCredentials, getQuestionnaireResponseByLinkId } from 'utils';
 import {
   ExcuseFormValues,
   getDefaultExcuseFormValues,
@@ -23,10 +23,11 @@ type GenerateExcuseDialogExtendedProps = {
   onClose: () => void;
   type: keyof typeof mapExcuseTypeToFields;
   generate: ReturnType<typeof useSaveChartData>['mutate'];
+  supportPhoneNumber?: string;
 };
 
 export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (props) => {
-  const { open, onClose, type, generate } = props;
+  const { open, onClose, type, generate, supportPhoneNumber } = props;
   const fields = mapExcuseTypeToFields[type];
   const isSchool = ['schoolTemplate', 'schoolFree'].includes(type);
   const isTemplate = ['schoolTemplate', 'workTemplate'].includes(type);
@@ -56,7 +57,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       parentName: fullParentName,
       providerName: user?.userName,
       suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
-      phoneNumber: BRANDING_CONFIG.email.supportPhoneNumber,
+      phoneNumber: supportPhoneNumber,
     }),
   });
   const { handleSubmit, getValues, setValue } = methods;
