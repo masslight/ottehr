@@ -458,7 +458,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 10_000));
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
       }
 
       throw new Error("Appointment wasn't preprocessed");
@@ -493,7 +493,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 10_000));
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
       }
 
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
@@ -536,7 +536,7 @@ export class ResourceHandler {
           console.log(`Still waiting for Lists: ${missingLists.join(', ')} (attempt ${i + 1}/30)`);
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 10_000));
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
       }
 
       throw new Error(`Lists not indexed after 15 seconds: ${requiredLists.join(', ')}`);
