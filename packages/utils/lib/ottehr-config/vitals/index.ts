@@ -88,8 +88,8 @@ const VitalsConfig = {
       },
       {
         rules: [
-          { type: 'min', units: 'bpm', value: 60 },
-          { type: 'max', units: 'bpm', value: 120 },
+          { type: 'min', units: 'bpm', value: 61 },
+          { type: 'max', units: 'bpm', value: 121 },
         ],
         minAge: { unit: 'months', value: 144 },
         maxAge: { unit: 'months', value: 180 },
@@ -173,7 +173,10 @@ const VitalsConfig = {
   'vital-oxygen-sat': {
     alertThresholds: [
       {
-        rules: [{ type: 'min', units: '', value: 95 }],
+        rules: [
+          { type: 'min', units: '', value: 95 },
+          { type: 'max', units: '', value: 101 },
+        ],
       },
     ],
   },
@@ -194,6 +197,11 @@ const VitalsConfig = {
           {
             rules: [{ type: 'min', units: '', value: 90 }],
             minAge: { unit: 'months', value: 108 },
+          },
+          {
+            rules: [{ type: 'max', units: '', value: 400 }],
+            minAge: { unit: 'months', value: 0 },
+            maxAge: { unit: 'months', value: 216 },
           },
           {
             rules: [{ type: 'max', units: '', value: 140 }],
