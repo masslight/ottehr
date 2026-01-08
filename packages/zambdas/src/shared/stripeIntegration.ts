@@ -61,6 +61,7 @@ interface EnsureStripeCustomerIdParams {
   account: Account;
   patientId: string;
   stripeClient: Stripe;
+  stripeAccount?: string;
 }
 
 export const ensureStripeCustomerId = async (
@@ -70,13 +71,12 @@ export const ensureStripeCustomerId = async (
   updatedAccount: Account;
   customerId: string;
 }> => {
-  const { guarantorResource: guarantor, account, patientId, stripeClient } = params;
+  const { guarantorResource: guarantor, account, patientId, stripeClient, stripeAccount } = params;
   if (!account.id) {
     throw new Error('Account ID is not defined');
   }
 
-  // Placeholder function to be implemented later
-  let customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+  let customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
 
   let updatedAccount = account;
   if (customerId === undefined) {
@@ -88,10 +88,12 @@ export const ensureStripeCustomerId = async (
           oystehr_patient_id: patientId,
         },
       },
-      undefined
+      {
+        stripeAccount, // Connected account ID if any
+      }
     );
     const op = 'add';
-    let value: Identifier | Identifier[] = makeStripeCustomerId(customer.id);
+    let value: Identifier | Identifier[] = makeStripeCustomerId(customer.id, stripeAccount);
     let path = '/identifier/-';
     if (account.identifier === undefined) {
       value = [value];

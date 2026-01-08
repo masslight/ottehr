@@ -9,6 +9,7 @@ import { ExcuseLink } from './ExcuseLink';
 
 type ExcuseCardProps = {
   label: string;
+  type: 'school' | 'work';
   excuse?: SchoolWorkNoteExcuseDocFileDTO & { presignedUrl?: string };
   isLoading: boolean;
   onDelete: (id: string) => void;
@@ -19,7 +20,8 @@ type ExcuseCardProps = {
 };
 
 export const ExcuseCard: FC<ExcuseCardProps> = (props) => {
-  const { label, excuse, isLoading, onDelete, onPublish, generateTemplateOpen, generateFreeOpen, disabled } = props;
+  const { label, type, excuse, isLoading, onDelete, onPublish, generateTemplateOpen, generateFreeOpen, disabled } =
+    props;
 
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -44,6 +46,7 @@ export const ExcuseCard: FC<ExcuseCardProps> = (props) => {
             to={excuse.presignedUrl!}
             onDelete={disabled ? undefined : () => onDelete(excuse.id)}
             disabled={isLoading}
+            data-testid={type === 'school' ? 'school' : 'work'}
           />
           <Typography>
             Generated: {DateTime.fromISO(excuse.date!).toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-us' })}
@@ -60,6 +63,7 @@ export const ExcuseCard: FC<ExcuseCardProps> = (props) => {
               variant="contained"
               disabled={excuse.published || isLoading || disabled}
               onClick={() => onPublish(excuse.id)}
+              data-testid={type === 'school' ? 'publish-school-button' : 'publish-work-button'}
             >
               {excuse.published ? 'Published' : 'Publish now'}
             </RoundedButton>
@@ -93,7 +97,11 @@ export const ExcuseCard: FC<ExcuseCardProps> = (props) => {
           <RoundedButton onClick={() => generateTemplateOpen(true)} disabled={isLoading || disabled}>
             Generate to the template
           </RoundedButton>
-          <RoundedButton onClick={() => generateFreeOpen(true)} disabled={isLoading || disabled}>
+          <RoundedButton
+            onClick={() => generateFreeOpen(true)}
+            disabled={isLoading || disabled}
+            data-testid={type === 'school' ? 'generate-school-free-button' : 'generate-work-free-button'}
+          >
             Free format note
           </RoundedButton>
         </Box>

@@ -158,6 +158,14 @@ jobs:
           for app in ehr intake; do
             setup_env "$app"
           done
+
+      - name: Restore seed data cache
+        if: needs.check-changes.outputs.environment == 'local' || needs.check-changes.outputs.environment == 'e2e'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: apps/ehr/tests/e2e-utils/seed-data/resources/
+          key: seed-data-${{ needs.check-changes.outputs.environment }}-${{ github.sha }}-${{ github.run_id }}
+          fail-on-cache-miss: true
       
       - name: Run E2E tests
         run: |

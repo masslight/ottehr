@@ -30,8 +30,11 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
   }, [error]);
 
   const isEditable = canEditMedication(medication);
+  // Delete is available for all statuses, edit only for pending
+  const showEdit = isEditable;
+  const showDelete = true;
 
-  if (!isEditable) {
+  if (!showEdit && !showDelete) {
     return null;
   }
 
@@ -50,8 +53,7 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
     try {
       await deleteMedication(medication.id);
       setIsDeleteDialogOpen(false);
-    } catch (error) {
-      console.error('Error deleting medication:', error);
+    } catch {
       setError('An error occurred while deleting the medication. Please try again.');
     }
     setIsDeleting(false);
@@ -74,12 +76,16 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
 
   return (
     <Box onClick={(e) => e.stopPropagation()}>
-      <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
-        <EditIcon sx={{ color: theme.palette.primary.dark }} />
-      </IconButton>
-      <IconButton size="small" aria-label="delete" onClick={handleDeleteClick}>
-        <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
-      </IconButton>
+      {showEdit && (
+        <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
+          <EditIcon sx={{ color: theme.palette.primary.dark }} />
+        </IconButton>
+      )}
+      {showDelete && (
+        <IconButton size="small" aria-label="delete" onClick={handleDeleteClick}>
+          <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
+        </IconButton>
+      )}
       <CustomDialog
         open={isDeleteDialogOpen}
         handleClose={handleCloseDeleteDialog}

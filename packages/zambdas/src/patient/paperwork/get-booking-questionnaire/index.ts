@@ -4,9 +4,9 @@ import { Patient, Questionnaire, QuestionnaireResponse, Slot, ValueSet } from 'f
 import {
   BOOKING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
-  GetQuestionnaireParams,
-  GetQuestionnaireParamsSchema,
-  GetQuestionnaireResponse,
+  GetBookingQuestionnaireParams,
+  GetBookingQuestionnaireParamsSchema,
+  GetBookingQuestionnaireResponse,
   getSecret,
   getServiceCategoryFromSlot,
   getServiceModeFromSlot,
@@ -41,13 +41,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
-    // const z3Client = createZ3Client(oystehrToken, secrets);
-    // const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
 
     const effectInput = await complexValidation(validatedParams, oystehr);
 
     console.time('perform-effect');
-    const response = await performEffect(effectInput, oystehr);
+    const response = await performEffect(effectInput);
     console.timeEnd('perform-effect');
 
     return {
@@ -60,27 +58,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetQuestionnaireResponse> => {
-  const { qUrl, qVersion, patient, templateQuestionnaire, serviceCategoryCode, serviceMode } = input;
-
-  // if the ENV is local, we pass in a template questionnaire directly, otherwise we fetch it from Oystehr
-  const questionnaire =
-    templateQuestionnaire ??
-    (
-      await oystehr.fhir.search<Questionnaire>({
-        resourceType: 'Questionnaire',
-        params: [
-          {
-            name: 'url',
-            value: qUrl,
-          },
-          {
-            name: 'version',
-            value: qVersion,
-          },
-        ],
-      })
-    ).unbundle()[0];
+const performEffect = async (input: EffectInput): Promise<GetBookingQuestionnaireResponse> => {
+  const { patient, questionnaire, serviceCategoryCode, serviceMode } = input;
   const items = questionnaire.item || [];
 
   // todo: derive the value sets needed by examining the questionnaire items
@@ -139,15 +118,15 @@ const validateUserAccess = async (input: AccessValidationInput): Promise<Access_
   return Access_Level.anonymous;
 };
 
-type ValidatedInput = GetQuestionnaireParams & { secrets: Secrets | null; userToken: string | null };
+type ValidatedInput = GetBookingQuestionnaireParams & { secrets: Secrets | null; userToken: string | null };
 const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  let parsed: GetQuestionnaireParams;
+  let parsed: GetBookingQuestionnaireParams;
   try {
-    parsed = GetQuestionnaireParamsSchema.parse(JSON.parse(input.body));
+    parsed = GetBookingQuestionnaireParamsSchema.parse(JSON.parse(input.body));
   } catch (e: any) {
     throw INVALID_INPUT_ERROR(e.message);
   }
@@ -162,11 +141,9 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
 };
 
 interface EffectInput {
-  qUrl: string;
-  qVersion: string;
   serviceMode: ServiceMode;
   serviceCategoryCode: ServiceCategoryCode;
-  templateQuestionnaire?: Questionnaire;
+  questionnaire: Questionnaire;
   patient?: Patient;
 }
 
@@ -186,9 +163,9 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
     throw new Error('Could not determine service mode from slot');
   }
 
-  const { url: qUrl, version: qVersion, templateQuestionnaire } = BOOKING_CONFIG.selectBookingQuestionnaire(slot);
+  const { templateQuestionnaire } = BOOKING_CONFIG.selectBookingQuestionnaire(slot);
 
-  if (!qUrl || !qVersion || !templateQuestionnaire) {
+  if (!templateQuestionnaire) {
     throw INVALID_INPUT_ERROR(
       'A canonical URL could not be resolved from the provided slotId. Check system configuration.'
     );
@@ -219,14 +196,10 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
     }
   }
 
-  const isLocal = getSecret('ENVIRONMENT', secrets) === 'local';
-
   return {
     serviceCategoryCode,
     serviceMode,
-    qUrl,
-    qVersion,
     patient,
-    templateQuestionnaire: isLocal ? templateQuestionnaire : undefined,
+    questionnaire: templateQuestionnaire,
   };
 };

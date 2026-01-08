@@ -30,6 +30,8 @@ import {
   REFLEX_ARTIFACT_DISPLAY,
   Secrets,
   SecretsKeys,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -299,12 +301,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 name: 'code',
                 value: `${IN_HOUSE_TEST_CODE_SYSTEM}|`,
               },
+              {
+                name: '_sort',
+                value: '-_lastUpdated',
+              },
             ],
           })
         ).unbundle();
-        const parentRequest = serviceRequestSearch.find(
-          (sr) => sr.instantiatesCanonical?.some((url) => url === parentTestCanonicalUrl)
-        );
+        const parentRequest = serviceRequestSearch.find((sr) => {
+          const isParentTest = sr.instantiatesCanonical?.some((url) => url === parentTestCanonicalUrl);
+          const hasPendingTestTag = sr.meta?.tag?.find(
+            (t) =>
+              t.system === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM &&
+              t.code === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending
+          );
+          return isParentTest && hasPendingTestTag;
+        });
         console.log('parentRequest', parentRequest?.id);
         return parentRequest;
       }

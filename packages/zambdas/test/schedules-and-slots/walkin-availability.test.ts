@@ -168,7 +168,7 @@ describe('walkin availability tests', () => {
     // apply period closure
     const closedForAPeriodSchedule = addClosurePeriod(
       adjustedScheduleJSON,
-      timeNow.minus({ days: 1 }).startOf('day'),
+      startOfDayWithTimezone({ date: timeNow.minus({ days: 1 }) }),
       2
     );
     walkinOpen = isWalkinOpen(closedForAPeriodSchedule, timezone, timeNow);

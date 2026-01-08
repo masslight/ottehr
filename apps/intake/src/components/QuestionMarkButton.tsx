@@ -9,7 +9,7 @@ export const QuestionMarkButton = ({ onClick }: QuestionMarkButtonProps): JSX.El
   return (
     <IconButton
       aria-label="Help button"
-      color="primary"
+      color="secondary"
       sx={{
         backgroundColor: 'white',
         '&:hover': {

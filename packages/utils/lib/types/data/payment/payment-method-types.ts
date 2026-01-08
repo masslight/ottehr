@@ -1,6 +1,7 @@
 import { Stripe } from 'stripe';
 interface PaymentMethodPatientParameters {
   beneficiaryPatientId: string;
+  appointmentId: string;
 }
 
 interface PaymentMethodParameters {
@@ -22,4 +23,9 @@ export interface CreditCardInfo {
 }
 export interface ListPaymentMethodsZambdaOutput {
   cards: CreditCardInfo[];
+}
+
+export interface PaymentMethodSetupZambdaOutput {
+  clientSecret: string;
+  stripeAccount: string | undefined;
 }
