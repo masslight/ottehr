@@ -236,14 +236,20 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         </RadioGroup>
       </Box>
 
-      <Elements stripe={stripePromise} options={{ clientSecret: setupData?.clientSecret || '' }}>
-        <AddCreditCardForm
-          clientSecret={setupData?.clientSecret || ''}
-          isLoading={disabled}
-          disabled={disabled}
-          selectPaymentMethod={handleNewPaymentMethod}
-        />
-      </Elements>
+      {disabled ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Elements stripe={stripePromise} options={{ clientSecret: setupData?.clientSecret || '' }}>
+          <AddCreditCardForm
+            clientSecret={setupData?.clientSecret || ''}
+            isLoading={disabled}
+            disabled={disabled}
+            selectPaymentMethod={handleNewPaymentMethod}
+          />
+        </Elements>
+      )}
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         open={errorMessage !== undefined}
