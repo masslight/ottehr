@@ -52,7 +52,7 @@ const ReferenceDataSourceSchema = z
   );
 const FormFieldsLogicalFieldSchema = z.object({
   key: z.string(),
-  type: z.enum(['string', 'date', 'boolean', 'choice']),
+  type: z.enum(['string', 'date', 'boolean', 'choice', 'open-choice']),
   required: z.boolean().optional().default(true),
   dataType: QuestionnaireDataTypeSchema.optional(),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
