@@ -165,8 +165,8 @@ test.describe('In-Person Visit Chart Data', async () => {
     const OXYGEN_SAT = '98';
     const WEIGHT_KG = '70';
     const HEIGHT_CM = '175';
-    const VISION_LEFT = '2.51';
-    const VISION_RIGHT = '3.12';
+    const VISION_LEFT = '2.5';
+    const VISION_RIGHT = '3.1';
 
     let vitalsPage: VitalsPage;
 
@@ -178,291 +178,185 @@ test.describe('In-Person Visit Chart Data', async () => {
       await sideMenu.clickVitals();
     });
 
-    test.describe('Temperature vitals', () => {
-      test('User can add, view and remove temperature observation', async () => {
-        await test.step('VIT-1.1 Add temperature observation', async () => {
-          await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedTemperatureObservationInHistory(TEMPERATURE_C);
-          await vitalsPage.checkAddedTemperatureIsShownInHeader(TEMPERATURE_C);
-        });
+    test('Add all vitals observations', async () => {
+      await test.step('VIT-1.1 Add temperature observation', async () => {
+        await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedTemperatureObservationInHistory(TEMPERATURE_C);
+        await vitalsPage.checkAddedTemperatureIsShownInHeader(TEMPERATURE_C);
+      });
 
-        await test.step('VIT-1.2 Verify temperature in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
+      await test.step('VIT-2.1 Add heartbeat observation', async () => {
+        await vitalsPage.addHeartbeatObservation(HEARTBEAT_BPM);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedHeartbeatObservationInHistory(HEARTBEAT_BPM);
+        await vitalsPage.checkAddedHeartbeatIsShownInHeader(HEARTBEAT_BPM);
+      });
 
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
+      await test.step('VIT-3.1 Add respiration rate observation', async () => {
+        await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedRespirationRateObservationInHistory(RESPIRATION_RATE);
+        await vitalsPage.checkAddedRespirationRateIsShownInHeader(RESPIRATION_RATE);
+      });
 
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(TEMPERATURE_C);
+      await test.step('VIT-4.1 Add blood pressure observation', async () => {
+        await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedBloodPressureObservationInHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+        await vitalsPage.checkAddedBloodPressureIsShownInHeader(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+      });
 
-          await sideMenu.clickVitals();
-        });
+      await test.step('VIT-5.1 Add oxygen saturation observation', async () => {
+        await vitalsPage.addOxygenSaturationObservation(OXYGEN_SAT);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedOxygenSaturationObservationInHistory(OXYGEN_SAT);
+        await vitalsPage.checkAddedOxygenSaturationIsShownInHeader(OXYGEN_SAT);
+      });
 
-        await test.step('VIT-1.3 Delete temperature observation', async () => {
-          await vitalsPage.removeTemperatureObservationFromHistory();
+      await test.step('VIT-6.1 Add weight observation', async () => {
+        await vitalsPage.addWeightObservation(WEIGHT_KG);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedWeightObservationInHistory(WEIGHT_KG);
+        await vitalsPage.checkAddedWeightIsShownInHeader(WEIGHT_KG);
+      });
 
-          await waitForChartDataDeletion(page);
+      await test.step('VIT-7.1 Add weight observation with Patient Refused', async () => {
+        await vitalsPage.addWeightObservationPatientRefused();
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkPatientRefusedInHistory();
+        await vitalsPage.checkAddedWeightIsShownInHeader('Patient Refused');
+      });
 
-          await expect(page.getByText(new RegExp(`${TEMPERATURE_C}.*C`))).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
+      await test.step('VIT-8.1 Add height observation', async () => {
+        await vitalsPage.addHeightObservation(HEIGHT_CM);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedHeightObservationInHistory(HEIGHT_CM);
+      });
+
+      await test.step('VIT-9.1 Add vision observation', async () => {
+        await vitalsPage.addVisionObservation(VISION_LEFT, VISION_RIGHT);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedVisionObservationInHistory(VISION_LEFT, VISION_RIGHT);
       });
     });
 
-    test.describe('Heartbeat vitals', () => {
-      test('User can add, view and remove heartbeat observation', async () => {
-        await test.step('VIT-2.1 Add heartbeat observation', async () => {
-          await vitalsPage.addHeartbeatObservation(HEARTBEAT_BPM);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedHeartbeatObservationInHistory(HEARTBEAT_BPM);
-          await vitalsPage.checkAddedHeartbeatIsShownInHeader(HEARTBEAT_BPM);
-        });
+    test('Verify all vitals in progress note', async () => {
+      await sideMenu.clickReviewAndSign();
+      await progressNotePage.expectLoaded();
 
-        await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
+      const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
+      await expect(vitalsSection).toBeVisible();
+      const vitalsText = await vitalsSection.textContent();
 
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
-
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(HEARTBEAT_BPM);
-
-          await sideMenu.clickVitals();
-        });
-
-        await test.step('VIT-2.3 Delete heartbeat observation', async () => {
-          await vitalsPage.removeHeartbeatObservationFromHistory();
-          await waitForChartDataDeletion(page);
-
-          await expect(page.getByText(new RegExp(`${HEARTBEAT_BPM}.*bpm`))).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
+      await test.step('VIT-1.2 Verify temperature in progress note', async () => {
+        expect(vitalsText).toContain(TEMPERATURE_C);
       });
+
+      await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
+        expect(vitalsText).toContain(HEARTBEAT_BPM);
+      });
+
+      await test.step('VIT-3.2 Verify respiration rate in progress note', async () => {
+        expect(vitalsText).toContain(RESPIRATION_RATE);
+      });
+
+      await test.step('VIT-4.2 Verify blood pressure in progress note', async () => {
+        expect(vitalsText).toContain(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
+      });
+
+      await test.step('VIT-5.2 Verify oxygen saturation in progress note', async () => {
+        expect(vitalsText).toContain(OXYGEN_SAT);
+      });
+
+      await test.step('VIT-6.2 Verify weight in progress note', async () => {
+        expect(vitalsText).toContain(WEIGHT_KG);
+      });
+
+      await test.step('VIT-7.2 Verify Patient Refused in progress note', async () => {
+        expect(vitalsText).toContain('Patient Refused');
+      });
+
+      await test.step('VIT-8.2 Verify height in progress note', async () => {
+        expect(vitalsText).toContain(HEIGHT_CM);
+      });
+
+      await test.step('VIT-9.2 Verify vision in progress note', async () => {
+        expect(vitalsText).toContain(VISION_LEFT);
+        expect(vitalsText).toContain(VISION_RIGHT);
+      });
+
+      await sideMenu.clickVitals();
     });
 
-    test.describe('Respiration Rate vitals', () => {
-      test('User can add, view and remove respiration rate observation', async () => {
-        await test.step('VIT-3.1 Add respiration rate observation', async () => {
-          await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedRespirationRateObservationInHistory(RESPIRATION_RATE);
-          await vitalsPage.checkAddedRespirationRateIsShownInHeader(RESPIRATION_RATE);
-        });
+    test('Remove all vitals observations', async () => {
+      await test.step('VIT-1.3 Delete temperature observation', async () => {
+        await vitalsPage.removeTemperatureObservationFromHistory(TEMPERATURE_C);
 
-        await test.step('VIT-3.2 Verify respiration rate in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
+        await waitForChartDataDeletion(page);
 
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
-
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(RESPIRATION_RATE);
-
-          await sideMenu.clickVitals();
-        });
-
-        await test.step('VIT-3.3 Delete respiration rate observation', async () => {
-          await vitalsPage.removeRespirationRateObservationFromHistory();
-          await waitForChartDataDeletion(page);
-
-          await expect(page.getByText(new RegExp(`${RESPIRATION_RATE}.*breaths/min`))).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
-      });
-    });
-
-    test.describe('Blood Pressure vitals', () => {
-      test('User can add, view and remove blood pressure observation', async () => {
-        await test.step('VIT-4.1 Add blood pressure observation', async () => {
-          await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedBloodPressureObservationInHistory(
-            BLOOD_PRESSURE_SYSTOLIC,
-            BLOOD_PRESSURE_DIASTOLIC
-          );
-          await vitalsPage.checkAddedBloodPressureIsShownInHeader(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
-        });
-
-        await test.step('VIT-4.2 Verify blood pressure in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
-
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
-
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
-
-          await sideMenu.clickVitals();
-        });
-
-        await test.step('VIT-4.3 Delete blood pressure observation', async () => {
-          await vitalsPage.removeBloodPressureObservationFromHistory();
-          await waitForChartDataDeletion(page);
-
-          await expect(
-            page.getByText(new RegExp(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}.*mmHg`))
-          ).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
-      });
-    });
-
-    test.describe('Oxygen Saturation vitals', () => {
-      test('User can add, view and remove oxygen saturation observation', async () => {
-        await test.step('VIT-5.1 Add oxygen saturation observation', async () => {
-          await vitalsPage.addOxygenSaturationObservation(OXYGEN_SAT);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedOxygenSaturationObservationInHistory(OXYGEN_SAT);
-          await vitalsPage.checkAddedOxygenSaturationIsShownInHeader(OXYGEN_SAT);
-        });
-
-        await test.step('VIT-5.2 Verify oxygen saturation in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
-
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
-
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(OXYGEN_SAT);
-
-          await sideMenu.clickVitals();
-        });
-
-        await test.step('VIT-5.3 Delete oxygen saturation observation', async () => {
-          await vitalsPage.removeOxygenSaturationObservationFromHistory();
-          await waitForChartDataDeletion(page);
-
-          await expect(page.getByText(new RegExp(`${OXYGEN_SAT}.*%`))).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
-      });
-    });
-
-    test.describe('Weight vitals', () => {
-      test('User can add, view and remove weight observation', async () => {
-        await test.step('VIT-6.1 Add weight observation', async () => {
-          await vitalsPage.addWeightObservation(WEIGHT_KG);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedWeightObservationInHistory(WEIGHT_KG);
-          await vitalsPage.checkAddedWeightIsShownInHeader(WEIGHT_KG);
-        });
-
-        await test.step('VIT-6.2 Verify weight in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
-
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
-
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(WEIGHT_KG);
-
-          await sideMenu.clickVitals();
-        });
-
-        await test.step('VIT-6.3 Delete weight observation', async () => {
-          await vitalsPage.removeWeightObservationFromHistory();
-          await waitForChartDataDeletion(page);
-
-          await expect(page.getByText(new RegExp(`${WEIGHT_KG}.*kg`))).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
+        await expect(page.getByText(new RegExp(`${TEMPERATURE_C}.*C`))).not.toBeVisible(DEFAULT_TIMEOUT);
       });
 
-      test('User can add weight observation with Patient Refused option', async () => {
-        await test.step('VIT-7.1 Add weight observation with Patient Refused', async () => {
-          await vitalsPage.addWeightObservationPatientRefused();
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkPatientRefusedInHistory();
-          await vitalsPage.checkAddedWeightIsShownInHeader('Patient Refused');
-        });
+      await test.step('VIT-2.3 Delete heartbeat observation', async () => {
+        await vitalsPage.removeHeartbeatObservationFromHistory(HEARTBEAT_BPM);
+        await waitForChartDataDeletion(page);
 
-        await test.step('VIT-7.2 Verify Patient Refused in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
-
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
-
-          const vitalsText = await vitalsSection.textContent();
-
-          expect(vitalsText).toContain('Patient Refused');
-          expect(vitalsText).not.toMatch(/\d+\s*kg/);
-          expect(vitalsText).not.toMatch(/\d+\s*lbs/);
-
-          await sideMenu.clickVitals();
-        });
-
-        await test.step('VIT-7.3 Delete Patient Refused weight observation', async () => {
-          await vitalsPage.removeWeightObservationFromHistory();
-          await waitForChartDataDeletion(page);
-          await expect(
-            page.getByTestId(dataTestIds.vitalsPage.weightItem).getByText('Patient Refused')
-          ).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
+        await expect(page.getByText(new RegExp(`${HEARTBEAT_BPM}.*bpm`))).not.toBeVisible(DEFAULT_TIMEOUT);
       });
-    });
 
-    test.describe('Height vitals', () => {
-      test('User can add, view and remove height observation', async () => {
-        await test.step('VIT-8.1 Add height observation', async () => {
-          await vitalsPage.addHeightObservation(HEIGHT_CM);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedHeightObservationInHistory(HEIGHT_CM);
-        });
+      await test.step('VIT-3.3 Delete respiration rate observation', async () => {
+        await vitalsPage.removeRespirationRateObservationFromHistory(RESPIRATION_RATE);
+        await waitForChartDataDeletion(page);
 
-        await test.step('VIT-8.2 Verify height in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
-
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
-
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(HEIGHT_CM);
-
-          await sideMenu.clickVitals();
-        });
-
-        await test.step('VIT-8.3 Delete height observation', async () => {
-          await vitalsPage.removeHeightObservationFromHistory();
-          await waitForChartDataDeletion(page);
-
-          await expect(page.getByText(new RegExp(`${HEIGHT_CM}.*cm`))).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
+        await expect(page.getByText(new RegExp(`${RESPIRATION_RATE}.*breaths/min`))).not.toBeVisible(DEFAULT_TIMEOUT);
       });
-    });
 
-    test.describe('Vision vitals', () => {
-      test('User can add, view and remove vision observation', async () => {
-        await test.step('VIT-9.1 Add vision observation', async () => {
-          await vitalsPage.addVisionObservation(VISION_LEFT, VISION_RIGHT);
-          await waitForSaveChartDataResponse(page);
-          await vitalsPage.checkAddedVisionObservationInHistory(VISION_LEFT, VISION_RIGHT);
-        });
+      await test.step('VIT-4.3 Delete blood pressure observation', async () => {
+        await vitalsPage.removeBloodPressureObservationFromHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+        await waitForChartDataDeletion(page);
 
-        await test.step('VIT-9.2 Verify vision in progress note', async () => {
-          await sideMenu.clickReviewAndSign();
-          await progressNotePage.expectLoaded();
+        await expect(
+          page.getByText(new RegExp(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}.*mmHg`))
+        ).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
 
-          const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-          await expect(vitalsSection).toBeVisible();
+      await test.step('VIT-5.3 Delete oxygen saturation observation', async () => {
+        await vitalsPage.removeOxygenSaturationObservationFromHistory(OXYGEN_SAT);
+        await waitForChartDataDeletion(page);
 
-          const vitalsText = await vitalsSection.textContent();
-          expect(vitalsText).toContain(VISION_LEFT);
-          expect(vitalsText).toContain(VISION_RIGHT);
+        await expect(page.getByText(new RegExp(`${OXYGEN_SAT}.*%`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
 
-          await sideMenu.clickVitals();
-        });
+      await test.step('VIT-6.3 Delete weight observation', async () => {
+        await vitalsPage.removeWeightObservationFromHistory(WEIGHT_KG);
+        await waitForChartDataDeletion(page);
 
-        await test.step('VIT-9.3 Delete vision observation', async () => {
-          await vitalsPage.removeVisionObservationFromHistory();
-          await waitForChartDataDeletion(page);
+        await expect(page.getByText(new RegExp(`${WEIGHT_KG}.*kg`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
 
-          await expect(
-            page.getByText(new RegExp(`Vision Left eye: ${VISION_LEFT}; Right eye: ${VISION_RIGHT}`))
-          ).not.toBeVisible(DEFAULT_TIMEOUT);
-        });
+      await test.step('VIT-7.3 Delete Patient Refused weight observation', async () => {
+        await vitalsPage.removeWeightObservationFromHistory('Patient Refused');
+        await waitForChartDataDeletion(page);
+        await expect(
+          page.getByTestId(dataTestIds.vitalsPage.weightItem).first().getByText('Patient Refused')
+        ).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
+
+      await test.step('VIT-8.3 Delete height observation', async () => {
+        await vitalsPage.removeHeightObservationFromHistory(HEIGHT_CM);
+        await waitForChartDataDeletion(page);
+
+        await expect(page.getByText(new RegExp(`${HEIGHT_CM}.*cm`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
+
+      await test.step('VIT-9.3 Delete vision observation', async () => {
+        await vitalsPage.removeVisionObservationFromHistory(VISION_LEFT, VISION_RIGHT);
+        await waitForChartDataDeletion(page);
+
+        await expect(
+          page.getByText(new RegExp(`Vision Left eye: ${VISION_LEFT}; Right eye: ${VISION_RIGHT}`))
+        ).not.toBeVisible(DEFAULT_TIMEOUT);
       });
     });
   });

@@ -23,9 +23,10 @@ export class VitalsPage {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.temperatureHeader)).toContainText(temperature);
   }
 
-  async removeTemperatureObservationFromHistory(): Promise<void> {
+  async removeTemperatureObservationFromHistory(temperature: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.temperatureItem)
+      .filter({ hasText: temperature })
       .getByTestId(dataTestIds.deleteOutlinedIcon)
       .click();
     await this.#page
@@ -42,16 +43,17 @@ export class VitalsPage {
   }
 
   async checkAddedHeartbeatObservationInHistory(heartbeat: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heartbeatItem)).toContainText(heartbeat);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heartbeatItem).first()).toContainText(heartbeat);
   }
 
   async checkAddedHeartbeatIsShownInHeader(heartbeat: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heartbeatHeader)).toContainText(heartbeat);
   }
 
-  async removeHeartbeatObservationFromHistory(): Promise<void> {
+  async removeHeartbeatObservationFromHistory(heartbeat: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.heartbeatItem)
+      .filter({ hasText: heartbeat })
       .getByTestId(dataTestIds.deleteOutlinedIcon)
       .click();
     await this.#page
@@ -68,16 +70,19 @@ export class VitalsPage {
   }
 
   async checkAddedRespirationRateObservationInHistory(respirationRate: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.respirationRateItem)).toContainText(respirationRate);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.respirationRateItem).first()).toContainText(
+      respirationRate
+    );
   }
 
   async checkAddedRespirationRateIsShownInHeader(respirationRate: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.respirationRateHeader)).toContainText(respirationRate);
   }
 
-  async removeRespirationRateObservationFromHistory(): Promise<void> {
+  async removeRespirationRateObservationFromHistory(respirationRate: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.respirationRateItem)
+      .filter({ hasText: respirationRate })
       .getByTestId(dataTestIds.deleteOutlinedIcon)
       .click();
     await this.#page
@@ -98,7 +103,7 @@ export class VitalsPage {
   }
 
   async checkAddedBloodPressureObservationInHistory(systolic: string, diastolic: string): Promise<void> {
-    const item = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureItem);
+    const item = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureItem).first();
     await expect(item).toContainText(systolic);
     await expect(item).toContainText(diastolic);
   }
@@ -109,9 +114,10 @@ export class VitalsPage {
     await expect(header).toContainText(diastolic);
   }
 
-  async removeBloodPressureObservationFromHistory(): Promise<void> {
+  async removeBloodPressureObservationFromHistory(systolic: string, diastolic: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.bloodPressureItem)
+      .filter({ hasText: `${systolic}/${diastolic}` })
       .getByTestId(dataTestIds.deleteOutlinedIcon)
       .click();
     await this.#page
@@ -128,16 +134,17 @@ export class VitalsPage {
   }
 
   async checkAddedOxygenSaturationObservationInHistory(oxygenSat: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.oxygenSaturationItem)).toContainText(oxygenSat);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.oxygenSaturationItem).first()).toContainText(oxygenSat);
   }
 
   async checkAddedOxygenSaturationIsShownInHeader(oxygenSaturation: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.oxygenSaturationHeader)).toContainText(oxygenSaturation);
   }
 
-  async removeOxygenSaturationObservationFromHistory(): Promise<void> {
+  async removeOxygenSaturationObservationFromHistory(oxygenSaturation: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.oxygenSaturationItem)
+      .filter({ hasText: oxygenSaturation })
       .getByTestId(dataTestIds.deleteOutlinedIcon)
       .click();
     await this.#page
@@ -154,15 +161,19 @@ export class VitalsPage {
   }
 
   async checkAddedWeightObservationInHistory(weight: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem)).toContainText(weight);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).first()).toContainText(weight);
   }
 
   async checkAddedWeightIsShownInHeader(weight: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightHeader)).toContainText(weight);
   }
 
-  async removeWeightObservationFromHistory(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).getByTestId(dataTestIds.deleteOutlinedIcon).click();
+  async removeWeightObservationFromHistory(weight: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.weightItem)
+      .filter({ hasText: weight })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
       .getByTestId(dataTestIds.dialog.proceedButton)
@@ -178,7 +189,7 @@ export class VitalsPage {
   }
 
   async checkPatientRefusedInHistory(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem)).toContainText('Patient Refused');
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).first()).toContainText('Patient Refused');
   }
 
   async addHeightObservation(height: string): Promise<void> {
@@ -189,15 +200,19 @@ export class VitalsPage {
   }
 
   async checkAddedHeightObservationInHistory(height: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heightItem)).toContainText(height);
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heightItem).first()).toContainText(height);
   }
 
   async checkAddedHeightIsShownInHeader(height: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.heightHeader)).toContainText(height);
   }
 
-  async removeHeightObservationFromHistory(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vitalsPage.heightItem).getByTestId(dataTestIds.deleteOutlinedIcon).click();
+  async removeHeightObservationFromHistory(height: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.heightItem)
+      .filter({ hasText: height })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
       .getByTestId(dataTestIds.dialog.proceedButton)
@@ -216,7 +231,7 @@ export class VitalsPage {
   }
 
   async checkAddedVisionObservationInHistory(leftEye: string, rightEye: string): Promise<void> {
-    const item = this.#page.getByTestId(dataTestIds.vitalsPage.visionItem);
+    const item = this.#page.getByTestId(dataTestIds.vitalsPage.visionItem).first();
     await expect(item).toContainText(leftEye);
     await expect(item).toContainText(rightEye);
   }
@@ -227,8 +242,13 @@ export class VitalsPage {
     await expect(header).toContainText(rightEye);
   }
 
-  async removeVisionObservationFromHistory(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vitalsPage.visionItem).getByTestId(dataTestIds.deleteOutlinedIcon).click();
+  async removeVisionObservationFromHistory(leftEye: string, rightEye: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.vitalsPage.visionItem)
+      .filter({ hasText: leftEye })
+      .filter({ hasText: rightEye })
+      .getByTestId(dataTestIds.deleteOutlinedIcon)
+      .click();
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
       .getByTestId(dataTestIds.dialog.proceedButton)
