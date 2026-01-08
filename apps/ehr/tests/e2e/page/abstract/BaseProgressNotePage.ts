@@ -184,5 +184,37 @@ export abstract class BaseProgressNotePage {
     ).not.toBeVisible();
   }
 
+  async verifyHospitalization(hospitalization: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: hospitalization,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyRemovedHospitalizationIsNotShown(hospitalization: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: hospitalization,
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyHospitalizationNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: note,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyRemovedHospitalizationNoteIsNotShown(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: note,
+      })
+    ).not.toBeVisible();
+  }
+
   abstract expectLoaded(): Promise<void>;
 }
