@@ -53,12 +53,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // 3. getting encounters without a task using claims id
     // 4. getting itemization response for both groups at the same time to optimize this process
 
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const twoWeeksAgo = DateTime.now().minus({ weeks: 2 });
     const candidClaims = await getAllCandidClaims(candid, twoWeeksAgo);
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoWeeksAgo.getDate() - 2);
-    const claimsForThePastTwoDays = candidClaims.filter((claim) => claim.timestamp >= twoDaysAgo);
+    const twoDaysAgo = DateTime.now().minus({ days: 2 });
+    const claimsForThePastTwoDays = candidClaims.filter((claim) => claim.timestamp >= twoDaysAgo.toJSDate());
 
     const [pendingPackagesToUpdate, packagesToCreate] = await Promise.all([
       getEncountersWithPendingTasksFhir(oystehr, candid, candidClaims, twoWeeksAgo),
@@ -159,7 +157,7 @@ async function getEncountersWithPendingTasksFhir(
   oystehr: Oystehr,
   candid: CandidApiClient,
   claims: InventoryRecord[],
-  sinceDate: Date
+  sinceDate: DateTime
 ): Promise<EncounterPackage[]> {
   const result = (
     await oystehr.fhir.search({
@@ -179,7 +177,7 @@ async function getEncountersWithPendingTasksFhir(
         },
         {
           name: 'authored-on',
-          value: `ge${sinceDate}`,
+          value: `ge${sinceDate.toISODate()}`,
         },
       ],
     })
@@ -277,7 +275,7 @@ async function populateAmountInPackagesAndFilterZeroAmount(
   return resultPackages;
 }
 
-async function getAllCandidClaims(candid: CandidApiClient, sinceDate: Date): Promise<InventoryRecord[]> {
+async function getAllCandidClaims(candid: CandidApiClient, sinceDate: DateTime): Promise<InventoryRecord[]> {
   const inventoryPages = await getCandidInventoryPagesRecursive({
     candid,
     claims: [],
