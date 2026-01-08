@@ -185,8 +185,6 @@ export const usePatientRadiologyOrders = (options: {
 
         return true;
       } catch (err) {
-        console.error('Error deleting radiology order:', err);
-
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
 

@@ -1,6 +1,7 @@
 import { Box, Button, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { PageTitle } from '../../visits/shared/components/PageTitle';
@@ -21,10 +22,11 @@ export const RadiologyOrdersListPage: React.FC = () => {
   return (
     <Stack spacing={2}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <PageTitle label="Radiology" showIntakeNotesButton={false} />
+        <PageTitle label="Radiology" showIntakeNotesButton={false} dataTestId={dataTestIds.radiologyPage.title} />
         <Stack direction="row" spacing={2} alignItems="center">
           {!isReadOnly && (
             <Button
+              data-testid={dataTestIds.radiologyPage.orderButton}
               onClick={handleCreateOrder}
               variant="contained"
               sx={{
