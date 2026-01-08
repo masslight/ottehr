@@ -2388,7 +2388,7 @@ describe('Harvest Module', () => {
           {
             valueReference: {
               reference: 'Organization/868091c6-c176-448f-8790-cb4566a57a9b',
-              display: 'AARP',
+              display: 'MassLight',
             },
           },
         ],
