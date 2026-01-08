@@ -735,24 +735,12 @@ const FormFields = {
         },
         triggers: [
           {
-            targetQuestionLinkId: 'workers-comp-insurance-plan-type',
-            effect: ['require'],
-            operator: 'exists',
-            answerBoolean: true,
-          },
-          {
             targetQuestionLinkId: 'workers-comp-insurance-member-id',
             effect: ['require'],
             operator: 'exists',
             answerBoolean: true,
           },
         ],
-      },
-      workersCompPlanType: {
-        key: 'workers-comp-insurance-plan-type',
-        type: 'choice',
-        label: 'Insurance type',
-        options: insurancePlanTypeOptions,
       },
       workersCompMemberId: { key: 'workers-comp-insurance-member-id', type: 'string', label: 'Member ID' },
       employerName: { key: 'employer-name', type: 'string', label: 'Employer name' },
