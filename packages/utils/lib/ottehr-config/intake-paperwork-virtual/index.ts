@@ -1,6 +1,6 @@
 import { Questionnaire } from 'fhir/r4b';
 import z from 'zod';
-import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
+import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
@@ -13,6 +13,14 @@ import {
   SELF_PAY_OPTION,
 } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
+
+/*
+
+SOURCE QUESTIONNAIRE CONTEXT
+
+
+
+*/
 
 const FormFields = {
   contactInformation: {
@@ -48,7 +56,6 @@ const FormFields = {
       patientBirthSexMissing: {
         key: 'patient-birth-sex-missing',
         type: 'boolean',
-        required: false,
       },
       appointmentServiceCategory: {
         key: 'appointment-service-category',
@@ -310,6 +317,369 @@ const FormFields = {
     },
     hiddenFields: [],
     requiredFields: [],
+  },
+  currentMedications: {
+    linkId: 'current-medications-page',
+    title: 'Current medications',
+    items: {
+      yesNo: {
+        key: 'current-medications-yes-no',
+        label: 'Select option',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.currentMedicationsYesNoOptions,
+      },
+      medications: {
+        key: 'current-medications',
+        label: 'Medications taken',
+        type: 'group',
+        items: {
+          header: {
+            key: 'current-medications-form-header',
+            text: 'Add medication',
+            type: 'display',
+            element: 'h4',
+          },
+          medication: {
+            key: 'current-medications-form-medication',
+            label: 'Medication',
+            type: 'open-choice',
+            options: formValueSets.currentMedicationsOptions,
+          },
+        },
+        requiredFields: ['current-medications-form-medication'],
+      },
+    },
+    requiredFields: ['current-medications-yes-no'],
+  },
+  allergies: {
+    linkId: 'allergies-page',
+    title: 'Current allergies',
+    items: {
+      yesNo: {
+        key: 'allergies-yes-no',
+        label: 'Select option',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.allergiesYesNoOptions,
+      },
+      allergiesList: {
+        key: 'allergies',
+        label: 'Known current allergies',
+        type: 'group',
+        items: {
+          header: {
+            key: 'allergies-form-header',
+            text: 'Add allergy',
+            type: 'display',
+            element: 'h4',
+          },
+          type: {
+            key: 'allergies-form-type',
+            label: 'Type',
+            type: 'choice',
+            element: 'Radio List',
+            options: formValueSets.allergyTypeOptions,
+          },
+          agentSubstanceMedications: {
+            key: 'allergies-form-agent-substance-medications',
+            label: 'Agent/Substance',
+            type: 'open-choice',
+            options: formValueSets.allergyMedicationOptions,
+          },
+          agentSubstanceOther: {
+            key: 'allergies-form-agent-substance-other',
+            label: 'Agent/Substance',
+            type: 'open-choice',
+            options: formValueSets.allergyOtherOptions,
+          },
+        },
+        requiredFields: ['allergies-form-type'],
+      },
+    },
+    requiredFields: ['allergies-yes-no'],
+  },
+  surgicalHistory: {
+    linkId: 'surgical-history-page',
+    title: 'Surgical history',
+    items: {
+      yesNo: {
+        key: 'surgical-history-yes-no',
+        label: 'Select option',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.surgicalHistoryYesNoOptions,
+      },
+      surgeries: {
+        key: 'surgical-history',
+        label: 'Surgeries',
+        type: 'group',
+        items: {
+          header: {
+            key: 'surgical-history-form-header',
+            text: 'Add surgery',
+            type: 'display',
+            element: 'h4',
+          },
+          surgeryType: {
+            key: 'surgical-history-form-type',
+            label: 'Type of surgery',
+            type: 'open-choice',
+            options: formValueSets.surgeryTypeOptions,
+          },
+        },
+        requiredFields: ['surgical-history-form-type'],
+      },
+    },
+    requiredFields: ['surgical-history-yes-no'],
+  },
+  additional: {
+    linkId: 'additional-page',
+    title: 'Additional questions',
+    items: {
+      covidSymptoms: {
+        key: 'covid-symptoms',
+        label: 'Do you have any COVID symptoms?',
+        type: 'choice',
+        element: 'Radio List',
+        options: formValueSets.yesNoOptions,
+      },
+      testedPositiveCovid: {
+        key: 'tested-positive-covid',
+        label: 'Have you tested positive for COVID?',
+        type: 'choice',
+        element: 'Radio List',
+        options: formValueSets.yesNoOptions,
+      },
+      travelUsa: {
+        key: 'travel-usa',
+        label: 'Have you traveled out of the USA in the last 2 weeks?',
+        type: 'choice',
+        element: 'Radio List',
+        options: formValueSets.yesNoOptions,
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  patientCondition: {
+    linkId: 'patient-condition-page',
+    title: 'Patient condition',
+    items: {
+      patientPhotos: {
+        key: 'patient-photos',
+        label: "Photo of patient's condition (optional)",
+        type: 'attachment',
+        dataType: 'Image',
+        documentType: '72170-4',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  schoolWorkNote: {
+    linkId: 'school-work-note-page',
+    title: 'Do you need a school or work note?',
+    items: {
+      choice: {
+        key: 'school-work-note-choice',
+        label: 'Select option:',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.schoolWorkNoteOptions,
+      },
+      templateUploadGroup: {
+        key: 'school-work-note-template-upload-group',
+        label: 'Do you need a school or work note?',
+        type: 'group',
+        triggers: [
+          {
+            targetQuestionLinkId: 'school-work-note-choice',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'Neither',
+          },
+        ],
+        items: {
+          header: {
+            key: 'school-work-note-template',
+            text: 'I have a template',
+            type: 'display',
+            element: 'h3',
+          },
+          instructions: {
+            key: 'school-work-note-template-text',
+            text: 'Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.',
+            type: 'display',
+            element: 'p',
+          },
+          schoolTemplate: {
+            key: 'school-work-note-template-school',
+            label: 'School Template',
+            type: 'attachment',
+            dataType: 'PDF',
+            documentType: '47420-5',
+            triggers: [
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'School only',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Both school and work notes',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['filter'],
+                operator: '=',
+                answerString: 'School only',
+              },
+            ],
+            enableBehavior: 'any',
+          },
+          workTemplate: {
+            key: 'school-work-note-template-work',
+            label: 'Work Template',
+            type: 'attachment',
+            dataType: 'PDF',
+            documentType: '47420-5',
+            triggers: [
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Work only',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Both school and work notes',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['filter'],
+                operator: '=',
+                answerString: 'School only',
+              },
+            ],
+            enableBehavior: 'any',
+          },
+        },
+      },
+    },
+    requiredFields: ['school-work-note-choice'],
+  },
+  inviteParticipant: {
+    linkId: 'invite-participant-page',
+    title: 'Would you like someone to join this call?',
+    items: {
+      instructionText: {
+        key: 'invite-page-text',
+        text: 'Invite someone to join this call. Applicable for this visit only.',
+        type: 'display',
+        element: 'p',
+      },
+      fromAnotherDevice: {
+        key: 'invite-from-another-device',
+        label: 'Is anyone joining this visit from another device?',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.inviteFromAnotherDeviceOptions,
+      },
+      firstName: {
+        key: 'invite-first',
+        label: 'First name',
+        type: 'string',
+        inputWidth: 'm',
+        autocomplete: 'section-invite-participant shipping given-name',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+        ],
+      },
+      lastName: {
+        key: 'invite-last',
+        label: 'Last name',
+        type: 'string',
+        inputWidth: 'm',
+        autocomplete: 'section-invite-participant shipping family-name',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+        ],
+      },
+      preferableContact: {
+        key: 'invite-contact',
+        label: 'Preferable contact',
+        type: 'choice',
+        element: 'Radio List',
+        options: formValueSets.inviteContactOptions,
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+        ],
+      },
+      email: {
+        key: 'invite-email',
+        label: 'Email address',
+        type: 'string',
+        dataType: 'Email',
+        autocomplete: 'section-invite-participant shipping email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+          {
+            targetQuestionLinkId: 'invite-contact',
+            effect: ['require'],
+            operator: '=',
+            answerString: 'Email',
+          },
+        ],
+      },
+      phone: {
+        key: 'invite-phone',
+        label: 'Phone number',
+        type: 'string',
+        dataType: 'Phone Number',
+        autocomplete: 'section-invite-participant shipping tel',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+          {
+            targetQuestionLinkId: 'invite-contact',
+            effect: ['require'],
+            operator: '=',
+            answerString: 'Phone',
+          },
+        ],
+      },
+    },
+    requiredFields: ['invite-from-another-device'],
   },
   paymentOption: {
     linkId: 'payment-option-page',
@@ -1037,7 +1407,6 @@ const FormFields = {
       paymentOption: {
         key: 'payment-option-occupational',
         label: 'Select payment option',
-        text: 'Select payment option',
         type: 'choice',
         element: 'Radio',
         options: formValueSets.patientOccMedPaymentPageOptions,
@@ -1404,32 +1773,27 @@ const FormFields = {
       name: {
         key: 'employer-name',
         label: 'Employer Name',
-        text: 'Employer Name',
         type: 'string',
       },
       address: {
         key: 'employer-address',
         label: 'Employer Address',
-        text: 'Employer Address',
         type: 'string',
       },
       address2: {
         key: 'employer-address-2',
         label: 'Address line 2 (optional)',
-        text: 'Address line 2 (optional)',
         type: 'string',
       },
       city: {
         key: 'employer-city',
         label: 'City',
-        text: 'City',
         type: 'string',
         inputWidth: 's',
       },
       state: {
         key: 'employer-state',
         label: 'State',
-        text: 'State',
         type: 'choice',
         options: formValueSets.stateOptions,
         inputWidth: 's',
@@ -1437,7 +1801,6 @@ const FormFields = {
       zip: {
         key: 'employer-zip',
         label: 'ZIP',
-        text: 'ZIP',
         type: 'string',
         dataType: 'ZIP',
         inputWidth: 's',
@@ -1450,41 +1813,35 @@ const FormFields = {
       contactFirstName: {
         key: 'employer-contact-first-name',
         label: 'First name',
-        text: 'First name',
         type: 'string',
         inputWidth: 'm',
       },
       contactLastName: {
         key: 'employer-contact-last-name',
         label: 'Last name',
-        text: 'Last name',
         type: 'string',
         inputWidth: 'm',
       },
       contactTitle: {
         key: 'employer-contact-title',
         label: 'Title',
-        text: 'Title',
         type: 'string',
       },
       contactEmail: {
         key: 'employer-contact-email',
         label: 'Email',
-        text: 'Email',
         type: 'string',
         dataType: 'Email',
       },
       contactPhone: {
         key: 'employer-contact-phone',
         label: 'Mobile',
-        text: 'Mobile',
         type: 'string',
         dataType: 'Phone Number',
       },
       contactFax: {
         key: 'employer-contact-fax',
         label: 'Fax',
-        text: 'Fax',
         type: 'string',
         dataType: 'Phone Number',
       },
@@ -1507,152 +1864,6 @@ const FormFields = {
         operator: '=',
         answerString: 'workmans-comp',
       },
-    ],
-  },
-  emergencyContact: {
-    linkId: 'emergency-contact-page',
-    title: 'Emergency Contact',
-    items: {
-      relationship: {
-        key: 'emergency-contact-relationship',
-        label: 'Relationship to the patient',
-        text: 'Relationship to the patient',
-        type: 'choice',
-        options: formValueSets.emergencyContactRelationshipOptions,
-      },
-      firstName: {
-        key: 'emergency-contact-first-name',
-        label: 'Emergency contact first name',
-        text: 'Emergency contact first name',
-        type: 'string',
-      },
-      middleName: {
-        key: 'emergency-contact-middle-name',
-        label: 'Emergency contact middle name',
-        text: 'Emergency contact middle name',
-        type: 'string',
-      },
-      lastName: {
-        key: 'emergency-contact-last-name',
-        label: 'Emergency contact last name',
-        text: 'Emergency contact last name',
-        type: 'string',
-      },
-      phoneNumber: {
-        key: 'emergency-contact-number',
-        label: 'Emergency contact phone',
-        text: 'Emergency contact phone',
-        type: 'string',
-        dataType: 'Phone Number',
-        autocomplete: 'section-patient shipping tel',
-      },
-      addressAsPatient: {
-        key: 'emergency-contact-address-as-patient',
-        label: "Same as patient's address",
-        text: "Same as patient's address",
-        type: 'boolean',
-      },
-      streetAddress: {
-        key: 'emergency-contact-address',
-        label: 'Address',
-        text: 'Address',
-        type: 'string',
-        triggers: [
-          {
-            targetQuestionLinkId: 'emergency-contact-address-as-patient',
-            effect: ['enable'],
-            operator: '!=',
-            answerBoolean: true,
-          },
-        ],
-        enableBehavior: 'all',
-        disabledDisplay: 'protected',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address' },
-      },
-      streetAddress2: {
-        key: 'emergency-contact-address-2',
-        label: 'Address line 2 (optional)',
-        text: 'Address line 2 (optional)',
-        type: 'string',
-        triggers: [
-          {
-            targetQuestionLinkId: 'emergency-contact-address-as-patient',
-            effect: ['enable'],
-            operator: '!=',
-            answerBoolean: true,
-          },
-        ],
-        enableBehavior: 'all',
-        disabledDisplay: 'protected',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
-      },
-      city: {
-        key: 'emergency-contact-city',
-        label: 'City',
-        text: 'City',
-        type: 'string',
-        triggers: [
-          {
-            targetQuestionLinkId: 'emergency-contact-address-as-patient',
-            effect: ['enable'],
-            operator: '!=',
-            answerBoolean: true,
-          },
-        ],
-        enableBehavior: 'all',
-        inputWidth: 's',
-        disabledDisplay: 'protected',
-        dynamicPopulation: { sourceLinkId: 'patient-city' },
-      },
-      state: {
-        key: 'emergency-contact-state',
-        label: 'State',
-        text: 'State',
-        type: 'choice',
-        options: formValueSets.stateOptions,
-        triggers: [
-          {
-            targetQuestionLinkId: 'emergency-contact-address-as-patient',
-            effect: ['enable'],
-            operator: '!=',
-            answerBoolean: true,
-          },
-        ],
-        enableBehavior: 'all',
-        inputWidth: 's',
-        disabledDisplay: 'protected',
-        dynamicPopulation: { sourceLinkId: 'patient-state' },
-      },
-      zip: {
-        key: 'emergency-contact-zip',
-        label: 'ZIP',
-        text: 'ZIP',
-        type: 'string',
-        dataType: 'ZIP',
-        triggers: [
-          {
-            targetQuestionLinkId: 'emergency-contact-address-as-patient',
-            effect: ['enable'],
-            operator: '!=',
-            answerBoolean: true,
-          },
-        ],
-        enableBehavior: 'all',
-        inputWidth: 's',
-        disabledDisplay: 'protected',
-        dynamicPopulation: { sourceLinkId: 'patient-zip' },
-      },
-    },
-    hiddenFields: [],
-    requiredFields: [
-      'emergency-contact-relationship',
-      'emergency-contact-first-name',
-      'emergency-contact-last-name',
-      'emergency-contact-number',
-      'emergency-contact-address',
-      'emergency-contact-city',
-      'emergency-contact-state',
-      'emergency-contact-zip',
     ],
   },
   photoId: {
@@ -1852,13 +2063,19 @@ const FormFieldsSchema = z.object({
   patientDetails: FormSectionSimpleSchema,
   primaryCarePhysician: FormSectionSimpleSchema,
   pharmacy: FormSectionSimpleSchema,
+  currentMedications: FormSectionSimpleSchema,
+  allergies: FormSectionSimpleSchema,
+  surgicalHistory: FormSectionSimpleSchema,
+  additional: FormSectionSimpleSchema,
+  patientCondition: FormSectionSimpleSchema,
+  schoolWorkNote: FormSectionSimpleSchema,
+  inviteParticipant: FormSectionSimpleSchema,
   paymentOption: FormSectionSimpleSchema,
   paymentOptionOccMed: FormSectionSimpleSchema,
   occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
   cardPayment: FormSectionSimpleSchema,
   responsibleParty: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
-  emergencyContact: FormSectionSimpleSchema,
   photoId: FormSectionSimpleSchema,
   consentForms: FormSectionSimpleSchema,
   medicalHistory: FormSectionSimpleSchema,
@@ -1868,10 +2085,10 @@ const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults: QuestionnaireBase = {
   resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.4',
-  name: 'in-person_pre-visit_paperwork',
-  title: 'in-person pre-visit paperwork',
+  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual',
+  version: '1.0.19',
+  name: 'virtual_pre-visit_paperwork',
+  title: 'virtual pre-visit paperwork',
   status: 'active',
 };
 
@@ -1887,6 +2104,6 @@ const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,
 });
 
-export const INTAKE_PAPERWORK_CONFIG = IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
-export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG)));
+export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
+export const VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(VIRTUAL_INTAKE_PAPERWORK_CONFIG)));

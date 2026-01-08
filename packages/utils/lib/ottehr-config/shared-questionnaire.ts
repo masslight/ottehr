@@ -1,6 +1,11 @@
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../types/data/paperwork/paperwork.types';
+import { VALUE_SETS as formValueSets } from './value-sets';
+
+export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
+export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
+export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[0].value; // 'Self'
 
 const triggerEffectSchema = z.enum(['enable', 'require', 'filter']);
 const triggerSchema = z
@@ -74,7 +79,7 @@ const FormFieldsDisplayFieldSchema = z.object({
   key: z.string(),
   type: z.literal('display'),
   text: z.string(),
-  element: z.enum(['h3', 'p']).optional(),
+  element: z.enum(['h3', 'h4', 'p']).optional(),
   triggers: z.array(triggerSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
   textWhen: z.array(TextWhenSchema).optional(),
@@ -83,7 +88,7 @@ const FormFieldsDisplayFieldSchema = z.object({
 
 const FormFieldsValueTypeBaseSchema = z.object({
   key: z.string(),
-  type: z.enum(['string', 'text', 'date', 'choice', 'boolean', 'reference']),
+  type: z.enum(['string', 'text', 'date', 'choice', 'open-choice', 'boolean', 'reference']),
   label: z.string(),
   dataType: QuestionnaireDataTypeSchema.optional(),
   options: z
@@ -111,17 +116,17 @@ const FormFieldsValueTypeBaseSchema = z.object({
 
 const FormFieldsValueTypeSchema = FormFieldsValueTypeBaseSchema.refine(
   (data) => {
-    if (data.type === 'choice') {
+    if (data.type === 'choice' || data.type === 'open-choice') {
       return (
         Array.isArray(data.options) || {
-          message: 'Options must be provided for choice types',
+          message: 'Options must be provided for choice and open-choice types',
         }
       );
     }
     return true;
   },
   {
-    message: 'Options must be provided for choice types',
+    message: 'Options must be provided for choice and open-choice types',
   }
 ).refine(
   (data) => {
@@ -635,8 +640,8 @@ const convertFormFieldToQuestionnaireItem = (
   // Add required flag
   item.required = isRequired;
 
-  // Add answer options for choice types
-  if (field.type === 'choice' && field.options) {
+  // Add answer options for choice and open-choice types
+  if ((field.type === 'choice' || field.type === 'open-choice') && field.options) {
     item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
   }
 
@@ -741,8 +746,8 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
     readOnly: true,
   };
 
-  // Add answer options for choice types
-  if (field.type === 'choice' && field.options) {
+  // Add answer options for choice and open-choice types
+  if ((field.type === 'choice' || field.type === 'open-choice') && field.options) {
     item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
   }
 

@@ -8,6 +8,7 @@ export * from './vitals';
 export * from './legal';
 export * from './patient-record';
 export * from './intake-paperwork';
+export * from './intake-paperwork-virtual';
 export * from './value-sets';
 export * from './types';
 export * from './forms';
