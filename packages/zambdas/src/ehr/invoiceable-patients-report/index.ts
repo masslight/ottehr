@@ -40,7 +40,7 @@ const ZAMBDA_NAME = 'invoiceable-patients-report';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    const { secrets } = validatedParameters;
+    const { secrets, startFrom } = validatedParameters;
 
     // Get M2M token for FHIR access
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -48,7 +48,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const candid = createCandidApiClient(secrets);
 
-    const invoiceableClaims = await getInvoiceableClaims({ candid, limitPerPage: 100, onlyInvoiceable: true });
+    const invoiceableClaims = await getInvoiceableClaims({
+      candid,
+      limitPerPage: 100,
+      maxPages: 2,
+      onlyInvoiceable: true,
+      startFromDate: startFrom,
+    });
     if (invoiceableClaims) {
       const invoiceablePatientsReport = await getInvoiceablePatientsReport({
         oystehr,
@@ -83,11 +89,13 @@ interface InvoiceableClaimsInput {
   candid: CandidApiClient;
   limitPerPage?: number;
   onlyInvoiceable?: boolean;
+  startFromDate?: DateTime;
+  maxPages?: number;
 }
 
 async function getInvoiceableClaims(input: InvoiceableClaimsInput): Promise<InvoiceableClaim[] | undefined> {
   try {
-    const { candid, limitPerPage, onlyInvoiceable } = input;
+    const { candid, limitPerPage, onlyInvoiceable, startFromDate, maxPages } = input;
 
     console.log('🔍 Fetching patient inventory from Candid...');
     const inventoryPages = await getCandidInventoryPagesRecursive({
@@ -96,6 +104,8 @@ async function getInvoiceableClaims(input: InvoiceableClaimsInput): Promise<Invo
       limitPerPage,
       pageCount: 0,
       onlyInvoiceable,
+      maxPages,
+      since: startFromDate,
     });
 
     console.log('\n📊 Patient Inventory Response:');

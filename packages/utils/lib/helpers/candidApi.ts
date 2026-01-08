@@ -1,5 +1,6 @@
 import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/v1';
+import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from '../secrets';
 
 export function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
@@ -22,7 +23,7 @@ interface getCandidPagesRecursiveParams {
   onlyInvoiceable?: boolean;
   limitPerPage?: number;
   maxPages?: number;
-  since?: Date;
+  since?: DateTime;
 }
 
 export async function getCandidInventoryPagesRecursive(
@@ -35,9 +36,10 @@ export async function getCandidInventoryPagesRecursive(
   if (maxPages && pageCount >= maxPages) return { claims, pageCount };
 
   console.log(`📄 Fetching page ${pageCount}`);
+  console.log('since date: ', since?.toISODate());
   const inventoryResponse = await candid.patientAr.v1.listInventory({
     limit: limitPerPage,
-    since: since,
+    since: since?.toJSDate(),
     pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
   });
 

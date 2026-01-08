@@ -14,6 +14,10 @@ import {
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { GridRenderCellParams } from '@mui/x-data-grid-pro';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -32,6 +36,9 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<InvoiceablePatientsReport | null>(null);
+
+  // 1. New State for Date Picker (Defaults to 2 weeks ago)
+  const [startDate, setStartDate] = useState<DateTime | null>(DateTime.now().minus({ weeks: 2 }));
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -72,7 +79,12 @@ export default function InvoiceablePatients(): React.ReactElement {
     try {
       setLoading(true);
       if (!oystehrZambda) throw new Error('Oystehr client not available');
-      await invoiceablePatientsReport(oystehrZambda);
+
+      console.log('date: ', startDate?.toISODate());
+      await invoiceablePatientsReport(oystehrZambda, {
+        startFrom: startDate ? startDate.toISODate() ?? undefined : undefined,
+      });
+
       void fetchReport();
     } catch {
       enqueueSnackbar('Error occurred while updating invoiceable patients report. Please try again.', {
@@ -233,7 +245,8 @@ export default function InvoiceablePatients(): React.ReactElement {
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Pressing REFRESH button will create a new report, it can take some time, please be patient.
+          Click Refresh to generate a new report. This will fetch up to 200 items starting from the selected date
+          (finalization date is used to filter reports).
         </Typography>
 
         {error && (
@@ -242,7 +255,20 @@ export default function InvoiceablePatients(): React.ReactElement {
           </Alert>
         )}
 
-        <Button variant="outlined" onClick={() => void updateReport()} disabled={loading}>
+        <LocalizationProvider dateAdapter={AdapterLuxon}>
+          <Box sx={{ width: 300, mb: 3 }}>
+            <DatePicker
+              label="Start Date"
+              value={startDate}
+              onChange={(newValue: any) => {
+                setStartDate(newValue);
+              }}
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+          </Box>
+        </LocalizationProvider>
+
+        <Button sx={{ mb: 3 }} variant="outlined" onClick={() => void updateReport()} disabled={loading}>
           Refresh
         </Button>
 
