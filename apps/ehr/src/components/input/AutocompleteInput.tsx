@@ -1,12 +1,11 @@
 import { Autocomplete, Box, FormHelperText, Skeleton, TextField } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { Option } from './Option';
 
 type Props = {
   name: string;
   label: string;
-  options: Option[] | undefined;
+  options: any[] | undefined;
   loading?: boolean;
   required?: boolean;
   disabled?: boolean;
@@ -14,8 +13,9 @@ type Props = {
   selectOnly?: boolean;
   onInputTextChanged?: (text: string) => void;
   noOptionsText?: string;
-  valueToOption?: (value: any) => Option;
-  optionToValue?: (value: Option) => any;
+  getOptionKey?: (option: any) => string;
+  getOptionLabel?: (option: any) => string;
+  isOptionEqualToValue?: (option: any, value: any) => boolean;
   dataTestId?: string;
 };
 
@@ -30,8 +30,9 @@ export const AutocompleteInput: React.FC<Props> = ({
   selectOnly,
   onInputTextChanged,
   noOptionsText,
-  valueToOption,
-  optionToValue,
+  getOptionKey,
+  getOptionLabel,
+  isOptionEqualToValue,
   dataTestId,
 }) => {
   const { control } = useFormContext();
@@ -44,28 +45,25 @@ export const AutocompleteInput: React.FC<Props> = ({
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => {
-        let valueOption: Option | null = null;
-        if (field.value != null && valueToOption) {
-          valueOption = valueToOption(field.value);
-        } else if (field.value != null) {
-          valueOption = options?.find((option) => option.value === field.value) ?? null;
-        }
         const optionsToUse = options ?? [];
-        if (valueOption && !options?.find((option) => option.value === valueOption?.value)) {
-          optionsToUse?.push(valueOption);
+        if (
+          field.value &&
+          !options?.find((option) =>
+            isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
+          )
+        ) {
+          optionsToUse?.push(field.value);
         }
         return (
           <Box sx={{ width: '100%' }}>
             <Autocomplete
-              value={valueOption}
+              value={field.value ?? null}
               options={optionsToUse}
-              getOptionKey={(option) => option.value}
+              getOptionKey={getOptionKey}
               noOptionsText={noOptionsText}
-              getOptionLabel={(option) => option.label ?? options?.find((o) => o.value === option.value)?.label}
-              isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}
-              onChange={(_e, option: any) =>
-                field.onChange((option && optionToValue ? optionToValue(option) : option?.value) ?? null)
-              }
+              getOptionLabel={getOptionLabel}
+              isOptionEqualToValue={isOptionEqualToValue}
+              onChange={(_e, option: any) => field.onChange(option ?? null)}
               renderInput={(params) => (
                 <TextField
                   {...params}

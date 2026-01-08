@@ -1,16 +1,18 @@
 import React from 'react';
 import { AutocompleteInput } from './AutocompleteInput';
-import { Option } from './Option';
 
 type Props = {
   name: string;
   label: string;
-  options: Option[] | undefined;
+  options: any[] | undefined;
   loading?: boolean;
   required?: boolean;
   disabled?: boolean;
   validate?: (value: string | undefined) => boolean | string;
   dataTestId?: string;
+  getOptionKey?: (option: any) => string;
+  getOptionLabel?: (option: any) => string;
+  isOptionEqualToValue?: (option: any, value: any) => boolean;
 };
 
 export const SelectInput: React.FC<Props> = ({
@@ -22,6 +24,9 @@ export const SelectInput: React.FC<Props> = ({
   disabled,
   validate,
   dataTestId,
+  getOptionKey,
+  getOptionLabel,
+  isOptionEqualToValue,
 }) => {
   return (
     <AutocompleteInput
@@ -34,6 +39,9 @@ export const SelectInput: React.FC<Props> = ({
       selectOnly={true}
       validate={validate}
       dataTestId={dataTestId}
+      getOptionKey={getOptionKey}
+      getOptionLabel={getOptionLabel}
+      isOptionEqualToValue={isOptionEqualToValue}
     />
   );
 };

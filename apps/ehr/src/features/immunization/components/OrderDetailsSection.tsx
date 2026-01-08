@@ -2,7 +2,6 @@ import { Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { EmployeeSelectInput, PROVIDERS_FILTER } from 'src/components/input/EmployeeSelectInput';
-import { Option } from 'src/components/input/Option';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -13,12 +12,6 @@ import { UNIT_OPTIONS } from 'utils';
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   const { data: vaccines, isLoading } = useGetVaccines();
-  const vaccineOptions = vaccines?.map((vaccine) => {
-    return {
-      value: vaccine.id,
-      label: vaccine.name,
-    };
-  });
   return (
     <Grid container spacing={2}>
       <Grid xs={12} item>
@@ -35,20 +28,11 @@ export const OrderDetailsSection: React.FC = () => {
         <AutocompleteInput
           name="details.medication"
           label="Vaccine"
-          options={vaccineOptions}
+          options={vaccines}
           loading={isLoading}
-          valueToOption={(value: any) => {
-            return {
-              label: value.name,
-              value: value.id,
-            };
-          }}
-          optionToValue={(option: Option) => {
-            return {
-              name: option.label,
-              id: option.value,
-            };
-          }}
+          getOptionLabel={(option) => option.name}
+          getOptionKey={(option) => option.id}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           required
           dataTestId={dataTestIds.orderVaccinePage.vaccine}
         />
@@ -67,7 +51,8 @@ export const OrderDetailsSection: React.FC = () => {
         <SelectInput
           name="details.units"
           label="Units"
-          options={UNIT_OPTIONS}
+          options={UNIT_OPTIONS.map((option) => option.value)}
+          getOptionLabel={(option) => UNIT_OPTIONS.find((opt) => opt.value === option) ?? option}
           required
           dataTestId={dataTestIds.orderVaccinePage.units}
         />
@@ -77,6 +62,9 @@ export const OrderDetailsSection: React.FC = () => {
           name="details.route"
           label="Route"
           options={ROUTE_OPTIONS}
+          getOptionLabel={(option) => option.name}
+          getOptionKey={(option) => option.code}
+          isOptionEqualToValue={(option, value) => option.code === value.code}
           dataTestId={dataTestIds.orderVaccinePage.route}
         />
       </Grid>
@@ -85,19 +73,10 @@ export const OrderDetailsSection: React.FC = () => {
           name="details.location"
           label="Location"
           options={LOCATION_OPTIONS}
+          getOptionLabel={(option) => option.name}
+          getOptionKey={(option) => option.code}
+          isOptionEqualToValue={(option, value) => option.code === value.code}
           dataTestId={dataTestIds.orderVaccinePage.location}
-          valueToOption={(value: any) => {
-            return {
-              label: value.name,
-              value: value.code,
-            };
-          }}
-          optionToValue={(option: Option) => {
-            return {
-              name: option.label,
-              code: option.value,
-            };
-          }}
         />
       </Grid>
       <Grid xs={12} item>
