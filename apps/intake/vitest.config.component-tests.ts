@@ -11,7 +11,7 @@ export default defineConfig({
     // Disable globals to avoid conflicts with Playwright's expect in CI
     globals: false,
     include: ['**/*.test.tsx'],
-    setupFiles: ['vitest/globals', './tests/component/setup.ts'],
+    setupFiles: ['./tests/component/setup.ts'],
     environment: 'happy-dom',
   },
   plugins: [tsconfigPaths(), react()],

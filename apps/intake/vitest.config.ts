@@ -10,7 +10,6 @@ export default defineConfig({
     // Disable globals to avoid conflicts with Playwright's expect in CI
     globals: false,
     exclude: ['**/*.spec.ts', '**/*.test.tsx'],
-    setupFiles: ['vitest/globals'],
   },
   plugins: [tsconfigPaths()],
 });
