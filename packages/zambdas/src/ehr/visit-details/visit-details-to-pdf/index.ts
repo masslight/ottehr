@@ -23,6 +23,7 @@ import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { getPaymentsForEncounter } from '../../patient-payments/helpers';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../shared/harvest';
+import { searchDocumentReferencesForVisit } from '../get-visit-files';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'visit-details-to-pdf';
@@ -81,11 +82,12 @@ export const performEffect = async (
 
   console.log('Chart data received');
 
-  const [docRefsAndConsents, accountResources] = await Promise.all([
+  const [consentResources, accountResources, documentReferences] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId: patient.id }, oystehr),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+    searchDocumentReferencesForVisit(oystehr, patient.id, appointmentId),
   ]);
-  const { consents, docRefs } = docRefsAndConsents;
+  const { consents } = consentResources;
 
   const { account, coverages, insuranceOrgs, guarantorResource, emergencyContactResource, employerOrganization } =
     accountResources;
@@ -131,7 +133,7 @@ export const performEffect = async (
       coverages,
       insuranceOrgs,
       guarantorResource,
-      documents: docRefs || [],
+      documents: documentReferences || [],
       consents: consents || [],
       questionnaireResponse,
       payments,

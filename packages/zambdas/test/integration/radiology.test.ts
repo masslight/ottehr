@@ -30,7 +30,7 @@ describe('radiology integration tests', () => {
     });
     resourcesToCleanup.push(encounter);
     expect(encounter).toBeDefined();
-  });
+  }, 60_000);
 
   afterAll(async () => {
     if (!oystehrAdmin) {

@@ -1,5 +1,5 @@
 import { Organization } from 'fhir/r4b';
-import { DataComposer } from '../pdf-common';
+import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PdfSection, pharmacyInfo } from '../types';
 
 export const composePharmacyData: DataComposer<Organization | undefined, pharmacyInfo> = (pharmacy) => {
@@ -15,16 +15,28 @@ export const composePharmacyData: DataComposer<Organization | undefined, pharmac
 export const createPharmacyFormsSection = <TData extends { pharmacy?: pharmacyInfo }>(): PdfSection<
   TData,
   pharmacyInfo
-> => ({
-  title: 'Preferred pharmacy',
-  dataSelector: (data) => data.pharmacy,
-  render: (client, data, styles) => {
-    client.drawLabelValueRow('Pharmacy name', data.name, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow(`Pharmacy address`, data.address, styles.textStyles.regular, styles.textStyles.regular, {
-      spacing: 16,
-    });
-  },
-});
+> => {
+  return createConfiguredSection('preferredPharmacy', (shouldShow) => ({
+    title: 'Preferred pharmacy',
+    dataSelector: (data) => data.pharmacy,
+    render: (client, data, styles) => {
+      if (shouldShow('pharmacy-name')) {
+        client.drawLabelValueRow('Pharmacy name', data.name, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      if (shouldShow('pharmacy-address')) {
+        client.drawLabelValueRow(
+          `Pharmacy address`,
+          data.address,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            spacing: 16,
+          }
+        );
+      }
+    },
+  }));
+};

@@ -35,6 +35,7 @@ import {
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
+  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
   LAB_ORG_TYPE_CODING,
   LabPaymentMethod,
@@ -75,6 +76,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       secrets,
       orderingLocation: modifiedOrderingLocation,
       selectedPaymentMethod,
+      clinicalInfoNoteByUser,
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -170,6 +172,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         text: diagnosis?.display,
       };
     });
+    const requisitionNumber = existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
     const serviceRequestConfig: ServiceRequest = {
       resourceType: 'ServiceRequest',
       status: 'draft',
@@ -201,7 +204,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       identifier: [
         {
           system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-          value: existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN),
+          value: requisitionNumber,
         },
       ],
     };
@@ -211,6 +214,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         reference: `Location/${orderingLocation.id}`,
       },
     ];
+    const serviceRequestSupportingInfo: Reference[] = [];
 
     console.log('selected payment method', selectedPaymentMethod);
     if (coverageDetails.type === LabPaymentMethod.Insurance) {
@@ -255,6 +259,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         },
       ];
     }
+
     if (specimenFullUrlArr.length > 0) {
       serviceRequestConfig.specimen = specimenFullUrlArr.map((url) => ({
         type: 'Specimen',
@@ -313,12 +318,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         fullUrl: aoeQRFullUrl,
       };
       requests.push(postQrRequest);
-      serviceRequestConfig.supportingInfo = [
-        {
-          type: 'QuestionnaireResponse',
-          reference: aoeQRFullUrl,
-        },
-      ];
+
+      serviceRequestSupportingInfo.push({
+        type: 'QuestionnaireResponse',
+        reference: aoeQRFullUrl,
+      });
     }
 
     const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
@@ -333,6 +337,44 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         reference: provenanceFullUrl,
       },
     ];
+
+    if (clinicalInfoNoteByUser) {
+      console.log('adding request to create a communication resources for clinical info notes');
+      const communicationConfig: Communication = {
+        resourceType: 'Communication',
+        status: 'completed',
+        identifier: [
+          {
+            system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+            value: requisitionNumber,
+          },
+        ],
+        basedOn: [{ reference: serviceRequestFullUrl }],
+        category: [
+          {
+            coding: [LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY],
+          },
+        ],
+        payload: [{ contentString: clinicalInfoNoteByUser }],
+      };
+      const communicationFullUrl = `urn:uuid:${randomUUID()}`;
+
+      requests.push({
+        method: 'POST',
+        url: '/Communication',
+        resource: communicationConfig,
+        fullUrl: communicationFullUrl,
+      });
+
+      serviceRequestSupportingInfo.push({
+        type: 'Communication',
+        reference: communicationFullUrl,
+      });
+    }
+
+    if (serviceRequestSupportingInfo.length > 0) {
+      serviceRequestConfig.supportingInfo = serviceRequestSupportingInfo;
+    }
 
     requests.push({
       method: 'POST',

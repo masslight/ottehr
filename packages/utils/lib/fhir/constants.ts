@@ -574,6 +574,9 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 };
 
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
+export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
+export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
+
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
   coding: [
@@ -699,5 +702,7 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
 
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
+
+export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
 
 export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');

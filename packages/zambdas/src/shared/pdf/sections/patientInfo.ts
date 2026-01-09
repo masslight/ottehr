@@ -1,7 +1,6 @@
-import { DateTime } from 'luxon';
 import {
-  DATE_FORMAT,
   FHIR_EXTENSION,
+  formatDateForDisplay,
   genderMap,
   getFormattedPatientFullName,
   getNameSuffix,
@@ -9,15 +8,15 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   standardizePhoneNumber,
 } from 'utils';
-import { DataComposer } from '../pdf-common';
+import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PatientDataInput, PatientInfo, PdfSection } from '../types';
 
 export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = ({ patient, appointment }) => {
   const fullName = getFormattedPatientFullName(patient, { skipNickname: true }) ?? '';
   const suffix = getNameSuffix(patient) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
-  const dob = patient?.birthDate ? DateTime.fromFormat(patient?.birthDate, DATE_FORMAT).toFormat('MM.dd.yyyy') : '';
-  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
+  const dob = formatDateForDisplay(patient?.birthDate);
+  const unconfirmedDOB = formatDateForDisplay(getUnconfirmedDOBForAppointment(appointment));
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
@@ -36,6 +35,10 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   } else if (patient?.gender !== undefined) {
     patientSex = 'Intersex';
   }
+  const ssn =
+    patient?.identifier?.find(
+      (id) => id.system === 'http://hl7.org/fhir/sid/us-ssn' && id.type?.coding?.[0]?.code === 'SS'
+    )?.value ?? '';
 
   return {
     fullName,
@@ -49,6 +52,7 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
     reasonForVisit,
     authorizedNonlegalGuardians,
     pronouns,
+    ssn,
     patientSex,
   };
 };
@@ -61,41 +65,80 @@ export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): 
   },
 });
 
-export const createPatientInfoSection = <TData extends { patient?: PatientInfo }>(): PdfSection<
-  TData,
-  PatientInfo
-> => ({
-  title: 'About the patient',
-  dataSelector: (data) => data.patient,
-  render: (client, patientInfo, styles) => {
-    client.drawLabelValueRow('Suffix', patientInfo.suffix, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow(
-      'Chosen or preferred name',
-      patientInfo.preferredName,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+export const createPatientInfoSection = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => {
+  return createConfiguredSection('patientSummary', (shouldShow) => ({
+    title: 'About the patient',
+    dataSelector: (data) => data.patient,
+    render: (client, patientInfo, styles) => {
+      if (shouldShow('patient-name-suffix')) {
+        client.drawLabelValueRow('Suffix', patientInfo.suffix, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
       }
-    );
-    client.drawLabelValueRow(
-      'Date of birth (Original)',
-      patientInfo.dob,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-preferred-name')) {
+        client.drawLabelValueRow(
+          'Chosen or preferred name',
+          patientInfo.preferredName,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    if (patientInfo.unconfirmedDOB) {
+      if (shouldShow('patient-birthdate')) {
+        client.drawLabelValueRow(
+          'Date of birth (Original)',
+          patientInfo.dob,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (patientInfo.unconfirmedDOB) {
+        client.drawLabelValueRow(
+          'Date of birth (Unmatched)',
+          patientInfo.unconfirmedDOB,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('patient-birth-sex')) {
+        client.drawLabelValueRow('Birth sex', patientInfo.sex, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      if (shouldShow('patient-pronouns')) {
+        client.drawLabelValueRow(
+          'Preferred pronouns',
+          patientInfo.pronouns,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('patient-ssn')) {
+        client.drawLabelValueRow('SSN', patientInfo.ssn, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
       client.drawLabelValueRow(
-        'Date of birth (Unmatched)',
-        patientInfo.unconfirmedDOB,
+        'Reason for visit',
+        patientInfo.reasonForVisit,
         styles.textStyles.regular,
         styles.textStyles.regular,
         {
@@ -103,44 +146,13 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
           dividerMargin: 8,
         }
       );
-    }
-    client.drawLabelValueRow(
-      'Preferred pronouns',
-      patientInfo.pronouns,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
-      }
-    );
-    client.drawLabelValueRow('Birth sex', patientInfo.sex, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow(
-      'Reason for visit',
-      patientInfo.reasonForVisit,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
-      }
-    );
-    client.drawLabelValueRow(
-      'Authorized non-legal guardian(s)',
-      patientInfo.authorizedNonlegalGuardians,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      { drawDivider: true, dividerMargin: 8 }
-    );
-    client.drawLabelValueRow(
-      'Birth sex',
-      patientInfo.patientSex,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      { spacing: 16 }
-    );
-  },
-});
+      client.drawLabelValueRow(
+        'Authorized non-legal guardian(s)',
+        patientInfo.authorizedNonlegalGuardians,
+        styles.textStyles.regular,
+        styles.textStyles.regular,
+        { spacing: 16 }
+      );
+    },
+  }));
+};

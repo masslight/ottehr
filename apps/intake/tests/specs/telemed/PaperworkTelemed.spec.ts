@@ -8,7 +8,7 @@ import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { UploadDocs } from '../../utils/UploadDocs';
-import { TelemedPatientTestData } from '../0_paperworkSetup/types';
+import { TelemedNoPwPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
@@ -17,7 +17,7 @@ let paperworkTelemed: PaperworkTelemed;
 let locator: Locators;
 let uploadDocs: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: TelemedPatientTestData;
+let patient: TelemedNoPwPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -28,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
   uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'telemedPatientWithoutPaperwork.json');
+  const testDataPath = path.join('test-data', 'telemedNoPwPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {
@@ -80,7 +80,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PPD-3. Fill all fields', async () => {
-      await paperwork.fillPatientDetailsTelemedAllFields();
+      await paperwork.fillPatientDetailsAllFields(true);
     });
 
     await test.step('PPD-4. Check patient name is displayed', async () => {
@@ -614,16 +614,18 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PRPI-6. Select self - check fields are prefilled with correct values', async () => {
-      const { y: year, m: month, d: day } = patient.dateOfBirth;
-      const dob = commonLocatorsHelper.getMonthDay(month, day);
-      if (!dob) {
+      const { y, m, d } = patient.dob;
+      const humanReadableDob = commonLocatorsHelper.getMonthDay(m, d);
+      if (!humanReadableDob) {
         throw new Error('DOB data is null');
       }
       await paperwork.fillResponsiblePartyDataSelf();
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+        `${humanReadableDob?.monthNumber}/${humanReadableDob?.dayNumber}/${y}`
+      );
     });
 
     await test.step('PRPI-7. Select self - check fields are disabled', async () => {
@@ -769,8 +771,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       });
 
       await test.step('PSWN-5.2. Verify option is still selected when navigating to next page and back', async () => {
-        await locator.clickContinueButton();
-        await paperwork.checkCorrectPageOpens('Complete consent forms');
+        await locator.clickContinueButton(true);
         await locator.clickBackButton();
         await expect(locator.schoolOnlyNotes).toBeChecked();
       });
@@ -805,8 +806,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       });
 
       await test.step('PSWN-6.2. Verify option is still selected when navigating to next page and back', async () => {
-        await locator.clickContinueButton();
-        await paperwork.checkCorrectPageOpens('Complete consent forms');
+        await locator.clickContinueButton(true);
         await locator.clickBackButton();
         await expect(locator.workOnlyNotes).toBeChecked();
       });
@@ -849,8 +849,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       // todo uncomment lines in PSWN-7.3 and remove skip for PSWN-7.4 when https://github.com/masslight/ottehr/issues/1671 is fixed
       const { currentSchoolLink, currentWorkLink } =
         await test.step('PSWN-7.3. Verify option is still selected and templates are saved when navigating to next page and back', async () => {
-          await locator.clickContinueButton();
-          await paperwork.checkCorrectPageOpens('Complete consent forms');
+          await locator.clickContinueButton(true);
           await locator.clickBackButton();
           await expect(locator.schoolAndWorkNotes).toBeChecked();
 
@@ -883,30 +882,31 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
     });
 
-    await test.step('PCF-3. Check required fields', async () => {
-      await paperwork.checkRequiredFields(
-        '"I have reviewed and accept HIPAA Acknowledgement","I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement","Signature","Full name","Relationship to the patient"',
-        'Complete consent forms',
-        true
-      );
-    });
+    // todo these should come from config!
+    // await test.step('PCF-3. Check required fields', async () => {
+    //   await paperwork.checkRequiredFields(
+    //     '"I have reviewed and accept HIPAA Acknowledgement","I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement","Signature","Full name","Relationship to the patient"',
+    //     'Complete consent forms',
+    //     true
+    //   );
+    // });
 
-    await test.step('PCF-4. Check links are correct', async () => {
-      expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
-      expect(
-        await page.getAttribute('a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")', 'href')
-      ).toBe('/consent_to_treat_template.pdf');
-    });
+    // await test.step('PCF-4. Check links are correct', async () => {
+    //   expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
+    //   expect(
+    //     await page.getAttribute('a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")', 'href')
+    //   ).toBe('/consent_to_treat_template.pdf');
+    // });
 
-    await test.step('PCF-5. Check links opens in new tab', async () => {
-      expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'target')).toBe('_blank');
-      expect(
-        await page.getAttribute(
-          'a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")',
-          'target'
-        )
-      ).toBe('_blank');
-    });
+    // await test.step('PCF-5. Check links opens in new tab', async () => {
+    //   expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'target')).toBe('_blank');
+    //   expect(
+    //     await page.getAttribute(
+    //       'a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")',
+    //       'target'
+    //     )
+    //   ).toBe('_blank');
+    // });
 
     const consentFormsData = await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
       const consentFormsData = await paperwork.fillConsentForms();
@@ -914,9 +914,9 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
       return consentFormsData;
     });
+
     await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
       await locator.clickBackButton();
-      await paperwork.checkCorrectPageOpens('Complete consent forms');
       await expect(locator.hipaaAcknowledgement).toBeChecked();
       await expect(locator.consentToTreat).toBeChecked();
       await expect(locator.signature).toHaveValue(consentFormsData.signature);

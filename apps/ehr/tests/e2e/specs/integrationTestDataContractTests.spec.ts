@@ -19,6 +19,7 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getAppointmentGraphSearchParams } from 'utils';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const PROCESS_ID = `contractTests-${DateTime.now().toMillis()}`;
@@ -30,6 +31,7 @@ test.beforeAll(async () => {
   await Promise.all([
     e2eHandler.waitTillAppointmentPreprocessed(e2eHandler.appointment.id!),
     e2eHandler.waitTillHarvestingDone(e2eHandler.appointment.id!),
+    e2eHandler.waitForListIndexing(e2eHandler.patient.id!),
   ]);
 });
 
@@ -614,82 +616,9 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
       await e2eHandler.apiClient
     ).fhir.search<FhirResource>({
       resourceType: 'Appointment',
-      params: [
-        {
-          name: '_id',
-          value: appointmentId,
-        },
-        {
-          name: '_include',
-          value: 'Appointment:patient',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:slot',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'DocumentReference:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'QuestionnaireResponse:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Person:relatedperson',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:subject',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Consent:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Account:patient',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Account:owner',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Observation:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ServiceRequest:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ClinicalImpression:encounter',
-        },
-      ],
+      params: getAppointmentGraphSearchParams(appointmentId),
     })
   ).unbundle();
 
-  const accounts = baseResults.filter((resource) => resource.resourceType === 'Account') as Account[];
-  return baseResults.filter((resource) => {
-    if (resource.resourceType === 'Organization') {
-      // only include organizations that are not owners of accounts
-      const isAccountOwner = accounts.some((account) => account.owner?.reference === `Organization/${resource.id}`);
-      return !isAccountOwner;
-    }
-    return true;
-  });
+  return baseResults;
 };

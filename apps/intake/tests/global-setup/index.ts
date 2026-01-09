@@ -11,30 +11,33 @@ const globalSetup = async (_config: FullConfig): Promise<void> => {
   }
   console.log('Running global setup for intake tests', processId);
 
-  if (process.env.IS_LOGIN_TEST === 'true') {
-    console.log('Skipping auth check for login test');
-    return;
-  }
-
   const authFile = './playwright/user.json';
   const browser = await chromium.launch();
-  const page = await browser.newPage({
-    storageState: authFile, // load the saved session
-  });
 
   try {
-    console.log('Starting auth check...');
-    await page.goto(`${process.env.WEBSITE_URL}/`);
-    console.log('Page loaded successfully');
+    if (process.env.IS_LOGIN_TEST === 'true') {
+      // Login stage: the login test itself is responsible for generating a fresh user.json.
+      console.log('IS_LOGIN_TEST=true: skipping auth validation in globalSetup');
+      return;
+    }
 
-    console.log('Looking for auth element...');
+    // Normal mode: we only validate existing auth; if invalid/missing we fail fast (avoid running on stale auth).
+    if (!existsSync(authFile)) {
+      console.log('Auth file does not exist');
+      throw new Error('AUTH FILE MISSING - RUN LOGIN FLOW FIRST');
+    }
+
+    console.log('Auth file exists, validating...');
+    const page = await browser.newPage({ storageState: authFile });
+    await page.goto(`${process.env.WEBSITE_URL}/`);
     await page.locator('[data-testid="header-for-authenticated-user"]').waitFor({
       state: 'visible',
       timeout: 10_000,
     });
+    await page.close();
     console.log('Auth check passed');
   } catch (error: any) {
-    console.error('Authentication failed:', error.message);
+    console.error('Authentication in globalSetup failed:', error?.message ?? error);
     if (existsSync(authFile)) {
       const fileContent = readFileSync(authFile, 'utf8');
       const parsed = JSON.parse(fileContent);

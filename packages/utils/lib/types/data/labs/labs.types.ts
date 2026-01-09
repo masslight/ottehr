@@ -138,7 +138,8 @@ export type LabOrderListPageDTO = {
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
-  orderLevelNote: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn
+  orderLevelNoteByUser: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn
+  clinicalInfoNoteByUser: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn (these notes should be one to one with SRs)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -177,6 +178,8 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'orderPdfUrl'
   | 'abnPdfUrl'
   | 'location'
+  | 'orderLevelNoteByUser'
+  | 'clinicalInfoNoteByUser'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
@@ -187,10 +190,6 @@ export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO &
 
 export type ReflexLabDTO = DiagnosticReportDrivenResultDTO & {
   drCentricResultType: 'reflex';
-};
-
-export type PdfAttachmentDTO = DiagnosticReportDrivenResultDTO & {
-  drCentricResultType: 'pdfAttachment';
 };
 
 // todo labs can probably leverage drCentricResultType here as well
@@ -209,7 +208,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
-  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
+  drDrivenResults: ReflexLabDTO[];
 };
 
 type orderBundleDTO = {
@@ -217,7 +216,7 @@ type orderBundleDTO = {
   bundleNote: string | undefined;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
-  orders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
+  orders: (LabOrderListPageDTO | ReflexLabDTO)[];
 };
 export type LabOrderListPageDTOGrouped = {
   pendingActionOrResults: Record<string, orderBundleDTO>;
@@ -249,10 +248,9 @@ export enum LabType {
   // do not change the following values as they are linked to LAB_DR_TYPE_TAG which is defined in oystehr
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
-  pdfAttachment = 'pdfAttachment', // external but has less fhir resources available since it did not originate from ottehr
 }
 /**
- * 'unsolicited', 'reflex', 'pdfAttachment'
+ * 'unsolicited', 'reflex'
  */
 export type LabDrTypeTagCode = (typeof LAB_DR_TYPE_TAG.code)[keyof typeof LAB_DR_TYPE_TAG.code];
 
@@ -309,6 +307,7 @@ export type CreateLabOrderParameters = {
   psc: boolean;
   orderingLocation: ModifiedOrderingLocation;
   selectedPaymentMethod: CreateLabPaymentMethod;
+  clinicalInfoNoteByUser?: string;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
@@ -464,7 +463,8 @@ export interface ExternalLabDocuments {
 }
 
 export interface ExternalLabCommunications {
-  orderLevelNotes: Communication[] | undefined;
+  orderLevelNotesByUser: Communication[];
+  clinicalInfoNotesByUser: Communication[];
 }
 
 export enum UnsolicitedResultsRequestType {

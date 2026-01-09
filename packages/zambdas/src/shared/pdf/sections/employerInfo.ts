@@ -1,5 +1,5 @@
 import { formatPhoneNumberDisplay } from 'utils';
-import { DataComposer } from '../pdf-common';
+import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EmployerDataInput, EmployerInfo, PdfSection } from '../types';
 
 export const composeEmployerData: DataComposer<EmployerDataInput, EmployerInfo> = ({ employer }) => {
@@ -46,80 +46,116 @@ export const composeEmployerData: DataComposer<EmployerDataInput, EmployerInfo> 
 export const createEmployerInfoSection = <TData extends { employer?: EmployerInfo }>(): PdfSection<
   TData,
   EmployerInfo
-> => ({
-  title: 'Employer Information',
-  dataSelector: (data) => data.employer,
-  shouldRender: (employer) => !!employer.employerName,
-  render: (client, employerInfo, styles) => {
-    client.drawLabelValueRow(
-      'Employer Name',
-      employerInfo.employerName,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+> => {
+  return createConfiguredSection('patientSummary', (shouldShow) => ({
+    title: 'Employer Information',
+    dataSelector: (data) => data.employer,
+    shouldRender: (employer) => !!employer.employerName,
+    render: (client, employerInfo, styles) => {
+      if (shouldShow('employer-name')) {
+        client.drawLabelValueRow(
+          'Employer Name',
+          employerInfo.employerName,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Street address',
-      employerInfo.streetAddress,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('employer-address')) {
+        client.drawLabelValueRow(
+          'Street address',
+          employerInfo.streetAddress,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Address line 2',
-      employerInfo.addressLineOptional,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('employer-address-2')) {
+        client.drawLabelValueRow(
+          'Address line 2',
+          employerInfo.addressLineOptional,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'City, State, ZIP',
-      `${employerInfo.city}, ${employerInfo.state}, ${employerInfo.zip}`,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('employer-city') && shouldShow('employer-state') && shouldShow('employer-zip')) {
+        client.drawLabelValueRow(
+          'City, State, ZIP',
+          `${employerInfo.city}, ${employerInfo.state}, ${employerInfo.zip}`,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            spacing: 16,
+          }
+        );
       }
-    );
-    client.drawText('Employer Contact', styles.textStyles.subHeader);
-    client.drawLabelValueRow(
-      'First name',
-      employerInfo.firstName,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (
+        shouldShow('employer-contact-first-name') ||
+        shouldShow('employer-contact-last-name') ||
+        shouldShow('employer-contact-title') ||
+        shouldShow('employer-contact-email') ||
+        shouldShow('employer-contact-phone') ||
+        shouldShow('employer-contact-fax')
+      ) {
+        client.drawText('Employer Contact', styles.textStyles.subHeader);
       }
-    );
-    client.drawLabelValueRow('Last name', employerInfo.lastName, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow('Title', employerInfo.title, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow('Email', employerInfo.email, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow('Mobile', employerInfo.phone, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow('Fax', employerInfo.fax, styles.textStyles.regular, styles.textStyles.regular, {
-      spacing: 16,
-    });
-  },
-});
+      if (shouldShow('employer-contact-first-name')) {
+        client.drawLabelValueRow(
+          'First name',
+          employerInfo.firstName,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('employer-contact-last-name')) {
+        client.drawLabelValueRow(
+          'Last name',
+          employerInfo.lastName,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('employer-contact-title')) {
+        client.drawLabelValueRow('Title', employerInfo.title, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      if (shouldShow('employer-contact-email')) {
+        client.drawLabelValueRow('Email', employerInfo.email, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      if (shouldShow('employer-contact-phone')) {
+        client.drawLabelValueRow('Mobile', employerInfo.phone, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
+      if (shouldShow('employer-contact-fax')) {
+        client.drawLabelValueRow('Fax', employerInfo.fax, styles.textStyles.regular, styles.textStyles.regular, {
+          spacing: 16,
+        });
+      }
+    },
+  }));
+};

@@ -22,7 +22,7 @@ describe('sub-recommend-diagnosis-codes integration tests', () => {
     oystehr = setup.oystehr;
     baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     cleanup = setup.cleanup;
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await cleanup();

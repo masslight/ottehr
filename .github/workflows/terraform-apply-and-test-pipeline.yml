@@ -37,13 +37,14 @@ on:
         type: boolean
         default: false
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "apps/ehr/**"
       - "apps/intake/**"
       - "packages/zambdas/**"
       - "packages/utils/**"
       - "packages/ui-components/**"
+      - packages/spec/**
       - "scripts/**"
       - ".github/**"
       - ".prettierignore"
@@ -57,6 +58,7 @@ on:
       - "packages/zambdas/**"
       - "packages/utils/**"
       - "packages/ui-components/**"
+      - packages/spec/**
       - "scripts/**"
       - ".github/**"
       - ".prettierignore"
@@ -126,78 +128,16 @@ jobs:
             exit 0
           fi
           
-          # Check for force run command in PR description
-          if [ "${{ contains(github.event.pull_request.body || '', '/run-terraform-apply') }}" == "true" ]; then
-            echo "Force run enabled via PR command /run-terraform-apply"
-            echo "should-run-apply=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # For push/pull_request, check changed files
-          TRACKED_FILES=$(node -e "
-            const config = require('./.github/trigger-paths.js');
-            console.log(config.getTerraformApplyPaths().join(' '));
-          ")
-          
-          # Get changed files
-          # For PRs: compare base vs head to see all PR changes
-          # For push: use before/after SHA to capture all changes in the push
-          #   (works for merge commits, squash merges, fast-forward, direct pushes)
-          CHANGED_FILES=""
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || echo "")
-          else
-            # For push events, get all files in the push
-            # Works for merge commits, squash merges, and direct pushes
-            BEFORE_SHA="${{ github.event.before }}"
-            AFTER_SHA="${{ github.event.after }}"
-            
-            if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
-              CHANGED_FILES=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null || echo "")
-            else
-              # Fallback for first push or if before SHA is unavailable
-              CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-            fi
-          fi
-          
-          if [ -z "$CHANGED_FILES" ]; then
-            echo "No changed files detected - skipping Terraform Apply"
+          # Check for skip command in PR description
+          if [ "${{ contains(github.event.pull_request.body || '', '/skip-terraform-apply') }}" == "true" ]; then
+            echo "Skipping Terraform Apply via PR command /skip-terraform-apply"
             echo "should-run-apply=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
-          echo ""
-          echo "Tracking paths: $TRACKED_FILES"
-          
-          # Check if any changed file matches tracked paths
-          HAS_RELEVANT_CHANGES=false
-          while IFS= read -r file; do
-            if [ -z "$file" ]; then
-              continue
-            fi
-            for pattern in $TRACKED_FILES; do
-              if [[ "$file" == "$pattern"* ]]; then
-                echo "Found relevant change: $file matches pattern $pattern"
-                HAS_RELEVANT_CHANGES=true
-                break
-              fi
-            done
-            if [ "$HAS_RELEVANT_CHANGES" == "true" ]; then
-              break
-            fi
-          done <<< "$CHANGED_FILES"
-          
-          if [ "$HAS_RELEVANT_CHANGES" == "true" ]; then
-            echo "Relevant changes found - running Terraform Apply"
-            echo "should-run-apply=true" >> $GITHUB_OUTPUT
-          else
-            echo "No relevant changes - skipping Terraform Apply"
-            echo "should-run-apply=false" >> $GITHUB_OUTPUT
-          fi
+          # Default: run Terraform Apply for all push/pull_request events
+          echo "Running Terraform Apply by default"
+          echo "should-run-apply=true" >> $GITHUB_OUTPUT
 
       - name: Determine Concurrency Group
         id: concurrency

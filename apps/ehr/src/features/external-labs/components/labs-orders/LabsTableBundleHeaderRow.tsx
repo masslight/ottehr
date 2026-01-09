@@ -7,7 +7,7 @@ import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement, useState } from 'react';
 import { updateLabOrderResources } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
-import { LabOrderListPageDTO, openPdf } from 'utils';
+import { HL7_NOTE_CHAR_LIMIT, LabOrderListPageDTO, openPdf } from 'utils';
 
 interface LabsTableBundleHeaderRowProps {
   columnsLen: number;
@@ -47,6 +47,13 @@ export const LabsTableBundleHeaderRow = ({
   const handleAddOrEditOrderNote = async (): Promise<void> => {
     if (!oystehr) throw Error('no oystehr configured');
     if (!requisitionNumber) throw Error('no requisitionNumber');
+    if (!orderNote && noteState === 'add') {
+      setNoteError('Please enter a note.');
+      return;
+    }
+    if (orderNote.length > HL7_NOTE_CHAR_LIMIT) {
+      return;
+    }
     setSavingNote(true);
     try {
       await updateLabOrderResources(oystehr, {
@@ -71,6 +78,7 @@ export const LabsTableBundleHeaderRow = ({
   const closeEditNoteDialog = (): void => {
     setOpenOrderNoteDialog(false);
     setNoteError(undefined);
+    setOrderNote(existingNote ?? '');
     if (existingNote) {
       setNoteState('view');
       setOrderNote(existingNote);
@@ -171,9 +179,16 @@ export const LabsTableBundleHeaderRow = ({
                 multiline
                 rows={2}
                 value={orderNote}
+                inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
                 onChange={(e) => {
                   setOrderNote(e.target.value);
                 }}
+                error={!!(orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT)}
+                helperText={
+                  orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT
+                    ? `Input cannot be more than ${HL7_NOTE_CHAR_LIMIT} characters`
+                    : ''
+                }
               ></TextField>
             )}
           </Box>

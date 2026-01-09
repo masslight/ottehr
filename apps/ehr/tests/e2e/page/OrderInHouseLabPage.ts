@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { TestItem } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { CollectSamplePage } from './CollectSamplePage';
 import { InPersonHeader } from './InPersonHeader';
@@ -42,13 +43,16 @@ export class OrderInHouseLabPage {
   async clickOrderAndPrintLabelButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton).click();
   }
-  async selectTestType(): Promise<string> {
+  async selectRadioEntryInHouseLab(radioEntryTestItems: TestItem[]): Promise<string> {
+    const firstRadioEntryTestName = radioEntryTestItems[0].name;
+
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
-    const firstOption = this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).locator('li').first();
-    const optionValue = await firstOption.innerText();
-    await firstOption.click();
-    return optionValue;
+    const radioEntryTest = this.#page
+      .getByTestId(dataTestIds.orderInHouseLabPage.testTypeList)
+      .locator('li', { hasText: firstRadioEntryTestName });
+    await radioEntryTest.click();
+    return firstRadioEntryTestName;
   }
   async verifyCPTCode(CPTCode: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.CPTCodeField).locator('input')).toHaveValue(

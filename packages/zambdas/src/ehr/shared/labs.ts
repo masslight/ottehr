@@ -69,8 +69,9 @@ import {
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
   PATIENT_BILLING_ACCOUNT_TYPE,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
   SR_REVOKED_REASON_EXT,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
@@ -447,6 +448,7 @@ export const makeEncounterLabResults = async (
   const documentReferences: DocumentReference[] = [];
   const activeExternalLabServiceRequests: ServiceRequest[] = [];
   const activeInHouseLabServiceRequests: ServiceRequest[] = [];
+  const reflexTestsPending: string[] = []; // array of test names pending;
   const serviceRequestMap: Record<string, { resource: ServiceRequest; type: LabType }> = {};
   const diagnosticReportMap: Record<string, DiagnosticReport> = {};
 
@@ -470,6 +472,17 @@ export const makeEncounterLabResults = async (
             if (!isManual) activeExternalLabServiceRequests.push(resource);
           }
           if (isInHouseLabServiceRequest) activeInHouseLabServiceRequests.push(resource);
+        }
+
+        const reflexTestTriggered = resource.meta?.tag?.find(
+          (t) => t.system === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM
+        );
+        if (reflexTestTriggered) {
+          const testIsPending = reflexTestTriggered.code === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending;
+          if (testIsPending) {
+            const testName = reflexTestTriggered.display ?? 'reflex test';
+            reflexTestsPending.push(testName);
+          }
         }
       }
     }
@@ -578,6 +591,7 @@ export const makeEncounterLabResults = async (
 
   const inHouseLabResultConfig: EncounterInHouseLabResult = {
     resultsPending: inHouseResultsPending,
+    reflexTestsPending: reflexTestsPending.length > 0 ? reflexTestsPending : undefined,
     labOrderResults: inHouseLabOrderResults,
   };
   return { externalLabResultConfig, inHouseLabResultConfig };
@@ -928,23 +942,14 @@ export const getAllDrTags = (dr: DiagnosticReport): LabDrTypeTagCode[] | undefin
  * Returns diagnostic report result-type tag if any exists and validates the code is one of the known LabDrTypeTagCode values.
  *
  * @param dr - The diagnostic report to extract the tag code from.
- * @returns The validated tag ('unsolicited', 'reflex', 'pdfAttachment') or undefined.
+ * @returns The validated tag ('unsolicited', 'reflex') or undefined.
  */
 export const diagnosticReportSpecificResultType = (dr: DiagnosticReport): LabDrTypeTagCode | undefined => {
   const labDrCodes = getAllDrTags(dr);
   console.log('labDrCodes:', labDrCodes);
   if (!labDrCodes || labDrCodes.length === 0) return;
 
-  // it is possible for two codes to be assigned, unsolicited and pdfAttachment (this may be expanded in the future)
-  if (labDrCodes.length === 2) {
-    const containsPdfAttachment = labDrCodes.includes(LabType.pdfAttachment);
-    if (containsPdfAttachment) {
-      // pdfAttachment should drive the logic for pdf generation
-      return LabType.pdfAttachment;
-    } else {
-      throw new Error(`an unexpected result-type tag has been assigned: ${labDrCodes} on DR: ${dr.id}`);
-    }
-  } else if (labDrCodes.length === 1) {
+  if (labDrCodes.length === 1) {
     return labDrCodes[0];
   } else {
     throw new Error(`an unexpected number of result-type tag have been assigned: ${labDrCodes} on DR: ${dr.id}`);
@@ -1252,8 +1257,6 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     token
   );
 
-  const orderLevelNote = diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL)
-    ?.valueString;
   console.log('formatting dto');
   const dto: DiagnosticReportLabDetailPageDTO = {
     testItem: getTestNameOrCodeFromDr(diagnosticReport),
@@ -1266,7 +1269,6 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     resultsDetails: [detail],
     questionnaire: [], // will always be empty but is easier for the front end to consume an empty array
     samples: [], // will always be empty but is easier for the front end to consume an empty array
-    orderLevelNote,
   };
 
   return dto;

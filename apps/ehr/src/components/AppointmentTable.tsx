@@ -61,6 +61,7 @@ export default function AppointmentTable({
     nursingOrdersByAppointmentId,
     inHouseMedicationsByEncounterId,
     radiologyOrdersByAppointmentId,
+    erxOrdersByEncounterId,
   } = orders;
 
   const ordersForAppointment = (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
@@ -69,6 +70,7 @@ export default function AppointmentTable({
     nursingOrders: nursingOrdersByAppointmentId[appointmentId],
     inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
     radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
+    erxOrders: erxOrdersByEncounterId[encounterId],
   });
 
   const vitalsForAppointment = (appointment: InPersonAppointmentInformation): GetVitalsResponseData | undefined => {

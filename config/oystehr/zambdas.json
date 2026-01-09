@@ -57,6 +57,13 @@
       "src": "src/ehr/visits-overview-report/index",
       "zip": ".dist/zips/visits-overview-report.zip"
     },
+    "RECENT-PATIENTS-REPORT": {
+      "name": "recent-patients-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/recent-patients-report/index",
+      "zip": ".dist/zips/recent-patients-report.zip"
+    },
     "GET-TELEMED-APPOINTMENTS": {
       "name": "get-telemed-appointments",
       "type": "http_auth",
@@ -1181,6 +1188,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-and-responsible-party-info/index",
       "zip": ".dist/zips/get-patient-and-responsible-party-info.zip"
+    },
+    "GET_ERX_ORDERS": {
+      "name": "get-erx-orders",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-erx-orders/index",
+      "zip": ".dist/zips/get-erx-orders.zip"
     }
   },
   "fhirResources": {

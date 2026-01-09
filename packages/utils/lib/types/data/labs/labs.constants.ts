@@ -9,6 +9,9 @@ export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 // recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
 export const ORDER_NUMBER_LEN = 20;
 
+// currently using for PID level NTEs (order level notes) & OBR-13
+export const HL7_NOTE_CHAR_LIMIT = 300;
+
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
   code: 'psc',
@@ -81,12 +84,10 @@ export const LAB_DR_TYPE_TAG = {
   code: {
     reflex: LabType.reflex,
     unsolicited: LabType.unsolicited,
-    attachment: LabType.pdfAttachment,
   },
   display: {
     reflex: 'reflex',
     unsolicited: 'unsolicited',
-    attachment: 'PDF Attachment',
   },
 } as const;
 
@@ -209,6 +210,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   inputResults: 'INPUT RESULTS',
   completePstTask: 'COMPLETE PST TASK',
   abnRejected: 'ABN REJECTED',
+  deleteOrder: 'DELETE LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -218,6 +220,7 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   inputResults: 'input results',
   completePstTask: 'complete pst task',
   abnRejected: 'ABN marked rejected',
+  deleteOrder: 'Delete lab order and related resources', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -250,6 +253,12 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   abnRejected: {
     code: PROVENANCE_ACTIVITY_CODES.abnRejected,
     display: PROVENANCE_ACTIVITY_DISPLAY.abnRejected,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  // this is a soft delete, resources are marked as cancelled or entered-in-error
+  deleteOrder: {
+    code: PROVENANCE_ACTIVITY_CODES.deleteOrder,
+    display: PROVENANCE_ACTIVITY_DISPLAY.deleteOrder,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
@@ -311,11 +320,17 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
 
 export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';
 
-const LABS_COMMUNICATION_CATEGORY_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-communication-type';
+export const LABS_COMMUNICATION_CATEGORY_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-communication-type';
 export const LAB_ORDER_LEVEL_NOTE_CATEGORY = {
   system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
   code: 'order-level-note',
   display: 'Lab Order Note',
+};
+export const LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY = {
+  system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  code: 'clinical-info',
+  display: 'Relevant clinical information',
 };
 
 export const DEFAULT_OYSTEHR_LABS_HL7_SYSTEM = '(HL7_V2)';

@@ -3,17 +3,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CancelPage } from '../../utils/CancelPage';
 import { ModifyPage } from '../../utils/ModifyPage';
-import { ReservationModificationPatient } from '../0_paperworkSetup/types';
+import { InPersonReservationModificationPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
-let patient: ReservationModificationPatient;
+let patient: InPersonReservationModificationPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
 
-  const testDataPath = path.join('test-data', 'reservationModificationPatient.json');
+  const testDataPath = path.join('test-data', 'inPersonReservationModificationPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 

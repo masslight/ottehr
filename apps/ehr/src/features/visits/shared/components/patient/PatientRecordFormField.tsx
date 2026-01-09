@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useEffect, useRef } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, RegisterOptions, useFormContext } from 'react-hook-form';
 import { BasicDatePicker, FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
@@ -280,6 +280,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
                       },
                     }
               }
+              rules={rules}
             />
           );
         }
@@ -302,9 +303,9 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
                     value={selectedOption}
                     onChange={(_, newValue) => {
                       if (newValue) {
-                        setValue(item.key, newValue.value);
+                        setValue(item.key, newValue.value, { shouldDirty: true });
                       } else {
-                        setValue(item.key, '');
+                        setValue(item.key, '', { shouldDirty: true });
                       }
                     }}
                     disableClearable
@@ -408,9 +409,10 @@ interface DynamicReferenceFieldProps {
   item: Omit<FormFieldsItem, 'options'>;
   optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
   id?: string;
+  rules?: RegisterOptions;
 }
 
-const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy, item, id }) => {
+const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id, rules }) => {
   const { oystehrZambda } = useApiClients();
   const { control, setValue } = useFormContext();
   const optionsInput = (() => {
@@ -455,13 +457,12 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy,
     enabled: !!oystehrZambda,
   });
   // console.log('Insurance options from query:', insuranceOptions);
+
   return (
     <Controller
       name={item.key}
       control={control}
-      rules={{
-        required: REQUIRED_FIELD_ERROR_MESSAGE,
-      }}
+      rules={rules}
       render={({ field: { value }, fieldState: { error } }) => {
         const selectedOption = answerOptions?.find((option) => option.reference === value?.reference);
         return (
@@ -485,7 +486,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy,
             disableClearable
             fullWidth
             renderInput={(params) => (
-              <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+              <TextField {...params} variant="standard" error={!!error} helperText={error?.message} />
             )}
           />
         );

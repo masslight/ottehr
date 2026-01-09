@@ -8,7 +8,7 @@ terraform {
 }
 
 resource "google_storage_bucket" "ehr_bucket" {
-  name                        = var.ehr_domain
+  name                        = var.ehr_bucket_name == null ? var.ehr_domain : var.ehr_bucket_name
   location                    = "US"
   uniform_bucket_level_access = true
 
@@ -25,7 +25,7 @@ resource "google_storage_bucket_iam_member" "ehr_iam" {
 }
 
 resource "google_storage_bucket" "patient_portal_bucket" {
-  name                        = var.patient_portal_domain
+  name                        = var.patient_portal_bucket_name == null ? var.patient_portal_domain : var.patient_portal_bucket_name
   location                    = "US"
   uniform_bucket_level_access = true
 
