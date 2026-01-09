@@ -47,7 +47,7 @@ interface ProjectConfig {
   projectId: string;
   clientId: string;
   clientSecret: string;
-  isProduction: boolean;
+  advapacsTenant: string;
 }
 
 const pathToEnvFiles = path.resolve(__dirname, '../.env');
@@ -63,7 +63,7 @@ const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
       const configUrl = pathToFileURL(configPath).href;
       const configModule = await import(configUrl, { with: { type: 'json' } });
       const config = configModule.default;
-      if (!config.projectId || !config.clientId || !config.clientSecret || config.isProduction === undefined) {
+      if (!config.projectId || !config.clientId || !config.clientSecret || !config.advapacsTenant) {
         console.error('Invalid config in file: ', file);
         // TODO: We don't want to let one bum config file break the whole thing. But we do want this to be a noisy error.
         continue;
@@ -110,9 +110,8 @@ const findServiceRequestsToSend = async (oystehr: Oystehr): Promise<ServiceReque
   return serviceRequestsToSend;
 };
 
-const sendWithMirth = async (serviceRequests: ServiceRequest[], isProduction: boolean): Promise<ServiceRequest[]> => {
+const sendWithMirth = async (serviceRequests: ServiceRequest[], advapacsTenant: string): Promise<ServiceRequest[]> => {
   const serviceRequestsSentWithMirth: ServiceRequest[] = [];
-  const _port = isProduction ? 'TODO' : '8989';
   for (const sr of serviceRequests) {
     try {
       console.log(`Sending ServiceRequest ${sr.id} to teleradiology via Mirth...`);
@@ -126,20 +125,26 @@ const sendWithMirth = async (serviceRequests: ServiceRequest[], isProduction: bo
         console.error(`ServiceRequest ${sr.id} is missing placer order number, skipping.`);
         continue;
       }
-      // TODO
-      // const _mirthResponse = await fetch(`http://localhost:${port}/`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     fillerOrderNumber,
-      //     placerOrderNumber,
-      //   }),
-      // });
 
-      // TODO If successful, add to the list to patch as 'sent' -- Not sure how to know if it succeeded yet
-      serviceRequestsSentWithMirth.push(sr);
+      const mirthResponse = await fetch(`http://localhost:8989/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fillerOrderNumber,
+          placerOrderNumber,
+          advapacsTenant,
+        }),
+      });
+
+      if (mirthResponse.ok) {
+        serviceRequestsSentWithMirth.push(sr);
+      } else {
+        console.error(
+          `Failed to send ServiceRequest ${sr.id} via Mirth with status ${mirthResponse.status}: ${mirthResponse.statusText}`
+        );
+      }
     } catch (error) {
       console.error(`Failed to send ServiceRequest ${sr.id}:`, error);
     }
@@ -171,21 +176,21 @@ const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> 
     console.log(`No ServiceRequests to send to teleradiology for project ${config.projectId}`);
     return;
   }
-  const serviceRequestsToPatchAsSent = await sendWithMirth(serviceRequestsToSend, config.isProduction);
+  const serviceRequestsToPatchAsSent = await sendWithMirth(serviceRequestsToSend, config.advapacsTenant);
   await patchServiceRequests(serviceRequestsToPatchAsSent, oystehr);
-  // TODO for testing just patch any SRs that are passed in without making a mirth call
-  await patchServiceRequests(serviceRequestsToSend, oystehr);
 };
 
 const main = async (): Promise<void> => {
+  console.log('Starting PACS Poll Teleradiology Sender at ', new Date().toISOString());
   const projectConfigs = await loadProjectConfigurations();
   for await (const config of projectConfigs) {
-    console.log('Processing projectId:', config.projectId);
+    console.log(`Processing projectId ${config.projectId} and tenant ${config.advapacsTenant}`);
     console.time('Processing time');
     await sendStudiesToTeleradiology(config);
     console.timeEnd('Processing time');
     console.log('Finished processing projectId:', config.projectId);
   }
+  console.log('Finished PACS Poll Teleradiology Sender at ', new Date().toISOString());
 };
 
 main().catch((error) => {
