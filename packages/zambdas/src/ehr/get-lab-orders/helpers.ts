@@ -1788,6 +1788,8 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
+  // todo labs we should only iterate over all these provenances once
+
   history.push(
     ...parseProvenancesForHistory(
       'ready',
@@ -1853,6 +1855,10 @@ export const parseLabOrdersHistory = (
       date: task.authoredOn || '',
     });
   });
+
+  history.push(
+    ...parseProvenancesForHistory('deleted', PROVENANCE_ACTIVITY_CODING_ENTITY.deleteOrder, practitioners, provenances)
+  );
 
   return history.sort((a, b) => compareDates(b.date, a.date));
 };

@@ -195,7 +195,7 @@ export const getLabOrderRelatedResources = async (
         const basedOn = ref.reference;
         if (!basedOn) return false;
 
-        const isBasedOnServiceRequest = basedOn.endsWith(`/ServiceRequest/${params.serviceRequestId}`);
+        const isBasedOnServiceRequest = basedOn.endsWith(`ServiceRequest/${params.serviceRequestId}`);
         const isBasedOnSomeDR = drRefSet.has(basedOn);
 
         return isBasedOnServiceRequest || isBasedOnSomeDR;

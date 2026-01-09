@@ -82,7 +82,7 @@ export enum ExternalLabsStatus {
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab' | 'rejected abn';
+  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab' | 'rejected abn' | 'deleted';
   performer: string;
   date: string;
 };
