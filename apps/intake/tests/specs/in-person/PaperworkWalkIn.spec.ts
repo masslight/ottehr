@@ -22,6 +22,7 @@ let context: BrowserContext;
 let locator: Locators;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
+let fillingInfo: FillingInfo;
 const appointmentIds: string[] = [];
 const locationName = process.env.LOCATION;
 
@@ -50,6 +51,7 @@ test.beforeAll(async ({ browser }) => {
   paperwork = new Paperwork(page);
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
+  fillingInfo = new FillingInfo(page);
 });
 test.afterAll(async () => {
   await page.close();
@@ -64,7 +66,6 @@ test.afterAll(async () => {
 });
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
-  const fillingInfo = new FillingInfo(page);
   test('SNPRF-1 Fill required contact information', async () => {
     await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}/select-service-category`);
     await fillingInfo.selectFirstServiceCategory();
