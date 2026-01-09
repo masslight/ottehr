@@ -277,6 +277,9 @@
               "valueString": "Allergic reaction to medication or food"
             },
             {
+              "valueString": "Auto accident"
+            },
+            {
               "valueString": "Other"
             }
           ]

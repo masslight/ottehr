@@ -2765,6 +2765,30 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
             "valueString": "64290-0"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "payment-option"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "I have insurance"
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "payment-option",
+            "operator": "=",
+            "answerString": "I have insurance"
           }
         ]
       },
@@ -2785,6 +2809,30 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
             "valueString": "64290-0"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "payment-option"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "I have insurance"
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "payment-option",
+            "operator": "=",
+            "answerString": "I have insurance"
           }
         ]
       },
@@ -4519,7 +4567,8 @@
                 "operator": "=",
                 "answerString": "Both school and work notes"
               }
-            ]
+            ],
+            "required": false
           },
           {
             "linkId": "school-work-note-template-work",
@@ -4564,7 +4613,8 @@
                 "operator": "=",
                 "answerString": "Both school and work notes"
               }
-            ]
+            ],
+            "required": false
           }
         ],
         "enableWhen": [

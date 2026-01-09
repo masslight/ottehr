@@ -9,6 +9,7 @@ export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOpt
 
 export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value; // some flavor of 'yes'
 export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
+export const HAS_ATTORNEY_OPTION = formValueSets.attorneyOptions[0].value; // 'I have an attorney'
 
 const triggerEffectSchema = z.enum(['enable', 'require', 'filter']);
 const triggerSchema = z
@@ -773,10 +774,6 @@ const convertFormFieldToQuestionnaireItem = (
     extensions.push(createInfoTextSecondaryExtension(field.infoTextSecondary));
   }
 
-  if (field.element) {
-    extensions.push(createPreferredElementExtension(field.element));
-  }
-
   if (field.customLinkId) {
     extensions.push(createCustomLinkIdExtension(field.customLinkId));
   }
@@ -787,17 +784,6 @@ const convertFormFieldToQuestionnaireItem = (
 
   if (field.categoryTag) {
     extensions.push(createCategoryTagExtension(field.categoryTag));
-  }
-
-  if (field.alwaysFilter) {
-    extensions.push(createAlwaysFilterExtension());
-  }
-
-  // Add textWhen extensions
-  if (field.textWhen && field.textWhen.length > 0) {
-    field.textWhen.forEach((tw) => {
-      extensions.push(createTextWhenExtension(tw));
-    });
   }
 
   // Add enableWhen from triggers
@@ -815,17 +801,36 @@ const convertFormFieldToQuestionnaireItem = (
       });
     }
 
-    // Add filter-when extension
+    // Add enableBehavior if specified
+    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
+      item.enableBehavior = field.enableBehavior;
+    }
+  }
+
+  // Add preferred-element extension after require-when but before textWhen and filter-when
+  if (field.element) {
+    extensions.push(createPreferredElementExtension(field.element));
+  }
+
+  // Add textWhen extensions
+  if (field.textWhen && field.textWhen.length > 0) {
+    field.textWhen.forEach((tw) => {
+      extensions.push(createTextWhenExtension(tw));
+    });
+  }
+
+  // Add alwaysFilter extension
+  if (field.alwaysFilter) {
+    extensions.push(createAlwaysFilterExtension());
+  }
+
+  // Add filter-when extension from triggers
+  if (field.triggers && field.triggers.length > 0) {
     const filterTriggers = field.triggers.filter((t) => t.effect.includes('filter'));
     if (filterTriggers.length > 0) {
       filterTriggers.forEach((trigger) => {
         extensions.push(createFilterWhenExtension(trigger));
       });
-    }
-
-    // Add enableBehavior if specified
-    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
-      item.enableBehavior = field.enableBehavior;
     }
   }
 

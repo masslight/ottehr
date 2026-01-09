@@ -19,7 +19,6 @@ let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
 let patient: InPersonNoPwPatient;
-const attorneyInformationPageExists = QuestionnaireHelper.hasAttorneyPage();
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -508,7 +507,24 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
   });
 
   test('PAI. Attorney information', async () => {
-    test.skip(!attorneyInformationPageExists, "Attorney information page doesn't exist. Skipping test.");
+    test.skip(
+      (() => {
+        const responseItems: QuestionnaireResponseItem[] = [
+          {
+            linkId: 'contact-information-page',
+            item: [
+              {
+                linkId: 'reason-for-visit',
+                answer: [{ valueString: patient.reasonForVisit }],
+              },
+            ],
+          },
+        ];
+        // Check if attorney page would be visible for this reason for visit
+        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+      })(),
+      'Attorney page not visible for this appointment type'
+    );
     await test.step('PAI-1. Open attorney information page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/attorney-mva`);
       await paperwork.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');

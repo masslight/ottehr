@@ -1,7 +1,7 @@
 // cSpell:ignore SNPRF
 import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { Appointment } from 'fhir/r4b';
+import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
@@ -24,7 +24,6 @@ let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 const locationName = process.env.LOCATION;
-const attorneyInformationPageExists = QuestionnaireHelper.hasAttorneyPage();
 
 const PROCESS_ID = `PaperworkWalkIn.spec.ts-${DateTime.now().toMillis()}`;
 let oystehr: Oystehr;
@@ -65,9 +64,9 @@ test.afterAll(async () => {
 });
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
+  const fillingInfo = new FillingInfo(page);
   test('SNPRF-1 Fill required contact information', async () => {
     await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}/select-service-category`);
-    const fillingInfo = new FillingInfo(page);
     await fillingInfo.selectFirstServiceCategory();
     await locator.clickContinueButton();
     await locator.selectDifferentFamilyMember();
@@ -115,20 +114,47 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await expect(locator.flowHeading).toHaveText('Emergency Contact');
     await paperwork.fillEmergencyContactInformation();
     await commonLocatorsHelper.clickContinue();
-    if (attorneyInformationPageExists) {
+    const attorneyPageVisible = QuestionnaireHelper.attorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ]);
+    if (attorneyPageVisible) {
       await expect(locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
     } else {
       await expect(locator.flowHeading).toHaveText('Photo ID');
     }
   });
-  if (attorneyInformationPageExists) {
-    test('SNPRF-7a Fill attorney information', async () => {
-      await expect(locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
-      await paperwork.fillAttorneyInformation();
-      await commonLocatorsHelper.clickContinue();
-      await expect(locator.flowHeading).toHaveText('Photo ID');
-    });
-  }
+  test('SNPRF-7a Fill attorney information', async () => {
+    test.skip(
+      (() => {
+        const responseItems: QuestionnaireResponseItem[] = [
+          {
+            linkId: 'contact-information-page',
+            item: [
+              {
+                linkId: 'reason-for-visit',
+                answer: [{ valueString: fillingInfo.getReasonForVisit() }],
+              },
+            ],
+          },
+        ];
+        // Check if attorney page would be visible for this reason for visit
+        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+      })(),
+      'Attorney page not visible for this appointment type; skipping test.'
+    );
+    await expect(locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
+    await paperwork.fillAttorneyInformation();
+    await commonLocatorsHelper.clickContinue();
+    await expect(locator.flowHeading).toHaveText('Photo ID');
+  });
   test('SNPRF-8 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();

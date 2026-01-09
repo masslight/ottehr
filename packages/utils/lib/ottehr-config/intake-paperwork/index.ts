@@ -6,6 +6,7 @@ import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
   FormSectionSimpleSchema,
+  HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   QuestionnaireBase,
@@ -53,6 +54,11 @@ const FormFields = {
       appointmentServiceCategory: {
         key: 'appointment-service-category',
         type: 'string',
+      },
+      reasonForVisit: {
+        key: 'reason-for-visit',
+        type: 'choice',
+        options: formValueSets.reasonForVisitOptions,
       },
     },
     items: {
@@ -1655,6 +1661,125 @@ const FormFields = {
       'emergency-contact-zip',
     ],
   },
+  attorneyInformation: {
+    linkId: 'attorney-mva-page',
+    title: 'Attorney for Motor Vehicle Accident',
+    triggers: [
+      {
+        targetQuestionLinkId: 'contact-information-page.reason-for-visit',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'Auto accident',
+      },
+    ],
+    items: {
+      hasAttorney: {
+        key: 'attorney-mva-has-attorney',
+        label: 'Do you have an attorney?',
+        text: 'Do you have an attorney?',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.attorneyOptions,
+        triggers: [
+          {
+            targetQuestionLinkId: 'contact-information-page.reason-for-visit',
+            effect: ['require'],
+            operator: '=',
+            answerString: 'Auto accident',
+          },
+        ],
+      },
+      firm: {
+        key: 'attorney-mva-firm',
+        label: 'Firm',
+        text: 'Firm',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'attorney-mva-has-attorney',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: HAS_ATTORNEY_OPTION,
+          },
+        ],
+      },
+      firstName: {
+        key: 'attorney-mva-first-name',
+        label: 'First name',
+        text: 'First name',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'attorney-mva-has-attorney',
+            effect: ['enable'],
+            operator: '=',
+            answerString: HAS_ATTORNEY_OPTION,
+          },
+        ],
+      },
+      lastName: {
+        key: 'attorney-mva-last-name',
+        label: 'Last name',
+        text: 'Last name',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'attorney-mva-has-attorney',
+            effect: ['enable'],
+            operator: '=',
+            answerString: HAS_ATTORNEY_OPTION,
+          },
+        ],
+      },
+      email: {
+        key: 'attorney-mva-email',
+        label: 'Email',
+        text: 'Email',
+        type: 'string',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'attorney-mva-has-attorney',
+            effect: ['enable'],
+            operator: '=',
+            answerString: HAS_ATTORNEY_OPTION,
+          },
+        ],
+      },
+      mobile: {
+        key: 'attorney-mva-mobile',
+        label: 'Mobile',
+        text: 'Mobile',
+        type: 'string',
+        dataType: 'Phone Number',
+        triggers: [
+          {
+            targetQuestionLinkId: 'attorney-mva-has-attorney',
+            effect: ['enable'],
+            operator: '=',
+            answerString: HAS_ATTORNEY_OPTION,
+          },
+        ],
+      },
+      fax: {
+        key: 'attorney-mva-fax',
+        label: 'Fax',
+        text: 'Fax',
+        type: 'string',
+        dataType: 'Phone Number',
+        triggers: [
+          {
+            targetQuestionLinkId: 'attorney-mva-has-attorney',
+            effect: ['enable'],
+            operator: '=',
+            answerString: HAS_ATTORNEY_OPTION,
+          },
+        ],
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
   photoId: {
     linkId: 'photo-id-page',
     title: 'Photo ID',
@@ -1859,6 +1984,7 @@ const FormFieldsSchema = z.object({
   responsibleParty: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
   emergencyContact: FormSectionSimpleSchema,
+  attorneyInformation: FormSectionSimpleSchema,
   photoId: FormSectionSimpleSchema,
   consentForms: FormSectionSimpleSchema,
   medicalHistory: FormSectionSimpleSchema,

@@ -357,6 +357,7 @@ const formValueSets = {
     { label: 'Removal of sutures/stitches/staples', value: 'Removal of sutures/stitches/staples' },
     { label: 'Choked or swallowed something', value: 'Choked or swallowed something' },
     { label: 'Allergic reaction to medication or food', value: 'Allergic reaction to medication or food' },
+    { label: 'Auto accident', value: 'Auto accident' },
     { label: 'Other', value: 'Other' },
   ],
   relationshipOptions: [
@@ -631,6 +632,10 @@ const formValueSets = {
     { label: 'School only', value: 'School only' },
     { label: 'Work only', value: 'Work only' },
     { label: 'Both school and work notes', value: 'Both school and work notes' },
+  ],
+  attorneyOptions: [
+    { label: 'I have an attorney', value: 'I have an attorney' },
+    { label: 'I do not have an attorney', value: 'I do not have an attorney' },
   ],
   inviteFromAnotherDeviceOptions: [
     { label: 'No, only one device will be connected', value: 'No, only one device will be connected' },

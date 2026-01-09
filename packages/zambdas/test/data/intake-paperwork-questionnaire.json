@@ -428,6 +428,83 @@
               "valueString": "hidden"
             }
           ]
+        },
+        {
+          "linkId": "reason-for-visit",
+          "type": "choice",
+          "readOnly": true,
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ],
+          "answerOption": [
+            {
+              "valueString": "Cough and/or congestion"
+            },
+            {
+              "valueString": "Throat pain"
+            },
+            {
+              "valueString": "Eye concern"
+            },
+            {
+              "valueString": "Fever"
+            },
+            {
+              "valueString": "Ear pain"
+            },
+            {
+              "valueString": "Vomiting and/or diarrhea"
+            },
+            {
+              "valueString": "Abdominal (belly) pain"
+            },
+            {
+              "valueString": "Rash or skin issue"
+            },
+            {
+              "valueString": "Urinary problem"
+            },
+            {
+              "valueString": "Breathing problem"
+            },
+            {
+              "valueString": "Injury to arm"
+            },
+            {
+              "valueString": "Injury to leg"
+            },
+            {
+              "valueString": "Injury to head"
+            },
+            {
+              "valueString": "Injury (Other)"
+            },
+            {
+              "valueString": "Cut to arm or leg"
+            },
+            {
+              "valueString": "Cut to face or head"
+            },
+            {
+              "valueString": "Removal of sutures/stitches/staples"
+            },
+            {
+              "valueString": "Choked or swallowed something"
+            },
+            {
+              "valueString": "Allergic reaction to medication or food"
+            },
+            {
+              "valueString": "Auto accident"
+            },
+            {
+              "valueString": "Other"
+            }
+          ]
         }
       ]
     },
@@ -1807,6 +1884,30 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
               "valueString": "64290-0"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "payment-option"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueString": "I have insurance"
+                }
+              ]
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
             }
           ]
         },
@@ -1827,6 +1928,30 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
               "valueString": "64290-0"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "payment-option"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueString": "I have insurance"
+                }
+              ]
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
             }
           ]
         },
@@ -3731,6 +3856,172 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "attorney-mva-page",
+      "text": "Attorney for Motor Vehicle Accident",
+      "type": "group",
+      "enableWhen": [
+        {
+          "question": "contact-information-page.reason-for-visit",
+          "operator": "=",
+          "answerString": "Auto accident"
+        }
+      ],
+      "item": [
+        {
+          "linkId": "attorney-mva-has-attorney",
+          "text": "Do you have an attorney?",
+          "type": "choice",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "I have an attorney"
+            },
+            {
+              "valueString": "I do not have an attorney"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "contact-information-page.reason-for-visit"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "Auto accident"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+              "valueString": "Radio"
+            }
+          ]
+        },
+        {
+          "linkId": "attorney-mva-firm",
+          "text": "Firm",
+          "type": "string",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "attorney-mva-has-attorney",
+              "operator": "=",
+              "answerString": "I have an attorney"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "attorney-mva-has-attorney"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "I have an attorney"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "attorney-mva-first-name",
+          "text": "First name",
+          "type": "string",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "attorney-mva-has-attorney",
+              "operator": "=",
+              "answerString": "I have an attorney"
+            }
+          ]
+        },
+        {
+          "linkId": "attorney-mva-last-name",
+          "text": "Last name",
+          "type": "string",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "attorney-mva-has-attorney",
+              "operator": "=",
+              "answerString": "I have an attorney"
+            }
+          ]
+        },
+        {
+          "linkId": "attorney-mva-email",
+          "text": "Email",
+          "type": "string",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "attorney-mva-has-attorney",
+              "operator": "=",
+              "answerString": "I have an attorney"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Email"
+            }
+          ]
+        },
+        {
+          "linkId": "attorney-mva-mobile",
+          "text": "Mobile",
+          "type": "string",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "attorney-mva-has-attorney",
+              "operator": "=",
+              "answerString": "I have an attorney"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            }
+          ]
+        },
+        {
+          "linkId": "attorney-mva-fax",
+          "text": "Fax",
+          "type": "string",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "attorney-mva-has-attorney",
+              "operator": "=",
+              "answerString": "I have an attorney"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
             }
           ]
         }

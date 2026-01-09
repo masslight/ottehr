@@ -1,30 +1,23 @@
 import { QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { buildEnableWhenContext, evalEnableWhen, IntakeQuestionnaireItem } from 'utils';
+import {
+  buildEnableWhenContext,
+  evalEnableWhen,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  IntakeQuestionnaireItem,
+  mapQuestionnaireAndValueSetsToItemsList,
+} from 'utils';
 
 export class QuestionnaireHelper {
   private static inPersonQuestionnaireItems: IntakeQuestionnaireItem[] = [];
   private static hasLoadedInPersonQuestionnaire = false;
-  private static readonly questionnairePath = path.resolve(
-    QuestionnaireHelper.getDirname(),
-    '../../../../config/oystehr/in-person-intake-questionnaire.json'
-  );
-
-  private static getDirname(): string {
-    const filename = fileURLToPath(import.meta.url);
-    return path.dirname(filename);
-  }
 
   private static loadInPersonQuestionnaireItems(): IntakeQuestionnaireItem[] {
     if (!QuestionnaireHelper.hasLoadedInPersonQuestionnaire) {
-      const questionnaireRaw = fs.readFileSync(QuestionnaireHelper.questionnairePath, 'utf-8');
-      const questionnaireJson = JSON.parse(questionnaireRaw);
-      const fhirResources = questionnaireJson?.fhirResources ?? {};
-      const matchingKey = Object.keys(fhirResources).find((key) => key.startsWith('questionnaire-in-person-previsit'));
-      const resourceWrapper = matchingKey ? fhirResources[matchingKey] : Object.values(fhirResources)[0];
-      QuestionnaireHelper.inPersonQuestionnaireItems = resourceWrapper?.resource?.item ?? [];
+      // todo: make a convenience func for this in utils?
+      QuestionnaireHelper.inPersonQuestionnaireItems = mapQuestionnaireAndValueSetsToItemsList(
+        IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE().item ?? [],
+        []
+      );
       QuestionnaireHelper.hasLoadedInPersonQuestionnaire = true;
     }
     return QuestionnaireHelper.inPersonQuestionnaireItems;
@@ -98,5 +91,9 @@ export class QuestionnaireHelper {
 
   static hasAttorneyPage(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireHasItem('attorney-mva-page');
+  }
+
+  static attorneyPageIsVisible(responseItems: QuestionnaireResponseItem[]): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireItemIsVisible('attorney-mva-page', responseItems);
   }
 }

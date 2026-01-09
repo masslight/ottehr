@@ -191,7 +191,6 @@ export class Paperwork {
   context: BrowserContext;
   uploadPhoto: UploadDocs;
   paperworkTelemed: PaperworkTelemed;
-  attorneyInformationPageExists: boolean;
 
   constructor(page: Page) {
     this.page = page;
@@ -201,7 +200,6 @@ export class Paperwork {
     this.uploadPhoto = new UploadDocs(page);
     this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
-    this.attorneyInformationPageExists = QuestionnaireHelper.hasAttorneyPage();
   }
   // todo grab from config instead!
   private language = ['English', 'Spanish'];
@@ -377,7 +375,17 @@ export class Paperwork {
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
-    const attorneyInformation = this.attorneyInformationPageExists
+    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: this.fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ])
       ? await (async () => {
           await this.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
           const data = await this.fillAttorneyInformation();

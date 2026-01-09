@@ -15,7 +15,7 @@ describe('testing Questionnaire generation from config objects', () => {
   test.concurrent('intake paperwork config JSON matches generated questionnaire', () => {
     const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
     const actualConfigQuestionnaire = (InPersonIntakeQuestionnaireConfig as any).fhirResources[
-      'questionnaire-in-person-previsit-paperwork'
+      'questionnaire-in-person-previsit-1_1_4'
     ].resource;
 
     expect(actualConfigQuestionnaire).toBeDefined();
