@@ -8,6 +8,7 @@ import { useAppointmentData } from '../../shared/stores/appointment/appointment.
 
 interface MedicationAPI {
   medications: ExtendedMedicationDataForResponse[];
+  cancelledMedications: ExtendedMedicationDataForResponse[];
   isLoading: boolean;
   loadMedications: () => Promise<void>;
   updateMedication: (updatedMedication: UpdateMedicationOrderInput) => Promise<{ id: string; message: string }>;
@@ -21,7 +22,7 @@ export const useMedicationAPI = (): MedicationAPI => {
   const queryClient = useQueryClient();
   const { mutateAsync: createUpdateMedicationOrder } = useCreateUpdateMedicationOrder();
   const searchBy: GetMedicationOrdersInput['searchBy'] = { field: 'encounterId', value: encounter.id || '' };
-  const { data: medications, isLoading } = useGetMedicationOrders(searchBy);
+  const { data: medicationsData, isLoading } = useGetMedicationOrders(searchBy);
 
   const invalidateCache = async (): Promise<void> => {
     const encounterId = encounter.id;
@@ -46,7 +47,8 @@ export const useMedicationAPI = (): MedicationAPI => {
   };
 
   return {
-    medications: medications?.orders || emptyArray,
+    medications: medicationsData?.orders || emptyArray,
+    cancelledMedications: medicationsData?.cancelledOrders || emptyArray,
     isLoading,
     loadMedications: invalidateCache,
     updateMedication: async (updatedMedication: UpdateMedicationOrderInput) => {

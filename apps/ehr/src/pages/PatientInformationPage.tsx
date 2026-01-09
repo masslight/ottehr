@@ -82,18 +82,22 @@ const makePrepopulatedCoveragesFormDefaults = ({
   coverages,
   patient,
   insuranceOrgs,
+  employerOrganization,
   questionnaire,
 }: {
   coverages: OrderedCoveragesWithSubscribers;
   patient: Patient;
   insuranceOrgs: Organization[];
+  employerOrganization?: Organization;
   questionnaire: Questionnaire;
 }): Record<string, any> => {
   if (!questionnaire?.item) return {};
 
   const filteredQuestionnaire: Questionnaire = {
     ...questionnaire,
-    item: questionnaire.item.filter((item) => COVERAGE_ITEMS.includes(item.linkId)),
+    item: questionnaire.item.filter(
+      (item) => COVERAGE_ITEMS.includes(item.linkId) || item.linkId === 'employer-information-page'
+    ),
   };
 
   const prepopulatedItems = prepopulatePatientRecordItems({
@@ -101,6 +105,7 @@ const makePrepopulatedCoveragesFormDefaults = ({
     patient,
     insuranceOrgs,
     questionnaire: filteredQuestionnaire,
+    employerOrganization,
     coverageChecks: [],
   });
 
@@ -235,6 +240,7 @@ const useFormData = (
         coverages: insuranceData.coverages,
         patient: accountData.patient,
         insuranceOrgs: insuranceData.insuranceOrgs,
+        employerOrganization: accountData.employerOrganization,
         questionnaire,
       });
       coveragesFormValues = { ...formDefaults };

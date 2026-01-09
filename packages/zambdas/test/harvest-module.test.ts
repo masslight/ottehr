@@ -2384,6 +2384,21 @@ describe('Harvest Module', () => {
 
     const employerQuestionnaireItems: QuestionnaireResponse['item'] = [
       {
+        linkId: 'workers-comp-insurance-name',
+        answer: [
+          {
+            valueReference: {
+              reference: 'Organization/868091c6-c176-448f-8790-cb4566a57a9b',
+              display: 'MassLight',
+            },
+          },
+        ],
+      },
+      {
+        linkId: 'workers-comp-insurance-member-id',
+        answer: [{ valueString: '1' }],
+      },
+      {
         linkId: 'employer-name',
         answer: [{ valueString: 'Wayne Enterprises' }],
       },
@@ -2417,11 +2432,84 @@ describe('Harvest Module', () => {
       },
     ];
 
-    it('creates employer organization and workers comp account operations when employer data exists', () => {
+    const workersCompEmployerOrganization: Organization = {
+      active: true,
+      address: [
+        {
+          city: 'Example',
+          line: ['Example'],
+          postalCode: '12345',
+          state: 'DC',
+          use: 'billing',
+        },
+      ],
+      extension: [
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/eligibility',
+          valueString: 'yes',
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/era',
+          valueString: 'enrollment',
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/payer-type',
+          valueString: 'workerscomp',
+        },
+      ],
+      identifier: [
+        {
+          type: {
+            coding: [
+              {
+                code: '12345',
+                system: 'payer-id',
+              },
+            ],
+          },
+        },
+        {
+          type: {
+            coding: [
+              {
+                code: 'XX',
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              },
+            ],
+          },
+          value: '12345',
+        },
+      ],
+      name: 'MassLight',
+      resourceType: 'Organization',
+      telecom: [
+        {
+          system: 'phone',
+          value: '123-456-7890',
+        },
+      ],
+      type: [
+        {
+          coding: [
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/organization-type',
+            },
+          ],
+        },
+      ],
+      id: '868091c6-c176-448f-8790-cb4566a57a9b',
+      meta: {
+        versionId: '53467db8-3445-46ee-8300-5f12043bf0f0',
+        lastUpdated: '2025-11-05T15:57:52.067Z',
+      },
+    };
+
+    it('creates employer organization, workers comp account, and coverage operations when employer data exists', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem: employerQuestionnaireItems,
-        organizationResources: [],
+        organizationResources: [workersCompEmployerOrganization],
         existingCoverages: {},
       });
 
@@ -2431,6 +2519,17 @@ describe('Harvest Module', () => {
       const employerReference = result.employerOrganizationPost?.fullUrl;
       expect(result.workersCompAccountPost?.owner?.reference).toBe(employerReference);
       expect(result.workersCompAccountPost?.guarantor?.[0]?.party?.reference).toBe(employerReference);
+
+      const workersCompCoveragePost = result.coveragePosts.find(
+        (coverage) => coverage.resource.type?.coding?.some((coding) => coding.code === 'WC')
+      );
+      expect(workersCompCoveragePost).toBeDefined();
+      expect(workersCompCoveragePost?.resource.payor?.[0].reference).toBe(
+        'Organization/868091c6-c176-448f-8790-cb4566a57a9b'
+      );
+      expect(workersCompCoveragePost?.resource.class?.[0].name).toBe('MassLight');
+      expect(workersCompCoveragePost?.resource.class?.[0].value).toBe('12345');
+      expect(workersCompCoveragePost?.resource.identifier?.[0]?.value).toBe('1');
     });
 
     it('updates employer organization and workers comp account when resources already exist', () => {

@@ -721,8 +721,29 @@ const FormFields = {
   },
   employerInformation: {
     linkId: 'employer-information-page',
-    title: 'Employer information',
+    title: "Worker's Compensation Information",
     items: {
+      workersCompInsurance: {
+        key: 'workers-comp-insurance-name',
+        type: 'reference',
+        label: 'Insurance carrier',
+        dataSource: {
+          answerSource: {
+            resourceType: 'Organization',
+            query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+            prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+          },
+        },
+        triggers: [
+          {
+            targetQuestionLinkId: 'workers-comp-insurance-member-id',
+            effect: ['require'],
+            operator: 'exists',
+            answerBoolean: true,
+          },
+        ],
+      },
+      workersCompMemberId: { key: 'workers-comp-insurance-member-id', type: 'string', label: 'Member ID' },
       employerName: { key: 'employer-name', type: 'string', label: 'Employer name' },
       addressLine1: { key: 'employer-address', type: 'string', label: 'Address line 1' },
       addressLine2: { key: 'employer-address-2', type: 'string', label: 'Address line 2' },

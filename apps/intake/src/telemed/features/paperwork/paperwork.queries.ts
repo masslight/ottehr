@@ -93,6 +93,7 @@ export const useAnswerOptionsQuery = (
 interface GetPaymentMethodsParams {
   setupCompleted: boolean;
   beneficiaryPatientId: string | undefined;
+  appointmentId: string | undefined;
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>> | null) => void;
 }
 
@@ -100,22 +101,23 @@ export const useGetPaymentMethods = (
   input: GetPaymentMethodsParams
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>, Error> => {
   const apiClient = useOystehrAPIClient();
-  const { beneficiaryPatientId, setupCompleted, onSuccess } = input;
+  const { beneficiaryPatientId, appointmentId, setupCompleted, onSuccess } = input;
 
   const queryResult = useQuery({
-    queryKey: ['payment-methods', beneficiaryPatientId],
+    queryKey: ['payment-methods', beneficiaryPatientId, appointmentId],
 
     queryFn: () => {
-      if (apiClient && beneficiaryPatientId) {
+      if (apiClient && beneficiaryPatientId && appointmentId) {
         return apiClient.getPaymentMethods({
           beneficiaryPatientId,
+          appointmentId,
         });
       }
 
       throw new Error('api client not defined or patient id is not provided');
     },
 
-    enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient),
+    enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient) && Boolean(appointmentId),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
@@ -125,6 +127,7 @@ export const useGetPaymentMethods = (
 
 export const useSetupPaymentMethod = (
   beneficiaryPatientId: string | undefined,
+  appointmentId: string | undefined,
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>> | null) => void
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>, Error> => {
   const apiClient = useOystehrAPIClient();
@@ -133,16 +136,17 @@ export const useSetupPaymentMethod = (
     queryKey: ['payment-methods-setup', beneficiaryPatientId],
 
     queryFn: () => {
-      if (apiClient && beneficiaryPatientId) {
+      if (apiClient && beneficiaryPatientId && appointmentId) {
         return apiClient.setupPaymentMethod({
           beneficiaryPatientId,
+          appointmentId,
         });
       }
 
       throw new Error('api client not defined or patient id is not provided');
     },
 
-    enabled: Boolean(apiClient && beneficiaryPatientId),
+    enabled: Boolean(apiClient && beneficiaryPatientId && appointmentId),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
@@ -151,7 +155,8 @@ export const useSetupPaymentMethod = (
 };
 
 export const useDeletePaymentMethod = (
-  beneficiaryPatientId: string | undefined
+  beneficiaryPatientId: string | undefined,
+  appointmentId: string | undefined
 ): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['deletePaymentMethod']>>,
   Error,
@@ -161,10 +166,11 @@ export const useDeletePaymentMethod = (
 
   return useMutation({
     mutationFn: ({ paymentMethodId }: { paymentMethodId: string }) => {
-      if (apiClient && beneficiaryPatientId) {
+      if (apiClient && beneficiaryPatientId && appointmentId) {
         return apiClient.deletePaymentMethod({
           beneficiaryPatientId,
           paymentMethodId,
+          appointmentId,
         });
       }
 
@@ -179,7 +185,8 @@ export interface SetDefaultPaymentMethodParams {
   onError?: (error: unknown) => void;
 }
 export const useSetDefaultPaymentMethod = (
-  beneficiaryPatientId: string | undefined
+  beneficiaryPatientId: string | undefined,
+  appointmentId: string | undefined
 ): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['setDefaultPaymentMethod']>>,
   Error,
@@ -189,11 +196,12 @@ export const useSetDefaultPaymentMethod = (
 
   return useMutation({
     mutationFn: ({ paymentMethodId, onSuccess, onError }: SetDefaultPaymentMethodParams) => {
-      if (apiClient && beneficiaryPatientId) {
+      if (apiClient && beneficiaryPatientId && appointmentId) {
         return apiClient
           .setDefaultPaymentMethod({
             beneficiaryPatientId,
             paymentMethodId,
+            appointmentId,
           })
           .then(() => {
             if (onSuccess) {

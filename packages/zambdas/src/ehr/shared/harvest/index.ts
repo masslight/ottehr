@@ -1966,6 +1966,8 @@ function getInsuranceDetailsFromAnswers(
 }
 
 interface EmployerInformation {
+  workersCompInsurance?: string;
+  workersCompMemberId?: string;
   employerName?: string;
   addressLine1?: string;
   addressLine2?: string;
@@ -2100,13 +2102,24 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
   };
 };
 
-const buildEmployerAccountResource = (
-  patientId: string,
-  existingAccount: Account | undefined,
-  organizationReference: string,
-  accountTypeCoding: CodeableConcept | undefined,
-  employerInformation?: EmployerInformation
-): Account => {
+interface BuildEmployerAccountResourceParams {
+  patientId: string;
+  existingAccount?: Account;
+  organizationReference: string;
+  accountTypeCoding?: CodeableConcept;
+  employerInformation?: EmployerInformation;
+  coverageReference?: string;
+}
+
+const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
+  const {
+    patientId,
+    existingAccount,
+    organizationReference,
+    accountTypeCoding,
+    employerInformation,
+    coverageReference,
+  } = params;
   const patientReference = `Patient/${patientId}`;
   const baseAccount: Account = existingAccount ? { ...existingAccount } : { resourceType: 'Account', status: 'active' };
 
@@ -2133,6 +2146,13 @@ const buildEmployerAccountResource = (
           (resource) => !(resource.resourceType === 'Organization' && resource.id === organizationIdFromReference)
         )
       : baseAccount.contained,
+    coverage: coverageReference
+      ? [
+          {
+            coverage: { reference: coverageReference },
+          },
+        ]
+      : undefined,
   };
 };
 
@@ -2157,6 +2177,9 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   const getAnswerString = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
 
+  const workersCompInsurance = items.find((item) => item.linkId === 'workers-comp-insurance-name')?.answer?.[0]
+    ?.valueReference?.reference;
+  const workersCompMemberId = getAnswerString('workers-comp-insurance-member-id');
   const employerName = getAnswerString('employer-name');
   const addressLine1 = getAnswerString('employer-address');
   const city = getAnswerString('employer-city');
@@ -2167,6 +2190,8 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   const contactPhone = getAnswerString('employer-contact-phone');
 
   const hasAnyValue = [
+    workersCompInsurance,
+    workersCompMemberId,
     employerName,
     addressLine1,
     city,
@@ -2186,6 +2211,8 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   }
 
   return {
+    workersCompInsurance,
+    workersCompMemberId,
     employerName,
     addressLine1,
     addressLine2: getAnswerString('employer-address-2'),
@@ -2493,7 +2520,7 @@ export interface GetAccountOperationsInput {
 export interface GetAccountOperationsOutput {
   coveragePosts: BatchInputPostRequest<Coverage>[];
   patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[];
-  put: BatchInputPutRequest<Account | RelatedPerson | Organization>[];
+  put: BatchInputPutRequest<Account | Coverage | RelatedPerson | Organization>[];
   accountPost?: Account;
   emergencyContactPost?: BatchInputPostRequest<RelatedPerson>;
   employerOrganizationPost?: BatchInputPostRequest<Organization>;
@@ -2562,7 +2589,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
-  const puts: BatchInputPutRequest<Account | RelatedPerson>[] = [];
+  const puts: BatchInputPutRequest<Account | Coverage | RelatedPerson>[] = [];
   let accountPost: Account | undefined;
   let emergencyContactPost: BatchInputPostRequest<RelatedPerson> | undefined;
   let employerOrganizationPost: BatchInputPostRequest<Organization> | undefined;
@@ -2783,13 +2810,93 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       };
     }
 
-    const workersCompAccountResource = buildEmployerAccountResource(
-      patient.id!,
-      existingWorkersCompAccount,
-      employerOrganizationReference,
-      WORKERS_COMP_ACCOUNT_TYPE,
-      employerInformation
+    let workersCompCoverage: Coverage | undefined = undefined;
+    let workersCompCoverageReference: string | undefined = undefined;
+    const workersCompInsurance = employerInformation.workersCompInsurance;
+    const workersCompMemberId = employerInformation.workersCompMemberId;
+    const workersCompInsuranceOrg = organizationResources.find(
+      (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
     );
+    const payerId = getPayerId(workersCompInsuranceOrg);
+    if (existingCoverages.workersComp) {
+      workersCompCoverage = existingCoverages.workersComp;
+      const updatedWorkersCompCoverage = { ...workersCompCoverage };
+      workersCompCoverageReference = `Coverage/${workersCompCoverage.id}`;
+      if (workersCompMemberId && workersCompInsuranceOrg) {
+        updatedWorkersCompCoverage.identifier = [
+          createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
+        ];
+      }
+      if (workersCompInsuranceOrg) {
+        updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
+        updatedWorkersCompCoverage.class = [
+          {
+            type: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                  code: 'plan',
+                },
+              ],
+            },
+            value: payerId ?? '',
+            name: `${workersCompInsuranceOrg?.name ?? ''}`,
+          },
+        ];
+      }
+      if (workersCompCoverage !== updatedWorkersCompCoverage) {
+        puts.push({
+          method: 'PUT',
+          url: `Coverage/${workersCompCoverage.id}`,
+          resource: updatedWorkersCompCoverage,
+        });
+      }
+    } else if (workersCompInsuranceOrg && payerId) {
+      workersCompCoverageReference = `urn:uuid:${randomUUID()}`;
+      workersCompCoverage = {
+        id: workersCompCoverageReference,
+        identifier: workersCompMemberId
+          ? [createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg)]
+          : undefined,
+        resourceType: 'Coverage',
+        status: 'active',
+        beneficiary: {
+          type: 'Patient',
+          reference: `Patient/${patient.id}`,
+        },
+        type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
+        payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+        class: [
+          {
+            type: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                  code: 'plan',
+                },
+              ],
+            },
+            value: payerId,
+            name: `${workersCompInsuranceOrg?.name ?? ''}`,
+          },
+        ],
+      };
+      coveragePosts.push({
+        method: 'POST',
+        fullUrl: workersCompCoverage.id,
+        url: 'Coverage',
+        resource: { ...workersCompCoverage },
+      });
+    }
+
+    const workersCompAccountResource = buildEmployerAccountResource({
+      patientId: patient.id!,
+      existingAccount: existingWorkersCompAccount,
+      organizationReference: employerOrganizationReference!,
+      accountTypeCoding: WORKERS_COMP_ACCOUNT_TYPE,
+      coverageReference: workersCompCoverageReference,
+      employerInformation,
+    });
 
     if (existingWorkersCompAccount?.id) {
       workersCompAccountPut = {
@@ -2806,13 +2913,13 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   }
 
   if (occupationalMedicineEmployerReference?.reference) {
-    const occupationalMedicineAccountResource = buildEmployerAccountResource(
-      patient.id!,
-      existingOccupationalMedicineAccount,
-      occupationalMedicineEmployerReference.reference,
-      OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
-      employerInformation
-    );
+    const occupationalMedicineAccountResource = buildEmployerAccountResource({
+      patientId: patient.id!,
+      existingAccount: existingOccupationalMedicineAccount,
+      organizationReference: occupationalMedicineEmployerReference.reference,
+      accountTypeCoding: OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+      employerInformation,
+    });
 
     if (existingOccupationalMedicineAccount?.id) {
       occupationalMedicineAccountPut = {
@@ -3656,6 +3763,12 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     }
   }
 
+  if (workersCompAccount?.coverage) {
+    existingCoverages.workersComp = coverageResources.find((coverage) => {
+      return coverage.id === workersCompAccount?.coverage?.[0]?.coverage?.reference?.split('/')[1];
+    });
+  }
+
   const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
   if (primarySubscriberReference && existingCoverages.primary) {
     const subscriberResult = takeContainedOrFind<RelatedPerson>(
@@ -3714,6 +3827,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
+  workersComp = 'workers-comp-insurance-name',
 }
 
 export const getAccountAndCoverageResourcesForPatient = async (
@@ -3807,6 +3921,10 @@ export const updatePatientAccountFromQuestionnaire = async (
   const secondaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsuranceOrg) insuranceOrgs.push(secondaryInsuranceOrg);
+
+  const workersCompInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.workersComp)
+    ?.answer?.[0]?.valueReference?.reference;
+  if (workersCompInsuranceOrg) insuranceOrgs.push(workersCompInsuranceOrg);
 
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 

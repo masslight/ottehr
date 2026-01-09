@@ -60,6 +60,8 @@ type MedicationCardViewProps = {
   selectsOptions: OrderFieldsSelectsOptions;
   interactionsMessage?: InteractionsMessage;
   onInteractionsMessageClick: () => void;
+  onDelete?: () => void;
+  isReadOnly?: boolean;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -82,6 +84,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   selectsOptions,
   interactionsMessage,
   onInteractionsMessageClick,
+  onDelete,
+  isReadOnly,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -90,16 +94,23 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   const OrderFooter = (): React.ReactElement => {
     return (
       <Box sx={{ minHeight: '40px' }} display="flex" justifyContent="space-between" alignItems="center">
-        <ButtonRounded
-          data-testid={dataTestIds.orderMedicationPage.backButton}
-          variant="outlined"
-          onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
-          color="primary"
-          size="large"
-          startIcon={<ArrowBackIcon />}
-        >
-          Back
-        </ButtonRounded>
+        <Box display="flex" gap={2}>
+          <ButtonRounded
+            data-testid={dataTestIds.orderMedicationPage.backButton}
+            variant="outlined"
+            onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
+            color="primary"
+            size="large"
+            startIcon={<ArrowBackIcon />}
+          >
+            Back
+          </ButtonRounded>
+          {!isReadOnly && onDelete && type !== 'order-new' && (
+            <ButtonRounded onClick={onDelete} variant="outlined" color="error" size="large">
+              Delete Order
+            </ButtonRounded>
+          )}
+        </Box>
         {isEditable && (
           <ButtonRounded
             data-testid={dataTestIds.orderMedicationPage.fillOrderToSaveButton}
@@ -127,12 +138,19 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   const DispenseFooter = (): React.ReactElement => {
     return (
       <Box sx={{ minHeight: '40px' }} display="flex" justifyContent="space-between" alignItems="center">
-        <MedicationStatusChip
-          isEditable={false}
-          medication={medication}
-          onClick={onStatusSelect}
-          status={selectedStatus}
-        />
+        <Box display="flex" gap={2}>
+          <MedicationStatusChip
+            isEditable={false}
+            medication={medication}
+            onClick={onStatusSelect}
+            status={selectedStatus}
+          />
+          {!isReadOnly && onDelete && (
+            <ButtonRounded onClick={onDelete} variant="outlined" color="error" size="large">
+              Delete Order
+            </ButtonRounded>
+          )}
+        </Box>
         {isEditable && (
           <Box display="flex" flexDirection="row" gap={2}>
             <ButtonRounded
