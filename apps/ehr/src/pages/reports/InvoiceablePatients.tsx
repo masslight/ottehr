@@ -260,7 +260,7 @@ export default function InvoiceablePatients(): React.ReactElement {
             <DatePicker
               label="Start Date"
               value={startDate}
-              onChange={(newValue: any) => {
+              onChange={(newValue: DateTime | null) => {
                 setStartDate(newValue);
               }}
               slotProps={{ textField: { fullWidth: true } }}

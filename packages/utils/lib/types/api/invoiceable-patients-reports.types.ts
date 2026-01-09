@@ -1,6 +1,7 @@
 import z from 'zod';
 export const INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME = 'invoiceable-patients-reports';
 export const INVOICEABLE_PATIENTS_REPORTS_FILE_NAME = `invoiceable-patients-report.json`;
+export const DEFAULT_CANDID_CLAIMS_PAGE_SIZE = 100;
 
 export interface InvoiceablePatientReport {
   id: string;

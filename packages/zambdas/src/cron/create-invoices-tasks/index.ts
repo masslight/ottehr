@@ -56,8 +56,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const twoWeeksAgo = DateTime.now().minus({ weeks: 2 });
     const candidClaims = await getAllCandidClaims(candid, twoWeeksAgo);
     const twoDaysAgo = DateTime.now().minus({ days: 2 });
-    const claimsForThePastTwoDays = candidClaims.filter((claim) => claim.timestamp >= twoDaysAgo.toJSDate());
+    console.log('getting candid claims for the past two weeks');
+    const claimsForThePastTwoDays = candidClaims.filter((claim) => DateTime.fromJSDate(claim.timestamp) >= twoDaysAgo);
 
+    console.log('getting pending and to create packages');
     const [pendingPackagesToUpdate, packagesToCreate] = await Promise.all([
       getEncountersWithPendingTasksFhir(oystehr, candid, candidClaims, twoWeeksAgo),
       getEncountersWithoutTaskFhir(oystehr, candid, claimsForThePastTwoDays),

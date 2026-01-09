@@ -5,6 +5,7 @@ import { Account, Appointment, Encounter, Patient, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
+  DEFAULT_CANDID_CLAIMS_PAGE_SIZE,
   getCandidInventoryPagesRecursive,
   getPatientReferenceFromAccount,
   getResourcesFromBatchInlineRequests,
@@ -50,8 +51,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const invoiceableClaims = await getInvoiceableClaims({
       candid,
-      limitPerPage: 100,
-      maxPages: 2,
+      limitPerPage: DEFAULT_CANDID_CLAIMS_PAGE_SIZE,
+      maxPages: 2, // this is temporary solution to limit candid search so it's not taking a lot of time
       onlyInvoiceable: true,
       startFromDate: startFrom,
     });
