@@ -1,6 +1,8 @@
 import { Medication } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERX, ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -87,18 +89,45 @@ export const EditableMedicationCard: React.FC<{
       : {}
   );
 
-  const { updateMedication, getMedicationFieldValue, getIsMedicationEditable } = useMedicationManagement();
+  const { updateMedication, getMedicationFieldValue, getIsMedicationEditable, deleteMedication } =
+    useMedicationManagement();
   const [currentStatus, setCurrentStatus] = useState<MedicationOrderStatusesType>(medication?.status || 'pending');
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const handleStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
     setCurrentStatus(newStatus);
+  };
+
+  const handleDeleteClick = (): void => {
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = (): void => {
+    setIsDeleteDialogOpen(false);
+  };
+
+  const handleDeleteConfirm = async (): Promise<void> => {
+    if (!medication?.id) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteMedication(medication.id);
+      void refetchHistory();
+      enqueueSnackbar('Medication deleted successfully', { variant: 'success' });
+      setIsDeleteDialogOpen(false);
+    } catch {
+      enqueueSnackbar('Failed to delete medication. Please try again.', { variant: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleFieldValueChange = <Field extends keyof MedicationData>(
@@ -461,6 +490,8 @@ export const EditableMedicationCard: React.FC<{
             setShowInteractionAlerts(true);
           }
         }}
+        onDelete={medication?.id ? handleDeleteClick : undefined}
+        isReadOnly={isReadOnly}
       />
       <InPersonModal
         icon={null}
@@ -510,6 +541,18 @@ export const EditableMedicationCard: React.FC<{
       {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
         <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
       ) : null}
+      {medication?.id && (
+        <DeleteDialog
+          open={isDeleteDialogOpen}
+          handleClose={handleDeleteCancel}
+          handleDelete={handleDeleteConfirm}
+          title="Delete Medication"
+          description={`Are you sure you want to delete "${medication?.medicationName || 'this medication'}"?`}
+          closeButtonText="Keep"
+          deleteButtonText="Delete Medication"
+          loadingDelete={isDeleting}
+        />
+      )}
     </>
   );
 };

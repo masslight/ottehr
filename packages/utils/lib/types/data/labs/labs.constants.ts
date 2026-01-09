@@ -210,7 +210,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   inputResults: 'INPUT RESULTS',
   completePstTask: 'COMPLETE PST TASK',
   abnRejected: 'ABN REJECTED',
-  deleteOrder: 'DELETE EXTERNAL LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
+  deleteOrder: 'DELETE LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -220,7 +220,7 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   inputResults: 'input results',
   completePstTask: 'complete pst task',
   abnRejected: 'ABN marked rejected',
-  deleteOrder: 'Delete external lab order and related resources', // this is a soft delete, resources are marked as cancelled or entered-in-error
+  deleteOrder: 'Delete lab order and related resources', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
