@@ -10,11 +10,11 @@ import {
   CreateAppointmentResponse,
   CreateSlotParams,
   GetAppointmentDetailsResponse,
+  GetBookingQuestionnaireParams,
+  GetBookingQuestionnaireResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
-  GetQuestionnaireParams,
-  GetQuestionnaireResponse,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetSlotDetailsParams,
@@ -448,11 +448,14 @@ class API {
     }
   }
 
-  async getQuestionnaire(input: GetQuestionnaireParams, zambdaClient: ZambdaClient): Promise<GetQuestionnaireResponse> {
+  async getBookingQuestionnaire(
+    input: GetBookingQuestionnaireParams,
+    zambdaClient: ZambdaClient
+  ): Promise<GetBookingQuestionnaireResponse> {
     try {
       const response = await zambdaClient.execute('get-booking-questionnaire', input);
       const jsonToUse = chooseJson(response);
-      return jsonToUse as GetQuestionnaireResponse;
+      return jsonToUse as GetBookingQuestionnaireResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

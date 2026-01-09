@@ -17,7 +17,7 @@ import { ChangeEvent, FC, useMemo, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { CommunicationDTO, InstructionType, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, CommunicationDTO, InstructionType } from 'utils';
 import {
   useDeletePatientInstruction,
   useGetPatientInstructions,
@@ -69,7 +69,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle component="div" sx={{ p: 3, pb: 2, display: 'flex', alignItems: 'flex-start' }}>
         <Typography variant="h4" color={theme.palette.primary.dark} sx={{ flex: 1 }}>
-          {isMyTemplates ? 'My instruction templates' : `${PROJECT_NAME} instruction templates `}
+          {isMyTemplates ? 'My instruction templates' : `${BRANDING_CONFIG.projectName} instruction templates `}
         </Typography>
         <IconButton size="small" onClick={onClose}>
           <Close fontSize="small" />

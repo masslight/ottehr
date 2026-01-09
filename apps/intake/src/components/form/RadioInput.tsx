@@ -195,7 +195,7 @@ const RadioInput: FC<RadioInputProps> = ({
                                   marginTop: option.label ? '5px' : 0,
                                 }}
                               >
-                                <Typography variant={option.label ? 'caption' : 'body2'} color="secondary.main">
+                                <Typography variant={option.label ? 'caption' : 'body2'} color="black">
                                   {option.description}
                                 </Typography>
                               </div>

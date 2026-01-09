@@ -9,6 +9,8 @@ export * from './labs';
 export * from './medications';
 export * from './operations';
 export * from './oystehrApi';
+export * from './order-status.helper';
+export * from './cancellation-meta.helper';
 export * from './paperwork';
 export * from './presigned-file-url';
 export * from './rcm';

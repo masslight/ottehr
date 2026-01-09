@@ -2,7 +2,7 @@ import { Box, Divider, Grid, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
-import { SCHOOL_WORK_NOTE } from 'utils';
+import { BRANDING_CONFIG, getSupportPhoneFor, SCHOOL_WORK_NOTE } from 'utils';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { DoubleColumnContainer } from '../../../../components/DoubleColumnContainer';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
@@ -18,7 +18,15 @@ import { ExcuseCard } from './plan-tab/components/ExcuseCard';
 import { ExcuseLink } from './plan-tab/components/ExcuseLink';
 import { GenerateExcuseDialog } from './plan-tab/components/GenerateExcuseDialog';
 
-export const SchoolWorkExcuseCard: FC = () => {
+export type SchoolWorkExcuseCardProps = {
+  /**
+   * Optional location identifier used for support phone resolving.
+   * Unknown / undefined locations will fall back to branding default.
+   */
+  locationName?: string;
+};
+
+export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationName }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [generateWorkTemplateOpen, setGenerateWorkTemplateOpen] = useState(false);
   const [generateWorkFreeOpen, setGenerateWorkFreeOpen] = useState(false);
@@ -36,9 +44,19 @@ export const SchoolWorkExcuseCard: FC = () => {
   const workExcuse = presignedFiles.find((file) => file.type === 'work');
   const schoolExcuse = presignedFiles.find((file) => file.type === 'school');
 
+  const supportPhoneNumber = getSupportPhoneFor(locationName) ?? BRANDING_CONFIG.email.supportPhoneNumber;
   const onDelete = (id: string): void => {
     const schoolWorkNotes = chartData?.schoolWorkNotes || [];
     const note = schoolWorkNotes.find((note) => note.id === id)!;
+    const previousSchoolWorkNotes = [...schoolWorkNotes];
+
+    // Optimistic update
+    setPartialChartData(
+      {
+        schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
+      },
+      { invalidateQueries: false }
+    );
     deleteChartData(
       {
         schoolWorkNotes: [note],
@@ -48,15 +66,16 @@ export const SchoolWorkExcuseCard: FC = () => {
           enqueueSnackbar('An error has occurred while deleting excuse. Please try again.', {
             variant: 'error',
           });
+          // Rollback to previous state
           setPartialChartData({
-            schoolWorkNotes: schoolWorkNotes,
+            schoolWorkNotes: previousSchoolWorkNotes,
           });
+        },
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
         },
       }
     );
-    setPartialChartData({
-      schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
-    });
   };
 
   const onPublish = (id: string): void => {
@@ -144,6 +163,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           leftColumn={
             <ExcuseCard
               label="School excuse"
+              type="school"
               excuse={schoolExcuse}
               onDelete={onDelete}
               onPublish={onPublish}
@@ -156,6 +176,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           rightColumn={
             <ExcuseCard
               label="Work excuse"
+              type="work"
               excuse={workExcuse}
               onDelete={onDelete}
               onPublish={onPublish}
@@ -176,6 +197,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           open={generateWorkTemplateOpen}
           onClose={() => setGenerateWorkTemplateOpen(false)}
           generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
         />
       )}
       {generateWorkFreeOpen && (
@@ -184,6 +206,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           open={generateWorkFreeOpen}
           onClose={() => setGenerateWorkFreeOpen(false)}
           generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
         />
       )}
       {generateSchoolTemplateOpen && (
@@ -192,6 +215,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           open={generateSchoolTemplateOpen}
           onClose={() => setGenerateSchoolTemplateOpen(false)}
           generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
         />
       )}
       {generateSchoolFreeOpen && (
@@ -200,6 +224,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           open={generateSchoolFreeOpen}
           onClose={() => setGenerateSchoolFreeOpen(false)}
           generate={saveChartData}
+          supportPhoneNumber={supportPhoneNumber}
         />
       )}
     </>

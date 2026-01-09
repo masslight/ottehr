@@ -23,6 +23,7 @@ interface SubmitPaperworkZambdaInput extends Omit<BasicInput, 'answers'>, Zambda
 }
 
 export interface PatchPaperworkEffectInput {
+  submittedAnswer: QuestionnaireResponseItem;
   updatedAnswers: QuestionnaireResponseItem[];
   patchIndex: number;
   questionnaireResponseId: string;
@@ -251,6 +252,7 @@ const complexPatchValidation = async (
 
   return {
     questionnaireResponseId,
+    submittedAnswer: itemToPatch,
     updatedAnswers: [...currentAnswersToKeep, ...submittedAnswers],
     patchIndex: updatedAnswerIndex,
     currentQRStatus: fullQRResource.status,

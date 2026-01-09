@@ -6,6 +6,7 @@ import {
   CreditCardInfo,
   IntakeQuestionnaireItem,
   PaperworkPatient,
+  PaymentMethodSetupZambdaOutput,
   QuestionnaireFormFields,
   UCGetPaperworkResponse,
 } from 'utils';
@@ -22,7 +23,7 @@ export interface PaperworkContext
   cardsAreLoading: boolean;
   paymentMethodStateInitializing: boolean;
   paymentMethods: CreditCardInfo[];
-  stripeSetupData: string | undefined;
+  stripeSetupData: PaymentMethodSetupZambdaOutput | undefined;
   setContinueLabel?: (label: string | undefined) => void;
   saveButtonDisabled?: boolean;
   refetchPaymentMethods: (options?: RefetchOptions | undefined) => Promise<

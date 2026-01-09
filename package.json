@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.24.7",
+  "version": "1.25.2",
   "private": true,
   "engines": {
     "node": ">=22.0.0",
@@ -71,6 +71,7 @@
     "ehr:e2e:staging": "ENV=staging tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:staging:ui": "ENV=staging tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:staging:smoke": "ENV=staging SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
+    "ehr:generate-seed-data": "tsx scripts/run-e2e.ts --app=ehr --generate-seed-data",
     "ehr:build": "turbo build --filter=ehr-ui",
     "ehr:lint": "turbo lint --filter=ehr-ui...",
     "ehr:start:ui": "turbo start --filter=ehr-ui",
@@ -85,8 +86,7 @@
     "prepare": "husky",
     "spellcheck": "cspell .",
     "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
-    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts",
-    "seed": "ENV=local npx env-cmd -f apps/ehr/env/tests.local.json tsx scripts/generate-seed-data.ts"
+    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts"
   },
   "workspaces": [
     "packages/**/*",

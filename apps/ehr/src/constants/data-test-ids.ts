@@ -316,17 +316,23 @@ export const dataTestIds = {
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
   },
+  vitalsPage: {
+    addWeightButton: 'add-weight-button',
+    addHeightButton: 'add-height-button',
+  },
   inHouseMedicationsPage: {
     title: 'medications-title',
     orderButton: 'order-button',
+    marTableLoader: 'mar-table-loader',
     marTable: {
-      row: 'mar-table-row',
+      medicationRowPrefix: 'mar-table-medication-',
+      medicationRow: (medicationId: string) => `mar-table-medication-${medicationId}`,
       medicationCell: 'mar-table-medication-cell',
       statusCell: 'mar-table-status-cell',
       doseCell: 'mar-table-dose-cell',
       routeCell: 'mar-table-route-cell',
-      orderedByCell: ' mar-table-ordered-by-cell',
-      givenByCell: ' mar-table-given-by-cell',
+      orderedByCell: 'mar-table-ordered-by-cell',
+      givenByCell: 'mar-table-given-by-cell',
       reasonCell: 'mar-table-reason-cell',
       instructionsCell: 'mar-table-instructions-cell',
     },
@@ -340,7 +346,7 @@ export const dataTestIds = {
     medicationHistoryTableMedication: 'medication-history-table-medication',
     medicationHistoryTableType: 'medication-history-table-type',
     medicationHistoryTableWhoAdded: 'medication-history-table-who-added',
-    medicationHistoryTableRow: ' medication-history-table-row',
+    medicationHistoryTableRow: 'medication-history-table-row',
   },
   orderMedicationPage: {
     inputField: (field: string): string => `input-${field}`,
@@ -484,6 +490,7 @@ export const dataTestIds = {
     knownAllergiesPatientProvidedList: 'known-allergies-patient-provided-list',
     knownAllergiesInput: 'known-allergies-input',
     knownAllergiesListItem: 'known-allergies-list-item',
+    knownAllergiesListItemDeleteButton: 'known-allergies-list-item-delete-button',
   },
   medicalConditions: {
     medicalConditionsPageTitle: 'medical-conditions-title',
@@ -517,7 +524,8 @@ export const dataTestIds = {
   immunizationPage: {
     title: 'immunization-title',
     newOrderButton: 'new-order-button',
-    marTableRow: 'mar-table-row',
+    marTableRowPrefix: 'mar-table-vaccine-',
+    marTableRow: (vaccineId: string) => `mar-table-vaccine-${vaccineId}`,
     marTableVaccineCell: 'mar-table-vaccine-cell',
     marTableStatusCell: 'mar-table-status-cell',
     marTableDoseRouteCell: 'mar-table-dose-route-cell',
@@ -591,5 +599,13 @@ export const dataTestIds = {
     proceedButton: 'edit-note-dialog-proceed-button',
     title: 'edit-note-dialog-title',
     message: 'edit-note-dialog-message',
+  },
+
+  radiologyPage: {
+    title: 'radiology-page-title',
+    orderButton: 'radiology-order-button',
+    submitOrderButton: 'radiology-submit-order-button',
+    radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
+    deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
   },
 };
