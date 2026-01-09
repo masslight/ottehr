@@ -42,6 +42,7 @@ interface PrePopulationInput {
   patient: Patient;
   appointmentStartTime: string;
   appointmentServiceCategory: string;
+  reasonForVisit?: string;
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
   questionnaire: Questionnaire;
@@ -60,6 +61,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     appointmentServiceCategory,
+    reasonForVisit,
     isNewQrsPatient,
     verifiedPhoneNumber,
     contactInfo,
@@ -211,6 +213,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
             answer = makeAnswer(appointmentServiceCategory);
+          }
+          if (linkId === 'reason-for-visit' && reasonForVisit) {
+            answer = makeAnswer(reasonForVisit);
           }
 
           return {

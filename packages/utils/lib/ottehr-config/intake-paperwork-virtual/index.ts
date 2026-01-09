@@ -95,6 +95,11 @@ const FormFields = {
         key: 'appointment-service-category',
         type: 'string',
       },
+      reasonForVisit: {
+        key: 'reason-for-visit',
+        type: 'choice',
+        options: formValueSets.reasonForVisitOptions,
+      },
     },
     items: {
       addressText: {
