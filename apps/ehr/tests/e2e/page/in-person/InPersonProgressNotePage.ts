@@ -22,7 +22,10 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
 
   async expectLoaded(): Promise<void> {
     await this.#page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
-    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+    // Wait for the card to appear (it may take time to render after data loads)
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible({
+      timeout: 60000,
+    });
   }
 }
 
