@@ -180,6 +180,7 @@ export type TelemedPaperworkReturn<
       : null
     : null;
   responsiblePartyData: PaperworkResponsibleParty extends 'not-self' ? ResponsiblePartyData : null;
+  emergencyContactData: EmergencyContactData;
   uploadedPhotoCondition: Locator | null;
 };
 
@@ -529,6 +530,10 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
+    await this.checkCorrectPageOpens('Emergency Contact');
+    const emergencyContactData = await this.fillEmergencyContactInformation();
+    await this.locator.clickContinueButton();
+
     await this.checkCorrectPageOpens('Photo ID');
     if (!requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
@@ -569,6 +574,7 @@ export class Paperwork {
       insuranceData,
       secondaryInsuranceData,
       responsiblePartyData,
+      emergencyContactData,
       uploadedPhotoCondition,
     } as TelemedPaperworkReturn<P, RP, RO>;
   }
