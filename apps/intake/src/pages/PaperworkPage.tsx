@@ -475,7 +475,6 @@ export const PaperworkPage: FC = () => {
 
   const finishPaperworkPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
-      console.log('finishPaperworkPage ' + currentPage?.linkId);
       if (data && appointmentID && zambdaClient && currentPage && questionnaireResponseId && paperworkPatient) {
         const pageLinkIds = extractPageLinkIds(currentPage.item ?? []);
         const raw = (Object.values(data) ?? []) as QuestionnaireResponseItem[];
@@ -509,7 +508,6 @@ export const PaperworkPage: FC = () => {
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
 
-            console.log('PAAAAAAAAAAAAAAGE: ' + currentPage.linkId);
             if (currentPage.linkId === 'consent-forms-page') {
               const success = await submitPaperwork();
               if (!success) {
