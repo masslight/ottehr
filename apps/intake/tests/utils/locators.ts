@@ -256,6 +256,13 @@ export class Locators {
   emergencyContactCity: Locator;
   emergencyContactState: Locator;
   emergencyContactZip: Locator;
+  attorneyHasAttorney: Locator;
+  attorneyFirm: Locator;
+  attorneyFirstName: Locator;
+  attorneyLastName: Locator;
+  attorneyEmail: Locator;
+  attorneyMobile: Locator;
+  attorneyFax: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -430,6 +437,15 @@ export class Locators {
     this.emergencyContactCity = page.locator('[id="emergency-contact-city"]');
     this.emergencyContactState = page.locator('[id="emergency-contact-state"]');
     this.emergencyContactZip = page.locator('[id="emergency-contact-zip"]');
+
+    // Attorney Information locators
+    this.attorneyHasAttorney = page.getByLabel('I have an attorney');
+    this.attorneyFirm = page.locator('[id="attorney-mva-firm"]');
+    this.attorneyFirstName = page.locator('[id="attorney-mva-first-name"]');
+    this.attorneyLastName = page.locator('[id="attorney-mva-last-name"]');
+    this.attorneyEmail = page.locator('[id="attorney-mva-email"]');
+    this.attorneyMobile = page.locator('[id="attorney-mva-mobile"]');
+    this.attorneyFax = page.locator('[id="attorney-mva-fax"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');

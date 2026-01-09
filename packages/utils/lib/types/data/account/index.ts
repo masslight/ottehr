@@ -19,6 +19,7 @@ export interface PatientAccountAndCoverageResources {
   occupationalMedicineAccount?: Account;
   employerOrganization?: Organization;
   occupationalMedicineEmployerOrganization?: Organization;
+  attorneyRelatedPerson?: RelatedPerson;
   guarantorResource?: RelatedPerson | Patient;
   emergencyContactResource?: RelatedPerson;
 }

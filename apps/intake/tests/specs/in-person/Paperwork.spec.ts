@@ -19,6 +19,7 @@ let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
 let patient: InPersonNoPwPatient;
+const attorneyInformationPageExists = QuestionnaireHelper.hasAttorneyPage();
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -503,6 +504,44 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await expect(locator.employerContactEmail).toHaveValue(employerInformationData.contactEmail);
       await expect(locator.employerContactPhone).toHaveValue(employerInformationData.contactPhone);
       await expect(locator.employerContactFax).toHaveValue(employerInformationData.contactFax);
+    });
+  });
+
+  test('PAI. Attorney information', async () => {
+    test.skip(!attorneyInformationPageExists, "Attorney information page doesn't exist. Skipping test.");
+    await test.step('PAI-1. Open attorney information page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/attorney-mva`);
+      await paperwork.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+    });
+
+    await test.step('PAI-2. Check patient name is displayed', async () => {
+      await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
+    });
+
+    await test.step('PAI-3. Check required fields', async () => {
+      // Select "I have an attorney" option
+      await locator.attorneyHasAttorney.click();
+
+      await paperwork.checkRequiredFields('"Firm"', 'Attorney for Motor Vehicle Accident', false);
+    });
+
+    const attorneyInformationData = await test.step('PAI-4. Fill all fields and click on [Continue]', async () => {
+      const attorneyInformationData = await paperwork.fillAttorneyInformation();
+      await locator.clickContinueButton();
+      await paperwork.checkCorrectPageOpens('Photo ID');
+      return attorneyInformationData;
+    });
+
+    await test.step('PAI-5. Click on [Back] - all values are saved', async () => {
+      await locator.clickBackButton();
+      await paperwork.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+      await expect(locator.attorneyHasAttorney).toHaveValue(attorneyInformationData.hasAttorney);
+      await expect(locator.attorneyFirm).toHaveValue(attorneyInformationData.firm);
+      await expect(locator.attorneyFirstName).toHaveValue(attorneyInformationData.firstName);
+      await expect(locator.attorneyLastName).toHaveValue(attorneyInformationData.lastName);
+      await expect(locator.attorneyEmail).toHaveValue(attorneyInformationData.email);
+      await expect(locator.attorneyMobile).toHaveValue(attorneyInformationData.mobile);
+      await expect(locator.attorneyFax).toHaveValue(attorneyInformationData.fax);
     });
   });
 

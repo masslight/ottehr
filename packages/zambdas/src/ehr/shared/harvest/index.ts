@@ -1980,6 +1980,15 @@ interface EmployerInformation {
   contactTitle?: string;
 }
 
+interface AttorneyInformation {
+  firm?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  fax?: string;
+}
+
 const createTelecom = (system: ContactPoint['system'], value?: string): ContactPoint | undefined => {
   if (!value) {
     return undefined;
@@ -2192,6 +2201,104 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   };
 };
 
+const getAttorneyInformation = (items: QuestionnaireResponseItem[]): AttorneyInformation | undefined => {
+  const getAnswerString = (linkId: string): string | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
+
+  const hasAttorney = getAnswerString('attorney-mva-has-attorney');
+
+  if (hasAttorney === 'I do not have an attorney') {
+    return undefined;
+  }
+
+  const firm = getAnswerString('attorney-mva-firm');
+  const firstName = getAnswerString('attorney-mva-first-name');
+  const lastName = getAnswerString('attorney-mva-last-name');
+  const email = getAnswerString('attorney-mva-email');
+  const mobile = getAnswerString('attorney-mva-mobile');
+  const fax = getAnswerString('attorney-mva-fax');
+
+  const hasAnyValue = [firm, firstName, lastName, email, mobile, fax].some((value) => value && value.length);
+
+  if (!hasAnyValue) {
+    return undefined;
+  }
+
+  return {
+    firm,
+    firstName,
+    lastName,
+    email,
+    mobile,
+    fax,
+  };
+};
+
+const buildAttorneyRelatedPerson = (
+  details: AttorneyInformation,
+  patientId: string,
+  id?: string,
+  existingRelatedPerson?: RelatedPerson
+): RelatedPerson => {
+  const phone = safeFormatPhone(details.mobile);
+  const fax = safeFormatPhone(details.fax);
+
+  const telecom = [
+    createTelecom('phone', phone),
+    createTelecom('fax', fax),
+    createTelecom('email', details.email),
+  ].filter(Boolean) as ContactPoint[];
+
+  const givenNames = details.firstName ? [details.firstName] : [];
+  const familyName = details.lastName;
+
+  const firmExtensionUrl = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
+  const firmExtension = details.firm
+    ? {
+        url: firmExtensionUrl,
+        valueString: details.firm,
+      }
+    : undefined;
+
+  // Preserve existing extensions, but update or add the firm extension
+  const existingExtensions = existingRelatedPerson?.extension?.filter((ext) => ext.url !== firmExtensionUrl) || [];
+  const extensions = firmExtension
+    ? [...existingExtensions, firmExtension]
+    : existingExtensions.length
+    ? existingExtensions
+    : undefined;
+
+  return {
+    resourceType: 'RelatedPerson',
+    id,
+    patient: {
+      reference: `Patient/${patientId}`,
+    },
+    name:
+      givenNames.length || familyName
+        ? [
+            {
+              given: givenNames.length ? givenNames : undefined,
+              family: familyName,
+            },
+          ]
+        : undefined,
+    telecom: telecom.length ? telecom : undefined,
+    relationship: [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+            code: 'OTHER',
+            display: 'MVA Attorney',
+          },
+        ],
+      },
+    ],
+    extension: extensions,
+  };
+};
+
 interface CreateCoverageResourceInput {
   patientId: string;
   order: number;
@@ -2380,6 +2487,7 @@ export interface GetAccountOperationsInput {
   existingWorkersCompAccount?: Account;
   existingOccupationalMedicineAccount?: Account;
   existingEmployerOrganization?: Organization;
+  existingAttorneyRelatedPerson?: RelatedPerson;
 }
 
 export interface GetAccountOperationsOutput {
@@ -2394,6 +2502,8 @@ export interface GetAccountOperationsOutput {
   workersCompAccountPut?: BatchInputPutRequest<Account>;
   occupationalMedicineAccountPost?: Account;
   occupationalMedicineAccountPut?: BatchInputPutRequest<Account>;
+  attorneyRelatedPersonPost?: BatchInputPostRequest<RelatedPerson>;
+  attorneyRelatedPersonPut?: BatchInputPutRequest<RelatedPerson>;
 }
 
 // this function is exported for testing purposes
@@ -2410,6 +2520,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     existingWorkersCompAccount,
     existingOccupationalMedicineAccount,
     existingEmployerOrganization,
+    existingAttorneyRelatedPerson,
   } = input;
 
   if (!patient.id) {
@@ -2431,6 +2542,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     occupationalMedicineEmployerReference =
       occupationalMedicineEmployerInformation.occupationalMedicineEmployerReference;
   }
+  const attorneyInformation = getAttorneyInformation(flattenedItems);
   /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
@@ -2459,6 +2571,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   let workersCompAccountPut: BatchInputPutRequest<Account> | undefined;
   let occupationalMedicineAccountPost: Account | undefined;
   let occupationalMedicineAccountPut: BatchInputPutRequest<Account> | undefined;
+  let attorneyRelatedPersonPost: BatchInputPostRequest<RelatedPerson> | undefined;
+  let attorneyRelatedPersonPut: BatchInputPutRequest<RelatedPerson> | undefined;
 
   console.log(
     'getting account operations for patient, guarantorData, emergencyContactData, coverages, account, employerInformation, occupationalMedicineEmployerInformation',
@@ -2714,6 +2828,27 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     }
   }
 
+  if (attorneyInformation) {
+    if (existingAttorneyRelatedPerson?.id) {
+      attorneyRelatedPersonPut = {
+        method: 'PUT',
+        url: `RelatedPerson/${existingAttorneyRelatedPerson.id}`,
+        resource: buildAttorneyRelatedPerson(
+          attorneyInformation,
+          patient.id!,
+          existingAttorneyRelatedPerson.id,
+          existingAttorneyRelatedPerson
+        ),
+      };
+    } else {
+      attorneyRelatedPersonPost = {
+        method: 'POST',
+        url: 'RelatedPerson',
+        resource: buildAttorneyRelatedPerson(attorneyInformation, patient.id!),
+      };
+    }
+  }
+
   return {
     coveragePosts,
     accountPost,
@@ -2726,6 +2861,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     workersCompAccountPut,
     occupationalMedicineAccountPost,
     occupationalMedicineAccountPut,
+    attorneyRelatedPersonPost,
+    attorneyRelatedPersonPut,
   };
 };
 
@@ -3452,6 +3589,16 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       )
   );
 
+  const attorneyRelatedPerson: RelatedPerson | undefined = resources.find(
+    (res): res is RelatedPerson =>
+      res.resourceType === 'RelatedPerson' &&
+      Boolean(
+        res.relationship?.some(
+          (rel) => rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
+        )
+      )
+  );
+
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
   if (existingAccount) {
     const guarantorReference = existingAccount.guarantor?.find((gRef) => {
@@ -3556,6 +3703,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     occupationalMedicineAccount,
     employerOrganization,
     occupationalMedicineEmployerOrganization,
+    attorneyRelatedPerson,
     coverages: existingCoverages,
     insuranceOrgs,
     guarantorResource: existingGuarantorResource,
@@ -3671,6 +3819,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     workersCompAccount: existingWorkersCompAccount,
     occupationalMedicineAccount: existingOccupationalMedicineAccount,
     employerOrganization: existingEmployerOrganization,
+    attorneyRelatedPerson: existingAttorneyRelatedPerson,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
   /*
@@ -3690,6 +3839,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     existingWorkersCompAccount,
     existingOccupationalMedicineAccount,
     existingEmployerOrganization,
+    existingAttorneyRelatedPerson,
   });
 
   console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
@@ -3706,6 +3856,8 @@ export const updatePatientAccountFromQuestionnaire = async (
     workersCompAccountPut,
     occupationalMedicineAccountPost,
     occupationalMedicineAccountPut,
+    attorneyRelatedPersonPost,
+    attorneyRelatedPersonPut,
   } = accountOperations;
 
   const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
@@ -3718,6 +3870,12 @@ export const updatePatientAccountFromQuestionnaire = async (
   }
   if (employerOrganizationPut) {
     transactionRequests.push(employerOrganizationPut);
+  }
+  if (attorneyRelatedPersonPost) {
+    transactionRequests.push(attorneyRelatedPersonPost);
+  }
+  if (attorneyRelatedPersonPut) {
+    transactionRequests.push(attorneyRelatedPersonPut);
   }
   if (workersCompAccountPut) {
     transactionRequests.push(workersCompAccountPut);

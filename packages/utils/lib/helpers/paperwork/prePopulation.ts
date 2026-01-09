@@ -281,7 +281,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           patient,
           documents,
           insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
-          appointmentServiceCategory: appointmentServiceCategory,
+          appointmentServiceCategory,
         });
       } else if (EMPLOYER_ITEMS.includes(item.linkId)) {
         return mapEmployerToQuestionnaireResponseItems({
@@ -292,6 +292,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
           items: itemItems,
           occupationalMedicineEmployerOrganization: accountInfo?.occupationalMedicineEmployerOrganization,
+        });
+      } else if (ATTORNEY_ITEMS.includes(item.linkId)) {
+        return mapAttorneyToQuestionnaireResponseItems({
+          items: itemItems,
+          attorneyRelatedPerson: accountInfo?.attorneyRelatedPerson,
         });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
@@ -390,6 +395,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
     pharmacy,
     occupationalMedicineEmployerOrganization,
     employerOrganization,
+    attorneyRelatedPerson,
     overriddenItems = [],
   } = input;
 
@@ -459,6 +465,12 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
           items: itemItems,
           occupationalMedicineEmployerOrganization,
+        });
+      }
+      if (ATTORNEY_ITEMS.includes(item.linkId)) {
+        return mapAttorneyToQuestionnaireResponseItems({
+          items: itemItems,
+          attorneyRelatedPerson,
         });
       }
       return [];
@@ -1131,6 +1143,71 @@ const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
           ? makeAnswer(occupationalMedicineEmployerReference, 'Reference')
           : undefined;
         break;
+    }
+
+    return {
+      linkId,
+      answer,
+    };
+  });
+};
+
+const ATTORNEY_ITEMS = ['attorney-mva-page'];
+
+interface MapAttorneyItemsInput {
+  items: QuestionnaireItem[];
+  attorneyRelatedPerson?: RelatedPerson;
+}
+
+const mapAttorneyToQuestionnaireResponseItems = (input: MapAttorneyItemsInput): QuestionnaireResponseItem[] => {
+  const { attorneyRelatedPerson, items } = input;
+
+  const hasAttorney = attorneyRelatedPerson ? 'I have an attorney' : 'I do not have an attorney';
+
+  const firmExtensionUrl = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
+  const firm = attorneyRelatedPerson?.extension?.find((ext) => ext.url === firmExtensionUrl)?.valueString;
+
+  const firstName = attorneyRelatedPerson?.name?.[0]?.given?.[0];
+  const lastName = attorneyRelatedPerson?.name?.[0]?.family;
+
+  const getTelecomValue = (system: string): string | undefined => {
+    return attorneyRelatedPerson?.telecom?.find((tel) => tel.system === system && tel.value)?.value;
+  };
+
+  const formatPhone = (value?: string): string | undefined => {
+    if (!value) return undefined;
+    const formatted = formatPhoneNumberDisplay(value);
+    return formatted || value;
+  };
+
+  const email = getTelecomValue('email');
+  const mobile = formatPhone(getTelecomValue('phone'));
+  const fax = formatPhone(getTelecomValue('fax'));
+
+  return items.map((item) => {
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    const { linkId } = item;
+
+    if (linkId === 'attorney-mva-has-attorney') {
+      answer = makeAnswer(hasAttorney);
+    }
+    if (linkId === 'attorney-mva-firm' && firm) {
+      answer = makeAnswer(firm);
+    }
+    if (linkId === 'attorney-mva-first-name' && firstName) {
+      answer = makeAnswer(firstName);
+    }
+    if (linkId === 'attorney-mva-last-name' && lastName) {
+      answer = makeAnswer(lastName);
+    }
+    if (linkId === 'attorney-mva-email' && email) {
+      answer = makeAnswer(email);
+    }
+    if (linkId === 'attorney-mva-mobile' && mobile) {
+      answer = makeAnswer(mobile);
+    }
+    if (linkId === 'attorney-mva-fax' && fax) {
+      answer = makeAnswer(fax);
     }
 
     return {

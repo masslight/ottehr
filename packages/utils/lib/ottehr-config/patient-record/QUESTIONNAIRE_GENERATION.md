@@ -30,14 +30,18 @@ This was simplified to use **only triggers**. The old `enableWhen` field was rem
 ### 3. Structure Mapping
 
 #### Form Sections → Questionnaire Groups
+
 Each section in `FormFields` becomes a FHIR Questionnaire item of type "group":
+
 - `linkId`: from section.linkId
 - `type`: "group"
 - `text`: from section.title
 - `item`: array of converted field items
 
 #### Form Fields → Questionnaire Items
+
 Each field in a section becomes a Questionnaire item with:
+
 - `linkId`: from field.key
 - `type`: from field.type (with special handling for "reference" → "choice")
 - `text`: from field.label (when present and appropriate)
@@ -48,6 +52,7 @@ Each field in a section becomes a Questionnaire item with:
 ### 4. Important Patterns
 
 #### Text Field Inclusion
+
 Add the `text` property from field.label for most fields. This provides user-friendly labels in the questionnaire.
 
 #### Trigger System (Conditional Logic)
@@ -72,6 +77,7 @@ The `triggers` array provides a unified way to handle all conditional logic:
 ```
 
 #### Extension Mapping
+
 - `field.dataType` → `data-type` extension (e.g., "DOB", "SSN", "ZIP", "Email", "Phone Number")
 - `field.triggers` with `effect: ['enable']` → `enableWhen` array
 - `field.triggers` with `effect: ['require']` → `require-when` extension
@@ -100,6 +106,7 @@ Sections can have their own conditional logic and extensions:
 
 ### 5. Section Order
 Sections must be generated in this specific order to match the expected Questionnaire structure:
+
 1. patientSummary
 2. patientContactInformation
 3. patientDetails
@@ -108,11 +115,13 @@ Sections must be generated in this specific order to match the expected Question
 6. responsibleParty
 7. employerInformation
 8. emergencyContact
-9. preferredPharmacy
-10. user-settings-section (hardcoded empty group at the end)
+9. attorneyInformation
+10. preferredPharmacy
+11. user-settings-section (hardcoded empty group at the end)
 
 ### 6. Testing Approach
 For complex questionnaire generation:
+
 1. Read the expected JSON structure to understand the target format
 2. Implement helper functions for creating extensions and sub-structures
 3. Implement the main conversion logic
@@ -122,17 +131,20 @@ For complex questionnaire generation:
 ## Files Modified
 
 ### Implementation
+
 - `packages/utils/lib/ottehr-config/patient-record/index.ts` (lines 805-1066)
   - Added helper functions for creating FHIR extensions
   - Implemented `createQuestionnaireItemFromPatientRecordConfig` function
 
 ### Updated for Consistency
+
 - `config/oystehr/ehr-insurance-update-questionnaire.json`
   - Updated item array to match config-generated output
   - Ensured all fields have appropriate text properties
   - Aligned section titles and field order with config
 
 ### Test
+
 - `packages/zambdas/test/questionnaire-generation.test.ts`
   - Validates that generated items match expected structure
 
@@ -208,6 +220,7 @@ For a more comprehensive guide to the questionnaire generation system, see:
 ## Future Considerations
 
 ### For More Complex Questionnaires
+
 1. **Nested Groups**: May need to handle multi-level section nesting
 2. **Conditional Sections**: Support for entire sections that appear conditionally
 3. **Calculated Fields**: Support for fields whose values are calculated from other fields
@@ -216,10 +229,12 @@ For a more comprehensive guide to the questionnaire generation system, see:
 6. **Skip Logic**: Advanced branching and skip patterns based on multiple conditions
 
 ### Performance
+
 - For very large questionnaires, consider caching or memoization of generated structures
 - Profile the generation process if performance becomes an issue
 
 ### Maintenance
+
 - Keep this documentation updated as the implementation evolves
 - Document any new extension types or special cases discovered
 - Maintain test coverage for all supported field types and configurations

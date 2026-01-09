@@ -28,6 +28,7 @@ import {
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
+  getAttorneyInformationStepAnswers,
   getCardPaymentStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
@@ -68,29 +69,39 @@ interface DemoConfig {
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
 
-export const hasEmployerInformationPage = (): boolean => {
+const getInPersonIntakeQuestionnaire = (): Questionnaire | undefined => {
   const fhirResources = inPersonIntakeQuestionnaireJson.fhirResources as Record<string, { resource: Questionnaire }>;
-  const questionnaire = Object.values(fhirResources).find(
+  return Object.values(fhirResources).find(
     (q) =>
       q.resource.resourceType === 'Questionnaire' &&
       q.resource.status === 'active' &&
       q.resource.url?.includes('intake-paperwork-inperson')
   )?.resource;
+};
 
+const findItemByLinkId = (items: QuestionnaireItem[] | undefined, linkId: string): boolean => {
+  if (!items) return false;
+  return items.some((item: QuestionnaireItem) => {
+    if (item.linkId === linkId) return true;
+    if (item.item) return findItemByLinkId(item.item, linkId);
+    return false;
+  });
+};
+
+const hasQuestionnaireItem = (linkId: string): boolean => {
+  const questionnaire = getInPersonIntakeQuestionnaire();
   if (!questionnaire || !questionnaire.item) {
     return false;
   }
+  return findItemByLinkId(questionnaire.item, linkId);
+};
 
-  const findItemByLinkId = (items: QuestionnaireItem[] | undefined, linkId: string): boolean => {
-    if (!items) return false;
-    return items.some((item: QuestionnaireItem) => {
-      if (item.linkId === linkId) return true;
-      if (item.item) return findItemByLinkId(item.item, linkId);
-      return false;
-    });
-  };
+export const hasEmployerInformationPage = (): boolean => {
+  return hasQuestionnaireItem('employer-information-page');
+};
 
-  return findItemByLinkId(questionnaire.item, 'employer-information-page');
+export const hasAttorneyInformationPage = (): boolean => {
+  return hasQuestionnaireItem('attorney-mva-page');
 };
 
 const DEFAULT_FIRST_NAMES = [
@@ -389,7 +400,14 @@ const processPaperwork = async (
             baseAnswers.push(getEmployerInformationStepAnswers({}));
           }
 
-          baseAnswers.push(getEmergencyContactStepAnswers({}), getConsentStepAnswers({}));
+          baseAnswers.push(getEmergencyContactStepAnswers({}));
+
+          // Only add attorney information step if the questionnaire has it
+          if (hasAttorneyInformationPage()) {
+            baseAnswers.push(getAttorneyInformationStepAnswers({}));
+          }
+
+          baseAnswers.push(getConsentStepAnswers({}));
 
           return baseAnswers;
         })();
