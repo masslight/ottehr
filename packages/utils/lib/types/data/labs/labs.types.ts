@@ -135,7 +135,7 @@ export type LabOrderListPageDTO = {
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
-  abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
+  abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_ABN_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
   orderLevelNoteByUser: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn

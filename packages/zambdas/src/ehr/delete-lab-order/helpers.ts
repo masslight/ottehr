@@ -11,7 +11,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { ExternalLabCommunications } from 'utils';
-import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { ADDED_VIA_LAB_ORDER_SYSTEM, OYSTEHR_ABN_DOC_CATEGORY_CODING } from 'utils/lib/types/data/labs/labs.constants';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
 import { makeSoftDeleteStatusPatchRequest } from '../lab/shared/helpers';
 import { DeleteLabOrderZambdaInputValidated } from './validateRequestParameters';
@@ -125,7 +125,18 @@ export const getLabOrderRelatedResources = async (
         if (labCommType === 'order-level-note') acc.orderLevelNotesByUser.push(resource);
         if (labCommType === 'clinical-info-note') acc.clinicalInfoNotesByUser.push(resource);
       } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
-        acc.documentReferences.push(resource);
+        const isAbnDoc = resource.category?.some(
+          (cat) =>
+            cat.coding?.some(
+              (code) =>
+                code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system &&
+                code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code
+            )
+        );
+        // since the ABN may be related to other labs in an order we will not delete this
+        // todo labs at some point in the future it may make sense to do the work of actually determining if the abn SHOULD be deleted
+        // but for now we will err on the side of caution
+        if (!isAbnDoc) acc.documentReferences.push(resource);
       } else if (resource.resourceType === 'DiagnosticReport') {
         acc.diagnosticReports.push(resource);
       }

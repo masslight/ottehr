@@ -1276,9 +1276,7 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.unknown;
   }
 
-  if (serviceRequest.status === 'revoked') {
-    if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
-  }
+  if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
 
   const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
     cache?.parsedResults || parseResults(serviceRequest, results);
