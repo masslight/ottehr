@@ -50,8 +50,17 @@ function getFirstMedicationName(): string {
   return identifier.value;
 }
 
-const PROCEDURE_TYPE_CODINGS = procedureType.fhirResources['value-set-procedure-type'].resource.expansion.contains;
-const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map((procedure) => {
+const procedureTypeKey = Object.keys(procedureType.fhirResources).find((key) =>
+  key.startsWith('value-set-procedure-type')
+);
+
+if (!procedureTypeKey) {
+  throw new Error('No procedure type value set found in configuration');
+}
+
+const PROCEDURE_TYPE_CODINGS =
+  procedureType.fhirResources[procedureTypeKey as keyof typeof procedureType.fhirResources].resource.expansion.contains;
+const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map((procedure: any) => {
   const dropDownChoice = procedure.display;
   const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
   if (!codeableConcept) {
@@ -67,8 +76,8 @@ const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map((procedure) => {
 
 // Find a procedure with a valid CPT code
 const SELECTED_PROCEDURE = CONFIG_PROCEDURES.find((proc) => proc.cptCode) || CONFIG_PROCEDURES[0];
-if (!SELECTED_PROCEDURE.cptCode) {
-  throw new Error('No procedure with CPT code found in configuration');
+if (!SELECTED_PROCEDURE.cptCode || !SELECTED_PROCEDURE.display) {
+  throw new Error('No procedure with CPT code and display found in configuration');
 }
 
 // Test data constants
