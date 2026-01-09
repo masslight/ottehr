@@ -7,6 +7,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   GENERIC_STRIPE_PAYMENT_ERROR,
   getSecret,
+  getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   getTaskResource,
   INVALID_INPUT_ERROR,
@@ -109,7 +110,7 @@ const performEffect = async (
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
 ): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
-  const { encounterId, paymentDetails, organizationId, userProfile } = input;
+  const { encounterId, paymentDetails, organizationId, userProfile, stripeAccount } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
@@ -142,7 +143,9 @@ const performEffect = async (
       },
     };
     try {
-      paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
+      paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput, {
+        stripeAccount, // Connected account ID if any
+      });
     } catch (e) {
       throw parseStripeError(e);
     }
@@ -290,6 +293,7 @@ interface ComplexValidationOutput extends ComplexValidationInput {
   cardInput?: {
     stripeCustomerId: string;
   };
+  stripeAccount?: string;
 }
 const complexValidation = async (input: ComplexValidationInput, oystehr: Oystehr): Promise<ComplexValidationOutput> => {
   if (input.paymentDetails.paymentMethod === 'card') {
@@ -297,11 +301,14 @@ const complexValidation = async (input: ComplexValidationInput, oystehr: Oystehr
     if (!patientAccount.account) {
       throw FHIR_RESOURCE_NOT_FOUND('Account');
     }
-    const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount.account);
+
+    const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId: input.encounterId }, oystehr);
+
+    const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount.account, stripeAccount);
     if (!stripeCustomerId) {
       throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
     }
-    return { cardInput: { stripeCustomerId }, ...input };
+    return { cardInput: { stripeCustomerId }, stripeAccount, ...input };
   }
   return { ...input };
 };

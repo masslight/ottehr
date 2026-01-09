@@ -1,7 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { checkForStripeCustomerDeletedError, FHIR_RESOURCE_NOT_FOUND, getSecret, SecretsKeys } from 'utils';
+import {
+  checkForStripeCustomerDeletedError,
+  FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
+  getStripeAccountForAppointmentOrEncounter,
+  PaymentMethodSetupZambdaOutput,
+  SecretsKeys,
+} from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
   createOystehrClient,
@@ -23,7 +30,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
 
-    const { beneficiaryPatientId, secrets } = validatedParameters;
+    const { beneficiaryPatientId, appointmentId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -38,6 +45,8 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient
     ));
+
+    const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
 
     const stripeClient = getStripeClient(secrets);
 
@@ -55,24 +64,39 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
         account,
         patientId: beneficiaryPatientId,
         stripeClient,
+        stripeAccount,
       },
       oystehrClient
     );
 
     let setupIntent: Stripe.SetupIntent | undefined;
     try {
-      setupIntent = await stripeClient.setupIntents.create({
-        customer: `${customerId}`,
-        automatic_payment_methods: {
-          enabled: false,
+      setupIntent = await stripeClient.setupIntents.create(
+        {
+          customer: `${customerId}`,
+          automatic_payment_methods: {
+            enabled: false,
+          },
+          payment_method_types: ['card'],
         },
-        payment_method_types: ['card'],
-      });
+        {
+          stripeAccount, // Connected account ID if any
+        }
+      );
     } catch (stripeError: any) {
       throw checkForStripeCustomerDeletedError(stripeError);
     }
 
-    return lambdaResponse(200, setupIntent.client_secret);
+    if (!setupIntent.client_secret) {
+      throw new Error('Failed to create SetupIntent');
+    }
+
+    const response: PaymentMethodSetupZambdaOutput = {
+      clientSecret: setupIntent.client_secret,
+      stripeAccount,
+    };
+
+    return lambdaResponse(200, response);
   } catch (error: any) {
     console.error(error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
