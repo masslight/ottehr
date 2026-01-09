@@ -1972,6 +1972,9 @@ const FormFields = {
   },
 };
 
+// note: the order of the fields on this object are what determines the order they appear in the form
+// i try to make the template above match this order for easier reading, but that's a convention, and the order
+// declared here is what will determine the order of the items on the form.
 const FormFieldsSchema = z.object({
   contactInformation: FormSectionSimpleSchema,
   patientDetails: FormSectionSimpleSchema,
