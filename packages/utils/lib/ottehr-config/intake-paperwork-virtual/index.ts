@@ -4,6 +4,7 @@ import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-ove
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
+  ALLERGIES_YES_OPTION,
   createQuestionnaireFromConfig,
   FormSectionSimpleSchema,
   INSURANCE_PAY_OPTION,
@@ -11,13 +12,46 @@ import {
   QuestionnaireBase,
   QuestionnaireConfigSchema,
   SELF_PAY_OPTION,
+  SURGICAL_HISTORY_YES_OPTION,
 } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
 /*
 
 SOURCE QUESTIONNAIRE CONTEXT
-
+ {
+                "linkId": "other-preferred-language",
+                "text": "Other preferred language",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "preferred-language",
+                    "operator": "=",
+                    "answerString": "Other"
+                  }
+                ]
+              },
+              {
+                "linkId": "relay-phone",
+                "text": "Do you require a Hearing Impaired Relay Service? (711)",
+                "type": "choice",
+                "answerOption": [
+                  {
+                    "valueString": "No"
+                  },
+                  {
+                    "valueString": "Yes"
+                  }
+                ],
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Radio List"
+                  }
+                ]
+              }
 
 
 */
@@ -240,9 +274,16 @@ const FormFields = {
           },
         ],
       },
+      relayPhone: {
+        key: 'relay-phone',
+        label: 'Do you require a Hearing Impaired Relay Service? (711)',
+        type: 'choice',
+        options: formValueSets.yesNoOptions,
+        element: 'Radio List',
+      },
     },
     hiddenFields: [],
-    requiredFields: ['patient-ethnicity', 'patient-race', 'preferred-language'],
+    requiredFields: ['patient-ethnicity', 'patient-race', 'preferred-language', 'relay-phone'],
   },
   primaryCarePhysician: {
     linkId: 'primary-care-physician-page',
@@ -331,8 +372,29 @@ const FormFields = {
       },
       medications: {
         key: 'current-medications',
-        label: 'Medications taken',
+        text: 'Medications taken',
+        required: false,
         type: 'group',
+        triggers: [
+          {
+            targetQuestionLinkId: 'current-medications-yes-no',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'Patient takes medication currently',
+          },
+          {
+            targetQuestionLinkId: 'current-medications-yes-no',
+            effect: ['filter'],
+            operator: '!=',
+            answerString: 'Patient takes medication currently',
+          },
+        ],
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
+            valueString: 'list-with-form',
+          },
+        ],
         items: {
           header: {
             key: 'current-medications-form-header',
@@ -345,6 +407,7 @@ const FormFields = {
             label: 'Medication',
             type: 'open-choice',
             options: formValueSets.currentMedicationsOptions,
+            acceptsMultipleAnswers: true,
           },
         },
         requiredFields: ['current-medications-form-medication'],
@@ -365,8 +428,29 @@ const FormFields = {
       },
       allergiesList: {
         key: 'allergies',
-        label: 'Known current allergies',
+        text: 'Known current allergies',
+        required: false,
         type: 'group',
+        triggers: [
+          {
+            targetQuestionLinkId: 'allergies-yes-no',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: ALLERGIES_YES_OPTION,
+          },
+          {
+            targetQuestionLinkId: 'allergies-yes-no',
+            effect: ['filter'],
+            operator: '!=',
+            answerString: ALLERGIES_YES_OPTION,
+          },
+        ],
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
+            valueString: 'list-with-form',
+          },
+        ],
         items: {
           header: {
             key: 'allergies-form-header',
@@ -380,24 +464,115 @@ const FormFields = {
             type: 'choice',
             element: 'Radio List',
             options: formValueSets.allergyTypeOptions,
+            alwaysFilter: true,
           },
           agentSubstanceMedications: {
             key: 'allergies-form-agent-substance-medications',
             label: 'Agent/Substance',
             type: 'open-choice',
             options: formValueSets.allergyMedicationOptions,
+            customLinkId: 'allergies-form-agent-substance',
+            acceptsMultipleAnswers: true,
+            categoryTag: 'Medication',
+            triggers: [
+              {
+                targetQuestionLinkId: 'allergies.allergies-form-type',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Medications',
+              },
+              {
+                targetQuestionLinkId: 'allergies.allergies-form-type',
+                effect: ['require'],
+                operator: '=',
+                answerString: 'Medications',
+              },
+            ],
           },
           agentSubstanceOther: {
             key: 'allergies-form-agent-substance-other',
             label: 'Agent/Substance',
             type: 'open-choice',
             options: formValueSets.allergyOtherOptions,
+            customLinkId: 'allergies-form-agent-substance',
+            acceptsMultipleAnswers: true,
+            categoryTag: 'Other',
+            triggers: [
+              {
+                targetQuestionLinkId: 'allergies.allergies-form-type',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Other',
+              },
+              {
+                targetQuestionLinkId: 'allergies.allergies-form-type',
+                effect: ['require'],
+                operator: '=',
+                answerString: 'Other',
+              },
+            ],
           },
         },
         requiredFields: ['allergies-form-type'],
       },
     },
     requiredFields: ['allergies-yes-no'],
+  },
+  medicalHistory: {
+    linkId: 'medical-history-page',
+    title: 'Medical history',
+    items: {
+      yesNo: {
+        key: 'medical-history-yes-no',
+        label: 'Select option',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.medicalHistoryYesNoOptions,
+      },
+      medicalConditions: {
+        key: 'medical-history',
+        text: 'Current medical conditions',
+        required: true,
+        type: 'group',
+        triggers: [
+          {
+            targetQuestionLinkId: 'medical-history-yes-no',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'Patient has current medical conditions',
+          },
+          {
+            targetQuestionLinkId: 'medical-history-yes-no',
+            effect: ['filter'],
+            operator: '!=',
+            answerString: 'Patient has current medical conditions',
+          },
+        ],
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
+            valueString: 'list-with-form',
+          },
+        ],
+        items: {
+          header: {
+            key: 'medical-history-form-header',
+            text: 'Add medical conditions',
+            type: 'display',
+            element: 'h4',
+          },
+          medicalCondition: {
+            key: 'medical-history-form-medical-condition',
+            label: 'Medical condition',
+            type: 'open-choice',
+            options: formValueSets.medicalConditionOptions,
+            acceptsMultipleAnswers: true,
+          },
+        },
+        requiredFields: ['medical-history-form-medical-condition'],
+      },
+    },
+    requiredFields: ['medical-history-yes-no'],
   },
   surgicalHistory: {
     linkId: 'surgical-history-page',
@@ -412,8 +587,29 @@ const FormFields = {
       },
       surgeries: {
         key: 'surgical-history',
-        label: 'Surgeries',
+        text: 'Surgeries',
+        required: false,
         type: 'group',
+        triggers: [
+          {
+            targetQuestionLinkId: 'surgical-history-yes-no',
+            effect: ['enable'],
+            operator: '=',
+            answerString: SURGICAL_HISTORY_YES_OPTION,
+          },
+          {
+            targetQuestionLinkId: 'surgical-history-yes-no',
+            effect: ['filter'],
+            operator: '!=',
+            answerString: SURGICAL_HISTORY_YES_OPTION,
+          },
+        ],
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
+            valueString: 'list-with-form',
+          },
+        ],
         items: {
           header: {
             key: 'surgical-history-form-header',
@@ -426,6 +622,7 @@ const FormFields = {
             label: 'Type of surgery',
             type: 'open-choice',
             options: formValueSets.surgeryTypeOptions,
+            acceptsMultipleAnswers: true,
           },
         },
         requiredFields: ['surgical-history-form-type'],
@@ -461,225 +658,6 @@ const FormFields = {
     },
     hiddenFields: [],
     requiredFields: [],
-  },
-  patientCondition: {
-    linkId: 'patient-condition-page',
-    title: 'Patient condition',
-    items: {
-      patientPhotos: {
-        key: 'patient-photos',
-        label: "Photo of patient's condition (optional)",
-        type: 'attachment',
-        dataType: 'Image',
-        documentType: '72170-4',
-      },
-    },
-    hiddenFields: [],
-    requiredFields: [],
-  },
-  schoolWorkNote: {
-    linkId: 'school-work-note-page',
-    title: 'Do you need a school or work note?',
-    items: {
-      choice: {
-        key: 'school-work-note-choice',
-        label: 'Select option:',
-        type: 'choice',
-        element: 'Radio',
-        options: formValueSets.schoolWorkNoteOptions,
-      },
-      templateUploadGroup: {
-        key: 'school-work-note-template-upload-group',
-        label: 'Do you need a school or work note?',
-        type: 'group',
-        triggers: [
-          {
-            targetQuestionLinkId: 'school-work-note-choice',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'Neither',
-          },
-        ],
-        items: {
-          header: {
-            key: 'school-work-note-template',
-            text: 'I have a template',
-            type: 'display',
-            element: 'h3',
-          },
-          instructions: {
-            key: 'school-work-note-template-text',
-            text: 'Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.',
-            type: 'display',
-            element: 'p',
-          },
-          schoolTemplate: {
-            key: 'school-work-note-template-school',
-            label: 'School Template',
-            type: 'attachment',
-            dataType: 'PDF',
-            documentType: '47420-5',
-            triggers: [
-              {
-                targetQuestionLinkId: 'school-work-note-choice',
-                effect: ['enable'],
-                operator: '=',
-                answerString: 'School only',
-              },
-              {
-                targetQuestionLinkId: 'school-work-note-choice',
-                effect: ['enable'],
-                operator: '=',
-                answerString: 'Both school and work notes',
-              },
-              {
-                targetQuestionLinkId: 'school-work-note-choice',
-                effect: ['filter'],
-                operator: '=',
-                answerString: 'School only',
-              },
-            ],
-            enableBehavior: 'any',
-          },
-          workTemplate: {
-            key: 'school-work-note-template-work',
-            label: 'Work Template',
-            type: 'attachment',
-            dataType: 'PDF',
-            documentType: '47420-5',
-            triggers: [
-              {
-                targetQuestionLinkId: 'school-work-note-choice',
-                effect: ['enable'],
-                operator: '=',
-                answerString: 'Work only',
-              },
-              {
-                targetQuestionLinkId: 'school-work-note-choice',
-                effect: ['enable'],
-                operator: '=',
-                answerString: 'Both school and work notes',
-              },
-              {
-                targetQuestionLinkId: 'school-work-note-choice',
-                effect: ['filter'],
-                operator: '=',
-                answerString: 'School only',
-              },
-            ],
-            enableBehavior: 'any',
-          },
-        },
-      },
-    },
-    requiredFields: ['school-work-note-choice'],
-  },
-  inviteParticipant: {
-    linkId: 'invite-participant-page',
-    title: 'Would you like someone to join this call?',
-    items: {
-      instructionText: {
-        key: 'invite-page-text',
-        text: 'Invite someone to join this call. Applicable for this visit only.',
-        type: 'display',
-        element: 'p',
-      },
-      fromAnotherDevice: {
-        key: 'invite-from-another-device',
-        label: 'Is anyone joining this visit from another device?',
-        type: 'choice',
-        element: 'Radio',
-        options: formValueSets.inviteFromAnotherDeviceOptions,
-      },
-      firstName: {
-        key: 'invite-first',
-        label: 'First name',
-        type: 'string',
-        inputWidth: 'm',
-        autocomplete: 'section-invite-participant shipping given-name',
-        triggers: [
-          {
-            targetQuestionLinkId: 'invite-from-another-device',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'Yes, I will add invite details below',
-          },
-        ],
-      },
-      lastName: {
-        key: 'invite-last',
-        label: 'Last name',
-        type: 'string',
-        inputWidth: 'm',
-        autocomplete: 'section-invite-participant shipping family-name',
-        triggers: [
-          {
-            targetQuestionLinkId: 'invite-from-another-device',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'Yes, I will add invite details below',
-          },
-        ],
-      },
-      preferableContact: {
-        key: 'invite-contact',
-        label: 'Preferable contact',
-        type: 'choice',
-        element: 'Radio List',
-        options: formValueSets.inviteContactOptions,
-        triggers: [
-          {
-            targetQuestionLinkId: 'invite-from-another-device',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'Yes, I will add invite details below',
-          },
-        ],
-      },
-      email: {
-        key: 'invite-email',
-        label: 'Email address',
-        type: 'string',
-        dataType: 'Email',
-        autocomplete: 'section-invite-participant shipping email',
-        triggers: [
-          {
-            targetQuestionLinkId: 'invite-from-another-device',
-            effect: ['enable'],
-            operator: '=',
-            answerString: 'Yes, I will add invite details below',
-          },
-          {
-            targetQuestionLinkId: 'invite-contact',
-            effect: ['require'],
-            operator: '=',
-            answerString: 'Email',
-          },
-        ],
-      },
-      phone: {
-        key: 'invite-phone',
-        label: 'Phone number',
-        type: 'string',
-        dataType: 'Phone Number',
-        autocomplete: 'section-invite-participant shipping tel',
-        triggers: [
-          {
-            targetQuestionLinkId: 'invite-from-another-device',
-            effect: ['enable'],
-            operator: '=',
-            answerString: 'Yes, I will add invite details below',
-          },
-          {
-            targetQuestionLinkId: 'invite-contact',
-            effect: ['require'],
-            operator: '=',
-            answerString: 'Phone',
-          },
-        ],
-      },
-    },
-    requiredFields: ['invite-from-another-device'],
   },
   paymentOption: {
     linkId: 'payment-option-page',
@@ -1896,6 +1874,118 @@ const FormFields = {
     hiddenFields: [],
     requiredFields: [],
   },
+  patientCondition: {
+    linkId: 'patient-condition-page',
+    title: 'Patient condition',
+    items: {
+      patientPhotos: {
+        key: 'patient-photos',
+        label: "Photo of patient's condition (optional)",
+        type: 'attachment',
+        dataType: 'Image',
+        documentType: '72170-4',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  schoolWorkNote: {
+    linkId: 'school-work-note-page',
+    title: 'Do you need a school or work note?',
+    items: {
+      choice: {
+        key: 'school-work-note-choice',
+        label: 'Select option:',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.schoolWorkNoteOptions,
+      },
+      templateUploadGroup: {
+        key: 'school-work-note-template-upload-group',
+        text: 'Do you need a school or work note?',
+        type: 'group',
+        triggers: [
+          {
+            targetQuestionLinkId: 'school-work-note-choice',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'Neither',
+          },
+        ],
+        items: {
+          header: {
+            key: 'school-work-note-template',
+            text: 'I have a template',
+            type: 'display',
+            element: 'h3',
+          },
+          instructions: {
+            key: 'school-work-note-template-text',
+            text: 'Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.',
+            type: 'display',
+            element: 'p',
+          },
+          schoolTemplate: {
+            key: 'school-work-note-template-school',
+            label: 'School Template',
+            type: 'attachment',
+            dataType: 'PDF',
+            documentType: '47420-5',
+            triggers: [
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'School only',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Both school and work notes',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['filter'],
+                operator: '=',
+                answerString: 'School only',
+              },
+            ],
+            enableBehavior: 'any',
+          },
+          workTemplate: {
+            key: 'school-work-note-template-work',
+            label: 'Work Template',
+            type: 'attachment',
+            dataType: 'PDF',
+            documentType: '47420-5',
+            triggers: [
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Work only',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['enable'],
+                operator: '=',
+                answerString: 'Both school and work notes',
+              },
+              {
+                targetQuestionLinkId: 'school-work-note-choice',
+                effect: ['filter'],
+                operator: '=',
+                answerString: 'School only',
+              },
+            ],
+            enableBehavior: 'any',
+          },
+        },
+      },
+    },
+    requiredFields: ['school-work-note-choice'],
+  },
   consentForms: {
     linkId: 'consent-forms-page',
     title: 'Complete consent forms',
@@ -2042,22 +2132,118 @@ const FormFields = {
       'consent-form-signer-relationship',
     ],
   },
-  medicalHistory: {
-    linkId: 'medical-history-page',
-    title: 'Medical history',
+  inviteParticipant: {
+    linkId: 'invite-participant-page',
+    title: 'Would you like someone to join this call?',
     items: {
-      questionnaire: {
-        key: 'medical-history-questionnaire',
-        label: '',
-        type: 'boolean',
-        dataType: 'Medical History',
+      instructionText: {
+        key: 'invite-page-text',
+        text: 'Invite someone to join this call. Applicable for this visit only.',
+        type: 'display',
+        element: 'p',
+      },
+      fromAnotherDevice: {
+        key: 'invite-from-another-device',
+        label: 'Is anyone joining this visit from another device?',
+        type: 'choice',
+        element: 'Radio',
+        options: formValueSets.inviteFromAnotherDeviceOptions,
+      },
+      firstName: {
+        key: 'invite-first',
+        label: 'First name',
+        type: 'string',
+        inputWidth: 'm',
+        autocomplete: 'section-invite-participant shipping given-name',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+        ],
+      },
+      lastName: {
+        key: 'invite-last',
+        label: 'Last name',
+        type: 'string',
+        inputWidth: 'm',
+        autocomplete: 'section-invite-participant shipping family-name',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+        ],
+      },
+      preferableContact: {
+        key: 'invite-contact',
+        label: 'Preferable contact',
+        type: 'choice',
+        element: 'Radio List',
+        options: formValueSets.inviteContactOptions,
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+        ],
+      },
+      email: {
+        key: 'invite-email',
+        label: 'Email address',
+        type: 'string',
+        dataType: 'Email',
+        autocomplete: 'section-invite-participant shipping email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+          {
+            targetQuestionLinkId: 'invite-contact',
+            effect: ['require'],
+            operator: '=',
+            answerString: 'Email',
+          },
+        ],
+      },
+      phone: {
+        key: 'invite-phone',
+        label: 'Phone number',
+        type: 'string',
+        dataType: 'Phone Number',
+        autocomplete: 'section-invite-participant shipping tel',
+        triggers: [
+          {
+            targetQuestionLinkId: 'invite-from-another-device',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'Yes, I will add invite details below',
+          },
+          {
+            targetQuestionLinkId: 'invite-contact',
+            effect: ['require'],
+            operator: '=',
+            answerString: 'Phone',
+          },
+        ],
       },
     },
-    hiddenFields: [],
-    requiredFields: [],
+    requiredFields: ['invite-from-another-device'],
   },
 };
 
+// note: the order of the fields on this object are what determines the order they appear in the form
+// i try to make the template above match this order for easier reading, but that's a convention, and the order
+// declared here is what will determine the order of the items on the form.
 const FormFieldsSchema = z.object({
   contactInformation: FormSectionSimpleSchema,
   patientDetails: FormSectionSimpleSchema,
@@ -2065,11 +2251,9 @@ const FormFieldsSchema = z.object({
   pharmacy: FormSectionSimpleSchema,
   currentMedications: FormSectionSimpleSchema,
   allergies: FormSectionSimpleSchema,
+  medicalHistory: FormSectionSimpleSchema,
   surgicalHistory: FormSectionSimpleSchema,
   additional: FormSectionSimpleSchema,
-  patientCondition: FormSectionSimpleSchema,
-  schoolWorkNote: FormSectionSimpleSchema,
-  inviteParticipant: FormSectionSimpleSchema,
   paymentOption: FormSectionSimpleSchema,
   paymentOptionOccMed: FormSectionSimpleSchema,
   occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
@@ -2077,8 +2261,10 @@ const FormFieldsSchema = z.object({
   responsibleParty: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
   photoId: FormSectionSimpleSchema,
+  patientCondition: FormSectionSimpleSchema,
+  schoolWorkNote: FormSectionSimpleSchema,
   consentForms: FormSectionSimpleSchema,
-  medicalHistory: FormSectionSimpleSchema,
+  inviteParticipant: FormSectionSimpleSchema,
 });
 
 const hiddenFormSections: string[] = [];

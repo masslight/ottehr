@@ -662,6 +662,26 @@
             "answerString": "Other"
           }
         ]
+      },
+      {
+        "linkId": "relay-phone",
+        "type": "choice",
+        "text": "Do you require a Hearing Impaired Relay Service? (711)",
+        "required": true,
+        "answerOption": [
+          {
+            "valueString": "Yes"
+          },
+          {
+            "valueString": "No"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "Radio List"
+          }
+        ]
       }
     ]
   },
@@ -796,6 +816,8 @@
       {
         "linkId": "current-medications",
         "type": "group",
+        "text": "Medications taken",
+        "required": false,
         "item": [
           {
             "linkId": "current-medications-form-header",
@@ -812,7 +834,7 @@
             "linkId": "current-medications-form-medication",
             "type": "open-choice",
             "text": "Medication",
-            "required": false,
+            "required": true,
             "answerOption": [
               {
                 "valueString": "Acetaminophen/ Tylenol"
@@ -904,6 +926,42 @@
               {
                 "valueString": "Vitamins"
               }
+            ],
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "current-medications-yes-no",
+            "operator": "=",
+            "answerString": "Patient takes medication currently"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
+            "valueString": "list-with-form"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "current-medications-yes-no"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "Patient takes medication currently"
+              }
             ]
           }
         ]
@@ -938,6 +996,8 @@
       {
         "linkId": "allergies",
         "type": "group",
+        "text": "Known current allergies",
+        "required": false,
         "item": [
           {
             "linkId": "allergies-form-header",
@@ -954,7 +1014,7 @@
             "linkId": "allergies-form-type",
             "type": "choice",
             "text": "Type",
-            "required": false,
+            "required": true,
             "answerOption": [
               {
                 "valueString": "Medications"
@@ -967,6 +1027,10 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
                 "valueString": "Radio List"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/always-filter",
+                "valueBoolean": true
               }
             ]
           },
@@ -1017,6 +1081,44 @@
               },
               {
                 "valueString": "Trimethoprim / Sulfamethoxazole (Bactrim)/ Sulfa Antibiotics"
+              }
+            ],
+            "enableWhen": [
+              {
+                "question": "allergies.allergies-form-type",
+                "operator": "=",
+                "answerString": "Medications"
+              }
+            ],
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/custom-link-id",
+                "valueString": "allergies-form-agent-substance"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers",
+                "valueBoolean": true
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/category-tag",
+                "valueString": "Medication"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                    "valueString": "allergies.allergies-form-type"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                    "valueString": "Medications"
+                  }
+                ]
               }
             ]
           },
@@ -1104,6 +1206,271 @@
               {
                 "valueString": "Wheat/ Gluten"
               }
+            ],
+            "enableWhen": [
+              {
+                "question": "allergies.allergies-form-type",
+                "operator": "=",
+                "answerString": "Other"
+              }
+            ],
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/custom-link-id",
+                "valueString": "allergies-form-agent-substance"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers",
+                "valueBoolean": true
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/category-tag",
+                "valueString": "Other"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                    "valueString": "allergies.allergies-form-type"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                    "valueString": "Other"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "allergies-yes-no",
+            "operator": "=",
+            "answerString": "Patient has known current allergies"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "allergies-yes-no"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "Patient has known current allergies"
+              }
+            ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "allergies-yes-no"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueString": "Patient has known current allergies"
+              }
+            ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
+            "valueString": "list-with-form"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "linkId": "medical-history-page",
+    "text": "Medical history",
+    "type": "group",
+    "item": [
+      {
+        "linkId": "medical-history-yes-no",
+        "type": "choice",
+        "text": "Select option",
+        "required": true,
+        "answerOption": [
+          {
+            "valueString": "Patient has no current medical conditions"
+          },
+          {
+            "valueString": "Patient has current medical conditions"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "Radio"
+          }
+        ]
+      },
+      {
+        "linkId": "medical-history",
+        "type": "group",
+        "text": "Current medical conditions",
+        "required": true,
+        "item": [
+          {
+            "linkId": "medical-history-form-header",
+            "type": "display",
+            "text": "Add medical conditions",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                "valueString": "h4"
+              }
+            ]
+          },
+          {
+            "linkId": "medical-history-form-medical-condition",
+            "type": "open-choice",
+            "text": "Medical condition",
+            "required": true,
+            "answerOption": [
+              {
+                "valueString": "ADHD/ ADD"
+              },
+              {
+                "valueString": "Anemia"
+              },
+              {
+                "valueString": "Anxiety"
+              },
+              {
+                "valueString": "Asthma/ Reactive Airway/ Wheezing"
+              },
+              {
+                "valueString": "Autism spectrum"
+              },
+              {
+                "valueString": "Celiac disease"
+              },
+              {
+                "valueString": "Constipation"
+              },
+              {
+                "valueString": "Croup"
+              },
+              {
+                "valueString": "Depression"
+              },
+              {
+                "valueString": "Eczema"
+              },
+              {
+                "valueString": "Epilepsy"
+              },
+              {
+                "valueString": "Febrile Seizure"
+              },
+              {
+                "valueString": "G6PD deficiency"
+              },
+              {
+                "valueString": "Gastroesophageal Reflux Disease- GERD"
+              },
+              {
+                "valueString": "Heart murmur"
+              },
+              {
+                "valueString": "Hip dysplasia- congenital"
+              },
+              {
+                "valueString": "Hydronephrosis"
+              },
+              {
+                "valueString": "Hypothyroidism"
+              },
+              {
+                "valueString": "Jaundice"
+              },
+              {
+                "valueString": "Laryngomalacia"
+              },
+              {
+                "valueString": "Migraines"
+              },
+              {
+                "valueString": "Otitis media/ Chronic ear infections"
+              },
+              {
+                "valueString": "Pneumonia"
+              },
+              {
+                "valueString": "Premature birth- preemie"
+              },
+              {
+                "valueString": "RSV- Respiratory Syncytial Virus"
+              },
+              {
+                "valueString": "Seasonal allergies"
+              },
+              {
+                "valueString": "Sickle cell trait"
+              },
+              {
+                "valueString": "Sleep apnea"
+              },
+              {
+                "valueString": "Speech delay"
+              },
+              {
+                "valueString": "Type 1 Diabetes"
+              }
+            ],
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "medical-history-yes-no",
+            "operator": "=",
+            "answerString": "Patient has current medical conditions"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
+            "valueString": "list-with-form"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "medical-history-yes-no"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "Patient has current medical conditions"
+              }
             ]
           }
         ]
@@ -1138,6 +1505,8 @@
       {
         "linkId": "surgical-history",
         "type": "group",
+        "text": "Surgeries",
+        "required": false,
         "item": [
           {
             "linkId": "surgical-history-form-header",
@@ -1154,7 +1523,7 @@
             "linkId": "surgical-history-form-type",
             "type": "open-choice",
             "text": "Type of surgery",
-            "required": false,
+            "required": true,
             "answerOption": [
               {
                 "valueString": "Adenoidectomy (Adenoid Removal)"
@@ -1249,6 +1618,42 @@
               {
                 "valueString": "Other"
               }
+            ],
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "surgical-history-yes-no",
+            "operator": "=",
+            "answerString": "Patient has surgical history"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
+            "valueString": "list-with-form"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "surgical-history-yes-no"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "Patient has surgical history"
+              }
             ]
           }
         ]
@@ -1317,371 +1722,6 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
             "valueString": "Radio List"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "linkId": "patient-condition-page",
-    "type": "group",
-    "text": "Patient condition",
-    "item": [
-      {
-        "linkId": "patient-photos",
-        "type": "attachment",
-        "text": "Photo of patient's condition (optional)",
-        "required": false,
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-            "valueString": "Image"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-            "valueString": "72170-4"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "linkId": "school-work-note-page",
-    "type": "group",
-    "text": "Do you need a school or work note?",
-    "item": [
-      {
-        "linkId": "school-work-note-choice",
-        "type": "choice",
-        "text": "Select option:",
-        "required": true,
-        "answerOption": [
-          {
-            "valueString": "Neither"
-          },
-          {
-            "valueString": "School only"
-          },
-          {
-            "valueString": "Work only"
-          },
-          {
-            "valueString": "Both school and work notes"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-            "valueString": "Radio"
-          }
-        ]
-      },
-      {
-        "linkId": "school-work-note-template-upload-group",
-        "type": "group",
-        "item": [
-          {
-            "linkId": "school-work-note-template",
-            "type": "display",
-            "text": "I have a template",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-                "valueString": "h3"
-              }
-            ]
-          },
-          {
-            "linkId": "school-work-note-template-text",
-            "type": "display",
-            "text": "Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-                "valueString": "p"
-              }
-            ]
-          },
-          {
-            "linkId": "school-work-note-template-school",
-            "type": "attachment",
-            "text": "School Template",
-            "required": false,
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                "valueString": "PDF"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                "valueString": "47420-5"
-              }
-            ]
-          },
-          {
-            "linkId": "school-work-note-template-work",
-            "type": "attachment",
-            "text": "Work Template",
-            "required": false,
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                "valueString": "PDF"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                "valueString": "47420-5"
-              }
-            ]
-          }
-        ],
-        "enableWhen": [
-          {
-            "question": "school-work-note-choice",
-            "operator": "!=",
-            "answerString": "Neither"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "linkId": "invite-participant-page",
-    "type": "group",
-    "text": "Would you like someone to join this call?",
-    "item": [
-      {
-        "linkId": "invite-page-text",
-        "type": "display",
-        "text": "Invite someone to join this call. Applicable for this visit only.",
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-            "valueString": "p"
-          }
-        ]
-      },
-      {
-        "linkId": "invite-from-another-device",
-        "type": "choice",
-        "text": "Is anyone joining this visit from another device?",
-        "required": true,
-        "answerOption": [
-          {
-            "valueString": "No, only one device will be connected"
-          },
-          {
-            "valueString": "Yes, I will add invite details below"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-            "valueString": "Radio"
-          }
-        ]
-      },
-      {
-        "linkId": "invite-first",
-        "type": "string",
-        "text": "First name",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "invite-from-another-device",
-            "operator": "=",
-            "answerString": "Yes, I will add invite details below"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
-            "valueString": "m"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
-            "valueString": "section-invite-participant shipping given-name"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "invite-from-another-device"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueString": "Yes, I will add invite details below"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "linkId": "invite-last",
-        "type": "string",
-        "text": "Last name",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "invite-from-another-device",
-            "operator": "=",
-            "answerString": "Yes, I will add invite details below"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
-            "valueString": "m"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
-            "valueString": "section-invite-participant shipping family-name"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "invite-from-another-device"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueString": "Yes, I will add invite details below"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "linkId": "invite-contact",
-        "type": "choice",
-        "text": "Preferable contact",
-        "required": false,
-        "answerOption": [
-          {
-            "valueString": "Email"
-          },
-          {
-            "valueString": "Phone"
-          }
-        ],
-        "enableWhen": [
-          {
-            "question": "invite-from-another-device",
-            "operator": "=",
-            "answerString": "Yes, I will add invite details below"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-            "valueString": "Radio List"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "invite-from-another-device"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueString": "Yes, I will add invite details below"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "linkId": "invite-email",
-        "type": "string",
-        "text": "Email address",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "invite-from-another-device",
-            "operator": "=",
-            "answerString": "Yes, I will add invite details below"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-            "valueString": "Email"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
-            "valueString": "section-invite-participant shipping email"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "invite-contact"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueString": "Email"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "linkId": "invite-phone",
-        "type": "string",
-        "text": "Phone number",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "invite-from-another-device",
-            "operator": "=",
-            "answerString": "Yes, I will add invite details below"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-            "valueString": "Phone Number"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
-            "valueString": "section-invite-participant shipping tel"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "invite-contact"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueString": "Phone"
-              }
-            ]
           }
         ]
       }
@@ -4357,6 +4397,188 @@
     ]
   },
   {
+    "linkId": "patient-condition-page",
+    "type": "group",
+    "text": "Patient condition",
+    "item": [
+      {
+        "linkId": "patient-photos",
+        "type": "attachment",
+        "text": "Photo of patient's condition (optional)",
+        "required": false,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Image"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+            "valueString": "72170-4"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "linkId": "school-work-note-page",
+    "type": "group",
+    "text": "Do you need a school or work note?",
+    "item": [
+      {
+        "linkId": "school-work-note-choice",
+        "type": "choice",
+        "text": "Select option:",
+        "required": true,
+        "answerOption": [
+          {
+            "valueString": "Neither"
+          },
+          {
+            "valueString": "School only"
+          },
+          {
+            "valueString": "Work only"
+          },
+          {
+            "valueString": "Both school and work notes"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "Radio"
+          }
+        ]
+      },
+      {
+        "linkId": "school-work-note-template-upload-group",
+        "type": "group",
+        "item": [
+          {
+            "linkId": "school-work-note-template",
+            "type": "display",
+            "text": "I have a template",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                "valueString": "h3"
+              }
+            ]
+          },
+          {
+            "linkId": "school-work-note-template-text",
+            "type": "display",
+            "text": "Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                "valueString": "p"
+              }
+            ]
+          },
+          {
+            "linkId": "school-work-note-template-school",
+            "type": "attachment",
+            "text": "School Template",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "PDF"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                "valueString": "47420-5"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                    "valueString": "school-work-note-choice"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                    "valueString": "School only"
+                  }
+                ]
+              }
+            ],
+            "enableBehavior": "any",
+            "enableWhen": [
+              {
+                "question": "school-work-note-choice",
+                "operator": "=",
+                "answerString": "School only"
+              },
+              {
+                "question": "school-work-note-choice",
+                "operator": "=",
+                "answerString": "Both school and work notes"
+              }
+            ]
+          },
+          {
+            "linkId": "school-work-note-template-work",
+            "type": "attachment",
+            "text": "Work Template",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "PDF"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                "valueString": "47420-5"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                    "valueString": "school-work-note-choice"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                    "valueString": "School only"
+                  }
+                ]
+              }
+            ],
+            "enableBehavior": "any",
+            "enableWhen": [
+              {
+                "question": "school-work-note-choice",
+                "operator": "=",
+                "answerString": "Work only"
+              },
+              {
+                "question": "school-work-note-choice",
+                "operator": "=",
+                "answerString": "Both school and work notes"
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "school-work-note-choice",
+            "operator": "!=",
+            "answerString": "Neither"
+          }
+        ],
+        "text": "Do you need a school or work note?"
+      }
+    ]
+  },
+  {
     "linkId": "consent-forms-page",
     "type": "group",
     "text": "Complete consent forms",
@@ -4541,18 +4763,242 @@
     ]
   },
   {
-    "linkId": "medical-history-page",
+    "linkId": "invite-participant-page",
     "type": "group",
-    "text": "Medical history",
+    "text": "Would you like someone to join this call?",
     "item": [
       {
-        "linkId": "medical-history-questionnaire",
-        "type": "boolean",
+        "linkId": "invite-page-text",
+        "type": "display",
+        "text": "Invite someone to join this call. Applicable for this visit only.",
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "p"
+          }
+        ]
+      },
+      {
+        "linkId": "invite-from-another-device",
+        "type": "choice",
+        "text": "Is anyone joining this visit from another device?",
+        "required": true,
+        "answerOption": [
+          {
+            "valueString": "No, only one device will be connected"
+          },
+          {
+            "valueString": "Yes, I will add invite details below"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "Radio"
+          }
+        ]
+      },
+      {
+        "linkId": "invite-first",
+        "type": "string",
+        "text": "First name",
         "required": false,
+        "enableWhen": [
+          {
+            "question": "invite-from-another-device",
+            "operator": "=",
+            "answerString": "Yes, I will add invite details below"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+            "valueString": "m"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+            "valueString": "section-invite-participant shipping given-name"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "invite-from-another-device"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueString": "Yes, I will add invite details below"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "invite-last",
+        "type": "string",
+        "text": "Last name",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "invite-from-another-device",
+            "operator": "=",
+            "answerString": "Yes, I will add invite details below"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+            "valueString": "m"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+            "valueString": "section-invite-participant shipping family-name"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "invite-from-another-device"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueString": "Yes, I will add invite details below"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "invite-contact",
+        "type": "choice",
+        "text": "Preferable contact",
+        "required": false,
+        "answerOption": [
+          {
+            "valueString": "Email"
+          },
+          {
+            "valueString": "Phone"
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "invite-from-another-device",
+            "operator": "=",
+            "answerString": "Yes, I will add invite details below"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "Radio List"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "invite-from-another-device"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueString": "Yes, I will add invite details below"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "invite-email",
+        "type": "string",
+        "text": "Email address",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "invite-from-another-device",
+            "operator": "=",
+            "answerString": "Yes, I will add invite details below"
+          }
+        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-            "valueString": "Medical History"
+            "valueString": "Email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+            "valueString": "section-invite-participant shipping email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "invite-contact"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueString": "Email"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "invite-phone",
+        "type": "string",
+        "text": "Phone number",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "invite-from-another-device",
+            "operator": "=",
+            "answerString": "Yes, I will add invite details below"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Phone Number"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+            "valueString": "section-invite-participant shipping tel"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "invite-contact"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueString": "Phone"
+              }
+            ]
           }
         ]
       }

@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
-import virtualIntakeQuestionnaire from '../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
 import {
   BOOKING_CONFIG,
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   PATIENT_RECORD_QUESTIONNAIRE,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
 
@@ -14,7 +14,7 @@ import { CanonicalUrl } from '../types';
 const getQuestionnaires = (): Array<Questionnaire> => [
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(),
   PATIENT_RECORD_QUESTIONNAIRE(),
-  ...Object.values(virtualIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE(),
   ...Object.values(virtualIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(inPersonIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
 ];
