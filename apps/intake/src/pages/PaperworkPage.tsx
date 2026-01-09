@@ -18,6 +18,9 @@ import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ErrorDialog, ErrorDialogConfig } from 'src/components/ErrorDialog';
+import ValidationErrorMessageContent from 'src/features/paperwork/components/ValidationErrorMessage';
+import { UNEXPECTED_ERROR_CONFIG } from 'src/helpers';
 import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork';
 import {
   APIError,
@@ -42,7 +45,7 @@ import { persist } from 'zustand/middleware';
 import { ottehrApi } from '../api';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
-import { PaperworkContext, usePaperworkContext } from '../features/paperwork';
+import { getFormValidationErrors, PaperworkContext, usePaperworkContext } from '../features/paperwork';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
@@ -319,6 +322,7 @@ export const PaperworkPage: FC = () => {
   const saveProgress = usePaperworkStore((state) => {
     return state.saveProgress;
   });
+  const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const {
     paperwork: completedPaperwork,
     paperworkInProgress,
@@ -330,6 +334,58 @@ export const PaperworkPage: FC = () => {
   } = usePaperworkContext();
 
   const questionnaireResponseId = questionnaireResponse?.id;
+
+  const submitPaperwork = useCallback(async (): Promise<boolean> => {
+    const submitPaperwork = async (
+      data: QuestionnaireResponseItem[],
+      questionnaireResponseId: string,
+      zambdaClient: ZambdaClient,
+      appointmentId: string
+    ): Promise<void> => {
+      await api.submitPaperwork(zambdaClient, { answers: data, questionnaireResponseId, appointmentId });
+    };
+    if (appointmentID && questionnaireResponseId && zambdaClient) {
+      try {
+        setLoading(true);
+        try {
+          // try to find out a better way of modeling when appointment id is/isn't needed when consolidating
+          // this with the telemed code
+          await submitPaperwork([], questionnaireResponseId, zambdaClient, appointmentID);
+          return true;
+        } catch (e) {
+          const validationErrors = getFormValidationErrors(e);
+          if (validationErrors) {
+            console.log('validation errors returned: ', validationErrors);
+            const links = paperworkPages.reduce(
+              (accum, current) => {
+                if (Object.keys(validationErrors).includes(current.linkId)) {
+                  accum[current.linkId] = {
+                    path: `/paperwork/${appointmentID}/${slugFromLinkId(current.linkId)}`,
+                    pageName: current.text ?? current.linkId,
+                  };
+                }
+                return accum;
+              },
+              {} as { [pageId: string]: { path: string; pageName: string } }
+            );
+            setErrorDialogConfig({
+              title: t('paperworkPages.validationError'),
+              description: <ValidationErrorMessageContent errorObject={validationErrors} links={links} />,
+            });
+          } else {
+            setErrorDialogConfig(UNEXPECTED_ERROR_CONFIG(t));
+          }
+        }
+      } catch (e) {
+        // todo: handle this better, direct to page where error was found if available
+        console.error('error submitting paperwork', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    return false;
+  }, [appointmentID, questionnaireResponseId, zambdaClient, paperworkPages]);
+
   // this is just for avoiding duplicates in the mixpanel tracking
   const [lastLoggedPageName, setLastLoggedPageName] = useState<string>();
 
@@ -419,6 +475,7 @@ export const PaperworkPage: FC = () => {
 
   const finishPaperworkPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
+      console.log('finishPaperworkPage ' + currentPage?.linkId);
       if (data && appointmentID && zambdaClient && currentPage && questionnaireResponseId && paperworkPatient) {
         const pageLinkIds = extractPageLinkIds(currentPage.item ?? []);
         const raw = (Object.values(data) ?? []) as QuestionnaireResponseItem[];
@@ -451,6 +508,15 @@ export const PaperworkPage: FC = () => {
             });
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
+
+            console.log('PAAAAAAAAAAAAAAGE: ' + currentPage.linkId);
+            if (currentPage.linkId === 'consent-forms-page') {
+              const success = await submitPaperwork();
+              if (!success) {
+                return;
+              }
+            }
+
             const nextPage = getNextPage(updatedPaperwork);
             navigate(
               `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
@@ -536,6 +602,7 @@ export const PaperworkPage: FC = () => {
       saveProgress,
       getNextPage,
       navigate,
+      submitPaperwork,
     ]
   );
 
@@ -572,6 +639,15 @@ export const PaperworkPage: FC = () => {
             onRetryClick={validationRoadblockConfig?.onRetryClick}
             onContinueClick={validationRoadblockConfig?.onContinueClick}
             type={validationRoadblockConfig?.type ?? 'failure'}
+          />
+          <ErrorDialog
+            open={!!errorDialogConfig}
+            title={errorDialogConfig?.title || 'Error Validating Form'}
+            description={errorDialogConfig?.description || ''}
+            closeButtonText={t('general.button.close')}
+            handleClose={() => {
+              setErrorDialogConfig(undefined);
+            }}
           />
         </>
       )}
