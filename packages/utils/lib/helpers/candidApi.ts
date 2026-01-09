@@ -36,7 +36,6 @@ export async function getCandidInventoryPagesRecursive(
   if (maxPages && pageCount >= maxPages) return { claims, pageCount };
 
   console.log(`📄 Fetching page ${pageCount}`);
-  console.log('since date: ', since?.toISODate());
   const inventoryResponse = await candid.patientAr.v1.listInventory({
     limit: limitPerPage,
     since: since?.toJSDate(),

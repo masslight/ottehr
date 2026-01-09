@@ -61,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('getting pending and to create packages');
     const [pendingPackagesToUpdate, packagesToCreate] = await Promise.all([
-      getEncountersWithPendingTasksFhir(oystehr, candid, candidClaims, twoWeeksAgo),
+      getEncountersWithPendingTasksFhir(oystehr, candid, candidClaims),
       getEncountersWithoutTaskFhir(oystehr, candid, claimsForThePastTwoDays),
     ]);
 
@@ -123,6 +123,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterP
       intent: 'order',
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
+      authoredOn: DateTime.now().toISO(),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
@@ -158,9 +159,9 @@ async function updateTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterP
 async function getEncountersWithPendingTasksFhir(
   oystehr: Oystehr,
   candid: CandidApiClient,
-  claims: InventoryRecord[],
-  sinceDate: DateTime
+  claims: InventoryRecord[]
 ): Promise<EncounterPackage[]> {
+  console.log('fetching encounters with pending tasks');
   const result = (
     await oystehr.fhir.search({
       resourceType: 'Task',
@@ -178,12 +179,13 @@ async function getEncountersWithPendingTasksFhir(
           value: 'Task:encounter',
         },
         {
-          name: 'authored-on',
-          value: `ge${sinceDate.toISODate()}`,
+          name: '_count',
+          value: '1000',
         },
       ],
     })
   ).unbundle();
+  console.log('fetched fhir resources: ', result.length);
 
   const packages: Omit<EncounterPackage, 'amountCents'>[] = [];
   result
