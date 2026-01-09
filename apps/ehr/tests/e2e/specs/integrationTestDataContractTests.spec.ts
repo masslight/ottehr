@@ -34,7 +34,7 @@ test.beforeAll(async () => {
     e2eHandler.waitForListIndexing(e2eHandler.patient.id!),
   ]);
   // TODO: tmp fix, need be removed with line 'e2eHandler.waitForListIndexing(e2eHandler.patient.id!),'
-  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  await new Promise((resolve) => setTimeout(resolve, 20_000));
 });
 
 test.afterAll(async () => {
