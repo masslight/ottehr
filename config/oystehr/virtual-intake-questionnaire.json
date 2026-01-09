@@ -4024,6 +4024,528 @@
             ]
           },
           {
+            "linkId": "emergency-contact-page",
+            "type": "group",
+            "text": "Emergency Contact",
+            "item": [
+              {
+                "linkId": "emergency-contact-relationship",
+                "type": "choice",
+                "text": "Relationship to the patient",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "Spouse"
+                  },
+                  {
+                    "valueString": "Parent"
+                  },
+                  {
+                    "valueString": "Legal Guardian"
+                  },
+                  {
+                    "valueString": "Other"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-first-name",
+                "type": "string",
+                "text": "Emergency contact first name",
+                "required": true
+              },
+              {
+                "linkId": "emergency-contact-middle-name",
+                "type": "string",
+                "text": "Emergency contact middle name",
+                "required": false
+              },
+              {
+                "linkId": "emergency-contact-last-name",
+                "type": "string",
+                "text": "Emergency contact last name",
+                "required": true
+              },
+              {
+                "linkId": "emergency-contact-number",
+                "type": "string",
+                "text": "Emergency contact phone",
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+                    "valueString": "section-patient shipping tel"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-address-as-patient",
+                "type": "boolean",
+                "text": "Same as patient's address",
+                "required": false
+              },
+              {
+                "linkId": "emergency-contact-address",
+                "type": "string",
+                "text": "Address",
+                "required": true,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-street-address"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-address-2",
+                "type": "string",
+                "text": "Address line 2 (optional)",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-street-address-2"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-city",
+                "type": "string",
+                "text": "City",
+                "required": true,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-city"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-state",
+                "type": "choice",
+                "text": "State",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "AL"
+                  },
+                  {
+                    "valueString": "AK"
+                  },
+                  {
+                    "valueString": "AZ"
+                  },
+                  {
+                    "valueString": "AR"
+                  },
+                  {
+                    "valueString": "CA"
+                  },
+                  {
+                    "valueString": "CO"
+                  },
+                  {
+                    "valueString": "CT"
+                  },
+                  {
+                    "valueString": "DE"
+                  },
+                  {
+                    "valueString": "DC"
+                  },
+                  {
+                    "valueString": "FL"
+                  },
+                  {
+                    "valueString": "GA"
+                  },
+                  {
+                    "valueString": "HI"
+                  },
+                  {
+                    "valueString": "ID"
+                  },
+                  {
+                    "valueString": "IL"
+                  },
+                  {
+                    "valueString": "IN"
+                  },
+                  {
+                    "valueString": "IA"
+                  },
+                  {
+                    "valueString": "KS"
+                  },
+                  {
+                    "valueString": "KY"
+                  },
+                  {
+                    "valueString": "LA"
+                  },
+                  {
+                    "valueString": "ME"
+                  },
+                  {
+                    "valueString": "MD"
+                  },
+                  {
+                    "valueString": "MA"
+                  },
+                  {
+                    "valueString": "MI"
+                  },
+                  {
+                    "valueString": "MN"
+                  },
+                  {
+                    "valueString": "MS"
+                  },
+                  {
+                    "valueString": "MO"
+                  },
+                  {
+                    "valueString": "MT"
+                  },
+                  {
+                    "valueString": "NE"
+                  },
+                  {
+                    "valueString": "NV"
+                  },
+                  {
+                    "valueString": "NH"
+                  },
+                  {
+                    "valueString": "NJ"
+                  },
+                  {
+                    "valueString": "NM"
+                  },
+                  {
+                    "valueString": "NY"
+                  },
+                  {
+                    "valueString": "NC"
+                  },
+                  {
+                    "valueString": "ND"
+                  },
+                  {
+                    "valueString": "OH"
+                  },
+                  {
+                    "valueString": "OK"
+                  },
+                  {
+                    "valueString": "OR"
+                  },
+                  {
+                    "valueString": "PA"
+                  },
+                  {
+                    "valueString": "RI"
+                  },
+                  {
+                    "valueString": "SC"
+                  },
+                  {
+                    "valueString": "SD"
+                  },
+                  {
+                    "valueString": "TN"
+                  },
+                  {
+                    "valueString": "TX"
+                  },
+                  {
+                    "valueString": "UT"
+                  },
+                  {
+                    "valueString": "VT"
+                  },
+                  {
+                    "valueString": "VA"
+                  },
+                  {
+                    "valueString": "VI"
+                  },
+                  {
+                    "valueString": "WA"
+                  },
+                  {
+                    "valueString": "WV"
+                  },
+                  {
+                    "valueString": "WI"
+                  },
+                  {
+                    "valueString": "WY"
+                  }
+                ],
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-state"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-zip",
+                "type": "string",
+                "text": "ZIP",
+                "required": true,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "ZIP"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-zip"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "attorney-mva-page",
+            "text": "Attorney for Motor Vehicle Accident",
+            "type": "group",
+            "enableWhen": [
+              {
+                "question": "contact-information-page.reason-for-visit",
+                "operator": "=",
+                "answerString": "Auto accident"
+              }
+            ],
+            "item": [
+              {
+                "linkId": "attorney-mva-has-attorney",
+                "text": "Do you have an attorney?",
+                "type": "choice",
+                "required": false,
+                "answerOption": [
+                  {
+                    "valueString": "I have an attorney"
+                  },
+                  {
+                    "valueString": "I do not have an attorney"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "contact-information-page.reason-for-visit"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueString": "Auto accident"
+                      }
+                    ]
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Radio"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-firm",
+                "text": "Firm",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "attorney-mva-has-attorney"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueString": "I have an attorney"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-first-name",
+                "text": "First name",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-last-name",
+                "text": "Last name",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-email",
+                "text": "Email",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Email"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-mobile",
+                "text": "Mobile",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-fax",
+                "text": "Fax",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "photo-id-page",
             "text": "Photo ID",
             "type": "group",
