@@ -30,9 +30,9 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
   }, [error]);
 
   const isEditable = canEditMedication(medication);
-  // Delete is available for all statuses, edit only for pending
+  // Delete is available for all statuses except cancelled, edit only for pending
   const showEdit = isEditable;
-  const showDelete = true;
+  const showDelete = medication.status !== 'cancelled';
 
   if (!showEdit && !showDelete) {
     return null;
