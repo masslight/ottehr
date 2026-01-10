@@ -129,23 +129,23 @@ test.afterAll(async () => {
 let editOrderPage: OrderMedicationPage;
 let medicationsPage: InHouseMedicationsPage;
 
-test('In-house medications page', async () => {
+test('IHM-1 In-house medications page', async () => {
   let orderBy: string | undefined = undefined;
   const orderMedicationPage: OrderMedicationPage = await openOrderMedicationPage(resourceHandler.appointment.id!, page);
 
-  await test.step('"Order" button is disabled when all fields are empty', async () => {
+  await test.step('IHM-1.1 "Order" button is disabled when all fields are empty', async () => {
     await orderMedicationPage.editMedicationCard.waitForLoadOrderedBy();
     await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS_EMPTY_VALUE);
     await orderMedicationPage.editMedicationCard.selectOrderedBy(ORDERED_BY_EMPTY_VALUE);
     await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
   });
 
-  await test.step('Non-selected diagnosis on Assessment page is not present in Order Medication screen on associatedDx dropdown', async () => {
+  await test.step('IHM-1.2 Non-selected diagnosis on Assessment page is not present in Order Medication screen on associatedDx dropdown', async () => {
     // cSpell:disable-next Loiasis
     await orderMedicationPage.editMedicationCard.verifyDiagnosisNotAllowed('Loiasis');
   });
 
-  await test.step('Verify required fields error validation and save order', async () => {
+  await test.step('IHM-1.3 Verify required fields error validation and save order', async () => {
     // select diagnosis back
     await orderMedicationPage.editMedicationCard.chooseOption(DIAGNOSIS);
     // we have selected dx by default now so we can proceed to verification
@@ -173,13 +173,13 @@ test('In-house medications page', async () => {
     await orderMedicationPage.editMedicationCard.expectSaved();
   });
 
-  await test.step('Non-numeric values can not be entered into "Dose" field', async () => {
+  await test.step('IHM-1.4 Non-numeric values can not be entered into "Dose" field', async () => {
     await orderMedicationPage.editMedicationCard.enterDose('abc1dfg');
     // this is fine since will be transferred as 1 and then after saving will be 1
     await orderMedicationPage.editMedicationCard.verifyDose('01');
   });
 
-  await test.step('Order medication, order is submitted successfully and entered data are displayed correctly in edit order page', async () => {
+  await test.step('IHM-1.5 Order medication, order is submitted successfully and entered data are displayed correctly in edit order page', async () => {
     await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
     await orderMedicationPage.editMedicationCard.selectMedication(MEDICATION);
     await orderMedicationPage.editMedicationCard.enterDose(DOSE);
@@ -202,7 +202,7 @@ test('In-house medications page', async () => {
     await editOrderPage.editMedicationCard.verifyInstructions(INSTRUCTIONS);
   });
 
-  await test.step('Verify order data is displayed correctly in medication details tab', async () => {
+  await test.step('IHM-1.6 Verify order data is displayed correctly in medication details tab', async () => {
     medicationsPage = await editOrderPage.clickBackButton();
 
     await medicationsPage.verifyMedicationPresent({
@@ -224,13 +224,13 @@ test('In-house medications page', async () => {
     await medicationsPage.medicationDetails().verifyInstructions(INSTRUCTIONS);
   });
 
-  await test.step('Click on pencil icon opens Edit order page', async () => {
+  await test.step('IHM-1.7 Click on pencil icon opens Edit order page', async () => {
     await medicationsPage.clickMarTab();
     await medicationsPage.clickPencilIcon();
     editOrderPage = await expectEditOrderPage(page);
   });
 
-  await test.step('Update order details and save, check on medications table', async () => {
+  await test.step('IHM-1.8 Update order details and save, check on medications table', async () => {
     //Updated values are saved successfully and Order is updated on the "MAR" tab
     await editOrderPage.editMedicationCard.selectMedication(NEW_MEDICATION);
     await editOrderPage.editMedicationCard.enterDose(NEW_DOSE);
@@ -273,7 +273,7 @@ test('In-house medications page', async () => {
     });
   });
 
-  await test.step('Delete the order', async () => {
+  await test.step('IHM-1.9 Delete the order', async () => {
     const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
     const deleteDialog = await inHouseMedicationsPage.clickDeleteButton(NEW_MEDICATION);
     await deleteDialog.verifyTitle('Delete Medication');
@@ -292,7 +292,7 @@ test('In-house medications page', async () => {
   });
 });
 
-test('Making in-house medication order Administered happy path', async () => {
+test('IHM-2 Making in-house medication order Administered happy path', async () => {
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
@@ -350,7 +350,7 @@ test('Making in-house medication order Administered happy path', async () => {
   });
 });
 
-test('Making in-house medication order Partly Administered happy path', async () => {
+test('IHM-3 Making in-house medication order Partly Administered happy path', async () => {
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
@@ -410,7 +410,7 @@ test('Making in-house medication order Partly Administered happy path', async ()
   });
 });
 
-test('Making in-house medication order Not Administered happy path', async () => {
+test('IHM-4 Making in-house medication order Not Administered happy path', async () => {
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 

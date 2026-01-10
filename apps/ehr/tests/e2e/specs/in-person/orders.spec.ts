@@ -160,8 +160,8 @@ test.afterAll(async () => {
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Procedures Page', () => {
-  test('Procedures happy path', async () => {
-    await test.step('Create a procedure', async () => {
+  test('PRC-1 Procedures happy path', async () => {
+    await test.step('PRC-1.1 Create a procedure', async () => {
       const documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
       await enterProcedureInfo(PROCEDURE_A, documentProcedurePage);
       const proceduresPage = await documentProcedurePage.clickSaveButton();
@@ -169,18 +169,18 @@ test.describe('Procedures Page', () => {
       await verifyProcedureRow(PROCEDURE_A, procedureRow);
     });
 
-    await test.step('Verify procedure details on progress note', async () => {
+    await test.step('PRC-1.2 Verify procedure details on progress note', async () => {
       const progressNotePage = await sideMenu.clickReviewAndSign();
       await progressNotePage.verifyProcedure(PROCEDURE_A.procedureType, progressNoteProcedureDetails(PROCEDURE_A));
     });
 
-    await test.step('Verify procedure details on procedure details page', async () => {
+    await test.step('PRC-1.3 Verify procedure details on procedure details page', async () => {
       const proceduresPage = await sideMenu.clickProcedures();
       const documentProcedurePage = await proceduresPage.getProcedureRow(PROCEDURE_A.procedureType).click();
       await verifyProcedureInfo(PROCEDURE_A, documentProcedurePage);
     });
 
-    await test.step('Edit the procedure', async () => {
+    await test.step('PRC-1.4 Edit the procedure', async () => {
       const documentProcedurePage = await expectDocumentProcedurePage(page);
       await enterProcedureInfo(PROCEDURE_B, documentProcedurePage);
       await documentProcedurePage.deleteDiagnosis(PROCEDURE_A.diagnosisName + ' ' + PROCEDURE_A.diagnosisCode);
@@ -189,12 +189,12 @@ test.describe('Procedures Page', () => {
       await verifyProcedureRow(PROCEDURE_B, procedureRow);
     });
 
-    await test.step('Verify edited procedure details on progress note', async () => {
+    await test.step('PRC-1.5 Verify edited procedure details on progress note', async () => {
       const progressNotePage = await sideMenu.clickReviewAndSign();
       await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
     });
 
-    await test.step('Verify edited procedure details on procedure details page', async () => {
+    await test.step('PRC-1.6 Verify edited procedure details on procedure details page', async () => {
       const proceduresPage = await sideMenu.clickProcedures();
       const procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
       const documentProcedurePage = await procedureRow.click();
@@ -310,7 +310,7 @@ test.describe('Nursing Orders Page', () => {
     status: 'PENDING',
   };
 
-  test('Nursing Orders happy path', async () => {
+  test('NRS-1 Nursing Orders happy path', async () => {
     await test.step('Create a nursing order', async () => {
       const nursingOrdersPage = await sideMenu.clickNursingOrders();
       const createOrderPage = await nursingOrdersPage.clickOrderButton();
@@ -325,7 +325,7 @@ test.describe('Nursing Orders Page', () => {
       await orderRow.verifyStatus(NURSING_ORDER_A.status);
     });
 
-    await test.step('View nursing order details page', async () => {
+    await test.step('NRS-1.1 View nursing order details page', async () => {
       const nursingOrdersPage = await sideMenu.clickNursingOrders();
       const orderRow = await nursingOrdersPage.getFirstOrderRow();
       const detailsPage = await orderRow.click();
@@ -335,7 +335,7 @@ test.describe('Nursing Orders Page', () => {
       await detailsPage.verifyHistoryVisible();
     });
 
-    await test.step('Complete the nursing order', async () => {
+    await test.step('NRS-1.2 Complete the nursing order', async () => {
       const detailsPage = await expectNursingOrderDetailsPage(page);
       await detailsPage.verifyCompleteOrderButtonEnabled();
       await detailsPage.clickCompleteOrderButton();
@@ -345,7 +345,7 @@ test.describe('Nursing Orders Page', () => {
       await orderRow.verifyStatus('COMPLETED');
     });
 
-    await test.step('Create second nursing order', async () => {
+    await test.step('NRS-1.3 Create second nursing order', async () => {
       const nursingOrdersPage = await sideMenu.clickNursingOrders();
       const createOrderPage = await nursingOrdersPage.clickOrderButton();
 
@@ -357,7 +357,7 @@ test.describe('Nursing Orders Page', () => {
       await orderRow.verifyStatus(NURSING_ORDER_B.status);
     });
 
-    await test.step('Delete nursing order', async () => {
+    await test.step('NRS-1.4 Delete nursing order', async () => {
       const nursingOrdersPage = await sideMenu.clickNursingOrders();
       const orderRow = await nursingOrdersPage.getOrderRowByNote(NURSING_ORDER_B.notes);
       await orderRow.clickDeleteButton();
@@ -365,8 +365,8 @@ test.describe('Nursing Orders Page', () => {
     });
   });
 
-  test('Nursing Order validation', async () => {
-    await test.step('Verify empty order cannot be submitted', async () => {
+  test('NRS-2 Nursing Order validation', async () => {
+    await test.step('NRS-2.1 Verify empty order cannot be submitted', async () => {
       const nursingOrdersPage = await sideMenu.clickNursingOrders();
       const createOrderPage = await nursingOrdersPage.clickOrderButton();
 
@@ -377,14 +377,14 @@ test.describe('Nursing Orders Page', () => {
       await createOrderPage.verifyOrderButtonDisabled(true);
     });
 
-    await test.step('Verify max length validation', async () => {
+    await test.step('NRS-2.2 Verify max length validation', async () => {
       const createOrderPage = await expectNursingOrderCreatePage(page);
       const longNote = 'a'.repeat(151);
       await createOrderPage.enterOrderNote(longNote);
       await createOrderPage.verifyOrderNoteLength(150);
     });
 
-    await test.step('Cancel order creation', async () => {
+    await test.step('NRS-2.2 Cancel order creation', async () => {
       const createOrderPage = await expectNursingOrderCreatePage(page);
       await createOrderPage.enterOrderNote('This should be cancelled');
       await createOrderPage.clickCancelButton();

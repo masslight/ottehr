@@ -44,7 +44,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
       PATIENT_LINE + ', ' + PATIENT_LINE_2 + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTAL_CODE,
   };
 
-  test('Search by Last name', async ({ page }) => {
+  test('PTSRCH-1 Search by Last name', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -55,7 +55,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by First name', async ({ page }) => {
+  test('PTSRCH-2 Search by First name', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -66,7 +66,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Date of birth', async ({ page }) => {
+  test('PTSRCH-3 Search by Date of birth', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -77,7 +77,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Phone number', async ({ page }) => {
+  test('PTSRCH-4 Search by Phone number', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -88,7 +88,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test.skip('Search by Address', async ({ page }) => {
+  test.skip('PTSRCH-5 Search by Address', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -99,7 +99,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Email', async ({ page }) => {
+  test('PTSRCH-6 Search by Email', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -110,7 +110,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Last name and First name', async ({ page }) => {
+  test('PTSRCH-7 Search by Last name and First name', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -123,7 +123,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Last name and Date of birth', async ({ page }) => {
+  test('PTSRCH-8 Search by Last name and Date of birth', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -136,7 +136,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Last name and Address', async ({ page }) => {
+  test('PTSRCH-9 Search by Last name and Address', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -149,7 +149,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Last name and Phone number', async ({ page }) => {
+  test('PTSRCH-10 Search by Last name and Phone number', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -162,7 +162,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     });
   });
 
-  test('Search by Last name, First name and Date of birth', async ({ page }) => {
+  test('PTSRCH-11 Search by Last name, First name and Date of birth', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
@@ -176,7 +176,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
       dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
     });
 
-    await test.step('Reset filters', async () => {
+    await test.step('PTSRCH-11.1 Reset filters', async () => {
       await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
       await patientsPage.searchByAddress(PATIENT_CITY);
       await patientsPage.searchByEmail(PATIENT_EMAIL);
@@ -209,7 +209,7 @@ test.describe('Patient header tests', () => {
   const HEADER_PATIENT_GENDER = 'Male';
   const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
 
-  test('Check header info', async () => {
+  test('PTSRCH-12 Check header info', async () => {
     const patientHeader = patientInformationPage.getPatientHeader();
     await patientHeader.verifyHeaderPatientID('PID: ' + resourceHandler.patient.id);
     await patientHeader.verifyHeaderPatientName(HEADER_PATIENT_NAME);
@@ -217,7 +217,7 @@ test.describe('Patient header tests', () => {
     await patientHeader.verifyHeaderPatientBirthday(HEADER_PATIENT_BIRTHDAY);
   });
 
-  test('Check patient info', async () => {
+  test('PTSRCH-13 Check patient info', async () => {
     await patientInformationPage.verifyTextFieldValue(patientSummary.lastName.key, PATIENT_LAST_NAME);
     await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, PATIENT_FIRST_NAME);
     await patientInformationPage.verifyDateFieldValue(patientSummary.birthDate.key, PATIENT_BIRTH_DATE_SHORT);

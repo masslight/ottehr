@@ -118,7 +118,7 @@ test.describe.skip(
       await resourceHandler.cleanupResources();
     });
 
-    test('Add walk-in visit for existing patient', async ({ page }) => {
+    test('APP-1 Add walk-in visit for existing patient', async ({ page }) => {
       const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, true);
       const visitsPage = await expectVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
@@ -126,7 +126,7 @@ test.describe.skip(
       await visitsPage.verifyVisitPresent(appointmentId);
     });
 
-    test('Add pre-book visit for existing patient', async ({ page }) => {
+    test('APP-2 Add pre-book visit for existing patient', async ({ page }) => {
       const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, true);
 
       const visitsPage = await expectVisitsPage(page);
@@ -135,7 +135,7 @@ test.describe.skip(
       await visitsPage.verifyVisitPresent(appointmentId, slotTime);
     });
 
-    test('Add post-telemed visit for existing patient', async ({ page }) => {
+    test('APP-3 Add post-telemed visit for existing patient', async ({ page }) => {
       const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.POST_TELEMED, true);
 
       const visitsPage = await expectVisitsPage(page);
