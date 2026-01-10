@@ -2714,8 +2714,55 @@
   {
     "linkId": "employer-information-page",
     "type": "group",
-    "text": "Employer information",
+    "text": "Worker's Compensation Information",
     "item": [
+      {
+        "extension": [
+          {
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
+                "valueString": "dynamic"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                "valueExpression": {
+                  "expression": "Organization?type=undefined|undefined",
+                  "language": "application/x-fhir-query"
+                }
+              }
+            ],
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options"
+          },
+          {
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "workers-comp-insurance-member-id"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "exists"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ],
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when"
+          }
+        ],
+        "linkId": "workers-comp-insurance-name",
+        "required": false,
+        "text": "Insurance carrier",
+        "type": "choice"
+      },
+      {
+        "linkId": "workers-comp-insurance-member-id",
+        "required": false,
+        "text": "Member ID",
+        "type": "string"
+      },
       {
         "linkId": "employer-name",
         "type": "string",
