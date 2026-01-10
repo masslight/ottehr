@@ -1,5 +1,6 @@
 import { Patient, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
+import { expect } from 'vitest';
 import { createMasterRecordPatchOperations, PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import patient1 from './data/patient-1.json';
 import patient2 from './data/patient-2.json';

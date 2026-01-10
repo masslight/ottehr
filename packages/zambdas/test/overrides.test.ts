@@ -9,7 +9,7 @@ import {
   getScheduleExtension,
   getSlotCapacityMapForDayAndSchedule,
 } from 'utils';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
 import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 import * as overrideData from './data/override-constants';

@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { SECRETS } from './data/secrets';
 
 export const patient: any = {

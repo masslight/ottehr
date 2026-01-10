@@ -5,6 +5,7 @@ import {
   PATIENT_RECORD_CONFIG,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
+import { expect } from 'vitest';
 import InPersonIntakeQuestionnaireConfig from '../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import BookingQuestionnaire from './data/booking-questionnaire.json' assert { type: 'json' };
 import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json' assert { type: 'json' };
