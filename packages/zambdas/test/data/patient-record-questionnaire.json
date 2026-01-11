@@ -2717,8 +2717,13 @@
     "text": "Worker's Compensation Information",
     "item": [
       {
+        "linkId": "workers-comp-insurance-name",
+        "type": "choice",
+        "text": "Insurance carrier",
+        "required": false,
         "extension": [
           {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
@@ -2727,14 +2732,14 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
                 "valueExpression": {
-                  "expression": "Organization?type=undefined|undefined",
-                  "language": "application/x-fhir-query"
+                  "language": "application/x-fhir-query",
+                  "expression": "Organization?type=undefined|undefined"
                 }
               }
-            ],
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options"
+            ]
           },
           {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
@@ -2748,20 +2753,15 @@
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
                 "valueBoolean": true
               }
-            ],
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when"
+            ]
           }
-        ],
-        "linkId": "workers-comp-insurance-name",
-        "required": false,
-        "text": "Insurance carrier",
-        "type": "choice"
+        ]
       },
       {
         "linkId": "workers-comp-insurance-member-id",
-        "required": false,
+        "type": "string",
         "text": "Member ID",
-        "type": "string"
+        "required": false
       },
       {
         "linkId": "employer-name",

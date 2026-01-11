@@ -431,14 +431,8 @@
       {
         "linkId": "reason-for-visit",
         "type": "choice",
-        "readOnly": true,
         "required": true,
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
-          }
-        ],
+        "readOnly": true,
         "answerOption": [
           {
             "valueString": "Cough and/or congestion"
@@ -502,6 +496,12 @@
           },
           {
             "valueString": "Other"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
           }
         ]
       }
@@ -893,8 +893,6 @@
       {
         "linkId": "current-medications",
         "type": "group",
-        "text": "Medications taken",
-        "required": false,
         "item": [
           {
             "linkId": "current-medications-form-header",
@@ -1012,13 +1010,8 @@
             ]
           }
         ],
-        "enableWhen": [
-          {
-            "question": "current-medications-yes-no",
-            "operator": "=",
-            "answerString": "Patient takes medication currently"
-          }
-        ],
+        "text": "Medications taken",
+        "required": false,
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
@@ -1040,6 +1033,13 @@
                 "valueString": "Patient takes medication currently"
               }
             ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "current-medications-yes-no",
+            "operator": "=",
+            "answerString": "Patient takes medication currently"
           }
         ]
       }
@@ -1073,8 +1073,6 @@
       {
         "linkId": "allergies",
         "type": "group",
-        "text": "Known current allergies",
-        "required": false,
         "item": [
           {
             "linkId": "allergies-form-header",
@@ -1324,30 +1322,12 @@
             ]
           }
         ],
-        "enableWhen": [
-          {
-            "question": "allergies-yes-no",
-            "operator": "=",
-            "answerString": "Patient has known current allergies"
-          }
-        ],
+        "text": "Known current allergies",
+        "required": false,
         "extension": [
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
-                "valueString": "allergies-yes-no"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
-                "valueString": "!="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
-                "valueString": "Patient has known current allergies"
-              }
-            ]
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
+            "valueString": "list-with-form"
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -1367,8 +1347,28 @@
             ]
           },
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
-            "valueString": "list-with-form"
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "allergies-yes-no"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "Patient has known current allergies"
+              }
+            ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "allergies-yes-no",
+            "operator": "=",
+            "answerString": "Patient has known current allergies"
           }
         ]
       }
@@ -1376,8 +1376,8 @@
   },
   {
     "linkId": "medical-history-page",
-    "text": "Medical history",
     "type": "group",
+    "text": "Medical history",
     "item": [
       {
         "linkId": "medical-history-yes-no",
@@ -1402,8 +1402,6 @@
       {
         "linkId": "medical-history",
         "type": "group",
-        "text": "Current medical conditions",
-        "required": true,
         "item": [
           {
             "linkId": "medical-history-form-header",
@@ -1521,13 +1519,8 @@
             ]
           }
         ],
-        "enableWhen": [
-          {
-            "question": "medical-history-yes-no",
-            "operator": "=",
-            "answerString": "Patient has current medical conditions"
-          }
-        ],
+        "text": "Current medical conditions",
+        "required": true,
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
@@ -1549,6 +1542,13 @@
                 "valueString": "Patient has current medical conditions"
               }
             ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "medical-history-yes-no",
+            "operator": "=",
+            "answerString": "Patient has current medical conditions"
           }
         ]
       }
@@ -1582,8 +1582,6 @@
       {
         "linkId": "surgical-history",
         "type": "group",
-        "text": "Surgeries",
-        "required": false,
         "item": [
           {
             "linkId": "surgical-history-form-header",
@@ -1704,13 +1702,8 @@
             ]
           }
         ],
-        "enableWhen": [
-          {
-            "question": "surgical-history-yes-no",
-            "operator": "=",
-            "answerString": "Patient has surgical history"
-          }
-        ],
+        "text": "Surgeries",
+        "required": false,
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
@@ -1732,6 +1725,13 @@
                 "valueString": "Patient has surgical history"
               }
             ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "surgical-history-yes-no",
+            "operator": "=",
+            "answerString": "Patient has surgical history"
           }
         ]
       }
@@ -2830,6 +2830,13 @@
         "type": "attachment",
         "text": "Front side of the insurance card (optional)",
         "required": false,
+        "enableWhen": [
+          {
+            "question": "payment-option",
+            "operator": "=",
+            "answerString": "I have insurance"
+          }
+        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
@@ -2860,13 +2867,6 @@
               }
             ]
           }
-        ],
-        "enableWhen": [
-          {
-            "question": "payment-option",
-            "operator": "=",
-            "answerString": "I have insurance"
-          }
         ]
       },
       {
@@ -2874,6 +2874,13 @@
         "type": "attachment",
         "text": "Back side of the insurance card",
         "required": false,
+        "enableWhen": [
+          {
+            "question": "payment-option",
+            "operator": "=",
+            "answerString": "I have insurance"
+          }
+        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
@@ -2903,13 +2910,6 @@
                 "valueString": "I have insurance"
               }
             ]
-          }
-        ],
-        "enableWhen": [
-          {
-            "question": "payment-option",
-            "operator": "=",
-            "answerString": "I have insurance"
           }
         ]
       },
@@ -3439,18 +3439,6 @@
           }
         ],
         "text": "Secondary insurance",
-        "enableWhen": [
-          {
-            "question": "display-secondary-insurance",
-            "operator": "=",
-            "answerBoolean": true
-          },
-          {
-            "question": "payment-option",
-            "operator": "=",
-            "answerString": "I have insurance"
-          }
-        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
@@ -3468,6 +3456,18 @@
                 "valueBoolean": true
               }
             ]
+          }
+        ],
+        "enableWhen": [
+          {
+            "question": "display-secondary-insurance",
+            "operator": "=",
+            "answerBoolean": true
+          },
+          {
+            "question": "payment-option",
+            "operator": "=",
+            "answerString": "I have insurance"
           }
         ],
         "enableBehavior": "all"
@@ -4821,21 +4821,14 @@
   },
   {
     "linkId": "attorney-mva-page",
-    "text": "Attorney for Motor Vehicle Accident",
     "type": "group",
-    "enableWhen": [
-      {
-        "question": "contact-information-page.reason-for-visit",
-        "operator": "=",
-        "answerString": "Auto accident"
-      }
-    ],
+    "text": "Attorney for Motor Vehicle Accident",
     "item": [
       {
         "linkId": "attorney-mva-has-attorney",
-        "text": "Do you have an attorney?",
         "type": "choice",
-        "required": false,
+        "text": "Do you have an attorney?",
+        "required": true,
         "answerOption": [
           {
             "valueString": "I have an attorney"
@@ -4846,23 +4839,6 @@
         ],
         "extension": [
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "contact-information-page.reason-for-visit"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueString": "Auto accident"
-              }
-            ]
-          },
-          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
             "valueString": "Radio"
           }
@@ -4870,8 +4846,8 @@
       },
       {
         "linkId": "attorney-mva-firm",
-        "text": "Firm",
         "type": "string",
+        "text": "Firm",
         "required": false,
         "enableWhen": [
           {
@@ -4902,8 +4878,8 @@
       },
       {
         "linkId": "attorney-mva-first-name",
-        "text": "First name",
         "type": "string",
+        "text": "First name",
         "required": false,
         "enableWhen": [
           {
@@ -4915,8 +4891,8 @@
       },
       {
         "linkId": "attorney-mva-last-name",
-        "text": "Last name",
         "type": "string",
+        "text": "Last name",
         "required": false,
         "enableWhen": [
           {
@@ -4928,8 +4904,8 @@
       },
       {
         "linkId": "attorney-mva-email",
-        "text": "Email",
         "type": "string",
+        "text": "Email",
         "required": false,
         "enableWhen": [
           {
@@ -4947,8 +4923,8 @@
       },
       {
         "linkId": "attorney-mva-mobile",
-        "text": "Mobile",
         "type": "string",
+        "text": "Mobile",
         "required": false,
         "enableWhen": [
           {
@@ -4966,8 +4942,8 @@
       },
       {
         "linkId": "attorney-mva-fax",
-        "text": "Fax",
         "type": "string",
+        "text": "Fax",
         "required": false,
         "enableWhen": [
           {
@@ -4982,6 +4958,13 @@
             "valueString": "Phone Number"
           }
         ]
+      }
+    ],
+    "enableWhen": [
+      {
+        "question": "contact-information-page.reason-for-visit",
+        "operator": "=",
+        "answerString": "Auto accident"
       }
     ]
   },
@@ -5127,34 +5110,7 @@
             "linkId": "school-work-note-template-school",
             "type": "attachment",
             "text": "School Template",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                "valueString": "PDF"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                "valueString": "47420-5"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
-                    "valueString": "school-work-note-choice"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
-                    "valueString": "="
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
-                    "valueString": "School only"
-                  }
-                ]
-              }
-            ],
-            "enableBehavior": "any",
+            "required": false,
             "enableWhen": [
               {
                 "question": "school-work-note-choice",
@@ -5167,12 +5123,53 @@
                 "answerString": "Both school and work notes"
               }
             ],
-            "required": false
+            "enableBehavior": "any",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "PDF"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                "valueString": "47420-5"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                    "valueString": "school-work-note-choice"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                    "valueString": "Work only"
+                  }
+                ]
+              }
+            ]
           },
           {
             "linkId": "school-work-note-template-work",
             "type": "attachment",
             "text": "Work Template",
+            "required": false,
+            "enableWhen": [
+              {
+                "question": "school-work-note-choice",
+                "operator": "=",
+                "answerString": "Work only"
+              },
+              {
+                "question": "school-work-note-choice",
+                "operator": "=",
+                "answerString": "Both school and work notes"
+              }
+            ],
+            "enableBehavior": "any",
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -5199,31 +5196,17 @@
                   }
                 ]
               }
-            ],
-            "enableBehavior": "any",
-            "enableWhen": [
-              {
-                "question": "school-work-note-choice",
-                "operator": "=",
-                "answerString": "Work only"
-              },
-              {
-                "question": "school-work-note-choice",
-                "operator": "=",
-                "answerString": "Both school and work notes"
-              }
-            ],
-            "required": false
+            ]
           }
         ],
+        "text": "Do you need a school or work note?",
         "enableWhen": [
           {
             "question": "school-work-note-choice",
             "operator": "!=",
             "answerString": "Neither"
           }
-        ],
-        "text": "Do you need a school or work note?"
+        ]
       }
     ]
   },
@@ -5549,10 +5532,6 @@
         ],
         "extension": [
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-            "valueString": "Radio List"
-          },
-          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
             "extension": [
               {
@@ -5568,6 +5547,10 @@
                 "valueString": "Yes, I will add invite details below"
               }
             ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "Radio List"
           }
         ]
       },

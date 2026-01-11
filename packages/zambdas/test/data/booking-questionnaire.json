@@ -8,13 +8,13 @@
   "item": [
     {
       "linkId": "patient-information-page",
-      "text": "About the patient",
       "type": "group",
+      "text": "About the patient",
       "item": [
         {
           "linkId": "patient-first-name",
-          "text": "First name (legal)",
           "type": "string",
+          "text": "First name (legal)",
           "required": false,
           "enableWhen": [
             {
@@ -49,8 +49,8 @@
         },
         {
           "linkId": "patient-middle-name",
-          "text": "Middle name (legal)",
           "type": "string",
+          "text": "Middle name (legal)",
           "required": false,
           "enableWhen": [
             {
@@ -68,8 +68,8 @@
         },
         {
           "linkId": "patient-last-name",
-          "text": "Last name (legal)",
           "type": "string",
+          "text": "Last name (legal)",
           "required": false,
           "enableWhen": [
             {
@@ -104,14 +104,14 @@
         },
         {
           "linkId": "patient-preferred-name",
-          "text": "Chosen or preferred name (optional)",
           "type": "string",
+          "text": "Chosen or preferred name (optional)",
           "required": false
         },
         {
           "linkId": "patient-birthdate",
-          "text": "Date of birth",
           "type": "date",
+          "text": "Date of birth",
           "required": false,
           "enableWhen": [
             {
@@ -146,8 +146,8 @@
         },
         {
           "linkId": "patient-birth-sex",
-          "text": "Birth sex",
           "type": "choice",
+          "text": "Birth sex",
           "required": true,
           "answerOption": [
             {
@@ -163,8 +163,8 @@
         },
         {
           "linkId": "patient-ssn",
-          "text": "SSN",
           "type": "string",
+          "text": "SSN",
           "required": false,
           "enableWhen": [
             {
@@ -203,8 +203,8 @@
         },
         {
           "linkId": "patient-email",
-          "text": "Email",
           "type": "string",
+          "text": "Email",
           "required": true,
           "extension": [
             {
@@ -215,9 +215,9 @@
         },
         {
           "linkId": "reason-for-visit",
-          "text": "Reason for visit",
           "type": "choice",
-          "required": true,
+          "text": "Reason for visit",
+          "required": false,
           "answerOption": [
             {
               "valueString": "Cough and/or congestion"
@@ -282,18 +282,162 @@
             {
               "valueString": "Other"
             }
+          ],
+          "enableWhen": [
+            {
+              "question": "appointment-service-category",
+              "operator": "=",
+              "answerString": "urgent-care"
+            },
+            {
+              "question": "appointment-service-category",
+              "operator": "exists",
+              "answerBoolean": false
+            }
+          ],
+          "enableBehavior": "any",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "urgent-care"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "exists"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueBoolean": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "reason-for-visit-om",
+          "type": "choice",
+          "text": "Reason for visit",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "Injury"
+            },
+            {
+              "valueString": "Testing"
+            },
+            {
+              "valueString": "Physical"
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "appointment-service-category",
+              "operator": "=",
+              "answerString": "occupational-medicine"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "occupational-medicine"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "reason-for-visit-wc",
+          "type": "choice",
+          "text": "Reason for visit",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "New injury"
+            },
+            {
+              "valueString": "Follow-up"
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "appointment-service-category",
+              "operator": "=",
+              "answerString": "workmans-comp"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "workmans-comp"
+                }
+              ]
+            }
           ]
         },
         {
           "linkId": "tell-us-more",
-          "text": "Tell us more (optional)",
           "type": "string",
+          "text": "Tell us more (optional)",
           "required": false
         },
         {
           "linkId": "authorized-non-legal-guardian",
-          "text": "Who, besides the parent or legal guardian, is allowed to bring in the patient?",
           "type": "string",
+          "text": "Who, besides the parent or legal guardian, is allowed to bring in the patient?",
           "required": false
         },
         {
@@ -327,6 +471,18 @@
         },
         {
           "linkId": "existing-patient-id",
+          "type": "string",
+          "required": true,
+          "readOnly": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ]
+        },
+        {
+          "linkId": "appointment-service-category",
           "type": "string",
           "required": true,
           "readOnly": true,

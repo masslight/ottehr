@@ -2015,14 +2015,6 @@ const FormFields = {
         type: 'choice',
         element: 'Radio',
         options: formValueSets.attorneyOptions,
-        triggers: [
-          {
-            targetQuestionLinkId: 'contact-information-page.reason-for-visit',
-            effect: ['require'],
-            operator: '=',
-            answerString: 'Auto accident',
-          },
-        ],
       },
       firm: {
         key: 'attorney-mva-firm',
@@ -2113,7 +2105,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: [],
+    requiredFields: ['attorney-mva-has-attorney'],
   },
   photoId: {
     linkId: 'photo-id-page',
@@ -2219,7 +2211,7 @@ const FormFields = {
                 targetQuestionLinkId: 'school-work-note-choice',
                 effect: ['filter'],
                 operator: '=',
-                answerString: 'School only',
+                answerString: 'Work only',
               },
             ],
             enableBehavior: 'any',

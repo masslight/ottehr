@@ -432,14 +432,8 @@
         {
           "linkId": "reason-for-visit",
           "type": "choice",
-          "readOnly": true,
           "required": true,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ],
+          "readOnly": true,
           "answerOption": [
             {
               "valueString": "Cough and/or congestion"
@@ -503,6 +497,12 @@
             },
             {
               "valueString": "Other"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
             }
           ]
         }
@@ -1872,6 +1872,13 @@
           "type": "attachment",
           "text": "Front side of the insurance card (optional)",
           "required": false,
+          "enableWhen": [
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
+            }
+          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
@@ -1902,13 +1909,6 @@
                 }
               ]
             }
-          ],
-          "enableWhen": [
-            {
-              "question": "payment-option",
-              "operator": "=",
-              "answerString": "I have insurance"
-            }
           ]
         },
         {
@@ -1916,6 +1916,13 @@
           "type": "attachment",
           "text": "Back side of the insurance card",
           "required": false,
+          "enableWhen": [
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
+            }
+          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
@@ -1945,13 +1952,6 @@
                   "valueString": "I have insurance"
                 }
               ]
-            }
-          ],
-          "enableWhen": [
-            {
-              "question": "payment-option",
-              "operator": "=",
-              "answerString": "I have insurance"
             }
           ]
         },
@@ -2481,18 +2481,6 @@
             }
           ],
           "text": "Secondary insurance",
-          "enableWhen": [
-            {
-              "question": "display-secondary-insurance",
-              "operator": "=",
-              "answerBoolean": true
-            },
-            {
-              "question": "payment-option",
-              "operator": "=",
-              "answerString": "I have insurance"
-            }
-          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
@@ -2510,6 +2498,18 @@
                   "valueBoolean": true
                 }
               ]
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "display-secondary-insurance",
+              "operator": "=",
+              "answerBoolean": true
+            },
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
             }
           ],
           "enableBehavior": "all"
@@ -3863,21 +3863,14 @@
     },
     {
       "linkId": "attorney-mva-page",
-      "text": "Attorney for Motor Vehicle Accident",
       "type": "group",
-      "enableWhen": [
-        {
-          "question": "contact-information-page.reason-for-visit",
-          "operator": "=",
-          "answerString": "Auto accident"
-        }
-      ],
+      "text": "Attorney for Motor Vehicle Accident",
       "item": [
         {
           "linkId": "attorney-mva-has-attorney",
-          "text": "Do you have an attorney?",
           "type": "choice",
-          "required": false,
+          "text": "Do you have an attorney?",
+          "required": true,
           "answerOption": [
             {
               "valueString": "I have an attorney"
@@ -3888,23 +3881,6 @@
           ],
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                  "valueString": "contact-information-page.reason-for-visit"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueString": "Auto accident"
-                }
-              ]
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
               "valueString": "Radio"
             }
@@ -3912,8 +3888,8 @@
         },
         {
           "linkId": "attorney-mva-firm",
-          "text": "Firm",
           "type": "string",
+          "text": "Firm",
           "required": false,
           "enableWhen": [
             {
@@ -3944,8 +3920,8 @@
         },
         {
           "linkId": "attorney-mva-first-name",
-          "text": "First name",
           "type": "string",
+          "text": "First name",
           "required": false,
           "enableWhen": [
             {
@@ -3957,8 +3933,8 @@
         },
         {
           "linkId": "attorney-mva-last-name",
-          "text": "Last name",
           "type": "string",
+          "text": "Last name",
           "required": false,
           "enableWhen": [
             {
@@ -3970,8 +3946,8 @@
         },
         {
           "linkId": "attorney-mva-email",
-          "text": "Email",
           "type": "string",
+          "text": "Email",
           "required": false,
           "enableWhen": [
             {
@@ -3989,8 +3965,8 @@
         },
         {
           "linkId": "attorney-mva-mobile",
-          "text": "Mobile",
           "type": "string",
+          "text": "Mobile",
           "required": false,
           "enableWhen": [
             {
@@ -4008,8 +3984,8 @@
         },
         {
           "linkId": "attorney-mva-fax",
-          "text": "Fax",
           "type": "string",
+          "text": "Fax",
           "required": false,
           "enableWhen": [
             {
@@ -4024,6 +4000,13 @@
               "valueString": "Phone Number"
             }
           ]
+        }
+      ],
+      "enableWhen": [
+        {
+          "question": "contact-information-page.reason-for-visit",
+          "operator": "=",
+          "answerString": "Auto accident"
         }
       ]
     },
