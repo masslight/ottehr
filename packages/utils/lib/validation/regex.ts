@@ -7,4 +7,4 @@ export const isoDateRegex = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 export const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const decimalRegex = /^\d+(.\d+)?$/;
 export const yupSimpleDateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
-export const ssnRegex = /^(?!000|666|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}$/;
+export const ssnRegex = /^(?!000|666)\d{3}-(?!00)\d{2}-(?!0000)\d{4}$/;

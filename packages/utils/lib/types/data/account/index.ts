@@ -3,6 +3,7 @@ import { Account, Coverage, Organization, Patient, RelatedPerson } from 'fhir/r4
 export interface OrderedCoverages {
   primary?: Coverage;
   secondary?: Coverage;
+  workersComp?: Coverage;
 }
 
 export interface OrderedCoveragesWithSubscribers extends OrderedCoverages {
