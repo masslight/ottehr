@@ -8,6 +8,7 @@ import {
   BRANDING_CONFIG,
   getPatientReferenceFromAccount,
   getSecret,
+  getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   InvoiceMessagesPlaceholders,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -52,8 +53,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const { patient, encounter, account } = fhirResources;
       console.log('Fhir resources fetched');
 
+      const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
+
       console.log('Getting stripe and candid ids');
-      const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+      const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccount);
       if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
       const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
       if (!candidEncounterId) throw new Error('CandidEncounterId is not found');

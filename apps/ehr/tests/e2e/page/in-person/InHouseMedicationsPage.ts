@@ -75,7 +75,9 @@ export class InHouseMedicationsPage {
         text: input.reason,
       },
     ];
-    let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTable.row);
+    let matchedLocator = this.#page.locator(
+      `[data-testid^="${dataTestIds.inHouseMedicationsPage.marTable.medicationRowPrefix}"]`
+    );
     for (const testIdToText of testIdToTextArray) {
       if (testIdToText.text) {
         matchedLocator = matchedLocator.filter({
@@ -100,7 +102,7 @@ export class InHouseMedicationsPage {
 
   async clickDeleteButton(medicationName: string): Promise<Dialog> {
     await this.#page
-      .getByTestId(dataTestIds.inHouseMedicationsPage.marTable.row)
+      .locator(`[data-testid^="${dataTestIds.inHouseMedicationsPage.marTable.medicationRowPrefix}"]`)
       .filter({
         hasText: medicationName,
       })
