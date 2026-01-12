@@ -21,7 +21,7 @@ import {
 import { useReactNavigationBlocker } from '../../../../shared/hooks/useReactNavigationBlocker';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
-import { getEditOrderUrl } from '../../../routing/helpers';
+import { getEditOrderUrl, getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesInPerson } from '../../../routing/routesInPerson';
 import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
@@ -123,6 +123,10 @@ export const EditableMedicationCard: React.FC<{
       void refetchHistory();
       enqueueSnackbar('Medication deleted successfully', { variant: 'success' });
       setIsDeleteDialogOpen(false);
+      isSavedRef.current = true;
+      if (appointmentId) {
+        navigate(getInHouseMedicationMARUrl(appointmentId));
+      }
     } catch {
       enqueueSnackbar('Failed to delete medication. Please try again.', { variant: 'error' });
     } finally {
