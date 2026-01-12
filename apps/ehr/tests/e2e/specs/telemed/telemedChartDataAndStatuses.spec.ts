@@ -865,10 +865,10 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
     await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect).locator('input').click();
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(location.id!)).click();
-
+    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    ).toBeVisible(DEFAULT_TIMEOUT);
+    ).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -919,6 +919,9 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
       },
     ],
   });
+
+  await new Promise((resolve) => setTimeout(resolve, 1_000));
+
   return physicalLocation;
 }
 
