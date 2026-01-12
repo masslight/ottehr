@@ -30,18 +30,12 @@ export const EditNoteModal: React.FC<{
     setEditedText(e.target.value);
   };
 
-  const handleClose = (): void => {
-    setEditedText(entity.text);
-    onClose();
-  };
-
   const handleSave = async (): Promise<void> => {
     if (!editedText) return;
     setIsSaving(true);
     try {
       await onEdit(entity, editedText);
-      setEditedText(entity.text);
-      handleClose();
+      onClose();
     } catch {
       enqueueSnackbar(locales.getGenericErrorMessage(), { variant: 'error' });
     } finally {
@@ -50,7 +44,7 @@ export const EditNoteModal: React.FC<{
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle data-testid={dataTestIds.editNoteDialog.title}>
         <Box display="flex" alignItems="center" color={theme.palette.primary.dark}>
           <Typography variant="h4">{locales.editModalTitle}</Typography>
@@ -75,7 +69,7 @@ export const EditNoteModal: React.FC<{
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 1, pb: 3 }}>
         <RoundedButton
-          onClick={handleClose}
+          onClick={onClose}
           variant="text"
           sx={{ mr: 1 }}
           data-testid={dataTestIds.editNoteDialog.cancelButton}
