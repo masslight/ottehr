@@ -5,13 +5,17 @@ import TaskList from '@tiptap/extension-task-list';
 import { Markdown } from '@tiptap/markdown';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { FC, useEffect } from 'react';
+import { FC, useEffect, useRef } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 export const RosField: FC = () => {
-  const { data: chartDataFields } = useChartFields({
+  const {
+    data: chartDataFields,
+    isFetching,
+    isFetched,
+  } = useChartFields({
     requestedFields: {
       ros: { _tag: 'ros' },
     },
@@ -22,6 +26,10 @@ export const RosField: FC = () => {
     isLoading: isRosLoading,
     isChartDataLoading: isRosChartDataLoading,
   } = useDebounceNotesField('ros');
+
+  const isUpdatingFromServer = useRef(false);
+  // Prevent initial empty editor value from triggering delete-chart-data
+  const isInitialized = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -35,7 +43,7 @@ export const RosField: FC = () => {
         placeholder: 'ROS (Optional) - Type [ ] for checklist items, or just type notes...',
       }),
     ],
-    content: chartDataFields?.ros?.text || '',
+    content: '',
     editable: !isRosChartDataLoading,
     editorProps: {
       handlePaste: (view, event) => {
@@ -53,21 +61,40 @@ export const RosField: FC = () => {
       },
     },
     onUpdate: ({ editor }) => {
-      onRosChange(editor.getMarkdown());
+      if (!isUpdatingFromServer.current && isInitialized.current) {
+        onRosChange(editor.getMarkdown());
+      }
     },
   });
 
   useEffect(() => {
-    if (chartDataFields?.ros?.text !== undefined && editor) {
-      const currentContent = editor.getMarkdown();
-      const newContent = chartDataFields.ros.text;
+    if (!editor) return;
 
-      // Only update if content is different to avoid cursor jumps
-      if (currentContent !== newContent) {
-        editor.commands.setContent(newContent, { contentType: 'markdown' });
-      }
+    if (!isFetched) return;
+
+    const serverContent = chartDataFields?.ros?.text || '';
+    const currentContent = editor.getMarkdown();
+
+    if (!isInitialized.current) {
+      isUpdatingFromServer.current = true;
+      editor.commands.setContent(serverContent, { contentType: 'markdown' });
+
+      requestAnimationFrame(() => {
+        isUpdatingFromServer.current = false;
+        isInitialized.current = true;
+      });
+      return;
     }
-  }, [chartDataFields?.ros?.text, editor]);
+
+    if (currentContent !== serverContent && !isFetching) {
+      isUpdatingFromServer.current = true;
+      editor.commands.setContent(serverContent, { contentType: 'markdown' });
+
+      requestAnimationFrame(() => {
+        isUpdatingFromServer.current = false;
+      });
+    }
+  }, [chartDataFields?.ros?.text, editor, isFetched, isFetching]);
 
   useEffect(() => {
     if (editor) {
