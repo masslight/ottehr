@@ -11,7 +11,7 @@
       "value": "#{var/MIXPANEL_TOKEN}"
     },
     "DEFAULT_WALKIN_LOCATION_NAME": {
-      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}"
+      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/name}\", \" \", \"_\")}"
     },
     "EHR_APP_NAME": {
       "value": "#{var/EHR_APP_NAME}"
