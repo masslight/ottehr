@@ -1269,7 +1269,7 @@ export const getStripeCustomerIdFromAccount = (
 ): string | undefined => {
   if (!stripeAccount) {
     return account.identifier?.find((ident) => {
-      return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
+      return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE && !ident.extension;
     })?.value;
   } else {
     return account.identifier?.find((ident) => {
