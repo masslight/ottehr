@@ -26,6 +26,7 @@ import {
   Organization,
   Patient,
   Practitioner,
+  Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
@@ -58,6 +59,7 @@ import {
   FHIR_BASE_URL,
   FHIR_EXTENSION,
   FileDocDataForDocReference,
+  filterQuestionnaireResponseByEnableWhen,
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
@@ -820,11 +822,20 @@ export interface PatientMasterRecordResources {
 
 export function createMasterRecordPatchOperations(
   questionnaireResponseItems: QuestionnaireResponseItem[],
-  patient: Patient
+  patient: Patient,
+  questionnaireForEnableWhenFiltering?: Questionnaire
 ): MasterRecordPatchOperations {
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+  let flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItems as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
+
+  // Filter out items that should be hidden based on enableWhen conditions
+  if (questionnaireForEnableWhenFiltering) {
+    flattenedPaperwork = filterQuestionnaireResponseByEnableWhen(
+      flattenedPaperwork,
+      questionnaireForEnableWhenFiltering
+    );
+  }
 
   const result: MasterRecordPatchOperations = {
     patient: { patchOpsForDirectUpdate: [], conflictingUpdates: [] },

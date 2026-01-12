@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_19": {
+    "questionnaire-virtual-previsit-1_0_20": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "version": "1.0.19",
+        "version": "1.0.20",
         "name": "virtual_pre-visit_paperwork",
         "title": "virtual pre-visit paperwork",
         "status": "active",
@@ -4997,7 +4997,7 @@
                     "valueString": "Yes, I will add invite details below"
                   }
                 ],
-                "required": true,
+                "required": false,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",

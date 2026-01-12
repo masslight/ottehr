@@ -32,6 +32,7 @@ import {
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'sub-create-invoices-tasks';
+const pendingTaskStatus: Task['status'] = 'ready';
 
 interface EncounterPackage {
   encounter: Encounter;
@@ -47,18 +48,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, secrets);
     const candid = createCandidApiClient(secrets);
 
-    const encounterPackages = await getEncountersWithTaskAndAmount(candid, oystehr);
+    // 1. getting candid claims for the past two weeks
+    // 2. we are getting encounters with pending tasks so we can update them
+    // 3. getting encounters without a task using claims id
+    // 4. getting itemization response for both groups at the same time to optimize this process
 
-    const encountersWithoutATask = encounterPackages.filter((pkg) => !pkg.invoiceTask && pkg.amountCents > 0);
-    const encountersWithReadyTask = encounterPackages.filter((pkg) => pkg.invoiceTask?.status === 'ready');
-    console.log('encounters without a task: ', encountersWithoutATask.length);
-    console.log('encounters with pending task: ', encountersWithReadyTask.length);
+    const twoWeeksAgo = DateTime.now().minus({ weeks: 2 });
+    const candidClaims = await getAllCandidClaims(candid, twoWeeksAgo);
+    const twoDaysAgo = DateTime.now().minus({ days: 2 });
+    console.log('getting candid claims for the past two weeks');
+    const claimsForThePastTwoDays = candidClaims.filter((claim) => DateTime.fromJSDate(claim.timestamp) >= twoDaysAgo);
+
+    console.log('getting pending and to create packages');
+    const [pendingPackagesToUpdate, packagesToCreate] = await Promise.all([
+      getEncountersWithPendingTasksFhir(oystehr, candid, candidClaims),
+      getEncountersWithoutTaskFhir(oystehr, candid, claimsForThePastTwoDays),
+    ]);
+
+    console.log('encounters without a task: ', packagesToCreate.length);
+    console.log('encounters with pending task: ', pendingPackagesToUpdate.length);
 
     const promises: Promise<void>[] = [];
-    encountersWithoutATask.forEach((encounter) => {
+    packagesToCreate.forEach((encounter) => {
       promises.push(createTaskForEncounter(oystehr, encounter));
     });
-    encountersWithReadyTask.forEach((encounter) => {
+    pendingPackagesToUpdate.forEach((encounter) => {
       promises.push(updateTaskForEncounter(oystehr, encounter));
     });
     await Promise.all(promises);
@@ -105,10 +119,11 @@ async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterP
 
     const task: Task = {
       resourceType: 'Task',
-      status: 'ready',
+      status: pendingTaskStatus,
       intent: 'order',
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
+      authoredOn: DateTime.now().toISO(),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
@@ -141,59 +156,66 @@ async function updateTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterP
   }
 }
 
-async function getEncountersWithTaskAndAmount(candid: CandidApiClient, oystehr: Oystehr): Promise<EncounterPackage[]> {
-  console.log('getting candid claims');
-  const inventoryPages = await getCandidInventoryPagesRecursive({
-    candid,
-    claims: [],
-    limitPerPage: 100,
-    pageCount: 0,
-    onlyInvoiceable: true,
-  });
-
-  const claimsFetched = inventoryPages?.claims;
-  console.log('fetched claims: ', claimsFetched?.length);
-  if (claimsFetched?.length && claimsFetched.length > 0) {
-    console.log('getting itemizations and encounters');
-    const [itemizationResponse, encounterPackagesResponse] = await Promise.all([
-      getItemizationToClaimIdMap(candid, claimsFetched),
-      getEncountersWithTaskFhir(oystehr, claimsFetched),
-    ]);
-
-    console.log('fetched itemizations: ', Object.keys(itemizationResponse).length);
-    console.log('fetched encounters: ', encounterPackagesResponse.length);
-    const packages: EncounterPackage[] = [];
-    encounterPackagesResponse.forEach((pkg) => {
-      const itemization = itemizationResponse[pkg.claim.claimId];
-      const patientBalanceInCents = itemization?.patientBalanceCents;
-      packages.push({ ...pkg, amountCents: patientBalanceInCents });
-    });
-    return packages;
-  }
-  return [];
-}
-
-async function getItemizationToClaimIdMap(
+async function getEncountersWithPendingTasksFhir(
+  oystehr: Oystehr,
   candid: CandidApiClient,
   claims: InventoryRecord[]
-): Promise<Record<string, InvoiceItemizationResponse>> {
-  const itemizationPromises = claims.map((claim) => candid.patientAr.v1.itemize(CandidApi.ClaimId(claim.claimId)));
-  const itemizationResponse = await Promise.all(itemizationPromises);
+): Promise<EncounterPackage[]> {
+  console.log('fetching encounters with pending tasks');
+  const result = (
+    await oystehr.fhir.search({
+      resourceType: 'Task',
+      params: [
+        {
+          name: 'status',
+          value: pendingTaskStatus,
+        },
+        {
+          name: 'code',
+          value: `${RCM_TASK_SYSTEM}|${RcmTaskCode.sendInvoiceToPatient}`,
+        },
+        {
+          name: '_include',
+          value: 'Task:encounter',
+        },
+        {
+          name: '_count',
+          value: '1000',
+        },
+      ],
+    })
+  ).unbundle();
+  console.log('fetched fhir resources: ', result.length);
 
-  const itemizationToClaimIdMap: Record<string, InvoiceItemizationResponse> = {};
-  itemizationResponse.forEach((res) => {
-    if (res && res.ok && res.body) {
-      const itemization = res.body as InvoiceItemizationResponse;
-      if (itemization.claimId) itemizationToClaimIdMap[itemization.claimId] = itemization;
-    }
-  });
-  return itemizationToClaimIdMap;
+  const packages: Omit<EncounterPackage, 'amountCents'>[] = [];
+  result
+    .filter((res) => res.resourceType === 'Encounter')
+    .forEach((resource) => {
+      const encounter = resource as Encounter;
+      const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
+      const claim = claims.find((el) => el.encounterId === candidEncounterId);
+      if (claim) {
+        const task = result.find(
+          (res) =>
+            res.resourceType === 'Task' && (res as Task).encounter?.reference === createReference(encounter).reference
+        ) as Task;
+        if (task) {
+          packages.push({
+            encounter,
+            invoiceTask: task,
+            claim,
+          });
+        }
+      }
+    });
+  return await populateAmountInPackagesAndFilterZeroAmount(candid, packages);
 }
 
-async function getEncountersWithTaskFhir(
+async function getEncountersWithoutTaskFhir(
   oystehr: Oystehr,
+  candid: CandidApiClient,
   claims: InventoryRecord[]
-): Promise<Omit<EncounterPackage, 'amountCents'>[]> {
+): Promise<EncounterPackage[]> {
   const promises: Promise<Resource[]>[] = [];
   promises.push(
     getResourcesFromBatchInlineRequests(
@@ -221,8 +243,56 @@ async function getEncountersWithTaskFhir(
     ) as Encounter;
     if (encounter?.id) {
       const invoiceTask = tasks.find((task) => task.encounter?.reference === createReference(encounter).reference);
-      result.push({ encounter, claim, invoiceTask });
+      if (!invoiceTask) {
+        result.push({ encounter, claim });
+      }
     }
   });
-  return result;
+  return await populateAmountInPackagesAndFilterZeroAmount(candid, result);
+}
+
+async function populateAmountInPackagesAndFilterZeroAmount(
+  candid: CandidApiClient,
+  packages: Omit<EncounterPackage, 'amountCents'>[]
+): Promise<EncounterPackage[]> {
+  const itemizationPromises = packages.map((pkg) => candid.patientAr.v1.itemize(CandidApi.ClaimId(pkg.claim.claimId)));
+  const itemizationResponse = await Promise.all(itemizationPromises);
+
+  const resultPackages: EncounterPackage[] = [];
+  itemizationResponse.forEach((res) => {
+    if (res && res.ok && res.body) {
+      const itemization = res.body as InvoiceItemizationResponse;
+      const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
+      if (
+        itemization.claimId &&
+        itemization.patientBalanceCents &&
+        itemization.patientBalanceCents > 0 &&
+        incomingPkg
+      ) {
+        resultPackages.push({
+          ...incomingPkg,
+          amountCents: itemization.patientBalanceCents,
+        });
+      }
+    }
+  });
+  return resultPackages;
+}
+
+async function getAllCandidClaims(candid: CandidApiClient, sinceDate: DateTime): Promise<InventoryRecord[]> {
+  const inventoryPages = await getCandidInventoryPagesRecursive({
+    candid,
+    claims: [],
+    limitPerPage: 100,
+    pageCount: 0,
+    onlyInvoiceable: true,
+    since: sinceDate,
+  });
+
+  const claimsFetched = inventoryPages?.claims;
+  console.log('fetched claims: ', claimsFetched?.length);
+  if (claimsFetched?.length && claimsFetched.length > 0) {
+    return claimsFetched;
+  }
+  return [];
 }

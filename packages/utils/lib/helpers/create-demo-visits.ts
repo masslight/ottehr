@@ -11,9 +11,8 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import inPersonIntakeQuestionnaireJson from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { isLocationVirtual } from '../fhir';
-import { ServiceCategoryCode } from '../ottehr-config';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE, ServiceCategoryCode } from '../ottehr-config';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -70,13 +69,7 @@ interface DemoConfig {
 type DemoAppointmentData = AppointmentData & DemoConfig;
 
 const getInPersonIntakeQuestionnaire = (): Questionnaire | undefined => {
-  const fhirResources = inPersonIntakeQuestionnaireJson.fhirResources as Record<string, { resource: Questionnaire }>;
-  return Object.values(fhirResources).find(
-    (q) =>
-      q.resource.resourceType === 'Questionnaire' &&
-      q.resource.status === 'active' &&
-      q.resource.url?.includes('intake-paperwork-inperson')
-  )?.resource;
+  return IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
 };
 
 const findItemByLinkId = (items: QuestionnaireItem[] | undefined, linkId: string): boolean => {

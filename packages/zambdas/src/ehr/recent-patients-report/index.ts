@@ -211,17 +211,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Build batch requests for all patient history searches
     const allBatchRequests: BatchInputGetRequest[] = Array.from(patientAppointmentsMap.keys()).map((patientId) => {
-      const queryParams = new URLSearchParams({
-        patient: `Patient/${patientId}`,
-        date: `lt${dateRange.start}`,
-        _count: '1',
-      });
+      // Don't use URLSearchParams for FHIR date prefixes - it encodes the colons which breaks the search
+      const url = `/Appointment?patient=Patient/${patientId}&date=lt${dateRange.start}&_count=1`;
 
       return {
         method: 'GET',
-        url: `/Appointment?${queryParams.toString()}`,
+        url,
       };
     });
+
+    // Log first request URL for debugging
+    if (allBatchRequests.length > 0) {
+      console.log(`Sample history check URL: ${allBatchRequests[0].url}`);
+      console.log(`Date range start for history check: ${dateRange.start}`);
+    }
 
     // Split requests into batches of 50
     const BATCH_SIZE = 50;
@@ -248,11 +251,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const patientHistoryMap = new Map<string, boolean>();
     const patientIds = Array.from(patientAppointmentsMap.keys());
 
-    let processedIndex = 0;
-    allBatchResults.forEach((batchResult) => {
-      batchResult.entry?.forEach((entry) => {
-        const patientId = patientIds[processedIndex++];
+    allBatchResults.forEach((batchResult, batchIndex) => {
+      const batchStartIndex = batchIndex * BATCH_SIZE;
+      console.log(
+        `Processing batch ${batchIndex + 1} results, starting at patient index ${batchStartIndex}, batch has ${
+          batchResult.entry?.length || 0
+        } entries`
+      );
+
+      batchResult.entry?.forEach((entry, entryIndex) => {
+        const patientId = patientIds[batchStartIndex + entryIndex];
+        const requestUrl = allBatchRequests[batchStartIndex + entryIndex]?.url;
         let hasHistoricalAppointments = false;
+
+        console.log(
+          `Entry ${entryIndex}: response status=${entry.response?.status}, outcome.id=${entry.response?.outcome?.id}, resourceType=${entry.resource?.resourceType}, patientId=${patientId}`
+        );
 
         if (
           entry.response?.outcome?.id === 'ok' &&
@@ -262,13 +276,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ) {
           const innerBundle = entry.resource as Bundle;
           hasHistoricalAppointments = (innerBundle.entry?.length ?? 0) > 0;
+
+          console.log(
+            `Patient ${patientId} searched with URL: ${requestUrl}, found ${
+              innerBundle.entry?.length || 0
+            } historical appointment(s), bundle.total=${innerBundle.total}`
+          );
         }
 
         patientHistoryMap.set(patientId, hasHistoricalAppointments);
       });
     });
 
-    console.log('Patient history checks completed');
+    console.log(
+      `Patient history checks completed. ${
+        Array.from(patientHistoryMap.values()).filter(Boolean).length
+      } patients with history, ${Array.from(patientHistoryMap.values()).filter((v) => !v).length} without history`
+    );
 
     // Build patient records
     const patientRecords: RecentPatientRecord[] = [];

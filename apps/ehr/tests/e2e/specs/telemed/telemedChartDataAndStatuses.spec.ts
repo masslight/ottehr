@@ -736,17 +736,21 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
       test('Should delete Medical Conditions data', async () => {
         await test.step('Delete medical condition', async () => {
+          // Find the specific medical condition by more specific text match (D55.0 is specific to the anemia we want to delete)
           const medicalConditionListItem = page
             .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
-            .filter({ hasText: new RegExp(conditionName, 'i') })
+            .filter({ hasText: /D55\.0.*anemia/i })
             .first();
-          await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+          // Use .first() to get the button (first element with testId, which is the button, not the svg)
+          const deleteButton = medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).first();
+          await expect(deleteButton).toBeEnabled({ timeout: 30000 });
+          await deleteButton.click();
           await waitForChartDataDeletion(page);
-          // Check that there are no more medical condition items with this text
+          // Check that the specific medical condition we deleted is gone
           await expect(
             page
               .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
-              .filter({ hasText: new RegExp(conditionName, 'i') })
+              .filter({ hasText: /D55\.0.*anemia/i })
           ).toHaveCount(0);
         });
 
@@ -861,10 +865,10 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
     await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect).locator('input').click();
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(location.id!)).click();
-
+    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    ).toBeVisible(DEFAULT_TIMEOUT);
+    ).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -915,6 +919,9 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
       },
     ],
   });
+
+  await new Promise((resolve) => setTimeout(resolve, 1_000));
+
   return physicalLocation;
 }
 
