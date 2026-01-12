@@ -2711,6 +2711,15 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         },
         type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
         payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+        relationship: {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
+              code: 'other',
+              display: 'Other',
+            },
+          ],
+        },
         class: [
           {
             type: {

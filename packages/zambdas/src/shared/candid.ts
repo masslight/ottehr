@@ -74,6 +74,7 @@ import {
   getSecret,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isAppointmentWorkersComp,
   isTelemedAppointment,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
@@ -930,6 +931,7 @@ const updateCandidPatientWithCoverages = async (
 
 const createCandidCoverages = async (
   patient: Patient,
+  appointment: Appointment,
   candidPatient: CandidPreEncounterPatient,
   oystehr: Oystehr,
   candidApiClient: CandidApiClient
@@ -980,12 +982,28 @@ const createCandidCoverages = async (
     candidCoverages.push(response.body);
   }
 
+  // if visit type is WC put WC insurance first in the candidCoverages array. otherwise, put it at the end.
+  const isWCVisit = getAppointmentVisitType(appointment) === 'workers-compensation';
+  if (coverages.workersComp) {
+    const candidCoverage = buildCandidCoverageCreateInput(
+      coverages.workersComp,
+      coverages.secondarySubscriber,
+      secondaryInsuranceOrg,
+      candidPatient
+    );
+    const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
+    if (!response.ok) {
+      throw new Error(`Error creating Candid Secondary coverage. Response body: ${JSON.stringify(response.error)}`);
+    }
+    candidCoverages.push(response.body);
+  }
+
   return candidCoverages;
 };
 
 const buildCandidCoverageCreateInput = (
   coverage: Coverage,
-  subscriber: RelatedPerson,
+  subscriber: RelatedPerson | Patient, // Patient as subscriber is used in workers comp
   insuranceOrg: Organization,
   candidPatient: CandidPreEncounterPatient
 ): MutableCoverage => {
