@@ -378,7 +378,7 @@ test.describe('Order Deletion - Happy Path', () => {
       await expect(deleteButton).toBeVisible({ timeout: 10000 });
       await deleteButton.click();
 
-      // UI CHECK: Wait for success alert and verify medication is removed from the page
+      // UI CHECK: Wait for success alert
       await expect(page.getByRole('alert').filter({ hasText: /deleted successfully/i })).toBeVisible({
         timeout: 10000,
       });
@@ -386,24 +386,19 @@ test.describe('Order Deletion - Happy Path', () => {
       // Wait for dialog to close (UI check)
       await page.getByRole('dialog').waitFor({ state: 'detached' });
 
-      // UI CHECK: Verify medication disappeared from the current page
-      await expect(page.getByText(MEDICATION_NAME)).not.toBeVisible();
-    });
-
-    await test.step('Verify medication is marked as cancelled in MAR', async () => {
-      // Navigate back to MAR
-      await sideMenu.clickInHouseMedications();
-
-      // Wait for MAR page to load
-      await page.waitForURL(new RegExp('/in-house-medication/mar'));
+      // UI CHECK: After deletion from edit page, expect redirect to MAR table
+      await page.waitForURL(new RegExp('/in-house-medication/mar'), { timeout: 10000 });
       await expect(page.getByTestId(dataTestIds.inHouseMedicationsPage.title)).toBeVisible({ timeout: 10000 });
 
-      // Wait for the loader to disappear (ensures data is fully loaded)
+      // Wait for the loader to disappear (ensures data is fully loaded after redirect)
       const loader = page.getByTestId(dataTestIds.inHouseMedicationsPage.marTableLoader);
       await loader.waitFor({ state: 'detached', timeout: 30000 }).catch(() => {
         // Loader might not appear if data loads very quickly, which is fine
       });
+    });
 
+    await test.step('Verify medication is marked as cancelled in MAR', async () => {
+      // Already on MAR page after delete redirect - just verify medication status
       // Verify medication is visible in MAR with "Cancelled" status
       // (Cancelled medications now appear in the "Completed" section for backward compatibility)
       const medicationRow = page.getByTestId(dataTestIds.inHouseMedicationsPage.marTable.medicationRow(medicationId));
