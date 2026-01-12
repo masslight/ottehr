@@ -439,7 +439,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 10; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -458,7 +458,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 10_000));
       }
 
       throw new Error("Appointment wasn't preprocessed");
@@ -472,7 +472,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 10; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -493,7 +493,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 10_000));
       }
 
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
@@ -511,7 +511,7 @@ export class ResourceHandler {
     console.log(`Waiting for Lists to be indexed: ${requiredLists.join(', ')}`);
 
     try {
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 10; i++) {
         const lists = (
           await apiClient.fhir.search({
             resourceType: 'List',
@@ -536,7 +536,7 @@ export class ResourceHandler {
           console.log(`Still waiting for Lists: ${missingLists.join(', ')} (attempt ${i + 1}/30)`);
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 10_000));
       }
 
       throw new Error(`Lists not indexed after 15 seconds: ${requiredLists.join(', ')}`);

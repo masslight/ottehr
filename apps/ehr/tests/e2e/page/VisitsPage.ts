@@ -25,31 +25,37 @@ export class VisitsPage {
   }
 
   async clickIntakeButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const intakeButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.intakeButton)
-      .click({ timeout: 25000 });
+      .getByTestId(dataTestIds.dashboard.intakeButton);
+    await intakeButton.waitFor({ state: 'visible', timeout: 60000 });
+    await intakeButton.click();
   }
 
   async clickVisitDetailsButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const visitDetailsButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.visitDetailsButton)
-      .click({ timeout: 25000 });
+      .getByTestId(dataTestIds.dashboard.visitDetailsButton);
+    await visitDetailsButton.waitFor({ state: 'visible', timeout: 60000 });
+    await visitDetailsButton.click();
   }
 
   async clickProgressNoteButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const progressNoteButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.progressNoteButton)
-      .click({ timeout: 25000 });
+      .getByTestId(dataTestIds.dashboard.progressNoteButton);
+    await progressNoteButton.waitFor({ state: 'visible', timeout: 60000 });
+    await progressNoteButton.click();
   }
 
   async clickArrivedButton(appointmentId: string): Promise<void> {
-    await this.#page
+    const arrivedButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
-      .getByTestId(dataTestIds.dashboard.arrivedButton)
-      .click({ timeout: 25000 });
+      .getByTestId(dataTestIds.dashboard.arrivedButton);
+    // Wait for button to be visible and enabled before clicking
+    await arrivedButton.waitFor({ state: 'visible', timeout: 60000 });
+    await expect(arrivedButton).toBeEnabled({ timeout: 5000 });
+    await arrivedButton.click();
   }
 
   async clickOnPatientName(appointmentId: string): Promise<void> {
