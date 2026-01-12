@@ -217,7 +217,11 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
                 }}
               />
             )}
-            <DeleteIconButton disabled={isLoadingOrAwaiting || !isAlreadySaved} onClick={deleteCondition} />
+            <DeleteIconButton
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              onClick={deleteCondition}
+              dataTestId={dataTestIds.deleteOutlinedIcon}
+            />
           </Box>
         )}
       </Box>
