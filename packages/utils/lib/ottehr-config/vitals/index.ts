@@ -267,82 +267,55 @@ const VitalsConfig = {
       'systolic-pressure': {
         alertThresholds: [
           {
-            rules: [
-              { type: 'min', units: '', value: 59 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'max', units: '', value: 140 }],
+          },
+          {
+            rules: [{ type: 'min', units: '', value: 59 }],
             minAge: { unit: 'months', value: 0 },
             maxAge: { unit: 'months', value: 2 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 69 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 69 }],
             minAge: { unit: 'months', value: 3 },
             maxAge: { unit: 'months', value: 11 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 72 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 72 }],
             minAge: { unit: 'months', value: 12 },
             maxAge: { unit: 'months', value: 23 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 74 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 74 }],
             minAge: { unit: 'months', value: 24 },
             maxAge: { unit: 'months', value: 35 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 76 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 76 }],
             minAge: { unit: 'months', value: 36 },
             maxAge: { unit: 'months', value: 47 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 78 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 78 }],
             minAge: { unit: 'months', value: 48 },
             maxAge: { unit: 'months', value: 71 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 82 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 82 }],
             minAge: { unit: 'months', value: 72 },
             maxAge: { unit: 'months', value: 95 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 86 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 86 }],
             minAge: { unit: 'months', value: 96 },
             maxAge: { unit: 'months', value: 143 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 90 },
-              { type: 'max', units: '', value: 400 },
-            ],
+            rules: [{ type: 'min', units: '', value: 90 }],
             minAge: { unit: 'months', value: 144 },
             maxAge: { unit: 'months', value: 215 },
           },
           {
-            rules: [
-              { type: 'min', units: '', value: 90 },
-              { type: 'max', units: '', value: 140 },
-            ],
+            rules: [{ type: 'min', units: '', value: 90 }],
             minAge: { unit: 'months', value: 216 },
           },
         ],
