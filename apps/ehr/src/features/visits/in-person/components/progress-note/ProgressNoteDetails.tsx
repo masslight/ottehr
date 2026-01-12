@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
@@ -48,7 +49,6 @@ import {
   progressNoteChartDataRequestedFields,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from './HospitalizationContainer';
@@ -70,8 +70,7 @@ export const ProgressNoteDetails: FC = () => {
 
   const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
   const { chartData } = useChartData();
-  const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
-  const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
+  const { medications: inHouseMedications } = useMedicationAPI();
 
   const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
     encounterId: encounter.id,

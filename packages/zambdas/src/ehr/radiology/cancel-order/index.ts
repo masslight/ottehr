@@ -1,7 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
-import { CancelRadiologyOrderZambdaInput, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  CancelRadiologyOrderZambdaInput,
+  createCancellationTagOperations,
+  getSecret,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -58,16 +64,30 @@ const patchServiceRequestToRevokedInOystehr = async (
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
   console.log('setting status to revoked for service request', serviceRequestId);
+
+  // First, get the current ServiceRequest to save its status for potential restoration
+  const currentServiceRequest = await oystehr.fhir.get<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    id: serviceRequestId,
+  });
+
+  const currentStatus = currentServiceRequest.status;
+  console.log(`Saving previous status '${currentStatus}' for potential restoration`);
+
+  // Use helper to create cancellation tag operations
+  const operations = [
+    ...createCancellationTagOperations(currentStatus, currentServiceRequest.meta),
+    {
+      op: 'replace' as const,
+      path: '/status',
+      value: 'revoked',
+    },
+  ];
+
   return await oystehr.fhir.patch({
     resourceType: 'ServiceRequest',
     id: serviceRequestId,
-    operations: [
-      {
-        op: 'replace',
-        path: '/status',
-        value: 'revoked',
-      },
-    ],
+    operations,
   });
 };
 

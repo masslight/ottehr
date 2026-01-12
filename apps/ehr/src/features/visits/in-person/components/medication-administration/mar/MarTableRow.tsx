@@ -79,7 +79,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
 
   return (
     <TableRow
-      data-testid={dataTestIds.inHouseMedicationsPage.marTable.row}
+      data-testid={dataTestIds.inHouseMedicationsPage.marTable.medicationRow(medication.id)}
       sx={{
         cursor: 'pointer',
         position: 'relative',
@@ -103,7 +103,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
         <MedicationBarcodeScan medication={medication} />
       </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTable.doseCell} sx={columnStyles.dose}>
-        {medication.dose} {medication.units}
+        {medication.dose || ''} {medication.units || ''}
       </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTable.routeCell} sx={columnStyles.route}>
         {searchRouteByCode(medication.route)?.display || '-'}
@@ -113,7 +113,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
         data-testid={dataTestIds.inHouseMedicationsPage.marTable.orderedByCell}
         sx={columnStyles.orderDateTime}
       >
-        {medication.orderedByProvider}
+        {medication.orderedByProvider || ''}
       </TableCell>
       {!isPending && (
         <>
@@ -130,7 +130,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
         data-testid={dataTestIds.inHouseMedicationsPage.marTable.instructionsCell}
         sx={columnStyles.instructions}
       >
-        {medication.instructions}
+        {medication.instructions || ''}
       </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTable.statusCell} sx={columnStyles.status}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

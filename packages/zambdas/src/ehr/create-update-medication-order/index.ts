@@ -13,6 +13,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  createCancellationTagOperations,
   getMedicationFromMA,
   getMedicationName,
   getMedicationTypeCode,
@@ -324,12 +325,25 @@ async function changeOrderStatus(
   oystehr: Oystehr,
   pkg: OrderPackage,
   newStatus: MedicationOrderStatusesType
-): Promise<any> {
+): Promise<MedicationAdministration> {
   console.log(`Changing status to: ${newStatus}`);
+
+  let operations: Operation[] = [];
+
+  // If cancelling, save the previous status for potential restoration
+  if (newStatus === 'cancelled') {
+    const currentStatusFhir = pkg.medicationAdministration.status;
+    const currentStatus = mapFhirToOrderStatus(pkg.medicationAdministration);
+    console.log(`Saving previous status '${currentStatus}' (FHIR: '${currentStatusFhir}') for potential restoration`);
+    operations = createCancellationTagOperations(currentStatusFhir, pkg.medicationAdministration.meta);
+  }
+
+  operations.push(replaceOperation('/status', mapOrderStatusToFhir(newStatus)));
+
   return await oystehr.fhir.patch({
     resourceType: 'MedicationAdministration',
     id: pkg.medicationAdministration.id!,
-    operations: [replaceOperation('/status', mapOrderStatusToFhir(newStatus))],
+    operations,
   });
 }
 

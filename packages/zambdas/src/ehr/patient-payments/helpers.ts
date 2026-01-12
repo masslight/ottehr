@@ -7,6 +7,7 @@ import {
   CashPaymentDTO,
   checkForStripeCustomerDeletedError,
   convertPaymentNoticeListToCashPaymentDTOs,
+  getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   PatientPaymentDTO,
 } from 'utils';
@@ -45,19 +46,33 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
 
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
-  const customerId = getStripeCustomerIdFromAccount(account);
+
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
+  console.log('found a stripe account from the schedule owner, ', stripeAccount);
+
+  const customerId = getStripeCustomerIdFromAccount(account, stripeAccount);
 
   if (encounterId && customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.search({
-          query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-          limit: 20, // default is 10
-        }),
-        stripeClient.paymentMethods.list({
-          customer: customerId,
-          type: 'card',
-        }),
+        stripeClient.paymentIntents.search(
+          {
+            query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+            limit: 20, // default is 10
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
+        stripeClient.paymentMethods.list(
+          {
+            customer: customerId,
+            type: 'card',
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
       ]);
 
       console.log('Payment Intent search results:', JSON.stringify(paymentIntents, null, 2));
@@ -70,13 +85,23 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
   } else if (customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.list({
-          customer: customerId,
-        }),
-        stripeClient.paymentMethods.list({
-          customer: customerId,
-          type: 'card',
-        }),
+        stripeClient.paymentIntents.list(
+          {
+            customer: customerId,
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
+        stripeClient.paymentMethods.list(
+          {
+            customer: customerId,
+            type: 'card',
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
       ]);
 
       console.log('Payment Intent list results (fallback):', JSON.stringify(paymentIntents, null, 2));
@@ -107,19 +132,33 @@ export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): 
 
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
-  const customerId = getStripeCustomerIdFromAccount(account);
+
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
+  console.log('found a stripe account from the schedule owner, ', stripeAccount);
+
+  const customerId = getStripeCustomerIdFromAccount(account, stripeAccount);
 
   if (encounterId && customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.search({
-          query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-          limit: 20,
-        }),
-        stripeClient.paymentMethods.list({
-          customer: customerId,
-          type: 'card',
-        }),
+        stripeClient.paymentIntents.search(
+          {
+            query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+            limit: 20,
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
+        stripeClient.paymentMethods.list(
+          {
+            customer: customerId,
+            type: 'card',
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
       ]);
 
       console.log('Payment Intent created:', JSON.stringify(paymentIntents, null, 2));
@@ -132,13 +171,23 @@ export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): 
   } else if (customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.list({
-          customer: customerId,
-        }),
-        stripeClient.paymentMethods.list({
-          customer: customerId,
-          type: 'card',
-        }),
+        stripeClient.paymentIntents.list(
+          {
+            customer: customerId,
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
+        stripeClient.paymentMethods.list(
+          {
+            customer: customerId,
+            type: 'card',
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
       ]);
 
       console.log('Payment Intent list results:', JSON.stringify(paymentIntents, null, 2));

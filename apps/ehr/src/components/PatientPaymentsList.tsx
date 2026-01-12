@@ -511,6 +511,7 @@ export default function PatientPaymentList({
         <PaymentDialog
           open={paymentDialogOpen}
           patient={patient}
+          appointmentId={appointment?.id}
           handleClose={() => setPaymentDialogOpen(false)}
           isSubmitting={createNewPayment.isPending}
           submitPayment={async (data: CashOrCardPayment) => {

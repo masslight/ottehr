@@ -24,6 +24,7 @@ import {
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
   getSecret,
+  isDeletedMedicationOrder,
   mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   OrderPackage,
@@ -67,9 +68,14 @@ export async function getMedicationOrders(
   validatedParameters: GetMedicationOrdersInput
 ): Promise<GetMedicationOrdersResponse> {
   const orderPackages = await getOrderPackages(oystehr, validatedParameters.searchBy);
-  const result = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg));
+  const allOrders = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg)) ?? [];
+
+  const orders = allOrders.filter((med) => !isDeletedMedicationOrder(med));
+  const cancelledOrders = allOrders.filter((med) => isDeletedMedicationOrder(med));
+
   return {
-    orders: result ?? [],
+    orders,
+    cancelledOrders,
   };
 }
 

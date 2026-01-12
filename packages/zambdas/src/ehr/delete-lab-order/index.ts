@@ -19,12 +19,12 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { makeSoftDeleteStatusPatchRequest } from '../lab/shared/helpers';
 import {
   getLabOrderRelatedResources,
   makeCommunicationRequestForClinicalInfoNote,
   makeCommunicationRequestForOrderNote,
   makeDeleteResourceRequest,
-  makeStatusPatchRequest,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -70,18 +70,18 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     // any resource that was touched by this soft delete
     const targetResourcesForProvenance: Reference[] = [];
 
-    requests.push(makeStatusPatchRequest('ServiceRequest', 'revoked', serviceRequestId));
+    requests.push(makeSoftDeleteStatusPatchRequest('ServiceRequest', serviceRequestId));
     targetResourcesForProvenance.push({ reference: `ServiceRequest/${serviceRequestId}` });
 
     if (questionnaireResponse?.id) {
-      requests.push(makeStatusPatchRequest('QuestionnaireResponse', 'entered-in-error', questionnaireResponse.id));
+      requests.push(makeSoftDeleteStatusPatchRequest('QuestionnaireResponse', questionnaireResponse.id));
       targetResourcesForProvenance.push({ reference: `QuestionnaireResponse/${questionnaireResponse.id}` });
     }
 
     if (tasks.length > 0) {
       tasks.forEach((task) => {
         if (task.id) {
-          requests.push(makeStatusPatchRequest('Task', 'cancelled', task.id));
+          requests.push(makeSoftDeleteStatusPatchRequest('Task', task.id));
           targetResourcesForProvenance.push({ reference: `Task/${task.id}` });
         }
       });
@@ -114,7 +114,7 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     if (documentReferences.length > 0) {
       documentReferences.forEach((docRef) => {
         if (docRef.id) {
-          requests.push(makeStatusPatchRequest('DocumentReference', 'entered-in-error', docRef.id));
+          requests.push(makeSoftDeleteStatusPatchRequest('DocumentReference', docRef.id));
           targetResourcesForProvenance.push({ reference: `DocumentReference/${docRef.id}` });
         }
       });
@@ -123,7 +123,7 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     if (diagnosticReports.length > 0) {
       diagnosticReports.forEach((diagnosticReport) => {
         if (diagnosticReport.id) {
-          requests.push(makeStatusPatchRequest('DiagnosticReport', 'entered-in-error', diagnosticReport.id));
+          requests.push(makeSoftDeleteStatusPatchRequest('DiagnosticReport', diagnosticReport.id));
           targetResourcesForProvenance.push({ reference: `DiagnosticReport/${diagnosticReport.id}` });
         }
       });
