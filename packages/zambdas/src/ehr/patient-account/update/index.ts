@@ -128,14 +128,11 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     if (!account || !guarantorResource) {
       console.log('could not find account or guarantor, skipping stripe update');
     } else {
-      await updateStripeCustomer(
-        {
-          account,
-          guarantorResource,
-          stripeClient,
-        },
-        oystehr
-      );
+      await updateStripeCustomer({
+        account,
+        guarantorResource,
+        stripeClient,
+      });
     }
   } catch (e) {
     console.error('error updating stripe details', e);
