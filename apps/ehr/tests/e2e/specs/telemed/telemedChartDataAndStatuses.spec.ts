@@ -736,11 +736,15 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
       test('Should delete Medical Conditions data', async () => {
         await test.step('Delete medical condition', async () => {
+          // Find the specific medical condition by more specific text match (D55.0 is specific to the anemia we want to delete)
           const medicalConditionListItem = page
             .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
-            .filter({ hasText: new RegExp(conditionName, 'i') })
+            .filter({ hasText: /D55\.0.*anemia/i })
             .first();
-          await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+          // Use .first() to get the button (first element with testId, which is the button, not the svg)
+          const deleteButton = medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).first();
+          await expect(deleteButton).toBeEnabled({ timeout: 30000 });
+          await deleteButton.click();
           await waitForChartDataDeletion(page);
           // Check that there are no more medical condition items with this text
           await expect(
