@@ -350,10 +350,9 @@ const FormFields = {
             operator: '=',
             answerString: SELF_PAY_OPTION,
           },
-        ],
-        textWhen: [
           {
-            question: 'appointment-service-category',
+            targetQuestionLinkId: 'appointment-service-category',
+            effect: ['sub-text'],
             operator: '=',
             answerString: 'workmans-comp',
             substituteText:
@@ -779,14 +778,6 @@ const FormFields = {
         text: 'Add secondary insurance',
         type: 'boolean',
         element: 'Button',
-        textWhen: [
-          {
-            question: 'display-secondary-insurance',
-            operator: '=',
-            answerBoolean: true,
-            substituteText: 'Remove Secondary Insurance',
-          },
-        ],
         triggers: [
           {
             targetQuestionLinkId: 'payment-option',
@@ -799,6 +790,13 @@ const FormFields = {
             effect: ['filter'],
             operator: '!=',
             answerString: INSURANCE_PAY_OPTION,
+          },
+          {
+            targetQuestionLinkId: 'display-secondary-insurance',
+            effect: ['sub-text'],
+            operator: '=',
+            answerBoolean: true,
+            substituteText: 'Remove Secondary Insurance',
           },
         ],
       },

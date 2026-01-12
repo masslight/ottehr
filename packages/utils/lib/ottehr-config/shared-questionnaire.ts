@@ -11,7 +11,7 @@ export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value
 export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
 export const HAS_ATTORNEY_OPTION = formValueSets.attorneyOptions[0].value; // 'I have an attorney'
 
-const triggerEffectSchema = z.enum(['enable', 'require', 'filter']);
+const triggerEffectSchema = z.enum(['enable', 'require', 'filter', 'sub-text']);
 const triggerSchema = z
   .object({
     targetQuestionLinkId: z.string(),
@@ -20,6 +20,7 @@ const triggerSchema = z
     answerBoolean: z.boolean().optional(),
     answerString: z.string().optional(),
     answerDateTime: z.string().optional(),
+    substituteText: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -29,10 +30,21 @@ const triggerSchema = z
       return definedAnswers.length === 1;
     },
     {
-      message: 'Exactly one of answerBoolean, answerString, or answerDecimal must be defined',
+      message: 'Exactly one of answerBoolean, answerString, or answerDateTime must be defined',
+    }
+  )
+  .refine(
+    (data) => {
+      const hasSubTextEffect = data.effect.includes('sub-text');
+      if (hasSubTextEffect) {
+        return data.substituteText !== undefined;
+      }
+      return true;
+    },
+    {
+      message: 'substituteText must be defined when effect includes sub-text',
     }
   );
-
 export type FormFieldTrigger = z.infer<typeof triggerSchema>;
 
 const dynamicPopulationSchema = z.object({
@@ -70,15 +82,6 @@ const FormFieldsLogicalFieldSchema = z.object({
     .optional(),
 });
 
-const TextWhenSchema = z.object({
-  question: z.string(),
-  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
-  answerString: z.string().optional(),
-  answerBoolean: z.boolean().optional(),
-  answerDateTime: z.string().optional(),
-  substituteText: z.string(),
-});
-
 const FormFieldsDisplayFieldSchema = z.object({
   key: z.string(),
   type: z.literal('display'),
@@ -86,7 +89,6 @@ const FormFieldsDisplayFieldSchema = z.object({
   element: z.enum(['h3', 'h4', 'p']).optional(),
   triggers: z.array(triggerSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-  textWhen: z.array(TextWhenSchema).optional(),
   disabledDisplay: z.literal('hidden').optional().default('hidden'),
 });
 
@@ -115,7 +117,6 @@ const FormFieldsValueTypeBaseSchema = z.object({
   placeholder: z.string().optional(),
   infoTextSecondary: z.string().optional(),
   element: z.string().optional(),
-  textWhen: z.array(TextWhenSchema).optional(),
   acceptsMultipleAnswers: z.boolean().optional(),
   customLinkId: z.string().optional(),
   categoryTag: z.string().optional(),
@@ -236,7 +237,6 @@ export const FormSectionSimpleSchema = z.object({
   // Group-level properties
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
-  textWhen: z.array(TextWhenSchema).optional(),
   complexValidation: ComplexValidationSchema.optional(),
   element: z.string().optional(),
   triggers: z.array(triggerSchema).optional(),
@@ -252,7 +252,6 @@ export const FormSectionArraySchema = z.object({
   // Group-level properties
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
-  textWhen: z.array(TextWhenSchema).optional(),
   complexValidation: ComplexValidationSchema.optional(),
   element: z.string().optional(),
   triggers: z.array(triggerSchema).optional(),
@@ -433,7 +432,7 @@ const createReviewTextExtension = (reviewText: string): NonNullable<Questionnair
 });
 
 const createTextWhenExtension = (
-  textWhen: z.infer<typeof TextWhenSchema>
+  textWhen: Omit<FormFieldTrigger, 'effect'>
 ): NonNullable<QuestionnaireItem['extension']>[number] => {
   const answerExtension: any = {
     url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer',
@@ -452,7 +451,7 @@ const createTextWhenExtension = (
     extension: [
       {
         url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question',
-        valueString: textWhen.question,
+        valueString: textWhen.targetQuestionLinkId,
       },
       {
         url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator',
@@ -526,14 +525,7 @@ const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): Q
     extensions.push(createPreferredElementExtension(field.element));
   }
 
-  // Add textWhen extensions
-  if (field.textWhen && field.textWhen.length > 0) {
-    field.textWhen.forEach((tw) => {
-      extensions.push(createTextWhenExtension(tw));
-    });
-  }
-
-  // Add enableWhen from triggers
+  // Add enableWhen and textWhen from triggers
   if (field.triggers && field.triggers.length > 0) {
     const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
     if (enableTriggers.length > 0) {
@@ -543,6 +535,12 @@ const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): Q
     // Add enableBehavior if specified
     if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
       item.enableBehavior = field.enableBehavior;
+    }
+    const textWhenTriggers = field.triggers.filter((t) => t.effect.includes('sub-text'));
+    if (textWhenTriggers.length > 0) {
+      textWhenTriggers.forEach((trigger) => {
+        extensions.push(createTextWhenExtension(trigger));
+      });
     }
   }
 
@@ -812,9 +810,10 @@ const convertFormFieldToQuestionnaireItem = (
     extensions.push(createPreferredElementExtension(field.element));
   }
 
-  // Add textWhen extensions
-  if (field.textWhen && field.textWhen.length > 0) {
-    field.textWhen.forEach((tw) => {
+  // Add textWhen form triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const textWhenTriggers = field.triggers.filter((t) => t.effect.includes('sub-text'));
+    textWhenTriggers.forEach((tw) => {
       extensions.push(createTextWhenExtension(tw));
     });
   }
@@ -941,9 +940,10 @@ const applyGroupLevelProperties = (
     groupExtensions.push(createComplexValidationExtension(section.complexValidation));
   }
 
-  if (section.textWhen && section.textWhen.length > 0) {
-    section.textWhen.forEach((tw) => {
-      groupExtensions.push(createTextWhenExtension(tw));
+  const textWhenTriggers = (section.triggers ?? []).filter((t) => t.effect.includes('sub-text'));
+  if (textWhenTriggers.length > 0) {
+    textWhenTriggers.forEach((trigger) => {
+      groupExtensions.push(createTextWhenExtension(trigger));
     });
   }
 
