@@ -7,6 +7,10 @@ export const ReviewOfSystemsContainer: FC = () => {
   const { data: chartFields } = useChartFields({ requestedFields: { ros: { _tag: 'ros' } } });
   const ros = chartFields?.ros?.text;
 
+  if (!ros) return null;
+
+  const formattedRos = ros.replace(/\\n/g, '\n');
+
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
@@ -15,7 +19,7 @@ export const ReviewOfSystemsContainer: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Review of systems
       </Typography>
-      <Typography>{ros}</Typography>
+      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{formattedRos}</Typography>
     </Box>
   );
 };
