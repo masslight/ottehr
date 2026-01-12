@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
-import { CancelRadiologyOrderZambdaInput, isValidUUID, Secrets } from 'utils';
+import { CancelRadiologyOrderZambdaInput, isDeletedServiceRequest, isValidUUID, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 import { ValidatedInput } from '.';
 
@@ -38,8 +38,8 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Cance
     throw new Error('Error fetching ServiceRequest in validate body');
   }
 
-  if (serviceRequest.status !== 'active') {
-    throw new Error('Only orders with active status can be canceled');
+  if (isDeletedServiceRequest(serviceRequest)) {
+    throw new Error('Order has already been canceled and cannot be canceled again');
   }
 
   return {
