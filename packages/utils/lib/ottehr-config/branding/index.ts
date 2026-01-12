@@ -1,6 +1,7 @@
 import _ from 'lodash';
 import * as z from 'zod';
 import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
+import { ALL_LOCATIONS } from '../locations';
 
 const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: any = {
@@ -45,7 +46,12 @@ const BrandingConfigSchema = z.object({
   email: z.object({
     logoURL: z.string().optional(),
     supportPhoneNumber: z.string().optional(),
-    locationSupportPhoneNumberMap: z.record(z.string().min(1), z.string().min(1)).optional(),
+    locationSupportPhoneNumberMap: z
+      .record(z.string().min(1), z.string().min(1))
+      .refine((map) => Object.keys(map).every((key) => ALL_LOCATIONS.includes(key)), {
+        message: 'All location keys must be valid locations',
+      })
+      .optional(),
     sender: z.string().email(),
     replyTo: z.string().email().optional(),
     palette: z.object({

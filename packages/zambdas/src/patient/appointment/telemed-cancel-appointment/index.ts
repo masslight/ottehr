@@ -5,6 +5,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ALL_LOCATIONS,
   APPOINTMENT_NOT_FOUND_ERROR,
   cancelAppointmentResource,
   CancelTelemedAppointmentZambdaInput,
@@ -180,7 +181,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   const locationId = getLocationIdFromAppointment(appointment);
   let location: Location | undefined;
   if (locationId) location = await getLocationResource(locationId, oystehr);
-  const locationName = location?.name as string;
+  const locationName = location?.name as (typeof ALL_LOCATIONS)[number] | undefined;
   try {
     const email = getPatientContactEmail(patient);
     if (email) {
