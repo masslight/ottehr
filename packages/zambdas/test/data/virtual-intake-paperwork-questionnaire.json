@@ -4165,7 +4165,7 @@
   {
     "linkId": "employer-information-page",
     "type": "group",
-    "text": "Employer information",
+    "text": "Workers compensation employer information",
     "item": [
       {
         "linkId": "employer-name",

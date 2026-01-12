@@ -722,7 +722,7 @@
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
                 "valueExpression": {
                   "language": "application/x-fhir-query",
-                  "expression": "Organization?type=undefined|undefined"
+                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|pay"
                 }
               }
             ]
@@ -1299,7 +1299,7 @@
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
                 "valueExpression": {
                   "language": "application/x-fhir-query",
-                  "expression": "Organization?type=undefined|undefined"
+                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|pay"
                 }
               }
             ]
@@ -2733,7 +2733,7 @@
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
                 "valueExpression": {
                   "language": "application/x-fhir-query",
-                  "expression": "Organization?type=undefined|undefined"
+                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|pay"
                 }
               }
             ]
@@ -3041,7 +3041,7 @@
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
                 "valueExpression": {
                   "language": "application/x-fhir-query",
-                  "expression": "Organization?type=undefined|undefined"
+                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer"
                 }
               }
             ]
