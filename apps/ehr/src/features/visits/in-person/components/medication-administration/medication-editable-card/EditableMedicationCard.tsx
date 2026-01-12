@@ -490,7 +490,7 @@ export const EditableMedicationCard: React.FC<{
             setShowInteractionAlerts(true);
           }
         }}
-        onDelete={medication?.id ? handleDeleteClick : undefined}
+        onDelete={medication?.id && medication?.status !== 'cancelled' ? handleDeleteClick : undefined}
         isReadOnly={isReadOnly}
       />
       <InPersonModal
