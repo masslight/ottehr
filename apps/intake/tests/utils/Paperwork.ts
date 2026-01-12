@@ -181,6 +181,7 @@ export type TelemedPaperworkReturn<
     : null;
   responsiblePartyData: PaperworkResponsibleParty extends 'not-self' ? ResponsiblePartyData : null;
   emergencyContactData: EmergencyContactData;
+  attorneyInformation: AttorneyInformation | null;
   uploadedPhotoCondition: Locator | null;
 };
 
@@ -533,7 +534,24 @@ export class Paperwork {
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactData = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
-
+    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: this.fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ])
+      ? await (async () => {
+          await this.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+          const data = await this.fillAttorneyInformation();
+          await this.locator.clickContinueButton();
+          return data;
+        })()
+      : null;
     await this.checkCorrectPageOpens('Photo ID');
     if (!requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
@@ -575,6 +593,7 @@ export class Paperwork {
       secondaryInsuranceData,
       responsiblePartyData,
       emergencyContactData,
+      attorneyInformation,
       uploadedPhotoCondition,
     } as TelemedPaperworkReturn<P, RP, RO>;
   }
