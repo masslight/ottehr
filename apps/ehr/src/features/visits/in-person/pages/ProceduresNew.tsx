@@ -245,6 +245,7 @@ export default function ProceduresNew(): ReactElement {
   ]);
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
+  const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
   const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
 
   useEffect(() => {
@@ -638,6 +639,9 @@ export default function ProceduresNew(): ReactElement {
   };
 
   useEffect(() => {
+    if (procedureId && !initialFormStateSet) {
+      return;
+    }
     const callback = methods.subscribe({
       name: 'procedureType',
       formState: {
@@ -666,7 +670,7 @@ export default function ProceduresNew(): ReactElement {
       },
     });
     return () => callback();
-  }, [methods, selectOptions]);
+  }, [methods, selectOptions, procedureId, initialFormStateSet]);
 
   useEffect(() => {
     if (procedure == null) {
@@ -675,6 +679,7 @@ export default function ProceduresNew(): ReactElement {
     methods.reset({
       procedureType: procedure.procedureType,
     });
+    setInitialFormStateSet(true);
   }, [methods, procedure]);
 
   return (
