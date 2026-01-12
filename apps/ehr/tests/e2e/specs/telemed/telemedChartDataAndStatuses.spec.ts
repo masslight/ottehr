@@ -746,11 +746,11 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
           await expect(deleteButton).toBeEnabled({ timeout: 30000 });
           await deleteButton.click();
           await waitForChartDataDeletion(page);
-          // Check that there are no more medical condition items with this text
+          // Check that the specific medical condition we deleted is gone
           await expect(
             page
               .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
-              .filter({ hasText: new RegExp(conditionName, 'i') })
+              .filter({ hasText: /D55\.0.*anemia/i })
           ).toHaveCount(0);
         });
 

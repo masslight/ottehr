@@ -30,11 +30,10 @@ export class MedicalConditionsPage {
   async removeMedicalCondition(): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).toBeVisible();
     // Find the delete button within the medical conditions list to ensure we're clicking the right one
-    // Use locator('button') to avoid strict mode violation (both button and svg have the same testId)
+    // Use .first() to get the button (first element with testId is the button, not the svg child)
     const deleteButton = this.#page
       .getByTestId(dataTestIds.medicalConditions.medicalConditionsList)
       .getByTestId(dataTestIds.deleteOutlinedIcon)
-      .locator('button')
       .first();
     await expect(deleteButton).toBeEnabled({ timeout: 30000 });
     await deleteButton.click();

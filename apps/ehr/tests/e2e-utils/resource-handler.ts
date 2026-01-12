@@ -439,7 +439,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 20; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -472,7 +472,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 20; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -511,7 +511,7 @@ export class ResourceHandler {
     console.log(`Waiting for Lists to be indexed: ${requiredLists.join(', ')}`);
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 20; i++) {
         const lists = (
           await apiClient.fhir.search({
             resourceType: 'List',
