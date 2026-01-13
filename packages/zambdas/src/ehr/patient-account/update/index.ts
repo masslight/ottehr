@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import type { Patient } from 'fhir/r4b';
+import type { Patient, Questionnaire } from 'fhir/r4b';
 import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -70,7 +70,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
-  const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
+  const {
+    questionnaireResponse,
+    items,
+    patientId,
+    providerProfileReference,
+    preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering,
+  } = input;
 
   let patientResource = await oystehr.fhir.get<Patient>({
     resourceType: 'Patient',
@@ -78,7 +85,11 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   });
 
   console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(items || [], patientResource);
+  const patientPatchOps = createMasterRecordPatchOperations(
+    items || [],
+    patientResource,
+    questionnaireForEnableWhenFiltering
+  );
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
@@ -316,6 +327,7 @@ interface FinishedInput extends BasicInput {
   providerProfileReference: string;
   items: QuestionnaireResponseItem[];
   preserveOmittedCoverages: boolean;
+  questionnaireForEnableWhenFiltering: Questionnaire;
 }
 
 const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
@@ -398,5 +410,6 @@ const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
     providerProfileReference,
     items,
     preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering: questionnaire,
   };
 };

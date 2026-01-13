@@ -1,5 +1,6 @@
 import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/v1';
+import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from '../secrets';
 
 export function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
@@ -22,12 +23,13 @@ interface getCandidPagesRecursiveParams {
   onlyInvoiceable?: boolean;
   limitPerPage?: number;
   maxPages?: number;
+  since?: DateTime;
 }
 
 export async function getCandidInventoryPagesRecursive(
   input: getCandidPagesRecursiveParams
 ): Promise<{ claims: InventoryRecord[]; pageCount: number } | undefined> {
-  const { candid, pageToken, limitPerPage, claims, pageCount, onlyInvoiceable, maxPages } = input;
+  const { candid, pageToken, limitPerPage, claims, pageCount, onlyInvoiceable, maxPages, since } = input;
   if (limitPerPage && limitPerPage > 100)
     throw new Error('Limit per page cannot be greater than 100 according to Candid API');
 
@@ -36,6 +38,7 @@ export async function getCandidInventoryPagesRecursive(
   console.log(`📄 Fetching page ${pageCount}`);
   const inventoryResponse = await candid.patientAr.v1.listInventory({
     limit: limitPerPage,
+    since: since?.toJSDate(),
     pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
   });
 
