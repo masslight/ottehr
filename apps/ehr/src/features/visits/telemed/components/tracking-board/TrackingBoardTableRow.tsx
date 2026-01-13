@@ -25,10 +25,10 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import ChatModal from 'src/features/chat/ChatModal';
 import { AppointmentStatusChip } from 'src/features/visits/shared/components/AppointmentStatusChip';
 import {
-  ALL_LOCATIONS,
   calculatePatientAge,
   formatDateForDisplay,
   getSupportPhoneFor,
+  LocationName,
   TelemedAppointmentInformation,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -126,7 +126,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   const start = DateTime.fromISO(appointment.start).toFormat('h:mm a');
 
   const quickTexts = useMemo(() => {
-    const locationName = appointment.locationVirtual.name as (typeof ALL_LOCATIONS)[number] | undefined;
+    const locationName = appointment.locationVirtual.name as LocationName;
     return getQuickTexts(getSupportPhoneFor(locationName) || '');
   }, [appointment.locationVirtual.name]);
 

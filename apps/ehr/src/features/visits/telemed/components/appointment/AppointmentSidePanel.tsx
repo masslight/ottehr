@@ -42,7 +42,6 @@ import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue, getPatientName } from 'src/shared/utils';
 import {
-  ALL_LOCATIONS,
   calculatePatientAge,
   getInsuranceNameFromCoverage,
   getQuestionnaireResponseByLinkId,
@@ -50,6 +49,7 @@ import {
   getTelemedVisitStatus,
   INTERPRETER_PHONE_NUMBER,
   isInPersonAppointment,
+  LocationName,
   PaymentVariant,
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
@@ -143,7 +143,7 @@ export const AppointmentSidePanel: FC = () => {
 
   const quickTexts = useMemo(() => {
     if (!locationVirtual) return [];
-    const locationName = locationVirtual.name as (typeof ALL_LOCATIONS)[number] | undefined;
+    const locationName = locationVirtual.name as LocationName;
     return getQuickTexts(getSupportPhoneFor(locationName) || '');
   }, [locationVirtual]);
 

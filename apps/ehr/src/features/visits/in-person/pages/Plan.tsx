@@ -1,7 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { ALL_LOCATIONS } from 'utils';
+import { LocationName } from 'utils';
 import { DispositionCard } from '../../shared/components/DispositionCard';
 import { FormsCard } from '../../shared/components/FormsCard';
 import { Loader } from '../../shared/components/Loader';
@@ -23,7 +23,7 @@ export const Plan: FC<PlanProps> = () => {
   if (isLoading || isChartDataLoading) return <Loader />;
   if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
-  const locationName = location?.name as (typeof ALL_LOCATIONS)[number] | undefined;
+  const locationName = location?.name as LocationName;
 
   return (
     <Stack spacing={1}>

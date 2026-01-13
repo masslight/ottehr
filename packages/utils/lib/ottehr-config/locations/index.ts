@@ -21,3 +21,4 @@ const LocationConfigSchema = z.object({
 export const LOCATION_CONFIG = Object.freeze(LocationConfigSchema.parse(mergedLocationConfig));
 
 export const ALL_LOCATIONS = [...LOCATION_CONFIG.inPersonLocations, ...LOCATION_CONFIG.telemedLocations] as const;
+export type LocationName = (typeof ALL_LOCATIONS)[number] | undefined;
