@@ -235,7 +235,6 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                     onClick={handleSaveHeightObservation}
                     loading={isSaving}
                     color="primary"
-                    data-testid="add-height-button"
                     sx={{
                       height: '40px',
                       px: 2,
