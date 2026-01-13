@@ -508,6 +508,16 @@ export const PaperworkPage: FC = () => {
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
 
+            /*
+            breaks set up tests, blocks telemed flow. need to rethink how we do this.
+            if (currentPage.linkId === 'consent-forms-page') {
+              const success = await submitPaperwork();
+              if (!success) {
+                return;
+              }
+            }
+            */
+
             const nextPage = getNextPage(updatedPaperwork);
 
             if (currentPage.linkId === 'consent-forms-page' && nextPage === undefined) {

@@ -2327,6 +2327,7 @@ const FormFields = {
             answerString: 'Yes, I will add invite details below',
           },
         ],
+        disabledDisplay: 'hidden',
       },
       lastName: {
         key: 'invite-last',
@@ -2342,6 +2343,7 @@ const FormFields = {
             answerString: 'Yes, I will add invite details below',
           },
         ],
+        disabledDisplay: 'hidden',
       },
       preferableContact: {
         key: 'invite-contact',
@@ -2357,6 +2359,7 @@ const FormFields = {
             answerString: 'Yes, I will add invite details below',
           },
         ],
+        disabledDisplay: 'hidden',
       },
       email: {
         key: 'invite-email',
@@ -2378,6 +2381,7 @@ const FormFields = {
             answerString: 'Email',
           },
         ],
+        disabledDisplay: 'hidden',
       },
       phone: {
         key: 'invite-phone',
@@ -2399,6 +2403,7 @@ const FormFields = {
             answerString: 'Phone',
           },
         ],
+        disabledDisplay: 'hidden',
       },
     },
     requiredFields: ['invite-from-another-device'],
