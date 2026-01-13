@@ -791,7 +791,13 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     candidPreEncounterPatient = await createPreEncounterPatient(ourPatient, candidApiClient);
   }
 
-  const candidCoverages = await createCandidCoverages(ourPatient, candidPreEncounterPatient, oystehr, candidApiClient);
+  const candidCoverages = await createCandidCoverages(
+    ourPatient,
+    ourAppointment,
+    candidPreEncounterPatient,
+    oystehr,
+    candidApiClient
+  );
 
   // Update patient with the coverages
   if (candidCoverages.length > 0) {
@@ -953,6 +959,9 @@ const createCandidCoverages = async (
   const secondaryInsuranceOrg = insuranceOrgs.find(
     (org) => createReference(org).reference === coverages.secondary?.payor?.[0].reference
   );
+  const workersCompInsuranceOrg = insuranceOrgs.find(
+    (org) => createReference(org).reference === coverages.workersComp?.payor?.[0].reference
+  );
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
@@ -982,20 +991,24 @@ const createCandidCoverages = async (
     candidCoverages.push(response.body);
   }
 
-  // if visit type is WC put WC insurance first in the candidCoverages array. otherwise, put it at the end.
-  const isWCVisit = getAppointmentVisitType(appointment) === 'workers-compensation';
-  if (coverages.workersComp) {
+  if (coverages.workersComp && workersCompInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
       coverages.workersComp,
-      coverages.secondarySubscriber,
-      secondaryInsuranceOrg,
+      patient,
+      workersCompInsuranceOrg,
       candidPatient
     );
     const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
     if (!response.ok) {
-      throw new Error(`Error creating Candid Secondary coverage. Response body: ${JSON.stringify(response.error)}`);
+      throw new Error(`Error creating Candid Workers Comp coverage. Response body: ${JSON.stringify(response.error)}`);
     }
-    candidCoverages.push(response.body);
+
+    // if visit type is WC put WC insurance first in the candidCoverages array. otherwise, put it at the end?
+    if (isAppointmentWorkersComp(appointment)) {
+      candidCoverages.unshift(response.body);
+    } else {
+      candidCoverages.push(response.body);
+    }
   }
 
   return candidCoverages;
