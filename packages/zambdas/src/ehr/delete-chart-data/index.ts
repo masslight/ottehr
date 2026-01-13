@@ -76,6 +76,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       historyOfPresentIllness,
       mechanismOfInjury,
       ros,
+      rosNarrative,
       conditions,
       medications,
       allergies,
@@ -132,6 +133,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     }
     if (ros) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
+    }
+    if (rosNarrative) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', rosNarrative.resourceId!));
     }
 
     // 3. delete Medical Conditions

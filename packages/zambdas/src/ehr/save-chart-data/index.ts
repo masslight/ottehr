@@ -86,6 +86,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       historyOfPresentIllness,
       mechanismOfInjury,
       ros,
+      rosNarrative,
       conditions,
       medications,
       allergies,
@@ -184,6 +185,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, ros, 'ros'))
       );
+    }
+
+    if (rosNarrative) {
+      // convert ROS Narrative to Conditions preserve FHIR resource ID, add to encounter
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, rosNarrative, 'ros-narrative'))
+      );
+      console.log(rosNarrative);
     }
 
     // convert Medical Conditions [] to Conditions [] and preserve FHIR resource IDs

@@ -42,6 +42,7 @@ export interface AllChartValues {
   historyOfPresentIllness?: FreeTextNoteDTO;
   mechanismOfInjury?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
+  rosNarrative?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
   inhouseMedications?: MedicationDTO[];
@@ -78,6 +79,7 @@ export type RequestedFields =
   | 'historyOfPresentIllness'
   | 'mechanismOfInjury'
   | 'ros'
+  | 'rosNarrative'
   | 'episodeOfCare'
   | 'prescribedMedications'
   | 'disposition'
