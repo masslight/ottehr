@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { BRANDING_CONFIG, DEPLOYED_TELEMED_LOCATIONS, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { BRANDING_CONFIG, LOCATION_CONFIG, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
@@ -114,7 +114,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(statesSelector).toBeVisible();
 
     await statesSelector.getByRole('button').click();
-    const firstAvailableState = DEPLOYED_TELEMED_LOCATIONS[0]?.name;
+    const firstAvailableState = LOCATION_CONFIG.telemedLocations[0];
     if (!firstAvailableState) {
       throw new Error('No deployed telemed locations found');
     }
