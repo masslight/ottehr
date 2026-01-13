@@ -1,12 +1,14 @@
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import Placeholder from '@tiptap/extension-placeholder';
-import TaskItem from '@tiptap/extension-task-item';
-import TaskList from '@tiptap/extension-task-list';
-import { Markdown } from '@tiptap/markdown';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { FC, useEffect, useRef } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { generateNarrativeFromMarkdown } from './shared/components/ros/generateNarrative';
+import { RosItem, RosList } from './shared/components/ros/RosItem';
+import { markdownToRos, rosToMarkdown } from './shared/components/ros/RosMarkdown';
+import { RosEditor } from './shared/components/RosEditor';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
@@ -18,6 +20,7 @@ export const RosField: FC = () => {
   } = useChartFields({
     requestedFields: {
       ros: { _tag: 'ros' },
+      rosNarrative: { _tag: 'ros-narrative' },
     },
   });
 
@@ -27,33 +30,44 @@ export const RosField: FC = () => {
     isChartDataLoading: isRosChartDataLoading,
   } = useDebounceNotesField('ros');
 
+  const { onValueChange: onRosNarrativeChange, isLoading: isRosNarrativeLoading } =
+    useDebounceNotesField('rosNarrative');
+
   const isUpdatingFromServer = useRef(false);
-  // Prevent initial empty editor value from triggering delete-chart-data
   const isInitialized = useRef(false);
+  const lastMarkdown = useRef<string>('');
+
+  const [isNarrativeMode, setIsNarrativeMode] = useState(false);
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Markdown,
-      TaskList,
-      TaskItem.configure({
+      StarterKit.configure({
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+      }),
+      RosList,
+      RosItem.configure({
         nested: true,
       }),
       Placeholder.configure({
-        placeholder: 'ROS (Optional) - Type [ ] for checklist items, or just type notes...',
+        placeholder: 'ROS (Optional) - Type headers, then - [ ] for items, or - [R]/[D] for Reports/Denies...',
       }),
     ],
     content: '',
-    editable: !isRosChartDataLoading,
+    editable: !isRosChartDataLoading && !isRosNarrativeLoading,
     editorProps: {
       handlePaste: (view, event) => {
+        if (isNarrativeMode) return false;
+
         const text = event.clipboardData?.getData('text/plain');
         if (text) {
-          // Check if it looks like markdown
-          const hasMarkdownSyntax = /[#*\-[\]`]/.test(text);
-          if (hasMarkdownSyntax && editor) {
+          const normalizedText = text.replace(/\\n/g, '\n');
+
+          if (normalizedText.match(/^-\s*\[([ RD])\]/m)) {
             event.preventDefault();
-            editor.commands.setContent(text, { contentType: 'markdown' });
+            const doc = markdownToRos(normalizedText);
+            editor?.commands.setContent(doc);
             return true;
           }
         }
@@ -62,22 +76,64 @@ export const RosField: FC = () => {
     },
     onUpdate: ({ editor }) => {
       if (!isUpdatingFromServer.current && isInitialized.current) {
-        onRosChange(editor.getMarkdown());
+        if (isNarrativeMode) {
+          const text = editor.getText();
+          if (text !== lastMarkdown.current) {
+            lastMarkdown.current = text;
+            onRosNarrativeChange(text);
+          }
+        } else {
+          const markdown = rosToMarkdown(editor.state.doc);
+          if (markdown !== lastMarkdown.current) {
+            lastMarkdown.current = markdown;
+            onRosChange(markdown);
+          }
+        }
+      }
+    },
+    onTransaction: ({ editor, transaction }) => {
+      if (isUpdatingFromServer.current || !isInitialized.current) {
+        return;
+      }
+
+      if (transaction.docChanged) {
+        if (isNarrativeMode) {
+          const text = editor.getText();
+          if (text !== lastMarkdown.current) {
+            lastMarkdown.current = text;
+            onRosNarrativeChange(text);
+          }
+        } else {
+          const markdown = rosToMarkdown(editor.state.doc);
+          if (markdown !== lastMarkdown.current) {
+            lastMarkdown.current = markdown;
+            onRosChange(markdown);
+          }
+        }
       }
     },
   });
 
   useEffect(() => {
     if (!editor) return;
-
     if (!isFetched) return;
 
-    const serverContent = chartDataFields?.ros?.text || '';
-    const currentContent = editor.getMarkdown();
-
     if (!isInitialized.current) {
-      isUpdatingFromServer.current = true;
-      editor.commands.setContent(serverContent, { contentType: 'markdown' });
+      const hasNarrative = !!chartDataFields?.rosNarrative?.text;
+      setIsNarrativeMode(hasNarrative);
+
+      if (hasNarrative) {
+        const narrativeText = chartDataFields.rosNarrative!.text!;
+        isUpdatingFromServer.current = true;
+        editor.commands.setContent(narrativeText);
+        lastMarkdown.current = narrativeText;
+      } else {
+        const rosMarkdown = chartDataFields?.ros?.text || '';
+        const doc = markdownToRos(rosMarkdown);
+        isUpdatingFromServer.current = true;
+        editor.commands.setContent(doc);
+        lastMarkdown.current = rosMarkdown;
+      }
 
       requestAnimationFrame(() => {
         isUpdatingFromServer.current = false;
@@ -86,130 +142,102 @@ export const RosField: FC = () => {
       return;
     }
 
-    if (currentContent !== serverContent && !isFetching) {
-      isUpdatingFromServer.current = true;
-      editor.commands.setContent(serverContent, { contentType: 'markdown' });
+    if (!isFetching) {
+      if (isNarrativeMode) {
+        const narrativeText = chartDataFields?.rosNarrative?.text || '';
+        const currentText = editor.getText();
 
-      requestAnimationFrame(() => {
-        isUpdatingFromServer.current = false;
-      });
+        if (currentText !== narrativeText) {
+          isUpdatingFromServer.current = true;
+          editor.commands.setContent(narrativeText);
+          lastMarkdown.current = narrativeText;
+
+          requestAnimationFrame(() => {
+            isUpdatingFromServer.current = false;
+          });
+        }
+      } else {
+        const rosMarkdown = chartDataFields?.ros?.text || '';
+        const currentMarkdown = rosToMarkdown(editor.state.doc);
+
+        if (currentMarkdown !== rosMarkdown) {
+          const doc = markdownToRos(rosMarkdown);
+          isUpdatingFromServer.current = true;
+          editor.commands.setContent(doc);
+          lastMarkdown.current = rosMarkdown;
+
+          requestAnimationFrame(() => {
+            isUpdatingFromServer.current = false;
+          });
+        }
+      }
     }
-  }, [chartDataFields?.ros?.text, editor, isFetched, isFetching]);
+  }, [
+    chartDataFields?.ros?.text,
+    chartDataFields?.rosNarrative,
+    chartDataFields?.rosNarrative?.text,
+    editor,
+    isFetched,
+    isFetching,
+    isNarrativeMode,
+  ]);
 
   useEffect(() => {
     if (editor) {
-      editor.setEditable(!isRosChartDataLoading);
+      editor.setEditable(!isRosChartDataLoading && !isRosNarrativeLoading);
     }
-  }, [isRosChartDataLoading, editor]);
+  }, [isRosChartDataLoading, isRosNarrativeLoading, editor]);
+
+  const handleGenerateNarrative = (): void => {
+    if (!editor) return;
+
+    const markdown = rosToMarkdown(editor.state.doc);
+    const narrative = generateNarrativeFromMarkdown(markdown);
+
+    setIsNarrativeMode(true);
+
+    onRosNarrativeChange(narrative);
+
+    isUpdatingFromServer.current = true;
+    editor.commands.setContent(narrative);
+    lastMarkdown.current = narrative;
+
+    requestAnimationFrame(() => {
+      isUpdatingFromServer.current = false;
+    });
+  };
+
+  const handleDeleteNarrative = (): void => {
+    setIsNarrativeMode(false);
+    onRosNarrativeChange('');
+
+    const rosMarkdown = chartDataFields?.ros?.text || '';
+    const doc = markdownToRos(rosMarkdown);
+    isUpdatingFromServer.current = true;
+    editor?.commands.setContent(doc);
+
+    requestAnimationFrame(() => {
+      isUpdatingFromServer.current = false;
+    });
+  };
+  const isLoading = isRosLoading || isRosNarrativeLoading;
 
   return (
-    <Box
-      sx={{
-        position: 'relative',
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        minHeight: '120px',
-        '&:hover': {
-          borderColor: 'text.primary',
-        },
-        '&:focus-within': {
-          borderColor: 'primary.main',
-          borderWidth: '2px',
-          margin: '-1px', // Prevent layout shift when border width changes
-        },
-      }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos}
-    >
-      <Box
-        sx={{
-          p: 2,
-          '& .ProseMirror': {
-            outline: 'none',
-            minHeight: '80px',
-            '& p.is-editor-empty:first-of-type::before': {
-              color: 'text.disabled',
-              content: 'attr(data-placeholder)',
-              float: 'left',
-              height: 0,
-              pointerEvents: 'none',
-            },
-            '& ul[data-type="taskList"]': {
-              listStyle: 'none',
-              padding: 0,
-              '& li': {
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                marginBottom: '0.5rem',
-                '& > label': {
-                  flex: '0 0 auto',
-                  marginRight: '0.5rem',
-                  userSelect: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                },
-                '& > div': {
-                  flex: '1 1 auto',
-                  '& > p': {
-                    margin: 0,
-                  },
-                },
-                '& input[type="checkbox"]': {
-                  width: '18px',
-                  height: '18px',
-                  margin: 0,
-                  cursor: 'pointer',
-                },
-              },
-            },
-            '& ul, & ol': {
-              paddingLeft: '1.5rem',
-            },
-            '& h1, & h2, & h3, & h4, & h5, & h6': {
-              fontWeight: 600,
-              marginTop: '1rem',
-              marginBottom: '0.5rem',
-            },
-            '& code': {
-              backgroundColor: 'action.hover',
-              borderRadius: '0.25rem',
-              padding: '0.125rem 0.25rem',
-              fontFamily: 'monospace',
-            },
-            '& pre': {
-              backgroundColor: 'action.hover',
-              borderRadius: '0.5rem',
-              padding: '0.75rem',
-              overflow: 'auto',
-              '& code': {
-                backgroundColor: 'transparent',
-                padding: 0,
-              },
-            },
-            '& blockquote': {
-              borderLeft: '3px solid',
-              borderColor: 'divider',
-              paddingLeft: '1rem',
-              marginLeft: 0,
-            },
-          },
-        }}
-      >
-        <EditorContent editor={editor} />
-      </Box>
-      {isRosLoading && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <CircularProgress size="20px" />
+    <Box>
+      <RosEditor editor={editor} isLoading={isLoading} dataTestId={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos} />
+
+      {!isNarrativeMode && (
+        <Box sx={{ mt: 2 }}>
+          <RoundedButton variant="contained" onClick={handleGenerateNarrative} disabled={isLoading || !editor}>
+            Generate ROS Narrative
+          </RoundedButton>
+        </Box>
+      )}
+      {isNarrativeMode && (
+        <Box sx={{ mt: 2 }}>
+          <RoundedButton variant="contained" onClick={handleDeleteNarrative}>
+            Back to ROS
+          </RoundedButton>
         </Box>
       )}
     </Box>
@@ -220,19 +248,22 @@ export const RosFieldReadOnly: FC = () => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
       ros: { _tag: 'ros' },
+      rosNarrative: { _tag: 'ros-narrative' },
     },
   });
 
-  const ros = chartFields?.ros?.text;
+  const rosText = chartFields?.rosNarrative?.text || chartFields?.ros?.text;
 
-  if (!ros) return null;
+  if (!rosText) return null;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <Typography variant="subtitle2" color="primary.dark">
         ROS provider notes
       </Typography>
-      <Typography variant="body2">{ros}</Typography>
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+        {rosText}
+      </Typography>
     </Box>
   );
 };
