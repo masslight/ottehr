@@ -21,6 +21,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { ExamType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
+import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { TemplateOption, useListTemplates } from './useListTemplates';
 
 export const ApplyTemplate: React.FC = () => {
@@ -75,6 +76,11 @@ export const ApplyTemplate: React.FC = () => {
           templateName: pendingTemplate,
           examType: ExamType.IN_PERSON,
         });
+
+        // Reset exam observations store to force reload from server
+        // This is necessary because exam observations are stored in Zustand (not React Query)
+        // and need to be cleared before React Query refetch triggers the update
+        resetExamObservationsStore();
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([

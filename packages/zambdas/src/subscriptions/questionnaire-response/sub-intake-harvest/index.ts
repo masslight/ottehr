@@ -211,14 +211,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
-      await updateStripeCustomer(
-        {
-          account: updatedAccount,
-          guarantorResource: updatedGuarantorResource,
-          stripeClient,
-        },
-        oystehr
-      );
+      await updateStripeCustomer({
+        account: updatedAccount,
+        guarantorResource: updatedGuarantorResource,
+        stripeClient,
+      });
       console.timeEnd('updating stripe customer');
     } else {
       console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');

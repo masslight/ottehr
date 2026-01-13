@@ -173,7 +173,32 @@ export const LabsTableRow = ({
       case 'detail':
         return lab.isPSC ? PSC_LOCALE : '';
       case 'actions':
-        if (allowDelete) {
+        if (allowAbnRejection && lab.orderStatus === 'sent') {
+          return (
+            <Box display="flex">
+              <Button
+                onClick={handleRejectAbnClick}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 28,
+                  fontWeight: 'bold',
+                }}
+              >
+                <CancelOutlinedIcon sx={{ color: otherColors.priorityHighText }} />
+              </Button>
+              <Button
+                onClick={handleDeleteClick}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 28,
+                  fontWeight: 'bold',
+                }}
+              >
+                <DeleteIcon sx={{ color: otherColors.priorityHighText }} />
+              </Button>
+            </Box>
+          );
+        } else if (allowDelete) {
           return (
             <Button
               onClick={handleDeleteClick}
@@ -184,19 +209,6 @@ export const LabsTableRow = ({
               }}
             >
               <DeleteIcon sx={{ color: otherColors.priorityHighText }} />
-            </Button>
-          );
-        } else if (allowAbnRejection && lab.orderStatus === 'sent') {
-          return (
-            <Button
-              onClick={handleRejectAbnClick}
-              sx={{
-                textTransform: 'none',
-                borderRadius: 28,
-                fontWeight: 'bold',
-              }}
-            >
-              <CancelOutlinedIcon sx={{ color: otherColors.priorityHighText }} />
             </Button>
           );
         }

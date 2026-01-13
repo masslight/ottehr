@@ -737,7 +737,10 @@ async function ensureOwnerResourceSchedulesAndSlots(
             extension: [
               ...extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL),
               { url: SCHEDULE_EXTENSION_URL, valueString: FULL_DAY_SCHEDULE },
-              { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+              {
+                url: TIMEZONE_EXTENSION_URL,
+                valueString: existingTimezoneExtension ? existingTimezoneExtension.valueString : 'America/New_York',
+              },
             ],
           },
         });

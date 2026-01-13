@@ -63,7 +63,9 @@ async function main(): Promise<void> {
     await handler.waitTillHarvestingDone(appointmentId);
     console.log('Harvesting complete');
 
+    // todo: remove this after timing issues are resolved
     await handler.waitForListIndexing(handler.patient.id!);
+    await new Promise((resolve) => setTimeout(resolve, 20_000));
 
     console.log('Fetching all related resources...');
     const apiClient = await handler.apiClient;
