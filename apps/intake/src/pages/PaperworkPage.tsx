@@ -508,14 +508,14 @@ export const PaperworkPage: FC = () => {
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
 
-            if (currentPage.linkId === 'consent-forms-page') {
+            const nextPage = getNextPage(updatedPaperwork);
+
+            if (currentPage.linkId === 'consent-forms-page' && nextPage === undefined) {
               const success = await submitPaperwork();
               if (!success) {
                 return;
               }
             }
-
-            const nextPage = getNextPage(updatedPaperwork);
             navigate(
               `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
             );

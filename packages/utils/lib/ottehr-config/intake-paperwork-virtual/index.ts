@@ -473,16 +473,11 @@ const FormFields = {
             customLinkId: 'allergies-form-agent-substance',
             acceptsMultipleAnswers: true,
             categoryTag: 'Medication',
+            disabledDisplay: 'hidden',
             triggers: [
               {
                 targetQuestionLinkId: 'allergies.allergies-form-type',
-                effect: ['enable'],
-                operator: '=',
-                answerString: 'Medications',
-              },
-              {
-                targetQuestionLinkId: 'allergies.allergies-form-type',
-                effect: ['require'],
+                effect: ['enable', 'require'],
                 operator: '=',
                 answerString: 'Medications',
               },
@@ -496,16 +491,11 @@ const FormFields = {
             customLinkId: 'allergies-form-agent-substance',
             acceptsMultipleAnswers: true,
             categoryTag: 'Other',
+            disabledDisplay: 'hidden',
             triggers: [
               {
                 targetQuestionLinkId: 'allergies.allergies-form-type',
-                effect: ['enable'],
-                operator: '=',
-                answerString: 'Other',
-              },
-              {
-                targetQuestionLinkId: 'allergies.allergies-form-type',
-                effect: ['require'],
+                effect: ['enable', 'require'],
                 operator: '=',
                 answerString: 'Other',
               },
@@ -2265,23 +2255,7 @@ const FormFields = {
         label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
         text: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
         type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
         permissibleValue: true,
-        disabledDisplay: 'disabled',
       },
       consentToTreat: {
         key: 'consent-to-treat',
@@ -2289,23 +2263,7 @@ const FormFields = {
           'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
         text: 'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
         type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
         permissibleValue: true,
-        disabledDisplay: 'disabled',
       },
       signature: {
         key: 'signature',
@@ -2313,45 +2271,13 @@ const FormFields = {
         text: 'Signature',
         type: 'string',
         dataType: 'Signature',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        disabledDisplay: 'disabled',
       },
       fullName: {
         key: 'full-name',
         label: 'Full name',
         text: 'Full name',
         type: 'string',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
         autocomplete: 'section-consent-forms shipping name',
-        disabledDisplay: 'disabled',
       },
       consentFormSignerRelationship: {
         key: 'consent-form-signer-relationship',
@@ -2359,22 +2285,6 @@ const FormFields = {
         text: 'Relationship to the patient',
         type: 'choice',
         options: formValueSets.relationshipOptions,
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        disabledDisplay: 'disabled',
       },
     },
     hiddenFields: [],
