@@ -52,7 +52,7 @@ export const OrderDetailsSection: React.FC = () => {
           name="details.units"
           label="Units"
           options={UNIT_OPTIONS.map((option) => option.value)}
-          getOptionLabel={(option) => UNIT_OPTIONS.find((opt) => opt.value === option) ?? option}
+          getOptionLabel={(option) => UNIT_OPTIONS.find((opt) => opt.value === option)?.label ?? option}
           required
           dataTestId={dataTestIds.orderVaccinePage.units}
         />
