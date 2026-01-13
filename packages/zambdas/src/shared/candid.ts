@@ -950,7 +950,7 @@ const createCandidCoverages = async (
 
   const candidCoverages: CandidPreEncounterCoverage[] = [];
 
-  if (coverages === undefined || coverages.primary === undefined) {
+  if (coverages === undefined) {
     return candidCoverages;
   }
   const primaryInsuranceOrg = insuranceOrgs.find(

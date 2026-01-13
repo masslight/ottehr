@@ -2671,6 +2671,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         updatedWorkersCompCoverage.identifier = [
           createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
         ];
+        updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
       }
       if (workersCompInsuranceOrg) {
         updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
@@ -2720,6 +2721,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             },
           ],
         },
+        subscriberId: workersCompMemberId,
         class: [
           {
             type: {
