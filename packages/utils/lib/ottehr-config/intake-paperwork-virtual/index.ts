@@ -91,6 +91,7 @@ const FormFields = {
       patientBirthSexMissing: {
         key: 'patient-birth-sex-missing',
         type: 'boolean',
+        required: false,
       },
       appointmentServiceCategory: {
         key: 'appointment-service-category',
@@ -294,14 +295,6 @@ const FormFields = {
   primaryCarePhysician: {
     linkId: 'primary-care-physician-page',
     title: 'Primary Care Physician',
-    triggers: [
-      {
-        targetQuestionLinkId: 'contact-information-page.patient-street-address-2',
-        effect: ['enable'],
-        operator: '!=',
-        answerString: 'conditional-filter-test-1234',
-      },
-    ],
     items: {
       firstName: {
         key: 'pcp-first',
@@ -2535,7 +2528,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults: QuestionnaireBase = {
   resourceType: 'Questionnaire',
   url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual',
-  version: '1.0.19',
+  version: '1.0.20',
   name: 'virtual_pre-visit_paperwork',
   title: 'virtual pre-visit paperwork',
   status: 'active',

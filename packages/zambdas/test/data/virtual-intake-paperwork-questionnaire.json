@@ -447,7 +447,7 @@
       {
         "linkId": "patient-birth-sex-missing",
         "type": "boolean",
-        "required": true,
+        "required": false,
         "readOnly": true,
         "extension": [
           {
@@ -936,13 +936,6 @@
             "valueString": "section-pcp shipping tel"
           }
         ]
-      }
-    ],
-    "enableWhen": [
-      {
-        "question": "contact-information-page.patient-street-address-2",
-        "operator": "!=",
-        "answerString": "conditional-filter-test-1234"
       }
     ]
   },

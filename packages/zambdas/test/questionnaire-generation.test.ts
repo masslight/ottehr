@@ -7,32 +7,46 @@ import {
 } from 'utils';
 import { expect } from 'vitest';
 import InPersonIntakeQuestionnaireConfig from '../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import VirtualIntakeQuestionnaireConfig from '../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import BookingQuestionnaire from './data/booking-questionnaire.json' assert { type: 'json' };
 import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json' assert { type: 'json' };
 import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json' assert { type: 'json' };
 import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork-questionnaire.json' assert { type: 'json' };
 
 describe('testing Questionnaire generation from config objects', () => {
-  test.concurrent('intake paperwork config JSON matches generated questionnaire', () => {
+  test.concurrent('in person intake paperwork config JSON matches generated questionnaire', () => {
     const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
-    const actualConfigQuestionnaire = (InPersonIntakeQuestionnaireConfig as any).fhirResources[
-      'questionnaire-in-person-previsit-1_1_4'
-    ].resource;
+    const key = Object.keys((InPersonIntakeQuestionnaireConfig as any).fhirResources as any)[0];
+    const actualConfigQuestionnaire = (InPersonIntakeQuestionnaireConfig as any).fhirResources[key].resource;
 
     expect(actualConfigQuestionnaire).toBeDefined();
     expect(generatedQuestionnaire).toEqual(actualConfigQuestionnaire);
   });
 
+  test.concurrent('virtual intake paperwork config JSON matches generated questionnaire', () => {
+    const generatedQuestionnaire = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
+    const key = Object.keys((VirtualIntakeQuestionnaireConfig as any).fhirResources as any)[0];
+    const actualConfigQuestionnaire = (VirtualIntakeQuestionnaireConfig as any).fhirResources[key].resource;
+
+    expect(actualConfigQuestionnaire).toBeDefined();
+    expect(generatedQuestionnaire).toEqual(actualConfigQuestionnaire);
+  });
+
+  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test.concurrent('patient record questionnaire config generates expected questionnaire items', async () => {
     const questionnaireItems = createQuestionnaireItemFromConfig(PATIENT_RECORD_CONFIG);
     expect(questionnaireItems).toBeDefined();
     expect(questionnaireItems).toEqual(PatientRecordQuestionnaire);
   });
+
+  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test.concurrent('booking questionnaire config generates expected questionnaire items', async () => {
     const questionnaireItems = createQuestionnaireItemFromConfig(BOOKING_CONFIG.formConfig);
     expect(questionnaireItems).toBeDefined();
     expect(questionnaireItems).toEqual(BookingQuestionnaire.item);
   });
+
+  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test.concurrent('intake paperwork questionnaire generates expected questionnaire', async () => {
     const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
     expect(generatedQuestionnaire).toBeDefined();
@@ -107,6 +121,7 @@ describe('testing Questionnaire generation from config objects', () => {
     }
   });
 
+  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test.concurrent('virtual intake paperwork questionnaire generates expected questionnaire', async () => {
     const generatedQuestionnaire = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
     expect(generatedQuestionnaire).toBeDefined();
