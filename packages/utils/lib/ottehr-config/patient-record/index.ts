@@ -2,14 +2,7 @@ import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, Questionna
 import _ from 'lodash';
 import { z } from 'zod';
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import {
-  makeAnswer,
-  makePrepopulatedItemsFromPatientRecord,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
-  ORG_TYPE_PAYER_CODE,
-  PrePopulationFromPatientRecordInput,
-} from '../../main';
+import { makeAnswer, makePrepopulatedItemsFromPatientRecord, PrePopulationFromPatientRecordInput } from '../../main';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
@@ -246,7 +239,7 @@ const FormFields = {
           dataSource: {
             answerSource: {
               resourceType: 'Organization',
-              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
               prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           },
@@ -369,7 +362,7 @@ const FormFields = {
           dataSource: {
             answerSource: {
               resourceType: 'Organization',
-              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
               prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           },
@@ -730,7 +723,7 @@ const FormFields = {
         dataSource: {
           answerSource: {
             resourceType: 'Organization',
-            query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
             prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
           },
         },
@@ -771,7 +764,7 @@ const FormFields = {
         dataSource: {
           answerSource: {
             resourceType: 'Organization',
-            query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE}`,
+            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
             prependedIdentifier: '1',
           },
         },

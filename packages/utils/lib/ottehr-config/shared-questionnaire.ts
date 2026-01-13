@@ -109,7 +109,7 @@ const FormFieldsValueTypeBaseSchema = z.object({
   triggers: z.array(triggerSchema).optional(),
   dynamicPopulation: dynamicPopulationSchema.optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-  disabledDisplay: z.enum(['hidden', 'disabled', 'protected']).default('disabled'),
+  disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
   inputWidth: z.enum(['s', 'm', 'l']).optional(),
   autocomplete: z.string().optional(),
@@ -741,8 +741,9 @@ const convertFormFieldToQuestionnaireItem = (
     extensions.push(createDataTypeExtension(field.dataType));
   }
 
-  if (field.disabledDisplay && field.disabledDisplay !== 'disabled') {
-    extensions.push(createDisabledDisplayExtension(field.disabledDisplay));
+  if (field.disabledDisplay) {
+    const disabledDisplay = field.disabledDisplay === 'disabled' ? 'protected' : field.disabledDisplay;
+    extensions.push(createDisabledDisplayExtension(disabledDisplay));
   }
 
   if (field.dynamicPopulation) {

@@ -1164,7 +1164,7 @@ const FormFields = {
           },
         ],
         inputWidth: 'm',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-first-name' },
       },
       lastName: {
@@ -1181,7 +1181,7 @@ const FormFields = {
           },
         ],
         inputWidth: 'm',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-last-name' },
       },
       birthDate: {
@@ -1198,7 +1198,7 @@ const FormFields = {
             answerString: 'Self',
           },
         ],
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
       },
       birthSex: {
@@ -1215,7 +1215,7 @@ const FormFields = {
             answerString: 'Self',
           },
         ],
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
       },
       addressSameAsPatient: {
@@ -1252,7 +1252,7 @@ const FormFields = {
           },
         ],
         enableBehavior: 'all',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-street-address' },
       },
       streetAddress2: {
@@ -1275,7 +1275,7 @@ const FormFields = {
           },
         ],
         enableBehavior: 'all',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
       },
       city: {
@@ -1299,7 +1299,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         inputWidth: 's',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-city' },
       },
       state: {
@@ -1324,7 +1324,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         inputWidth: 's',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-state' },
       },
       zip: {
@@ -1349,7 +1349,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         inputWidth: 's',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-zip' },
       },
       phoneNumber: {
@@ -1366,7 +1366,7 @@ const FormFields = {
             answerString: 'Self',
           },
         ],
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-number' },
       },
       email: {
@@ -1383,7 +1383,7 @@ const FormFields = {
             answerString: 'Self',
           },
         ],
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-email' },
       },
     },
@@ -1570,7 +1570,7 @@ const FormFields = {
           },
         ],
         enableBehavior: 'all',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-street-address' },
       },
       streetAddress2: {
@@ -1587,7 +1587,7 @@ const FormFields = {
           },
         ],
         enableBehavior: 'all',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
       },
       city: {
@@ -1605,7 +1605,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         inputWidth: 's',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-city' },
       },
       state: {
@@ -1624,7 +1624,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         inputWidth: 's',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-state' },
       },
       zip: {
@@ -1643,7 +1643,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         inputWidth: 's',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-zip' },
       },
     },
@@ -1841,7 +1841,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         permissibleValue: true,
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
       },
       consentToTreat: {
         key: 'consent-to-treat',
@@ -1865,7 +1865,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         permissibleValue: true,
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
       },
       signature: {
         key: 'signature',
@@ -1888,7 +1888,7 @@ const FormFields = {
           },
         ],
         enableBehavior: 'all',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
       },
       fullName: {
         key: 'full-name',
@@ -1911,7 +1911,7 @@ const FormFields = {
         ],
         enableBehavior: 'all',
         autocomplete: 'section-consent-forms shipping name',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
       },
       consentFormSignerRelationship: {
         key: 'consent-form-signer-relationship',
@@ -1934,7 +1934,7 @@ const FormFields = {
           },
         ],
         enableBehavior: 'all',
-        disabledDisplay: 'protected',
+        disabledDisplay: 'disabled',
       },
     },
     hiddenFields: [],
