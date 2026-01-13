@@ -1,4 +1,5 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
@@ -6,14 +7,22 @@ import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
+import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { APIErrorCode, CPTCodeOption, emCodeOptions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetIcd10Search } from '../../stores/appointment/appointment.queries';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
+import {
+  useAppointmentData,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../../stores/appointment/appointment.store';
 
 export const BillingCodesContainer: FC = () => {
+  const queryClient = useQueryClient();
+  const { encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const cptCodes = chartData?.cptCodes || [];
@@ -76,26 +85,34 @@ export const BillingCodesContainer: FC = () => {
     );
   };
 
-  const onDelete = (resourceId: string): void => {
+  const onDelete = async (resourceId: string): Promise<void> => {
+    const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
     const prevCodes = [...cptCodes];
-    const preparedValue = prevCodes.find((item) => item.resourceId === resourceId)!;
+    const queryKey = [CHART_DATA_QUERY_KEY, encounter?.id];
+
+    // Cancel any outgoing refetches (from MDM field) to prevent race condition
+    await queryClient.cancelQueries({ queryKey });
 
     // Optimistic update
     setPartialChartData(
       { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
       { invalidateQueries: false }
     );
+
     deleteCPTChartData(
       {
         cptCodes: [preparedValue],
       },
       {
         onSuccess: () => {
-          // update one more time to make sure the data is updated (because of refetchChartDataOnSave in MedicalDecisionField.tsx)
-          setPartialChartData(
-            { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
-            { invalidateQueries: false }
-          );
+          // Get fresh data from cache after cancellation and apply the filter again
+          const currentData = queryClient.getQueryData<any>(queryKey);
+          if (currentData?.cptCodes) {
+            setPartialChartData(
+              { cptCodes: currentData.cptCodes.filter((i: any) => i.resourceId !== resourceId) },
+              { invalidateQueries: false }
+            );
+          }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
