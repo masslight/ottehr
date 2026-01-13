@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
 import { AllChartValues, GetChartDataResponse } from 'utils';
@@ -55,7 +54,6 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
 } => {
   const { refetch } = useChartData();
-  const queryClient = useQueryClient();
   const {
     isLoading: isChartDataLoading,
     data: chartFields,
@@ -68,38 +66,6 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
 
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-
-  // Helper function to safely refetch chart data, waiting for pending mutations to complete
-  // This prevents race conditions where refetch overwrites optimistic updates
-  const safeRefetch = useRef<(() => void) | null>(null);
-
-  const performSafeRefetch = (): void => {
-    // Get all mutations from the mutation cache
-    const mutationCache = queryClient.getMutationCache();
-    const allMutations = mutationCache.getAll();
-
-    // Check if there are any pending mutations
-    const hasPendingMutations = allMutations.some((mutation) => mutation.state.status === 'pending');
-
-    if (hasPendingMutations) {
-      // If there are pending mutations, wait a bit and try again
-      // Clear any existing timeout first
-      if (safeRefetch.current) {
-        return; // Already scheduled
-      }
-      safeRefetch.current = performSafeRefetch;
-      setTimeout(() => {
-        safeRefetch.current = null;
-        performSafeRefetch();
-      }, 100);
-    } else {
-      // Safe to refetch now - no pending mutations
-      safeRefetch.current = null;
-      refetch()
-        .then(() => console.log('Successfully re-fetched'))
-        .catch(() => console.log('Error refetching'));
-    }
-  };
 
   const isLoading = isSaveLoading || isDeleteLoading;
 
@@ -159,8 +125,10 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             }
 
             if (refetchChartDataOnSave) {
-              // Safely refetch chart data, waiting for any pending mutations to complete
-              performSafeRefetch();
+              // refetch chart data
+              refetch()
+                .then(() => console.log('Successfully re-fetched'))
+                .catch(() => console.log('Error refetching'));
             }
 
             hasPendingApiRequestsRef.current = false;
@@ -185,8 +153,10 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             latestValueFromServerRef.current = undefined;
 
             if (refetchChartDataOnSave) {
-              // Safely refetch chart data, waiting for any pending mutations to complete
-              performSafeRefetch();
+              // refetch chart data
+              refetch()
+                .then(() => console.log('Successfully re-fetched'))
+                .catch(() => console.log('Error refetching'));
             }
           },
           onError: () => {

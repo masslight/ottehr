@@ -77,9 +77,8 @@ export const BillingCodesContainer: FC = () => {
   };
 
   const onDelete = (resourceId: string): void => {
-    const localCodes = cptCodes;
-    const preparedValue = localCodes.find((item) => item.resourceId === resourceId)!;
-    const prevCodes = [...localCodes];
+    const prevCodes = [...cptCodes];
+    const preparedValue = prevCodes.find((item) => item.resourceId === resourceId)!;
 
     // Optimistic update
     setPartialChartData(
@@ -92,7 +91,11 @@ export const BillingCodesContainer: FC = () => {
       },
       {
         onSuccess: () => {
-          // No need to update again, optimistic update already applied
+          // update one more time to make sure the data is updated (because of refetchChartDataOnSave in MedicalDecisionField.tsx)
+          setPartialChartData(
+            { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
+            { invalidateQueries: false }
+          );
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
