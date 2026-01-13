@@ -323,10 +323,6 @@ export const dataTestIds = {
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
   },
-  vitalsPage: {
-    addWeightButton: 'add-weight-button',
-    addHeightButton: 'add-height-button',
-  },
   inHouseMedicationsPage: {
     title: 'medications-title',
     orderButton: 'order-button',
