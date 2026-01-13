@@ -179,6 +179,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     timezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
     orderAddedDate: parseOrderAddedDate(serviceRequest, tasks),
     serviceRequestId: serviceRequest.id,
+    cptCodes: testItem.cptCode,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {

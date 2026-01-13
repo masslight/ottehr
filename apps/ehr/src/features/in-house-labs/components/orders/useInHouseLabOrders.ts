@@ -1,8 +1,10 @@
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useDeleteCommonLabOrderDialog } from 'src/features/common/useDeleteCommonLabOrderDialog';
-import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, tryFormatDateToISO } from 'utils';
+import { useChartData, useDeleteChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, ExternalLabsStatus, tryFormatDateToISO } from 'utils';
 import {
   DeleteInHouseLabOrderParameters,
   GetInHouseOrdersParameters,
@@ -32,9 +34,11 @@ interface UseInHouseLabOrdersResult {
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
+    testItemStatus,
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus?: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactNode | null;
 }
@@ -48,6 +52,8 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const { chartData, setPartialChartData } = useChartData();
+  const { mutate: deleteCPTChartData } = useDeleteChartData();
 
   /**
    * Search state management strategy:
@@ -186,11 +192,48 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
       setError(null);
 
       try {
+        const labOrderToDelete = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
+        if (!labOrderToDelete) {
+          console.error(`Unable to find serviceRequestId ${serviceRequestId} among labOrders`);
+          setError(new Error('ServiceRequest ID not found among orders'));
+          return false;
+        }
         await deleteInHouseLabOrder(oystehrZambda, {
           serviceRequestId,
         });
 
         setSearchParams({ pageNumber: 1 });
+
+        // handle removing the cpt codes
+        const codesToDelete = labOrderToDelete.cptCodes;
+        const preDeleteCptCodesDTO = chartData?.cptCodes || [];
+        const cptCodesToDeleteDTO = preDeleteCptCodesDTO.filter((cptCodeDTO) =>
+          codesToDelete.includes(cptCodeDTO.code)
+        );
+        const expectedPostDeleteCodesDTO = preDeleteCptCodesDTO.filter(
+          (cptCodeDTO) => !codesToDelete.includes(cptCodeDTO.code)
+        );
+
+        // Optimistic update
+        setPartialChartData({ cptCodes: expectedPostDeleteCodesDTO }, { invalidateQueries: false });
+        deleteCPTChartData(
+          {
+            cptCodes: cptCodesToDeleteDTO,
+          },
+          {
+            onSuccess: () => {
+              // No need to update again, optimistic update already applied
+            },
+            onError: () => {
+              enqueueSnackbar(
+                'An error has occurred while deleting CPT codes associated with the order. You may need to manually remove the CPT codes from the assessment',
+                { variant: 'error' }
+              );
+              // Rollback to previous state
+              setPartialChartData({ cptCodes: preDeleteCptCodesDTO });
+            },
+          }
+        );
 
         return true;
       } catch (err) {
@@ -204,7 +247,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
         setLoading(false);
       }
     },
-    [oystehrZambda, setSearchParams]
+    [oystehrZambda, setSearchParams, labOrders, chartData?.cptCodes, deleteCPTChartData, setPartialChartData]
   );
 
   // handle delete dialog

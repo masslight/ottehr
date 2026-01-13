@@ -96,9 +96,10 @@ export type InHouseOrderListPageItemDTO = {
   timezone: string | undefined;
   orderAddedDate: string;
   orderingPhysicianFullName: string;
+  cptCodes: string[];
 };
 
-export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
+export type InHouseOrderDetailPageItemDTO = Omit<InHouseOrderListPageItemDTO, 'cptCode'> & {
   orderingPhysicianId: string;
   currentUserId: string;
   currentUserFullName: string;
