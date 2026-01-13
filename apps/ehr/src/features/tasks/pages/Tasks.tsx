@@ -1,20 +1,9 @@
 import { WarningAmberOutlined } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
-import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
-import ShortcutIcon from '@mui/icons-material/Shortcut';
 import {
   Box,
   CircularProgress,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Paper,
-  Popover,
   Table,
   TableBody,
   TableCell,
@@ -36,20 +25,17 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import {
   formatDate,
-  Task,
   TASKS_PAGE_SIZE,
-  useAssignTask,
   useCompleteTask,
   useGetTasks,
-  useUnassignTask,
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { TaskAlertCode, TaskAlertDisplay } from 'utils';
+import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils';
 import { TASK_CATEGORY_LABEL } from '../common';
-import { AssignTaskDialog } from '../components/AssignTaskDialog';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
+import { MoreTaskActions } from '../components/MoreTaskActions';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
@@ -85,17 +71,9 @@ const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) =
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
-  const { mutateAsync: assignTask } = useAssignTask();
-  const { mutateAsync: unassignTask } = useUnassignTask();
   const { mutateAsync: completeTask } = useCompleteTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
-
-  const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
-    element: HTMLButtonElement;
-    task: Task;
-  } | null>(null);
-  const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
 
   const renderActionButton = (task: Task): ReactElement | null => {
     if (task.status === COMPLETED) {
@@ -120,21 +98,6 @@ export const Tasks: React.FC = () => {
       );
     }
     return null;
-  };
-
-  const renderMoreButton = (task: Task): ReactElement | null => {
-    if (task.status === COMPLETED) {
-      return null;
-    }
-    return (
-      <IconButton color="primary" onClick={(e) => setMoreActionsPopoverData({ element: e.currentTarget, task })}>
-        <MoreVertIcon fontSize="medium" />
-      </IconButton>
-    );
-  };
-
-  const closeMoreActionsPopover = (): void => {
-    setMoreActionsPopoverData(null);
   };
 
   const methods = useForm();
@@ -354,7 +317,9 @@ export const Tasks: React.FC = () => {
                           </Stack>
                         ) : null}
                       </TableCell>
-                      <TableCell>{task.status !== COMPLETED ? renderMoreButton(task) : null}</TableCell>
+                      <TableCell>
+                        <MoreTaskActions task={task} currentUser={currentUser} />
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -371,75 +336,6 @@ export const Tasks: React.FC = () => {
             }}
           />
         </Paper>
-        {moreActionsPopoverData ? (
-          <Popover
-            open={true}
-            anchorEl={moreActionsPopoverData.element}
-            onClose={closeMoreActionsPopover}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'left',
-            }}
-          >
-            <List>
-              {moreActionsPopoverData.task?.assignee?.id ? (
-                <ListItem disablePadding>
-                  <ListItemButton
-                    onClick={async () => {
-                      await unassignTask({
-                        taskId: moreActionsPopoverData.task.id,
-                      });
-                      closeMoreActionsPopover();
-                    }}
-                  >
-                    <ListItemIcon>
-                      <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                    </ListItemIcon>
-                    <ListItemText primary="Unassign" />
-                  </ListItemButton>
-                </ListItem>
-              ) : (
-                <>
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      onClick={async () => {
-                        if (currentUserProviderId && currentUser?.name) {
-                          await assignTask({
-                            taskId: moreActionsPopoverData.task.id,
-                            assignee: {
-                              id: currentUserProviderId,
-                              name: currentUser.userName,
-                            },
-                          });
-                          closeMoreActionsPopover();
-                        }
-                      }}
-                    >
-                      <ListItemIcon>
-                        <HowToRegOutlinedIcon color="primary" />
-                      </ListItemIcon>
-                      <ListItemText primary="Assign me" />
-                    </ListItemButton>
-                  </ListItem>
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      onClick={() => {
-                        setTaskToAssign(moreActionsPopoverData.task);
-                        closeMoreActionsPopover();
-                      }}
-                    >
-                      <ListItemIcon>
-                        <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                      </ListItemIcon>
-                      <ListItemText primary="Assign to someone else" />
-                    </ListItemButton>
-                  </ListItem>
-                </>
-              )}
-            </List>
-          </Popover>
-        ) : null}
-        {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
         <CreateTaskDialog
           open={showCreateTaskDialog}
           handleClose={(): void => {

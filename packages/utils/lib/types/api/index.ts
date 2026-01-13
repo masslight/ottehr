@@ -40,6 +40,7 @@ export * from './procedures.types';
 export * from './procedures.constants';
 export * from './radiology';
 export * from './rcm-claims';
+export * from './recent-patients-report.types';
 export * from './save-followup-encounter.types';
 export * from './schedules';
 export * from './send-fax.types';

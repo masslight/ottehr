@@ -23,6 +23,7 @@ import {
   getPatientAddress,
   getPhoneNumberForIndividual,
   getSecret,
+  getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   PAYMENT_METHOD_EXTENSION_URL,
   removePrefix,
@@ -134,7 +135,10 @@ async function getReceiptData(
 ): Promise<PatientPaymentReceiptData> {
   const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   const account: Account | undefined = accountResources.account;
-  const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
+
+  const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
   if (!customerId) throw new Error('No stripe customer id found');
 
   const [fhirBundle, listResourcesBundle, organization, paymentIntents, customer, paymentMethods] = await Promise.all([

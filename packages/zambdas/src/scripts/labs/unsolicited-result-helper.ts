@@ -10,7 +10,7 @@ import {
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { DR_UNSOLICITED_RESULT_TAG } from './lab-script-consts';
-import { createAttachmentDocRef } from './lab-script-helpers';
+import { createResultAttachmentDocRef } from './lab-script-helpers';
 
 type PatientDetails = {
   first: string;
@@ -111,7 +111,7 @@ const main = async (): Promise<void> => {
 
   const projectId = envConfig.PROJECT_ID;
   if (!projectId) throw new Error(`Could not get projectId`);
-  const attachmentDocRef = createAttachmentDocRef({
+  const attachmentDocRef = createResultAttachmentDocRef({
     ENV,
     projectId,
     relatedDiagnosticReportReferences: [{ reference: drFullUrl }],

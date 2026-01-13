@@ -1,7 +1,9 @@
 import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import { HospitalizationPage } from 'tests/e2e/page/HospitalizationPage';
 import { InPersonAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { expectExamPage } from 'tests/e2e/page/in-person/InPersonExamsPage';
 import {
@@ -41,6 +43,12 @@ const E_M_CODE = '99202';
 const CPT_CODE = '24640';
 const CPT_CODE_2 = '72146';
 
+const HOSPITALIZATION_REASON_1 = HospitalizationOptions[0].display;
+const HOSPITALIZATION_REASON_2 = HospitalizationOptions[1].display;
+const HOSPITALIZATION_NOTE_1 = 'Test hospitalization note 1';
+const HOSPITALIZATION_NOTE_2 = 'Test hospitalization note 2';
+const HOSPITALIZATION_NOTE_1_EDITED = 'Test hospitalization note 1 edited';
+
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 test.describe('In-Person Visit Chart Data', async () => {
@@ -64,6 +72,7 @@ test.describe('In-Person Visit Chart Data', async () => {
   let allergyPage: AllergiesPage;
   let medicalConditionsPage: MedicalConditionsPage;
   let surgicalHistoryPage: SurgicalHistoryPage;
+  let hospitalizationPage: HospitalizationPage;
   let sideMenu: SideMenu;
   let progressNotePage: InPersonProgressNotePage;
 
@@ -78,6 +87,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         allergyPage = new AllergiesPage(page);
         medicalConditionsPage = new MedicalConditionsPage(page);
         surgicalHistoryPage = new SurgicalHistoryPage(page);
+        hospitalizationPage = new HospitalizationPage(page);
         progressNotePage = new InPersonProgressNotePage(page);
 
         await test.step('ALG-1.1 Add allergy', async () => {
@@ -87,6 +97,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await allergyPage.checkAddedAllergyIsShownInHeader(ALLERGY);
         });
       });
+
       test('Medical Conditions', async () => {
         await sideMenu.clickMedicalConditions();
         await test.step('MC-1.1 Add Medical Condition', async () => {
@@ -98,6 +109,16 @@ test.describe('In-Person Visit Chart Data', async () => {
         await sideMenu.clickSurgicalHistory();
         await test.step('SH-1.1 Add Surgery', async () => {
           SURGERY = await surgicalHistoryPage.addSurgery();
+        });
+      });
+
+      test('Hospitalization', async () => {
+        await sideMenu.clickHospitalization();
+        await test.step('HS-1.1 Add Hospitalization', async () => {
+          await hospitalizationPage.addHospitalization(HOSPITALIZATION_REASON_1);
+          await hospitalizationPage.addHospitalization(HOSPITALIZATION_REASON_2);
+          await hospitalizationPage.addHospitalizationNote(HOSPITALIZATION_NOTE_1);
+          await hospitalizationPage.addHospitalizationNote(HOSPITALIZATION_NOTE_2);
         });
       });
     });
@@ -114,6 +135,13 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       test('SH-1.2 Verify Progress Note shows surgeries', async () => {
         await progressNotePage.verifyAddedSurgeryIsShown(SURGERY);
+      });
+
+      test('HS-1.2 Verify Progress Note shows hospitalizations', async () => {
+        await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_1);
+        await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_2);
+        await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_1);
+        await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_2);
       });
     });
 
@@ -137,6 +165,13 @@ test.describe('In-Person Visit Chart Data', async () => {
         await sideMenu.clickSurgicalHistory();
         await surgicalHistoryPage.removeSurgery();
       });
+
+      test('HS-1.3 Perform changes on Hospitalization page', async () => {
+        await sideMenu.clickHospitalization();
+        await hospitalizationPage.removeHospitalization(HOSPITALIZATION_REASON_2);
+        await hospitalizationPage.editHospitalizationNote(HOSPITALIZATION_NOTE_1, HOSPITALIZATION_NOTE_1_EDITED);
+        await hospitalizationPage.deleteHospitalizationNote(HOSPITALIZATION_NOTE_2);
+      });
     });
 
     test.describe('Check progress note page for the modified data', async () => {
@@ -152,6 +187,13 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       test('SH-1.4 Verify Progress Note does not show removed surgery', async () => {
         await progressNotePage.verifyRemovedSurgeryIsNotShown(SURGERY);
+      });
+
+      test('HSP-1.4 Verify hospitalizations changed data on Progress note', async () => {
+        await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_1);
+        await progressNotePage.verifyHospitalizationNotShown(HOSPITALIZATION_REASON_2);
+        await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_1_EDITED);
+        await progressNotePage.verifyHospitalizationNoteNotShown(HOSPITALIZATION_NOTE_2);
       });
     });
   });

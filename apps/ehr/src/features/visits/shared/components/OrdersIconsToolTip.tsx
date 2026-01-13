@@ -44,6 +44,7 @@ const EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES = [
   ExternalLabsStatus.pending,
   ExternalLabsStatus.prelim,
   ExternalLabsStatus.corrected,
+  ExternalLabsStatus.received,
   ExternalLabsStatus['rejected abn'],
   ExternalLabsStatus['cancelled by lab'],
 ];
@@ -222,6 +223,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
                       borderRadius: '50%',
                       top: '4px',
                       right: '11px',
+                      zIndex: 'auto',
                     },
                   }}
                 >
