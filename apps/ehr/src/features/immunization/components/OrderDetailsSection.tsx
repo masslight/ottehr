@@ -61,10 +61,8 @@ export const OrderDetailsSection: React.FC = () => {
         <AutocompleteInput
           name="details.route"
           label="Route"
-          options={ROUTE_OPTIONS}
-          getOptionLabel={(option) => option.name}
-          getOptionKey={(option) => option.code}
-          isOptionEqualToValue={(option, value) => option.code === value.code}
+          options={ROUTE_OPTIONS.map((option) => option.code)}
+          getOptionLabel={(option) => ROUTE_OPTIONS.find((opt) => opt.code === option)?.name ?? option}
           dataTestId={dataTestIds.orderVaccinePage.route}
         />
       </Grid>
