@@ -1289,7 +1289,7 @@
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                "valueString": "protected"
+                "valueString": "hidden"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/custom-link-id",
@@ -1417,7 +1417,7 @@
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                "valueString": "protected"
+                "valueString": "hidden"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/custom-link-id",

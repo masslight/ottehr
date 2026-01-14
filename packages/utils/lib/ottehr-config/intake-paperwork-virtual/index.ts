@@ -463,7 +463,7 @@ const FormFields = {
             customLinkId: 'allergies-form-agent-substance',
             acceptsMultipleAnswers: true,
             categoryTag: 'Medication',
-            disabledDisplay: 'disabled',
+            disabledDisplay: 'hidden',
             triggers: [
               {
                 targetQuestionLinkId: 'allergies.allergies-form-type',
@@ -481,7 +481,7 @@ const FormFields = {
             customLinkId: 'allergies-form-agent-substance',
             acceptsMultipleAnswers: true,
             categoryTag: 'Other',
-            disabledDisplay: 'disabled',
+            disabledDisplay: 'hidden',
             triggers: [
               {
                 targetQuestionLinkId: 'allergies.allergies-form-type',
