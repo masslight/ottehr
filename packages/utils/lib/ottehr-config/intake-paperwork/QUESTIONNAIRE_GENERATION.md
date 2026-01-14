@@ -476,7 +476,7 @@ employerInformationPage: {
 
 ### 5. Extensions vs Direct Properties
 - Use direct FHIR properties when available (`required`, `enableWhen`)
-- Use extensions for Zapehr-specific behavior (`data-type`, `disabled-display`)
+- Use extensions for Oystehr-specific behavior (`data-type`, `disabled-display`)
 - Keep extension usage consistent across similar fields
 
 ### 6. Testing
