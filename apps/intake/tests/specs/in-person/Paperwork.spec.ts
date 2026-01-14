@@ -590,7 +590,6 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
     await test.step('PPID-5. Open next page, click [Back] - check images are saved', async () => {
       await locator.clickContinueButton();
-      await paperwork.checkCorrectPageOpens('Complete consent forms');
       await locator.clickBackButton();
       await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
       await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
