@@ -114,9 +114,9 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
         getCardPaymentStepAnswers(),
         getResponsiblePartyStepAnswers({}),
         getSchoolWorkNoteStepAnswers(),
-        getConsentStepAnswers({}),
         getInviteParticipantStepAnswers(),
         patientConditionPhotosStepAnswers,
+        getConsentStepAnswers({}),
       ];
     }
   );

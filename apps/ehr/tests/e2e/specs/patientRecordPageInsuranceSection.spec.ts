@@ -687,12 +687,12 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       }),
       getResponsiblePartyStepAnswers({}),
       getEmergencyContactStepAnswers({}),
-      getConsentStepAnswers({}),
       getPrimaryCarePhysicianStepAnswers({})
     );
     if (hasEmployerInformationPage()) {
       answers.push(getEmployerInformationStepAnswers({}));
     }
+    answers.push(getConsentStepAnswers({}));
     return answers;
   });
   const oystehr = await ResourceHandler.getOystehr();
