@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how the `IN_PERSON_INTAKE_PAPERWORK_CONFIG` object is converted to a FHIR R4B Questionnaire resource with custom Zapehr extensions. The configuration provides a TypeScript-native way to define complex forms that get transformed into standards-compliant FHIR resources.
+This document describes how the `IN_PERSON_INTAKE_PAPERWORK_CONFIG` object is converted to a FHIR R4B Questionnaire resource with custom Oystehr extensions. The configuration provides a TypeScript-native way to define complex forms that get transformed into standards-compliant FHIR resources.
 
 ## Architecture
 
