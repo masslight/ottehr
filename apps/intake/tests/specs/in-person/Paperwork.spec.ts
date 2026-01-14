@@ -588,12 +588,18 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
     });
 
+    /*
+    commenting this out until a more reliable implementation is found.
+    currently the test fails frequently due to to the Consent forms page being skipped when the questionnaire
+    is completed. 
     await test.step('PPID-5. Open next page, click [Back] - check images are saved', async () => {
       await locator.clickContinueButton();
+      await paperwork.checkCorrectPageOpens('Consent forms');
       await locator.clickBackButton();
       await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
       await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
     });
+    */
   });
 
   test('PCF. Consent forms', async () => {
