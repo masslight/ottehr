@@ -1,16 +1,22 @@
-import { Box, Typography } from '@mui/material';
+import PostAddIcon from '@mui/icons-material/PostAdd';
+import { Box, IconButton, Typography } from '@mui/material';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { FC, useEffect, useRef, useState } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { GenericToolTip } from 'src/components/GenericToolTip';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { generateNarrativeFromMarkdown } from './shared/components/ros/generateNarrative';
+import { generateNarrativeFromMarkdown, isEmptyNarrative } from './shared/components/ros/generateNarrative';
 import { RosItem, RosList } from './shared/components/ros/RosItem';
 import { markdownToRos, rosToMarkdown } from './shared/components/ros/RosMarkdown';
+import { ROS_TEMPLATE } from './shared/components/ros/rosTemplate';
 import { RosEditor } from './shared/components/RosEditor';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
+
+type Mode = 'ros' | 'narrative';
 
 export const RosField: FC = () => {
   const {
@@ -35,9 +41,15 @@ export const RosField: FC = () => {
 
   const isUpdatingFromServer = useRef(false);
   const isInitialized = useRef(false);
-  const lastMarkdown = useRef<string>('');
+  const lastContent = useRef<string>('');
 
-  const [isNarrativeMode, setIsNarrativeMode] = useState(false);
+  const [mode, setMode] = useState<Mode>(() => (chartDataFields?.rosNarrative?.text ? 'narrative' : 'ros'));
+  // modeRef is used to access the latest mode inside TipTap callbacks
+  const modeRef = useRef<Mode>('ros');
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   const editor = useEditor({
     extensions: [
@@ -51,14 +63,14 @@ export const RosField: FC = () => {
         nested: true,
       }),
       Placeholder.configure({
-        placeholder: 'ROS (Optional) - Type headers, then - [ ] for items, or - [R]/[D] for Reports/Denies...',
+        placeholder: 'Type free text or type [ ] for systems checklist items',
       }),
     ],
     content: '',
     editable: !isRosChartDataLoading && !isRosNarrativeLoading,
     editorProps: {
       handlePaste: (view, event) => {
-        if (isNarrativeMode) return false;
+        if (modeRef.current === 'narrative') return false;
 
         const text = event.clipboardData?.getData('text/plain');
         if (text) {
@@ -76,37 +88,16 @@ export const RosField: FC = () => {
     },
     onUpdate: ({ editor }) => {
       if (!isUpdatingFromServer.current && isInitialized.current) {
-        if (isNarrativeMode) {
+        if (modeRef.current === 'narrative') {
           const text = editor.getText();
-          if (text !== lastMarkdown.current) {
-            lastMarkdown.current = text;
+          if (text !== lastContent.current) {
+            lastContent.current = text;
             onRosNarrativeChange(text);
           }
         } else {
           const markdown = rosToMarkdown(editor.state.doc);
-          if (markdown !== lastMarkdown.current) {
-            lastMarkdown.current = markdown;
-            onRosChange(markdown);
-          }
-        }
-      }
-    },
-    onTransaction: ({ editor, transaction }) => {
-      if (isUpdatingFromServer.current || !isInitialized.current) {
-        return;
-      }
-
-      if (transaction.docChanged) {
-        if (isNarrativeMode) {
-          const text = editor.getText();
-          if (text !== lastMarkdown.current) {
-            lastMarkdown.current = text;
-            onRosNarrativeChange(text);
-          }
-        } else {
-          const markdown = rosToMarkdown(editor.state.doc);
-          if (markdown !== lastMarkdown.current) {
-            lastMarkdown.current = markdown;
+          if (markdown !== lastContent.current) {
+            lastContent.current = markdown;
             onRosChange(markdown);
           }
         }
@@ -120,41 +111,38 @@ export const RosField: FC = () => {
 
     if (!isInitialized.current) {
       const hasNarrative = !!chartDataFields?.rosNarrative?.text;
-      setIsNarrativeMode(hasNarrative);
 
       if (hasNarrative) {
+        setMode('narrative');
         const narrativeText = chartDataFields.rosNarrative!.text!;
         isUpdatingFromServer.current = true;
-        editor.commands.setContent(narrativeText);
-        lastMarkdown.current = narrativeText;
+        editor.commands.setContent(narrativeText, { emitUpdate: false });
+        lastContent.current = narrativeText;
       } else {
         const rosMarkdown = chartDataFields?.ros?.text || '';
         const doc = markdownToRos(rosMarkdown);
         isUpdatingFromServer.current = true;
-        editor.commands.setContent(doc);
-        lastMarkdown.current = rosMarkdown;
+        editor.commands.setContent(doc, { emitUpdate: false });
+        lastContent.current = rosMarkdown;
       }
 
-      requestAnimationFrame(() => {
-        isUpdatingFromServer.current = false;
-        isInitialized.current = true;
-      });
+      isUpdatingFromServer.current = false;
+      isInitialized.current = true;
+
       return;
     }
 
     if (!isFetching) {
-      if (isNarrativeMode) {
+      if (mode === 'narrative') {
         const narrativeText = chartDataFields?.rosNarrative?.text || '';
         const currentText = editor.getText();
 
         if (currentText !== narrativeText) {
           isUpdatingFromServer.current = true;
-          editor.commands.setContent(narrativeText);
-          lastMarkdown.current = narrativeText;
+          editor.commands.setContent(narrativeText, { emitUpdate: false });
+          lastContent.current = narrativeText;
 
-          requestAnimationFrame(() => {
-            isUpdatingFromServer.current = false;
-          });
+          isUpdatingFromServer.current = false;
         }
       } else {
         const rosMarkdown = chartDataFields?.ros?.text || '';
@@ -163,12 +151,10 @@ export const RosField: FC = () => {
         if (currentMarkdown !== rosMarkdown) {
           const doc = markdownToRos(rosMarkdown);
           isUpdatingFromServer.current = true;
-          editor.commands.setContent(doc);
-          lastMarkdown.current = rosMarkdown;
+          editor.commands.setContent(doc, { emitUpdate: false });
+          lastContent.current = rosMarkdown;
 
-          requestAnimationFrame(() => {
-            isUpdatingFromServer.current = false;
-          });
+          isUpdatingFromServer.current = false;
         }
       }
     }
@@ -179,7 +165,7 @@ export const RosField: FC = () => {
     editor,
     isFetched,
     isFetching,
-    isNarrativeMode,
+    mode,
   ]);
 
   useEffect(() => {
@@ -194,46 +180,77 @@ export const RosField: FC = () => {
     const markdown = rosToMarkdown(editor.state.doc);
     const narrative = generateNarrativeFromMarkdown(markdown);
 
-    setIsNarrativeMode(true);
+    if (isEmptyNarrative(narrative)) {
+      enqueueSnackbar?.('No ROS items selected to generate narrative', {
+        variant: 'warning',
+      });
+
+      return;
+    }
+    setMode('narrative');
 
     onRosNarrativeChange(narrative);
 
     isUpdatingFromServer.current = true;
-    editor.commands.setContent(narrative);
-    lastMarkdown.current = narrative;
+    editor.commands.setContent(narrative, { emitUpdate: false });
+    lastContent.current = narrative;
 
-    requestAnimationFrame(() => {
-      isUpdatingFromServer.current = false;
-    });
+    isUpdatingFromServer.current = false;
   };
 
   const handleDeleteNarrative = (): void => {
-    setIsNarrativeMode(false);
+    setMode('ros');
     onRosNarrativeChange('');
 
     const rosMarkdown = chartDataFields?.ros?.text || '';
     const doc = markdownToRos(rosMarkdown);
     isUpdatingFromServer.current = true;
-    editor?.commands.setContent(doc);
+    editor?.commands.setContent(doc, { emitUpdate: false });
+    lastContent.current = rosMarkdown;
 
-    requestAnimationFrame(() => {
-      isUpdatingFromServer.current = false;
-    });
+    isUpdatingFromServer.current = false;
   };
+
+  const insertRosTemplate = useCallback(() => {
+    if (!editor) return;
+    if (mode !== 'ros') return;
+
+    const markdown = ROS_TEMPLATE;
+
+    isUpdatingFromServer.current = true;
+    editor.commands.setContent(markdownToRos(markdown), { emitUpdate: false });
+    lastContent.current = markdown;
+    onRosChange(markdown);
+
+    isUpdatingFromServer.current = false;
+  }, [editor, mode, onRosChange]);
   const isLoading = isRosLoading || isRosNarrativeLoading;
 
   return (
     <Box>
+      {mode === 'ros' && (
+        <GenericToolTip title={'Insert ROS template'}>
+          <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+            <IconButton
+              size="small"
+              onClick={insertRosTemplate}
+              disabled={isLoading || !editor}
+              aria-label="Insert ROS template"
+            >
+              <PostAddIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </GenericToolTip>
+      )}
       <RosEditor editor={editor} isLoading={isLoading} dataTestId={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos} />
-
-      {!isNarrativeMode && (
+      {mode === 'ros' && (
         <Box sx={{ mt: 2 }}>
           <RoundedButton variant="contained" onClick={handleGenerateNarrative} disabled={isLoading || !editor}>
             Generate ROS Narrative
           </RoundedButton>
         </Box>
       )}
-      {isNarrativeMode && (
+      {mode === 'narrative' && (
         <Box sx={{ mt: 2 }}>
           <RoundedButton variant="contained" onClick={handleDeleteNarrative}>
             Back to ROS

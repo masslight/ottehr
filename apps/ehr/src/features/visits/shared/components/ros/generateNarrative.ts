@@ -1,70 +1,47 @@
-type RosEntryType = 'reports' | 'denies' | 'free';
+export const isEmptyNarrative = (value: string): boolean => value.trim().length === 0;
 
-interface RosEntry {
-  type: RosEntryType;
-  text: string;
+interface ParsedRos {
+  reports: string[];
+  denies: string[];
 }
 
-const normalizeSentencePart = (text: string): string => text.replace(/\.$/, '').trim().toLowerCase();
-
-const joinSentence = (entries: RosEntry[]): string => entries.map((e) => normalizeSentencePart(e.text)).join(', ');
-
-export function parseRosMarkdown(markdown: string): RosEntry[] {
-  if (!markdown.trim()) return [];
-
-  const entries: RosEntry[] = [];
+const parseRosMarkdown = (markdown: string): ParsedRos => {
+  const reports: string[] = [];
+  const denies: string[] = [];
 
   markdown.split('\n').forEach((line) => {
     const trimmed = line.trim();
 
-    if (!trimmed) return;
+    const match = trimmed.match(/^-\s*\[(R|D)\]\s+(.+)$/);
+    if (!match) return;
 
-    const reportMatch = trimmed.match(/^-\s*\[R\]\s*(.+)$/);
-    if (reportMatch) {
-      entries.push({ type: 'reports', text: reportMatch[1].trim() });
-      return;
+    const [, type, text] = match;
+    const normalized = text.trim().toLowerCase();
+
+    if (!normalized) return;
+
+    if (type === 'R') {
+      reports.push(normalized);
+    } else {
+      denies.push(normalized);
     }
-
-    const denyMatch = trimmed.match(/^-\s*\[D\]\s*(.+)$/);
-    if (denyMatch) {
-      entries.push({ type: 'denies', text: denyMatch[1].trim() });
-      return;
-    }
-
-    // ignore headers and unchecked list items
-    if (trimmed.startsWith('#') || trimmed.match(/^-\s*\[\s*\]/)) {
-      return;
-    }
-
-    // free text
-    entries.push({ type: 'free', text: trimmed });
   });
 
-  return entries;
-}
+  return { reports, denies };
+};
 
-export function generateNarrativeFromMarkdown(markdown: string): string {
-  const entries = parseRosMarkdown(markdown);
+export const generateNarrativeFromMarkdown = (markdown: string): string => {
+  const { reports, denies } = parseRosMarkdown(markdown);
 
-  if (entries.length === 0) return '';
+  const sentences: string[] = [];
 
-  const reports = entries.filter((e) => e.type === 'reports');
-  const denies = entries.filter((e) => e.type === 'denies');
-  const free = entries.filter((e) => e.type === 'free');
-
-  const sections: string[] = [];
-
-  if (reports.length) {
-    sections.push(`Patient reports ${joinSentence(reports)}.`);
+  if (reports.length > 0) {
+    sentences.push(`Patient reports ${reports.join(', ')}.`);
   }
 
-  if (denies.length) {
-    sections.push(`Patient denies ${joinSentence(denies)}.`);
+  if (denies.length > 0) {
+    sentences.push(`Patient denies ${denies.join(', ')}.`);
   }
 
-  if (free.length) {
-    sections.push(free.map((e) => e.text).join(' '));
-  }
-
-  return sections.join('\n\n');
-}
+  return sentences.join(' ');
+};

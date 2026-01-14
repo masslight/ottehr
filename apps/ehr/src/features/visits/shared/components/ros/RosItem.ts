@@ -1,6 +1,5 @@
-import { mergeAttributes, Node } from '@tiptap/core';
+import { InputRule, mergeAttributes, Node } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-
 export interface RosItemOptions {
   nested: boolean;
   HTMLAttributes: Record<string, any>;
@@ -104,6 +103,26 @@ export const RosItem = Node.create<RosItemOptions>({
       Enter: () => this.editor.commands.splitListItem(this.name),
       'Shift-Tab': () => this.editor.commands.liftListItem(this.name),
     };
+  },
+
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^-\s*\[(R|D| )\]\s$/,
+        handler: ({ range, match, chain }) => {
+          const raw = match[1];
+
+          const state = raw === 'R' ? 'reports' : raw === 'D' ? 'denies' : null;
+          chain()
+            .deleteRange(range)
+            .insertContent({
+              type: 'rosItem',
+              attrs: { state },
+              content: [{ type: 'paragraph' }],
+            });
+        },
+      }),
+    ];
   },
 
   addProseMirrorPlugins() {
