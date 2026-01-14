@@ -689,7 +689,6 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       }),
       getResponsiblePartyStepAnswers({}),
       getEmergencyContactStepAnswers({}),
-      getConsentStepAnswers({}),
       getPrimaryCarePhysicianStepAnswers({})
     );
     if (hasEmployerInformationPage()) {
@@ -698,6 +697,7 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
     if (hasAttorneyInformationPage()) {
       answers.push(getAttorneyInformationStepAnswers({}));
     }
+    answers.push(getConsentStepAnswers({}));
     return answers;
   });
   const oystehr = await ResourceHandler.getOystehr();

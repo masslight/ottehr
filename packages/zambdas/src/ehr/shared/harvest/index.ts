@@ -63,6 +63,7 @@ import {
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
+  getAllStripeCustomerAccountPairs,
   getArrayInfo,
   getConsentAndRelatedDocRefsForAppointment,
   getCurrentValue,
@@ -113,7 +114,6 @@ import {
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
   SecretsKeys,
-  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   takeContainedOrFind,
   uploadPDF,
@@ -122,7 +122,7 @@ import {
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
+import { createPdfBytes } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
@@ -4054,30 +4054,26 @@ interface UpdateStripeCustomerInput {
   guarantorResource: RelatedPerson | Patient;
   stripeClient: Stripe;
 }
-export const updateStripeCustomer = async (input: UpdateStripeCustomerInput, oystehr: Oystehr): Promise<void> => {
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
   const { guarantorResource, account, stripeClient } = input;
   console.log('updating Stripe customer for account', account.id);
   console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
-  const { customerId: stripeCustomerId } = await ensureStripeCustomerId(
-    {
-      patientId: account.subject?.[0]?.reference?.split('/')[1] || '',
-      account,
-      guarantorResource,
-      stripeClient,
-    },
-    oystehr
-  );
+
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
   const phone = getPhoneNumberForIndividual(guarantorResource);
-  if (stripeCustomerId) {
-    await stripeClient.customers.update(stripeCustomerId, {
-      email,
-      name,
-      phone,
-    });
-  } else {
-    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
+
+  const stripeCustomerAccountPairs = getAllStripeCustomerAccountPairs(account);
+  for (const pair of stripeCustomerAccountPairs) {
+    await stripeClient.customers.update(
+      pair.customerId,
+      {
+        email,
+        name,
+        phone,
+      },
+      { stripeAccount: pair.stripeAccount }
+    );
   }
 };
 

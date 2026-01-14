@@ -1115,6 +1115,14 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
     });
 
+    await test.step('PIP-3. Check required fields', async () => {
+      await paperwork.checkRequiredFields(
+        '"Is anyone joining this visit from another device?"',
+        'Would you like someone to join this call?',
+        false
+      );
+    });
+
     await test.step('PIP-4. Select "No" and click [Continue]', async () => {
       await paperworkTelemed.fillAndCheckNoInviteParticipant();
       await locator.clickContinueButton();
