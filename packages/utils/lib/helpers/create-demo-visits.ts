@@ -11,7 +11,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import inPersonIntakeQuestionnaireJson from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import { isLocationVirtual } from '../fhir';
+import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG, isLocationVirtual } from '../fhir';
 import { ServiceCategoryCode } from '../ottehr-config';
 import {
   CreateAppointmentInputParams,
@@ -272,6 +272,7 @@ export const createSampleAppointments = async ({
               authToken,
               projectId,
               serviceModeToUse,
+              oystehr,
               paperworkAnswers
             );
           }
@@ -317,6 +318,7 @@ const processPaperwork = async (
   authToken: string,
   projectId: string,
   serviceMode: ServiceMode,
+  oystehr: Oystehr,
   paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
@@ -350,8 +352,8 @@ const processPaperwork = async (
       getResponsiblePartyStepAnswers({}),
       getCardPaymentStepAnswers(),
       getSchoolWorkNoteStepAnswers(),
-      getConsentStepAnswers({}),
       getInviteParticipantStepAnswers(),
+      getConsentStepAnswers({}),
     ];
 
     paperworkPatches = paperworkAnswers
@@ -387,6 +389,34 @@ const processPaperwork = async (
 
     // Execute the paperwork patches
     await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
+
+    try {
+      for (let i = 0; i < 10; i++) {
+        const appointment = (
+          await oystehr.fhir.search({
+            resourceType: 'Appointment',
+            params: [
+              {
+                name: '_id',
+                value: appointmentId,
+              },
+            ],
+          })
+        ).unbundle()[0] as Appointment;
+
+        const tags = appointment?.meta?.tag || [];
+        const isHarvestingDone = tags.some(
+          (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
+        );
+        if (isHarvestingDone) {
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+      }
+    } catch (error) {
+      console.error('Error verifying paperwork harvesting completion:', error);
+    }
 
     // Submit the paperwork
     const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {

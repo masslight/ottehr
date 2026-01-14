@@ -908,11 +908,20 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     //   ).toBe('_blank');
     // });
 
-    await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
-      await paperwork.fillConsentForms();
+    const consentFormsData = await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
+      const consentFormsData = await paperwork.fillConsentForms();
       await locator.clickContinueButton();
-      // Given we've opened the page directly and didn't fill all the paperwork this is expected.
-      await expect(page.getByText(`Error validating form`)).toBeVisible();
+      await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+      return consentFormsData;
+    });
+
+    await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
+      await locator.clickBackButton();
+      await expect(locator.hipaaAcknowledgement).toBeChecked();
+      await expect(locator.consentToTreat).toBeChecked();
+      await expect(locator.signature).toHaveValue(consentFormsData.signature);
+      await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
+      await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
     });
   });
 
@@ -924,6 +933,14 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
 
     await test.step('PIP-2. Check patient name is displayed', async () => {
       await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
+    });
+
+    await test.step('PIP-3. Check required fields', async () => {
+      await paperwork.checkRequiredFields(
+        '"Is anyone joining this visit from another device?"',
+        'Would you like someone to join this call?',
+        false
+      );
     });
 
     await test.step('PIP-4. Select "No" and click [Continue]', async () => {

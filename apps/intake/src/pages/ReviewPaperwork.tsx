@@ -1,5 +1,6 @@
 import { EditOutlined } from '@mui/icons-material';
 import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,17 +9,20 @@ import { TermsAndConditions } from 'src/components/TermsAndConditions';
 import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
 import { ValidationError } from 'yup';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
+import api from '../api/ottehrApi';
 import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
-import { usePaperworkContext } from '../features/paperwork';
+import { FormValidationErrorObject, getFormValidationErrors, usePaperworkContext } from '../features/paperwork';
+import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
+import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { getValueBoolean } from '../helpers/form';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
-import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
+import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
@@ -32,8 +36,10 @@ const ReviewPaperwork = (): JSX.Element => {
   const navigate = useNavigate();
   const { id: appointmentID } = useParams();
   const { pathname } = useLocation();
+  const [loading, setLoading] = useState(false);
   const [appointmentNotFound, setAppointmentNotFound] = useState<boolean>(false);
   const zambdaClient = useUCZambdaClient({ tokenless: true });
+  const [validationErrors, setValidationErrors] = useState<FormValidationErrorObject | undefined>();
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
   useEffect(() => {
@@ -186,10 +192,14 @@ const ReviewPaperwork = (): JSX.Element => {
       testId: dataTestIds.checkInTimePaperworkReviewScreen,
     },
     ...(paperworkPages ?? []).map((paperworkPage) => {
+      let hasError = false;
+      if (validationErrors) {
+        hasError = validationErrors[paperworkPage.linkId]?.length ? true : false;
+      }
       return {
         name: paperworkPage.text ?? 'Review',
         path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
-        valueBoolean: paperworkCompletedStatus[paperworkPage.linkId],
+        valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
         testId: paperworkPage.linkId + '-status',
         rowID: paperworkPage.linkId,
         valueTestId: paperworkPage.linkId + '-edit',
@@ -206,9 +216,48 @@ const ReviewPaperwork = (): JSX.Element => {
     }
   })();
 
-  const onSubmit = useCallback(async (): Promise<void> => {
+  const submitPaperwork = useCallback(async (): Promise<void> => {
+    const submitPaperwork = async (
+      data: QuestionnaireResponseItem[],
+      questionnaireResponseId: string,
+      zambdaClient: ZambdaClient,
+      appointmentId: string
+    ): Promise<void> => {
+      await api.submitPaperwork(zambdaClient, { answers: data, questionnaireResponseId, appointmentId });
+    };
     if (appointmentID && questionnaireResponseId && zambdaClient) {
       try {
+        setLoading(true);
+        try {
+          // try to find out a better way of modeling when appointment id is/isn't needed when consolidating
+          // this with the telemed code
+          await submitPaperwork([], questionnaireResponseId, zambdaClient, appointmentID);
+        } catch (e) {
+          const validationErrors = getFormValidationErrors(e);
+          if (validationErrors) {
+            console.log('validation errors returned: ', validationErrors);
+            setValidationErrors(validationErrors);
+            const links = paperworkPages.reduce(
+              (accum, current) => {
+                if (Object.keys(validationErrors).includes(current.linkId)) {
+                  accum[current.linkId] = {
+                    path: `/paperwork/${appointmentID}/${slugFromLinkId(current.linkId)}`,
+                    pageName: current.text ?? current.linkId,
+                  };
+                }
+                return accum;
+              },
+              {} as { [pageId: string]: { path: string; pageName: string } }
+            );
+            setErrorDialogConfig({
+              title: t('paperworkPages.validationError'),
+              description: <ValidationErrorMessageContent errorObject={validationErrors} links={links} />,
+            });
+          } else {
+            setErrorDialogConfig(UNEXPECTED_ERROR_CONFIG(t));
+          }
+          return;
+        }
         if (visitType === VisitType.WalkIn) {
           if (serviceMode === ServiceMode['virtual']) {
             // navigate to waiting room
@@ -245,6 +294,8 @@ const ReviewPaperwork = (): JSX.Element => {
       } catch (e) {
         // todo: handle this better, direct to page where error was found if available
         console.error('error submitting paperwork', e);
+      } finally {
+        setLoading(false);
       }
     }
   }, [
@@ -253,6 +304,7 @@ const ReviewPaperwork = (): JSX.Element => {
     zambdaClient,
     visitType,
     serviceMode,
+    paperworkPages,
     navigate,
     inviteParams,
     createInviteMutation,
@@ -337,8 +389,9 @@ const ReviewPaperwork = (): JSX.Element => {
       <PageForm
         controlButtons={{
           submitLabel: submitButtonLabel,
+          loading: loading,
         }}
-        onSubmit={onSubmit}
+        onSubmit={submitPaperwork}
       />
       <ErrorDialog
         open={!!errorDialogConfig}
