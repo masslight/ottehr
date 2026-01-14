@@ -130,6 +130,14 @@ export const ExternalLabsStatusPalette: {
       primary: '#D32F2F',
     },
   },
+  deleted: {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
+    },
+  },
   unknown: {
     background: {
       primary: '#e3c254',

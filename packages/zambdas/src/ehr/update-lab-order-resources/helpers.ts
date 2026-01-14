@@ -357,11 +357,6 @@ export const handleRejectedAbn = async ({
     url: `ServiceRequest/${serviceRequestId}`,
     operations: [
       {
-        op: 'replace',
-        path: '/status',
-        value: 'revoked',
-      },
-      {
         op: 'add',
         path: srExtension ? '/extension/-' : '/extension',
         value: srExtension ? SR_REVOKED_REASON_EXT : [SR_REVOKED_REASON_EXT],
