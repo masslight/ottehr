@@ -192,7 +192,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, rosNarrative, 'ros-narrative'))
       );
-      console.log(rosNarrative);
     }
 
     // convert Medical Conditions [] to Conditions [] and preserve FHIR resource IDs
