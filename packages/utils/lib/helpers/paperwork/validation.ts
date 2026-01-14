@@ -580,28 +580,38 @@ const evalDateTime = (operator: EnableWhenOperator, answerValue: string, value: 
 const evalEnableWhenItem = (
   enableWhen: QuestionnaireItemEnableWhen,
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
-  items: QuestionnaireItem[]
+  items: QuestionnaireItem[],
+  itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
   const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
   const questionPathNodes = question.split('.');
 
-  const itemDef = questionPathNodes.reduce(
-    (accum, current) => {
-      if (!accum) {
-        return accum;
-      }
-      const item = accum.items.find((item) => {
-        return item?.linkId === current;
-      });
-      if (!item) {
-        return accum;
-      }
-      accum['item'] = item;
-      accum['items'] = item?.item ?? [];
-      return accum;
-    },
-    { items, item: undefined } as { items: QuestionnaireItem[]; item: QuestionnaireItem | undefined } | undefined
-  )?.item;
+  const itemDef = (() => {
+    if (itemsMap && questionPathNodes.length === 1) {
+      // If a map is provided, use it for O(1) lookup of items by linkId
+      return itemsMap.get(questionPathNodes[0]);
+    } else {
+      // Fall back to the original nested search for complex paths
+      return questionPathNodes.reduce(
+        (accum, current) => {
+          if (!accum) {
+            return accum;
+          }
+          const item = accum.items.find((item) => {
+            return item?.linkId === current;
+          });
+          if (!item) {
+            return accum;
+          }
+          accum['item'] = item;
+          accum['items'] = item?.item ?? [];
+          return accum;
+        },
+        { items, item: undefined } as { items: QuestionnaireItem[]; item: QuestionnaireItem | undefined } | undefined
+      )?.item;
+    }
+  })();
+
   if (!itemDef) {
     return operator === '!=';
   }
@@ -687,7 +697,8 @@ export const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
   items: IntakeQuestionnaireItem[],
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
-  questionnaireResponse?: QuestionnaireResponse
+  questionnaireResponse?: QuestionnaireResponse,
+  itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
   const { enableWhen, enableBehavior = 'all' } = item;
   if (enableWhen === undefined || enableWhen.length === 0) {
@@ -698,7 +709,7 @@ export const evalEnableWhen = (
     if (ew.question === '$status') {
       return evalStatusCondition(ew, questionnaireResponse);
     }
-    return evalEnableWhenItem(ew, values, items);
+    return evalEnableWhenItem(ew, values, items, itemsMap);
   };
 
   if (enableBehavior === 'any') {

@@ -2,6 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
 import { CANCELLATION_TAG_SYSTEM } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
+import { ZambdaInput } from '../../../../shared';
+import { validateInput } from '../validation';
 
 describe('cancel-radiology-order zambda', () => {
   describe('Previous status preservation', () => {
@@ -187,6 +189,190 @@ describe('cancel-radiology-order zambda', () => {
 
         expect(mockServiceRequest.status).toBe(status);
       });
+    });
+  });
+
+  describe('Validation of cancellable orders', () => {
+    const createMockInput = (serviceRequestId: string): ZambdaInput => ({
+      body: JSON.stringify({ serviceRequestId }),
+      headers: {
+        Authorization: 'Bearer test-token',
+      },
+      secrets: null,
+    });
+
+    it('should allow cancellation of draft orders', async () => {
+      const mockServiceRequest: ServiceRequest = {
+        resourceType: 'ServiceRequest',
+        id: '123e4567-e89b-12d3-a456-426614174001',
+        status: 'draft',
+        intent: 'order',
+        subject: { reference: 'Patient/test' },
+        code: { text: 'X-Ray' },
+        identifier: [
+          {
+            system: 'http://advapacs.com/accession-number',
+            value: 'ACC123',
+          },
+        ],
+      };
+
+      const mockOystehr = {
+        fhir: {
+          get: vi.fn().mockResolvedValue(mockServiceRequest),
+        },
+      } as unknown as Oystehr;
+
+      const input = createMockInput('123e4567-e89b-12d3-a456-426614174001');
+      const result = await validateInput(input, mockOystehr);
+
+      expect(result.body.serviceRequestId).toBe('123e4567-e89b-12d3-a456-426614174001');
+      expect(mockOystehr.fhir.get).toHaveBeenCalledWith({
+        resourceType: 'ServiceRequest',
+        id: '123e4567-e89b-12d3-a456-426614174001',
+      });
+    });
+
+    it('should allow cancellation of active orders', async () => {
+      const mockServiceRequest: ServiceRequest = {
+        resourceType: 'ServiceRequest',
+        id: '123e4567-e89b-12d3-a456-426614174002',
+        status: 'active',
+        intent: 'order',
+        subject: { reference: 'Patient/test' },
+        code: { text: 'CT Scan' },
+        identifier: [
+          {
+            system: 'http://advapacs.com/accession-number',
+            value: 'ACC456',
+          },
+        ],
+      };
+
+      const mockOystehr = {
+        fhir: {
+          get: vi.fn().mockResolvedValue(mockServiceRequest),
+        },
+      } as unknown as Oystehr;
+
+      const input = createMockInput('123e4567-e89b-12d3-a456-426614174002');
+      const result = await validateInput(input, mockOystehr);
+
+      expect(result.body.serviceRequestId).toBe('123e4567-e89b-12d3-a456-426614174002');
+    });
+
+    it('should allow cancellation of on-hold orders', async () => {
+      const mockServiceRequest: ServiceRequest = {
+        resourceType: 'ServiceRequest',
+        id: '123e4567-e89b-12d3-a456-426614174003',
+        status: 'on-hold',
+        intent: 'order',
+        subject: { reference: 'Patient/test' },
+        code: { text: 'MRI' },
+        identifier: [
+          {
+            system: 'http://advapacs.com/accession-number',
+            value: 'ACC789',
+          },
+        ],
+      };
+
+      const mockOystehr = {
+        fhir: {
+          get: vi.fn().mockResolvedValue(mockServiceRequest),
+        },
+      } as unknown as Oystehr;
+
+      const input = createMockInput('123e4567-e89b-12d3-a456-426614174003');
+      const result = await validateInput(input, mockOystehr);
+
+      expect(result.body.serviceRequestId).toBe('123e4567-e89b-12d3-a456-426614174003');
+    });
+
+    it('should allow cancellation of completed orders', async () => {
+      const mockServiceRequest: ServiceRequest = {
+        resourceType: 'ServiceRequest',
+        id: '123e4567-e89b-12d3-a456-426614174004',
+        status: 'completed',
+        intent: 'order',
+        subject: { reference: 'Patient/test' },
+        code: { text: 'Ultrasound' },
+        identifier: [
+          {
+            system: 'http://advapacs.com/accession-number',
+            value: 'ACC321',
+          },
+        ],
+      };
+
+      const mockOystehr = {
+        fhir: {
+          get: vi.fn().mockResolvedValue(mockServiceRequest),
+        },
+      } as unknown as Oystehr;
+
+      const input = createMockInput('123e4567-e89b-12d3-a456-426614174004');
+      const result = await validateInput(input, mockOystehr);
+
+      expect(result.body.serviceRequestId).toBe('123e4567-e89b-12d3-a456-426614174004');
+    });
+
+    it('should reject cancellation of revoked orders', async () => {
+      const mockServiceRequest: ServiceRequest = {
+        resourceType: 'ServiceRequest',
+        id: '123e4567-e89b-12d3-a456-426614174005',
+        status: 'revoked',
+        intent: 'order',
+        subject: { reference: 'Patient/test' },
+        code: { text: 'X-Ray' },
+        identifier: [
+          {
+            system: 'http://advapacs.com/accession-number',
+            value: 'ACC654',
+          },
+        ],
+      };
+
+      const mockOystehr = {
+        fhir: {
+          get: vi.fn().mockResolvedValue(mockServiceRequest),
+        },
+      } as unknown as Oystehr;
+
+      const input = createMockInput('123e4567-e89b-12d3-a456-426614174005');
+
+      await expect(validateInput(input, mockOystehr)).rejects.toThrow(
+        'Order has already been canceled and cannot be canceled again'
+      );
+    });
+
+    it('should reject cancellation of entered-in-error orders', async () => {
+      const mockServiceRequest: ServiceRequest = {
+        resourceType: 'ServiceRequest',
+        id: '123e4567-e89b-12d3-a456-426614174006',
+        status: 'entered-in-error',
+        intent: 'order',
+        subject: { reference: 'Patient/test' },
+        code: { text: 'CT Scan' },
+        identifier: [
+          {
+            system: 'http://advapacs.com/accession-number',
+            value: 'ACC987',
+          },
+        ],
+      };
+
+      const mockOystehr = {
+        fhir: {
+          get: vi.fn().mockResolvedValue(mockServiceRequest),
+        },
+      } as unknown as Oystehr;
+
+      const input = createMockInput('123e4567-e89b-12d3-a456-426614174006');
+
+      await expect(validateInput(input, mockOystehr)).rejects.toThrow(
+        'Order has already been canceled and cannot be canceled again'
+      );
     });
   });
 });
