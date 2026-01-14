@@ -549,11 +549,20 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     //   ).toBe('_blank');
     // });
 
-    await test.step('PCF-6. Fill all fields and click on [Continue]', async () => {
-      await paperwork.fillConsentForms();
+    const consentFormsData = await test.step('PCF-6. Fill all fields and click on [Continue]', async () => {
+      const consentFormsData = await paperwork.fillConsentForms();
       await locator.clickContinueButton();
-      // Given we've opened the page directly and didn't fill all the paperwork this is expected.
-      await expect(page.getByText(`Error validating form`)).toBeVisible();
+      await paperwork.checkCorrectPageOpens('Medical history');
+      return consentFormsData;
+    });
+
+    await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
+      await locator.clickBackButton();
+      await expect(locator.hipaaAcknowledgement).toBeChecked();
+      await expect(locator.consentToTreat).toBeChecked();
+      await expect(locator.signature).toHaveValue(consentFormsData.signature);
+      await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
+      await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
     });
   });
 });

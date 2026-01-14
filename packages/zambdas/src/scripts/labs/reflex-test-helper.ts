@@ -14,7 +14,7 @@ import { DateTime } from 'luxon';
 import { LAB_DR_TYPE_TAG } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { DR_REFLEX_TAG } from './lab-script-consts';
-import { createAttachmentDocRef } from './lab-script-helpers';
+import { createResultAttachmentDocRef } from './lab-script-helpers';
 
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -175,7 +175,7 @@ const main = async (): Promise<void> => {
   const projectId = envConfig.PROJECT_ID;
   if (!projectId) throw new Error(`Could not get projectId`);
   const patientRef = serviceRequest.subject.reference?.startsWith('Patient/') ? serviceRequest.subject : undefined;
-  const attachmentDocRef = createAttachmentDocRef({
+  const attachmentDocRef = createResultAttachmentDocRef({
     ENV,
     projectId,
     relatedDiagnosticReportReferences: [{ reference: drFullUrl }],

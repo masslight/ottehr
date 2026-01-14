@@ -1,6 +1,6 @@
 {
   "name": "intake-ui",
-  "version": "1.25.6",
+  "version": "1.25.13",
   "private": true,
   "type": "module",
   "scripts": {
