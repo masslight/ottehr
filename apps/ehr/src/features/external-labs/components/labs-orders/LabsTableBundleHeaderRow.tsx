@@ -121,25 +121,29 @@ export const LabsTableBundleHeaderRow = ({
                 </LoadingButton>
               </Box>
             )}
-            {abnPdfUrl && (
-              <Button
-                variant="outlined"
-                type="button"
-                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
-                onClick={() => openPdf(abnPdfUrl)}
-              >
-                Re-print ABN
-              </Button>
-            )}
-            {orderPdfUrl && (
-              <Button
-                variant="outlined"
-                type="button"
-                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
-                onClick={() => openPdf(orderPdfUrl)}
-              >
-                Re-print Order
-              </Button>
+            {(abnPdfUrl || orderPdfUrl) && (
+              <Box display="flex" justifyContent="right">
+                {abnPdfUrl && (
+                  <Button
+                    variant="outlined"
+                    type="button"
+                    sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
+                    onClick={() => openPdf(abnPdfUrl)}
+                  >
+                    Re-print ABN
+                  </Button>
+                )}
+                {orderPdfUrl && (
+                  <Button
+                    variant="outlined"
+                    type="button"
+                    sx={{ width: 170, borderRadius: '50px', textTransform: 'none', ml: '8px' }}
+                    onClick={() => openPdf(orderPdfUrl)}
+                  >
+                    Re-print Order
+                  </Button>
+                )}
+              </Box>
             )}
           </Box>
         </TableCell>

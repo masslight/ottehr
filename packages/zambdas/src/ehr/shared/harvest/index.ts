@@ -26,6 +26,7 @@ import {
   Organization,
   Patient,
   Practitioner,
+  Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
@@ -58,9 +59,11 @@ import {
   FHIR_BASE_URL,
   FHIR_EXTENSION,
   FileDocDataForDocReference,
+  filterQuestionnaireResponseByEnableWhen,
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
+  getAllStripeCustomerAccountPairs,
   getArrayInfo,
   getConsentAndRelatedDocRefsForAppointment,
   getCurrentValue,
@@ -110,7 +113,6 @@ import {
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
   SecretsKeys,
-  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   takeContainedOrFind,
   uploadPDF,
@@ -119,7 +121,7 @@ import {
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
+import { createPdfBytes } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
@@ -819,11 +821,20 @@ export interface PatientMasterRecordResources {
 
 export function createMasterRecordPatchOperations(
   questionnaireResponseItems: QuestionnaireResponseItem[],
-  patient: Patient
+  patient: Patient,
+  questionnaireForEnableWhenFiltering?: Questionnaire
 ): MasterRecordPatchOperations {
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+  let flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItems as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
+
+  // Filter out items that should be hidden based on enableWhen conditions
+  if (questionnaireForEnableWhenFiltering) {
+    flattenedPaperwork = filterQuestionnaireResponseByEnableWhen(
+      flattenedPaperwork,
+      questionnaireForEnableWhenFiltering
+    );
+  }
 
   const result: MasterRecordPatchOperations = {
     patient: { patchOpsForDirectUpdate: [], conflictingUpdates: [] },
@@ -1965,6 +1976,8 @@ function getInsuranceDetailsFromAnswers(
 }
 
 interface EmployerInformation {
+  workersCompInsurance?: string;
+  workersCompMemberId?: string;
   employerName?: string;
   addressLine1?: string;
   addressLine2?: string;
@@ -2094,7 +2107,8 @@ const buildWorkersCompAccountResource = (
   patientId: string,
   employerInformation: EmployerInformation,
   existingAccount: Account | undefined,
-  organizationReference: string
+  organizationReference: string,
+  coverageReference: string | undefined
 ): Account => {
   const patientReference = `Patient/${patientId}`;
   const baseAccount: Account = existingAccount ? { ...existingAccount } : { resourceType: 'Account', status: 'active' };
@@ -2123,6 +2137,13 @@ const buildWorkersCompAccountResource = (
           (resource) => !(resource.resourceType === 'Organization' && resource.id === organizationIdFromReference)
         )
       : baseAccount.contained,
+    coverage: coverageReference
+      ? [
+          {
+            coverage: { reference: coverageReference },
+          },
+        ]
+      : undefined,
   };
 };
 
@@ -2130,6 +2151,9 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   const getAnswerString = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
 
+  const workersCompInsurance = items.find((item) => item.linkId === 'workers-comp-insurance-name')?.answer?.[0]
+    ?.valueReference?.reference;
+  const workersCompMemberId = getAnswerString('workers-comp-insurance-member-id');
   const employerName = getAnswerString('employer-name');
   const addressLine1 = getAnswerString('employer-address');
   const city = getAnswerString('employer-city');
@@ -2140,6 +2164,8 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   const contactPhone = getAnswerString('employer-contact-phone');
 
   const hasAnyValue = [
+    workersCompInsurance,
+    workersCompMemberId,
     employerName,
     addressLine1,
     city,
@@ -2159,6 +2185,8 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   }
 
   return {
+    workersCompInsurance,
+    workersCompMemberId,
     employerName,
     addressLine1,
     addressLine2: getAnswerString('employer-address-2'),
@@ -2366,7 +2394,7 @@ export interface GetAccountOperationsInput {
 export interface GetAccountOperationsOutput {
   coveragePosts: BatchInputPostRequest<Coverage>[];
   patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[];
-  put: BatchInputPutRequest<Account | RelatedPerson | Organization>[];
+  put: BatchInputPutRequest<Account | Coverage | RelatedPerson | Organization>[];
   accountPost?: Account;
   emergencyContactPost?: BatchInputPostRequest<RelatedPerson>;
   employerOrganizationPost?: BatchInputPostRequest<Organization>;
@@ -2422,7 +2450,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
-  const puts: BatchInputPutRequest<Account | RelatedPerson>[] = [];
+  const puts: BatchInputPutRequest<Account | Coverage | RelatedPerson>[] = [];
   let accountPost: Account | undefined;
   let emergencyContactPost: BatchInputPostRequest<RelatedPerson> | undefined;
   let employerOrganizationPost: BatchInputPostRequest<Organization> | undefined;
@@ -2638,11 +2666,91 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       };
     }
 
+    let workersCompCoverage: Coverage | undefined = undefined;
+    let workersCompCoverageReference: string | undefined = undefined;
+    const workersCompInsurance = employerInformation.workersCompInsurance;
+    const workersCompMemberId = employerInformation.workersCompMemberId;
+    const workersCompInsuranceOrg = organizationResources.find(
+      (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
+    );
+    const payerId = getPayerId(workersCompInsuranceOrg);
+    if (existingCoverages.workersComp) {
+      workersCompCoverage = existingCoverages.workersComp;
+      const updatedWorkersCompCoverage = { ...workersCompCoverage };
+      workersCompCoverageReference = `Coverage/${workersCompCoverage.id}`;
+      if (workersCompMemberId && workersCompInsuranceOrg) {
+        updatedWorkersCompCoverage.identifier = [
+          createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
+        ];
+      }
+      if (workersCompInsuranceOrg) {
+        updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
+        updatedWorkersCompCoverage.class = [
+          {
+            type: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                  code: 'plan',
+                },
+              ],
+            },
+            value: payerId ?? '',
+            name: `${workersCompInsuranceOrg?.name ?? ''}`,
+          },
+        ];
+      }
+      if (workersCompCoverage !== updatedWorkersCompCoverage) {
+        puts.push({
+          method: 'PUT',
+          url: `Coverage/${workersCompCoverage.id}`,
+          resource: updatedWorkersCompCoverage,
+        });
+      }
+    } else if (workersCompInsuranceOrg && payerId) {
+      workersCompCoverageReference = `urn:uuid:${randomUUID()}`;
+      workersCompCoverage = {
+        id: workersCompCoverageReference,
+        identifier: workersCompMemberId
+          ? [createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg)]
+          : undefined,
+        resourceType: 'Coverage',
+        status: 'active',
+        beneficiary: {
+          type: 'Patient',
+          reference: `Patient/${patient.id}`,
+        },
+        type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
+        payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+        class: [
+          {
+            type: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                  code: 'plan',
+                },
+              ],
+            },
+            value: payerId,
+            name: `${workersCompInsuranceOrg?.name ?? ''}`,
+          },
+        ],
+      };
+      coveragePosts.push({
+        method: 'POST',
+        fullUrl: workersCompCoverage.id,
+        url: 'Coverage',
+        resource: { ...workersCompCoverage },
+      });
+    }
+
     const workersCompAccountResource = buildWorkersCompAccountResource(
       patient.id!,
       employerInformation,
       existingWorkersCompAccount,
-      employerOrganizationReference
+      employerOrganizationReference,
+      workersCompCoverageReference
     );
 
     if (existingWorkersCompAccount?.id) {
@@ -3432,6 +3540,12 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     }
   }
 
+  if (workersCompAccount?.coverage) {
+    existingCoverages.workersComp = coverageResources.find((coverage) => {
+      return coverage.id === workersCompAccount?.coverage?.[0]?.coverage?.reference?.split('/')[1];
+    });
+  }
+
   const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
   if (primarySubscriberReference && existingCoverages.primary) {
     const subscriberResult = takeContainedOrFind<RelatedPerson>(
@@ -3487,6 +3601,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
+  workersComp = 'workers-comp-insurance-name',
 }
 
 export const getAccountAndCoverageResourcesForPatient = async (
@@ -3581,6 +3696,10 @@ export const updatePatientAccountFromQuestionnaire = async (
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsuranceOrg) insuranceOrgs.push(secondaryInsuranceOrg);
 
+  const workersCompInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.workersComp)
+    ?.answer?.[0]?.valueReference?.reference;
+  if (workersCompInsuranceOrg) insuranceOrgs.push(workersCompInsuranceOrg);
+
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
   const {
@@ -3674,30 +3793,26 @@ interface UpdateStripeCustomerInput {
   guarantorResource: RelatedPerson | Patient;
   stripeClient: Stripe;
 }
-export const updateStripeCustomer = async (input: UpdateStripeCustomerInput, oystehr: Oystehr): Promise<void> => {
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
   const { guarantorResource, account, stripeClient } = input;
   console.log('updating Stripe customer for account', account.id);
   console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
-  const { customerId: stripeCustomerId } = await ensureStripeCustomerId(
-    {
-      patientId: account.subject?.[0]?.reference?.split('/')[1] || '',
-      account,
-      guarantorResource,
-      stripeClient,
-    },
-    oystehr
-  );
+
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
   const phone = getPhoneNumberForIndividual(guarantorResource);
-  if (stripeCustomerId) {
-    await stripeClient.customers.update(stripeCustomerId, {
-      email,
-      name,
-      phone,
-    });
-  } else {
-    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
+
+  const stripeCustomerAccountPairs = getAllStripeCustomerAccountPairs(account);
+  for (const pair of stripeCustomerAccountPairs) {
+    await stripeClient.customers.update(
+      pair.customerId,
+      {
+        email,
+        name,
+        phone,
+      },
+      { stripeAccount: pair.stripeAccount }
+    );
   }
 };
 

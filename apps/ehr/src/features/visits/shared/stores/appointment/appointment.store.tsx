@@ -229,15 +229,44 @@ export const useAppointmentData = (
   );
 
   useEffect(() => {
+    const encounterIdFromUrl = searchParams.get('encounterId');
+    if (!encounterIdFromUrl) {
+      return;
+    }
+
+    const state = currentState || APPOINTMENT_INITIAL;
+    if (state.selectedEncounterId === encounterIdFromUrl) {
+      return;
+    }
+
     if (isLoading || isPending) {
       return;
     }
-    const encounterIdFromUrl = searchParams.get('encounterId');
 
-    if (encounterIdFromUrl) {
-      setSelectedEncounter(encounterIdFromUrl);
+    const allEncounters = [state.followUpOriginEncounter, ...(state.followupEncounters || [])].filter(Boolean);
+    const encounterExists = allEncounters.some((enc) => enc.id === encounterIdFromUrl);
+
+    if (!encounterExists) {
+      queryClient.setQueryData(
+        [TELEMED_APPOINTMENT_QUERY_KEY, appointmentId],
+        (prevData: (AppointmentTelemedState & AppointmentRawResourcesState & InPersonAppointmentState) | undefined) => {
+          const currentData = prevData || state;
+          return {
+            ...currentData,
+            selectedEncounterId: encounterIdFromUrl,
+          };
+        }
+      );
+
+      void queryClient.invalidateQueries({
+        queryKey: [TELEMED_APPOINTMENT_QUERY_KEY, appointmentId],
+        exact: false,
+      });
+      return;
     }
-  }, [isLoading, isPending, searchParams, setSelectedEncounter]);
+
+    setSelectedEncounter(encounterIdFromUrl);
+  }, [isLoading, isPending, searchParams, setSelectedEncounter, currentState, queryClient, appointmentId]);
 
   const getSelectedEncounter = useCallback(() => {
     const state = currentState || APPOINTMENT_INITIAL;

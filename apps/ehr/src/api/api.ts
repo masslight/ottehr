@@ -27,6 +27,7 @@ import {
   CreateDischargeSummaryResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
+  CreateInvoiceablePatientsReportZambdaInputType,
   CreateLabOrderParameters,
   CreateLabOrderZambdaOutput,
   CreateNursingOrderInput,
@@ -1391,10 +1392,14 @@ export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisit
   }
 };
 
-export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void> => {
+export const invoiceablePatientsReport = async (
+  oystehr: Oystehr,
+  params: CreateInvoiceablePatientsReportZambdaInputType
+): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({
       id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
+      ...params,
     });
     return chooseJson(response);
   } catch (error: unknown) {

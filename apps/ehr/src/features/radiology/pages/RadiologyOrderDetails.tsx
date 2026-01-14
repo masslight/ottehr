@@ -4,6 +4,7 @@ import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { radiologyLaunchViewer } from 'src/api/api';
+import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
 import { useApiClients } from 'src/hooks/useAppClients';
 import radiologyIcon from 'src/themes/ottehr/icons/mui-radiology.svg';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
@@ -31,6 +32,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     handleSendForFinalRead,
     isSavingPreliminaryReport,
     isSendingForFinalRead,
+    fetchOrders,
   } = usePatientRadiologyOrders({
     serviceRequestId,
   });
@@ -122,6 +124,12 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               <RadiologyTableStatusChip status={order.status} />
             </Box>
           </Box>
+
+          {order.task && (
+            <Box>
+              <DetailTaskCard task={order.task} fetchOrders={() => fetchOrders({ serviceRequestId })}></DetailTaskCard>
+            </Box>
+          )}
 
           <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>
             <Box sx={{ padding: 2 }}>

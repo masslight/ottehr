@@ -31,7 +31,6 @@ test.beforeAll(async () => {
   await Promise.all([
     e2eHandler.waitTillAppointmentPreprocessed(e2eHandler.appointment.id!),
     e2eHandler.waitTillHarvestingDone(e2eHandler.appointment.id!),
-    e2eHandler.waitForListIndexing(e2eHandler.patient.id!),
   ]);
 });
 
