@@ -33,7 +33,6 @@ describe('testing Questionnaire generation from config objects', () => {
     expect(generatedQuestionnaire).toEqual(actualConfigQuestionnaire);
   });
 
-  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test
     .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
     .concurrent('patient record questionnaire config generates expected questionnaire items', async () => {
@@ -42,7 +41,6 @@ describe('testing Questionnaire generation from config objects', () => {
       expect(questionnaireItems).toEqual(PatientRecordQuestionnaire);
     });
 
-  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test
     .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
     .concurrent('booking questionnaire config generates expected questionnaire items', async () => {
@@ -51,7 +49,6 @@ describe('testing Questionnaire generation from config objects', () => {
       expect(questionnaireItems).toEqual(BookingQuestionnaire.item);
     });
 
-  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test
     .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
     .concurrent('intake paperwork questionnaire generates expected questionnaire', async () => {
@@ -128,7 +125,6 @@ describe('testing Questionnaire generation from config objects', () => {
       }
     });
 
-  // skip this test if BRANDING_CONFIG.projectName !== 'Ottehr'
   test
     .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
     .concurrent('virtual intake paperwork questionnaire generates expected questionnaire', async () => {
