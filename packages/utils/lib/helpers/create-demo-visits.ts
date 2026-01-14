@@ -5,7 +5,6 @@ import {
   Location,
   Patient,
   Questionnaire,
-  QuestionnaireItem,
   QuestionnaireResponseItem,
   Schedule,
   Slot,
@@ -19,6 +18,7 @@ import {
   CreateAppointmentResponse,
   CreateSlotParams,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  findQuestionnaireItemByLinkId,
   PatchPaperworkParameters,
   PatientInfo,
   PersonSex,
@@ -77,20 +77,11 @@ export const hasEmployerInformationPage = (): boolean => {
       q.resource.url?.includes('intake-paperwork-inperson')
   )?.resource;
 
-  if (!questionnaire || !questionnaire.item) {
+  if (!questionnaire?.item) {
     return false;
   }
 
-  const findItemByLinkId = (items: QuestionnaireItem[] | undefined, linkId: string): boolean => {
-    if (!items) return false;
-    return items.some((item: QuestionnaireItem) => {
-      if (item.linkId === linkId) return true;
-      if (item.item) return findItemByLinkId(item.item, linkId);
-      return false;
-    });
-  };
-
-  return findItemByLinkId(questionnaire.item, 'employer-information-page');
+  return !!findQuestionnaireItemByLinkId(questionnaire.item, 'employer-information-page');
 };
 
 const DEFAULT_FIRST_NAMES = [

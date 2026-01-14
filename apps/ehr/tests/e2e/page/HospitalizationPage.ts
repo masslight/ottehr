@@ -25,55 +25,56 @@ export class HospitalizationPage {
     await this.sideMenu().clickCompleteIntakeButton();
   }
 
-  async selectHospitalization(hospitalization: string): Promise<void> {
+  async addHospitalization(hospitalization: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.hospitalizationPage.hospitalizationDropdown).click();
     await this.#page.getByText(hospitalization, { exact: true }).click();
-  }
-
-  async verifyHospitalization(hospitalization: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.hospitalizationPage.hospitalizationList).filter({ hasText: hospitalization })
     ).toBeVisible();
   }
 
-  async verifyRemovedHospitalizationIsNotVisible(hospitalization: string): Promise<void> {
+  async removeHospitalization(hospitalization: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.hospitalizationPage.hospitalizationList)
+      .filter({ hasText: hospitalization })
+      .getByTestId(dataTestIds.hospitalizationPage.deleteIcon)
+      .click();
     await expect(
       this.#page.getByTestId(dataTestIds.hospitalizationPage.hospitalizationList).filter({ hasText: hospitalization })
     ).not.toBeVisible();
   }
 
-  async clickDeleteButton(hospitalizationName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.hospitalizationPage.hospitalizationList)
-      .filter({ hasText: hospitalizationName })
-      .getByTestId(dataTestIds.hospitalizationPage.deleteIcon)
-      .click();
-  }
-
-  async enterHospitalizationNote(note: string): Promise<void> {
+  async addHospitalizationNote(note: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.screeningPage.screeningNoteField)
       .locator('input')
       .locator('visible=true')
       .fill(note);
+    await this.#page.getByTestId(dataTestIds.hospitalizationPage.addNoteButton).click();
+    await this.#verifyHospitalizationNote(note);
   }
 
-  async verifyHospitalizationNote(note: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem)).toContainText(note);
+  async editHospitalizationNote(originalNote: string, editedNote: string): Promise<void> {
+    const editDialog = await this.#clickEditNoteButton(originalNote);
+    await editDialog.verifyTitle('Edit Hospitalization Note');
+    await editDialog.clearNote();
+    await editDialog.enterNote(editedNote);
+    await editDialog.clickProceedButton();
+    await this.#verifyHospitalizationNote(editedNote);
   }
 
-  async verifyRemovedHospitalizationNoteIsNotVisible(note: string): Promise<void> {
+  async deleteHospitalizationNote(originalNote: string): Promise<void> {
+    const deleteDialog = await this.#clickDeleteNoteButton(originalNote);
+    await deleteDialog.verifyTitle('Delete hospitalization note');
+    await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this hospitalization note?');
+    await deleteDialog.verifyModalContent(originalNote);
+    await deleteDialog.clickProceedButton();
     await expect(
-      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: note })
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: originalNote })
     ).toHaveCount(0);
   }
 
-  async clickAddHospitalizationNoteButton(): Promise<HospitalizationPage> {
-    await this.#page.getByTestId(dataTestIds.hospitalizationPage.addNoteButton).click();
-    return expectHospitalizationPage(this.#page);
-  }
-
-  async clickEditNoteButton(note: string): Promise<EditNoteDialog> {
+  async #clickEditNoteButton(note: string): Promise<EditNoteDialog> {
     await this.#page
       .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
       .filter({ hasText: note })
@@ -82,7 +83,13 @@ export class HospitalizationPage {
     return expectEditNoteDialog(this.#page);
   }
 
-  async clickDeleteNoteButton(note: string): Promise<Dialog> {
+  async #verifyHospitalizationNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: note })
+    ).toBeVisible();
+  }
+
+  async #clickDeleteNoteButton(note: string): Promise<Dialog> {
     await this.#page
       .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
       .filter({ hasText: note })
