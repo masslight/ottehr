@@ -204,7 +204,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   name="administrationDetails.emergencyContact.relationship"
                   label="Relationship"
                   options={RELATIONSHIP_OPTIONS.map((option) => option.value)}
-                  getOptionLabel={(option) => RELATIONSHIP_OPTIONS.find((opt) => opt.value === option) ?? option}
+                  getOptionLabel={(option) => RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option}
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                 />

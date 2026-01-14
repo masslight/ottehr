@@ -187,7 +187,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
               name="appointment"
               label="Visit"
               options={appointmentsLoading ? [] : appointmentOptions.map((appointment) => appointment.id)}
-              getOptionLabel={(option) => appointmentOptions.find((opt) => opt.id === option) ?? option}
+              getOptionLabel={(option) => appointmentOptions.find((opt) => opt.id === option)?.label ?? option}
               loading={appointmentsLoading}
               disabled={!formValue.patient}
             />
@@ -202,7 +202,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
               name="order"
               label="Order"
               options={orderOptions.map((order) => order.id)}
-              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option) ?? option}
+              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? option}
               loading={ordersLoading}
               disabled={!formValue.appointment || !formValue.category}
             />
