@@ -1,18 +1,12 @@
 export const isEmptyNarrative = (value: string): boolean => value.trim().length === 0;
 
-interface ParsedRos {
-  reports: string[];
-  denies: string[];
-}
-
-const parseRosMarkdown = (markdown: string): ParsedRos => {
-  const reports: string[] = [];
-  const denies: string[] = [];
+export const generateNarrativeFromMarkdown = (markdown: string): string => {
+  const sentences: string[] = [];
 
   markdown.split('\n').forEach((line) => {
     const trimmed = line.trim();
 
-    const match = trimmed.match(/^- \[(\+|-)\] (.*)$/);
+    const match = trimmed.match(/^- \[(\+|-)\] (.+)$/);
     if (!match) return;
 
     const [, type, text] = match;
@@ -21,27 +15,11 @@ const parseRosMarkdown = (markdown: string): ParsedRos => {
     if (!normalized) return;
 
     if (type === '+') {
-      reports.push(normalized);
+      sentences.push(`Patient reports ${normalized}.`);
     } else {
-      denies.push(normalized);
+      sentences.push(`Patient denies ${normalized}.`);
     }
   });
-
-  return { reports, denies };
-};
-
-export const generateNarrativeFromMarkdown = (markdown: string): string => {
-  const { reports, denies } = parseRosMarkdown(markdown);
-
-  const sentences: string[] = [];
-
-  if (reports.length > 0) {
-    sentences.push(`Patient reports ${reports.join(', ')}.`);
-  }
-
-  if (denies.length > 0) {
-    sentences.push(`Patient denies ${denies.join(', ')}.`);
-  }
 
   return sentences.join(' ');
 };
