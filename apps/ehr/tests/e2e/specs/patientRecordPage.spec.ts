@@ -285,9 +285,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify required data from Patient info block is displayed correctly', async () => {
-    if (PatientSummaryHidden) {
-      test.skip();
-    }
+    test.skip(PatientSummaryHidden, 'patient summary section is hidden');
     await patientInformationPage.verifyTextFieldValue(patientSummary.lastName.key, PATIENT_LAST_NAME);
     await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, PATIENT_FIRST_NAME);
     await patientInformationPage.verifyDateFieldValue(patientSummary.birthDate.key, PATIENT_BIRTH_DATE_SHORT);
@@ -295,9 +293,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify required data from Contact info block is displayed correctly', async () => {
-    if (ContactInformationHidden) {
-      test.skip();
-    }
+    test.skip(ContactInformationHidden, 'contact information section is hidden');
     await patientInformationPage.verifyTextFieldValue(contactInformation.streetAddress.key, DEMO_VISIT_STREET_ADDRESS);
     await patientInformationPage.verifyTextFieldValue(
       contactInformation.addressLine2.key,
@@ -311,9 +307,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify data from Responsible party information block is displayed correctly', async () => {
-    if (ResponsiblePartyHidden) {
-      test.skip();
-    }
+    test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
     await patientInformationPage.verifySelectFieldValue(
       responsibleParty.relationship.key,
       DEMO_VISIT_RESPONSIBLE_RELATIONSHIP
@@ -340,9 +334,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
-    if (PatientDetailsHidden) {
-      test.skip();
-    }
+    test.skip(PatientDetailsHidden, 'patient details section is hidden');
     await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, DEMO_VISIT_PATIENT_ETHNICITY);
     await patientInformationPage.verifySelectFieldValue(patientDetails.race.key, DEMO_VISIT_PATIENT_RACE);
     await patientInformationPage.verifySelectFieldValue(
@@ -358,9 +350,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify PCP Section behavior', async () => {
-    if (PCPHidden) {
-      test.skip();
-    }
+    test.skip(PCPHidden, 'PCP section is hidden');
     await test.step('Verify data from Primary Care Physician block is displayed correctly', async () => {
       await patientInformationPage.verifyTextFieldValue(
         primaryCarePhysician.firstName.key,
@@ -419,9 +409,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify Emergency Contact Section behavior', async () => {
-    if (EmergencyContactHidden) {
-      test.skip();
-    }
+    test.skip(EmergencyContactHidden, 'emergency contact section is hidden');
     await test.step('Verify data from Emergency Contact block is displayed correctly', async () => {
       // Note: We can add verification here if there is existing emergency contact data in the resource handler
       // For now, we'll test this section can be interacted with
@@ -430,9 +418,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify Pharmacy Section behavior', async () => {
-    if (PharmacyHidden) {
-      test.skip();
-    }
+    test.skip(PharmacyHidden, 'pharmacy section is hidden');
     await test.step('Verify Pharmacy section is visible', async () => {
       // Note: We can add verification here if there is existing pharmacy data in the resource handler
       // For now, we'll test this section can be interacted with
@@ -441,9 +427,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify Employer Section behavior', async () => {
-    if (EmployerHidden) {
-      test.skip();
-    }
+    test.skip(EmployerHidden, 'employer section is hidden');
     await test.step('Verify Employer section is visible', async () => {
       // Note: We can add verification here if there is existing employer data in the resource handler
       // For now, we'll test this section can be interacted with
@@ -452,9 +436,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Verify Attorney Section behavior', async () => {
-    if (AttorneyHidden) {
-      test.skip();
-    }
+    test.skip(AttorneyHidden, 'attorney section is hidden');
     await test.step('Verify Attorney section is visible', async () => {
       // Note: We can add verification here if there is existing attorney data in the resource handler
       // For now, we'll test this section can be interacted with
@@ -482,9 +464,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });*/
 
   test('Click on [Cancel] button, user stays on Patient Profile page', async () => {
-    if (PatientSummaryHidden) {
-      test.skip();
-    }
+    test.skip(PatientSummaryHidden, 'patient summary section is hidden');
     await patientInformationPage.enterTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDialog(page);
@@ -493,9 +473,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Click on [x] icon, user stays on Patient Profile page', async () => {
-    if (PatientSummaryHidden) {
-      test.skip();
-    }
+    test.skip(PatientSummaryHidden, 'patient summary section is hidden');
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCloseButton();
@@ -517,9 +495,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   });
 
   test('Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
-    if (PatientSummaryHidden) {
-      test.skip();
-    }
+    test.skip(PatientSummaryHidden, 'patient summary section is hidden');
     await page.goto('/patient/' + resourceHandler.patient.id);
     let patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
@@ -546,18 +522,14 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       await patientInformationPage.reloadPatientInformationPage();
 
       await test.step('Verify required data from Patient summary block populated', async () => {
-        if (PatientSummaryHidden) {
-          test.skip();
-        }
+        test.skip(PatientSummaryHidden, 'patient summary section is hidden');
         await patientInformationPage.verifyTextFieldValue(patientSummary.lastName.key, NEW_PATIENT_LAST_NAME);
         await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
         await patientInformationPage.verifyDateFieldValue(patientSummary.birthDate.key, NEW_PATIENT_DATE_OF_BIRTH);
         await patientInformationPage.verifySelectFieldValue(patientSummary.birthSex.key, NEW_PATIENT_BIRTH_SEX);
       });
       await test.step('Verify required data from Contact info block populated', async () => {
-        if (ContactInformationHidden) {
-          test.skip();
-        }
+        test.skip(ContactInformationHidden, 'contact information section is hidden');
         await patientInformationPage.verifyTextFieldValue(contactInformation.streetAddress.key, NEW_STREET_ADDRESS);
         await patientInformationPage.verifyTextFieldValue(contactInformation.city.key, NEW_CITY);
         await patientInformationPage.verifySelectFieldValue(contactInformation.state.key, NEW_STATE);
@@ -567,17 +539,13 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Verify entered by patient data from Patient details block populated', async () => {
-        if (PatientDetailsHidden) {
-          test.skip();
-        }
+        test.skip(PatientDetailsHidden, 'patient details section is hidden');
         await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, NEW_PATIENT_ETHNICITY);
         await patientInformationPage.verifySelectFieldValue(patientDetails.race.key, NEW_PATIENT_RACE);
       });
 
       await test.step('Verify data from Responsible party information block populated', async () => {
-        if (ResponsiblePartyHidden) {
-          test.skip();
-        }
+        test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
         await patientInformationPage.verifySelectFieldValue(
           responsibleParty.relationship.key,
           NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
@@ -615,9 +583,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
     */
 
       await test.step('Check validation error is displayed if any required field in Patient info block is missing', async () => {
-        if (PatientSummaryHidden) {
-          test.skip();
-        }
+        test.skip(PatientSummaryHidden, 'patient summary section is hidden');
         const requiredFields: FormFieldsInputItem[] = [];
         for (const field of PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields ?? []) {
           const requiredField = Object.values(patientSummary).find((item) => item.key === field);
@@ -633,9 +599,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
             await patientInformationPage.clearField(field.key);
           }
         }
-        if (requiredFields.length === 0) {
-          test.skip();
-        }
+        test.skip(requiredFields.length === 0, 'no required fields to test');
         await patientInformationPage.clickSaveChangesButton();
         for (const field of requiredFields) {
           if (field.type !== 'choice' && field.type !== 'reference') {
@@ -645,9 +609,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Check validation error is displayed if any required field in Contact info block is missing', async () => {
-        if (ContactInformationHidden) {
-          test.skip();
-        }
+        test.skip(ContactInformationHidden, 'contact information section is hidden');
         const requiredFields: FormFieldsInputItem[] = [];
         for (const field of PATIENT_RECORD_CONFIG.FormFields.patientContactInformation.requiredFields ?? []) {
           const requiredField = Object.values(contactInformation).find((item) => item.key === field);
@@ -672,9 +634,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Enter invalid email,zip and mobile on Contract info block, validation errors are shown', async () => {
-        if (ContactInformationHidden) {
-          test.skip();
-        }
+        test.skip(ContactInformationHidden, 'contact information section is hidden');
         await patientInformationPage.enterTextFieldValue(contactInformation.zip.key, '11');
         await patientInformationPage.clickSaveChangesButton();
         await patientInformationPage.verifyFieldError(contactInformation.zip.key, 'Must be 5 digits');
@@ -708,9 +668,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         );
       });
       await test.step('Check validation error is displayed if any required field in Responsible party information block is missing or phone number is invalid', async () => {
-        if (ResponsiblePartyHidden) {
-          test.skip();
-        }
+        test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
         await patientInformationPage.clearField(responsibleParty.firstName.key);
         await patientInformationPage.clearField(responsibleParty.lastName.key);
         await patientInformationPage.clearField(responsibleParty.birthDate.key);
@@ -730,9 +688,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('When relationship is "Self", all triggered fields should be disabled', async () => {
-        if (ResponsiblePartyHidden) {
-          test.skip();
-        }
+        test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
         // Get all fields triggered by the relationship field that are NOT also triggered by address checkbox
         // (we want fields that only depend on relationship, not the address fields which have enableBehavior: 'all')
         const relationshipOnlyFields = getConditionalFields(responsibleParty, responsibleParty.relationship.key).filter(
@@ -764,9 +720,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('When "address same as patient" checkbox is checked, address fields should be disabled', async () => {
-        if (ResponsiblePartyHidden) {
-          test.skip();
-        }
+        test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
         // Get address fields that are triggered by the address checkbox
         // These fields have enableBehavior: 'all', meaning BOTH relationship != 'Self' AND checkbox != true must be met
         const addressCheckboxTriggeredFields = getConditionalFields(
@@ -805,9 +759,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Dynamic population: When relationship is "Self", fields should auto-populate from patient data and restore when changed back', async () => {
-        if (ResponsiblePartyHidden) {
-          test.skip();
-        }
+        test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
         // Ensure patient data is populated first (needed for dynamic population source)
         await patientInformationPage.enterTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
         await patientInformationPage.enterTextFieldValue(patientSummary.lastName.key, NEW_PATIENT_LAST_NAME);
@@ -969,12 +921,11 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
       // rework
       await test.step('If "Other" gender is selected from Patient details  block, additional field appears and it is required', async () => {
-        if (PatientDetailsHidden) {
-          test.skip();
-        }
-        if (PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.genderIdentity.key)) {
-          test.skip();
-        }
+        test.skip(PatientDetailsHidden, 'patient details section is hidden');
+        test.skip(
+          PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.genderIdentity.key),
+          'gender identity field is hidden'
+        );
         await patientInformationPage.selectFieldOption(patientDetails.genderIdentity.key, 'Other');
         await patientInformationPage.verifyFieldIsVisible(patientDetails.genderIdentityDetails.key);
         await patientInformationPage.clickSaveChangesButton();
@@ -996,9 +947,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('If "Other" language is selected from Patient details block, additional field appears and it is required', async () => {
-        if (PatientDetailsHidden) {
-          test.skip();
-        }
+        test.skip(PatientDetailsHidden, 'patient details section is hidden');
         await patientInformationPage.selectFieldOption(patientDetails.language.key, 'Other');
         await patientInformationPage.verifyFieldIsVisible(patientDetails.otherLanguage.key);
         await patientInformationPage.clickSaveChangesButton();
@@ -1010,9 +959,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async () => {
-        if (PCPHidden) {
-          test.skip();
-        }
+        test.skip(PCPHidden, 'PCP section is hidden');
         await patientInformationPage.verifyBooleanFieldHasExpectedValue(primaryCarePhysician.active.key, false);
 
         // Get conditional fields from config
@@ -1049,9 +996,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Check validation error is displayed if any required field in Emergency Contact block is missing or phone number is invalid', async () => {
-        if (EmergencyContactHidden) {
-          test.skip();
-        }
+        test.skip(EmergencyContactHidden, 'emergency contact section is hidden');
         // Get required fields from config
         const requiredFields: FormFieldsInputItem[] = [];
         for (const field of PATIENT_RECORD_CONFIG.FormFields.emergencyContact.requiredFields ?? []) {
@@ -1089,18 +1034,14 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Verify Pharmacy section fields can be filled', async () => {
-        if (PharmacyHidden) {
-          test.skip();
-        }
+        test.skip(PharmacyHidden, 'pharmacy section is hidden');
         // Pharmacy has no required fields, so we just verify we can enter data
         await patientInformationPage.enterTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
         await patientInformationPage.enterTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
       });
 
       await test.step('Check validation errors for Employer Information block with invalid email and phone', async () => {
-        if (EmployerHidden) {
-          test.skip();
-        }
+        test.skip(EmployerHidden, 'employer section is hidden');
         // Test invalid email validation
         await patientInformationPage.enterTextFieldValue(employerInformation.contactEmail.key, 'invalidEmailFormat');
         await patientInformationPage.clickSaveChangesButton();
@@ -1144,9 +1085,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Check validation errors for Attorney Information block with invalid email and phone', async () => {
-        if (AttorneyHidden) {
-          test.skip();
-        }
+        test.skip(AttorneyHidden, 'attorney section is hidden');
         // Test invalid email validation
         await patientInformationPage.enterTextFieldValue(attorneyInformation.email.key, 'invalidEmailFormat');
         await patientInformationPage.clickSaveChangesButton();
@@ -1188,9 +1127,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       await populateAllRequiredFields(patientInformationPage);
 
       await test.step('Updating values from Patient Information page sections', async () => {
-        if (PatientSummaryHidden) {
-          test.skip();
-        }
+        test.skip(PatientSummaryHidden, 'patient summary section is hidden');
         await patientInformationPage.enterTextFieldValue(patientSummary.middleName.key, NEW_PATIENT_MIDDLE_NAME);
         await patientInformationPage.enterTextFieldValue(patientSummary.suffix.key, NEW_PATIENT_SUFFIX);
         await patientInformationPage.enterTextFieldValue(patientSummary.preferredName.key, NEW_PATIENT_PREFERRED_NAME);
@@ -1202,9 +1139,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Updating values from Contact info block', async () => {
-        if (ContactInformationHidden) {
-          test.skip();
-        }
+        test.skip(ContactInformationHidden, 'contact information section is hidden');
         await patientInformationPage.enterTextFieldValue(
           contactInformation.addressLine2.key,
           NEW_STREET_ADDRESS_OPTIONAL
@@ -1212,9 +1147,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Updating values from Responsible party information block', async () => {
-        if (ResponsiblePartyHidden) {
-          test.skip();
-        }
+        test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
         await patientInformationPage.enterTextFieldValue(
           responsibleParty.firstName.key,
           NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER
@@ -1241,9 +1174,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         );
       });
       await test.step('Updating values from Patient details block', async () => {
-        if (PatientDetailsHidden) {
-          test.skip();
-        }
+        test.skip(PatientDetailsHidden, 'patient details section is hidden');
         await patientInformationPage.selectFieldOption(patientDetails.ethnicity.key, NEW_PATIENT_ETHNICITY);
         await patientInformationPage.selectFieldOption(patientDetails.race.key, NEW_PATIENT_RACE);
         if (
@@ -1273,9 +1204,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Updating values from Primary Care Physician block', async () => {
-        if (PCPHidden) {
-          test.skip();
-        }
+        test.skip(PCPHidden, 'PCP section is hidden');
         await patientInformationPage.enterTextFieldValue(primaryCarePhysician.firstName.key, NEW_PROVIDER_FIRST_NAME);
         await patientInformationPage.enterTextFieldValue(primaryCarePhysician.lastName.key, NEW_PROVIDER_LAST_NAME);
         await patientInformationPage.enterTextFieldValue(primaryCarePhysician.practiceName.key, NEW_PRACTICE_NAME);
@@ -1284,9 +1213,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Updating values from Emergency Contact block', async () => {
-        if (EmergencyContactHidden) {
-          test.skip();
-        }
+        test.skip(EmergencyContactHidden, 'emergency contact section is hidden');
         await patientInformationPage.selectFieldOption(
           emergencyContact.relationship.key,
           NEW_EMERGENCY_CONTACT_RELATIONSHIP
@@ -1318,17 +1245,13 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Updating values from Pharmacy block', async () => {
-        if (PharmacyHidden) {
-          test.skip();
-        }
+        test.skip(PharmacyHidden, 'pharmacy section is hidden');
         await patientInformationPage.enterTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
         await patientInformationPage.enterTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
       });
 
       await test.step('Updating values from Employer Information block', async () => {
-        if (EmployerHidden) {
-          test.skip();
-        }
+        test.skip(EmployerHidden, 'employer section is hidden');
         await patientInformationPage.enterTextFieldValue(employerInformation.employerName.key, NEW_EMPLOYER_NAME);
         await patientInformationPage.enterTextFieldValue(
           employerInformation.addressLine1.key,
@@ -1365,9 +1288,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Updating values from Attorney Information block', async () => {
-        if (AttorneyHidden) {
-          test.skip();
-        }
+        test.skip(AttorneyHidden, 'attorney section is hidden');
         await patientInformationPage.enterTextFieldValue(attorneyInformation.firm.key, NEW_ATTORNEY_FIRM);
         await patientInformationPage.enterTextFieldValue(attorneyInformation.firstName.key, NEW_ATTORNEY_FIRST_NAME);
         await patientInformationPage.enterTextFieldValue(attorneyInformation.lastName.key, NEW_ATTORNEY_LAST_NAME);
@@ -1385,9 +1306,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Patient Information page sections are updated correctly', async () => {
-        if (PatientSummaryHidden) {
-          test.skip();
-        }
+        test.skip(PatientSummaryHidden, 'patient summary section is hidden');
         await patientInformationPage.verifyTextFieldValue(patientSummary.lastName.key, NEW_PATIENT_LAST_NAME);
         await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
         await patientInformationPage.verifyTextFieldValue(patientSummary.middleName.key, NEW_PATIENT_MIDDLE_NAME);
@@ -1404,9 +1323,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Contact info block are updated correctly', async () => {
-        if (ContactInformationHidden) {
-          test.skip();
-        }
+        test.skip(ContactInformationHidden, 'contact information section is hidden');
         await patientInformationPage.verifyTextFieldValue(contactInformation.streetAddress.key, NEW_STREET_ADDRESS);
         await patientInformationPage.verifyTextFieldValue(
           contactInformation.addressLine2.key,
@@ -1420,9 +1337,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Responsible party information block are updated correctly', async () => {
-        if (ResponsiblePartyHidden) {
-          test.skip();
-        }
+        test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
         await patientInformationPage.verifySelectFieldValue(
           responsibleParty.relationship.key,
           NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
@@ -1454,9 +1369,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Patient details block are updated correctly', async () => {
-        if (PatientDetailsHidden) {
-          test.skip();
-        }
+        test.skip(PatientDetailsHidden, 'patient details section is hidden');
         await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, NEW_PATIENT_ETHNICITY);
         await patientInformationPage.verifySelectFieldValue(patientDetails.race.key, NEW_PATIENT_RACE);
         if (
@@ -1491,9 +1404,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Primary Care Physician block are updated correctly', async () => {
-        if (PCPHidden) {
-          test.skip();
-        }
+        test.skip(PCPHidden, 'PCP section is hidden');
         await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.firstName.key, NEW_PROVIDER_FIRST_NAME);
         await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.lastName.key, NEW_PROVIDER_LAST_NAME);
         await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.practiceName.key, NEW_PRACTICE_NAME);
@@ -1502,9 +1413,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Emergency Contact block are updated correctly', async () => {
-        if (EmergencyContactHidden) {
-          test.skip();
-        }
+        test.skip(EmergencyContactHidden, 'emergency contact section is hidden');
         await patientInformationPage.verifySelectFieldValue(
           emergencyContact.relationship.key,
           NEW_EMERGENCY_CONTACT_RELATIONSHIP
@@ -1536,17 +1445,13 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Pharmacy block are updated correctly', async () => {
-        if (PharmacyHidden) {
-          test.skip();
-        }
+        test.skip(PharmacyHidden, 'pharmacy section is hidden');
         await patientInformationPage.verifyTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
         await patientInformationPage.verifyTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
       });
 
       await test.step('Checking that all fields from Employer Information block are updated correctly', async () => {
-        if (EmployerHidden) {
-          test.skip();
-        }
+        test.skip(EmployerHidden, 'employer section is hidden');
         await patientInformationPage.verifyTextFieldValue(employerInformation.employerName.key, NEW_EMPLOYER_NAME);
         await patientInformationPage.verifyTextFieldValue(
           employerInformation.addressLine1.key,
@@ -1586,9 +1491,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       });
 
       await test.step('Checking that all fields from Attorney Information block are updated correctly', async () => {
-        if (AttorneyHidden) {
-          test.skip();
-        }
+        test.skip(AttorneyHidden, 'attorney section is hidden');
         await patientInformationPage.verifyTextFieldValue(attorneyInformation.firm.key, NEW_ATTORNEY_FIRM);
         await patientInformationPage.verifyTextFieldValue(attorneyInformation.firstName.key, NEW_ATTORNEY_FIRST_NAME);
         await patientInformationPage.verifyTextFieldValue(attorneyInformation.lastName.key, NEW_ATTORNEY_LAST_NAME);
@@ -1889,18 +1792,14 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
     const patientInformationPage = await openPatientInformationPage(page, patientId);
 
     await test.step('Enter contact information fields', async () => {
-      if (ContactInformationHidden) {
-        test.skip();
-      }
+      test.skip(ContactInformationHidden, 'contact information section is hidden');
       await patientInformationPage.enterTextFieldValue(contactInformation.streetAddress.key, NEW_STREET_ADDRESS);
       await patientInformationPage.enterTextFieldValue(contactInformation.city.key, NEW_CITY);
       await patientInformationPage.enterTextFieldValue(contactInformation.email.key, NEW_PATIENT_EMAIL);
       await patientInformationPage.enterPhoneFieldValue(contactInformation.phone.key, NEW_PATIENT_MOBILE);
     });
     await test.step('Enter responsible party information fields', async () => {
-      if (ResponsiblePartyHidden) {
-        test.skip();
-      }
+      test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
       await patientInformationPage.enterTextFieldValue(
         responsibleParty.firstName.key,
         NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER
@@ -1921,22 +1820,16 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
     await patientInformationPage.clickSaveChangesButton();
 
     await test.step('Verify state required in Patient Contact Information section', async () => {
-      if (ContactInformationHidden) {
-        test.skip();
-      }
+      test.skip(ContactInformationHidden, 'contact information section is hidden');
       await patientInformationPage.verifyRequiredFieldValidationErrorShown(contactInformation.state.key);
     });
     await test.step('Verify race and ethnicity required in Patient Details section', async () => {
-      if (PatientDetailsHidden) {
-        test.skip();
-      }
+      test.skip(PatientDetailsHidden, 'patient details section is hidden');
       await patientInformationPage.verifyRequiredFieldValidationErrorShown(patientDetails.ethnicity.key);
       await patientInformationPage.verifyRequiredFieldValidationErrorShown(patientDetails.race.key);
     });
     await test.step('Verify relationship to patient required in Responsible Party section', async () => {
-      if (ResponsiblePartyHidden) {
-        test.skip();
-      }
+      test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
       await patientInformationPage.verifyRequiredFieldValidationErrorShown(responsibleParty.relationship.key);
     });
   });
