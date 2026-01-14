@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
-import virtualIntakeQuestionnaire from '../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
-import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' with { type: 'json' };
+import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' with { type: 'json' };
+import virtualIntakeQuestionnaire from '../../../../config/oystehr/virtual-intake-questionnaire.json' with { type: 'json' };
+import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' with { type: 'json' };
 import { BOOKING_CONFIG, PATIENT_RECORD_QUESTIONNAIRE } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
 

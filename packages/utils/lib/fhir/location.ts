@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, HealthcareService, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import locationsSpec from '../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
+import locationsSpec from '../../../../config/oystehr/locations-and-schedules.json' with { type: 'json' };
 import {
   AvailableLocationInformation,
   OVERRIDE_DATE_FORMAT,

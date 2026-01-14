@@ -35,7 +35,7 @@ import {
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' with { type: 'json' };
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
   inviteTestEmployeeUser,

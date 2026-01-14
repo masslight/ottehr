@@ -20,7 +20,7 @@ import {
 import { DateTime } from 'luxon';
 import { cleanAppointmentGraph, M2MClientMockType, RoleType } from 'utils';
 import { inject } from 'vitest';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' with { type: 'json' };
 import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

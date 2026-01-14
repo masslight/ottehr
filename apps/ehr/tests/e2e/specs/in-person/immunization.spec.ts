@@ -13,7 +13,7 @@ import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { getFirstName, getLastName, medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
-import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
+import vaccines from '../../../../../../config/oystehr/vaccines.json' with { type: 'json' };
 
 interface VaccineInfo {
   vaccine: string;
