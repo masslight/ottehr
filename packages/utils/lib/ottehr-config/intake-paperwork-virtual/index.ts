@@ -374,6 +374,7 @@ const FormFields = {
         text: 'Medications taken',
         required: false,
         type: 'group',
+        groupType: 'list-with-form',
         triggers: [
           {
             targetQuestionLinkId: 'current-medications-yes-no',
@@ -386,12 +387,6 @@ const FormFields = {
             effect: ['filter'],
             operator: '!=',
             answerString: 'Patient takes medication currently',
-          },
-        ],
-        extension: [
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
-            valueString: 'list-with-form',
           },
         ],
         items: {
@@ -430,6 +425,7 @@ const FormFields = {
         text: 'Known current allergies',
         required: false,
         type: 'group',
+        groupType: 'list-with-form',
         triggers: [
           {
             targetQuestionLinkId: 'allergies-yes-no',
@@ -442,12 +438,6 @@ const FormFields = {
             effect: ['filter'],
             operator: '!=',
             answerString: ALLERGIES_YES_OPTION,
-          },
-        ],
-        extension: [
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
-            valueString: 'list-with-form',
           },
         ],
         items: {
@@ -523,6 +513,7 @@ const FormFields = {
         text: 'Current medical conditions',
         required: true,
         type: 'group',
+        groupType: 'list-with-form',
         triggers: [
           {
             targetQuestionLinkId: 'medical-history-yes-no',
@@ -535,12 +526,6 @@ const FormFields = {
             effect: ['filter'],
             operator: '!=',
             answerString: 'Patient has current medical conditions',
-          },
-        ],
-        extension: [
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
-            valueString: 'list-with-form',
           },
         ],
         items: {
@@ -579,6 +564,7 @@ const FormFields = {
         text: 'Surgeries',
         required: false,
         type: 'group',
+        groupType: 'list-with-form',
         triggers: [
           {
             targetQuestionLinkId: 'surgical-history-yes-no',
@@ -591,12 +577,6 @@ const FormFields = {
             effect: ['filter'],
             operator: '!=',
             answerString: SURGICAL_HISTORY_YES_OPTION,
-          },
-        ],
-        extension: [
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
-            valueString: 'list-with-form',
           },
         ],
         items: {

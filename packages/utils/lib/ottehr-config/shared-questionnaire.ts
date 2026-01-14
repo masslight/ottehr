@@ -183,6 +183,7 @@ const FormFieldsGroupFieldSchema = z.lazy(() =>
     customLinkId: z.string().optional(),
     categoryTag: z.string().optional(),
     acceptsMultipleAnswers: z.boolean().optional(),
+    groupType: z.literal('list-with-form').optional(),
   })
 ) as z.ZodType<any>;
 
@@ -200,6 +201,7 @@ export type FormFieldsGroupItem = {
   customLinkId?: string;
   categoryTag?: string;
   acceptsMultipleAnswers?: boolean;
+  groupType?: string;
 };
 
 export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
@@ -622,6 +624,13 @@ const convertGroupFieldToQuestionnaireItem = (
 
   // Add group-level extensions
   const groupExtensions: any[] = [...(field.extension || [])];
+
+  if (field.groupType) {
+    groupExtensions.push({
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
+      valueString: field.groupType,
+    });
+  }
 
   if (field.customLinkId) {
     groupExtensions.push(createCustomLinkIdExtension(field.customLinkId));
