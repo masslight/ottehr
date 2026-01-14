@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
 
 export default defineConfig({
   test: {
-    // Disable globals to avoid conflicts with Playwright's expect in CI
+    // Disable globals to avoid conflicts with Playwright's expect during test execution
     globals: false,
     include: ['**/*.test.tsx'],
     setupFiles: ['./tests/component/setup.ts'],
