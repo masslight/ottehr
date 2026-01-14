@@ -742,12 +742,14 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             .first();
           await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
           await waitForChartDataDeletion(page);
+          await expect(medicalConditionListItem).not.toBeVisible({ timeout: 30_000 });
+
           // Check that there are no more medical condition items with this text
           await expect(
             page
               .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
               .filter({ hasText: new RegExp(conditionName, 'i') })
-          ).toHaveCount(0);
+          ).toHaveCount(0, { timeout: 30000 });
         });
 
         await test.step('Confirm deletion in hpi tab', async () => {
@@ -861,6 +863,9 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
     await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect).locator('input').click();
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(location.id!)).click();
+
+    await page.waitForLoadState('networkidle', { timeout: 30_000 });
+    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
 
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
