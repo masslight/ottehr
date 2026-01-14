@@ -12,6 +12,7 @@ import {
   Location,
   Observation,
   Patient,
+  Questionnaire,
   QuestionnaireResponseItem,
 } from 'fhir/r4b';
 import {
@@ -19,6 +20,7 @@ import {
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
   flattenQuestionnaireAnswers,
+  getCanonicalQuestionnaire,
   getPatchOperationsForNewMetaTags,
   getRelatedPersonForPatient,
   getSecret,
@@ -131,6 +133,21 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   ).unbundle();
   console.timeEnd('querying for resources to support qr harvest');
 
+  // Fetch questionnaire for enableWhen filtering
+  const questionnaireForEnableWhenFiltering = await (async (): Promise<Questionnaire | undefined> => {
+    if (qr.questionnaire) {
+      const parts = qr.questionnaire.split('|');
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        try {
+          return await getCanonicalQuestionnaire({ url: parts[0], version: parts[1] }, oystehr);
+        } catch (error) {
+          console.warn(`Failed to fetch questionnaire ${qr.questionnaire}:`, error);
+        }
+      }
+    }
+    return undefined;
+  })();
+
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
   let patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
@@ -145,7 +162,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(qr.item || [], patientResource);
+  const patientPatchOps = createMasterRecordPatchOperations(
+    qr.item || [],
+    patientResource,
+    questionnaireForEnableWhenFiltering
+  );
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 

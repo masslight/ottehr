@@ -69,6 +69,7 @@ export const OrdersToolTip: React.FC<{
                       borderRadius: '50%',
                       bgcolor: 'warning.main',
                       display: 'inline-block',
+                      flexShrink: 0,
                     }}
                   />
                 )}

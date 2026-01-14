@@ -11,16 +11,15 @@ import {
   useTheme,
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
+import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm, loadStripe } from 'ui-components';
-import { CreditCardInfo, IntakeQuestionnaireItem } from 'utils';
+import { CreditCardInfo, IntakeQuestionnaireItem, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
-
-const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
 interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
@@ -37,6 +36,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
 }) => {
   const {
     patient,
+    appointment,
     paymentMethods: cards,
     refetchPaymentMethods,
     stripeSetupData: setupData,
@@ -50,13 +50,18 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
 
+  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount);
+
   useEffect(() => {
     if (selectedOption !== defaultCard?.id) {
       setSelectedOption(defaultCard?.id);
     }
   }, [cards, defaultCard?.id, selectedOption]);
 
-  const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
+  const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(
+    patient?.id,
+    appointment?.id
+  );
 
   useEffect(() => {
     if (selectedOption !== undefined && validCreditCardOnFile !== true) {
@@ -110,13 +115,14 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
       </Card>
       {detailsText ? <Typography variant="body2">{detailsText}</Typography> : null}
       <CreditCardContent
-        setupData={setupData as any}
+        setupData={setupData}
         pendingSelection={pendingSelection}
         selectedOption={selectedOption}
         cards={cards}
         disabled={disabled}
         required={required}
         errorMessage={errorMessage}
+        stripePromise={stripePromise}
         setErrorMessage={setErrorMessage}
         onMakePrimary={onMakePrimary}
         handleNewPaymentMethod={handleNewPaymentMethod}
@@ -126,13 +132,14 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
 };
 
 interface CreditCardContentProps {
-  setupData: string | undefined;
+  setupData: PaymentMethodSetupZambdaOutput | undefined;
   pendingSelection: string | undefined;
   selectedOption: string | undefined;
   cards: CreditCardInfo[];
   disabled: boolean;
   required: boolean;
   errorMessage: string | undefined;
+  stripePromise: Promise<Stripe | null>;
   setErrorMessage: (message: string | undefined) => void;
   onMakePrimary: (id: string) => void;
   handleNewPaymentMethod: (id: string) => void;
@@ -147,6 +154,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     disabled,
     errorMessage,
     required,
+    stripePromise,
     setErrorMessage,
     onMakePrimary,
     handleNewPaymentMethod,
@@ -228,14 +236,20 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         </RadioGroup>
       </Box>
 
-      <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
-        <AddCreditCardForm
-          clientSecret={setupData ?? ''}
-          isLoading={disabled}
-          disabled={disabled}
-          selectPaymentMethod={handleNewPaymentMethod}
-        />
-      </Elements>
+      {disabled ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Elements stripe={stripePromise} options={{ clientSecret: setupData?.clientSecret || '' }}>
+          <AddCreditCardForm
+            clientSecret={setupData?.clientSecret || ''}
+            isLoading={disabled}
+            disabled={disabled}
+            selectPaymentMethod={handleNewPaymentMethod}
+          />
+        </Elements>
+      )}
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         open={errorMessage !== undefined}

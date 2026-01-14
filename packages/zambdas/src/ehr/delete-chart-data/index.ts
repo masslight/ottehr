@@ -21,6 +21,7 @@ import {
   AllergyDTO,
   CommunicationDTO,
   CPTCodeDTO,
+  createCancellationTagOperations,
   ExamObservationDTO,
   getPatchBinary,
   getSecret,
@@ -28,6 +29,7 @@ import {
   MedicationDTO,
   ObservationDTO,
   OttehrTaskSystem,
+  ProcedureDTO,
   SecretsKeys,
 } from 'utils';
 import {
@@ -95,6 +97,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       addendumNote,
       notes,
       vitalsObservations,
+      procedures,
     } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -223,6 +226,34 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 16. delete vitalsObservations
     vitalsObservations?.forEach((element) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
+    });
+
+    // 18. mark procedures as entered-in-error (cancel)
+    procedures?.forEach((procedure: ProcedureDTO) => {
+      // Find the ServiceRequest for this procedure
+      const procedureServiceRequest = allResources.find(
+        (resource) => resource.resourceType === 'ServiceRequest' && resource.id === procedure.resourceId
+      ) as ServiceRequest | undefined;
+
+      if (procedureServiceRequest) {
+        const currentStatus = procedureServiceRequest.status;
+        console.log(`Cancelling procedure ${procedure.resourceId}, saving previous status '${currentStatus}'`);
+
+        // Use helper to create cancellation tag operations and status update
+        const patchOperations = [
+          ...createCancellationTagOperations(currentStatus, procedureServiceRequest.meta),
+          { op: 'replace' as const, path: '/status', value: 'entered-in-error' },
+        ];
+
+        // Mark as entered-in-error instead of deleting
+        deleteOrUpdateRequests.push(
+          getPatchBinary({
+            resourceId: procedure.resourceId!,
+            resourceType: 'ServiceRequest',
+            patchOperations,
+          })
+        );
+      }
     });
 
     // 17. regenerate diagnosis code recommendations if chief complaint or medical decision were deleted
