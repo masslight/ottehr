@@ -923,7 +923,8 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       await test.step('If "Other" gender is selected from Patient details  block, additional field appears and it is required', async () => {
         test.skip(PatientDetailsHidden, 'patient details section is hidden');
         test.skip(
-          PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.genderIdentity.key),
+          PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.genderIdentity.key) ??
+            false,
           'gender identity field is hidden'
         );
         await patientInformationPage.selectFieldOption(patientDetails.genderIdentity.key, 'Other');
