@@ -108,11 +108,11 @@ export const RosItem = Node.create<RosItemOptions>({
   addInputRules() {
     return [
       new InputRule({
-        find: /^-\s*\[(R|D| )\]\s$/,
+        find: /^-\s*\[(\+|-| )\]\s$/,
         handler: ({ range, match, chain }) => {
           const raw = match[1];
 
-          const state = raw === 'R' ? 'reports' : raw === 'D' ? 'denies' : null;
+          const state = raw === '+' ? 'reports' : raw === '-' ? 'denies' : null;
           chain()
             .deleteRange(range)
             .insertContent({

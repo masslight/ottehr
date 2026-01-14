@@ -76,7 +76,7 @@ export const RosField: FC = () => {
         if (text) {
           const normalizedText = text.replace(/\\n/g, '\n');
 
-          if (normalizedText.match(/^-\s*\[([ RD])\]/m)) {
+          if (normalizedText.match(/^-\s*\[([+\- ])\]/m)) {
             event.preventDefault();
             const doc = markdownToRos(normalizedText);
             editor?.commands.setContent(doc);

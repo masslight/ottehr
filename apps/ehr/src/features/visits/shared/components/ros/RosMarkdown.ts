@@ -11,9 +11,9 @@ export const rosToMarkdown = (node: Node): string => {
           let marker = '[ ]';
 
           if (state === 'reports') {
-            marker = '[R]';
+            marker = '[+]';
           } else if (state === 'denies') {
-            marker = '[D]';
+            marker = '[-]';
           }
 
           const text = item.textContent.trim();
@@ -39,14 +39,14 @@ export const markdownToRos = (markdown: string): any => {
   lines.forEach((line) => {
     const trimmed = line.trim();
 
-    const rosMatch = trimmed.match(/^-\s*\[([ RD])\]\s*(.+)$/);
+    const rosMatch = trimmed.match(/^-\s*\[(\+|-| )\]\s+(.+)$/);
     if (rosMatch) {
       const [, marker, text] = rosMatch;
       let state = null;
 
-      if (marker === 'R') {
+      if (marker === '+') {
         state = 'reports';
-      } else if (marker === 'D') {
+      } else if (marker === '-') {
         state = 'denies';
       }
 

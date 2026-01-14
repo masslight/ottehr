@@ -12,7 +12,7 @@ const parseRosMarkdown = (markdown: string): ParsedRos => {
   markdown.split('\n').forEach((line) => {
     const trimmed = line.trim();
 
-    const match = trimmed.match(/^-\s*\[(R|D)\]\s+(.+)$/);
+    const match = trimmed.match(/^- \[(\+|-)\] (.*)$/);
     if (!match) return;
 
     const [, type, text] = match;
@@ -20,7 +20,7 @@ const parseRosMarkdown = (markdown: string): ParsedRos => {
 
     if (!normalized) return;
 
-    if (type === 'R') {
+    if (type === '+') {
       reports.push(normalized);
     } else {
       denies.push(normalized);
