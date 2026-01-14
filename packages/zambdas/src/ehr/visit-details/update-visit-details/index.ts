@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Extension, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BOOKING_CONFIG,
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
@@ -305,6 +306,27 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     }
   }
 
+  if (bookingDetails.serviceCategory) {
+    const appointmentPatch: BatchInputJSONPatchRequest = {
+      url: '/Appointment/' + appointment.id,
+      method: 'PATCH',
+      operations: [
+        {
+          op: appointment?.serviceCategory ? 'replace' : 'add',
+          path: '/serviceCategory',
+          value: [
+            {
+              coding: [
+                BOOKING_CONFIG.serviceCategories.find((category) => category.code === bookingDetails.serviceCategory),
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    patchRequests.push(appointmentPatch);
+  }
+
   // this will combine any requests to patch the same object. for now there's no possibility of conflicting operations
   // in this endpoint, so simply consolidating the requests is safe.
   const consolidatedPatches = consolidatePatchRequests(patchRequests);
@@ -456,6 +478,15 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     }
   }
 
+  if (bookingDetails.serviceCategory && typeof bookingDetails.serviceCategory !== 'string') {
+    throw INVALID_INPUT_ERROR('serviceCategory must be a string');
+  } else if (
+    bookingDetails.serviceCategory &&
+    !BOOKING_CONFIG.serviceCategories.find((category) => category.code === bookingDetails.serviceCategory)
+  ) {
+    throw INVALID_INPUT_ERROR(`serviceCategory, "${bookingDetails.serviceCategory}", is not a valid option`);
+  }
+
   // Require at least one field to be present
 
   if (
@@ -464,7 +495,8 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     bookingDetails.authorizedNonLegalGuardians === undefined &&
     bookingDetails.confirmedDob === undefined &&
     bookingDetails.patientName === undefined &&
-    bookingDetails.consentForms === undefined
+    bookingDetails.consentForms === undefined &&
+    bookingDetails.serviceCategory === undefined
   ) {
     throw INVALID_INPUT_ERROR('at least one field in bookingDetails must be provided');
   }
