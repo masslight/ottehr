@@ -23,7 +23,8 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
-import { patientScreeningQuestionsConfig } from '../ottehr-config/questionnaire';
+import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config';
+import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import {
   appointmentTypeLabels,
   appointmentTypeMap,
@@ -363,6 +364,13 @@ export const DEMO_VISIT_EMPLOYER_CONTACT_TITLE = 'HR Manager';
 export const DEMO_VISIT_EMPLOYER_CONTACT_EMAIL = 'a@a.a';
 export const DEMO_VISIT_EMPLOYER_CONTACT_PHONE = '(123) 123-1234';
 export const DEMO_VISIT_EMPLOYER_CONTACT_FAX = '(123) 123-1234';
+export const DEMO_VISIT_ATTORNEY_HAS_ATTORNEY = 'I have an attorney';
+export const DEMO_VISIT_ATTORNEY_FIRM = 'Test Law Firm';
+export const DEMO_VISIT_ATTORNEY_FIRST_NAME = 'John';
+export const DEMO_VISIT_ATTORNEY_LAST_NAME = 'Attorney';
+export const DEMO_VISIT_ATTORNEY_EMAIL = 'attorney@testlaw.com';
+export const DEMO_VISIT_ATTORNEY_MOBILE = '(123) 123-1234';
+export const DEMO_VISIT_ATTORNEY_FAX = '(123) 123-1235';
 export const DEMO_PREFERRED_COMMUNICATION_METHOD = 'No preference';
 
 export function getContactInformationAnswers({
@@ -725,7 +733,7 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
     item: [
       {
         linkId: 'payment-option',
-        answer: [{ valueString: 'I will pay without insurance' }],
+        answer: [{ valueString: SELF_PAY_OPTION }],
       },
     ],
   };
@@ -1052,7 +1060,7 @@ export function getPaymentOptionInsuranceAnswers({
         linkId: 'payment-option',
         answer: [
           {
-            valueString: 'I have insurance',
+            valueString: INSURANCE_PAY_OPTION,
           },
         ],
       },
@@ -1431,6 +1439,58 @@ export function getEmployerInformationStepAnswers({
       {
         linkId: 'employer-contact-fax',
         answer: [{ valueString: contactFax }],
+      },
+    ],
+  };
+}
+
+export function getAttorneyInformationStepAnswers({
+  hasAttorney = DEMO_VISIT_ATTORNEY_HAS_ATTORNEY,
+  firm = DEMO_VISIT_ATTORNEY_FIRM,
+  firstName = DEMO_VISIT_ATTORNEY_FIRST_NAME,
+  lastName = DEMO_VISIT_ATTORNEY_LAST_NAME,
+  email = DEMO_VISIT_ATTORNEY_EMAIL,
+  mobile = DEMO_VISIT_ATTORNEY_MOBILE,
+  fax = DEMO_VISIT_ATTORNEY_FAX,
+}: {
+  hasAttorney?: string;
+  firm?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  fax?: string;
+} = {}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'attorney-mva-page',
+    item: [
+      {
+        linkId: 'attorney-mva-has-attorney',
+        answer: [{ valueString: hasAttorney }],
+      },
+      {
+        linkId: 'attorney-mva-firm',
+        answer: [{ valueString: firm }],
+      },
+      {
+        linkId: 'attorney-mva-first-name',
+        answer: [{ valueString: firstName }],
+      },
+      {
+        linkId: 'attorney-mva-last-name',
+        answer: [{ valueString: lastName }],
+      },
+      {
+        linkId: 'attorney-mva-email',
+        answer: [{ valueString: email }],
+      },
+      {
+        linkId: 'attorney-mva-mobile',
+        answer: [{ valueString: mobile }],
+      },
+      {
+        linkId: 'attorney-mva-fax',
+        answer: [{ valueString: fax }],
       },
     ],
   };

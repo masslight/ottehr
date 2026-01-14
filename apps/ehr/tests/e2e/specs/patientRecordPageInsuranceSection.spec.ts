@@ -3,6 +3,7 @@ import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createReference,
+  getAttorneyInformationStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
@@ -12,6 +13,7 @@ import {
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
+  hasAttorneyInformationPage,
   hasEmployerInformationPage,
   isoToDateObject,
   ORG_TYPE_CODE_SYSTEM,
@@ -691,6 +693,9 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
     );
     if (hasEmployerInformationPage()) {
       answers.push(getEmployerInformationStepAnswers({}));
+    }
+    if (hasAttorneyInformationPage()) {
+      answers.push(getAttorneyInformationStepAnswers({}));
     }
     answers.push(getConsentStepAnswers({}));
     return answers;

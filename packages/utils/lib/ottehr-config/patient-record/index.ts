@@ -2,13 +2,7 @@ import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, Questionna
 import _ from 'lodash';
 import { z } from 'zod';
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import {
-  makeAnswer,
-  makePrepopulatedItemsFromPatientRecord,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-  PrePopulationFromPatientRecordInput,
-} from '../../main';
+import { makeAnswer, makePrepopulatedItemsFromPatientRecord, PrePopulationFromPatientRecordInput } from '../../main';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
@@ -245,7 +239,7 @@ const FormFields = {
           dataSource: {
             answerSource: {
               resourceType: 'Organization',
-              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
               prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           },
@@ -368,7 +362,7 @@ const FormFields = {
           dataSource: {
             answerSource: {
               resourceType: 'Organization',
-              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
               prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           },
@@ -729,7 +723,7 @@ const FormFields = {
         dataSource: {
           answerSource: {
             resourceType: 'Organization',
-            query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
             prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
           },
         },
@@ -759,6 +753,40 @@ const FormFields = {
     hiddenFields: [],
     requiredFields: [],
   },
+  occupationalMedicineEmployerInformation: {
+    linkId: 'occupational-medicine-employer-information-page',
+    title: 'Employer - Occupational Medicine',
+    items: {
+      employerName: {
+        key: 'occupational-medicine-employer',
+        type: 'reference',
+        label: 'Employer name',
+        dataSource: {
+          answerSource: {
+            resourceType: 'Organization',
+            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
+            prependedIdentifier: '1',
+          },
+        },
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  attorneyInformation: {
+    linkId: 'attorney-mva-page',
+    title: 'Attorney for Motor Vehicle Accident',
+    items: {
+      firm: { key: 'attorney-mva-firm', type: 'string', label: 'Firm' },
+      firstName: { key: 'attorney-mva-first-name', type: 'string', label: 'First name' },
+      lastName: { key: 'attorney-mva-last-name', type: 'string', label: 'Last name' },
+      email: { key: 'attorney-mva-email', type: 'string', label: 'Email', dataType: 'Email' },
+      mobile: { key: 'attorney-mva-mobile', type: 'string', label: 'Mobile', dataType: 'Phone Number' },
+      fax: { key: 'attorney-mva-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
 };
 
 const FormFieldsSchema = z.object({
@@ -771,6 +799,8 @@ const FormFieldsSchema = z.object({
   emergencyContact: FormSectionSimpleSchema,
   preferredPharmacy: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
+  occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
+  attorneyInformation: FormSectionSimpleSchema,
 });
 
 const hiddenFormSections: string[] = [];

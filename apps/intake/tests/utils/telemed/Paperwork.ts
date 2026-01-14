@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { waitForResponseWithData } from 'test-utils';
+import { SELF_PAY_OPTION } from 'utils';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import {
   CURRENT_MEDICATIONS_ABSENT_LABEL,
@@ -272,7 +273,7 @@ export class PaperworkTelemed {
   }
 
   async fillAndCheckSelfPay() {
-    await this.page.getByLabel('I will pay without insurance').click();
+    await this.page.getByLabel(SELF_PAY_OPTION).click();
     await this.page.getByRole('button', { name: 'Continue' }).click();
   }
 

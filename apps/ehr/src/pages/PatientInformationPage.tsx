@@ -8,12 +8,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
 import { AddInsuranceModal } from 'src/features/visits/shared/components/patient/AddInsuranceModal';
+import { AttorneyInformationContainer } from 'src/features/visits/shared/components/patient/AttorneyInformationContainer';
 import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
 import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
 import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
 import { EmployerInformationContainer } from 'src/features/visits/shared/components/patient/EmployerInformationContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
+import { OccupationalMedicineEmployerInformationContainer } from 'src/features/visits/shared/components/patient/OccupationalMedicineEmployerContainer';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
 import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
@@ -434,6 +436,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                   />
                   <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
                   <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  <OccupationalMedicineEmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  <AttorneyInformationContainer isLoading={isFetching || submitQR.isPending} />
                   <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
                   <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
                 </Box>

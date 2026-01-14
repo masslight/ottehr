@@ -452,6 +452,7 @@ export const PaperworkPage: FC = () => {
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
             const nextPage = getNextPage(updatedPaperwork);
+
             navigate(
               `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
             );
