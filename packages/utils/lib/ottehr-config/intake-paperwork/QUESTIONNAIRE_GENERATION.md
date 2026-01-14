@@ -507,17 +507,6 @@ employerInformationPage: {
 - Check for manual edits to JSON file (not allowed)
 - Verify test expectations are up to date
 
-## Future Enhancements
-
-Potential additions to the configuration system:
-
-1. **Calculated Fields**: Fields whose values are computed from other fields
-2. **Async Validation**: Server-side validation rules
-3. **Multi-Page Branching**: Complex page flow based on answers
-4. **Field Groups Within Sections**: Better organization of related fields
-5. **Conditional Options**: Choice options that change based on other fields
-6. **Cross-Section Validation**: Validation rules spanning multiple sections
-7. **Progress Indicators**: Automatic completion percentage calculation
 
 ## Related Documentation
 
