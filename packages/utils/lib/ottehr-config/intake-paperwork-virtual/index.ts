@@ -473,7 +473,7 @@ const FormFields = {
             customLinkId: 'allergies-form-agent-substance',
             acceptsMultipleAnswers: true,
             categoryTag: 'Medication',
-            disabledDisplay: 'hidden',
+            disabledDisplay: 'disabled',
             triggers: [
               {
                 targetQuestionLinkId: 'allergies.allergies-form-type',
@@ -491,7 +491,7 @@ const FormFields = {
             customLinkId: 'allergies-form-agent-substance',
             acceptsMultipleAnswers: true,
             categoryTag: 'Other',
-            disabledDisplay: 'hidden',
+            disabledDisplay: 'disabled',
             triggers: [
               {
                 targetQuestionLinkId: 'allergies.allergies-form-type',
@@ -2255,6 +2255,21 @@ const FormFields = {
         label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
         text: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
         type: 'boolean',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
         permissibleValue: true,
       },
       consentToTreat: {
@@ -2263,6 +2278,21 @@ const FormFields = {
           'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
         text: 'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
         type: 'boolean',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
         permissibleValue: true,
       },
       signature: {
@@ -2284,6 +2314,21 @@ const FormFields = {
         label: 'Relationship to the patient',
         text: 'Relationship to the patient',
         type: 'choice',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
         options: formValueSets.relationshipOptions,
       },
     },

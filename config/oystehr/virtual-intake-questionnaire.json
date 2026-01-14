@@ -5686,19 +5686,6 @@
                 "type": "string",
                 "text": "Signature",
                 "required": true,
-                "enableWhen": [
-                  {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "completed"
-                  },
-                  {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "amended"
-                  }
-                ],
-                "enableBehavior": "all",
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -5715,19 +5702,6 @@
                 "type": "string",
                 "text": "Full name",
                 "required": true,
-                "enableWhen": [
-                  {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "completed"
-                  },
-                  {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "amended"
-                  }
-                ],
-                "enableBehavior": "all",
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
@@ -5857,7 +5831,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -5901,7 +5875,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -5953,7 +5927,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -5997,7 +5971,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -6041,7 +6015,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
