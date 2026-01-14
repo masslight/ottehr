@@ -469,21 +469,21 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 29,
+            value: 24,
           },
           // too low oxygen saturation
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalOxygenSaturation,
-            value: 94,
+            value: 93,
           },
           // too low systolic blood pressure
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalBloodPressure,
-            systolicPressure: 69,
+            systolicPressure: 58,
             diastolicPressure: 40,
           },
         ];
@@ -623,7 +623,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalBloodPressure,
-            systolicPressure: 69.9,
+            systolicPressure: 68.9,
             diastolicPressure: 40,
           },
         ];
@@ -715,7 +715,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 19.9,
+            value: 17.9,
           },
         ];
         await saveVital(obs, encounterId);
@@ -792,7 +792,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 19.9,
+            value: 18.9,
           },
         ];
         await saveVital(obs, encounterId);
@@ -875,7 +875,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalBloodPressure,
-            systolicPressure: 89.9,
+            systolicPressure: 80.9,
             diastolicPressure: 80,
           },
         ];
@@ -961,7 +961,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalBloodPressure,
-            systolicPressure: 89.9,
+            systolicPressure: 83.9,
             diastolicPressure: 80,
           },
         ];
@@ -1061,104 +1061,98 @@ describe('saving and getting vitals', () => {
   suite(
     'writing weight/height vitals observations alert when appropriate but not otherwise',
     async () => {
-      test.concurrent(
-        'male patient younger than 24 months presents no alert, even when ridiculously teeny-tiny',
-        async () => {
-          const patientAge = { units: 'months', value: 14 } as { units: 'months'; value: number };
-          const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
-            processId,
-            oystehr,
-            patientAge,
-            patientSex: 'male',
-          });
-          expect(maybeEncounter?.id).toBeDefined();
-          expect(maybePatient?.id).toBeDefined();
-          assert(maybeEncounter?.id);
-          assert(maybePatient?.id);
+      test.concurrent('male patient younger than 24 months presents no alert for typical vitals', async () => {
+        const patientAge = { units: 'months', value: 14 } as { units: 'months'; value: number };
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
+          processId,
+          oystehr,
+          patientAge,
+          patientSex: 'male',
+        });
+        expect(maybeEncounter?.id).toBeDefined();
+        expect(maybePatient?.id).toBeDefined();
+        assert(maybeEncounter?.id);
+        assert(maybePatient?.id);
 
-          const encounterId = maybeEncounter?.id;
-          const patientId = maybePatient.id;
+        const encounterId = maybeEncounter?.id;
+        const patientId = maybePatient.id;
 
-          const obs: VitalsObservationDTO[] = [
-            {
-              encounterId,
-              patientId,
-              field: VitalFieldNames.VitalWeight,
-              value: 3,
-            },
-            {
-              encounterId,
-              patientId,
-              field: VitalFieldNames.VitalHeight,
-              value: 5,
-            },
-          ];
-          await saveVital(obs, encounterId);
-          const vitals = await getVitals(encounterId);
-          expect(vitals).toBeDefined();
-          const heightVitals = vitals[VitalFieldNames.VitalHeight];
-          expect(heightVitals.length).toBeGreaterThanOrEqual(1);
-          heightVitals.forEach((vital) => {
-            expect(vital.field).toBe(VitalFieldNames.VitalHeight);
-            expect(vital.alertCriticality).toBeUndefined();
-          });
-          const weightVitals = vitals[VitalFieldNames.VitalWeight];
-          expect(weightVitals.length).toBeGreaterThanOrEqual(1);
-          weightVitals.forEach((vital) => {
-            expect(vital.field).toBe(VitalFieldNames.VitalWeight);
-            expect(vital.alertCriticality).toBeUndefined();
-          });
-        }
-      );
-      test.concurrent(
-        'female patient younger than 24 months presents no alert, even when ridiculously teeny-tiny',
-        async () => {
-          const patientAge = { units: 'months', value: 14 } as { units: 'months'; value: number };
-          const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
-            processId,
-            oystehr,
-            patientAge,
-            patientSex: 'female',
-          });
-          expect(maybeEncounter?.id).toBeDefined();
-          expect(maybePatient?.id).toBeDefined();
-          assert(maybeEncounter?.id);
-          assert(maybePatient?.id);
+        const obs: VitalsObservationDTO[] = [
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalWeight,
+            value: 10,
+          },
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalHeight,
+            value: 80,
+          },
+        ];
+        await saveVital(obs, encounterId);
+        const vitals = await getVitals(encounterId);
+        expect(vitals).toBeDefined();
+        const heightVitals = vitals[VitalFieldNames.VitalHeight];
+        expect(heightVitals.length).toBeGreaterThanOrEqual(1);
+        heightVitals.forEach((vital) => {
+          expect(vital.field).toBe(VitalFieldNames.VitalHeight);
+          expect(vital.alertCriticality).toBeUndefined();
+        });
+        const weightVitals = vitals[VitalFieldNames.VitalWeight];
+        expect(weightVitals.length).toBeGreaterThanOrEqual(1);
+        weightVitals.forEach((vital) => {
+          expect(vital.field).toBe(VitalFieldNames.VitalWeight);
+          expect(vital.alertCriticality).toBeUndefined();
+        });
+      });
+      test.concurrent('female patient younger than 24 months presents no alert for typical vitals', async () => {
+        const patientAge = { units: 'months', value: 14 } as { units: 'months'; value: number };
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
+          processId,
+          oystehr,
+          patientAge,
+          patientSex: 'female',
+        });
+        expect(maybeEncounter?.id).toBeDefined();
+        expect(maybePatient?.id).toBeDefined();
+        assert(maybeEncounter?.id);
+        assert(maybePatient?.id);
 
-          const encounterId = maybeEncounter?.id;
-          const patientId = maybePatient.id;
+        const encounterId = maybeEncounter?.id;
+        const patientId = maybePatient.id;
 
-          const obs: VitalsObservationDTO[] = [
-            {
-              encounterId,
-              patientId,
-              field: VitalFieldNames.VitalWeight,
-              value: 3,
-            },
-            {
-              encounterId,
-              patientId,
-              field: VitalFieldNames.VitalHeight,
-              value: 5,
-            },
-          ];
-          await saveVital(obs, encounterId);
-          const vitals = await getVitals(encounterId);
-          expect(vitals).toBeDefined();
-          const heightVitals = vitals[VitalFieldNames.VitalHeight];
-          expect(heightVitals.length).toBeGreaterThanOrEqual(1);
-          heightVitals.forEach((vital) => {
-            expect(vital.field).toBe(VitalFieldNames.VitalHeight);
-            expect(vital.alertCriticality).toBeUndefined();
-          });
-          const weightVitals = vitals[VitalFieldNames.VitalWeight];
-          expect(weightVitals.length).toBeGreaterThanOrEqual(1);
-          weightVitals.forEach((vital) => {
-            expect(vital.field).toBe(VitalFieldNames.VitalWeight);
-            expect(vital.alertCriticality).toBeUndefined();
-          });
-        }
-      );
+        const obs: VitalsObservationDTO[] = [
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalWeight,
+            value: 9,
+          },
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalHeight,
+            value: 78,
+          },
+        ];
+        await saveVital(obs, encounterId);
+        const vitals = await getVitals(encounterId);
+        expect(vitals).toBeDefined();
+        const heightVitals = vitals[VitalFieldNames.VitalHeight];
+        expect(heightVitals.length).toBeGreaterThanOrEqual(1);
+        heightVitals.forEach((vital) => {
+          expect(vital.field).toBe(VitalFieldNames.VitalHeight);
+          expect(vital.alertCriticality).toBeUndefined();
+        });
+        const weightVitals = vitals[VitalFieldNames.VitalWeight];
+        expect(weightVitals.length).toBeGreaterThanOrEqual(1);
+        weightVitals.forEach((vital) => {
+          expect(vital.field).toBe(VitalFieldNames.VitalWeight);
+          expect(vital.alertCriticality).toBeUndefined();
+        });
+      });
       test.concurrent('male patient older than 240 months triggers alert when vitals are extremely low', async () => {
         const patientAge = { units: 'months', value: 241 } as { units: 'months'; value: number };
         const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
@@ -1364,13 +1358,13 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 11.99, //  35.5 = 11.98, 36.5  = 12.0996
+            value: 11,
           },
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeight,
-            value: 88.6, // 35.5 = 88.58, 36.5 = 89.20
+            value: 86,
           },
         ];
         await saveVital(obs, encounterId);
@@ -1410,13 +1404,13 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 11.55, //  35.5 = 11.54, 36.5  = 11.66
+            value: 10.5,
           },
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeight,
-            value: 87.27, // 35.5 = 87.26, 36.5 = 87.80
+            value: 85.5,
           },
         ];
         await saveVital(obs, encounterId);
@@ -1456,13 +1450,13 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 17.65, // 36.5  = 17.51, 37.5 = 17.72
+            value: 21,
           },
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeight,
-            value: 102, // 36.5 = 101.93, 37.5 = 102.59
+            value: 110,
           },
         ];
         await saveVital(obs, encounterId);
@@ -1481,7 +1475,7 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-      test.concurrent('male patient over 95th percentile for weight produces alert', async () => {
+      test.concurrent('female patient over 95th percentile for weight produces alert', async () => {
         const patientAge = { units: 'months', value: 36 } as { units: 'months'; value: number };
         const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
@@ -1502,13 +1496,13 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 17.4, // 36.5  = 17.36, 37.5 = 17.6
+            value: 21,
           },
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeight,
-            value: 100.9, // 36.5 = 100.83, 37.5 = 101.47
+            value: 110,
           },
         ];
         await saveVital(obs, encounterId);
