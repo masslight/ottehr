@@ -26,7 +26,7 @@ import {
   LanguageOption,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
-import { INSURANCE_PAY_OPTION } from '../../ottehr-config';
+import { DOES_NOT_HAVE_ATTORNEY_OPTION, HAS_ATTORNEY_OPTION, INSURANCE_PAY_OPTION } from '../../ottehr-config';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -1193,7 +1193,7 @@ interface MapAttorneyItemsInput {
 const mapAttorneyToQuestionnaireResponseItems = (input: MapAttorneyItemsInput): QuestionnaireResponseItem[] => {
   const { attorneyRelatedPerson, items } = input;
 
-  const hasAttorney = attorneyRelatedPerson ? 'I have an attorney' : 'I do not have an attorney';
+  const hasAttorney = attorneyRelatedPerson ? HAS_ATTORNEY_OPTION : DOES_NOT_HAVE_ATTORNEY_OPTION;
 
   const firmExtensionUrl = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
   const firm = attorneyRelatedPerson?.extension?.find((ext) => ext.url === firmExtensionUrl)?.valueString;

@@ -28,8 +28,6 @@ interface ValidatableQuestionnaireItem extends IntakeQuestionnaireItem {
   dateComponents?: { day: string; year: string; month: string };
 }
 
-console.log('prompting recheck - delete me');
-
 // all this logic could be in an extension, but not sure it's worth the trouble
 export const PHONE_NUMBER_FIELDS = [
   'patient-number',

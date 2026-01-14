@@ -30,7 +30,7 @@ export const getCanonicalQuestionnaire = async (
   // if we found the Q in the local file, return it
   console.log('looking for questionnaire locally', url, version);
   if (maybeQuestionnaireFromFile) {
-    console.log('found questionnaire locally', JSON.stringify(maybeQuestionnaireFromFile));
+    console.log('found questionnaire locally');
     return JSON.parse(JSON.stringify(maybeQuestionnaireFromFile));
   }
   console.log('questionnaire not found locally, fetching from FHIR server');
@@ -57,7 +57,6 @@ export const getCanonicalQuestionnaire = async (
   } else if (questionnaireSearch.length > 1) {
     throw new Error(`Found multiple Questionnaires with same canonical url: ${url}|${version}`);
   }
-  console.log('questionnaire search', JSON.stringify(questionnaireSearch));
   const questionnaire: Questionnaire | undefined = questionnaireSearch[0];
   if (!questionnaire.id) {
     throw new Error('Questionnaire does not have ID');

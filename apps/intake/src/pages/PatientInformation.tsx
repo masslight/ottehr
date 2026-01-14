@@ -147,8 +147,6 @@ const PatientInformation = (): JSX.Element => {
 
   const { allItems, pages, paperworkInProgress } = usePaperworkContext();
 
-  console.log('all items', allItems);
-
   // we assume a single-page questionnaire for now
   const pageId = pages?.[0]?.linkId;
 

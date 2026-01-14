@@ -10,6 +10,7 @@ export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOpt
 export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value; // some flavor of 'yes'
 export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
 export const HAS_ATTORNEY_OPTION = formValueSets.attorneyOptions[0].value; // 'I have an attorney'
+export const DOES_NOT_HAVE_ATTORNEY_OPTION = formValueSets.attorneyOptions[1].value; // 'I do not have an attorney'
 
 const triggerEffectSchema = z.enum(['enable', 'require', 'filter', 'sub-text']);
 const triggerSchema = z
