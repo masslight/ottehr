@@ -26,6 +26,9 @@ let mockChartData: {
 } = {};
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useAppointmentData: () => ({
+    encounter: { id: 'test-encounter-id' },
+  }),
   useChartData: () => ({
     chartData: mockChartData,
     setPartialChartData: mockSetPartialChartData,
