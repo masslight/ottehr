@@ -138,7 +138,7 @@ export type CreateTestAppointmentInput = {
   telemedLocationState?: string;
   selectedLocationId?: string;
   skipPaperwork?: boolean;
-  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workmans-comp';
+  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workers-comp';
 };
 
 export class ResourceHandler {

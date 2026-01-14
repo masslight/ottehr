@@ -421,7 +421,7 @@
             {
               "question": "appointment-service-category",
               "operator": "=",
-              "answerString": "workmans-comp"
+              "answerString": "workers-comp"
             }
           ],
           "extension": [
@@ -442,7 +442,7 @@
                 },
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueString": "workmans-comp"
+                  "valueString": "workers-comp"
                 }
               ]
             }

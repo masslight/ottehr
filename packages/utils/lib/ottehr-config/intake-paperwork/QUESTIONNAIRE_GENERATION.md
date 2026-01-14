@@ -185,7 +185,7 @@ employerInformationPage: {
       targetQuestionLinkId: 'contact-information-page.appointment-service-category',
       effect: ['enable'],
       operator: '=',
-      answerString: 'workmans-comp'
+      answerString: 'workers-comp'
     },
     {
       targetQuestionLinkId: 'contact-information-page.appointment-service-category',
@@ -447,7 +447,7 @@ employerInformationPage: {
     targetQuestionLinkId: 'contact-information-page.appointment-service-category',
     effect: ['enable'],
     operator: '=',
-    answerString: 'workmans-comp'
+    answerString: 'workers-comp'
   }]
 }
 ```

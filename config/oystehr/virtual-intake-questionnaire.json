@@ -2026,7 +2026,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
-                        "valueString": "workmans-comp"
+                        "valueString": "workers-comp"
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
@@ -4797,7 +4797,7 @@
               {
                 "question": "contact-information-page.appointment-service-category",
                 "operator": "=",
-                "answerString": "workmans-comp"
+                "answerString": "workers-comp"
               }
             ]
           },

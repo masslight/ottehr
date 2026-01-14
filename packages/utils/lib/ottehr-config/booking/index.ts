@@ -176,7 +176,7 @@ const FormFields = {
             targetQuestionLinkId: 'appointment-service-category',
             effect: ['enable', 'require'],
             operator: '=',
-            answerString: 'workmans-comp',
+            answerString: 'workers-comp',
           },
         ],
         disabledDisplay: 'hidden',
@@ -269,7 +269,7 @@ const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
     code: 'occupational-medicine',
     system: SERVICE_CATEGORY_SYSTEM,
   },
-  { display: 'Workmans Comp', code: 'workmans-comp', system: SERVICE_CATEGORY_SYSTEM },
+  { display: 'Workmans Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
 ];
 
 interface BookingContext {
@@ -437,7 +437,7 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
 
   // assuming here we never need to collect this when we already have it
   const shouldShowSSNField = !ssn && !formConfig.FormFields.patientInfo.hiddenFields?.includes('patient-ssn');
-  const ssnRequired = serviceCategoryCode === 'workmans-comp' && shouldShowSSNField;
+  const ssnRequired = serviceCategoryCode === 'workers-comp' && shouldShowSSNField;
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {

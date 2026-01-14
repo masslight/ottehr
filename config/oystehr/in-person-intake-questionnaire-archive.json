@@ -25283,7 +25283,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
-                    "valueString": "workmans-comp"
+                    "valueString": "workers-comp"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",

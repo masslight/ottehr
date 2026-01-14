@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how the `PATIENT_RECORD_CONFIG` object is converted to a FHIR R4B Questionnaire resource with custom Zapehr extensions. The configuration provides a TypeScript-native way to define complex forms that get transformed into standards-compliant FHIR resources.
+This document describes how the `PATIENT_RECORD_CONFIG` object is converted to a FHIR R4B Questionnaire resource with custom Oystehr extensions. The configuration provides a TypeScript-native way to define complex forms that get transformed into standards-compliant FHIR resources.
 
 ## Last Updated
 January 7, 2025 - Updated to reflect trigger-based conditional logic and removal of dual enableWhen/extension system

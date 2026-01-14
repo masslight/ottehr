@@ -2086,7 +2086,7 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
         ]
       : undefined;
 
-  const employerOrgCode = 'workmans-comp-employer';
+  const employerOrgCode = 'workers-comp-employer';
 
   // fhir dictates that an Organization SHALL at least have a name or an identifier, and possibly more than one
   // adding this id allows users to enter employee data with out an employee name
@@ -3694,7 +3694,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       res.resourceType === 'Organization' &&
       organizationMatchesType(
         res,
-        codeableConcept('workmans-comp-employer', FHIR_EXTENSION.Organization.organizationType.url)
+        codeableConcept('workers-comp-employer', FHIR_EXTENSION.Organization.organizationType.url)
       )
   );
 
