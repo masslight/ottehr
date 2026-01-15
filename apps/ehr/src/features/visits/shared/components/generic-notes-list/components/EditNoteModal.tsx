@@ -16,12 +16,11 @@ import { EditableNote, NoteLocales } from '../types';
 import { TextFieldStyled } from './ui/TextFieldStyled';
 
 export const EditNoteModal: React.FC<{
-  open: boolean;
   onClose: () => void;
   entity: EditableNote;
   onEdit: (entity: EditableNote, newText: string) => Promise<void>;
   locales: NoteLocales;
-}> = ({ open, onClose, entity, onEdit, locales }) => {
+}> = ({ onClose, entity, onEdit, locales }) => {
   const theme = useTheme();
   const [editedText, setEditedText] = useState(entity.text);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,7 +43,7 @@ export const EditNoteModal: React.FC<{
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle data-testid={dataTestIds.editNoteDialog.title}>
         <Box display="flex" alignItems="center" color={theme.palette.primary.dark}>
           <Typography variant="h4">{locales.editModalTitle}</Typography>

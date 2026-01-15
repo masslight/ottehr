@@ -69,15 +69,7 @@ export const NoteEntity: React.FC<{
         onDelete={onDelete}
         locales={locales}
       />
-      {isEditModalOpen && (
-        <EditNoteModal
-          open={isEditModalOpen}
-          onClose={closeEditModal}
-          entity={entity}
-          onEdit={onEdit}
-          locales={locales}
-        />
-      )}
+      {isEditModalOpen && <EditNoteModal onClose={closeEditModal} entity={entity} onEdit={onEdit} locales={locales} />}
     </>
   );
 };
