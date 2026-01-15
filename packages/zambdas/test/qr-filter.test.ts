@@ -1,5 +1,5 @@
 import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, recursiveGroupTransform } from 'utils';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { createOystehrClient, getAuth0Token } from '../src/shared';
 import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';

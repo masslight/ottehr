@@ -554,6 +554,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     appointmentServiceCategory: getCoding(slot?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code ?? '',
+    reasonForVisit,
     questionnaire,
     documents,
     accountInfo,

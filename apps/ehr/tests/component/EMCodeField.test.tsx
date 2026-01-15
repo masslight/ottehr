@@ -1,4 +1,3 @@
-import '@testing-library/jest-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -36,13 +35,17 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
-vi.mock('utils', () => ({
-  emCodeOptions: [
-    { display: '99213 Established Patient - E/M Level 3', code: '99213' },
-    { display: '99214 Established Patient - E/M Level 4', code: '99214' },
-    { display: '99215 Established Patient - E/M Level 5', code: '99215' },
-  ],
-}));
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils')>();
+  return {
+    ...actual,
+    emCodeOptions: [
+      { display: '99213 Established Patient - E/M Level 3', code: '99213' },
+      { display: '99214 Established Patient - E/M Level 4', code: '99214' },
+      { display: '99215 Established Patient - E/M Level 5', code: '99215' },
+    ],
+  };
+});
 
 vi.mock('src/constants/data-test-ids', () => ({
   dataTestIds: {

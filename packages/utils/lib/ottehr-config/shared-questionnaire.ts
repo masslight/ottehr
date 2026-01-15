@@ -1,8 +1,18 @@
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../types/data/paperwork/paperwork.types';
+import { VALUE_SETS as formValueSets } from './value-sets';
 
-const triggerEffectSchema = z.enum(['enable', 'require']);
+export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
+export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
+export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[0].value; // 'Self'
+
+export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value; // some flavor of 'yes'
+export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
+export const HAS_ATTORNEY_OPTION = formValueSets.attorneyOptions[0].value; // 'I have an attorney'
+export const DOES_NOT_HAVE_ATTORNEY_OPTION = formValueSets.attorneyOptions[1].value; // 'I do not have an attorney'
+
+const triggerEffectSchema = z.enum(['enable', 'require', 'filter', 'sub-text']);
 const triggerSchema = z
   .object({
     targetQuestionLinkId: z.string(),
@@ -11,6 +21,7 @@ const triggerSchema = z
     answerBoolean: z.boolean().optional(),
     answerString: z.string().optional(),
     answerDateTime: z.string().optional(),
+    substituteText: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -20,10 +31,21 @@ const triggerSchema = z
       return definedAnswers.length === 1;
     },
     {
-      message: 'Exactly one of answerBoolean, answerString, or answerDecimal must be defined',
+      message: 'Exactly one of answerBoolean, answerString, or answerDateTime must be defined',
+    }
+  )
+  .refine(
+    (data) => {
+      const hasSubTextEffect = data.effect.includes('sub-text');
+      if (hasSubTextEffect) {
+        return data.substituteText !== undefined;
+      }
+      return true;
+    },
+    {
+      message: 'substituteText must be defined when effect includes sub-text',
     }
   );
-
 export type FormFieldTrigger = z.infer<typeof triggerSchema>;
 
 const dynamicPopulationSchema = z.object({
@@ -47,65 +69,167 @@ const ReferenceDataSourceSchema = z
   );
 const FormFieldsLogicalFieldSchema = z.object({
   key: z.string(),
-  type: z.enum(['string', 'date', 'boolean']),
+  type: z.enum(['string', 'date', 'boolean', 'choice', 'open-choice']),
+  required: z.boolean().optional().default(true),
+  dataType: QuestionnaireDataTypeSchema.optional(),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
+  options: z
+    .array(
+      z.object({
+        label: z.string(),
+        value: z.string(),
+      })
+    )
+    .optional(),
 });
 
-const FormFieldsValueTypeSchema = z
-  .object({
-    key: z.string(),
-    type: z.enum(['string', 'date', 'choice', 'boolean', 'reference']),
-    label: z.string(),
-    dataType: QuestionnaireDataTypeSchema.optional(),
-    options: z
-      .array(
-        z.object({
-          label: z.string(),
-          value: z.string(),
-        })
-      )
-      .optional(),
-    dataSource: ReferenceDataSourceSchema.optional(),
-    triggers: z.array(triggerSchema).optional(),
-    dynamicPopulation: dynamicPopulationSchema.optional(),
-    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-    disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
-    initialValue: z.union([z.string(), z.boolean()]).optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.type === 'choice') {
-        return (
-          Array.isArray(data.options) || {
-            message: 'Options must be provided for choice types',
-          }
-        );
-      }
-      return true;
-    },
-    {
-      message: 'Options must be provided for choice types',
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.type === 'reference') {
-        return data.dataSource !== undefined;
-      }
-      return true;
-    },
-    {
-      message: 'dataSource must be provided for reference types',
-    }
-  );
+const FormFieldsDisplayFieldSchema = z.object({
+  key: z.string(),
+  type: z.literal('display'),
+  text: z.string(),
+  element: z.enum(['h3', 'h4', 'p']).optional(),
+  triggers: z.array(triggerSchema).optional(),
+  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+  disabledDisplay: z.literal('hidden').optional().default('hidden'),
+});
 
-export type FormFieldsItem = z.infer<typeof FormFieldsValueTypeSchema>;
+const FormFieldsValueTypeBaseSchema = z.object({
+  key: z.string(),
+  type: z.enum(['string', 'text', 'date', 'choice', 'open-choice', 'boolean', 'reference']),
+  label: z.string(),
+  dataType: QuestionnaireDataTypeSchema.optional(),
+  options: z
+    .array(
+      z.object({
+        label: z.string(),
+        value: z.string(),
+      })
+    )
+    .optional(),
+  dataSource: ReferenceDataSourceSchema.optional(),
+  triggers: z.array(triggerSchema).optional(),
+  dynamicPopulation: dynamicPopulationSchema.optional(),
+  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+  disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
+  initialValue: z.union([z.string(), z.boolean()]).optional(),
+  inputWidth: z.enum(['s', 'm', 'l']).optional(),
+  autocomplete: z.string().optional(),
+  permissibleValue: z.union([z.boolean(), z.string()]).optional(),
+  placeholder: z.string().optional(),
+  infoTextSecondary: z.string().optional(),
+  element: z.string().optional(),
+  acceptsMultipleAnswers: z.boolean().optional(),
+  customLinkId: z.string().optional(),
+  categoryTag: z.string().optional(),
+  alwaysFilter: z.boolean().optional(),
+});
+
+const FormFieldsValueTypeSchema = FormFieldsValueTypeBaseSchema.refine(
+  (data) => {
+    if (data.type === 'choice' || data.type === 'open-choice') {
+      return (
+        Array.isArray(data.options) || {
+          message: 'Options must be provided for choice and open-choice types',
+        }
+      );
+    }
+    return true;
+  },
+  {
+    message: 'Options must be provided for choice and open-choice types',
+  }
+).refine(
+  (data) => {
+    if (data.type === 'reference') {
+      return data.dataSource !== undefined;
+    }
+    return true;
+  },
+  {
+    message: 'dataSource must be provided for reference types',
+  }
+);
+
+const FormFieldsAttachmentFieldSchema = FormFieldsValueTypeBaseSchema.extend({
+  type: z.literal('attachment'),
+  attachmentText: z.string().optional(),
+  documentType: z.string().optional(),
+});
+
+export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
+export type FormFieldsAttachmentItem = z.infer<typeof FormFieldsAttachmentFieldSchema>;
 export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
+export type FormFieldsInputItem = z.infer<typeof FormFieldsValueTypeSchema> | FormFieldsAttachmentItem;
 
-export const FormFieldItemRecordSchema = z.record(FormFieldsValueTypeSchema);
+// Nested group schema - uses z.lazy() for recursion
+// Using z.ZodType<any> to avoid complex circular type inference issues
+const FormFieldsGroupFieldSchema = z.lazy(() =>
+  z.object({
+    key: z.string(),
+    type: z.literal('group'),
+    text: z.string().optional(),
+    required: z.boolean().optional(),
+    items: z.record(
+      z.union([
+        FormFieldsValueTypeSchema,
+        FormFieldsDisplayFieldSchema,
+        FormFieldsAttachmentFieldSchema,
+        FormFieldsGroupFieldSchema,
+      ])
+    ),
+    requiredFields: z.array(z.string()).optional(),
+    triggers: z.array(triggerSchema).optional(),
+    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+    extension: z.array(z.any()).optional(),
+    customLinkId: z.string().optional(),
+    categoryTag: z.string().optional(),
+    acceptsMultipleAnswers: z.boolean().optional(),
+    groupType: z.literal('list-with-form').optional(),
+  })
+) as z.ZodType<any>;
+
+// Define the TypeScript type for group field manually (for proper type inference)
+export type FormFieldsGroupItem = {
+  key: string;
+  type: 'group';
+  text?: string;
+  required?: boolean;
+  items: Record<string, FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsAttachmentItem | FormFieldsGroupItem>;
+  requiredFields?: string[];
+  triggers?: FormFieldTrigger[];
+  enableBehavior?: 'all' | 'any';
+  extension?: any[];
+  customLinkId?: string;
+  categoryTag?: string;
+  acceptsMultipleAnswers?: boolean;
+  groupType?: string;
+};
+
+export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
+
+export const FormFieldItemRecordSchema = z.record(
+  z.union([
+    FormFieldsValueTypeSchema,
+    FormFieldsDisplayFieldSchema,
+    FormFieldsAttachmentFieldSchema,
+    FormFieldsGroupFieldSchema,
+  ])
+);
 export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
 export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
 export type FormFieldLogicalItemRecord = z.infer<typeof FormFieldLogicalItemRecordSchema>;
+
+const ComplexValidationTriggerWhenSchema = z.object({
+  question: z.string(),
+  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
+  answer: z.string(),
+});
+
+const ComplexValidationSchema = z.object({
+  type: z.string(),
+  triggerWhen: ComplexValidationTriggerWhenSchema,
+});
+
 export const FormSectionSimpleSchema = z.object({
   linkId: z.string(),
   title: z.string(),
@@ -113,6 +237,12 @@ export const FormSectionSimpleSchema = z.object({
   logicalItems: FormFieldLogicalItemRecordSchema.optional(),
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
+  // Group-level properties
+  enableBehavior: z.enum(['all', 'any']).optional(),
+  reviewText: z.string().optional(),
+  complexValidation: ComplexValidationSchema.optional(),
+  element: z.string().optional(),
+  triggers: z.array(triggerSchema).optional(),
 });
 
 export const FormSectionArraySchema = z.object({
@@ -122,6 +252,12 @@ export const FormSectionArraySchema = z.object({
   logicalItems: FormFieldLogicalItemRecordSchema.optional(),
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
+  // Group-level properties
+  enableBehavior: z.enum(['all', 'any']).optional(),
+  reviewText: z.string().optional(),
+  complexValidation: ComplexValidationSchema.optional(),
+  element: z.string().optional(),
+  triggers: z.array(triggerSchema).optional(),
 });
 
 export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
@@ -141,6 +277,36 @@ const createFillFromWhenDisabledExtension = (
 ): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled',
   valueString: sourceLinkId,
+});
+
+const createFilterWhenExtension = (trigger: FormFieldTrigger): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when',
+  extension: [
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question',
+      valueString: trigger.targetQuestionLinkId,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator',
+      valueString: trigger.operator,
+    },
+    ...(trigger.answerBoolean !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer',
+            valueBoolean: trigger.answerBoolean,
+          },
+        ]
+      : []),
+    ...(trigger.answerString !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer',
+            valueString: trigger.answerString,
+          },
+        ]
+      : []),
+  ],
 });
 
 const createRequireWhenExtension = (
@@ -199,6 +365,139 @@ const createAnswerLoadingOptionsExtension = (
   };
 };
 
+const createInputWidthExtension = (width: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/input-width',
+  valueString: width,
+});
+
+const createAcceptsMultipleAnswersExtension = (): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/accepts-multiple-answers',
+  valueBoolean: true,
+});
+
+const createCustomLinkIdExtension = (customLinkId: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/custom-link-id',
+  valueString: customLinkId,
+});
+
+const createCategoryTagExtension = (categoryTag: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/category-tag',
+  valueString: categoryTag,
+});
+
+const createAlwaysFilterExtension = (): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/always-filter',
+  valueBoolean: true,
+});
+
+const createAutocompleteExtension = (autocomplete: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete',
+  valueString: autocomplete,
+});
+
+const createPreferredElementExtension = (element: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element',
+  valueString: element,
+});
+
+const createPermissibleValueExtension = (
+  value: boolean | string
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value',
+  ...(typeof value === 'boolean' ? { valueBoolean: value } : { valueString: value }),
+});
+
+const createPlaceholderExtension = (placeholder: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/placeholder',
+  valueString: placeholder,
+});
+
+const createInfoTextSecondaryExtension = (infoText: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary',
+  valueString: infoText,
+});
+
+const createAttachmentTextExtension = (
+  attachmentText: string
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text',
+  valueString: attachmentText,
+});
+
+const createDocumentTypeExtension = (documentType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
+  valueString: documentType,
+});
+
+const createReviewTextExtension = (reviewText: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/review-text',
+  valueString: reviewText,
+});
+
+const createTextWhenExtension = (
+  textWhen: Omit<FormFieldTrigger, 'effect'>
+): NonNullable<QuestionnaireItem['extension']>[number] => {
+  const answerExtension: any = {
+    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer',
+  };
+
+  if (textWhen.answerString !== undefined) {
+    answerExtension.valueString = textWhen.answerString;
+  } else if (textWhen.answerBoolean !== undefined) {
+    answerExtension.valueBoolean = textWhen.answerBoolean;
+  } else if (textWhen.answerDateTime !== undefined) {
+    answerExtension.valueDateTime = textWhen.answerDateTime;
+  }
+
+  return {
+    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when',
+    extension: [
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question',
+        valueString: textWhen.targetQuestionLinkId,
+      },
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator',
+        valueString: textWhen.operator,
+      },
+      answerExtension,
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text',
+        valueString: textWhen.substituteText,
+      },
+    ],
+  };
+};
+
+const createComplexValidationExtension = (
+  validation: z.infer<typeof ComplexValidationSchema>
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation',
+  extension: [
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-type',
+      valueString: validation.type,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerWhen',
+      extension: [
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerQuestion',
+          valueString: validation.triggerWhen.question,
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerOperator',
+          valueString: validation.triggerWhen.operator,
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerAnswer',
+          valueString: validation.triggerWhen.answer,
+        },
+      ],
+    },
+  ],
+});
+
 const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
   const enableWhen: any = {
     question: trigger.targetQuestionLinkId,
@@ -216,28 +515,229 @@ const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableW
   return enableWhen;
 };
 
-const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: boolean): QuestionnaireItem => {
+const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): QuestionnaireItem => {
   const item: QuestionnaireItem = {
     linkId: field.key,
-    type: field.type === 'reference' ? 'choice' : (field.type as any),
+    type: 'display',
+    text: field.text,
   };
 
+  const extensions: any[] = [];
+
+  if (field.element) {
+    extensions.push(createPreferredElementExtension(field.element));
+  }
+
+  // Add enableWhen and textWhen from triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
+    if (enableTriggers.length > 0) {
+      item.enableWhen = enableTriggers.flatMap((i) => createEnableWhen(i)!);
+    }
+
+    // Add enableBehavior if specified
+    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
+      item.enableBehavior = field.enableBehavior;
+    }
+    const textWhenTriggers = field.triggers.filter((t) => t.effect.includes('sub-text'));
+    if (textWhenTriggers.length > 0) {
+      textWhenTriggers.forEach((trigger) => {
+        extensions.push(createTextWhenExtension(trigger));
+      });
+    }
+  }
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
+  }
+
+  return item;
+};
+
+const convertAttachmentFieldToQuestionnaireItem = (
+  field: FormFieldsAttachmentItem,
+  isRequired: boolean
+): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: 'attachment',
+    text: field.label,
+    required: isRequired,
+  };
+
+  const extensions: any[] = [];
+
+  if (field.attachmentText) {
+    extensions.push(createAttachmentTextExtension(field.attachmentText));
+  }
+
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
+  }
+
+  if (field.documentType) {
+    extensions.push(createDocumentTypeExtension(field.documentType));
+  }
+
+  // Handle triggers for attachment fields
+  if (field.triggers && field.triggers.length > 0) {
+    const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
+    if (enableTriggers.length > 0) {
+      item.enableWhen = enableTriggers.flatMap((i) => createEnableWhen(i)!);
+      if (enableTriggers.length > 1 && field.enableBehavior) {
+        item.enableBehavior = field.enableBehavior;
+      }
+    }
+
+    // Add filter-when extension
+    const filterTriggers = field.triggers.filter((t) => t.effect.includes('filter'));
+    if (filterTriggers.length > 0) {
+      filterTriggers.forEach((trigger) => {
+        extensions.push(createFilterWhenExtension(trigger));
+      });
+    }
+  }
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
+  }
+
+  return item;
+};
+
+const convertGroupFieldToQuestionnaireItem = (
+  field: FormFieldsGroupItem,
+  requiredFields?: string[]
+): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: 'group',
+    item: [],
+  };
+
+  if (field.text) {
+    item.text = field.text;
+  }
+
+  if (field.required !== undefined) {
+    item.required = field.required;
+  }
+
+  // Add group-level extensions
+  const groupExtensions: any[] = [...(field.extension || [])];
+
+  if (field.groupType) {
+    groupExtensions.push({
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/group-type',
+      valueString: field.groupType,
+    });
+  }
+
+  if (field.customLinkId) {
+    groupExtensions.push(createCustomLinkIdExtension(field.customLinkId));
+  }
+
+  if (field.acceptsMultipleAnswers) {
+    groupExtensions.push(createAcceptsMultipleAnswersExtension());
+  }
+
+  if (field.categoryTag) {
+    groupExtensions.push(createCategoryTagExtension(field.categoryTag));
+  }
+
+  // Add require-when extension for group
+  const requireTriggers = field.triggers?.filter((t) => t.effect.includes('require')) || [];
+  if (requireTriggers.length > 0) {
+    requireTriggers.forEach((trigger) => {
+      groupExtensions.push(createRequireWhenExtension(trigger));
+    });
+  }
+
+  // Add filter-when extension for group
+  const filterTriggers = field.triggers?.filter((t) => t.effect.includes('filter')) || [];
+  if (filterTriggers.length > 0) {
+    filterTriggers.forEach((trigger) => {
+      groupExtensions.push(createFilterWhenExtension(trigger));
+    });
+  }
+
+  if (groupExtensions.length > 0) {
+    item.extension = groupExtensions;
+  }
+
+  // Add enableWhen for group-level enable triggers
+  const groupEnableTriggers = field.triggers?.filter((t) => t.effect.includes('enable')) || [];
+  if (groupEnableTriggers.length > 0) {
+    item.enableWhen = groupEnableTriggers.flatMap((trigger) => createEnableWhen(trigger)!);
+    if (groupEnableTriggers.length > 1 && field.enableBehavior) {
+      item.enableBehavior = field.enableBehavior;
+    }
+  }
+
+  // Convert nested items
+  // Use the group's own requiredFields if available, otherwise use parent's
+  const effectiveRequiredFields = field.requiredFields ?? requiredFields;
+  for (const [, nestedField] of Object.entries(field.items)) {
+    let questionnaireItem: QuestionnaireItem;
+    const typedField = nestedField as any;
+    if (typedField.type === 'display') {
+      questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
+    } else if (typedField.type === 'attachment') {
+      const isRequired = effectiveRequiredFields?.includes(typedField.key) ?? false;
+      questionnaireItem = convertAttachmentFieldToQuestionnaireItem(typedField as FormFieldsAttachmentItem, isRequired);
+    } else if (typedField.type === 'group') {
+      questionnaireItem = convertGroupFieldToQuestionnaireItem(
+        typedField as FormFieldsGroupItem,
+        effectiveRequiredFields
+      );
+    } else {
+      const isRequired = effectiveRequiredFields?.includes(typedField.key) ?? false;
+      questionnaireItem = convertFormFieldToQuestionnaireItem(typedField as FormFieldsItem, isRequired);
+    }
+    item.item!.push(questionnaireItem);
+  }
+
+  return item;
+};
+
+const convertFormFieldToQuestionnaireItem = (
+  anyKindOfField: FormFieldsItem,
+  isRequired: boolean
+): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: anyKindOfField.key,
+    type: anyKindOfField.type === 'reference' ? 'choice' : (anyKindOfField.type as any),
+  };
+
+  if (item.type === 'attachment') {
+    return convertAttachmentFieldToQuestionnaireItem(anyKindOfField as FormFieldsAttachmentItem, isRequired);
+  }
+
+  if (item.type === 'display') {
+    return convertDisplayFieldToQuestionnaireItem(anyKindOfField as FormFieldsDisplayItem);
+  }
+
+  if (item.type === 'group') {
+    return convertGroupFieldToQuestionnaireItem(anyKindOfField as FormFieldsGroupItem);
+  }
+
+  const field: FormFieldsInputItem = anyKindOfField as FormFieldsInputItem;
+
   // Add text if label is provided
-  if (field.label) {
+  if ((field as FormFieldsInputItem).label) {
     item.text = field.label;
   }
 
   // Add required flag
   item.required = isRequired;
 
-  // Add answer options for choice types
-  if (field.type === 'choice' && field.options) {
+  // Add answer options for choice and open-choice types
+  if ((field.type === 'choice' || field.type === 'open-choice') && field.options) {
     item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
   }
 
   // Handle reference type for dynamic data source
   if (field.type === 'reference' && field.dataSource) {
-    item.answerOption = [{ valueString: '09' }]; // Placeholder, will be replaced dynamically
     const answerLoadingExt = createAnswerLoadingOptionsExtension(field.dataSource);
     if (answerLoadingExt) {
       item.extension = [answerLoadingExt];
@@ -251,8 +751,9 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
     extensions.push(createDataTypeExtension(field.dataType));
   }
 
-  if (field.disabledDisplay && field.disabledDisplay !== 'disabled') {
-    extensions.push(createDisabledDisplayExtension(field.disabledDisplay));
+  if (field.disabledDisplay) {
+    const disabledDisplay = field.disabledDisplay === 'disabled' ? 'protected' : field.disabledDisplay;
+    extensions.push(createDisabledDisplayExtension(disabledDisplay));
   }
 
   if (field.dynamicPopulation) {
@@ -260,6 +761,38 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
     if (!field.disabledDisplay) {
       extensions.push(createDisabledDisplayExtension('protected'));
     }
+  }
+
+  if (field.inputWidth) {
+    extensions.push(createInputWidthExtension(field.inputWidth));
+  }
+
+  if (field.placeholder) {
+    extensions.push(createPlaceholderExtension(field.placeholder));
+  }
+
+  if (field.autocomplete) {
+    extensions.push(createAutocompleteExtension(field.autocomplete));
+  }
+
+  if (field.permissibleValue !== undefined) {
+    extensions.push(createPermissibleValueExtension(field.permissibleValue));
+  }
+
+  if (field.infoTextSecondary) {
+    extensions.push(createInfoTextSecondaryExtension(field.infoTextSecondary));
+  }
+
+  if (field.customLinkId) {
+    extensions.push(createCustomLinkIdExtension(field.customLinkId));
+  }
+
+  if (field.acceptsMultipleAnswers) {
+    extensions.push(createAcceptsMultipleAnswersExtension());
+  }
+
+  if (field.categoryTag) {
+    extensions.push(createCategoryTagExtension(field.categoryTag));
   }
 
   // Add enableWhen from triggers
@@ -283,6 +816,34 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
     }
   }
 
+  // Add preferred-element extension after require-when but before textWhen and filter-when
+  if (field.element) {
+    extensions.push(createPreferredElementExtension(field.element));
+  }
+
+  // Add textWhen form triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const textWhenTriggers = field.triggers.filter((t) => t.effect.includes('sub-text'));
+    textWhenTriggers.forEach((tw) => {
+      extensions.push(createTextWhenExtension(tw));
+    });
+  }
+
+  // Add alwaysFilter extension
+  if (field.alwaysFilter) {
+    extensions.push(createAlwaysFilterExtension());
+  }
+
+  // Add filter-when extension from triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const filterTriggers = field.triggers.filter((t) => t.effect.includes('filter'));
+    if (filterTriggers.length > 0) {
+      filterTriggers.forEach((trigger) => {
+        extensions.push(createFilterWhenExtension(trigger));
+      });
+    }
+  }
+
   if (extensions.length > 0) {
     item.extension = extensions;
   }
@@ -294,9 +855,14 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
   const item: QuestionnaireItem = {
     linkId: field.key,
     type: field.type,
-    required: false,
+    required: field.required ?? true,
     readOnly: true,
   };
+
+  // Add answer options for choice and open-choice types
+  if ((field.type === 'choice' || field.type === 'open-choice') && field.options) {
+    item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
+  }
 
   // Add initial value if provided
   if (field.initialValue !== undefined) {
@@ -305,6 +871,21 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
     } else if (field.type === 'string' || field.type === 'date') {
       item.initial = [{ valueString: field.initialValue as string }];
     }
+  }
+
+  // Add extensions for logical fields
+  const extensions: any[] = [];
+
+  // Add dataType extension if specified
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
+  }
+
+  // Add disabled-display extension for hidden logical fields
+  extensions.push(createDisabledDisplayExtension('hidden'));
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
   }
 
   return item;
@@ -326,6 +907,65 @@ export const QuestionnaireConfigSchema = z.object({
   FormFields: z.record(z.string(), z.union([FormSectionSimpleSchema, FormSectionArraySchema])),
 });
 type QuestionnaireConfigType = z.infer<typeof QuestionnaireConfigSchema>;
+
+const applyGroupLevelProperties = (
+  groupItem: QuestionnaireItem,
+  section: z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>
+): void => {
+  // Convert triggers with 'enable' effect to enableWhen
+  const enableWhens: any[] = [];
+
+  if (section.triggers && section.triggers.length > 0) {
+    const enableTriggers = section.triggers.filter((t) => t.effect.includes('enable'));
+    enableTriggers.forEach((trigger) => {
+      const enableWhen: any = {
+        question: trigger.targetQuestionLinkId,
+        operator: trigger.operator,
+      };
+      if (trigger.answerBoolean !== undefined) {
+        enableWhen.answerBoolean = trigger.answerBoolean;
+      }
+      if (trigger.answerString !== undefined) {
+        enableWhen.answerString = trigger.answerString;
+      }
+      enableWhens.push(enableWhen);
+    });
+  }
+
+  if (enableWhens.length > 0) {
+    groupItem.enableWhen = enableWhens;
+  }
+
+  // Apply group-level enableBehavior
+  if (section.enableBehavior && groupItem.enableWhen && groupItem.enableWhen.length > 1) {
+    groupItem.enableBehavior = section.enableBehavior;
+  }
+
+  // Apply group-level extensions
+  const groupExtensions: any[] = [];
+  if (section.reviewText) {
+    groupExtensions.push(createReviewTextExtension(section.reviewText));
+  }
+
+  if (section.complexValidation) {
+    groupExtensions.push(createComplexValidationExtension(section.complexValidation));
+  }
+
+  const textWhenTriggers = (section.triggers ?? []).filter((t) => t.effect.includes('sub-text'));
+  if (textWhenTriggers.length > 0) {
+    textWhenTriggers.forEach((trigger) => {
+      groupExtensions.push(createTextWhenExtension(trigger));
+    });
+  }
+
+  if (section.element) {
+    groupExtensions.push(createPreferredElementExtension(section.element));
+  }
+
+  if (groupExtensions.length > 0) {
+    groupItem.extension = groupExtensions;
+  }
+};
 
 export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigType): Questionnaire['item'] => {
   const questionnaireItems: QuestionnaireItem[] = [];
@@ -349,7 +989,31 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           item: [],
         };
 
-        // Add logical items first (only for the first item in array-based sections)
+        // Convert each field to a questionnaire item first
+        for (const [, field] of Object.entries(items)) {
+          let questionnaireItem: QuestionnaireItem;
+          const typedField = field as any;
+          if (typedField.type === 'display') {
+            questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
+          } else if (typedField.type === 'attachment') {
+            const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
+            questionnaireItem = convertAttachmentFieldToQuestionnaireItem(
+              typedField as FormFieldsAttachmentItem,
+              isRequired
+            );
+          } else if (typedField.type === 'group') {
+            questionnaireItem = convertGroupFieldToQuestionnaireItem(
+              typedField as FormFieldsGroupItem,
+              section.requiredFields
+            );
+          } else {
+            const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
+            questionnaireItem = convertFormFieldToQuestionnaireItem(typedField as FormFieldsItem, isRequired);
+          }
+          groupItem.item!.push(questionnaireItem);
+        }
+
+        // Add logical items after regular fields (only for the first item in array-based sections)
         if (section.logicalItems && index === 0) {
           for (const [, logicalField] of Object.entries(section.logicalItems)) {
             const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
@@ -357,12 +1021,8 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           }
         }
 
-        // Convert each field to a questionnaire item
-        for (const [, field] of Object.entries(items)) {
-          const isRequired = section.requiredFields?.includes(field.key) ?? false;
-          const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
-          groupItem.item!.push(questionnaireItem);
-        }
+        // Apply group-level properties
+        applyGroupLevelProperties(groupItem, section);
 
         questionnaireItems.push(groupItem);
       });
@@ -375,7 +1035,31 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         item: [],
       };
 
-      // Add logical items first
+      // Convert each field to a questionnaire item first
+      for (const [, field] of Object.entries(section.items)) {
+        let questionnaireItem: QuestionnaireItem;
+        const typedField = field as any;
+        if (typedField.type === 'display') {
+          questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
+        } else if (typedField.type === 'attachment') {
+          const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
+          questionnaireItem = convertAttachmentFieldToQuestionnaireItem(
+            typedField as FormFieldsAttachmentItem,
+            isRequired
+          );
+        } else if (typedField.type === 'group') {
+          questionnaireItem = convertGroupFieldToQuestionnaireItem(
+            typedField as FormFieldsGroupItem,
+            section.requiredFields
+          );
+        } else {
+          const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
+          questionnaireItem = convertFormFieldToQuestionnaireItem(typedField as FormFieldsItem, isRequired);
+        }
+        groupItem.item!.push(questionnaireItem);
+      }
+
+      // Add logical items after regular fields
       if (section.logicalItems) {
         for (const [, logicalField] of Object.entries(section.logicalItems)) {
           const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
@@ -383,12 +1067,8 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         }
       }
 
-      // Convert each field to a questionnaire item
-      for (const [, field] of Object.entries(section.items)) {
-        const isRequired = section.requiredFields?.includes(field.key) ?? false;
-        const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
-        groupItem.item!.push(questionnaireItem);
-      }
+      // Apply group-level properties
+      applyGroupLevelProperties(groupItem, section);
 
       questionnaireItems.push(groupItem);
     }
