@@ -1,19 +1,9 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
-import {
-  Appointment,
-  DiagnosticReport,
-  HealthcareService,
-  Location,
-  Practitioner,
-  Schedule,
-  ServiceRequest,
-  Slot,
-} from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APPOINTMENT_NOT_FOUND_ERROR,
+  getScheduleOwnerFromAppointmentOrEncounter,
   getSecret,
-  SCHEDULE_NOT_FOUND_ERROR,
   SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   Secrets,
   SecretsKeys,
@@ -153,77 +143,9 @@ export const getAdvaPACSLocationForAppointmentOrEncounter = async (
   input: { appointmentId?: string; encounterId?: string },
   oystehr: Oystehr
 ): Promise<string | undefined> => {
-  const { appointmentId, encounterId } = input;
-  const appointmentSearchParams: SearchParam[] = [
-    {
-      name: '_include',
-      value: 'Appointment:actor',
-    },
-    {
-      name: '_include',
-      value: 'Appointment:slot',
-    },
-    {
-      name: '_include:iterate',
-      value: 'Slot:schedule',
-    },
-    {
-      name: '_revinclude:iterate',
-      value: 'Schedule:actor:Location',
-    },
-    {
-      name: '_revinclude:iterate',
-      value: 'Schedule:actor:Practitioner',
-    },
-  ];
+  const scheduleOwner = await getScheduleOwnerFromAppointmentOrEncounter(input, oystehr);
 
-  if (appointmentId) {
-    appointmentSearchParams.push({
-      name: '_id',
-      value: appointmentId,
-    });
-  } else if (encounterId) {
-    appointmentSearchParams.push({ name: '_has:Encounter:appointment:_id', value: encounterId });
-  } else {
-    throw new Error('Either appointmentId or encounterId must be provided');
-  }
-
-  const allResources = (
-    await oystehr.fhir.search<Appointment | Slot | Schedule | Location | HealthcareService | Practitioner>({
-      resourceType: 'Appointment',
-      params: appointmentSearchParams,
-    })
-  ).unbundle();
-  console.log(`successfully retrieved ${allResources.length} appointment resources`);
-  const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
-  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
-  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
-
-  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
-  if (fhirLocation) {
-    scheduleOwner = fhirLocation as Location;
-  } else if (fhirHS) {
-    scheduleOwner = fhirHS as HealthcareService;
-  } else if (fhirPractitioner) {
-    scheduleOwner = fhirPractitioner as Practitioner;
-  }
-
-  if (!fhirAppointment) {
-    throw APPOINTMENT_NOT_FOUND_ERROR;
-  }
-
-  if (!scheduleOwner) {
-    throw SCHEDULE_NOT_FOUND_ERROR;
-  }
-
-  const advaPACSLocationFromScheduleOwner = scheduleOwner.extension?.find((ext) => {
+  return scheduleOwner.extension?.find((ext) => {
     return ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL;
   })?.valueString;
-
-  if (advaPACSLocationFromScheduleOwner) {
-    return advaPACSLocationFromScheduleOwner;
-  }
-
-  return undefined;
 };
