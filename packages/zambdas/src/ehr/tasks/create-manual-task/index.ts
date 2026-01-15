@@ -37,6 +37,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: userPractitionerId,
     });
 
+    const taskBasedOn =
+      params.category === MANUAL_TASK.category.radiology && params.orderId
+        ? [`ServiceRequest/${params.orderId}`]
+        : undefined;
+
     const taskToCreate = createTask({
       category: params.category,
       location: {
@@ -74,6 +79,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             : undefined,
         },
       ],
+      basedOn: taskBasedOn,
     });
 
     if (params.assignee) {

@@ -49,6 +49,8 @@ export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organ
 // export const INSURANCE_ORG_TYPE_INSURANCE_COMPANY = 'ins';
 export const ORG_TYPE_PAYER_CODE = 'pay';
 
+export const ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE = 'occupational-medicine-employer';
+
 export const AI_QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 
 export const REASON_FOR_VISIT_SEPARATOR = ' - ';

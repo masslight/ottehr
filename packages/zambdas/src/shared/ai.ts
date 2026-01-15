@@ -162,7 +162,7 @@ export async function createResourcesFromAiInterview(
     appointment?.serviceCategory?.find(
       (serviceCategory) =>
         serviceCategory.coding?.find(
-          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workmans-comp'
+          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
         )
     )
   ) {

@@ -1,4 +1,3 @@
-import '@testing-library/jest-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -59,10 +58,14 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
-vi.mock('utils', () => ({
-  APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
-  DIAGNOSIS_MAKE_PRIMARY_BUTTON: 'Make primary',
-}));
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils')>();
+  return {
+    ...actual,
+    APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
+    DIAGNOSIS_MAKE_PRIMARY_BUTTON: 'Make primary',
+  };
+});
 
 vi.mock('src/constants/data-test-ids', () => ({
   dataTestIds: {

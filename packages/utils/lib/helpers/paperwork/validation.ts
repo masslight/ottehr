@@ -334,7 +334,25 @@ export const makeValidationSchema = (
           console.log('page not found');
           return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
         }
+
+        // Build values object from all pages for enableWhen evaluation
+        const allValues = buildEnableWhenContext(context?.parent ?? []);
+
+        // Check if this page is enabled
+        const isPageEnabled = evalEnableWhen(
+          questionItem,
+          items,
+          allValues,
+          context?.options?.context?.questionnaireResponse
+        );
+
+        // Skip validation entirely for disabled pages
+        if (!isPageEnabled) {
+          return value;
+        }
+
         if (answerItem === undefined) {
+          // Only check for required fields if the page is enabled
           if (questionItem.item?.some((i) => evalRequired(i, context))) {
             return context.createError({ message: 'Item not found' });
           } else {
@@ -580,33 +598,43 @@ const evalDateTime = (operator: EnableWhenOperator, answerValue: string, value: 
 const evalEnableWhenItem = (
   enableWhen: QuestionnaireItemEnableWhen,
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
-  items: QuestionnaireItem[]
+  items: QuestionnaireItem[],
+  itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
   const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
   const questionPathNodes = question.split('.');
 
-  const itemDef = questionPathNodes.reduce(
-    (accum, current) => {
-      if (!accum) {
-        return accum;
-      }
-      const item = accum.items.find((item) => {
-        return item?.linkId === current;
-      });
-      if (!item) {
-        return accum;
-      }
-      accum['item'] = item;
-      accum['items'] = item?.item ?? [];
-      return accum;
-    },
-    { items, item: undefined } as { items: QuestionnaireItem[]; item: QuestionnaireItem | undefined } | undefined
-  )?.item;
+  const itemDef = (() => {
+    if (itemsMap && questionPathNodes.length === 1) {
+      // If a map is provided, use it for O(1) lookup of items by linkId
+      return itemsMap.get(questionPathNodes[0]);
+    } else {
+      // Fall back to the original nested search for complex paths
+      return questionPathNodes.reduce(
+        (accum, current) => {
+          if (!accum) {
+            return accum;
+          }
+          const item = accum.items.find((item) => {
+            return item?.linkId === current;
+          });
+          if (!item) {
+            return accum;
+          }
+          accum['item'] = item;
+          accum['items'] = item?.item ?? [];
+          return accum;
+        },
+        { items, item: undefined } as { items: QuestionnaireItem[]; item: QuestionnaireItem | undefined } | undefined
+      )?.item;
+    }
+  })();
+
   if (!itemDef) {
     return operator === '!=';
   }
 
-  const valueDef = questionPathNodes.reduce((accum, current) => {
+  let valueDef = questionPathNodes.reduce((accum, current) => {
     if (accum === undefined) {
       return undefined;
     }
@@ -616,6 +644,16 @@ const evalEnableWhenItem = (
     }
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
+
+  // Fallback: if path-based lookup failed but we have a path with multiple parts, try direct lookup using final linkId
+  // This handles the case where values are stored flat by linkId but items are nested in the questionnaire structure
+  if (valueDef === undefined && questionPathNodes.length > 1) {
+    const finalLinkId = questionPathNodes[questionPathNodes.length - 1];
+    const directValue = (values as any)[finalLinkId];
+    if (directValue) {
+      valueDef = directValue;
+    }
+  }
 
   if (operator === 'exists' && answerBoolean !== undefined) {
     return evalBoolean(
@@ -687,7 +725,8 @@ export const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
   items: IntakeQuestionnaireItem[],
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
-  questionnaireResponse?: QuestionnaireResponse
+  questionnaireResponse?: QuestionnaireResponse,
+  itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
   const { enableWhen, enableBehavior = 'all' } = item;
   if (enableWhen === undefined || enableWhen.length === 0) {
@@ -698,7 +737,7 @@ export const evalEnableWhen = (
     if (ew.question === '$status') {
       return evalStatusCondition(ew, questionnaireResponse);
     }
-    return evalEnableWhenItem(ew, values, items);
+    return evalEnableWhenItem(ew, values, items, itemsMap);
   };
 
   if (enableBehavior === 'any') {
@@ -874,6 +913,64 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
   } else {
     return recursiveGroupTransform(items, output);
   }
+};
+
+/*
+  Builds a context object from response items that supports both:
+  1. Dotted path resolution (e.g., 'contact-information-page.appointment-service-category')
+  2. Direct item lookup (e.g., 'appointment-service-category')
+
+  This is required for evalEnableWhen to correctly resolve cross-page references.
+*/
+export const buildEnableWhenContext = (responseItems: any[]): { [key: string]: any } => {
+  return responseItems.reduce((acc: any, page: any) => {
+    if (page?.linkId) {
+      // Add page with its items for nested path resolution
+      acc[page.linkId] = page;
+      // Also add individual items at top level for direct lookup
+      if (page?.item) {
+        page.item.forEach((item: any) => {
+          if (item?.linkId) {
+            acc[item.linkId] = item;
+          }
+        });
+      }
+    }
+    return acc;
+  }, {});
+};
+
+/*
+  Given a list of questionnaire pages and their corresponding response items,
+  filter out pages that are disabled based on their enableWhen conditions.
+  Disabled pages have their items normalized to { linkId } without any item array.
+*/
+export const filterDisabledPages = (
+  questionnaireItems: IntakeQuestionnaireItem[],
+  responseItems: QuestionnaireResponseItem[],
+  questionnaireResponse?: QuestionnaireResponse
+): QuestionnaireResponseItem[] => {
+  // Build context from all response items for enableWhen evaluation
+  const allValues = buildEnableWhenContext(responseItems);
+
+  return responseItems.map((responsePage) => {
+    const questionnairePage = questionnaireItems.find((qi) => qi.linkId === responsePage.linkId);
+
+    if (!questionnairePage) {
+      return responsePage;
+    }
+
+    // Check if page is enabled
+    const isPageEnabled = evalEnableWhen(questionnairePage, questionnaireItems, allValues, questionnaireResponse);
+
+    // If page is disabled, return only the linkId (no items)
+    if (!isPageEnabled) {
+      return { linkId: responsePage.linkId };
+    }
+
+    // If page is enabled, return as-is
+    return responsePage;
+  });
 };
 
 const recursivePathEval = (context: any, question: string, value?: any): any | undefined => {

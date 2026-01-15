@@ -47,6 +47,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
     ));
 
     const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
+    console.log('Using stripe account: ', stripeAccount);
 
     const stripeClient = getStripeClient(secrets);
 
@@ -68,6 +69,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
       },
       oystehrClient
     );
+    console.log('Using stripe customer ID: ', customerId);
 
     let setupIntent: Stripe.SetupIntent | undefined;
     try {
