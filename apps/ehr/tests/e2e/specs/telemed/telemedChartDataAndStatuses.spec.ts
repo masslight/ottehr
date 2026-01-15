@@ -896,9 +896,13 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
           const nonVirtualLocation = locations
             .unbundle()
             .filter((location) => location.resourceType === 'Location')
-            .find((location) => !isLocationVirtual(location as Location));
+            .find((location) => {
+              const loc = location as Location;
+              // Find a non-virtual location that has a valid name (not undefined)
+              return !isLocationVirtual(loc) && loc.name && loc.name !== 'undefined';
+            });
           if (!nonVirtualLocation) {
-            throw new Error('No non-virtual location found');
+            throw new Error('No non-virtual location with valid name found');
           }
           resolve(nonVirtualLocation as Location);
         })
