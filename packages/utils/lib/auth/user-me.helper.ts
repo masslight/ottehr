@@ -36,3 +36,7 @@ export enum M2MClientMockType {
   provider = 'mock-provider',
   patient = 'mock-patient',
 }
+
+export const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
+  return userMe(token, secrets);
+};
