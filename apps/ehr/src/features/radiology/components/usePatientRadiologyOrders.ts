@@ -1,3 +1,4 @@
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CancelRadiologyOrderZambdaInput,
@@ -207,7 +208,7 @@ export const usePatientRadiologyOrders = (options: {
   const handleSavePreliminaryReport = useCallback(
     async (serviceRequestId: string, preliminaryReport: string): Promise<void> => {
       if (!preliminaryReport) {
-        alert('Please enter a preliminary report before saving.');
+        enqueueSnackbar('Please enter a preliminary report before saving.', { variant: 'error' });
         return;
       }
 
@@ -228,7 +229,7 @@ export const usePatientRadiologyOrders = (options: {
         await fetchOrders(searchParams);
       } catch (err) {
         console.error('Error saving preliminary report:', err);
-        alert('An error occurred while saving preliminary report');
+        enqueueSnackbar('An error occurred while saving preliminary report', { variant: 'error' });
         const errorObj = err instanceof Error ? err : new Error('Failed to save preliminary report');
         setError(errorObj);
       } finally {
@@ -257,7 +258,7 @@ export const usePatientRadiologyOrders = (options: {
         await fetchOrders(searchParams);
       } catch (err) {
         console.error('Error sending for final read:', err);
-        alert('An error occurred while sending for final read');
+        enqueueSnackbar('An error occurred while sending for final read', { variant: 'error' });
         const errorObj = err instanceof Error ? err : new Error('Failed to send for final read');
         setError(errorObj);
       } finally {
