@@ -148,7 +148,7 @@ async function addVitals(page: Page, weightKg: string, heightCm: string): Promis
   await heightInput.fill(heightCm);
 
   // Click Add button using data-testid
-  const heightAddButton = page.getByTestId(dataTestIds.vitalsPage.weightAddButton);
+  const heightAddButton = page.getByTestId(dataTestIds.vitalsPage.heightAddButton);
   await heightAddButton.click();
 
   // UI CHECK: Wait for height to be saved - button becomes disabled again and value shows in history
