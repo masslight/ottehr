@@ -744,8 +744,9 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
           // Use .first() to get the button (first element with testId, which is the button, not the svg)
           const deleteButton = medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).first();
           await expect(deleteButton).toBeEnabled({ timeout: 30000 });
-          await deleteButton.click();
-          await waitForChartDataDeletion(page);
+
+          await Promise.all([waitForChartDataDeletion(page), deleteButton.click()]);
+
           await expect(medicalConditionListItem).not.toBeVisible({ timeout: 30_000 });
 
           // Check that there are no more medical condition items with this text
