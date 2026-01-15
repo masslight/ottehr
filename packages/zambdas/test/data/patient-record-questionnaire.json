@@ -197,6 +197,42 @@
             "valueString": "hidden"
           }
         ]
+      },
+      {
+        "linkId": "appointment-service-category",
+        "type": "string",
+        "required": false,
+        "readOnly": true,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
+      },
+      {
+        "linkId": "appointment-service-mode",
+        "type": "string",
+        "required": false,
+        "readOnly": true,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
+      },
+      {
+        "linkId": "reason-for-visit",
+        "type": "string",
+        "required": false,
+        "readOnly": true,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
       }
     ]
   },
@@ -3147,6 +3183,19 @@
     "linkId": "employer-information-page",
     "type": "group",
     "text": "Worker's Compensation Information",
+    "enableWhen": [
+      {
+        "answerString": "workers-compensation",
+        "operator": "=",
+        "question": "patient-summary.appointment-service-category"
+      },
+      {
+        "answerBoolean": false,
+        "operator": "exists",
+        "question": "patient-summary.appointment-service-category"
+      }
+    ],
+    "enableBehavior": "any",
     "item": [
       {
         "linkId": "workers-comp-insurance-name",
@@ -3529,6 +3578,19 @@
     "linkId": "occupational-medicine-employer-information-page",
     "type": "group",
     "text": "Employer - Occupational Medicine",
+    "enableWhen": [
+      {
+        "answerString": "occupational-medicine",
+        "operator": "=",
+        "question": "patient-summary.appointment-service-category"
+      },
+      {
+        "answerBoolean": false,
+        "operator": "exists",
+        "question": "patient-summary.appointment-service-category"
+      }
+    ],
+    "enableBehavior": "any",
     "item": [
       {
         "linkId": "occupational-medicine-employer",
@@ -3564,6 +3626,19 @@
     "linkId": "attorney-mva-page",
     "type": "group",
     "text": "Attorney for Motor Vehicle Accident",
+    "enableWhen": [
+      {
+        "answerString": "Auto accident",
+        "operator": "=",
+        "question": "patient-summary.reason-for-visit"
+      },
+      {
+        "answerBoolean": false,
+        "operator": "exists",
+        "question": "patient-summary.reason-for-visit"
+      }
+    ],
+    "enableBehavior": "any",
     "item": [
       {
         "linkId": "attorney-mva-firm",

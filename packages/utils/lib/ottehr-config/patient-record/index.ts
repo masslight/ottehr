@@ -2,7 +2,12 @@ import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, Questionna
 import _ from 'lodash';
 import { z } from 'zod';
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { makeAnswer, makePrepopulatedItemsFromPatientRecord, PrePopulationFromPatientRecordInput } from '../../main';
+import {
+  makeAnswer,
+  makePrepopulatedItemsFromPatientRecord,
+  PrePopulationFromPatientRecordInput,
+  ServiceMode,
+} from '../../main';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
@@ -72,6 +77,21 @@ const FormFields = {
       ssnFieldRequired: {
         key: 'ssn-field-required',
         type: 'boolean',
+      },
+      appointmentServiceCategory: {
+        key: 'appointment-service-category',
+        type: 'string',
+        required: false,
+      },
+      appointmentServiceMode: {
+        key: 'appointment-service-mode',
+        type: 'string',
+        required: false,
+      },
+      reasonForVisit: {
+        key: 'reason-for-visit',
+        type: 'string',
+        required: false,
       },
     },
     items: {
@@ -715,6 +735,21 @@ const FormFields = {
   employerInformation: {
     linkId: 'employer-information-page',
     title: "Worker's Compensation Information",
+    triggers: [
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'workers-compensation',
+      },
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
     items: {
       workersCompInsurance: {
         key: 'workers-comp-insurance-name',
@@ -770,6 +805,21 @@ const FormFields = {
         },
       },
     },
+    triggers: [
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'occupational-medicine',
+      },
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
     hiddenFields: [],
     requiredFields: [],
   },
@@ -784,6 +834,21 @@ const FormFields = {
       mobile: { key: 'attorney-mva-mobile', type: 'string', label: 'Mobile', dataType: 'Phone Number' },
       fax: { key: 'attorney-mva-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
     },
+    triggers: [
+      {
+        targetQuestionLinkId: 'patient-summary.reason-for-visit',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'Auto accident',
+      },
+      {
+        targetQuestionLinkId: 'patient-summary.reason-for-visit',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
     hiddenFields: [],
     requiredFields: [],
   },
@@ -827,7 +892,10 @@ const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
 });
 
 export const PATIENT_RECORD_CONFIG = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
-const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireResponseItem[] => {
+const prepopulateLogicalFields = (
+  questionnaire: Questionnaire,
+  appointmentContext?: AppointmentContext
+): QuestionnaireResponseItem[] => {
   const shouldShowSSNField = !(
     PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn') ?? false
   );
@@ -847,6 +915,15 @@ const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireRe
         if (linkId === 'ssn-field-required') {
           answer = makeAnswer(ssnRequired, 'Boolean');
         }
+        if (linkId === 'appointment-service-category' && appointmentContext?.appointmentServiceCategory) {
+          answer = makeAnswer(appointmentContext.appointmentServiceCategory);
+        }
+        if (linkId === 'appointment-service-mode' && appointmentContext?.appointmentServiceMode) {
+          answer = makeAnswer(appointmentContext.appointmentServiceMode);
+        }
+        if (linkId === 'reason-for-visit' && appointmentContext?.reasonForVisit) {
+          answer = makeAnswer(appointmentContext.reasonForVisit);
+        }
 
         return {
           linkId,
@@ -863,15 +940,26 @@ const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireRe
   return item.flatMap((i) => i.item ?? []).filter((i) => i.answer !== undefined);
 };
 
+export interface AppointmentContext {
+  appointmentServiceCategory?: string;
+  appointmentServiceMode?: ServiceMode;
+  reasonForVisit?: string;
+}
+
+interface PrePopulationFromPatientRecordInputWithContext extends PrePopulationFromPatientRecordInput {
+  appointmentContext?: AppointmentContext;
+}
+
 export const prepopulatePatientRecordItems = (
-  input: PrePopulationFromPatientRecordInput
+  input: PrePopulationFromPatientRecordInputWithContext
 ): QuestionnaireResponseItem[] => {
   if (!input) {
     return [];
   }
 
   const q = input.questionnaire;
-  const logicalFieldItems = prepopulateLogicalFields(q);
+  const { appointmentContext } = input;
+  const logicalFieldItems = prepopulateLogicalFields(q, appointmentContext);
   // todo: this is exported from another util file, but only used here. probably want to move it and
   // consolidate the interface exposed to the rest of the system.
   const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: logicalFieldItems });
