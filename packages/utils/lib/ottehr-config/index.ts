@@ -7,7 +7,6 @@ export * from './intake-paperwork-virtual';
 export * from './legal';
 export * from './locations';
 export * from './patient-record';
-export * from './questionnaire';
 export * from './radiology';
 export * from './screening-questions';
 export * from './sendgrid';
