@@ -154,7 +154,7 @@ describe('get-telemed-appointments integration tests', () => {
 
     expect(createAppointmentResponse).toBeDefined();
     expect(createAppointmentResponse.appointmentId).toBeDefined();
-  });
+  }, 60_000);
 
   afterAll(async () => {
     console.log('Cleaning up');

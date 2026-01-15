@@ -1,8 +1,19 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPatchRequest } from '@oystehr/sdk';
-import { Communication, Condition, Encounter, QuestionnaireResponse, ServiceRequest, Task } from 'fhir/r4b';
+import {
+  Communication,
+  Condition,
+  DiagnosticReport,
+  DocumentReference,
+  Encounter,
+  QuestionnaireResponse,
+  Reference,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import { ExternalLabCommunications } from 'utils';
-import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { ADDED_VIA_LAB_ORDER_SYSTEM, OYSTEHR_ABN_DOC_CATEGORY_CODING } from 'utils/lib/types/data/labs/labs.constants';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
+import { makeSoftDeleteStatusPatchRequest } from '../lab/shared/helpers';
 import { DeleteLabOrderZambdaInputValidated } from './validateRequestParameters';
 
 export const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
@@ -10,32 +21,28 @@ export const makeDeleteResourceRequest = (resourceType: string, id: string): Bat
   url: `${resourceType}/${id}`,
 });
 
-export const canDeleteLabOrder = (labOrder: ServiceRequest): boolean => {
-  return labOrder.status === 'draft';
-};
-
 export const getLabOrderRelatedResources = async (
   oystehr: Oystehr,
   params: DeleteLabOrderZambdaInputValidated
 ): Promise<{
   serviceRequest: ServiceRequest | null;
   questionnaireResponse: QuestionnaireResponse | null;
-  task: Task | null;
+  tasks: Task[];
   labConditions: Condition[];
   communications: ExternalLabCommunications | undefined;
+  documentReferences: DocumentReference[];
+  diagnosticReports: DiagnosticReport[];
 }> => {
   try {
     const serviceRequestResponse = (
-      await oystehr.fhir.search<ServiceRequest | Task | Encounter | Condition | Communication>({
+      await oystehr.fhir.search<
+        ServiceRequest | Task | Encounter | Condition | Communication | DocumentReference | DiagnosticReport
+      >({
         resourceType: 'ServiceRequest',
         params: [
           {
             name: '_id',
             value: params.serviceRequestId,
-          },
-          {
-            name: '_revinclude',
-            value: 'Task:based-on',
           },
           {
             name: '_include',
@@ -49,6 +56,24 @@ export const getLabOrderRelatedResources = async (
             name: '_revinclude:iterate',
             value: 'Communication:based-on', // order level notes & clinical info notes
           },
+
+          // if the lab has been sent there are some additional resources we need to check for
+          {
+            name: '_revinclude',
+            value: 'DiagnosticReport:based-on',
+          },
+
+          // will pull tasks based on the service request and the diagnostic report
+          {
+            name: '_revinclude:iterate',
+            value: 'Task:based-on',
+          },
+
+          // order pdf, label pdf, result pdf, ABNs
+          {
+            name: '_revinclude:iterate',
+            value: 'DocumentReference:related',
+          },
         ],
       })
     ).unbundle();
@@ -60,6 +85,8 @@ export const getLabOrderRelatedResources = async (
       encounters: Encounter[];
       orderLevelNotesByUser: Communication[];
       clinicalInfoNotesByUser: Communication[];
+      documentReferences: DocumentReference[];
+      diagnosticReports: DiagnosticReport[];
     };
     const initAccumulator: accType = {
       serviceRequests: [],
@@ -68,27 +95,53 @@ export const getLabOrderRelatedResources = async (
       encounters: [],
       orderLevelNotesByUser: [],
       clinicalInfoNotesByUser: [],
+      documentReferences: [],
+      diagnosticReports: [],
     };
-    const { serviceRequests, tasks, conditions, encounters, orderLevelNotesByUser, clinicalInfoNotesByUser } =
-      serviceRequestResponse.reduce((acc, resource) => {
-        if (resource.resourceType === 'ServiceRequest' && resource.id === params.serviceRequestId) {
-          acc.serviceRequests.push(resource);
-        } else if (
-          resource.resourceType === 'Task' &&
-          resource.basedOn?.some((ref) => ref.reference === `ServiceRequest/${params.serviceRequestId}`)
-        ) {
-          acc.tasks.push(resource);
-        } else if (resource.resourceType === 'Condition') {
-          acc.conditions.push(resource);
-        } else if (resource.resourceType === 'Encounter') {
-          acc.encounters.push(resource);
-        } else if (resource.resourceType === 'Communication') {
-          const labCommType = labOrderCommunicationType(resource);
-          if (labCommType === 'order-level-note') acc.orderLevelNotesByUser.push(resource);
-          if (labCommType === 'clinical-info-note') acc.clinicalInfoNotesByUser.push(resource);
-        }
-        return acc;
-      }, initAccumulator);
+    const {
+      serviceRequests,
+      tasks,
+      conditions,
+      encounters,
+      orderLevelNotesByUser,
+      clinicalInfoNotesByUser,
+      documentReferences,
+      diagnosticReports,
+    } = serviceRequestResponse.reduce((acc, resource) => {
+      if (resource.resourceType === 'ServiceRequest' && resource.id === params.serviceRequestId) {
+        acc.serviceRequests.push(resource);
+      } else if (
+        resource.resourceType === 'Task' &&
+        resource.status !== 'cancelled' &&
+        resource.status !== 'completed'
+      ) {
+        acc.tasks.push(resource);
+      } else if (resource.resourceType === 'Condition') {
+        acc.conditions.push(resource);
+      } else if (resource.resourceType === 'Encounter') {
+        acc.encounters.push(resource);
+      } else if (resource.resourceType === 'Communication') {
+        const labCommType = labOrderCommunicationType(resource);
+        if (labCommType === 'order-level-note') acc.orderLevelNotesByUser.push(resource);
+        if (labCommType === 'clinical-info-note') acc.clinicalInfoNotesByUser.push(resource);
+      } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
+        const isAbnDoc = resource.category?.some(
+          (cat) =>
+            cat.coding?.some(
+              (code) =>
+                code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system &&
+                code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code
+            )
+        );
+        // since the ABN may be related to other labs in an order we will not delete this
+        // todo labs at some point in the future it may make sense to do the work of actually determining if the abn SHOULD be deleted
+        // but for now we will err on the side of caution
+        if (!isAbnDoc) acc.documentReferences.push(resource);
+      } else if (resource.resourceType === 'DiagnosticReport') {
+        acc.diagnosticReports.push(resource);
+      }
+      return acc;
+    }, initAccumulator);
 
     let communications: ExternalLabCommunications | undefined;
     if (orderLevelNotesByUser.length > 0 || clinicalInfoNotesByUser.length > 0) {
@@ -99,17 +152,10 @@ export const getLabOrderRelatedResources = async (
     }
 
     const serviceRequest = serviceRequests[0];
-    const task = tasks[0];
-
-    if (!canDeleteLabOrder(serviceRequest)) {
-      const errorMessage = `Cannot delete lab order; ServiceRequest has status: ${serviceRequest.status}. Only pending orders can be deleted.`;
-      console.error(errorMessage);
-      throw new Error(errorMessage);
-    }
 
     if (!serviceRequest?.id) {
       console.error('Lab order not found or invalid response', serviceRequestResponse);
-      return { serviceRequest: null, questionnaireResponse: null, task: null, labConditions: [], communications };
+      throw new Error(`Service request for delete request is misconfigured: ${serviceRequest?.id}`);
     }
 
     const encounter = encounters.find(
@@ -153,12 +199,28 @@ export const getLabOrderRelatedResources = async (
       return null;
     })();
 
+    // confirm the task is related to the lab service request or some lab diagnostic report
+    const drRefSet = new Set(diagnosticReports.map((dr) => `DiagnosticReport/${dr.id}`));
+    const filteredTasks = tasks.filter((task) => {
+      return !!task.basedOn?.some((ref) => {
+        const basedOn = ref.reference;
+        if (!basedOn) return false;
+
+        const isBasedOnServiceRequest = basedOn.endsWith(`ServiceRequest/${params.serviceRequestId}`);
+        const isBasedOnSomeDR = drRefSet.has(basedOn);
+
+        return isBasedOnServiceRequest || isBasedOnSomeDR;
+      });
+    });
+
     return {
       serviceRequest,
       questionnaireResponse,
-      task,
+      tasks: filteredTasks,
       labConditions,
       communications,
+      documentReferences,
+      diagnosticReports,
     };
   } catch (error) {
     console.error('Error fetching external lab order and related resources:', error);
@@ -169,7 +231,7 @@ export const getLabOrderRelatedResources = async (
 export const makeCommunicationRequestForOrderNote = (
   orderLevelNotes: Communication[] | undefined,
   serviceRequest: ServiceRequest
-): BatchInputPatchRequest<Communication> | BatchInputDeleteRequest | undefined => {
+): { batchRequest: BatchInputPatchRequest<Communication>; targetReference: Reference } | undefined => {
   if (!orderLevelNotes || orderLevelNotes.length === 0) return;
 
   if (orderLevelNotes.length !== 1) {
@@ -191,7 +253,10 @@ export const makeCommunicationRequestForOrderNote = (
     const sameServiceRequest = orderLevelNote.basedOn[0].reference === `ServiceRequest/${serviceRequest.id}`;
     if (sameServiceRequest && orderLevelNote.id) {
       console.log('will delete the order level note communication', orderLevelNote.id);
-      return makeDeleteResourceRequest('Communication', orderLevelNote.id);
+      return {
+        batchRequest: makeSoftDeleteStatusPatchRequest('Communication', orderLevelNote.id),
+        targetReference: { reference: `Communication/${orderLevelNote.id}` },
+      };
     } else {
       console.warn(`This communication is linked to an unexpected service request: ${orderLevelNote.id}`);
       return;
@@ -208,14 +273,17 @@ export const makeCommunicationRequestForOrderNote = (
       operations: [{ op: 'remove', path: `/basedOn/${pathIdx}` }],
       ifMatch: orderLevelNote.meta?.versionId ? `W/"${orderLevelNote.meta.versionId}"` : undefined,
     };
-    return communicationPatchRequest;
+    return {
+      batchRequest: communicationPatchRequest,
+      targetReference: { reference: `Communication/${orderLevelNote.id}` },
+    };
   }
 };
 
 export const makeCommunicationRequestForClinicalInfoNote = (
   clinicalInfoNotesByUser: Communication[] | undefined,
   serviceRequest: ServiceRequest
-): BatchInputDeleteRequest | undefined => {
+): { batchRequest: BatchInputPatchRequest<Communication>; targetReference: Reference } | undefined => {
   if (!clinicalInfoNotesByUser || clinicalInfoNotesByUser.length === 0) return;
 
   if (clinicalInfoNotesByUser.length > 1) {
@@ -234,5 +302,8 @@ export const makeCommunicationRequestForClinicalInfoNote = (
   }
   if (!clinicalInfoNote.id) throw new Error(`communication is missing an id ${clinicalInfoNote.id}`);
 
-  return makeDeleteResourceRequest('Communication', clinicalInfoNote.id);
+  return {
+    batchRequest: makeSoftDeleteStatusPatchRequest('Communication', clinicalInfoNote.id),
+    targetReference: { reference: `Communication/${clinicalInfoNote.id}` },
+  };
 };

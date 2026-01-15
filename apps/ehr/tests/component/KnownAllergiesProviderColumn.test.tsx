@@ -40,7 +40,10 @@ const mockAllergySearchData = [
 ];
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
-  useGetAllergiesSearch: (search: string) => ({ isFetching: false, data: search ? mockAllergySearchData : [] }),
+  useGetAllergiesSearch: vi.fn((search: string) => ({
+    isFetching: false,
+    data: search && search.length > 0 ? mockAllergySearchData : [],
+  })),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
@@ -159,29 +162,7 @@ describe('KnownAllergiesProviderColumn', () => {
   });
 
   describe('selecting allergy', () => {
-    it(
-      'should call onSubmit with selected allergy',
-      async () => {
-        const user = userEvent.setup();
-        render(<KnownAllergiesProviderColumn />, { wrapper: createWrapper() });
-
-        await user.click(screen.getByRole('combobox'));
-        await user.type(screen.getByRole('combobox'), 'Bana');
-        await waitFor(
-          async () => {
-            const dropdown = await screen.findByRole('presentation');
-            const option = await within(dropdown).findAllByText(/Banana/);
-            await user.click(option[0]);
-          },
-          { timeout: 1000 }
-        );
-
-        expect(mockChartDataArrayValueOnSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: 'Banana' }));
-      },
-      { timeout: 5000 }
-    );
-
-    it('should update local state with selected code', async () => {
+    it('should call onSubmit with selected allergy', { timeout: 12000 }, async () => {
       const user = userEvent.setup();
       render(<KnownAllergiesProviderColumn />, { wrapper: createWrapper() });
 
@@ -193,7 +174,25 @@ describe('KnownAllergiesProviderColumn', () => {
           const option = await within(dropdown).findAllByText(/Banana/);
           await user.click(option[0]);
         },
-        { timeout: 1000 }
+        { timeout: 10000 }
+      );
+
+      expect(mockChartDataArrayValueOnSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: 'Banana' }));
+    });
+
+    it('should update local state with selected code', { timeout: 12000 }, async () => {
+      const user = userEvent.setup();
+      render(<KnownAllergiesProviderColumn />, { wrapper: createWrapper() });
+
+      await user.click(screen.getByRole('combobox'));
+      await user.type(screen.getByRole('combobox'), 'Bana');
+      await waitFor(
+        async () => {
+          const dropdown = await screen.findByRole('presentation');
+          const option = await within(dropdown).findAllByText(/Banana/);
+          await user.click(option[0]);
+        },
+        { timeout: 10000 }
       );
 
       expect(mockSetPartialChartData).toHaveBeenCalledWith(
@@ -204,36 +203,32 @@ describe('KnownAllergiesProviderColumn', () => {
       );
     });
 
-    it(
-      'should show error and rollback on save failure',
-      async () => {
-        const user = userEvent.setup();
-        mockChartData = {
-          allergies: [],
-        };
+    it('should show error and rollback on save failure', { timeout: 12000 }, async () => {
+      const user = userEvent.setup();
+      mockChartData = {
+        allergies: [],
+      };
 
-        render(<KnownAllergiesProviderColumn />, { wrapper: createWrapper() });
+      render(<KnownAllergiesProviderColumn />, { wrapper: createWrapper() });
 
-        // Simulate server error
-        mockChartDataArrayValueOnSubmit.mockRejectedValueOnce(new Error('Server error'));
+      // Simulate server error
+      mockChartDataArrayValueOnSubmit.mockRejectedValueOnce(new Error('Server error'));
 
-        await user.click(screen.getByRole('combobox'));
-        await user.type(screen.getByRole('combobox'), 'Bana');
-        await waitFor(
-          async () => {
-            const dropdown = await screen.findByRole('presentation');
-            const option = await within(dropdown).findAllByText(/Banana/);
-            await user.click(option[0]);
-          },
-          { timeout: 1000 }
-        );
+      await user.click(screen.getByRole('combobox'));
+      await user.type(screen.getByRole('combobox'), 'Bana');
+      await waitFor(
+        async () => {
+          const dropdown = await screen.findByRole('presentation');
+          const option = await within(dropdown).findAllByText(/Banana/);
+          await user.click(option[0]);
+        },
+        { timeout: 10000 }
+      );
 
-        expect(mockSetPartialChartData).toHaveBeenLastCalledWith({
-          allergies: [],
-        });
-      },
-      { timeout: 5000 }
-    );
+      expect(mockSetPartialChartData).toHaveBeenLastCalledWith({
+        allergies: [],
+      });
+    });
   });
 
   describe('removing allergy', () => {

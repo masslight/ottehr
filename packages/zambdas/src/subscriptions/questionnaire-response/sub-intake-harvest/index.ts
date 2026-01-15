@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
@@ -211,14 +211,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
-      await updateStripeCustomer(
-        {
-          account: updatedAccount,
-          guarantorResource: updatedGuarantorResource,
-          stripeClient,
-        },
-        oystehr
-      );
+      await updateStripeCustomer({
+        account: updatedAccount,
+        guarantorResource: updatedGuarantorResource,
+        stripeClient,
+      });
       console.timeEnd('updating stripe customer');
     } else {
       console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');
@@ -387,7 +384,10 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   try {
     // Additional questions chart data resource prefilling
     const additionalQuestions = createAdditionalQuestions(qr);
-    const saveOrUpdateChartDataResourceRequests: BatchInputPostRequest<Observation>[] = [];
+    const saveOrUpdateChartDataResourceRequests: (
+      | BatchInputPostRequest<Observation>
+      | BatchInputPatchRequest<Appointment>
+    )[] = [];
 
     additionalQuestions.forEach((observation) => {
       console.log('additionalQuestion: ', JSON.stringify(observation));
@@ -404,30 +404,23 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         )
       );
     });
-    await oystehr.fhir.batch({
+
+    // Add HARVESTING_COMPLETED tag in the same batch transaction
+    // This ensures the tag is only set after all resources are created and indexed
+    const newTags: Coding[] = [FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG];
+    const patchOps = getPatchOperationsForNewMetaTags(appointmentResource, newTags);
+    saveOrUpdateChartDataResourceRequests.push({
+      method: 'PATCH',
+      url: `Appointment/${appointmentResource.id}`,
+      operations: patchOps,
+    });
+
+    await oystehr.fhir.batch<Observation | Appointment>({
       requests: saveOrUpdateChartDataResourceRequests,
     });
   } catch (error: unknown) {
-    tasksFailed.push('create additional questions chart data resource', JSON.stringify(error));
-    console.log(`Failed to create additional questions chart data resource: ${error}`);
-    captureException(error);
-  }
-
-  try {
-    console.time('Patching appointment resource tags');
-    const newTags: Coding[] = [FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG];
-
-    const patchOps = getPatchOperationsForNewMetaTags(appointmentResource, newTags);
-
-    await oystehr.fhir.patch({
-      resourceType: 'Appointment',
-      id: appointmentResource.id,
-      operations: patchOps,
-    });
-    console.timeEnd('Patching appointment resource tags');
-  } catch (error: unknown) {
-    tasksFailed.push('patch appointment resource tag failed', JSON.stringify(error));
-    console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
+    tasksFailed.push('create additional questions chart data resource or patch appointment tag', JSON.stringify(error));
+    console.log(`Failed to create additional questions chart data resource or patch appointment tag: ${error}`);
     captureException(error);
   }
 

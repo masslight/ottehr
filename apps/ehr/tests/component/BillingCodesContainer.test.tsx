@@ -26,6 +26,9 @@ let mockChartData: {
 } = {};
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useAppointmentData: () => ({
+    encounter: { id: 'test-encounter-id' },
+  }),
   useChartData: () => ({
     chartData: mockChartData,
     setPartialChartData: mockSetPartialChartData,
@@ -60,13 +63,17 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
-vi.mock('utils', () => ({
-  APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
-  emCodeOptions: [
-    { display: '99213 Established Patient - E/M Level 3', code: '99213' },
-    { display: '99214 Established Patient - E/M Level 4', code: '99214' },
-  ],
-}));
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils')>();
+  return {
+    ...actual,
+    APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
+    emCodeOptions: [
+      { display: '99213 Established Patient - E/M Level 3', code: '99213' },
+      { display: '99214 Established Patient - E/M Level 4', code: '99214' },
+    ],
+  };
+});
 
 vi.mock('src/constants/data-test-ids', () => ({
   dataTestIds: {

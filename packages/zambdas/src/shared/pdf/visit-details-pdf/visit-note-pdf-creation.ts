@@ -27,6 +27,7 @@ import {
   examConfig,
   ExamObservationDTO,
   ExternalLabDocuments,
+  filterNotDeletedServiceRequests,
   formatDateTimeToZone,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
@@ -38,6 +39,7 @@ import {
   getSpentTime,
   getTelemedEncounterStatusHistory,
   ImmunizationOrder,
+  isDeletedMedicationOrder,
   isDropdownComponent,
   isInPersonAppointment,
   isMultiSelectComponent,
@@ -210,7 +212,7 @@ function composeDataForPdf(
 
   // --- In-House Medications ---
   const inHouseMedications = medicationOrders
-    ?.filter((order) => order.status !== 'cancelled')
+    ?.filter((order) => !isDeletedMedicationOrder(order))
     .map((order) => createMedicationString(order));
   const inHouseMedicationsNotes = additionalChartData?.notes
     ?.filter((note) => note.type === NOTE_TYPE.MEDICATION)
@@ -225,7 +227,7 @@ function composeDataForPdf(
   const inHouseLabResults = additionalChartData?.inHouseLabResults?.labOrderResults ?? [];
   const inHouseLabOrders = inHouseOrdersData?.serviceRequests?.length
     ? mapResourcesToInHouseLabOrders(
-        inHouseOrdersData?.serviceRequests,
+        filterNotDeletedServiceRequests(inHouseOrdersData?.serviceRequests),
         inHouseOrdersData?.activityDefinitions,
         inHouseOrdersData?.observations
       )

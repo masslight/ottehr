@@ -1,5 +1,6 @@
 import {
   Address,
+  Coverage,
   DocumentReference,
   Organization,
   Patient,
@@ -443,6 +444,8 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapEmployerToQuestionnaireResponseItems({
           items: itemItems,
           employerOrganization,
+          insuranceOrgs,
+          coverage: coverages.workersComp,
         });
       }
       return [];
@@ -1010,10 +1013,12 @@ const EMPLOYER_ITEMS = ['employer-information-page'];
 interface MapEmployerItemsInput {
   items: QuestionnaireItem[];
   employerOrganization?: Organization;
+  insuranceOrgs?: Organization[];
+  coverage?: Coverage;
 }
 
 const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): QuestionnaireResponseItem[] => {
-  const { employerOrganization, items } = input;
+  const { employerOrganization, items, insuranceOrgs, coverage } = input;
   const address = employerOrganization?.address?.[0];
   const contact = employerOrganization?.contact?.[0];
 
@@ -1032,8 +1037,29 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
     const { linkId } = item;
-
     switch (linkId) {
+      case 'workers-comp-insurance-name':
+        if (coverage) {
+          const payerId = coverage.class?.[0].value;
+          const org = insuranceOrgs?.find((tempOrg) => getPayerId(tempOrg) === payerId);
+          const coverageReference: Reference = {
+            reference: `Organization/${org?.id}`,
+            display: org?.name,
+          };
+          answer = makeAnswer(coverageReference, 'Reference');
+        }
+        break;
+      case 'workers-comp-insurance-member-id':
+        if (coverage) {
+          const workersCompMemberId =
+            coverage.identifier?.find(
+              (i) =>
+                i.type?.coding?.[0]?.code === 'MB' &&
+                coverage.payor.find((payor) => payor.reference === i.assigner?.reference)
+            )?.value ?? '';
+          answer = makeAnswer(workersCompMemberId);
+        }
+        break;
       case 'employer-name':
         if (employerOrganization?.name) answer = makeAnswer(employerOrganization.name);
         break;

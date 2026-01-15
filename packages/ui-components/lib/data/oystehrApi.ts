@@ -37,6 +37,7 @@ import {
   PaymentMethodListParameters,
   PaymentMethodSetDefaultParameters,
   PaymentMethodSetupParameters,
+  PaymentMethodSetupZambdaOutput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentRequestParams,
@@ -357,7 +358,9 @@ export const getOystehrAPI = (
     return await makeZapRequest('set default payment method', parameters);
   };
 
-  const setupPaymentMethod = async (parameters: PaymentMethodSetupParameters): Promise<string> => {
+  const setupPaymentMethod = async (
+    parameters: PaymentMethodSetupParameters
+  ): Promise<PaymentMethodSetupZambdaOutput> => {
     return await makeZapRequest('setup payment method', parameters);
   };
 
