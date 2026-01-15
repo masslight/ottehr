@@ -714,12 +714,7 @@ export default function ProceduresNew(): ReactElement {
             <AutocompleteInput
               name="procedureType"
               label="Procedure type"
-              options={selectOptions?.procedureTypes.map((procedureType) => {
-                return {
-                  label: procedureType.name,
-                  value: procedureType.name,
-                };
-              })}
+              options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
               disabled={isReadOnly}
               loading={isSelectOptionsLoading}
               dataTestId={dataTestIds.documentProcedurePage.procedureType}
