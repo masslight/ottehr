@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { LOCATION_CONFIG, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
@@ -94,8 +94,7 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
     await this.page.getByPlaceholder('Search or select').click();
     const locationOption = this.page
       .locator('[role="option"]')
-      .filter({ hasNot: this.page.locator('[aria-disabled="true"], [disabled]') }) // Exclude disabled options
-      .first();
+      .getByText(LOCATION_CONFIG.telemedLocations[0], { exact: true });
     const location = await locationOption.textContent();
     await locationOption.click();
     await this.continue();
