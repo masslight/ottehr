@@ -9,6 +9,9 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration.
  */
 
+// Detect if running in UI mode - dependencies don't work well in UI mode
+const isUIMode = process.argv.includes('--ui');
+
 export default defineConfig({
   testDir: './tests',
   testMatch: /.*\.spec\.ts/,
@@ -74,7 +77,9 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
-      testMatch: /.*setup\.spec\.ts/,
+      // In UI mode, chromium project handles all tests including setup
+      // In non-UI mode, this project handles setup tests with dependency chain
+      testMatch: isUIMode ? /this-pattern-matches-nothing/ : /.*setup\.spec\.ts/,
       testIgnore: [/.*login\/login\.spec\.ts/, /.*setup-validation\.spec\.ts/],
       timeout: 240000,
     },
@@ -85,8 +90,10 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
-      testMatch: /.*setup-validation\.spec\.ts/,
-      dependencies: ['paperwork-setup'],
+      // In UI mode, chromium project handles all tests including setup-validation
+      // In non-UI mode, this project validates setup completion
+      testMatch: isUIMode ? /this-pattern-matches-nothing/ : /.*setup-validation\.spec\.ts/,
+      ...(isUIMode ? {} : { dependencies: ['paperwork-setup'] }),
     },
     {
       name: 'chromium',
@@ -95,8 +102,13 @@ export default defineConfig({
         storageState: './playwright/user.json',
       },
       // chromium runs ONLY if setup-validation passes (which means ALL setup tests passed)
-      dependencies: ['setup-validation'],
-      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/, /.*setup-validation\.spec\.ts/],
+      // In UI mode, dependencies are disabled to allow manual test selection
+      ...(isUIMode ? {} : { dependencies: ['setup-validation'] }),
+      // In UI mode, include all tests including setup tests for easier debugging
+      // In non-UI mode, exclude setup tests as they run in separate projects
+      testIgnore: isUIMode
+        ? [/.*login\/login\.spec\.ts/, /.*auth\/login\.spec\.ts/]
+        : [/.*login\/login\.spec\.ts/, /.*auth\/login\.spec\.ts/, /.*setup\.spec\.ts/, /.*setup-validation\.spec\.ts/],
     },
 
     // {
