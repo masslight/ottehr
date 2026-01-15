@@ -25,10 +25,6 @@ import {
   useRadiologyOrdersOptions,
 } from '../common';
 
-const CATEGORY_OPTIONS = Object.values(MANUAL_TASK.category).map((category) => {
-  return { value: category, label: TASK_CATEGORY_LABEL[category] };
-});
-
 interface Props {
   open: boolean;
   handleClose: () => void;
@@ -63,11 +59,11 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
 
   const appointmentOptions = (appointments ?? []).map((appointment) => {
     return {
+      id: appointment.appointmentId ?? '',
       label: `${getVisitTypeLabelForTypeAndServiceMode({
         type: appointment.type,
         serviceMode: appointment.serviceMode,
       })} ${appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime) : ''}`,
-      value: appointment.appointmentId ?? '',
     };
   });
 
@@ -190,15 +186,23 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
             <SelectInput
               name="appointment"
               label="Visit"
-              options={appointmentsLoading ? [] : appointmentOptions}
+              options={appointmentsLoading ? [] : appointmentOptions.map((appointment) => appointment.id)}
+              getOptionLabel={(option) => appointmentOptions.find((opt) => opt.id === option)?.label ?? option}
               loading={appointmentsLoading}
               disabled={!formValue.patient}
             />
-            <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} required />
+            <SelectInput
+              name="category"
+              label="Category"
+              options={Object.values(MANUAL_TASK.category)}
+              getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
+              required
+            />
             <SelectInput
               name="order"
               label="Order"
-              options={orderOptions}
+              options={orderOptions.map((order) => order.id)}
+              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? option}
               loading={ordersLoading}
               disabled={!formValue.appointment || !formValue.category}
             />

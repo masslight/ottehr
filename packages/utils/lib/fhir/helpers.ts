@@ -1283,6 +1283,23 @@ export const getStripeCustomerIdFromAccount = (
   }
 };
 
+export const getAllStripeCustomerAccountPairs = (
+  account: Account
+): { stripeAccount: string | undefined; customerId: string }[] => {
+  const stripeIdentifiers = account.identifier?.filter((ident) => {
+    return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
+  });
+  if (!stripeIdentifiers) {
+    return [];
+  }
+  return stripeIdentifiers.map((ident) => {
+    const stripeAccount = ident.extension?.find((ext) => {
+      return ext.url === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT;
+    })?.valueString;
+    return { stripeAccount, customerId: ident.value ?? '' };
+  });
+};
+
 export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
   const guarantor = account?.guarantor?.find((g) => g.period?.end === undefined)?.party;
   return guarantor?.reference;

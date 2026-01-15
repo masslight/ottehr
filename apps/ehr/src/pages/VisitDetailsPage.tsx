@@ -66,9 +66,11 @@ import {
   getUnconfirmedDOBForAppointment,
   isApiError,
   isInPersonAppointment,
+  isTelemedAppointment,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
   SERVICE_CATEGORY_SYSTEM,
+  ServiceMode,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
@@ -1282,6 +1284,13 @@ export default function VisitDetailsPage(): ReactElement {
                 id={patientId}
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
+                appointmentContext={{
+                  appointmentServiceCategory: getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code,
+                  appointmentServiceMode: isTelemedAppointment(appointment)
+                    ? ServiceMode.virtual
+                    : ServiceMode['in-person'],
+                  reasonForVisit,
+                }}
               />
             </Grid>
           </Grid>

@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { FieldValues, RefCallBack, useFormContext, useFormState } from 'react-hook-form';
 import {
   DOB_DATE_FORMAT,
+  INSURANCE_PAY_OPTION,
   IntakeQuestionnaireItem,
   pickFirstValueFromAnswerItem,
   pickValueAsStringListFromAnswerItem,
@@ -108,7 +109,7 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
   const onChange = useCallback(
     (e: any): void => {
       // todo: this is temporarily hardcoded. want to work this into the questionnaire schema.
-      if (item.linkId === 'payment-option' && e.target.value !== 'I have insurance') {
+      if (item.linkId === 'payment-option' && e.target.value !== INSURANCE_PAY_OPTION) {
         setValue('display-secondary-insurance.answer.0.valueBoolean', false);
       }
       const base = { linkId: item.linkId };
