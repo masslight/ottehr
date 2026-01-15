@@ -23,6 +23,7 @@ import { ResponsibleInformationContainer } from 'src/features/visits/shared/comp
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
+  AppointmentContext,
   CoverageWithPriority,
   extractFirstValueFromAnswer,
   flattenItems,
@@ -139,7 +140,8 @@ const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO
 };
 
 const usePatientData = (
-  id: string | undefined
+  id: string | undefined,
+  appointmentContext?: AppointmentContext
 ): {
   accountData?: PatientAccountResponse;
   insuranceData?: {
@@ -199,12 +201,13 @@ const usePatientData = (
         coverages: {},
         insuranceOrgs: [],
         questionnaire,
+        appointmentContext,
       });
       defaultFormVals = makeFormDefaults(prepopulatedForm);
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, accountFetching]);
+  }, [accountData, accountFetching, appointmentContext]);
 
   return {
     accountData,
@@ -287,6 +290,7 @@ interface PatientAccountComponentProps {
   containerSX?: SxProps;
   loadingComponent?: ReactElement;
   renderBackButton?: boolean;
+  appointmentContext?: AppointmentContext;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -297,12 +301,13 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   containerSX = {},
   loadingComponent = <LoadingScreen />,
   renderBackButton = true,
+  appointmentContext,
 }) => {
   const navigate = useNavigate();
   const { setInsurancePlans } = usePatientStore();
 
   const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
-    usePatientData(id);
+    usePatientData(id, appointmentContext);
 
   const { methods, coveragesFormValues } = useFormData(defaultFormVals, coveragesFetching, insuranceData, accountData);
 
