@@ -2,10 +2,10 @@ import { Autocomplete, Box, FormHelperText, Skeleton, TextField } from '@mui/mat
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
-type Props = {
+export type AutocompleteInputProps<Value> = {
   name: string;
   label: string;
-  options: any[] | undefined;
+  options: Value[] | undefined;
   loading?: boolean;
   required?: boolean;
   disabled?: boolean;
@@ -13,13 +13,13 @@ type Props = {
   selectOnly?: boolean;
   onInputTextChanged?: (text: string) => void;
   noOptionsText?: string;
-  getOptionKey?: (option: any) => string;
-  getOptionLabel?: (option: any) => string;
-  isOptionEqualToValue?: (option: any, value: any) => boolean;
+  getOptionKey?: (option: Value) => string;
+  getOptionLabel?: (option: Value) => string;
+  isOptionEqualToValue?: (option: Value, value: Value) => boolean;
   dataTestId?: string;
 };
 
-export const AutocompleteInput: React.FC<Props> = ({
+export function AutocompleteInput<Value>({
   name,
   label,
   options,
@@ -34,7 +34,7 @@ export const AutocompleteInput: React.FC<Props> = ({
   getOptionLabel,
   isOptionEqualToValue,
   dataTestId,
-}) => {
+}: AutocompleteInputProps<Value>): React.JSX.Element {
   const { control } = useFormContext();
   if (loading && !options) {
     return <Skeleton variant="rectangular" width="100%" height={40} />;
@@ -86,4 +86,4 @@ export const AutocompleteInput: React.FC<Props> = ({
       }}
     />
   );
-};
+}
