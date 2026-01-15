@@ -11,6 +11,7 @@ import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
+  getAdvaPACSLocationForAppointmentOrEncounter,
   getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
@@ -114,6 +115,12 @@ const performEffect = async (
     id: practitionerRelativeReference.split('/')[1],
   });
 
+  // Grab advapacs location id from schedule owner extension if any
+  const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
+    { encounterId: body.encounter.id },
+    oystehr
+  );
+
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
   if (!ourServiceRequest.id) {
@@ -124,7 +131,7 @@ const performEffect = async (
 
   // Send the order to AdvaPACS
   try {
-    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
+    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
   } catch (error) {
     captureException(error);
     console.error('Error sending order to AdvaPACS: ', error);
@@ -324,6 +331,7 @@ const writeOurProcedure = async (
 const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
   ourPractitioner: Practitioner,
+  advaPACSLocationId: string | undefined,
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -462,6 +470,15 @@ const writeAdvaPacsTransaction = async (
         ],
         authoredOn: ourServiceRequest.authoredOn,
         occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
+        location: advaPACSLocationId
+          ? [
+              {
+                reference: {
+                  reference: `Location/${advaPACSLocationId}`,
+                },
+              },
+            ]
+          : undefined,
       },
     };
 

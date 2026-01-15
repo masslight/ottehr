@@ -24,6 +24,10 @@
           {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
             "valueString": "#{var/stripe-account-2}"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
+            "valueString": "#{var/advapacs-location-2}"
           }
         ],
         "identifier": [
@@ -80,6 +84,10 @@
           {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
             "valueString": "#{var/stripe-account-2}"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
+            "valueString": "#{var/advapacs-location-2}"
           }
         ],
         "identifier": [
@@ -205,6 +213,10 @@
           {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
             "valueString": "#{var/stripe-account-1}"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
+            "valueString": "#{var/advapacs-location-1}"
           }
         ],
         "hoursOfOperation": [
@@ -369,6 +381,10 @@
           {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
             "valueString": "#{var/stripe-account-1}"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
+            "valueString": "#{var/advapacs-location-1}"
           }
         ],
         "hoursOfOperation": [
