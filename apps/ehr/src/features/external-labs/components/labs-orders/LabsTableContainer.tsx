@@ -19,6 +19,7 @@ import { LabsTableBundleHeaderRow } from './LabsTableBundleHeaderRow';
 type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
   labOrders: (LabOrderListPageDTO | ReflexLabDTO)[];
   orderBundleName: string;
+  isOrderBundleReadyToSubmit: boolean | undefined;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
   searchBy: SearchBy;
@@ -43,6 +44,7 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
 export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   labOrders,
   orderBundleName,
+  isOrderBundleReadyToSubmit,
   abnPdfUrl,
   orderPdfUrl,
   searchBy,
@@ -64,6 +66,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   const [manualError, setManualError] = useState<string | undefined>();
   const [failedOrderNumbers, setFailedOrderNumbers] = useState<string[] | undefined>();
 
+  // these labs are only for the page, not all of the labs for the requisition
   const { pendingLabs, readyLabs } = labOrders.reduce(
     (acc: { pendingLabs: LabOrderListPageDTO[]; readyLabs: LabOrderListPageDTO[] }, lab) => {
       if (isLabOrder(lab)) {
@@ -80,10 +83,16 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
     await fetchLabOrders(searchBy);
   };
 
-  const submitOrders = async (manualOrder: boolean, labsToSubmit = readyLabs): Promise<void> => {
+  const submitOrders = async (manualOrder: boolean, requisitionNumbers: string[]): Promise<void> => {
     if (!oystehr) {
       console.log('error: oystehr client is missing');
       setError('error submitting orders');
+      return;
+    }
+
+    if (!requisitionNumbers || !requisitionNumbers.length) {
+      console.error('Cannot submit bundle because requisition number is not populated');
+      setError('unable to submit bundle. No requisition number');
       return;
     }
 
@@ -92,7 +101,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
 
     try {
       const { orderPdfUrls, failedOrdersByOrderNumber } = await submitLabOrder(oystehr, {
-        serviceRequestIDs: labsToSubmit.map((order) => order.serviceRequestId),
+        requisitionNumbers,
         manualOrder,
       });
       await Promise.all(orderPdfUrls.map((pdfUrl) => openPdf(pdfUrl)));
@@ -118,10 +127,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
 
   const manualSubmit = async (): Promise<void> => {
     if (!failedOrderNumbers) return;
-    const labs: LabOrderListPageDTO[] = labOrders
-      .filter(isLabOrder)
-      .filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
-    await submitOrders(true, labs);
+    await submitOrders(true, failedOrderNumbers);
   };
   function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO): order is LabOrderListPageDTO {
     return !('drCentricResultType' in order);
@@ -142,10 +148,12 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
     </Box>
   );
 
+  console.log(`requisition ready to submit: ${requisitionNumber}`, isOrderBundleReadyToSubmit);
   const bundleHeaderRowProps = {
     columnsLen: columns.length,
     orderBundleName,
     showSubmitButton,
+    isOrderBundleReadyToSubmit,
     pendingLabsLen: pendingLabs.length,
     submitLoading,
     abnPdfUrl,

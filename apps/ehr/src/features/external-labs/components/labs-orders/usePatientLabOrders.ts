@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -129,6 +130,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       try {
         let response: PaginatedResponse<SearchBy>;
         try {
+          console.log(`>>>searchParams in fetchLabOrders is`, searchParams);
           response = await getExternalLabOrders(oystehrZambda, searchParams);
         } catch (err) {
           response = {
@@ -147,7 +149,9 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           setDrDrivenResults(response.drDrivenResults as ReflexLabDTO[]);
 
           if (searchParams.searchBy.field === 'encounterId') {
-            setGroupedLabOrdersForChartTable(groupLabOrderListPageDTOs(response.data, response.drDrivenResults));
+            setGroupedLabOrdersForChartTable(
+              await groupLabOrderListPageDTOs(response.data, response.drDrivenResults, oystehrZambda)
+            );
           }
 
           if (response.pagination) {
@@ -327,10 +331,11 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   };
 };
 
-const groupLabOrderListPageDTOs = (
+const groupLabOrderListPageDTOs = async (
   labOrders: LabOrderListPageDTO[],
-  drDrivenResults: ReflexLabDTO[]
-): LabOrderListPageDTOGrouped | undefined => {
+  drDrivenResults: ReflexLabDTO[],
+  oystehrZambda: Oystehr | undefined
+): Promise<LabOrderListPageDTOGrouped | undefined> => {
   if (!labOrders.length) return;
 
   const orders: LabOrderListPageDTOGrouped = { pendingActionOrResults: {}, hasResults: {} };
@@ -363,6 +368,7 @@ const groupLabOrderListPageDTOs = (
         abnPdfUrl: undefined,
         orderPdfUrl: undefined,
         orders: [item],
+        fullBundleIsSubmitable: undefined, // this will get re-set async for the pendingActionsOrResults set
       };
       if ('abnPdfUrl' in item) {
         orderBundles[requisitionNumber].abnPdfUrl = item.abnPdfUrl;
@@ -377,6 +383,54 @@ const groupLabOrderListPageDTOs = (
   };
 
   [...labOrders, ...drDrivenResults].forEach((item) => addToGroup(item, orders));
+
+  const determineBundleSubmitabilityByRequisition = async (requisitionNumber: string): Promise<boolean> => {
+    if (!oystehrZambda) {
+      console.error('oystehrZambda is not defined');
+      return false;
+    }
+
+    let searchParams: GetLabOrdersParameters = {
+      searchBy: { field: 'requisitionNumber', value: [requisitionNumber] },
+      itemsPerPage: 100, // this is probably more than anyone would ever put in a single requisition
+    };
+
+    let morePagesExistByReqNumber = false;
+    const allLabOrdersByRequisition: LabOrderDTO<GetLabOrdersParameters>[] = [];
+    do {
+      let response: PaginatedResponse<GetLabOrdersParameters>;
+      try {
+        response = await getExternalLabOrders(oystehrZambda, searchParams);
+      } catch (err) {
+        response = {
+          data: [],
+          pagination: EMPTY_PAGINATION,
+          patientLabItems: [],
+          drDrivenResults: [],
+        };
+        console.error(`Error fetching external lab orders for req number ${requisitionNumber}:`, err);
+      }
+
+      if (response?.data) {
+        allLabOrdersByRequisition.push(...(response.data as LabOrderDTO<GetLabOrdersParameters>[]));
+        if (response.pagination && response.pagination.currentPageIndex !== response.pagination.totalPages) {
+          morePagesExistByReqNumber = true;
+          searchParams = { ...searchParams, pageIndex: response.pagination.currentPageIndex + 1 };
+        } else {
+          morePagesExistByReqNumber = false;
+        }
+      }
+    } while (morePagesExistByReqNumber);
+
+    // determine if all the serviceRequests for the requisition are submitable
+    return allLabOrdersByRequisition.every((order) => order.orderStatus === 'ready');
+  };
+
+  await Promise.all(
+    Object.entries(orders.pendingActionOrResults).map(async ([requisitionNumberKey, order]) => {
+      order.fullBundleIsSubmitable = await determineBundleSubmitabilityByRequisition(requisitionNumberKey);
+    })
+  );
 
   return orders;
 };

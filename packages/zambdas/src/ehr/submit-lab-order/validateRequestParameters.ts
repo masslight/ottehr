@@ -6,17 +6,14 @@ export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInp
     throw MISSING_REQUEST_BODY;
   }
 
-  const { serviceRequestIDs, manualOrder } = JSON.parse(input.body) as SubmitLabOrderInput;
+  const { requisitionNumbers, manualOrder } = JSON.parse(input.body) as SubmitLabOrderInput;
 
-  if (!serviceRequestIDs) throw MISSING_REQUIRED_PARAMETERS(['serviceRequestIDs']);
-  if (serviceRequestIDs && !Object.values(serviceRequestIDs).every((srId) => typeof srId === 'string')) {
-    throw Error('Invalid parameter: all values passed to serviceRequestIDs must be strings');
-  }
+  if (!requisitionNumbers || !requisitionNumbers.length) throw MISSING_REQUIRED_PARAMETERS(['requisitionNumbers']);
 
   if (typeof manualOrder !== 'boolean') throw Error('manualOrder is incorrect type, should be boolean');
 
   return {
-    serviceRequestIDs,
+    requisitionNumbers,
     manualOrder,
     secrets: input.secrets,
   };

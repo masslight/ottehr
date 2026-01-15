@@ -20,8 +20,9 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
   allowSubmit,
   onCreateOrder,
 }: LabsTablePatientChartProps<SearchBy>): ReactElement => {
+  console.log('>>>allowSubmit is', allowSubmit);
   const {
-    groupedLabOrdersForChartTable, // includes reflex
+    groupedLabOrdersForChartTable, // includes reflex, and indicates if the bundle is truly submitable
     loading,
     totalPages,
     page,
@@ -86,6 +87,7 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
                   labOrders={orderBundle.orders}
                   orderBundleName={orderBundle.bundleName}
                   requisitionNumber={requisitionNumber}
+                  isOrderBundleReadyToSubmit={orderBundle.fullBundleIsSubmitable}
                   orderBundleNote={orderBundle.bundleNote}
                   abnPdfUrl={orderBundle.abnPdfUrl}
                   orderPdfUrl={orderBundle.orderPdfUrl}
@@ -104,6 +106,7 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
               <LabsTableContainer
                 key={`orders-with-results`}
                 labOrders={bundlesWithResults}
+                isOrderBundleReadyToSubmit={undefined}
                 orderBundleName="Results"
                 abnPdfUrl={undefined}
                 orderPdfUrl={undefined}

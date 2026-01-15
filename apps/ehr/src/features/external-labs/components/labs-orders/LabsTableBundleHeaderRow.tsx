@@ -7,17 +7,17 @@ import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement, useState } from 'react';
 import { updateLabOrderResources } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
-import { HL7_NOTE_CHAR_LIMIT, LabOrderListPageDTO, openPdf } from 'utils';
+import { HL7_NOTE_CHAR_LIMIT, openPdf } from 'utils';
 
 interface LabsTableBundleHeaderRowProps {
   columnsLen: number;
   orderBundleName: string;
   showSubmitButton: boolean;
-  pendingLabsLen: number;
+  isOrderBundleReadyToSubmit: boolean | undefined;
   submitLoading: boolean;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
-  submitOrders: (manualOrder: boolean, labsToSubmit?: LabOrderListPageDTO[]) => Promise<void>;
+  submitOrders: (manualOrder: boolean, requisitionNumbers: string[]) => Promise<void>;
   refetchLabOrders: () => Promise<void>;
   oystehr: Oystehr | undefined;
   requisitionNumber?: string; // results are not grouped by requisition but still need a header row
@@ -28,7 +28,7 @@ export const LabsTableBundleHeaderRow = ({
   columnsLen,
   orderBundleName,
   showSubmitButton,
-  pendingLabsLen,
+  isOrderBundleReadyToSubmit,
   submitLoading,
   abnPdfUrl,
   orderPdfUrl,
@@ -114,8 +114,10 @@ export const LabsTableBundleHeaderRow = ({
                   sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
                   color="primary"
                   size={'medium'}
-                  onClick={() => submitOrders(false)}
-                  disabled={pendingLabsLen > 0}
+                  onClick={async () => {
+                    if (requisitionNumber) await submitOrders(false, [requisitionNumber]);
+                  }}
+                  disabled={!isOrderBundleReadyToSubmit}
                 >
                   Submit & Print Order(s)
                 </LoadingButton>
