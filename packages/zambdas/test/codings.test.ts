@@ -1,6 +1,6 @@
 import { Coding } from 'fhir/r4b';
 import { codingsEqual } from 'utils';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 export const DEFAULT_TEST_TIMEOUT = 100000;
 export const location = '71bc5925-65d6-471f-abd0-be357043172a';
 
