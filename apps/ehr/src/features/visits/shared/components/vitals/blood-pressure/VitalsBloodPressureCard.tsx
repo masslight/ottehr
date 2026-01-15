@@ -4,6 +4,7 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   toVitalBloodPressureObservationMethod,
   VitalBloodPressureObservationMethod,
@@ -152,6 +153,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.bloodPressureItem}
             />
           );
         }}
@@ -165,6 +167,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
         label={`BP (mm Hg) ${latestPressureValueLabel ?? ''}`}
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.bloodPressureHeader}
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -199,6 +202,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
                       disabled={isSaving}
                       isInputError={isSystolicValidationError}
                       onChange={handleSystolicTextInputChange}
+                      data-testid={dataTestIds.vitalsPage.bloodPressureSystolicInput}
                     />
                     <Typography fontSize={25} sx={{ ml: 1 }}>
                       /
@@ -210,6 +214,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
                       isInputError={isDiastolicValidationError}
                       onChange={handleDiastolicTextInputChange}
                       sx={{ ml: 1 }}
+                      data-testid={dataTestIds.vitalsPage.bloodPressureDiastolicInput}
                     />
                   </Box>
                 </Grid>
@@ -256,6 +261,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.bloodPressureAddButton}
                   >
                     Add
                   </RoundedButton>
