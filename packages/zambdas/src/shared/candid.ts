@@ -638,7 +638,6 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     candidPreEncounterPatient,
     coverages,
     insuranceOrgs,
-    oystehr,
     candidApiClient
   );
 
@@ -784,7 +783,6 @@ const createCandidCoverages = async (
   candidPatient: CandidPreEncounterPatient,
   coverages: OrderedCoveragesWithSubscribers,
   insuranceOrgs: Organization[],
-  oystehr: Oystehr,
   candidApiClient: CandidApiClient
 ): Promise<CandidPreEncounterCoverage[]> => {
   if (!patient.id) {
