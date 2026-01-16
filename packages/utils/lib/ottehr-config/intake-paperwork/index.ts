@@ -1899,7 +1899,7 @@ const INTAKE_PAPERWORK_DEFAULTS = {
   FormFields,
 };
 
-const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, OVERRIDES);
+const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(OVERRIDES, INTAKE_PAPERWORK_DEFAULTS);
 
 const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,

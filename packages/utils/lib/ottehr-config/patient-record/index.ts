@@ -919,7 +919,7 @@ const PATIENT_RECORD_DEFAULTS = {
   FormFields,
 };
 
-const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(PATIENT_RECORD_DEFAULTS, OVERRIDES);
+const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(OVERRIDES, PATIENT_RECORD_DEFAULTS);
 
 const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,
