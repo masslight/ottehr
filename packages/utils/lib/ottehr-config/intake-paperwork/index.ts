@@ -1908,3 +1908,9 @@ const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
 export const INTAKE_PAPERWORK_CONFIG = IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG)));
+
+export const checkFieldHidden = (fieldKey: string): boolean => {
+  return Object.values(INTAKE_PAPERWORK_CONFIG.FormFields)
+    .flatMap((section) => section.hiddenFields)
+    .includes(fieldKey);
+};
