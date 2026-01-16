@@ -21,7 +21,7 @@ const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
   if (envFlagIndex !== -1 && envFlagIndex < process.argv.length - 1) {
     const env = process.argv[envFlagIndex + 1];
-    const validEnvironments = ['local', 'demo', 'development', 'staging', 'testing', 'e2e', 'e2e2'];
+    const validEnvironments = ['local', 'demo', 'development', 'staging', 'testing', 'e2e', 'e2e2', 'e2e3'];
     if (validEnvironments.includes(env)) {
       return env;
     }

@@ -133,7 +133,7 @@ jobs:
       always() && !cancelled() &&
       (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
       (inputs.run_automated_tests || inputs.run_ehr_e2e) &&
-      (inputs.environment == 'local' || inputs.environment == 'e2e' || inputs.environment == 'e2e2')
+      (inputs.environment == 'local' || inputs.environment == 'e2e' || inputs.environment == 'e2e2' || inputs.environment == 'e2e3')
     runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
     steps:

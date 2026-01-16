@@ -207,7 +207,7 @@ const main = async (): Promise<void> => {
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
   const assetsDir = '.dist/assets';
 
-  const isSentryEnabled = !['local', 'e2e'].includes(process.env.ENV || '');
+  const isSentryEnabled = !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '');
 
   const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
   const regularZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));

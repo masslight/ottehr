@@ -10,8 +10,8 @@ const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
 const isGenerateSeedData = process.argv.includes('--generate-seed-data');
-const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2';
-const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || isCI;
+const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3';
+const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
 const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
 const supportedApps = ['ehr', 'intake'] as const;
@@ -31,6 +31,7 @@ const envMapping = {
     testing: 'testing',
     e2e: 'e2e',
     e2e2: 'e2e2',
+    e2e3: 'e2e3',
   },
   intake: {
     local: 'default',
@@ -40,6 +41,7 @@ const envMapping = {
     testing: 'testing',
     e2e: 'e2e',
     e2e2: 'e2e2',
+    e2e3: 'e2e3',
   },
 } as const;
 
