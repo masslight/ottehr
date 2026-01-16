@@ -3,6 +3,7 @@ import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { mergeAndFreezeConfigObjects } from '../helpers';
+import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
   ALLERGIES_YES_OPTION,
   createQuestionnaireFromConfig,
@@ -579,29 +580,23 @@ const FormFields = {
   additional: {
     linkId: 'additional-page',
     title: 'Additional questions',
-    items: {
-      covidSymptoms: {
-        key: 'covid-symptoms',
-        label: 'Do you have any COVID symptoms?',
-        type: 'choice',
-        element: 'Radio List',
-        options: formValueSets.yesNoOptions,
-      },
-      testedPositiveCovid: {
-        key: 'tested-positive-covid',
-        label: 'Have you tested positive for COVID?',
-        type: 'choice',
-        element: 'Radio List',
-        options: formValueSets.yesNoOptions,
-      },
-      travelUsa: {
-        key: 'travel-usa',
-        label: 'Have you traveled out of the USA in the last 2 weeks?',
-        type: 'choice',
-        element: 'Radio List',
-        options: formValueSets.yesNoOptions,
-      },
-    },
+    items: Object.assign(
+      {},
+      ...patientScreeningQuestionsConfig.fields
+        .filter((field) => Boolean(field.existsInQuestionnaire))
+        .map((field) => ({
+          [field.fhirField.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())]: {
+            key: field.fhirField,
+            label: field.question,
+            type: field.type === 'radio' ? 'choice' : field.type,
+            element: field.type === 'radio' ? 'Radio List' : undefined,
+            options: field.options?.map((option) => ({
+              value: option.fhirValue,
+              label: option.label,
+            })),
+          },
+        }))
+    ),
     hiddenFields: [],
     requiredFields: [],
   },
