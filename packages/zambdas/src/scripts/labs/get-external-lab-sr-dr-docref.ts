@@ -1,7 +1,6 @@
 import { DiagnosticReport, DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
 import { LAB_DR_TYPE_TAG, LAB_RESULT_HL7_DOC_REF_CODING_CODE, LabType } from 'utils';
-import { OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 
 // Grabs all of the DiagnosticReports for a given order number, their ServiceRequest, and the transmission DocRef
@@ -26,12 +25,12 @@ const EXAMPLE_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo
 const main = async (): Promise<void> => {
   if (process.argv.length !== 4) {
     console.log(`exiting, incorrect number of arguments passed\n`);
-    console.log(`Usage: npm run get-lab-sr-dr-docref [${EXAMPLE_ENVS.join(' | ')}] [orderNumber]\n`);
+    console.log(`Usage: npm run get-lab-sr-dr-docref [orderNumber] [${EXAMPLE_ENVS.join(' | ')}]\n`);
     process.exit(1);
   }
 
-  const ENV = process.argv[2];
-  const orderNumber = process.argv[3];
+  const ENV = process.argv[3];
+  const orderNumber = process.argv[2];
 
   let envConfig;
   try {
@@ -52,7 +51,7 @@ const main = async (): Promise<void> => {
       params: [
         {
           name: 'identifier',
-          value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}`,
+          value: `${orderNumber}`, // order number or accession number
         },
         {
           name: '_include',

@@ -1,7 +1,7 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { ottehrLightBlue } from '@theme/icons';
+import { primaryIcon } from '@theme/icons';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
@@ -53,7 +53,7 @@ export const WalkinLanding: FC = () => {
       title={somethingIsLoadingInSomeWay ? 'Loading...' : `Welcome to ${BRANDING_CONFIG.projectName} `}
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
-      img={ottehrLightBlue}
+      img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={120}
     >

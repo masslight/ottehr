@@ -2,7 +2,7 @@ import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
+import { primaryIcon } from '@theme/icons';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
@@ -278,7 +278,7 @@ const ThankYou = (): JSX.Element => {
           {visitType !== VisitType.WalkIn && <Divider />}
           <Grid container alignItems="center" marginTop={2} marginBottom={2}>
             <Grid item xs={12} md={2.5}>
-              <img src={ottehrLightBlue} alt={BRANDING_CONFIG.primaryIconAlt} width="80px" />
+              <img src={primaryIcon} alt={BRANDING_CONFIG.primaryIconAlt} width="80px" />
             </Grid>
             <Grid item xs={12} md={9.5}>
               <Typography variant="subtitle1" color="text.primary">

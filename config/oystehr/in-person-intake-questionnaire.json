@@ -34,7 +34,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -50,7 +50,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -66,7 +66,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -244,7 +244,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -264,7 +264,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -299,7 +299,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -319,7 +319,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -352,7 +352,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -364,7 +364,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -582,7 +582,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -614,7 +614,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -640,7 +640,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary",
@@ -663,7 +663,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -802,7 +802,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -821,7 +821,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               }
@@ -840,7 +840,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -860,7 +860,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -880,7 +880,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -892,7 +892,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
@@ -916,7 +916,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -946,7 +946,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -958,7 +958,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               }
@@ -985,7 +985,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
@@ -1076,7 +1076,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -1136,7 +1136,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -1189,7 +1189,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -1242,7 +1242,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
@@ -1278,7 +1278,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -1399,7 +1399,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -1452,7 +1452,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
@@ -1983,7 +1983,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -2124,7 +2124,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
@@ -2203,7 +2203,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
@@ -2232,7 +2232,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2244,7 +2244,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2256,7 +2256,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2268,7 +2268,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2284,7 +2284,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2307,7 +2307,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2319,7 +2319,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2643,7 +2643,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                        "valueString": "protected"
+                        "valueString": "hidden"
                       }
                     ]
                   },
@@ -2758,7 +2758,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
@@ -2822,7 +2822,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               }
@@ -2851,7 +2851,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -2923,7 +2923,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3057,7 +3057,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3449,7 +3449,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3461,7 +3461,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3473,7 +3473,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3485,7 +3485,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3659,7 +3659,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3679,7 +3679,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3700,7 +3700,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3716,7 +3716,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3732,7 +3732,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3748,7 +3748,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3764,7 +3764,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3780,7 +3780,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               }
@@ -3820,7 +3820,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3832,7 +3832,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3844,7 +3844,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3856,7 +3856,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -3872,7 +3872,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -3888,7 +3888,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -4204,7 +4204,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
@@ -4227,7 +4227,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -4263,7 +4263,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -4282,7 +4282,7 @@
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -4305,7 +4305,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -4328,7 +4328,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               },
@@ -4351,7 +4351,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               }
@@ -4622,7 +4622,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "protected"
+                    "valueString": "hidden"
                   }
                 ]
               }

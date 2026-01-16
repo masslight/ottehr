@@ -370,7 +370,7 @@ const BOOKING_DEFAULTS = {
 };
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
-export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
+export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_OVERRIDES, BOOKING_DEFAULTS);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&

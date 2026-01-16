@@ -2,6 +2,7 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { checkFieldHidden } from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
 import { InPersonRpInsNoReqPatient } from '../0_paperworkSetup/types';
@@ -54,7 +55,9 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: not 
     await test.step('IPPP-2.2. Check all fields have prefilled values', async () => {
       await expect(locator.patientEthnicity).toHaveValue(patient.patientDetailsData.randomEthnicity);
       await expect(locator.patientRace).toHaveValue(patient.patientDetailsData.randomRace);
-      await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
+      if (patient.patientDetailsData.randomPronoun && checkFieldHidden('patient-pronouns') === false) {
+        await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
+      }
       await expect(locator.patientPointOfDiscovery).toBeHidden();
       await expect(locator.patientPreferredLanguage).toHaveValue(patient.patientDetailsData.randomLanguage);
     });

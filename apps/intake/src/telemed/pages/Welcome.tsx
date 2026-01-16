@@ -1,7 +1,7 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { ottehrLightBlue } from '@theme/icons';
+import { primaryIcon } from '@theme/icons';
 import { useNavigate } from 'react-router-dom';
 import { BRANDING_CONFIG } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
@@ -18,7 +18,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
   return (
     <CustomContainer
       title={`Welcome to ${BRANDING_CONFIG.projectName}`}
-      img={ottehrLightBlue}
+      img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={100}
       isFirstPage={true}
