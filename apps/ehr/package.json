@@ -30,6 +30,7 @@
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build:local": "npm run build",
     "build:e2e": "ENV=e2e npm run build-skeleton",
+    "build:e2e2": "ENV=e2e2 npm run build-skeleton",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",
