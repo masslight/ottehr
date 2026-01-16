@@ -113,21 +113,18 @@ const FormFields = {
       streetAddress: {
         key: 'patient-street-address',
         label: 'Street address',
-        text: 'Street address',
         type: 'string',
         autocomplete: 'section-contact-information shipping address-line1',
       },
       streetAddress2: {
         key: 'patient-street-address-2',
         label: 'Address line 2 (optional)',
-        text: 'Address line 2 (optional)',
         type: 'string',
         autocomplete: 'section-contact-information shipping address-line2',
       },
       city: {
         key: 'patient-city',
         label: 'City',
-        text: 'City',
         type: 'string',
         inputWidth: 's',
         autocomplete: 'section-contact-information shipping address-level2',
@@ -135,7 +132,6 @@ const FormFields = {
       state: {
         key: 'patient-state',
         label: 'State',
-        text: 'State',
         type: 'choice',
         options: formValueSets.stateOptions,
         inputWidth: 's',
@@ -143,7 +139,6 @@ const FormFields = {
       zip: {
         key: 'patient-zip',
         label: 'ZIP',
-        text: 'ZIP',
         type: 'string',
         dataType: 'ZIP',
         inputWidth: 's',
@@ -158,7 +153,6 @@ const FormFields = {
       email: {
         key: 'patient-email',
         label: 'Email',
-        text: 'Email',
         type: 'string',
         dataType: 'Email',
         autocomplete: 'section-patient shipping email',
@@ -166,7 +160,6 @@ const FormFields = {
       phoneNumber: {
         key: 'patient-number',
         label: 'Mobile',
-        text: 'Mobile',
         type: 'string',
         dataType: 'Phone Number',
         autocomplete: 'section-patient shipping tel',
@@ -174,7 +167,6 @@ const FormFields = {
       preferredCommunicationMethod: {
         key: 'patient-preferred-communication-method',
         label: 'Preferred Communication Method',
-        text: 'Preferred Communication Method',
         type: 'choice',
         options: formValueSets.preferredCommunicationMethodOptions,
       },
@@ -182,7 +174,6 @@ const FormFields = {
         key: 'mobile-opt-in',
         label:
           'Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.',
-        text: 'Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.',
         type: 'boolean',
       },
     },
@@ -204,21 +195,18 @@ const FormFields = {
       ethnicity: {
         key: 'patient-ethnicity',
         label: 'Ethnicity',
-        text: 'Ethnicity',
         type: 'choice',
         options: formValueSets.ethnicityOptions,
       },
       race: {
         key: 'patient-race',
         label: 'Race',
-        text: 'Race',
         type: 'choice',
         options: formValueSets.raceOptions,
       },
       pronouns: {
         key: 'patient-pronouns',
         label: 'Preferred pronouns',
-        text: 'Preferred pronouns',
         type: 'choice',
         options: formValueSets.pronounOptions,
         infoTextSecondary:
@@ -227,7 +215,6 @@ const FormFields = {
       pronounsCustom: {
         key: 'patient-pronouns-custom',
         label: 'My pronouns',
-        text: 'My pronouns',
         type: 'text',
         triggers: [
           {
@@ -247,7 +234,6 @@ const FormFields = {
       pointOfDiscovery: {
         key: 'patient-point-of-discovery',
         label: 'How did you hear about us?',
-        text: 'How did you hear about us?',
         type: 'choice',
         options: formValueSets.pointOfDiscoveryOptions,
         triggers: [
@@ -263,14 +249,12 @@ const FormFields = {
       preferredLanguage: {
         key: 'preferred-language',
         label: 'Preferred language',
-        text: 'Preferred language',
         type: 'choice',
         options: formValueSets.languageOptions,
       },
       otherPreferredLanguage: {
         key: 'other-preferred-language',
         label: 'Other preferred language',
-        text: 'Other preferred language',
         type: 'string',
         triggers: [
           {
@@ -299,7 +283,6 @@ const FormFields = {
       firstName: {
         key: 'pcp-first',
         label: 'Provider first name',
-        text: 'Provider first name',
         type: 'string',
         inputWidth: 'm',
         autocomplete: 'section-pcp shipping given-name',
@@ -307,7 +290,6 @@ const FormFields = {
       lastName: {
         key: 'pcp-last',
         label: 'Provider last name',
-        text: 'Provider last name',
         type: 'string',
         inputWidth: 'm',
         autocomplete: 'section-pcp shipping family-name',
@@ -315,13 +297,11 @@ const FormFields = {
       practiceName: {
         key: 'pcp-practice',
         label: 'Practice name',
-        text: 'Practice name',
         type: 'string',
       },
       address: {
         key: 'pcp-address',
         label: 'Address',
-        text: 'Address',
         type: 'string',
         placeholder: 'Street address, City, State, ZIP',
         autocomplete: 'section-pcp shipping street-address',
@@ -329,7 +309,6 @@ const FormFields = {
       phoneNumber: {
         key: 'pcp-number',
         label: 'Phone number',
-        text: 'Phone number',
         type: 'string',
         dataType: 'Phone Number',
         autocomplete: 'section-pcp shipping tel',
@@ -345,13 +324,11 @@ const FormFields = {
       name: {
         key: 'pharmacy-name',
         label: 'Pharmacy name',
-        text: 'Pharmacy name',
         type: 'string',
       },
       address: {
         key: 'pharmacy-address',
         label: 'Pharmacy address',
-        text: 'Pharmacy address',
         type: 'string',
       },
     },
@@ -645,7 +622,6 @@ const FormFields = {
       paymentOption: {
         key: 'payment-option',
         label: 'Select payment option',
-        text: 'Select payment option',
         type: 'choice',
         element: 'Radio',
         options: formValueSets.patientPaymentPageOptions,
@@ -700,7 +676,6 @@ const FormFields = {
       insuranceCarrier: {
         key: 'insurance-carrier',
         label: 'Insurance carrier',
-        text: 'Insurance carrier',
         type: 'reference',
         dataSource: {
           answerSource: {
@@ -726,7 +701,6 @@ const FormFields = {
       insuranceMemberId: {
         key: 'insurance-member-id',
         label: 'Member ID',
-        text: 'Member ID',
         type: 'string',
         triggers: [
           {
@@ -746,7 +720,6 @@ const FormFields = {
       policyHolderFirstName: {
         key: 'policy-holder-first-name',
         label: "Policy holder's first name",
-        text: "Policy holder's first name",
         type: 'string',
         triggers: [
           {
@@ -766,7 +739,6 @@ const FormFields = {
       policyHolderMiddleName: {
         key: 'policy-holder-middle-name',
         label: "Policy holder's middle name",
-        text: "Policy holder's middle name",
         type: 'string',
         triggers: [
           {
@@ -786,7 +758,6 @@ const FormFields = {
       policyHolderLastName: {
         key: 'policy-holder-last-name',
         label: "Policy holder's last name",
-        text: "Policy holder's last name",
         type: 'string',
         triggers: [
           {
@@ -806,7 +777,6 @@ const FormFields = {
       policyHolderDateOfBirth: {
         key: 'policy-holder-date-of-birth',
         label: "Policy holder's date of birth",
-        text: "Policy holder's date of birth",
         type: 'date',
         dataType: 'DOB',
         disabledDisplay: 'hidden',
@@ -828,7 +798,6 @@ const FormFields = {
       policyHolderBirthSex: {
         key: 'policy-holder-birth-sex',
         label: "Policy holder's birth sex",
-        text: "Policy holder's birth sex",
         type: 'choice',
         options: formValueSets.birthSexOptions,
         triggers: [
@@ -849,7 +818,6 @@ const FormFields = {
       policyHolderAddressAsPatient: {
         key: 'policy-holder-address-as-patient',
         label: "Policy holder address is the same as patient's address",
-        text: "Policy holder address is the same as patient's address",
         type: 'boolean',
         triggers: [
           {
@@ -869,7 +837,6 @@ const FormFields = {
       policyHolderAddress: {
         key: 'policy-holder-address',
         label: 'Policy holder address',
-        text: 'Policy holder address',
         type: 'string',
         disabledDisplay: 'hidden',
         dynamicPopulation: { sourceLinkId: 'patient-street-address' },
@@ -898,7 +865,6 @@ const FormFields = {
       policyHolderAddressAdditionalLine: {
         key: 'policy-holder-address-additional-line',
         label: 'Policy holder address line 2 (optional)',
-        text: 'Policy holder address line 2 (optional)',
         type: 'string',
         disabledDisplay: 'hidden',
         dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
@@ -927,7 +893,6 @@ const FormFields = {
       policyHolderCity: {
         key: 'policy-holder-city',
         label: 'City',
-        text: 'City',
         type: 'string',
         inputWidth: 's',
         disabledDisplay: 'hidden',
@@ -957,7 +922,6 @@ const FormFields = {
       policyHolderState: {
         key: 'policy-holder-state',
         label: 'State',
-        text: 'State',
         type: 'choice',
         options: formValueSets.stateOptions,
         inputWidth: 's',
@@ -988,7 +952,6 @@ const FormFields = {
       policyHolderZip: {
         key: 'policy-holder-zip',
         label: 'Zip',
-        text: 'Zip',
         type: 'string',
         dataType: 'ZIP',
         inputWidth: 's',
@@ -1019,7 +982,6 @@ const FormFields = {
       patientRelationshipToInsured: {
         key: 'patient-relationship-to-insured',
         label: "Patient's relationship to insured",
-        text: "Patient's relationship to insured",
         type: 'choice',
         options: formValueSets.relationshipToInsuredOptions,
         triggers: [
@@ -1040,7 +1002,6 @@ const FormFields = {
       insuranceCardFront: {
         key: 'insurance-card-front',
         label: 'Front side of the insurance card (optional)',
-        text: 'Front side of the insurance card (optional)',
         type: 'attachment',
         attachmentText: 'Take a picture of the **front side** of your card and upload it here',
         dataType: 'Image',
@@ -1063,7 +1024,6 @@ const FormFields = {
       insuranceCardBack: {
         key: 'insurance-card-back',
         label: 'Back side of the insurance card',
-        text: 'Back side of the insurance card',
         type: 'attachment',
         attachmentText: 'Take a picture of the **back side** of your card and upload it here',
         dataType: 'Image',
@@ -1086,7 +1046,6 @@ const FormFields = {
       displaySecondaryInsurance: {
         key: 'display-secondary-insurance',
         label: 'Add secondary insurance',
-        text: 'Add secondary insurance',
         type: 'boolean',
         element: 'Button',
         triggers: [
@@ -1124,7 +1083,6 @@ const FormFields = {
           insuranceCarrier: {
             key: 'insurance-carrier-2',
             label: 'Insurance carrier',
-            text: 'Insurance carrier',
             type: 'reference',
             dataSource: {
               answerSource: {
@@ -1144,51 +1102,43 @@ const FormFields = {
           insuranceMemberId: {
             key: 'insurance-member-id-2',
             label: 'Member ID',
-            text: 'Member ID',
             type: 'string',
           },
           policyHolderFirstName: {
             key: 'policy-holder-first-name-2',
             label: "Policy holder's first name",
-            text: "Policy holder's first name",
             type: 'string',
           },
           policyHolderMiddleName: {
             key: 'policy-holder-middle-name-2',
             label: "Policy holder's middle name",
-            text: "Policy holder's middle name",
             type: 'string',
           },
           policyHolderLastName: {
             key: 'policy-holder-last-name-2',
             label: "Policy holder's last name",
-            text: "Policy holder's last name",
             type: 'string',
           },
           policyHolderDateOfBirth: {
             key: 'policy-holder-date-of-birth-2',
             label: "Policy holder's date of birth",
-            text: "Policy holder's date of birth",
             type: 'date',
             dataType: 'DOB',
           },
           policyHolderBirthSex: {
             key: 'policy-holder-birth-sex-2',
             label: "Policy holder's birth sex",
-            text: "Policy holder's birth sex",
             type: 'choice',
             options: formValueSets.birthSexOptions,
           },
           policyHolderAddressAsPatient: {
             key: 'policy-holder-address-as-patient-2',
             label: "Policy holder address is the same as patient's address",
-            text: "Policy holder address is the same as patient's address",
             type: 'boolean',
           },
           policyHolderAddress: {
             key: 'policy-holder-address-2',
             label: 'Policy holder address',
-            text: 'Policy holder address',
             type: 'string',
             disabledDisplay: 'hidden',
             dynamicPopulation: { sourceLinkId: 'patient-street-address' },
@@ -1204,7 +1154,6 @@ const FormFields = {
           policyHolderAddressAdditionalLine: {
             key: 'policy-holder-address-additional-line-2',
             label: 'Policy holder address line 2 (optional)',
-            text: 'Policy holder address line 2 (optional)',
             type: 'string',
             disabledDisplay: 'hidden',
             dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
@@ -1220,7 +1169,6 @@ const FormFields = {
           policyHolderCity: {
             key: 'policy-holder-city-2',
             label: 'City',
-            text: 'City',
             type: 'string',
             inputWidth: 's',
             disabledDisplay: 'hidden',
@@ -1237,7 +1185,6 @@ const FormFields = {
           policyHolderState: {
             key: 'policy-holder-state-2',
             label: 'State',
-            text: 'State',
             type: 'choice',
             options: formValueSets.stateOptions,
             inputWidth: 's',
@@ -1255,7 +1202,6 @@ const FormFields = {
           policyHolderZip: {
             key: 'policy-holder-zip-2',
             label: 'ZIP',
-            text: 'ZIP',
             type: 'string',
             dataType: 'ZIP',
             inputWidth: 's',
@@ -1274,14 +1220,12 @@ const FormFields = {
           patientRelationshipToInsured: {
             key: 'patient-relationship-to-insured-2',
             label: "Patient's relationship to insured",
-            text: "Patient's relationship to insured",
             type: 'choice',
             options: formValueSets.relationshipToInsuredOptions,
           },
           insuranceCardFront: {
             key: 'insurance-card-front-2',
             label: 'Front side of the insurance card (optional)',
-            text: 'Front side of the insurance card (optional)',
             type: 'attachment',
             attachmentText: 'Take a picture of the **front side** of your card and upload it here',
             dataType: 'Image',
@@ -1290,7 +1234,6 @@ const FormFields = {
           insuranceCardBack: {
             key: 'insurance-card-back-2',
             label: 'Back side of the insurance card',
-            text: 'Back side of the insurance card',
             type: 'attachment',
             attachmentText: 'Take a picture of the **back side** of your card and upload it here',
             dataType: 'Image',
@@ -1456,14 +1399,12 @@ const FormFields = {
       relationship: {
         key: 'responsible-party-relationship',
         label: 'Relationship to the patient',
-        text: 'Relationship to the patient',
         type: 'choice',
         options: formValueSets.relationshipOptions,
       },
       firstName: {
         key: 'responsible-party-first-name',
         label: 'First name',
-        text: 'First name',
         type: 'string',
         triggers: [
           {
@@ -1480,7 +1421,6 @@ const FormFields = {
       lastName: {
         key: 'responsible-party-last-name',
         label: 'Last name',
-        text: 'Last name',
         type: 'string',
         triggers: [
           {
@@ -1497,7 +1437,6 @@ const FormFields = {
       birthDate: {
         key: 'responsible-party-date-of-birth',
         label: 'Date of birth',
-        text: 'Date of birth',
         type: 'date',
         dataType: 'DOB',
         triggers: [
@@ -1514,7 +1453,6 @@ const FormFields = {
       birthSex: {
         key: 'responsible-party-birth-sex',
         label: 'Birth sex',
-        text: 'Birth sex',
         type: 'choice',
         options: formValueSets.birthSexOptions,
         triggers: [
@@ -1531,7 +1469,6 @@ const FormFields = {
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
         label: "Responsible party's address is the same as patient's address",
-        text: "Responsible party's address is the same as patient's address",
         type: 'boolean',
         triggers: [
           {
@@ -1545,7 +1482,6 @@ const FormFields = {
       streetAddress: {
         key: 'responsible-party-address',
         label: 'Address',
-        text: 'Address',
         type: 'string',
         triggers: [
           {
@@ -1568,7 +1504,6 @@ const FormFields = {
       streetAddress2: {
         key: 'responsible-party-address-2',
         label: 'Address line 2 (optional)',
-        text: 'Address line 2 (optional)',
         type: 'string',
         triggers: [
           {
@@ -1591,7 +1526,6 @@ const FormFields = {
       city: {
         key: 'responsible-party-city',
         label: 'City',
-        text: 'City',
         type: 'string',
         triggers: [
           {
@@ -1615,7 +1549,6 @@ const FormFields = {
       state: {
         key: 'responsible-party-state',
         label: 'State',
-        text: 'State',
         type: 'choice',
         options: formValueSets.stateOptions,
         triggers: [
@@ -1640,7 +1573,6 @@ const FormFields = {
       zip: {
         key: 'responsible-party-zip',
         label: 'ZIP',
-        text: 'ZIP',
         type: 'string',
         dataType: 'ZIP',
         triggers: [
@@ -1665,7 +1597,6 @@ const FormFields = {
       phoneNumber: {
         key: 'responsible-party-number',
         label: 'Phone number (optional)',
-        text: 'Phone number (optional)',
         type: 'string',
         dataType: 'Phone Number',
         triggers: [
@@ -1682,7 +1613,6 @@ const FormFields = {
       email: {
         key: 'responsible-party-email',
         label: 'Email',
-        text: 'Email',
         type: 'string',
         dataType: 'Email',
         triggers: [
@@ -1818,32 +1748,27 @@ const FormFields = {
       relationship: {
         key: 'emergency-contact-relationship',
         label: 'Relationship to the patient',
-        text: 'Relationship to the patient',
         type: 'choice',
         options: formValueSets.emergencyContactRelationshipOptions,
       },
       firstName: {
         key: 'emergency-contact-first-name',
         label: 'Emergency contact first name',
-        text: 'Emergency contact first name',
         type: 'string',
       },
       middleName: {
         key: 'emergency-contact-middle-name',
         label: 'Emergency contact middle name',
-        text: 'Emergency contact middle name',
         type: 'string',
       },
       lastName: {
         key: 'emergency-contact-last-name',
         label: 'Emergency contact last name',
-        text: 'Emergency contact last name',
         type: 'string',
       },
       phoneNumber: {
         key: 'emergency-contact-number',
         label: 'Emergency contact phone',
-        text: 'Emergency contact phone',
         type: 'string',
         dataType: 'Phone Number',
         autocomplete: 'section-patient shipping tel',
@@ -1851,13 +1776,11 @@ const FormFields = {
       addressAsPatient: {
         key: 'emergency-contact-address-as-patient',
         label: "Same as patient's address",
-        text: "Same as patient's address",
         type: 'boolean',
       },
       streetAddress: {
         key: 'emergency-contact-address',
         label: 'Address',
-        text: 'Address',
         type: 'string',
         triggers: [
           {
@@ -1874,7 +1797,6 @@ const FormFields = {
       streetAddress2: {
         key: 'emergency-contact-address-2',
         label: 'Address line 2 (optional)',
-        text: 'Address line 2 (optional)',
         type: 'string',
         triggers: [
           {
@@ -1891,7 +1813,6 @@ const FormFields = {
       city: {
         key: 'emergency-contact-city',
         label: 'City',
-        text: 'City',
         type: 'string',
         triggers: [
           {
@@ -1909,7 +1830,6 @@ const FormFields = {
       state: {
         key: 'emergency-contact-state',
         label: 'State',
-        text: 'State',
         type: 'choice',
         options: formValueSets.stateOptions,
         triggers: [
@@ -1928,7 +1848,6 @@ const FormFields = {
       zip: {
         key: 'emergency-contact-zip',
         label: 'ZIP',
-        text: 'ZIP',
         type: 'string',
         dataType: 'ZIP',
         triggers: [
@@ -1972,7 +1891,6 @@ const FormFields = {
       hasAttorney: {
         key: 'attorney-mva-has-attorney',
         label: 'Do you have an attorney?',
-        text: 'Do you have an attorney?',
         type: 'choice',
         element: 'Radio',
         options: formValueSets.attorneyOptions,
@@ -1980,7 +1898,6 @@ const FormFields = {
       firm: {
         key: 'attorney-mva-firm',
         label: 'Firm',
-        text: 'Firm',
         type: 'string',
         triggers: [
           {
@@ -1994,7 +1911,6 @@ const FormFields = {
       firstName: {
         key: 'attorney-mva-first-name',
         label: 'First name',
-        text: 'First name',
         type: 'string',
         triggers: [
           {
@@ -2008,7 +1924,6 @@ const FormFields = {
       lastName: {
         key: 'attorney-mva-last-name',
         label: 'Last name',
-        text: 'Last name',
         type: 'string',
         triggers: [
           {
@@ -2022,7 +1937,6 @@ const FormFields = {
       email: {
         key: 'attorney-mva-email',
         label: 'Email',
-        text: 'Email',
         type: 'string',
         dataType: 'Email',
         triggers: [
@@ -2037,7 +1951,6 @@ const FormFields = {
       mobile: {
         key: 'attorney-mva-mobile',
         label: 'Mobile',
-        text: 'Mobile',
         type: 'string',
         dataType: 'Phone Number',
         triggers: [
@@ -2052,7 +1965,6 @@ const FormFields = {
       fax: {
         key: 'attorney-mva-fax',
         label: 'Fax',
-        text: 'Fax',
         type: 'string',
         dataType: 'Phone Number',
         triggers: [
@@ -2233,7 +2145,6 @@ const FormFields = {
       hipaaAcknowledgement: {
         key: 'hipaa-acknowledgement',
         label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
-        text: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
         type: 'boolean',
         triggers: [
           {
@@ -2256,7 +2167,6 @@ const FormFields = {
         key: 'consent-to-treat',
         label:
           'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
-        text: 'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
         type: 'boolean',
         triggers: [
           {
@@ -2278,21 +2188,18 @@ const FormFields = {
       signature: {
         key: 'signature',
         label: 'Signature',
-        text: 'Signature',
         type: 'string',
         dataType: 'Signature',
       },
       fullName: {
         key: 'full-name',
         label: 'Full name',
-        text: 'Full name',
         type: 'string',
         autocomplete: 'section-consent-forms shipping name',
       },
       consentFormSignerRelationship: {
         key: 'consent-form-signer-relationship',
         label: 'Relationship to the patient',
-        text: 'Relationship to the patient',
         type: 'choice',
         triggers: [
           {
