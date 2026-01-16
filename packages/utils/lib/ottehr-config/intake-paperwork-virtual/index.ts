@@ -1,7 +1,9 @@
 import { Questionnaire } from 'fhir/r4b';
+import { camelCase } from 'lodash-es';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
+import { CONSENT_FORMS_CONFIG } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
@@ -2137,55 +2139,33 @@ const FormFields = {
     ],
     enableBehavior: 'all',
     items: {
-      hipaaAcknowledgement: {
-        key: 'hipaa-acknowledgement',
-        label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
-        type: 'boolean',
-        triggers: [
+      ...Object.fromEntries(
+        CONSENT_FORMS_CONFIG.forms.map((form) => [
+          camelCase(form.id),
           {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
+            key: form.id,
+            label: `I have reviewed and accept [${form.formTitle}](${form.assetPath})`,
+            type: 'boolean',
+            triggers: [
+              {
+                targetQuestionLinkId: '$status',
+                effect: ['enable'],
+                operator: '!=',
+                answerString: 'completed',
+              },
+              {
+                targetQuestionLinkId: '$status',
+                effect: ['enable'],
+                operator: '!=',
+                answerString: 'amended',
+              },
+            ],
+            enableBehavior: 'all',
+            permissibleValue: true,
+            disabledDisplay: 'disabled',
           },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-      },
-      consentToTreat: {
-        key: 'consent-to-treat',
-        label:
-          'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-      },
-      signature: {
-        key: 'signature',
-        label: 'Signature',
-        type: 'string',
-        dataType: 'Signature',
-      },
+        ])
+      ),
       fullName: {
         key: 'full-name',
         label: 'Full name',
@@ -2216,8 +2196,7 @@ const FormFields = {
     },
     hiddenFields: [],
     requiredFields: [
-      'hipaa-acknowledgement',
-      'consent-to-treat',
+      ...CONSENT_FORMS_CONFIG.forms.map((f) => f.id),
       'signature',
       'full-name',
       'consent-form-signer-relationship',
