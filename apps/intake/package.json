@@ -16,6 +16,7 @@
     "build:local": "npm run build",
     "build:e2e": "ENV=e2e ROBOTS_FILE=lowers npm run build-skeleton",
     "build:e2e2": "ENV=e2e2 ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:e2e3": "ENV=e2e3 ROBOTS_FILE=lowers npm run build-skeleton",
     "build:development": "ENV=development ROBOTS_FILE=lowers npm run build-skeleton",
     "build:testing": "ENV=testing ROBOTS_FILE=lowers npm run build-skeleton",
     "build:staging": "ENV=staging ROBOTS_FILE=lowers npm run build-skeleton",
