@@ -51,16 +51,6 @@ export function getSupportPhoneFor(locationName?: string): string | undefined {
   return supportPhoneNumber;
 }
 
-export function getLocationNames(): string[] {
-  const { locationSupportPhoneNumberMap } = LOCATION_CONFIG;
-
-  if (locationSupportPhoneNumberMap == undefined) {
-    return [];
-  }
-
-  return Object.keys(locationSupportPhoneNumberMap);
-}
-
 export function getSupportScheduleGroups(): Array<{ hours: string; locations: string[] }> {
   return LOCATION_CONFIG.supportScheduleGroups ?? [];
 }
