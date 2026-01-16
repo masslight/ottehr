@@ -1,7 +1,6 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { LocationName } from 'utils';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { DispositionCard } from '../DispositionCard';
 import { FormsCard } from '../FormsCard';
@@ -24,7 +23,7 @@ export const PlanTab: FC = () => {
 
   // 1656: temporarily hide HealthwiseDocuments section
   const tmpHideHealthwiseDocuments = true;
-  const locationName = locationVirtual?.name as LocationName;
+  const locationName = locationVirtual?.name;
 
   return (
     <Box

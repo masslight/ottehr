@@ -49,7 +49,6 @@ import {
   getTelemedVisitStatus,
   INTERPRETER_PHONE_NUMBER,
   isInPersonAppointment,
-  LocationName,
   PaymentVariant,
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
@@ -143,7 +142,7 @@ export const AppointmentSidePanel: FC = () => {
 
   const quickTexts = useMemo(() => {
     if (!locationVirtual) return [];
-    const locationName = locationVirtual.name as LocationName;
+    const locationName = locationVirtual.name;
     return getQuickTexts(getSupportPhoneFor(locationName) || '');
   }, [locationVirtual]);
 

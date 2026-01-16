@@ -28,7 +28,6 @@ import {
   calculatePatientAge,
   formatDateForDisplay,
   getSupportPhoneFor,
-  LocationName,
   TelemedAppointmentInformation,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -126,7 +125,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   const start = DateTime.fromISO(appointment.start).toFormat('h:mm a');
 
   const quickTexts = useMemo(() => {
-    const locationName = appointment.locationVirtual.name as LocationName;
+    const locationName = appointment.locationVirtual.name;
     return getQuickTexts(getSupportPhoneFor(locationName) || '');
   }, [appointment.locationVirtual.name]);
 
