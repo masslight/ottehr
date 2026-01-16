@@ -17,6 +17,7 @@ on:
         type: choice
         options:
           - e2e
+          - e2e2
           - local
           - testing
           - development
