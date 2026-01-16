@@ -207,10 +207,16 @@ describe('escapeTerraformTemplateSyntax', () => {
 
     it('should handle terraform replace function', () => {
       // This is a real terraform function call that should be preserved
-      // But since it doesnt start with oystehr_, it will be escaped
-      // This is expected - such functions should be in the terraform config directly
+      // If it is escaped, Terraform will not interpret it correctly
       const input = '${replace("value", " ", "_")}';
-      expect(escapeTerraformTemplateSyntax(input)).toBe('$${replace("value", " ", "_")}');
+      expect(escapeTerraformTemplateSyntax(input)).toBe('${replace("value", " ", "_")}');
+    });
+
+    it('should handle terraform replace function with nested references', () => {
+      const input = '${replace("${oystehr_fhir_resource.LOCATION_PHYSICAL_NY.data.name}", " ", "_")}';
+      expect(escapeTerraformTemplateSyntax(input)).toBe(
+        '${replace("${oystehr_fhir_resource.LOCATION_PHYSICAL_NY.data.name}", " ", "_")}'
+      );
     });
 
     it('should handle complex secret values with all special chars', () => {

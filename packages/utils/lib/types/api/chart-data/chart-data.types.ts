@@ -207,9 +207,21 @@ export interface VitalsBaseObservationDTO extends SaveableDTO {
 export interface VitalsNumericValueObservationDTO extends VitalsBaseObservationDTO {
   value: number;
 }
-export interface VitalsWeightObservationDTO extends VitalsNumericValueObservationDTO {
+
+export type VitalsWeightOption = 'patient_refused' | 's';
+
+type VitalsWeightWithValueDTO = VitalsNumericValueObservationDTO & {
   field: Extract<VitalFieldNames, 'vital-weight'>;
-}
+  extraWeightOptions?: Omit<VitalsWeightOption, 'patient_refused'>[];
+};
+
+export type VitalsWeightPatientRefusedDTO = VitalsBaseObservationDTO & {
+  field: Extract<VitalFieldNames, 'vital-weight'>;
+  extraWeightOptions: ['patient_refused'];
+  value?: never;
+};
+
+export type VitalsWeightObservationDTO = VitalsWeightWithValueDTO | VitalsWeightPatientRefusedDTO;
 
 export interface VitalsHeightObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-height'>;

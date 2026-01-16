@@ -1,6 +1,6 @@
 {
   "name": "intake-ui",
-  "version": "1.25.8",
+  "version": "1.25.15",
   "private": true,
   "type": "module",
   "scripts": {
@@ -33,7 +33,7 @@
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "e2e:login": "npm run e2e-skeleton ./tests/login/",
     "e2e:specs": "npm run e2e-skeleton -- ./tests/specs/ $PLAYWRIGHT_EXTRA_ARGS",
-    "e2e:specs:ui": "npm run e2e-skeleton -- ./tests/specs/ --ui $PLAYWRIGHT_EXTRA_ARGS",
+    "e2e:specs:ui": "npm run e2e-skeleton -- --ui $PLAYWRIGHT_EXTRA_ARGS",
     "e2e:specs:in-person": "npm run e2e-skeleton ./tests/specs/in-person/ -- --ui",
     "e2e:specs:telemed": "npm run e2e-skeleton ./tests/specs/telemed/ -- --ui",
     "e2e:manual-login": "node ./auth.setup.js",

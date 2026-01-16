@@ -307,7 +307,7 @@ export default function PatientPaymentList({
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const isUrgentCare = serviceCategory === 'urgent-care';
   const isOccupationalMedicine = serviceCategory === 'occupational-medicine';
-  const isWorkmansComp = serviceCategory === 'workmans-comp';
+  const isWorkmansComp = serviceCategory === 'workers-comp';
 
   return (
     <Paper

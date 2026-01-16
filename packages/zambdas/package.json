@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.25.8",
+  "version": "1.25.15",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -49,7 +49,8 @@
     "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts",
     "sync-lab-specimen-dates": "tsx src/scripts/labs/sync-specimen-dates.ts",
     "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts",
-    "setup-default-locations": "tsx src/scripts/setup-default-locations.ts"
+    "setup-default-locations": "tsx src/scripts/setup-default-locations.ts",
+    "regenerate-questionnaire-json": "tsx ./scripts/regenerate-questionnaire-json.ts"
   },
   "engines": {
     "node": ">=22.0.0",

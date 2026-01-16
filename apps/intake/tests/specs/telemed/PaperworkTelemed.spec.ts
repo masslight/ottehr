@@ -1,11 +1,14 @@
 // cSpell:ignore networkidle, PPCP, PRPI, PSWN
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import * as fs from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
+import { BOOKING_CONFIG } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
+import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { UploadDocs } from '../../utils/UploadDocs';
 import { TelemedNoPwPatient } from '../0_paperworkSetup/types';
@@ -654,7 +657,13 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       await expect(locator.dateOlder18YearsError).not.toBeVisible();
       await expect(locator.dateFutureError).not.toBeVisible();
       await locator.clickContinueButton();
-      await paperwork.checkCorrectPageOpens('Photo ID');
+      // Check which page appears (employer information is conditional)
+      const currentPageTitle = await locator.flowHeading.textContent();
+      if (currentPageTitle === 'Employer information') {
+        // If employer information page is shown, we'll handle it in the PEI test
+      } else {
+        await paperwork.checkCorrectPageOpens('Emergency Contact');
+      }
       return responsiblePartyData;
     });
 
@@ -671,6 +680,177 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       await expect(locator.responsiblePartyZip).toHaveValue(responsiblePartyData.zip);
       await expect(locator.responsiblePartyNumber).toHaveValue(responsiblePartyData.phone);
       await expect(locator.responsiblePartyEmail).toHaveValue(responsiblePartyData.email);
+    });
+  });
+
+  test('PEI. Employer information', async () => {
+    test.skip(
+      (() => {
+        // Get the appointment service category that would be selected during test flow
+        const firstServiceCategory = BOOKING_CONFIG.serviceCategories[0];
+        if (!firstServiceCategory) {
+          return true; // Skip if no service categories configured
+        }
+
+        // Create minimal response context with just the service category
+        const responseItems: QuestionnaireResponseItem[] = [
+          {
+            linkId: 'contact-information-page',
+            item: [
+              {
+                linkId: 'appointment-service-category',
+                answer: [{ valueString: firstServiceCategory.code }],
+              },
+            ],
+          },
+        ];
+
+        // Check if employer page would be visible for this service category
+        return !QuestionnaireHelper.employerInformationPageIsVisible(responseItems);
+      })(),
+      'Employer information page not visible for this appointment type'
+    );
+    await test.step('PEI-1. Open employer information page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/employer-information`);
+      await paperwork.checkCorrectPageOpens('Employer information');
+    });
+
+    await test.step('PEI-2. Check patient name is displayed', async () => {
+      await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
+    });
+
+    await test.step('PEI-3. Check required fields', async () => {
+      await paperwork.checkRequiredFields(
+        '"Employer Name","Employer Address","City","State","ZIP","First name","Last name","Mobile"',
+        'Employer information',
+        true
+      );
+    });
+
+    const employerInformationData = await test.step('PEI-4. Fill all fields and click on [Continue]', async () => {
+      const employerInformationData = await paperwork.fillEmployerInformation();
+      await locator.clickContinueButton();
+      await paperwork.checkCorrectPageOpens('Emergency Contact');
+      return employerInformationData;
+    });
+
+    await test.step('PEI-5. Click on [Back] - all values are saved', async () => {
+      await locator.clickBackButton();
+      await paperwork.checkCorrectPageOpens('Employer information');
+      await expect(locator.employerName).toHaveValue(employerInformationData.employerName);
+      await expect(locator.employerAddress1).toHaveValue(employerInformationData.address1);
+      await expect(locator.employerAddress2).toHaveValue(employerInformationData.address2);
+      await expect(locator.employerCity).toHaveValue(employerInformationData.city);
+      await expect(locator.employerState).toHaveValue(employerInformationData.state);
+      await expect(locator.employerZip).toHaveValue(employerInformationData.zip);
+      await expect(locator.employerContactFirstName).toHaveValue(employerInformationData.contactFirstName);
+      await expect(locator.employerContactLastName).toHaveValue(employerInformationData.contactLastName);
+      await expect(locator.employerContactTitle).toHaveValue(employerInformationData.contactTitle);
+      await expect(locator.employerContactEmail).toHaveValue(employerInformationData.contactEmail);
+      await expect(locator.employerContactPhone).toHaveValue(employerInformationData.contactPhone);
+      await expect(locator.employerContactFax).toHaveValue(employerInformationData.contactFax);
+    });
+  });
+
+  test('PEC. Emergency Contact', async () => {
+    await test.step('PEC-1. Open Emergency Contact page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/emergency-contact`);
+      await paperwork.checkCorrectPageOpens('Emergency Contact');
+    });
+
+    await test.step('PEC-2. Check patient name is displayed', async () => {
+      await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
+    });
+
+    await test.step('PEC-3. Check required fields', async () => {
+      await paperwork.checkRequiredFields(
+        '"Relationship to the patient","Emergency contact first name","Emergency contact last name","Emergency contact phone","Address","City","State","ZIP"',
+        'Emergency Contact',
+        true
+      );
+    });
+
+    const emergencyContactData = await test.step('PEC-4. Fill all fields and click on [Continue]', async () => {
+      const emergencyContactData = await paperwork.fillEmergencyContactInformation();
+      await locator.clickContinueButton();
+      // Check which page appears (attorney information is conditional)
+      await expect(locator.flowHeading).not.toHaveText('Loading...', { timeout: 60000 });
+      const currentPageTitle = await locator.flowHeading.textContent();
+      if (currentPageTitle === 'Attorney for Motor Vehicle Accident') {
+        // If attorney page is shown, we'll handle it in the PAI test
+      } else {
+        await paperwork.checkCorrectPageOpens('Photo ID');
+      }
+      return emergencyContactData;
+    });
+
+    await test.step('PEC-5. Click on [Back] - all values are saved', async () => {
+      await locator.clickBackButton();
+      await paperwork.checkCorrectPageOpens('Emergency Contact');
+      await expect(locator.emergencyContactInformationRelationship).toHaveValue(emergencyContactData.relationship);
+      await expect(locator.emergencyContactInformationFirstName).toHaveValue(emergencyContactData.firstName);
+      await expect(locator.emergencyContactInformationLastName).toHaveValue(emergencyContactData.lastName);
+      await expect(locator.emergencyContactInformationPhone).toHaveValue(emergencyContactData.phone);
+      await expect(locator.emergencyContactAddress).toHaveValue(emergencyContactData.address);
+      await expect(locator.emergencyContactAddressLine2).toHaveValue(emergencyContactData.addressLine2);
+      await expect(locator.emergencyContactCity).toHaveValue(emergencyContactData.city);
+      await expect(locator.emergencyContactState).toHaveValue(emergencyContactData.state);
+      await expect(locator.emergencyContactZip).toHaveValue(emergencyContactData.zip);
+    });
+  });
+
+  test('PAI. Attorney information', async () => {
+    test.skip(
+      (() => {
+        const responseItems: QuestionnaireResponseItem[] = [
+          {
+            linkId: 'contact-information-page',
+            item: [
+              {
+                linkId: 'reason-for-visit',
+                answer: [{ valueString: patient.reasonForVisit }],
+              },
+            ],
+          },
+        ];
+        // Check if attorney page would be visible for this reason for visit
+        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+      })(),
+      'Attorney page not visible for this appointment type'
+    );
+    await test.step('PAI-1. Open attorney information page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/attorney-mva`);
+      await paperwork.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+    });
+
+    await test.step('PAI-2. Check patient name is displayed', async () => {
+      await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
+    });
+
+    await test.step('PAI-3. Check required fields', async () => {
+      // Select "I have an attorney" option
+      await locator.attorneyHasAttorney.click();
+
+      await paperwork.checkRequiredFields('"Firm"', 'Attorney for Motor Vehicle Accident', false);
+    });
+
+    const attorneyInformationData = await test.step('PAI-4. Fill all fields and click on [Continue]', async () => {
+      const attorneyInformationData = await paperwork.fillAttorneyInformation();
+      await locator.clickContinueButton();
+      await paperwork.checkCorrectPageOpens('Photo ID');
+      return attorneyInformationData;
+    });
+
+    await test.step('PAI-5. Click on [Back] - all values are saved', async () => {
+      await locator.clickBackButton();
+      await paperwork.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+      await expect(locator.attorneyHasAttorney).toHaveValue(attorneyInformationData.hasAttorney);
+      await expect(locator.attorneyFirm).toHaveValue(attorneyInformationData.firm);
+      await expect(locator.attorneyFirstName).toHaveValue(attorneyInformationData.firstName);
+      await expect(locator.attorneyLastName).toHaveValue(attorneyInformationData.lastName);
+      await expect(locator.attorneyEmail).toHaveValue(attorneyInformationData.email);
+      await expect(locator.attorneyMobile).toHaveValue(attorneyInformationData.mobile);
+      await expect(locator.attorneyFax).toHaveValue(attorneyInformationData.fax);
     });
   });
 
@@ -908,11 +1088,20 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     //   ).toBe('_blank');
     // });
 
-    await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
-      await paperwork.fillConsentForms();
+    const consentFormsData = await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
+      const consentFormsData = await paperwork.fillConsentForms();
       await locator.clickContinueButton();
-      // Given we've opened the page directly and didn't fill all the paperwork this is expected.
-      await expect(page.getByText(`Error validating form`)).toBeVisible();
+      await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+      return consentFormsData;
+    });
+
+    await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
+      await locator.clickBackButton();
+      await expect(locator.hipaaAcknowledgement).toBeChecked();
+      await expect(locator.consentToTreat).toBeChecked();
+      await expect(locator.signature).toHaveValue(consentFormsData.signature);
+      await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
+      await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
     });
   });
 
@@ -924,6 +1113,14 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
 
     await test.step('PIP-2. Check patient name is displayed', async () => {
       await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
+    });
+
+    await test.step('PIP-3. Check required fields', async () => {
+      await paperwork.checkRequiredFields(
+        '"Is anyone joining this visit from another device?"',
+        'Would you like someone to join this call?',
+        false
+      );
     });
 
     await test.step('PIP-4. Select "No" and click [Continue]', async () => {

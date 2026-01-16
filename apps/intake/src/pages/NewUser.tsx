@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
+import { primaryIcon } from '@theme/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
@@ -39,7 +39,7 @@ const NewUser = (): JSX.Element => {
   return (
     <PageContainer
       title={t('newUser.title', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
-      img={ottehrLightBlue}
+      img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={100}
     >

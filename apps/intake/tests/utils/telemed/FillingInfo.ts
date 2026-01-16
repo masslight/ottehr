@@ -30,6 +30,10 @@ export class FillingInfo extends BaseFillingInfo {
   private thisEmailBelongsTo = ['Patient'];
   private preferredLanguage = ['Spanish'];
 
+  getReasonForVisit() {
+    return this.reasonForVisit[0];
+  }
+
   async fillNewPatientInfo() {
     const firstName = `TM-UserFN${this.getRandomString()}`;
     const lastName = `TM-UserLN${this.getRandomString()}`;

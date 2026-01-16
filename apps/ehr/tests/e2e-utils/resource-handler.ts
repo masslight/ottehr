@@ -138,7 +138,7 @@ export type CreateTestAppointmentInput = {
   telemedLocationState?: string;
   selectedLocationId?: string;
   skipPaperwork?: boolean;
-  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workmans-comp';
+  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workers-comp';
 };
 
 export class ResourceHandler {
@@ -499,49 +499,6 @@ export class ResourceHandler {
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
     } catch (e) {
       console.error('Error during waitTillHarvestingDone', e);
-      throw e;
-    }
-  }
-
-  async waitForListIndexing(patientId: string): Promise<void> {
-    const apiClient = await this.apiClient;
-    // Lists that should have entries after consent creation
-    const requiredLists = ['consent-forms', 'privacy-policy'];
-
-    console.log(`Waiting for Lists to be indexed: ${requiredLists.join(', ')}`);
-
-    try {
-      for (let i = 0; i < 20; i++) {
-        const lists = (
-          await apiClient.fhir.search({
-            resourceType: 'List',
-            params: [{ name: 'subject', value: `Patient/${patientId}` }],
-          })
-        ).unbundle() as List[];
-
-        const missingLists: string[] = [];
-        for (const title of requiredLists) {
-          const list = lists.find((l) => l.title === title);
-          if (!list || !list.entry || list.entry.length === 0) {
-            missingLists.push(title);
-          }
-        }
-
-        if (missingLists.length === 0) {
-          console.log(`All Lists indexed successfully (attempt ${i + 1})`);
-          return;
-        }
-
-        if (i % 5 === 0 && i > 0) {
-          console.log(`Still waiting for Lists: ${missingLists.join(', ')} (attempt ${i + 1}/30)`);
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
-      }
-
-      throw new Error(`Lists not indexed after 15 seconds: ${requiredLists.join(', ')}`);
-    } catch (e) {
-      console.error('Error during waitForListIndexing', e);
       throw e;
     }
   }

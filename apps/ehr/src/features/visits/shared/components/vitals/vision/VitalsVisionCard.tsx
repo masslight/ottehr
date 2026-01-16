@@ -4,6 +4,7 @@ import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   getVisionExtraOptionsFormattedString,
   VitalFieldNames,
@@ -153,6 +154,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.visionItem}
             />
           );
         }}
@@ -166,6 +168,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
         label={`Vision ${latestVisionValueLabel ?? ''}`}
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.visionHeader}
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -201,6 +204,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                       disabled={isSaving}
                       isInputError={false}
                       onChange={handleLeftEyeSelectionChange}
+                      data-testid={dataTestIds.vitalsPage.visionLeftInput}
                     />
                   </Box>
                 </Grid>
@@ -220,6 +224,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                       disabled={isSaving}
                       isInputError={false}
                       onChange={handleRightEyeSelectionChange}
+                      data-testid={dataTestIds.vitalsPage.visionRightInput}
                     />
                   </Box>
                 </Grid>
@@ -263,6 +268,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.visionAddButton}
                   >
                     Add
                   </RoundedButton>

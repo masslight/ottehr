@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { ExtendedMedicationDataForResponse, GetMedicationOrdersInput, UpdateMedicationOrderInput } from 'utils';
 import {
   useCreateUpdateMedicationOrder,
@@ -28,6 +29,7 @@ export const useMedicationAPI = (): MedicationAPI => {
     const encounterId = encounter.id;
     if (!encounterId) return;
 
+    // Invalidate MAR data (get-medication-orders)
     await queryClient.invalidateQueries({
       predicate: (query) => {
         const [prefix, searchByString] = query.queryKey as [string, string?];
@@ -42,6 +44,15 @@ export const useMedicationAPI = (): MedicationAPI => {
         } catch {
           return false;
         }
+      },
+    });
+
+    // Invalidate medication history data (chart-data-fields)
+    // This ensures the medication history updates when a medication is cancelled/deleted
+    await queryClient.invalidateQueries({
+      predicate: (query) => {
+        const [prefix, encId] = query.queryKey;
+        return prefix === CHART_FIELDS_QUERY_KEY && encId === encounterId;
       },
     });
   };

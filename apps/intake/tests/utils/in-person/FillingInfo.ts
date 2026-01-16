@@ -18,6 +18,9 @@ export class FillingInfo extends BaseFillingInfo {
   getRandomString() {
     return Math.random().toString().slice(2, 7);
   }
+  getReasonForVisit() {
+    return this.reasonForVisit[0];
+  }
 
   async selectSlot() {
     if (
