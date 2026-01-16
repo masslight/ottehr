@@ -129,97 +129,37 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "========================================="
-          echo "STEP 2: Load Balancing Analysis"
+          echo "Load Balancing"
           echo "========================================="
-          echo "Analyzing active workflow runs to select least loaded environment..."
           
-          # Get all queued and in_progress runs for this workflow, excluding current run
           CURRENT_RUN_ID="${{ github.run_id }}"
-          echo "Current run ID: $CURRENT_RUN_ID"
+          echo "Current run: $CURRENT_RUN_ID"
           
-          # Fetch active runs
+          # Get active runs
           echo ""
-          echo "[API] Fetching active/queued runs from GitHub API..."
-          RUNS_DATA=$(gh api "repos/${{ github.repository }}/actions/workflows/terraform-apply-and-test-pipeline.yml/runs?status=queued&status=in_progress&per_page=100")
+          echo "[API] Fetching active runs..."
+          RUNS=$(gh api "repos/${{ github.repository }}/actions/workflows/terraform-apply-and-test-pipeline.yml/runs?per_page=50" | jq '[.workflow_runs[] | select(.status == "pending" or .status == "queued" or .status == "in_progress")]')
           
-          TOTAL_RUNS=$(echo "$RUNS_DATA" | jq '.workflow_runs | length')
-          echo "[OK] Found $TOTAL_RUNS total active/queued runs (including current)"
+          # Count OTHER active runs (excluding current)
+          ACTIVE_COUNT=$(echo "$RUNS" | jq '[.[] | select(.id != '$CURRENT_RUN_ID')] | length')
           
-          # Initialize counters
-          E2E_COUNT=0
-          E2E2_COUNT=0
+          echo "Active runs (excluding current): $ACTIVE_COUNT"
           
-          # Get list of run IDs
-          RUN_IDS=$(echo "$RUNS_DATA" | jq -r '.workflow_runs[] | select(.id != '$CURRENT_RUN_ID') | .id')
-          OTHER_RUNS_COUNT=$(echo "$RUN_IDS" | wc -w | tr -d ' ')
-          echo "[INFO] Analyzing $OTHER_RUNS_COUNT other runs (excluding current)"
-          echo ""
-          
-          if [ -z "$RUN_IDS" ]; then
-            echo "[INFO] No other active runs detected"
-          else
-            echo "[ANALYSIS] Analyzing each run to estimate environment distribution:"
-            echo "---"
-            
-            # Check each run's jobs to determine which environment it's using
-            for RUN_ID in $RUN_IDS; do
-              echo "  Run #$RUN_ID:"
-              
-              # Get job details - specifically looking for the run-pipeline job which has concurrency
-              JOBS_JSON=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/jobs" 2>/dev/null || echo '{"jobs":[]}')
-              
-              # Look for run-pipeline job to see if it's running or queued
-              RUN_PIPELINE_STATUS=$(echo "$JOBS_JSON" | jq -r '.jobs[] | select(.name == "run-pipeline") | .status' 2>/dev/null | head -1)
-              
-              if [ -n "$RUN_PIPELINE_STATUS" ] && [ "$RUN_PIPELINE_STATUS" != "null" ]; then
-                echo "    - run-pipeline status: $RUN_PIPELINE_STATUS"
-                
-                # Check the determine-environment job to see what environment was selected
-                DETERMINE_JOB=$(echo "$JOBS_JSON" | jq -r '.jobs[] | select(.name == "determine-environment")' 2>/dev/null)
-                
-                if [ -n "$DETERMINE_JOB" ] && [ "$DETERMINE_JOB" != "null" ]; then
-                  # Get run metadata for heuristic
-                  RUN_NUMBER=$(echo "$RUNS_DATA" | jq -r '.workflow_runs[] | select(.id == '$RUN_ID') | .run_number')
-                  RUN_URL=$(echo "$RUNS_DATA" | jq -r '.workflow_runs[] | select(.id == '$RUN_ID') | .html_url')
-                  
-                  # Use heuristic: run_number modulo 2 to estimate environment distribution
-                  # (We can't easily access job outputs via API, so we use this approximation)
-                  if [ $((RUN_NUMBER % 2)) -eq 0 ]; then
-                    E2E_COUNT=$((E2E_COUNT + 1))
-                    echo "    - run_number: $RUN_NUMBER (even) -> estimated environment: e2e"
-                  else
-                    E2E2_COUNT=$((E2E2_COUNT + 1))
-                    echo "    - run_number: $RUN_NUMBER (odd) -> estimated environment: e2e2"
-                  fi
-                  echo "    - url: $RUN_URL"
-                else
-                  echo "    - determine-environment job not found or not completed yet"
-                fi
-              else
-                echo "    - run-pipeline job not started yet (skipping)"
-              fi
-            done
-            echo "---"
-          fi
-          
-          echo ""
-          echo "[SUMMARY] Load Distribution Summary:"
-          echo "   e2e environment:  $E2E_COUNT active/queued runs"
-          echo "   e2e2 environment: $E2E2_COUNT active/queued runs"
-          echo ""
-          
-          # Select least loaded environment
-          if [ $E2E_COUNT -le $E2E2_COUNT ]; then
+          # Simple: count % 2
+          # 0 runs -> e2e (0 % 2 = 0)
+          # 1 run  -> e2e2 (1 % 2 = 1)
+          # 2 runs -> e2e (2 % 2 = 0)
+          # 3 runs -> e2e2 (3 % 2 = 1)
+          if [ $((ACTIVE_COUNT % 2)) -eq 0 ]; then
             ENV="e2e"
-            echo "[DECISION] Selected 'e2e' (has $E2E_COUNT runs vs e2e2 with $E2E2_COUNT runs)"
-            [ $E2E_COUNT -eq $E2E2_COUNT ] && echo "   (Equal load - defaulting to e2e)"
+            echo "Decision: $ACTIVE_COUNT runs (even) -> e2e"
           else
             ENV="e2e2"
-            echo "[DECISION] Selected 'e2e2' (has $E2E2_COUNT runs vs e2e with $E2E_COUNT runs)"
+            echo "Decision: $ACTIVE_COUNT runs (odd) -> e2e2"
           fi
           
           echo ""
-          echo "[RESULT] Selected environment: $ENV"
+          echo "Selected: $ENV"
           echo "environment=$ENV" >> $GITHUB_OUTPUT
           echo "========================================="
 
