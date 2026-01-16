@@ -37,8 +37,6 @@ on:
       environment:
         required: false
         type: string
-  schedule:
-    - cron: '0 0 * * *'
 
 jobs:
   check-changes:
@@ -82,9 +80,9 @@ jobs:
       - name: Check if Intake changes are relevant
         id: check
         run: |
-          # For schedule or workflow_dispatch, run unconditionally
+          # For workflow_dispatch, run unconditionally
           # Also checking for workflow_call to support explicit calls without PR context or environment
-          if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "Event type: ${{ github.event_name }} or explicit call - continue test flow"
             echo "should-run=true" >> $GITHUB_OUTPUT
             echo "skip-reason=" >> $GITHUB_OUTPUT
@@ -324,7 +322,7 @@ jobs:
   intake-e2e-tests-run:
     needs: [check-changes, check-token-validity, intake-login]
     if: |
-      always() && !cancelled() && github.event_name != 'schedule' &&
+      always() && !cancelled() &&
       needs.check-changes.outputs.should-run == 'true' &&
       (
         needs.check-token-validity.outputs.needs-login == 'false' ||
@@ -435,9 +433,6 @@ jobs:
         run: |
           if [ "${{ needs.check-changes.outputs.should-run }}" == "false" ]; then
             echo "Intake E2E tests skipped: ${{ needs.check-changes.outputs.skip-reason }}"
-            exit 0
-          elif [ "${{ github.event_name }}" == "schedule" ]; then
-            echo "Intake E2E tests skipped for scheduled run (login only)"
             exit 0
           elif [ "${{ needs.intake-e2e-tests-run.result }}" == "success" ]; then
             echo "Intake E2E tests passed"
