@@ -26,8 +26,22 @@ export class HospitalizationPage {
   }
 
   async addHospitalization(hospitalization: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.hospitalizationPage.hospitalizationDropdown).click();
-    await this.#page.getByText(hospitalization, { exact: true }).click();
+    // Wait for chart data to finish loading (skeleton indicates loading state)
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()
+    ).not.toBeVisible();
+
+    const dropdown = this.#page.getByTestId(dataTestIds.hospitalizationPage.hospitalizationDropdown);
+    const input = dropdown.locator('input');
+
+    // Ensure the input is enabled before clicking
+    await expect(input).toBeEnabled();
+    await input.click();
+
+    const option = this.#page.getByRole('option', { name: hospitalization });
+    await expect(option).toBeVisible();
+    await option.click();
+
     await expect(
       this.#page.getByTestId(dataTestIds.hospitalizationPage.hospitalizationList).filter({ hasText: hospitalization })
     ).toBeVisible();
