@@ -26,6 +26,7 @@ import {
 import {
   AddressUse,
   AppointmentId as CandidPreEncounterAppointmentId,
+  CanonicalNonInsurancePayerId,
   ContactPointUse,
   NameUse,
   PatientId,
@@ -79,6 +80,7 @@ import {
   MedicationOrderStatusesType,
   MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
+  OrderedCoveragesWithSubscribers,
   PaymentVariant,
   Secrets,
   SecretsKeys,
@@ -98,6 +100,9 @@ export const CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM =
 
 export const CANDID_PATIENT_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/patients/v4/response/patient_id';
+
+export const CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM =
+  'https://api.joincandidhealth.com/api/non-insurance-payers/v1/response/non_insurance_payer_id';
 
 const CANDID_TAG_WORKERS_COMP = 'workers-comp';
 const CANDID_TAG_OCCUPATIONAL_MEDICINE = 'occupational-medicine';
@@ -382,6 +387,7 @@ async function fetchPreEncounterPatient(
 
 async function createPreEncounterPatient(
   patient: Patient,
+  nonInsurancePayerId: string | undefined,
   apiClient: CandidApiClient
 ): Promise<CandidPreEncounterPatient> {
   if (!patient.birthDate) {
@@ -484,6 +490,13 @@ async function createPreEncounterPatient(
       filingOrder: {
         coverages: [],
       },
+      nonInsurancePayerAssociations: nonInsurancePayerId
+        ? [
+            {
+              id: CanonicalNonInsurancePayerId(nonInsurancePayerId),
+            },
+          ]
+        : undefined,
     },
   });
 
@@ -583,17 +596,47 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     throw new Error(`Patient ID is not defined for encounter ${encounterId}`);
   }
 
+  const { coverages, insuranceOrgs, occupationalMedicineAccount } = await getAccountAndCoverageResourcesForPatient(
+    ourPatient.id,
+    oystehr
+  );
+
+  let nonInsurancePayerId: string | undefined = undefined;
+  if (occupationalMedicineAccount) {
+    const ownerOrganizationId = occupationalMedicineAccount.owner?.reference?.split('/')[1];
+    if (ownerOrganizationId) {
+      const occupationalMedicineEmployerOrganization = await oystehr.fhir.get<Organization>({
+        id: occupationalMedicineAccount.owner?.reference?.split('/')[1] || '',
+        resourceType: 'Organization',
+      });
+      nonInsurancePayerId = occupationalMedicineEmployerOrganization.identifier?.find(
+        (identifier) => identifier.system === CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM
+      )?.value;
+      if (!nonInsurancePayerId) {
+        console.error(
+          `Occupational Medicine Employer Organization ${ownerOrganizationId} does not have a Candid Non-Insurance Payer ID.`
+        );
+      }
+    } else {
+      console.error(
+        `Occupational Medicine Account ${occupationalMedicineAccount.id} does not have an owner organization.`
+      );
+    }
+  }
+
   // Get Candid Patient and create if it does not exist
   let candidPreEncounterPatient = await fetchPreEncounterPatient(ourPatient.id, candidApiClient);
 
   if (!candidPreEncounterPatient) {
-    candidPreEncounterPatient = await createPreEncounterPatient(ourPatient, candidApiClient);
+    candidPreEncounterPatient = await createPreEncounterPatient(ourPatient, nonInsurancePayerId, candidApiClient);
   }
 
   const candidCoverages = await createCandidCoverages(
     ourPatient,
     ourAppointment,
     candidPreEncounterPatient,
+    coverages,
+    insuranceOrgs,
     oystehr,
     candidApiClient
   );
@@ -738,14 +781,14 @@ const createCandidCoverages = async (
   patient: Patient,
   appointment: Appointment,
   candidPatient: CandidPreEncounterPatient,
+  coverages: OrderedCoveragesWithSubscribers,
+  insuranceOrgs: Organization[],
   oystehr: Oystehr,
   candidApiClient: CandidApiClient
 ): Promise<CandidPreEncounterCoverage[]> => {
   if (!patient.id) {
     throw new Error(`Patient ID is not defined for patient ${JSON.stringify(patient)}`);
   }
-
-  const { coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(patient.id, oystehr);
 
   const candidCoverages: CandidPreEncounterCoverage[] = [];
 
