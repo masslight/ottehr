@@ -4,6 +4,7 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
@@ -80,6 +81,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.respirationRateItem}
             />
           );
         }}
@@ -93,6 +95,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
         label={`RR (/min) ${latestRespRateValue ?? ''}`}
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.respirationRateHeader}
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -121,6 +124,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
                     disabled={isSaving}
                     isInputError={isRespirationRateValidationError}
                     onChange={handleTextInputChange}
+                    data-testid={dataTestIds.vitalsPage.respirationRateInput}
                   />
                 </Grid>
 
@@ -137,6 +141,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.respirationRateAddButton}
                   >
                     Add
                   </RoundedButton>

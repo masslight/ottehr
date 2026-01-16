@@ -117,15 +117,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
     });
 
-    // Appointment
-    updateAppointmentRequests.push(
-      getPatchBinary({
-        resourceId: appointment.id,
-        resourceType: 'Appointment',
-        patchOperations: [getPatchOperationForNewMetaTag(appointment, FHIR_APPOINTMENT_PREPROCESSED_TAG)],
-      })
-    );
-
     const disposition: DispositionDTO = {
       type: 'pcp-no-type',
       note: getDefaultNote('pcp-no-type'),
@@ -156,7 +147,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       })
     );
 
-    const allRequests = [...updateAppointmentRequests, ...encounterUpdateRequests, ...saveOrUpdateRequests];
+    // Add appointment PREPROCESSED tag LAST so it's in the final chunk
+    // This ensures all resources are created before the tag is set
+    updateAppointmentRequests.push(
+      getPatchBinary({
+        resourceId: appointment.id,
+        resourceType: 'Appointment',
+        patchOperations: [getPatchOperationForNewMetaTag(appointment, FHIR_APPOINTMENT_PREPROCESSED_TAG)],
+      })
+    );
+
+    const allRequests = [...encounterUpdateRequests, ...saveOrUpdateRequests, ...updateAppointmentRequests];
     if (allRequests.length > CHUNK_SIZE) {
       console.log('chunking batches...');
       const requestChunks = chunkThings(allRequests, CHUNK_SIZE);

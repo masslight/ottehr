@@ -53,7 +53,7 @@ const LEGAL_DEFAULTS: LegalConfigSchemaType = {
   ],
 };
 
-const mergedLegalConfig = mergeAndFreezeConfigObjects(LEGAL_DEFAULTS, OVERRIDES);
+const mergedLegalConfig = mergeAndFreezeConfigObjects(OVERRIDES, LEGAL_DEFAULTS);
 
 const textWithLinkCompositionSchema: z.ZodType<TextWithLinkComposition> = z.array(
   z.union([DisplayTextSchema, LinkDefSchema])

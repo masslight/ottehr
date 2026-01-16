@@ -25,10 +25,12 @@ import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
@@ -70,7 +72,6 @@ const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
 
 interface PageState {
   consentObtained?: boolean;
-  procedureType?: string;
   cptCodes?: CPTCodeDTO[];
   diagnoses?: DiagnosisDTO[];
   procedureDate?: DateTime | null;
@@ -173,18 +174,15 @@ export default function ProceduresNew(): ReactElement {
   const { mutateAsync: saveChartData } = useSaveChartData();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
 
+  const methods = useForm();
+  const formValues = methods.watch();
+
   const [state, setState] = useState<PageState>({
     procedureDate: DateTime.now(),
     procedureTime: DateTime.now(),
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
   const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
-
-  const sortedProcedureTypes = useMemo(() => {
-    return (selectOptions?.procedureTypes ?? [])
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  }, [selectOptions?.procedureTypes]);
 
   const updateState = (stateMutator: (draft: PageState) => void): void => {
     setState((prev) => {
@@ -212,12 +210,12 @@ export default function ProceduresNew(): ReactElement {
 
   useEffect(() => {
     const fetchRecommendedBillingCodes = async (): Promise<void> => {
-      if (!state.procedureType) {
+      if (!formValues.procedureType) {
         return;
       }
       setLoadingSuggestions(true);
       const codes = await recommendBillingCodes({
-        procedureType: state.procedureType,
+        procedureType: formValues.procedureType,
         diagnoses: state.diagnoses,
         medicationUsed: state.medicationUsed,
         bodySite: state.bodySite,
@@ -234,7 +232,7 @@ export default function ProceduresNew(): ReactElement {
     fetchRecommendedBillingCodes().catch((error) => console.log(error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    state.procedureType,
+    formValues.procedureType,
     state.diagnoses,
     state.medicationUsed,
     state.bodySite,
@@ -247,8 +245,10 @@ export default function ProceduresNew(): ReactElement {
   ]);
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
+  const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
+  const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
+
   useEffect(() => {
-    const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
     if (procedure == null || initialValuesSet || isSelectOptionsLoading) {
       return;
     }
@@ -260,7 +260,6 @@ export default function ProceduresNew(): ReactElement {
       selectOptions?.postProcedureInstructions
     );
     setState({
-      procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
       procedureDate: procedureDateTime,
@@ -285,7 +284,7 @@ export default function ProceduresNew(): ReactElement {
       consentObtained: procedure.consentObtained,
     });
     setInitialValuesSet(true);
-  }, [procedureId, chartData?.procedures, setState, initialValuesSet, isSelectOptionsLoading, selectOptions]);
+  }, [procedure, setState, initialValuesSet, isSelectOptionsLoading, selectOptions]);
 
   const onCancel = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
@@ -341,7 +340,7 @@ export default function ProceduresNew(): ReactElement {
         procedures: [
           {
             resourceId: procedureId,
-            procedureType: state.procedureType,
+            procedureType: formValues.procedureType,
             cptCodes: cptCodesToUse,
             diagnoses: diagnosesToUse,
             procedureDateTime: state.procedureDate
@@ -639,8 +638,52 @@ export default function ProceduresNew(): ReactElement {
     );
   };
 
+  useEffect(() => {
+    if (procedureId && !initialFormStateSet) {
+      return;
+    }
+    const callback = methods.subscribe({
+      name: 'procedureType',
+      formState: {
+        values: true,
+      },
+      callback: ({ values }) => {
+        updateState((state) => {
+          const selected = selectOptions?.procedureTypes.find(
+            (procedureType) => procedureType.name === values.procedureType
+          );
+          const newCodes: CPTCodeDTO[] = [];
+          if (selected?.cpt) {
+            newCodes.push({
+              code: selected.cpt.code,
+              display: selected.cpt.display,
+            });
+          }
+          if (selected?.hcpcs) {
+            newCodes.push({
+              code: selected.hcpcs.code,
+              display: selected.hcpcs.display,
+            });
+          }
+          state.cptCodes = newCodes;
+        });
+      },
+    });
+    return () => callback();
+  }, [methods, selectOptions, procedureId, initialFormStateSet]);
+
+  useEffect(() => {
+    if (procedure == null) {
+      return;
+    }
+    methods.reset({
+      procedureType: procedure.procedureType,
+    });
+    setInitialFormStateSet(true);
+  }, [methods, procedure]);
+
   return (
-    <>
+    <FormProvider {...methods}>
       <Stack spacing={1}>
         <PageTitle
           label="Document Procedure"
@@ -668,35 +711,15 @@ export default function ProceduresNew(): ReactElement {
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
             </Box>
 
-            {dropdown(
-              'Procedure type',
-              sortedProcedureTypes.map((procedureType) => procedureType.name),
-              state.procedureType,
-              (value, state) => {
-                state.procedureType = value;
+            <AutocompleteInput
+              name="procedureType"
+              label="Procedure type"
+              options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
+              disabled={isReadOnly}
+              loading={isSelectOptionsLoading}
+              dataTestId={dataTestIds.documentProcedurePage.procedureType}
+            />
 
-                const selected = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value);
-
-                const newCodes: CPTCodeDTO[] = [];
-
-                if (selected?.cpt) {
-                  newCodes.push({
-                    code: selected.cpt.code,
-                    display: selected.cpt.display,
-                  });
-                }
-
-                if (selected?.hcpcs) {
-                  newCodes.push({
-                    code: selected.hcpcs.code,
-                    display: selected.hcpcs.display,
-                  });
-                }
-
-                state.cptCodes = newCodes;
-              },
-              dataTestIds.documentProcedurePage.procedureType
-            )}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
             </Typography>
@@ -894,7 +917,7 @@ export default function ProceduresNew(): ReactElement {
       <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
         <CircularProgress color="inherit" />
       </Backdrop>
-    </>
+    </FormProvider>
   );
 }
 
@@ -1012,5 +1035,6 @@ function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
         hcpcs: getCode('procedure-type-hcpcs'),
       };
     })
-    .filter((p): p is ProcedureType => p !== null);
+    .filter((p): p is ProcedureType => p !== null)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }

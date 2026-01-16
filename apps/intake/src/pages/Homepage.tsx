@@ -7,7 +7,7 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { pastVisits } from '@theme/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { BOOKING_CONFIG, PROJECT_NAME, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
+import { BOOKING_CONFIG, BRANDING_CONFIG, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -114,7 +114,6 @@ const Homepage = (): JSX.Element => {
       visitType: 'prebook',
     });
     let destination = '';
-    console.log('Should select service category:', shouldSelectServiceCategory);
     if (shouldSelectServiceCategory) {
       destination = intakeFlowPageRoute.SelectServiceCategory.path.replace(
         `:${BOOKING_SERVICE_MODE_PARAM}`,
@@ -126,8 +125,8 @@ const Homepage = (): JSX.Element => {
         ServiceMode['in-person']
       );
     }
-    destination += `?bookingOn=visit-followup-group&scheduleType=group`;
-    console.log('Navigating to:', destination);
+
+    destination += resolvePrebookInPersonPathQueryParams();
     navigate(destination);
   };
 
@@ -154,7 +153,7 @@ const Homepage = (): JSX.Element => {
   const showStartInPersonOption = homepageOptions.includes('start-in-person-visit');
 
   return (
-    <CustomContainer title={`Welcome to ${PROJECT_NAME}`} description="" isFirstPage={true}>
+    <CustomContainer title={`Welcome to ${BRANDING_CONFIG.projectName}`} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isAppointmentsFetching ? (
           <Skeleton
@@ -264,6 +263,13 @@ const Homepage = (): JSX.Element => {
       ) : null}
     </CustomContainer>
   );
+};
+
+const resolvePrebookInPersonPathQueryParams = (): string => {
+  if (!BOOKING_CONFIG.inPersonPrebookRoutingParams?.length) {
+    return '';
+  }
+  return '?' + BOOKING_CONFIG.inPersonPrebookRoutingParams.map((param) => `${param.key}=${param.value}`).join('&');
 };
 
 export default Homepage;

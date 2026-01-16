@@ -52,7 +52,6 @@ export const LabsTableBundleHeaderRow = ({
       return;
     }
     if (orderNote.length > HL7_NOTE_CHAR_LIMIT) {
-      setNoteError(`Note must be under ${HL7_NOTE_CHAR_LIMIT} characters long, length of note: ${orderNote.length}`);
       return;
     }
     setSavingNote(true);
@@ -122,25 +121,29 @@ export const LabsTableBundleHeaderRow = ({
                 </LoadingButton>
               </Box>
             )}
-            {abnPdfUrl && (
-              <Button
-                variant="outlined"
-                type="button"
-                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
-                onClick={() => openPdf(abnPdfUrl)}
-              >
-                Re-print ABN
-              </Button>
-            )}
-            {orderPdfUrl && (
-              <Button
-                variant="outlined"
-                type="button"
-                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
-                onClick={() => openPdf(orderPdfUrl)}
-              >
-                Re-print Order
-              </Button>
+            {(abnPdfUrl || orderPdfUrl) && (
+              <Box display="flex" justifyContent="right">
+                {abnPdfUrl && (
+                  <Button
+                    variant="outlined"
+                    type="button"
+                    sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
+                    onClick={() => openPdf(abnPdfUrl)}
+                  >
+                    Re-print ABN
+                  </Button>
+                )}
+                {orderPdfUrl && (
+                  <Button
+                    variant="outlined"
+                    type="button"
+                    sx={{ width: 170, borderRadius: '50px', textTransform: 'none', ml: '8px' }}
+                    onClick={() => openPdf(orderPdfUrl)}
+                  >
+                    Re-print Order
+                  </Button>
+                )}
+              </Box>
             )}
           </Box>
         </TableCell>
@@ -180,9 +183,16 @@ export const LabsTableBundleHeaderRow = ({
                 multiline
                 rows={2}
                 value={orderNote}
+                inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
                 onChange={(e) => {
                   setOrderNote(e.target.value);
                 }}
+                error={!!(orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT)}
+                helperText={
+                  orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT
+                    ? `Input cannot be more than ${HL7_NOTE_CHAR_LIMIT} characters`
+                    : ''
+                }
               ></TextField>
             )}
           </Box>

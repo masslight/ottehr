@@ -1,14 +1,11 @@
 import { ottehrExtensionUrl } from '../fhir/systemUrls';
+import { BRANDING_CONFIG } from '../ottehr-config/branding';
 
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
-export const PROJECT_NAME = 'Ottehr';
-export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
-export const PROJECT_DOMAIN = 'ottehr.com';
-export const PROJECT_WEBSITE = `https://${PROJECT_DOMAIN}`;
-export const SUPPORT_EMAIL = 'ottehr-support@ottehr.com';
+export const PROJECT_WEBSITE = `https://${BRANDING_CONFIG.projectDomain}`;
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
@@ -51,6 +48,8 @@ export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organ
 // we'll use the INSURANCE_ORG_TYPE_INSURANCE_COMPANY type on the parent org
 // export const INSURANCE_ORG_TYPE_INSURANCE_COMPANY = 'ins';
 export const ORG_TYPE_PAYER_CODE = 'pay';
+
+export const ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE = 'occupational-medicine-employer';
 
 export const AI_QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 

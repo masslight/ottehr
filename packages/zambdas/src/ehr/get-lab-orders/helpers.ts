@@ -64,7 +64,6 @@ import {
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
   PatientLabItem,
-  PdfAttachmentDTO,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
@@ -156,12 +155,8 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   return result;
 };
 
-export const mapResourcesToDrLabDTO = async (
-  resourcesByDr: ResourcesByDr,
-  token: string
-): Promise<(ReflexLabDTO | PdfAttachmentDTO)[]> => {
+export const mapResourcesToDrLabDTO = async (resourcesByDr: ResourcesByDr, token: string): Promise<ReflexLabDTO[]> => {
   const reflexLabDTOs: ReflexLabDTO[] = [];
-  const pdfAttachmentDTOs: PdfAttachmentDTO[] = [];
   console.log('these are resourcesByDr in mapResourcesToDrLabDTO', JSON.stringify(resourcesByDr));
   const resourcesForDiagnosticReport = Object.values(resourcesByDr);
   for (const resources of resourcesForDiagnosticReport) {
@@ -180,13 +175,10 @@ export const mapResourcesToDrLabDTO = async (
       if (type === LabType.reflex) {
         const reflexLabDetailDTO: ReflexLabDTO = { ...baseDTO, drCentricResultType: 'reflex' };
         reflexLabDTOs.push(reflexLabDetailDTO);
-      } else if (type === LabType.pdfAttachment) {
-        const pdfAttachmentDTO: PdfAttachmentDTO = { ...baseDTO, drCentricResultType: 'pdfAttachment' };
-        pdfAttachmentDTOs.push(pdfAttachmentDTO);
       }
     }
   }
-  return [...reflexLabDTOs, ...pdfAttachmentDTOs];
+  return reflexLabDTOs;
 };
 
 export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
@@ -750,6 +742,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_include:iterate',
       value: 'Slot:schedule',
     },
+
+    // "revoked" SRs are essentially deleted
+    {
+      name: 'status:not',
+      value: 'revoked',
+    },
   ];
 
   // chart data case
@@ -999,8 +997,8 @@ export const checkForDiagnosticReportDrivenResults = async (
   const params = [
     {
       name: '_tag',
-      value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex},${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.attachment}`,
-    }, // only grab those tagged with reflex or pdfAttachment
+      value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex}`,
+    }, // only grab those tagged with reflex
     { name: '_revinclude', value: 'Task:based-on' }, // review task
     { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
     { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
@@ -1278,9 +1276,7 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.unknown;
   }
 
-  if (serviceRequest.status === 'revoked') {
-    if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
-  }
+  if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
 
   const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
     cache?.parsedResults || parseResults(serviceRequest, results);
@@ -1790,6 +1786,8 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
+  // todo labs we should only iterate over all these provenances once
+
   history.push(
     ...parseProvenancesForHistory(
       'ready',
@@ -1855,6 +1853,10 @@ export const parseLabOrdersHistory = (
       date: task.authoredOn || '',
     });
   });
+
+  history.push(
+    ...parseProvenancesForHistory('deleted', PROVENANCE_ACTIVITY_CODING_ENTITY.deleteOrder, practitioners, provenances)
+  );
 
   return history.sort((a, b) => compareDates(b.date, a.date));
 };

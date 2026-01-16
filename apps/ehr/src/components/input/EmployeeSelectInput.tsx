@@ -3,7 +3,6 @@ import { getEmployees } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { EmployeeDetails } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
-import { Option } from './Option';
 
 export const PROVIDERS_FILTER = (employee: EmployeeDetails): boolean => {
   return employee.isProvider;
@@ -20,7 +19,7 @@ type Props = {
 export const EmployeeSelectInput: React.FC<Props> = ({ name, label, required, dataTestId, filter }) => {
   const { oystehrZambda } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [options, setOptions] = useState<Option[] | undefined>(undefined);
+  const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
   useEffect(() => {
     if (!oystehrZambda) {
       return;
@@ -36,10 +35,10 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, required, da
           const options = getEmployeesResponse.employees
             .filter((employee: any) => employee.status === 'Active' && (filter ? filter(employee) : true))
             .map((employee: any) => ({
-              value: employee.profile.split('/')[1],
-              label: `${employee.firstName} ${employee.lastName}`.trim() || employee.name,
+              id: employee.profile.split('/')[1],
+              name: `${employee.firstName} ${employee.lastName}`.trim() || employee.name,
             }));
-          options.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+          options.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
           setOptions(options);
         }
       } catch (e) {
@@ -58,18 +57,9 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, required, da
       loading={isLoading}
       required={required}
       dataTestId={dataTestId}
-      valueToOption={(value: any) => {
-        return {
-          label: value.name,
-          value: value.id,
-        };
-      }}
-      optionToValue={(option: Option) => {
-        return {
-          name: option.label,
-          id: option.value,
-        };
-      }}
+      getOptionLabel={(option) => option.name}
+      getOptionKey={(option) => option.id}
+      isOptionEqualToValue={(option, value) => option.id === value.id}
     />
   );
 };

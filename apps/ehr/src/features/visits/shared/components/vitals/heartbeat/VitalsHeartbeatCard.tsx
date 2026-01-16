@@ -4,6 +4,7 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   toVitalHeartbeatObservationMethod,
   VitalFieldNames,
@@ -122,6 +123,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.heartbeatItem}
             />
           );
         }}
@@ -135,6 +137,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
         label={`HR (/min) ${latestHeartbeatValue ?? ''}`}
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.heartbeatHeader}
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -163,6 +166,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
                     disabled={isSaving}
                     isInputError={isHeartbeatValidationError}
                     onChange={handleTextInputChange}
+                    data-testid={dataTestIds.vitalsPage.heartbeatInput}
                   />
                 </Grid>
 
@@ -200,6 +204,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.heartbeatAddButton}
                   >
                     Add
                   </RoundedButton>

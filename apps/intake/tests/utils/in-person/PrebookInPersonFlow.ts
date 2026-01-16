@@ -1,9 +1,11 @@
 import { expect } from '@playwright/test';
-import { shouldShowServiceCategorySelectionPage } from 'utils';
+import { dataTestIds } from 'src/helpers/data-test-ids';
+import { BOOKING_CONFIG, DEPLOYED_INPERSON_LOCATIONS, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
-import { StartVisitResponse } from '../in-person/BaseInPersonFlow';
+import { SlotAndLocation, StartVisitResponse } from '../in-person/BaseInPersonFlow';
 import { InPersonPaperworkReturn } from '../Paperwork';
-import { BaseInPersonFlow, FilledPaperworkInput, PatientBasicInfo } from './BaseInPersonFlow';
+import { BaseInPersonFlow, FilledPaperworkInput } from './BaseInPersonFlow';
 
 export class PrebookInPersonFlow extends BaseInPersonFlow {
   // flow steps:
@@ -22,6 +24,15 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     const slotAndLocation = await this.additionalStepsForPrebook();
 
     let patientBasicInfo: PatientBasicInfo;
+
+    if (process.env.SMOKE_TEST === 'true') {
+      try {
+        patient = await this.findTestPatient();
+      } catch {
+        console.warn('Test patient not found, proceeding to create a new patient.');
+      }
+    }
+
     if (patient) {
       await this.findAndSelectExistingPatient(patient);
       patientBasicInfo = patient;
@@ -32,11 +43,14 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     await this.locator.clickReserveButton();
 
     await this.page.waitForURL(/\/visit\//);
-    const match = this.page.url().match(/visit\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
+    const urlRegex = new RegExp(`visit\\/(${uuidRegex.source.slice(1, -1)})`);
+    const appointmentId = this.page.url().match(urlRegex)?.[1];
+    if (!appointmentId) {
+      throw new Error('regex is broken or page could not load url');
+    }
     return {
       patientBasicInfo,
-      bookingUUID,
+      appointmentId,
       slotAndLocation,
       slotDetails: this.slotDetails,
     };
@@ -66,25 +80,48 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
 
   // ---------------------------------------------------------------------------
 
-  async additionalStepsForPrebook(): Promise<{
-    selectedSlot: string | undefined;
-    location: string | null;
-  }> {
+  async additionalStepsForPrebook(): Promise<SlotAndLocation> {
     // Handle service category selection if present
     if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
       await this.fillingInfo.selectFirstServiceCategory();
     }
 
+    if (BOOKING_CONFIG.inPersonPrebookRoutingParams.some((param) => param.key === 'bookingOn') === false) {
+      // if there is no bookingOn param, the location selector will be presented
+      return this.selectTimeLocationAndContinue();
+    }
+
+    await expect(this.locator.firstAvailableTime).toBeVisible();
+    const title = await this.locator.pageTitle.textContent();
+    const locationTitle = title ? title.replace('Book a visit at ', '').trim() : null;
+
+    const { slot } = await this.fillingInfo.selectRandomSlot();
+    expect(slot, { message: 'No slot was selected' }).toBeTruthy();
+    return { slot, location: locationTitle };
+  }
+
+  async selectTimeLocationAndContinue(): Promise<SlotAndLocation> {
+    const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
+    await expect(statesSelector).toBeVisible();
+
+    await statesSelector.getByRole('button').click();
+    const firstAvailableState = DEPLOYED_INPERSON_LOCATIONS[0]?.name;
+    if (!firstAvailableState) {
+      throw new Error('No deployed in-person locations found');
+    }
+    const locationOption = this.page.locator('[role="option"]').getByText(firstAvailableState, { exact: true });
+    await locationOption.click();
     await expect(this.locator.firstAvailableTime).toBeVisible();
     const title = await this.locator.pageTitle.textContent();
     const location = title ? title.replace('Book a visit at ', '').trim() : null;
-
-    const { selectedSlot } = await this.fillingInfo.selectRandomSlot();
-    return { selectedSlot, location };
+    const { slot } = await this.fillingInfo.selectRandomSlot();
+    expect(slot, { message: 'No slot was selected' }).toBeTruthy();
+    await this.continue();
+    return { slot, location };
   }
 
   // for ReservationScreen.spec.ts
-  async goToReviewPage(): Promise<Omit<StartVisitResponse, 'bookingUUID'>> {
+  async goToReviewPage(): Promise<Omit<StartVisitResponse, 'appointmentId'>> {
     await this.selectVisitAndContinue();
     const slotAndLocation = await this.additionalStepsForPrebook();
 

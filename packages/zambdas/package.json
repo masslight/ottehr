@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.24.7",
+  "version": "1.25.15",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -42,14 +42,15 @@
     "mock-unsolicited-result": "tsx src/scripts/labs/unsolicited-result-helper.ts",
     "make-in-house-test-items": "tsx src/scripts/labs/load-in-house-labs-tests.ts",
     "migrate-practitioner-credentials": "tsx src/scripts/migrate-practitioner-credentials.ts",
-    "mock-pdf-result": "tsx src/scripts/labs/pdf-attachment-result-helper.ts",
     "mock-attachment-result": "tsx src/scripts/labs/attachment-result-helper.ts",
+    "mock-abn-doc": "tsx src/scripts/labs/create-abn-doc.ts",
     "get-lab-sr-dr-docref": "tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",
     "test-emails": "tsx src/scripts/test-emails.ts",
     "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts",
     "sync-lab-specimen-dates": "tsx src/scripts/labs/sync-specimen-dates.ts",
     "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts",
-    "setup-default-locations": "tsx src/scripts/setup-default-locations.ts"
+    "setup-default-locations": "tsx src/scripts/setup-default-locations.ts",
+    "regenerate-questionnaire-json": "tsx ./scripts/regenerate-questionnaire-json.ts"
   },
   "engines": {
     "node": ">=22.0.0",

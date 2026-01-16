@@ -2,15 +2,16 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { BOOKING_CONFIG, checkFieldHidden } from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
-import { TelemedPrebookPatientTestData } from '../0_paperworkSetup/types';
+import { TelemedRpInsNoReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
 let paperwork: Paperwork;
 let locator: Locators;
-let patient: TelemedPrebookPatientTestData;
+let patient: TelemedRpInsNoReqPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -18,7 +19,7 @@ test.beforeAll(async ({ browser }) => {
   paperwork = new Paperwork(page);
   locator = new Locators(page);
 
-  const testDataPath = path.join('test-data', 'prebookTelemedPatient.json');
+  const testDataPath = path.join('test-data', 'telemedRpInsNoReqPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {
@@ -26,7 +27,11 @@ test.afterAll(async () => {
   await context.close();
 });
 
-test.describe.parallel('Telemed - Prefilled Paperwork, Responsible Party: not self, Payment: Insurance', () => {
+const VirtualPrebookDependentTests = BOOKING_CONFIG.homepageOptions?.includes('schedule-virtual-visit')
+  ? test.describe.parallel
+  : test.describe.skip;
+
+VirtualPrebookDependentTests('Telemed - Prefilled Paperwork, Responsible Party: not self, Payment: Insurance', () => {
   test('VVPP-1. Contact information', async () => {
     await test.step('VVPP-1.1. Open Contact information page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/contact-information`);
@@ -54,7 +59,9 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Responsible Party: not se
     await test.step('VVPP-2.2. Check all fields have prefilled values', async () => {
       await expect(locator.patientEthnicity).toHaveValue(patient.patientDetailsData.randomEthnicity);
       await expect(locator.patientRace).toHaveValue(patient.patientDetailsData.randomRace);
-      await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
+      if (patient.patientDetailsData.randomPronoun && checkFieldHidden('patient-pronouns') === false) {
+        await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
+      }
       await expect(locator.patientPointOfDiscovery).toBeHidden();
       await expect(locator.patientPreferredLanguage).toHaveValue(patient.patientDetailsData.randomLanguage);
     });

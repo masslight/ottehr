@@ -5,9 +5,11 @@ import path from 'path';
 const isCI = Boolean(process.env.CI);
 const ENV = process.env.ENV?.trim?.() || 'local';
 const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
+const SMOKE_TEST = process.env.SMOKE_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
+const isGenerateSeedData = process.argv.includes('--generate-seed-data');
 const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e';
 const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
@@ -143,10 +145,15 @@ const setupTestDeps = async (): Promise<void> => {
     try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
-      execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
-        stdio: 'inherit',
-        env: { ...process.env, ENV },
-      });
+      execSync(
+        `bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV} ${
+          SMOKE_TEST === 'true' && '--mode smoke'
+        }`,
+        {
+          stdio: 'inherit',
+          env: { ...process.env, ENV },
+        }
+      );
     } catch (error) {
       console.error(`Failed to run e2e-test-setup.js for ${app}`);
       console.error(error?.message);
@@ -175,6 +182,33 @@ const waitForZambdas = async (): Promise<void> => {
   });
 };
 
+const generateSeedData = async (): Promise<void> => {
+  // On CI, seed data is only generated when --generate-seed-data flag is used
+  // Locally, seed data is generated automatically for EHR tests
+  if (isCI && !isGenerateSeedData) {
+    console.log('Skipping seed data generation on CI (not in generate-seed-data mode)');
+    return;
+  }
+
+  if (appName !== 'ehr') {
+    return; // Only generate for EHR tests
+  }
+
+  try {
+    console.log(`Generating seed data for ${ENV} environment...`);
+    execSync(`npx env-cmd -f apps/ehr/env/tests.${ENV}.json tsx scripts/generate-seed-data.ts`, {
+      stdio: 'inherit',
+      env: { ...process.env, ENV },
+    });
+    console.log('Seed data generated successfully');
+  } catch (error) {
+    console.error('Failed to generate seed data');
+    console.error(error?.message);
+    clearPorts();
+    process.exit(1);
+  }
+};
+
 const startApps = async (): Promise<void> => {
   if (isEnvWithZambdaLocalServer) {
     startZambdas();
@@ -195,8 +229,13 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
     const playwrightArgs = ['test', testFile];
     if (isUI) {
       playwrightArgs.push('--ui');
-    } else {
-      playwrightArgs.push('--headed=false');
+    }
+    // Tests run headless by default. Pass --headed manually if you want to see browser windows
+
+    console.log('SMOKE_TEST value:', SMOKE_TEST);
+
+    if (SMOKE_TEST === 'true') {
+      playwrightArgs.push('--grep', '@smoke');
     }
 
     return spawn('env-cmd', ['-f', `./env/tests.${ENV}.json`, 'npx', 'playwright', ...playwrightArgs], {
@@ -207,6 +246,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
         ...process.env,
         ENV,
         INTEGRATION_TEST,
+        SMOKE_TEST,
       },
     });
   }
@@ -217,9 +257,19 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
   };
 
   const baseArgs = commands[testType];
-  const extraArgs = isUI ? [] : ['--', '--headed=false'];
+  const extraArgs: string[] = [];
 
-  return spawn('turbo', [...baseArgs, ...extraArgs], {
+  // By default, tests run headless (no browser windows)
+  // If you want to see browser windows, pass --headed manually via PLAYWRIGHT_EXTRA_ARGS
+
+  if (SMOKE_TEST === 'true' && testType !== 'login') {
+    extraArgs.push('--grep', '@smoke');
+  }
+
+  // Build the playwright args as an environment variable for turbo to pass through
+  const playwrightArgs = extraArgs.length > 0 ? extraArgs.join(' ') : '';
+
+  return spawn('turbo', baseArgs, {
     shell: true,
     stdio: 'inherit',
     env: {
@@ -228,6 +278,8 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       PLAYWRIGHT_REPORT_SUFFIX: testType === 'login' ? '-login' : '',
       IS_LOGIN_TEST: testType === 'login' ? 'true' : 'false',
       ...(testType === 'specs' && { INTEGRATION_TEST }),
+      SMOKE_TEST,
+      PLAYWRIGHT_EXTRA_ARGS: playwrightArgs,
     },
   });
 }
@@ -253,6 +305,39 @@ function runTests(): void {
     return;
   }
 
+  if (isGenerateSeedData) {
+    // Seed data generation is only supported for EHR app
+    if (appName !== 'ehr') {
+      console.error(`Error: --generate-seed-data is only supported for EHR app, but got: ${appName}`);
+      process.exit(1);
+    }
+
+    console.log(`Running login test and seed data generation for ${appName}...`);
+    const loginTest = createTestProcess('login', appName);
+
+    loginTest.on('close', (loginCode) => {
+      if (loginCode === 0) {
+        console.log('Login test passed, generating seed data...');
+        generateSeedData()
+          .then(() => {
+            console.log('Seed data generation complete!');
+            clearPorts();
+            process.exit(0);
+          })
+          .catch((error) => {
+            console.error('Seed generation failed:', error);
+            clearPorts();
+            process.exit(1);
+          });
+      } else {
+        console.error('Login test failed');
+        clearPorts();
+        process.exit(loginCode ?? 1);
+      }
+    });
+    return;
+  }
+
   console.log(`Running full test suite for ${appName}...`);
   const loginTest = createTestProcess('login', appName);
   // let additionalLoginProcess: any | undefined = undefined;
@@ -271,11 +356,21 @@ function runTests(): void {
       //     process.exit(additionalLoginCode ?? 1);
       //   }
       // });
-      const specs = createTestProcess('specs', appName);
-      specs.on('close', (specsCode) => {
-        clearPorts();
-        process.exit(specsCode ?? 1);
-      });
+
+      // Generate seed data after successful login
+      generateSeedData()
+        .then(() => {
+          const specs = createTestProcess('specs', appName);
+          specs.on('close', (specsCode) => {
+            clearPorts();
+            process.exit(specsCode ?? 1);
+          });
+        })
+        .catch((error) => {
+          console.error('Seed generation failed:', error);
+          clearPorts();
+          process.exit(1);
+        });
     } else {
       clearPorts();
       process.exit(loginCode ?? 1);

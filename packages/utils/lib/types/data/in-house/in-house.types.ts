@@ -75,6 +75,7 @@ export interface TestItem {
   cptCode: string[];
   repeatable: boolean;
   components: {
+    // todo labs im not sure we ever have an instance where a test has both of these and i think we should assert that in this type
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };

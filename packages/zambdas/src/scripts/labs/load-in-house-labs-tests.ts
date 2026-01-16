@@ -8,6 +8,7 @@ import {
   ObservationDefinitionQualifiedInterval,
   ObservationDefinitionQuantitativeDetails,
   Reference,
+  RelatedArtifact,
   ValueSet,
 } from 'fhir/r4b';
 import fs from 'fs';
@@ -23,6 +24,7 @@ import {
   LabComponentValueSetConfig,
   OD_DISPLAY_CONFIG,
   OD_VALUE_VALIDATION_CONFIG,
+  REFLEX_ARTIFACT_DISPLAY,
   REFLEX_TEST_ALERT_URL,
   REFLEX_TEST_CONDITION_LANGUAGES,
   REFLEX_TEST_CONDITION_URL,
@@ -148,6 +150,27 @@ const makeObsDefExtension = (item: TestItemComponent): Extension[] => {
   return extension;
 };
 
+const makeRelatedArtifact = (item: TestItem): RelatedArtifact[] | undefined => {
+  const parentTestUrls: string[] = [];
+  item.components.forEach((component) => {
+    if (component.reflexLogic) {
+      if ('parentTestUrl' in component.reflexLogic) parentTestUrls.push(component.reflexLogic.parentTestUrl);
+    }
+  });
+  if (parentTestUrls.length === 0) return;
+
+  const artifacts: RelatedArtifact[] = [];
+  parentTestUrls.forEach((url) => {
+    const artifact: RelatedArtifact = {
+      resource: url,
+      type: 'depends-on',
+      display: REFLEX_ARTIFACT_DISPLAY,
+    };
+    artifacts.push(artifact);
+  });
+  return artifacts;
+};
+
 const makeActivityExtension = (item: TestItem): Extension[] | undefined => {
   const extension: Extension[] = [];
   if (item.repeatTest) {
@@ -158,7 +181,9 @@ const makeActivityExtension = (item: TestItem): Extension[] | undefined => {
   }
   const reflexLogics: ReflexLogic[] = [];
   item.components.forEach((component) => {
-    if (component.reflexLogic) reflexLogics.push(component.reflexLogic);
+    if (component.reflexLogic) {
+      if ('testToRun' in component.reflexLogic) reflexLogics.push(component.reflexLogic);
+    }
   });
   if (reflexLogics.length) {
     reflexLogics.forEach((logic) => {
@@ -475,6 +500,7 @@ async function main(): Promise<void> {
           },
         ],
       },
+      relatedArtifact: makeRelatedArtifact(testItem),
       extension: makeActivityExtension(testItem),
     };
 
@@ -589,7 +615,7 @@ interface ReflexLogic {
 interface BaseComponent {
   componentName: string;
   loincCode: string[];
-  reflexLogic?: ReflexLogic;
+  reflexLogic?: ReflexLogic | { parentTestUrl: string };
 }
 
 export interface CodeableConceptComponent extends BaseComponent {

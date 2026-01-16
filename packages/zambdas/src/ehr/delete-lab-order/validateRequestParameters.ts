@@ -3,6 +3,7 @@ import { ZambdaInput } from '../../shared';
 
 export interface DeleteLabOrderZambdaInputValidated extends DeleteLabOrderZambdaInput {
   secrets: Secrets;
+  userToken: string;
 }
 
 export function validateRequestParameters(input: ZambdaInput): DeleteLabOrderZambdaInputValidated {
@@ -10,6 +11,7 @@ export function validateRequestParameters(input: ZambdaInput): DeleteLabOrderZam
     throw new Error('No request body provided');
   }
 
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
   const { serviceRequestId } = JSON.parse(input.body);
 
   if (!serviceRequestId) {
@@ -23,5 +25,6 @@ export function validateRequestParameters(input: ZambdaInput): DeleteLabOrderZam
   return {
     serviceRequestId,
     secrets: input.secrets,
+    userToken,
   };
 }

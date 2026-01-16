@@ -5,6 +5,7 @@ import { FhirResource, HealthcareService, Location, Practitioner, Schedule } fro
 import fs from 'fs';
 import {
   allLicensesForPractitioner,
+  FULL_DAY_SCHEDULE,
   makeQualificationForPractitioner,
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL,
@@ -30,7 +31,15 @@ const getEnvironment = (): string => {
   return 'local';
 };
 
+const getMode = (): string | undefined => {
+  const modeFlagIndex = process.argv.findIndex((arg) => arg === '--mode');
+  const mode =
+    modeFlagIndex !== -1 && modeFlagIndex < process.argv.length - 1 ? process.argv[modeFlagIndex + 1] : undefined;
+  return mode || undefined;
+};
+
 const environment = getEnvironment();
+const mode = getMode();
 console.log(`Using environment: ${environment}`);
 
 interface EhrConfig {
@@ -212,14 +221,16 @@ async function getLocationsForTesting(
   console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
   console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
 
-  console.group('Ensure test location schedules and slots');
-  await Promise.all([
-    ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
-    ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
-    defaultGroupLocationsAndPractitioners.map((owner) =>
-      ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
-    ),
-  ]);
+  console.group('Ensure test location schedules and slots. Only if mode is not SMOKE');
+  if (mode !== 'smoke') {
+    await Promise.all([
+      ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
+      ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
+      defaultGroupLocationsAndPractitioners.map((owner) =>
+        ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
+      ),
+    ]);
+  }
   console.groupEnd();
 
   return {
@@ -455,244 +466,6 @@ createTestEnvFiles().catch((error) => {
   process.exit(1);
 });
 
-const FULL_DAY_SCHEDULE = `{
-  "schedule": {
-    "monday": {
-      "open": 0,
-      "close": 23,
-      "openingBuffer": 0,
-      "closingBuffer": 0,
-      "workingDay": true,
-      "hours": [
-        { "hour": 0, "capacity": 200 },
-        { "hour": 1, "capacity": 200 },
-        { "hour": 2, "capacity": 200 },
-        { "hour": 3, "capacity": 200 },
-        { "hour": 4, "capacity": 200 },
-        { "hour": 5, "capacity": 200 },
-        { "hour": 6, "capacity": 200 },
-        { "hour": 7, "capacity": 200 },
-        { "hour": 8, "capacity": 200 },
-        { "hour": 9, "capacity": 200 },
-        { "hour": 10, "capacity": 200 },
-        { "hour": 11, "capacity": 200 },
-        { "hour": 12, "capacity": 200 },
-        { "hour": 13, "capacity": 200 },
-        { "hour": 14, "capacity": 200 },
-        { "hour": 15, "capacity": 200 },
-        { "hour": 16, "capacity": 200 },
-        { "hour": 17, "capacity": 200 },
-        { "hour": 18, "capacity": 200 },
-        { "hour": 19, "capacity": 200 },
-        { "hour": 20, "capacity": 200 },
-        { "hour": 21, "capacity": 200 },
-        { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 }
-      ]
-    },
-    "tuesday": {
-      "open": 0,
-      "close": 23,
-      "openingBuffer": 0,
-      "closingBuffer": 0,
-      "workingDay": true,
-      "hours": [
-        { "hour": 0, "capacity": 200 },
-        { "hour": 1, "capacity": 200 },
-        { "hour": 2, "capacity": 200 },
-        { "hour": 3, "capacity": 200 },
-        { "hour": 4, "capacity": 200 },
-        { "hour": 5, "capacity": 200 },
-        { "hour": 6, "capacity": 200 },
-        { "hour": 7, "capacity": 200 },
-        { "hour": 8, "capacity": 200 },
-        { "hour": 9, "capacity": 200 },
-        { "hour": 10, "capacity": 200 },
-        { "hour": 11, "capacity": 200 },
-        { "hour": 12, "capacity": 200 },
-        { "hour": 13, "capacity": 200 },
-        { "hour": 14, "capacity": 200 },
-        { "hour": 15, "capacity": 200 },
-        { "hour": 16, "capacity": 200 },
-        { "hour": 17, "capacity": 200 },
-        { "hour": 18, "capacity": 200 },
-        { "hour": 19, "capacity": 200 },
-        { "hour": 20, "capacity": 200 },
-        { "hour": 21, "capacity": 200 },
-        { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 }
-      ]
-    },
-    "wednesday": {
-      "open": 0,
-      "close": 23,
-      "openingBuffer": 0,
-      "closingBuffer": 0,
-      "workingDay": true,
-      "hours": [
-        
-        { "hour": 0, "capacity": 200 },
-        { "hour": 1, "capacity": 200 },
-        { "hour": 2, "capacity": 200 },
-        { "hour": 3, "capacity": 200 },
-        { "hour": 4, "capacity": 200 },
-        { "hour": 5, "capacity": 200 },
-        { "hour": 6, "capacity": 200 },
-        { "hour": 7, "capacity": 200 },
-        { "hour": 8, "capacity": 200 },
-        { "hour": 9, "capacity": 200 },
-        { "hour": 10, "capacity": 200 },
-        { "hour": 11, "capacity": 200 },
-        { "hour": 12, "capacity": 200 },
-        { "hour": 13, "capacity": 200 },
-        { "hour": 14, "capacity": 200 },
-        { "hour": 15, "capacity": 200 },
-        { "hour": 16, "capacity": 200 },
-        { "hour": 17, "capacity": 200 },
-        { "hour": 18, "capacity": 200 },
-        { "hour": 19, "capacity": 200 },
-        { "hour": 20, "capacity": 200 },
-        { "hour": 21, "capacity": 200 },
-        { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 }
-      ]
-    },
-    "thursday": {
-      "open": 0,
-      "close": 23,
-      "openingBuffer": 0,
-      "closingBuffer": 0,
-      "workingDay": true,
-      "hours": [
-        { "hour": 0, "capacity": 200 },
-        { "hour": 1, "capacity": 200 },
-        { "hour": 2, "capacity": 200 },
-        { "hour": 3, "capacity": 200 },
-        { "hour": 4, "capacity": 200 },
-        { "hour": 5, "capacity": 200 },
-        { "hour": 6, "capacity": 200 },
-        { "hour": 7, "capacity": 200 },
-        { "hour": 8, "capacity": 200 },
-        { "hour": 9, "capacity": 200 },
-        { "hour": 10, "capacity": 200 },
-        { "hour": 11, "capacity": 200 },
-        { "hour": 12, "capacity": 200 },
-        { "hour": 13, "capacity": 200 },
-        { "hour": 14, "capacity": 200 },
-        { "hour": 15, "capacity": 200 },
-        { "hour": 16, "capacity": 200 },
-        { "hour": 17, "capacity": 200 },
-        { "hour": 18, "capacity": 200 },
-        { "hour": 19, "capacity": 200 },
-        { "hour": 20, "capacity": 200 },
-        { "hour": 21, "capacity": 200 },
-        { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 }
-      ]
-    },
-    "friday": {
-      "open": 0,
-      "close": 23,
-      "openingBuffer": 0,
-      "closingBuffer": 0,
-      "workingDay": true,
-      "hours": [
-        { "hour": 0, "capacity": 200 },
-        { "hour": 1, "capacity": 200 },
-        { "hour": 2, "capacity": 200 },
-        { "hour": 3, "capacity": 200 },
-        { "hour": 4, "capacity": 200 },
-        { "hour": 5, "capacity": 200 },
-        { "hour": 6, "capacity": 200 },
-        { "hour": 7, "capacity": 200 },
-        { "hour": 8, "capacity": 200 },
-        { "hour": 9, "capacity": 200 },
-        { "hour": 10, "capacity": 200 },
-        { "hour": 11, "capacity": 200 },
-        { "hour": 12, "capacity": 200 },
-        { "hour": 13, "capacity": 200 },
-        { "hour": 14, "capacity": 200 },
-        { "hour": 15, "capacity": 200 },
-        { "hour": 16, "capacity": 200 },
-        { "hour": 17, "capacity": 200 },
-        { "hour": 18, "capacity": 200 },
-        { "hour": 19, "capacity": 200 },
-        { "hour": 20, "capacity": 200 },
-        { "hour": 21, "capacity": 200 },
-        { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 }
-      ]
-    },
-    "saturday": {
-      "open": 0,
-      "close": 23,
-      "openingBuffer": 0,
-      "closingBuffer": 0,
-      "workingDay": true,
-      "hours": [
-        { "hour": 0, "capacity": 200 },
-        { "hour": 1, "capacity": 200 },
-        { "hour": 2, "capacity": 200 },
-        { "hour": 3, "capacity": 200 },
-        { "hour": 4, "capacity": 200 },
-        { "hour": 5, "capacity": 200 },
-        { "hour": 6, "capacity": 200 },
-        { "hour": 7, "capacity": 200 },
-        { "hour": 8, "capacity": 200 },
-        { "hour": 9, "capacity": 200 },
-        { "hour": 10, "capacity": 200 },
-        { "hour": 11, "capacity": 200 },
-        { "hour": 12, "capacity": 200 },
-        { "hour": 13, "capacity": 200 },
-        { "hour": 14, "capacity": 200 },
-        { "hour": 15, "capacity": 200 },
-        { "hour": 16, "capacity": 200 },
-        { "hour": 17, "capacity": 200 },
-        { "hour": 18, "capacity": 200 },
-        { "hour": 19, "capacity": 200 },
-        { "hour": 20, "capacity": 200 },
-        { "hour": 21, "capacity": 200 },
-        { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 }
-      ]
-    },
-    "sunday": {
-      "open": 0,
-      "close": 23,
-      "openingBuffer": 0,
-      "closingBuffer": 0,
-      "workingDay": true,
-      "hours": [
-        { "hour": 0, "capacity": 200 },
-        { "hour": 1, "capacity": 200 },
-        { "hour": 2, "capacity": 200 },
-        { "hour": 3, "capacity": 200 },
-        { "hour": 4, "capacity": 200 },
-        { "hour": 5, "capacity": 200 },
-        { "hour": 6, "capacity": 200 },
-        { "hour": 7, "capacity": 200 },
-        { "hour": 8, "capacity": 200 },
-        { "hour": 9, "capacity": 200 },
-        { "hour": 10, "capacity": 200 },
-        { "hour": 11, "capacity": 200 },
-        { "hour": 12, "capacity": 200 },
-        { "hour": 13, "capacity": 200 },
-        { "hour": 14, "capacity": 200 },
-        { "hour": 15, "capacity": 200 },
-        { "hour": 16, "capacity": 200 },
-        { "hour": 17, "capacity": 200 },
-        { "hour": 18, "capacity": 200 },
-        { "hour": 19, "capacity": 200 },
-        { "hour": 20, "capacity": 200 },
-        { "hour": 21, "capacity": 200 },
-        { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 }
-      ]
-    }
-  },
-  "scheduleOverrides": {}
-}`;
-
 async function ensureOwnerResourceSchedulesAndSlots(
   owner: Location | Practitioner,
   schedules: Schedule[],
@@ -727,7 +500,10 @@ async function ensureOwnerResourceSchedulesAndSlots(
             extension: [
               ...extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL),
               { url: SCHEDULE_EXTENSION_URL, valueString: FULL_DAY_SCHEDULE },
-              { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+              {
+                url: TIMEZONE_EXTENSION_URL,
+                valueString: existingTimezoneExtension ? existingTimezoneExtension.valueString : 'America/New_York',
+              },
             ],
           },
         });

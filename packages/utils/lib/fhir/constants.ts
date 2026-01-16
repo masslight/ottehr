@@ -512,6 +512,16 @@ export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
   ],
 };
 
+export const OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'OCCUPATIONALMEDICINEACCT',
+      display: 'occupational medicine account',
+    },
+  ],
+};
+
 export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   acceptsMultipleAnswers: `${PRIVATE_EXTENSION_BASE_URL}/accepts-multiple-answers`,
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
@@ -574,6 +584,9 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 };
 
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
+export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
+export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
+
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
   coding: [

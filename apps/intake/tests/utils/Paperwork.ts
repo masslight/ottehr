@@ -1,6 +1,7 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { AllStates, PatientEthnicity, PatientRace } from 'utils';
+import { AllStates, checkFieldHidden, PatientEthnicity, PatientRace } from 'utils';
+import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
@@ -32,7 +33,7 @@ export interface PatientDetailsRequiredData {
   randomLanguage: string;
 }
 export interface PatientDetailsData extends PatientDetailsRequiredData {
-  randomPronoun: string;
+  randomPronoun: string | undefined;
   randomPoint: string;
 }
 
@@ -59,7 +60,7 @@ export interface ResponsiblePartyData {
   zip: string;
 }
 
-interface EmployerInformationData {
+export interface EmployerInformationData {
   employerName: string;
   address1: string;
   address2: string;
@@ -74,7 +75,7 @@ interface EmployerInformationData {
   contactFax: string;
 }
 
-interface EmergencyContactData {
+export interface EmergencyContactData {
   relationship: string;
   firstName: string;
   lastName: string;
@@ -84,6 +85,16 @@ interface EmergencyContactData {
   city: string;
   state: string;
   zip: string;
+}
+
+interface AttorneyInformation {
+  hasAttorney: string;
+  firm: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  fax: string;
 }
 
 export interface TelemedPaperworkData {
@@ -114,7 +125,7 @@ export type InPersonPaperworkReturn<
   PaperworkResponsibleParty extends 'self' | 'not-self',
   PaperworkRequiredOnly extends boolean = false,
 > = {
-  stateValue: string;
+  state: string;
   patientDetailsData: PaperworkRequiredOnly extends true ? PatientDetailsRequiredData : PatientDetailsData;
   pcpData: PaperworkRequiredOnly extends true ? null : PrimaryCarePhysicianData;
   insuranceData: PaperworkPayment extends 'insurance'
@@ -136,6 +147,7 @@ export type InPersonPaperworkReturn<
   responsiblePartyData: PaperworkResponsibleParty extends 'not-self' ? ResponsiblePartyData : null;
   employerInformation: EmployerInformationData | null;
   emergencyContactInformation: EmergencyContactData;
+  attorneyInformation: AttorneyInformation | null;
 };
 
 export type TelemedPaperworkReturn<
@@ -143,7 +155,7 @@ export type TelemedPaperworkReturn<
   PaperworkResponsibleParty extends 'self' | 'not-self',
   PaperworkRequiredOnly extends boolean = false,
 > = {
-  stateValue: string;
+  state: string;
   patientDetailsData: PaperworkRequiredOnly extends true ? PatientDetailsRequiredData : PatientDetailsData;
   pcpData: PaperworkRequiredOnly extends true ? null : PrimaryCarePhysicianData;
   medicationData: TelemedPaperworkData;
@@ -168,6 +180,8 @@ export type TelemedPaperworkReturn<
       : null
     : null;
   responsiblePartyData: PaperworkResponsibleParty extends 'not-self' ? ResponsiblePartyData : null;
+  emergencyContactData: EmergencyContactData;
+  attorneyInformation: AttorneyInformation | null;
   uploadedPhotoCondition: Locator | null;
 };
 
@@ -179,7 +193,6 @@ export class Paperwork {
   context: BrowserContext;
   uploadPhoto: UploadDocs;
   paperworkTelemed: PaperworkTelemed;
-  employerInformationPageExists: boolean;
 
   constructor(page: Page) {
     this.page = page;
@@ -189,7 +202,6 @@ export class Paperwork {
     this.uploadPhoto = new UploadDocs(page);
     this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
-    this.employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
   }
   // todo grab from config instead!
   private language = ['English', 'Spanish'];
@@ -267,13 +279,11 @@ export class Paperwork {
     requiredOnly: RO;
   }): Promise<InPersonPaperworkReturn<P, RP, RO>> {
     await this.checkCorrectPageOpens('Contact information');
-    let stateValue: string;
+    let state: string;
     if (requiredOnly) {
-      const { stateValue: sv } = await this.fillContactInformationRequiredFields();
-      stateValue = sv;
+      state = await this.fillContactInformationRequiredFields();
     } else {
-      const { stateValue: sv } = await this.fillContactInformationAllFields();
-      stateValue = sv;
+      state = await this.fillContactInformationAllFields();
     }
     await this.locator.clickContinueButton();
 
@@ -317,7 +327,7 @@ export class Paperwork {
       await this.locator.clickBackButton();
     }
     if (payment === 'card') {
-      await this.fillAndAddCreditCard();
+      await this.fillAndAddCreditCardIfDoesntExist();
     }
     await this.locator.clickContinueButton();
 
@@ -328,19 +338,63 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
-    const employerInformation = this.employerInformationPageExists
+    // Check if employer information page is shown (conditional based on service category)
+    await expect(this.locator.flowHeading).not.toHaveText('Loading...', { timeout: 60000 });
+    const currentPageTitle = await this.locator.flowHeading.textContent();
+    const employerInformation =
+      currentPageTitle === 'Employer information'
+        ? await (async () => {
+            const data = await this.fillEmployerInformation();
+            await this.locator.clickContinueButton();
+            return data;
+          })()
+        : null;
+
+    // Wait for the page to transition away from "Responsible party information"
+    await this.page.waitForFunction(
+      () => {
+        const heading = document.querySelector('[data-testid="flow-page-title"]');
+        return heading && heading.textContent !== 'Responsible party information';
+      },
+      { timeout: 30000 }
+    );
+
+    // Now check which page we're on
+    const currentPage = await this.locator.flowHeading.textContent();
+
+    if (currentPage === 'Employer information') {
+      // Employer information page is shown, fill it
+      await this.locator.clickContinueButton();
+    } else if (currentPage === 'Emergency Contact') {
+      // Employer information page was skipped, already on emergency contact
+      // Continue with emergency contact form below
+    } else {
+      // Unexpected page
+      throw new Error(`Expected 'Employer information' or 'Emergency Contact', but got '${currentPage}'`);
+    }
+
+    // Now we should be on Emergency Contact page
+    await this.checkCorrectPageOpens('Emergency Contact');
+    const emergencyContactInformation = await this.fillEmergencyContactInformation();
+    await this.locator.clickContinueButton();
+    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: this.fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ])
       ? await (async () => {
-          await this.checkCorrectPageOpens('Employer information');
-          const data = await this.fillEmployerInformation();
+          await this.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+          const data = await this.fillAttorneyInformation();
           await this.locator.clickContinueButton();
           return data;
         })()
       : null;
-
-    await this.checkCorrectPageOpens('Emergency Contact');
-    const emergencyContactInformation = await this.fillEmergencyContactInformation();
-    await this.locator.clickContinueButton();
-
     await this.checkCorrectPageOpens('Photo ID');
     if (!requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
@@ -357,12 +411,13 @@ export class Paperwork {
     await this.locator.clickContinueButton();
 
     return {
-      stateValue,
+      state,
       patientDetailsData,
       pcpData,
       responsiblePartyData,
       employerInformation,
       emergencyContactInformation,
+      attorneyInformation,
       insuranceData,
       secondaryInsuranceData,
     } as InPersonPaperworkReturn<P, RP, RO>;
@@ -388,26 +443,26 @@ export class Paperwork {
     payment,
     responsibleParty,
     requiredOnly,
+    patientBasicInfo,
   }: {
     payment: P;
     responsibleParty: RP;
     requiredOnly: RO;
+    patientBasicInfo?: PatientBasicInfo;
   }): Promise<TelemedPaperworkReturn<P, RP, RO>> {
     await this.checkCorrectPageOpens('Contact information');
-    let stateValue: string;
+    let state: string;
     if (requiredOnly) {
-      const { stateValue: sv } = await this.fillContactInformationRequiredFields();
-      stateValue = sv;
+      state = await this.fillContactInformationRequiredFields();
     } else {
-      const { stateValue: sv } = await this.fillContactInformationAllFields();
-      stateValue = sv;
+      state = await this.fillContactInformationAllFields();
     }
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Patient details');
     const patientDetailsData = requiredOnly
       ? await this.fillPatientDetailsRequiredFields(true)
-      : await this.fillPatientDetailsAllFields(true);
+      : await this.fillPatientDetailsAllFields(true, patientBasicInfo?.isNewPatient);
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Primary Care Physician');
@@ -466,7 +521,7 @@ export class Paperwork {
 
     await this.checkCorrectPageOpens('Credit card details');
     // credit card required for virtual flows
-    await this.fillAndAddCreditCard();
+    await this.fillAndAddCreditCardIfDoesntExist();
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Responsible party information');
@@ -476,6 +531,27 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
+    await this.checkCorrectPageOpens('Emergency Contact');
+    const emergencyContactData = await this.fillEmergencyContactInformation();
+    await this.locator.clickContinueButton();
+    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: this.fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ])
+      ? await (async () => {
+          await this.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+          const data = await this.fillAttorneyInformation();
+          await this.locator.clickContinueButton();
+          return data;
+        })()
+      : null;
     await this.checkCorrectPageOpens('Photo ID');
     if (!requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
@@ -505,7 +581,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
 
     return {
-      stateValue,
+      state,
       patientDetailsData,
       pcpData,
       medicationData,
@@ -516,14 +592,16 @@ export class Paperwork {
       insuranceData,
       secondaryInsuranceData,
       responsiblePartyData,
+      emergencyContactData,
+      attorneyInformation,
       uploadedPhotoCondition,
     } as TelemedPaperworkReturn<P, RP, RO>;
   }
 
   // ---------------------------------------------------------------------------
 
-  async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {
-    const { stateValue } = await this.fillPatientState();
+  async fillContactInformationRequiredFields(): Promise<string> {
+    const state = await this.fillPatientState();
     await this.fillStreetAddress();
     await this.fillPatientCity();
     await this.fillPatientZip();
@@ -532,13 +610,13 @@ export class Paperwork {
     await expect(this.locator.patientCity).not.toBeEmpty();
     await expect(this.locator.patientState).not.toBeEmpty();
     await expect(this.locator.patientZip).not.toBeEmpty();
-    return { stateValue };
+    return state;
   }
-  async fillContactInformationAllFields(): Promise<{ stateValue: string }> {
-    const { stateValue } = await this.fillContactInformationRequiredFields();
+  async fillContactInformationAllFields(): Promise<string> {
+    const state = await this.fillContactInformationRequiredFields();
     await this.fillStreetAddressLine2();
     await this.fillMobileOptIn();
-    return { stateValue };
+    return state;
   }
   async fillStreetAddress(): Promise<void> {
     await this.locator.streetAddress.fill(PATIENT_ADDRESS);
@@ -552,13 +630,13 @@ export class Paperwork {
     await this.locator.patientCity.fill(PATIENT_CITY);
     await expect(this.locator.patientCity).toHaveValue(PATIENT_CITY);
   }
-  async fillPatientState(): Promise<{ stateValue: string }> {
-    const stateValue = this.getRandomState();
+  async fillPatientState(): Promise<string> {
+    const state = this.getRandomState();
     await this.locator.patientState.click();
-    await this.locator.patientState.fill(stateValue);
-    await this.page.getByRole('option', { name: stateValue }).click();
-    await expect(this.locator.patientState).toHaveValue(stateValue);
-    return { stateValue };
+    await this.locator.patientState.fill(state);
+    await this.page.getByRole('option', { name: state }).click();
+    await expect(this.locator.patientState).toHaveValue(state);
+    return state;
   }
   async fillPatientZip(): Promise<void> {
     await this.locator.patientZip.fill(PATIENT_ZIP);
@@ -608,12 +686,18 @@ export class Paperwork {
     return randomRace;
   }
   async fillPronoun(): Promise<PatientDetailsData['randomPronoun']> {
+    if (checkFieldHidden('patient-pronouns')) {
+      return undefined;
+    }
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
     const randomPronoun = this.getRandomElement(this.pronouns);
     await this.page.getByRole('option', { name: randomPronoun }).click();
     return randomPronoun;
   }
   async fillNotListedPronouns(): Promise<void> {
+    if (checkFieldHidden('patient-pronouns')) {
+      return;
+    }
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
     await this.page.getByRole('option', { name: 'My pronouns are not listed' }).click();
     await expect(this.locator.patientMyPronounsLabel).toBeVisible();
@@ -653,11 +737,14 @@ export class Paperwork {
     }
     return { randomEthnicity, randomRace, randomLanguage };
   }
-  async fillPatientDetailsAllFields(telemed?: boolean): Promise<PatientDetailsData> {
+  async fillPatientDetailsAllFields(telemed?: boolean, isNewPatient?: boolean): Promise<PatientDetailsData> {
     const randomEthnicity = await this.fillEthnicity();
     const randomRace = await this.fillRace();
     const randomPronoun = await this.fillPronoun();
-    const randomPoint = await this.fillPointOfDiscovery();
+    let randomPoint = '';
+    if (isNewPatient) {
+      randomPoint = await this.fillPointOfDiscovery();
+    }
     const randomLanguage = await this.fillPreferredLanguage();
     if (telemed) {
       await this.locator.relayServiceNo.check();
@@ -718,12 +805,13 @@ export class Paperwork {
   async selectSelfPayPayment(): Promise<void> {
     await this.locator.selfPayOption.check();
   }
-  async fillAndAddCreditCard(): Promise<void> {
+  async fillAndAddCreditCardIfDoesntExist(): Promise<void> {
+    if (await this.page.getByText(CARD_NUMBER_OBSCURED).first().isVisible({ timeout: 500 })) return;
     await this.locator.creditCardNumber.fill(CARD_NUMBER);
     await this.locator.creditCardCVC.fill(CARD_CVV);
     await this.locator.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locator.addCardButton.click();
-    await expect(this.page.getByText(CARD_NUMBER_OBSCURED)).toBeVisible();
+    await expect(this.page.getByText(CARD_NUMBER_OBSCURED).first()).toBeVisible();
   }
   async selectInsurancePayment(): Promise<void> {
     await this.locator.insuranceOption.check();
@@ -993,8 +1081,11 @@ export class Paperwork {
     await this.locator.employerAddress1.fill(address1);
     await this.locator.employerAddress2.fill(address2);
     await this.locator.employerCity.fill(city);
-    await this.locator.employerState.click();
-    await this.page.getByRole('option', { name: state }).click();
+    // if it's already selected - it won't work, so skipping if state is there
+    if ((await this.locator.employerState.getAttribute('value')) !== state) {
+      await this.locator.employerState.click();
+      await this.page.getByRole('option', { name: state }).click();
+    }
     await expect(this.locator.employerState).toHaveValue(state);
     await this.locator.employerZip.fill(zip);
     await this.locator.employerContactFirstName.fill(contactFirstName);
@@ -1071,11 +1162,48 @@ export class Paperwork {
     await this.locator.emergencyContactAddress.fill(address);
     await this.locator.emergencyContactAddressLine2.fill(addressLine2);
     await this.locator.emergencyContactCity.fill(city);
-    await this.locator.emergencyContactState.click();
-    await this.page.getByRole('option').first().click();
+    if ((await this.locator.emergencyContactState.getAttribute('value')) !== state) {
+      await this.locator.emergencyContactState.click();
+      await this.page.getByRole('option').first().click();
+    }
     await expect(this.locator.emergencyContactState).toHaveValue(state);
     await this.locator.emergencyContactZip.fill(zip);
     return { address, addressLine2, city, state, zip };
+  }
+
+  async fillAttorneyInformation(): Promise<AttorneyInformation> {
+    const hasAttorney = 'I have an attorney';
+    const firm = `Attorney Firm ${this.getRandomString()}`;
+    const firstName = `AttorneyFN${this.getRandomString()}`;
+    const lastName = `AttorneyLN${this.getRandomString()}`;
+    const email = `attorney${this.getRandomString()}@mail.com`;
+    const mobileRaw = PHONE_NUMBER;
+    const mobile = this.formatPhoneNumber(mobileRaw);
+    const faxRaw = '9876543210';
+    const fax = this.formatPhoneNumber(faxRaw);
+
+    // Select "I have an attorney" option
+    await this.locator.attorneyHasAttorney.click();
+
+    // Fill in all fields
+    await this.locator.attorneyFirm.fill(firm);
+    await this.locator.attorneyFirstName.fill(firstName);
+    await this.locator.attorneyLastName.fill(lastName);
+    await this.locator.attorneyEmail.fill(email);
+    await this.locator.attorneyMobile.fill(mobileRaw);
+    await expect(this.locator.attorneyMobile).toHaveValue(mobile);
+    await this.locator.attorneyFax.fill(faxRaw);
+    await expect(this.locator.attorneyFax).toHaveValue(fax);
+
+    return {
+      hasAttorney,
+      firm,
+      firstName,
+      lastName,
+      email,
+      mobile,
+      fax,
+    };
   }
 
   async checkImagesIsSaved(image: Locator): Promise<void> {

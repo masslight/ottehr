@@ -1209,7 +1209,9 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication')
+    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication') &&
+    // Chart data doesn't return cancelled orders. There is a separate endpoint that returns them (get-medication-orders)
+    resource.status !== 'entered-in-error'
   ) {
     data.inhouseMedications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
@@ -1537,7 +1539,12 @@ export function makeProceduresDTOFromFhirResources(
   resources: FhirResource[]
 ): ProcedureDTO[] | undefined {
   const proceduresServiceRequests: ServiceRequest[] = resources.filter(
-    (res) => res.resourceType === 'ServiceRequest' && chartDataResourceHasMetaTagByCode(res, 'procedure')
+    (res) =>
+      res.resourceType === 'ServiceRequest' &&
+      chartDataResourceHasMetaTagByCode(res, 'procedure') &&
+      // Filter out deleted procedures for backward compatibility
+      res.status !== 'entered-in-error' &&
+      res.status !== 'revoked'
   ) as ServiceRequest[];
 
   if (proceduresServiceRequests.length === 0) {
@@ -1664,6 +1671,7 @@ export const createProcedureServiceRequest = (
       reference: 'Procedure/' + cptCode.resourceId,
     };
   });
+
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',
     id: procedure.resourceId,

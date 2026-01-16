@@ -8,12 +8,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
 import { AddInsuranceModal } from 'src/features/visits/shared/components/patient/AddInsuranceModal';
+import { AttorneyInformationContainer } from 'src/features/visits/shared/components/patient/AttorneyInformationContainer';
 import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
 import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
 import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
 import { EmployerInformationContainer } from 'src/features/visits/shared/components/patient/EmployerInformationContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
+import { OccupationalMedicineEmployerInformationContainer } from 'src/features/visits/shared/components/patient/OccupationalMedicineEmployerContainer';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
 import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
@@ -21,14 +23,15 @@ import { ResponsibleInformationContainer } from 'src/features/visits/shared/comp
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
+  AppointmentContext,
   CoverageWithPriority,
   extractFirstValueFromAnswer,
   flattenItems,
   InsurancePlanDTO,
-  makePrepopulatedItemsFromPatientRecord,
   OrderedCoveragesWithSubscribers,
   PATIENT_RECORD_QUESTIONNAIRE,
   PatientAccountResponse,
+  prepopulatePatientRecordItems,
   pruneEmptySections,
   VALUE_SETS,
 } from 'utils';
@@ -80,25 +83,30 @@ const makePrepopulatedCoveragesFormDefaults = ({
   coverages,
   patient,
   insuranceOrgs,
+  employerOrganization,
   questionnaire,
 }: {
   coverages: OrderedCoveragesWithSubscribers;
   patient: Patient;
   insuranceOrgs: Organization[];
+  employerOrganization?: Organization;
   questionnaire: Questionnaire;
 }): Record<string, any> => {
   if (!questionnaire?.item) return {};
 
   const filteredQuestionnaire: Questionnaire = {
     ...questionnaire,
-    item: questionnaire.item.filter((item) => COVERAGE_ITEMS.includes(item.linkId)),
+    item: questionnaire.item.filter(
+      (item) => COVERAGE_ITEMS.includes(item.linkId) || item.linkId === 'employer-information-page'
+    ),
   };
 
-  const prepopulatedItems = makePrepopulatedItemsFromPatientRecord({
+  const prepopulatedItems = prepopulatePatientRecordItems({
     coverages,
     patient,
     insuranceOrgs,
     questionnaire: filteredQuestionnaire,
+    employerOrganization,
     coverageChecks: [],
   });
 
@@ -132,7 +140,8 @@ const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO
 };
 
 const usePatientData = (
-  id: string | undefined
+  id: string | undefined,
+  appointmentContext?: AppointmentContext
 ): {
   accountData?: PatientAccountResponse;
   insuranceData?: {
@@ -147,15 +156,25 @@ const usePatientData = (
 } => {
   const apiClient = useOystehrAPIClient();
 
-  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({
+  const {
+    isFetching: accountFetching,
+    data: accountData,
+    status: accountStatus,
+  } = useGetPatientAccount({
     apiClient,
     patientId: id ?? null,
   });
 
-  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages({
-    apiClient,
-    patientId: id ?? null,
-  });
+  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages(
+    {
+      apiClient,
+      patientId: id ?? null,
+    },
+    undefined,
+    {
+      enabled: accountStatus === 'success',
+    }
+  );
 
   const coverages: CoverageWithPriority[] = useMemo(() => {
     if (!insuranceData?.coverages) return [];
@@ -177,17 +196,18 @@ const usePatientData = (
 
     let defaultFormVals: any;
     if (!isFetching && accountData && questionnaire) {
-      const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({
+      const prepopulatedForm = prepopulatePatientRecordItems({
         ...accountData,
         coverages: {},
         insuranceOrgs: [],
         questionnaire,
+        appointmentContext,
       });
       defaultFormVals = makeFormDefaults(prepopulatedForm);
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, accountFetching]);
+  }, [accountData, accountFetching, appointmentContext]);
 
   return {
     accountData,
@@ -223,6 +243,7 @@ const useFormData = (
         coverages: insuranceData.coverages,
         patient: accountData.patient,
         insuranceOrgs: insuranceData.insuranceOrgs,
+        employerOrganization: accountData.employerOrganization,
         questionnaire,
       });
       coveragesFormValues = { ...formDefaults };
@@ -269,6 +290,7 @@ interface PatientAccountComponentProps {
   containerSX?: SxProps;
   loadingComponent?: ReactElement;
   renderBackButton?: boolean;
+  appointmentContext?: AppointmentContext;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -279,12 +301,13 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   containerSX = {},
   loadingComponent = <LoadingScreen />,
   renderBackButton = true,
+  appointmentContext,
 }) => {
   const navigate = useNavigate();
   const { setInsurancePlans } = usePatientStore();
 
   const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
-    usePatientData(id);
+    usePatientData(id, appointmentContext);
 
   const { methods, coveragesFormValues } = useFormData(defaultFormVals, coveragesFetching, insuranceData, accountData);
 
@@ -418,6 +441,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                   />
                   <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
                   <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  <OccupationalMedicineEmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  <AttorneyInformationContainer isLoading={isFetching || submitQR.isPending} />
                   <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
                   <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
                 </Box>
