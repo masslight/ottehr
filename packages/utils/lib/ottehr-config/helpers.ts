@@ -7,7 +7,7 @@ import { deepFreezeObject } from '../utils';
 export const mergeAndFreezeConfigObjects = <T>(overrideConfig: Partial<T>, baseConfig: T): T => {
   const merged = _.mergeWith(_.cloneDeep(overrideConfig), _.cloneDeep(baseConfig), (objValue, srcValue) => {
     if (Array.isArray(srcValue)) {
-      return objValue ?? [];
+      return objValue ?? srcValue;
     }
   });
 
