@@ -4,6 +4,7 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   toVitalOxygenSatObservationMethod,
   VitalFieldNames,
@@ -128,6 +129,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.oxygenSaturationItem}
             />
           );
         }}
@@ -141,6 +143,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
         label={`Oxygen sat (%) ${latestOxySatValue ?? ''}`}
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.oxygenSaturationHeader}
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -169,6 +172,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
                     disabled={isSaving}
                     isInputError={isOxySatValidationError}
                     onChange={handleTextInputChange}
+                    data-testid={dataTestIds.vitalsPage.oxygenSaturationInput}
                   />
                 </Grid>
 
@@ -205,6 +209,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.oxygenSaturationAddButton}
                   >
                     Add
                   </RoundedButton>

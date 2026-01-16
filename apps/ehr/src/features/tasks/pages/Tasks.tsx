@@ -19,7 +19,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
-import { Option } from 'src/components/input/Option';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
@@ -45,8 +44,8 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   'in-progress': 'in progress',
   completed: 'completed',
 };
-const CATEGORY_OPTIONS: Option[] = Object.entries(
-  Object.entries(TASK_CATEGORY_LABEL).reduce<Record<string, string>>((previousValue, entry) => {
+const CATEGORIES: Record<string, string> = Object.entries(TASK_CATEGORY_LABEL).reduce<Record<string, string>>(
+  (previousValue, entry) => {
     const category = entry[0];
     const label = entry[1];
     if (previousValue[label]) {
@@ -55,19 +54,9 @@ const CATEGORY_OPTIONS: Option[] = Object.entries(
       previousValue[label] = category;
     }
     return previousValue;
-  }, {})
-).map((entry) => {
-  return {
-    label: entry[0],
-    value: entry[1],
-  };
-});
-const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) => {
-  return {
-    label: entry[1],
-    value: entry[0],
-  };
-});
+  },
+  {}
+);
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
@@ -195,9 +184,19 @@ export const Tasks: React.FC = () => {
           <Paper>
             <Stack direction="row" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" />
-              <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
+              <SelectInput
+                name="category"
+                label="Category"
+                options={Object.keys(CATEGORIES)}
+                getOptionLabel={(option) => CATEGORIES[option]}
+              />
               <EmployeeSelectInput name="assignedTo" label="Assigned to" />
-              <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
+              <SelectInput
+                name="status"
+                label="Status"
+                options={Object.keys(TASK_STATUS_LABEL)}
+                getOptionLabel={(option) => TASK_STATUS_LABEL[option]}
+              />
               <RoundedButton variant="contained" onClick={onNewTaskClick} startIcon={<AddIcon />}>
                 New Task
               </RoundedButton>

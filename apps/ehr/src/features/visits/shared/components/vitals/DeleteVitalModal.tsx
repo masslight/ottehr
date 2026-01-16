@@ -1,3 +1,4 @@
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { VitalsObservationDTO } from 'utils';
 
@@ -19,6 +20,7 @@ export const DeleteVitalModal: React.FC<{
       confirmText="Delete"
       errorMessage="Can't delete vital observation. Please try again later."
       showEntityPreview={false}
+      dataTestId={dataTestIds.vitalsPage.deleteVitalModal}
     />
   );
 };

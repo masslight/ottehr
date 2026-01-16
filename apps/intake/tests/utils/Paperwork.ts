@@ -1,6 +1,6 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { AllStates, PatientEthnicity, PatientRace } from 'utils';
+import { AllStates, checkFieldHidden, PatientEthnicity, PatientRace } from 'utils';
 import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
@@ -33,7 +33,7 @@ export interface PatientDetailsRequiredData {
   randomLanguage: string;
 }
 export interface PatientDetailsData extends PatientDetailsRequiredData {
-  randomPronoun: string;
+  randomPronoun: string | undefined;
   randomPoint: string;
 }
 
@@ -87,6 +87,16 @@ export interface EmergencyContactData {
   zip: string;
 }
 
+interface AttorneyInformation {
+  hasAttorney: string;
+  firm: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  fax: string;
+}
+
 export interface TelemedPaperworkData {
   filledValue: string;
   selectedValue: string;
@@ -137,6 +147,7 @@ export type InPersonPaperworkReturn<
   responsiblePartyData: PaperworkResponsibleParty extends 'not-self' ? ResponsiblePartyData : null;
   employerInformation: EmployerInformationData | null;
   emergencyContactInformation: EmergencyContactData;
+  attorneyInformation: AttorneyInformation | null;
 };
 
 export type TelemedPaperworkReturn<
@@ -169,6 +180,8 @@ export type TelemedPaperworkReturn<
       : null
     : null;
   responsiblePartyData: PaperworkResponsibleParty extends 'not-self' ? ResponsiblePartyData : null;
+  emergencyContactData: EmergencyContactData;
+  attorneyInformation: AttorneyInformation | null;
   uploadedPhotoCondition: Locator | null;
 };
 
@@ -180,7 +193,6 @@ export class Paperwork {
   context: BrowserContext;
   uploadPhoto: UploadDocs;
   paperworkTelemed: PaperworkTelemed;
-  employerInformationPageExists: boolean;
 
   constructor(page: Page) {
     this.page = page;
@@ -190,7 +202,6 @@ export class Paperwork {
     this.uploadPhoto = new UploadDocs(page);
     this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
-    this.employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
   }
   // todo grab from config instead!
   private language = ['English', 'Spanish'];
@@ -327,8 +338,17 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
-    // Check if employer information page appears (it may be conditionally hidden in the actual app)
-    let employerInformation = null;
+    // Check if employer information page is shown (conditional based on service category)
+    await expect(this.locator.flowHeading).not.toHaveText('Loading...', { timeout: 60000 });
+    const currentPageTitle = await this.locator.flowHeading.textContent();
+    const employerInformation =
+      currentPageTitle === 'Employer information'
+        ? await (async () => {
+            const data = await this.fillEmployerInformation();
+            await this.locator.clickContinueButton();
+            return data;
+          })()
+        : null;
 
     // Wait for the page to transition away from "Responsible party information"
     await this.page.waitForFunction(
@@ -344,7 +364,6 @@ export class Paperwork {
 
     if (currentPage === 'Employer information') {
       // Employer information page is shown, fill it
-      employerInformation = await this.fillEmployerInformation();
       await this.locator.clickContinueButton();
     } else if (currentPage === 'Emergency Contact') {
       // Employer information page was skipped, already on emergency contact
@@ -358,7 +377,24 @@ export class Paperwork {
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
-
+    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: this.fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ])
+      ? await (async () => {
+          await this.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+          const data = await this.fillAttorneyInformation();
+          await this.locator.clickContinueButton();
+          return data;
+        })()
+      : null;
     await this.checkCorrectPageOpens('Photo ID');
     if (!requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
@@ -381,6 +417,7 @@ export class Paperwork {
       responsiblePartyData,
       employerInformation,
       emergencyContactInformation,
+      attorneyInformation,
       insuranceData,
       secondaryInsuranceData,
     } as InPersonPaperworkReturn<P, RP, RO>;
@@ -494,6 +531,27 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
+    await this.checkCorrectPageOpens('Emergency Contact');
+    const emergencyContactData = await this.fillEmergencyContactInformation();
+    await this.locator.clickContinueButton();
+    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: this.fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ])
+      ? await (async () => {
+          await this.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+          const data = await this.fillAttorneyInformation();
+          await this.locator.clickContinueButton();
+          return data;
+        })()
+      : null;
     await this.checkCorrectPageOpens('Photo ID');
     if (!requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
@@ -534,6 +592,8 @@ export class Paperwork {
       insuranceData,
       secondaryInsuranceData,
       responsiblePartyData,
+      emergencyContactData,
+      attorneyInformation,
       uploadedPhotoCondition,
     } as TelemedPaperworkReturn<P, RP, RO>;
   }
@@ -626,12 +686,18 @@ export class Paperwork {
     return randomRace;
   }
   async fillPronoun(): Promise<PatientDetailsData['randomPronoun']> {
+    if (checkFieldHidden('patient-pronouns')) {
+      return undefined;
+    }
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
     const randomPronoun = this.getRandomElement(this.pronouns);
     await this.page.getByRole('option', { name: randomPronoun }).click();
     return randomPronoun;
   }
   async fillNotListedPronouns(): Promise<void> {
+    if (checkFieldHidden('patient-pronouns')) {
+      return;
+    }
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
     await this.page.getByRole('option', { name: 'My pronouns are not listed' }).click();
     await expect(this.locator.patientMyPronounsLabel).toBeVisible();
@@ -1103,6 +1169,41 @@ export class Paperwork {
     await expect(this.locator.emergencyContactState).toHaveValue(state);
     await this.locator.emergencyContactZip.fill(zip);
     return { address, addressLine2, city, state, zip };
+  }
+
+  async fillAttorneyInformation(): Promise<AttorneyInformation> {
+    const hasAttorney = 'I have an attorney';
+    const firm = `Attorney Firm ${this.getRandomString()}`;
+    const firstName = `AttorneyFN${this.getRandomString()}`;
+    const lastName = `AttorneyLN${this.getRandomString()}`;
+    const email = `attorney${this.getRandomString()}@mail.com`;
+    const mobileRaw = PHONE_NUMBER;
+    const mobile = this.formatPhoneNumber(mobileRaw);
+    const faxRaw = '9876543210';
+    const fax = this.formatPhoneNumber(faxRaw);
+
+    // Select "I have an attorney" option
+    await this.locator.attorneyHasAttorney.click();
+
+    // Fill in all fields
+    await this.locator.attorneyFirm.fill(firm);
+    await this.locator.attorneyFirstName.fill(firstName);
+    await this.locator.attorneyLastName.fill(lastName);
+    await this.locator.attorneyEmail.fill(email);
+    await this.locator.attorneyMobile.fill(mobileRaw);
+    await expect(this.locator.attorneyMobile).toHaveValue(mobile);
+    await this.locator.attorneyFax.fill(faxRaw);
+    await expect(this.locator.attorneyFax).toHaveValue(fax);
+
+    return {
+      hasAttorney,
+      firm,
+      firstName,
+      lastName,
+      email,
+      mobile,
+      fax,
+    };
   }
 
   async checkImagesIsSaved(image: Locator): Promise<void> {

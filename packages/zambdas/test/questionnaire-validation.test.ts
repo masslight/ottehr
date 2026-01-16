@@ -1,5 +1,5 @@
 import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, makeValidationSchema } from 'utils';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { AnyObjectSchema, AnySchema } from 'yup';
 import { createOystehrClient, getAuth0Token } from '../src/shared';
 import QRData from './data/questionnaire-responses.json';

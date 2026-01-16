@@ -8,7 +8,7 @@ import {
   QuestionnaireResponse,
   Resource,
 } from 'fhir/r4b';
-import { TELEMED_VIDEO_ROOM_CODE, TelemedStatusHistoryElement } from 'utils';
+import { INSURANCE_PAY_OPTION, TELEMED_VIDEO_ROOM_CODE, TelemedStatusHistoryElement } from 'utils';
 import { LocationIdToStateAbbreviationMap } from '../helpers/types';
 
 // VR - Video Room
@@ -398,7 +398,7 @@ export const questionnaireForReadyEncounter: QuestionnaireResponse = {
       linkId: 'payment-option',
       answer: [
         {
-          valueString: 'I have insurance',
+          valueString: INSURANCE_PAY_OPTION,
         },
       ],
     },
@@ -760,7 +760,7 @@ export const questionnaireForPreVideoEncounter: QuestionnaireResponse = {
       linkId: 'payment-option',
       answer: [
         {
-          valueString: 'I have insurance',
+          valueString: INSURANCE_PAY_OPTION,
         },
       ],
     },

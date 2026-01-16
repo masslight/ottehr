@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Observation, ObservationComponent, Patient, Practitioner } from 'fhir/r4b';
 import {
   convertVitalsListToMap,
   extractBloodPressureObservationMethod,
@@ -23,6 +23,7 @@ import {
   SecretsKeys,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
+  VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
@@ -30,6 +31,8 @@ import {
   VitalsOxygenSatObservationDTO,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
+  VitalsWeightObservationDTO,
+  VitalsWeightOption,
 } from 'utils';
 import * as z from 'zod';
 import {
@@ -180,6 +183,8 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
         vitalObservation = parseBloodPressureObservation(observation, performer);
       } else if (field === VitalFieldNames.VitalVision) {
         vitalObservation = parseVisionObservation(observation, performer);
+      } else if (field === VitalFieldNames.VitalWeight) {
+        vitalObservation = parseWeightObservation(observation, performer);
       } else {
         vitalObservation = parseNumericValueObservation(observation, performer, field);
       }
@@ -220,6 +225,61 @@ const parseBloodPressureObservation = (
     authorId: performer.id,
     authorName: getFullName(performer),
     observationMethod: extractBloodPressureObservationMethod(observation),
+    lastUpdated: observation.effectiveDateTime || '',
+  };
+};
+
+export const extractWeightOptions = (components: ObservationComponent[]): VitalsWeightOption[] => {
+  const allExtraWeightOptions: VitalsWeightOption[] = ['patient_refused'];
+
+  return allExtraWeightOptions.filter((option) => {
+    let optionCode = '';
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+    }
+
+    const optionComponent = components.find((cmp) => {
+      return cmp.code?.coding?.find((coding) => coding?.code === optionCode);
+    });
+
+    return optionComponent?.valueBoolean === true;
+  });
+};
+
+const parseWeightObservation = (
+  observation: Observation,
+  performer: Practitioner
+): VitalsWeightObservationDTO | undefined => {
+  const fieldCode = observation?.meta?.tag?.find(
+    (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
+  )?.code;
+
+  if (fieldCode !== VitalFieldNames.VitalWeight) return undefined;
+
+  const value = observation.valueQuantity?.value;
+  const components = observation.component || [];
+  const weightOptions = extractWeightOptions(components);
+
+  if (weightOptions.includes('patient_refused')) {
+    return {
+      resourceId: observation.id,
+      field: VitalFieldNames.VitalWeight,
+      extraWeightOptions: ['patient_refused'],
+      authorId: performer.id,
+      authorName: getFullName(performer),
+      lastUpdated: observation.effectiveDateTime || '',
+    };
+  }
+
+  if (value === undefined) return undefined;
+
+  return {
+    resourceId: observation.id,
+    field: VitalFieldNames.VitalWeight,
+    value,
+    extraWeightOptions: weightOptions as Omit<VitalsWeightOption, 'patient_refused'>[],
+    authorId: performer.id,
+    authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
   };
 };
