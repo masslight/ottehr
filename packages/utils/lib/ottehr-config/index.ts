@@ -14,3 +14,4 @@ export * from './value-sets';
 export * from './types';
 export * from './forms';
 export * from './shared-questionnaire';
+export * from './consent-forms';

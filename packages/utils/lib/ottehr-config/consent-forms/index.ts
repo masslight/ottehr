@@ -1,0 +1,107 @@
+import { z } from 'zod';
+import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
+import { PAPERWORK_CONSENT_CODE_UNIQUE, PAPERWORK_CONSENT_CODING_LOINC, PRIVACY_POLICY_CODE } from '../../types';
+import { mergeAndFreezeConfigObjects } from '../helpers';
+
+const CodingSchema = z.object({
+  system: z.string().optional(),
+  code: z.string().optional(),
+  display: z.string().optional(),
+});
+
+const ConsentFormSchema = z.object({
+  id: z.string(),
+  formTitle: z.string(),
+  resourceTitle: z.string(),
+  type: z.object({
+    coding: z.array(CodingSchema).min(1),
+    text: z.string().optional(),
+  }),
+  createsConsentResource: z.boolean(),
+  assetPath: z.union([
+    z.string(),
+    z.object({
+      default: z.string(),
+      byState: z.record(z.string(), z.string()).optional(),
+    }),
+  ]),
+});
+
+const ConsentFormsConfigSchema = z.object({
+  forms: z.array(ConsentFormSchema).min(1),
+});
+
+export type ConsentFormConfig = z.infer<typeof ConsentFormSchema>;
+export type ConsentFormsConfig = z.infer<typeof ConsentFormsConfigSchema>;
+
+const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
+  forms: [
+    {
+      id: 'consent-to-treat',
+      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+      resourceTitle: 'Consent forms',
+      assetPath: {
+        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        byState: {
+          IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+        },
+      },
+      type: {
+        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
+        text: 'Consent forms',
+      },
+      createsConsentResource: true,
+    },
+    {
+      id: 'hipaa-acknowledgement',
+      formTitle: 'HIPAA Acknowledgement',
+      resourceTitle: 'HIPAA forms',
+      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+      type: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: PRIVACY_POLICY_CODE,
+            display: 'Privacy Policy',
+          },
+        ],
+        text: 'HIPAA Acknowledgement forms',
+      },
+      createsConsentResource: false,
+    },
+  ],
+};
+
+const mergedConsentFormsConfig = mergeAndFreezeConfigObjects(CONSENT_FORMS_OVERRIDE, DEFAULT_CONSENT_FORMS);
+
+export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentFormsConfig);
+
+export const getConsentForms = (): ConsentFormConfig[] => {
+  return CONSENT_FORMS_CONFIG.forms;
+};
+
+export const getConsentFormById = (formId: string): ConsentFormConfig | undefined => {
+  return CONSENT_FORMS_CONFIG.forms.find((f) => f.id === formId);
+};
+
+export const getConsentFormAssetPath = (formId: string, locationState?: string): string | undefined => {
+  const form = getConsentFormById(formId);
+  if (!form) return undefined;
+
+  if (typeof form.assetPath === 'string') {
+    return form.assetPath;
+  }
+
+  if (locationState && form.assetPath.byState?.[locationState]) {
+    return form.assetPath.byState[locationState];
+  }
+
+  return form.assetPath.default;
+};
+
+export const getConsentFormsForLocation = (locationState?: string): ConsentFormConfig[] => {
+  return CONSENT_FORMS_CONFIG.forms.map((form) => ({
+    ...form,
+    assetPath: getConsentFormAssetPath(form.id, locationState) || form.assetPath,
+  }));
+};
