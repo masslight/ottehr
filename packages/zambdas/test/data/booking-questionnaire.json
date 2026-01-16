@@ -1,10 +1,4 @@
 {
-  "resourceType": "Questionnaire",
-  "url": "https://ottehr.com/FHIR/Questionnaire/book-appointment",
-  "version": "1.0.0",
-  "name": "BookAppointmentQuestionnaire",
-  "title": "Book Appointment Form",
-  "status": "active",
   "item": [
     {
       "linkId": "patient-information-page",
