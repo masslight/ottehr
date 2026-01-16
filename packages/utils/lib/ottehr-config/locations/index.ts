@@ -1,6 +1,6 @@
-import _ from 'lodash';
 import * as z from 'zod';
 import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const overrides: any = OVERRIDES || {};
 const LOCATION_DEFAULTS: any = {
@@ -10,10 +10,7 @@ const LOCATION_DEFAULTS: any = {
   supportScheduleGroups: [],
 };
 
-const mergedLocationConfig = _.merge(
-  JSON.parse(JSON.stringify(LOCATION_DEFAULTS)),
-  JSON.parse(JSON.stringify(overrides || {}))
-);
+const mergedLocationConfig = mergeAndFreezeConfigObjects(overrides, LOCATION_DEFAULTS);
 
 const locationArraySchema = z.array(
   z.object({
