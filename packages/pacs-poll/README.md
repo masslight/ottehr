@@ -29,4 +29,4 @@ Name the files <something>.env.json.
 
 `npm run bundle` &mdash; Bundles code to index.js
 
-The script is intended to be run from a cron job on a PACS gateway server. Copy the dist folder to the server and run it on an appropriate with a cron task.
+The script is intended to be run from a cron job on a PACS gateway server. Copy the dist folder to the server and run it with an appropriate cron task.

@@ -8,11 +8,9 @@ import {
   createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
   getSecret,
-  RoleType,
   SavePreliminaryReportZambdaOutput,
   Secrets,
   SecretsKeys,
-  User,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
@@ -27,8 +25,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const secrets = validateSecrets(unsafeInput.secrets);
 
     const validatedInput = await validateInput(unsafeInput);
-
-    await accessCheck(validatedInput.callerAccessToken, secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -97,22 +93,6 @@ async function performEffect(
 
   return {};
 }
-
-const accessCheck = async (callerAccessToken: string, secrets: Secrets): Promise<void> => {
-  const callerUser = await getCallerUserWithAccessToken(callerAccessToken, secrets);
-
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
-
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
-};
 
 /**
  * Creates a DiagnosticReport in AdvaPACS for a ServiceRequest with preliminary findings

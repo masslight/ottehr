@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
+import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, HumanName, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
@@ -12,6 +12,7 @@ import {
   CreateRadiologyZambdaOrderOutput,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getAdvaPACSLocationForAppointmentOrEncounter,
+  getCallerUserWithAccessToken,
   getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
@@ -26,7 +27,6 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -96,10 +96,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
-
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  return userMe(token, secrets);
-};
 
 const performEffect = async (
   validatedInput: ValidatedInput,
