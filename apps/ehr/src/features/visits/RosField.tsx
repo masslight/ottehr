@@ -205,7 +205,9 @@ export const RosFieldReadOnly: FC = () => {
       <Typography variant="subtitle2" color="primary.dark">
         ROS provider notes
       </Typography>
-      <Typography variant="body2">{ros}</Typography>
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+        {ros}
+      </Typography>
     </Box>
   );
 };
