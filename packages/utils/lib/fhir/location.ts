@@ -291,3 +291,7 @@ const DEPLOYED_LOCATIONS = Object.values(locationsSpec.fhirResources)
   .map((res) => (res as { resource: Location }).resource);
 
 export const DEPLOYED_TELEMED_LOCATIONS = DEPLOYED_LOCATIONS.filter((location) => isLocationVirtual(location));
+
+export const DEPLOYED_INPERSON_LOCATIONS: Location[] = DEPLOYED_LOCATIONS.filter(
+  (location) => !isLocationVirtual(location)
+);

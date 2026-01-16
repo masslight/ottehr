@@ -110,7 +110,7 @@ const FormFieldsValueTypeBaseSchema = z.object({
   triggers: z.array(triggerSchema).optional(),
   dynamicPopulation: dynamicPopulationSchema.optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-  disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
+  disabledDisplay: z.enum(['hidden', 'disabled']).default('hidden'),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
   inputWidth: z.enum(['s', 'm', 'l']).optional(),
   autocomplete: z.string().optional(),
@@ -993,6 +993,8 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         for (const [, field] of Object.entries(items)) {
           let questionnaireItem: QuestionnaireItem;
           const typedField = field as any;
+          // Skip hidden fields
+          if (section.hiddenFields?.includes(typedField.key)) continue;
           if (typedField.type === 'display') {
             questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
           } else if (typedField.type === 'attachment') {
@@ -1039,6 +1041,8 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
       for (const [, field] of Object.entries(section.items)) {
         let questionnaireItem: QuestionnaireItem;
         const typedField = field as any;
+        // Skip hidden fields
+        if (section.hiddenFields?.includes(typedField.key)) continue;
         if (typedField.type === 'display') {
           questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
         } else if (typedField.type === 'attachment') {
