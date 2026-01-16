@@ -8,6 +8,7 @@ import {
   FormControl,
   IconButton,
   InputLabel,
+  Link,
   MenuItem,
   Select,
   SelectChangeEvent,
@@ -18,7 +19,7 @@ import { DataGrid, GridColDef, GridToolbarContainer, GridToolbarExport } from '@
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import type { RecentPatientsReportZambdaOutput } from 'utils';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getRecentPatientsReport } from '../../api/api';
@@ -265,6 +266,21 @@ export default function RecentPatients(): React.ReactElement {
   const columns = useMemo<GridColDef[]>(
     () =>
       [
+        {
+          field: 'patientId',
+          headerName: 'Patient ID',
+          flex: 1,
+          minWidth: 120,
+          sortable: true,
+          renderCell: (params) => {
+            const patientId = params.value as string;
+            return (
+              <Link component={RouterLink} to={`/patient/${patientId}`} target="_blank" underline="hover">
+                {patientId}
+              </Link>
+            );
+          },
+        },
         {
           field: 'firstName',
           headerName: 'First Name',

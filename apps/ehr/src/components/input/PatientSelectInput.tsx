@@ -5,7 +5,6 @@ import { getPatientLabel } from 'src/features/tasks/common';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { AutocompleteInput } from './AutocompleteInput';
-import { Option } from './Option';
 
 type Props = {
   name: string;
@@ -17,7 +16,7 @@ type Props = {
 export const PatientSelectInput: React.FC<Props> = ({ name, label, required, dataTestId }) => {
   const { oystehr } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [options, setOptions] = useState<Option[]>([]);
+  const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
 
   const { debounce } = useDebounce(800);
   const debouncedHandleInputChange = (data: string): void => {
@@ -46,8 +45,8 @@ export const PatientSelectInput: React.FC<Props> = ({ name, label, required, dat
           setOptions(
             patients.map((patient) => {
               return {
-                label: getPatientLabel(patient),
-                value: patient.id ?? '',
+                id: patient.id ?? '',
+                name: getPatientLabel(patient),
               };
             })
           );
@@ -67,19 +66,10 @@ export const PatientSelectInput: React.FC<Props> = ({ name, label, required, dat
       loading={isLoading}
       required={required}
       dataTestId={dataTestId}
-      valueToOption={(value: any) => {
-        return {
-          label: value.name,
-          value: value.id,
-        };
-      }}
-      optionToValue={(option: Option) => {
-        return {
-          name: option.label,
-          id: option.value,
-        };
-      }}
       onInputTextChanged={debouncedHandleInputChange}
+      getOptionLabel={(option) => option.name}
+      getOptionKey={(option) => option.id}
+      isOptionEqualToValue={(option, value) => option.id === value.id}
     />
   );
 };

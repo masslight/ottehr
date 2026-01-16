@@ -26,6 +26,7 @@ export interface CustomDialogProps {
   confirmLoading?: boolean;
   error?: string;
   disabled?: boolean;
+  dataTestId?: string;
 }
 
 export const CustomDialog: FC<CustomDialogProps> = ({
@@ -40,6 +41,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
   confirmLoading,
   error,
   disabled,
+  dataTestId,
 }) => {
   const theme = useTheme();
 
@@ -53,6 +55,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
           padding: 2,
         },
       }}
+      data-testid={dataTestId}
     >
       <DialogTitle
         variant="h5"

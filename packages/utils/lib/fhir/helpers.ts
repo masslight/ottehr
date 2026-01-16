@@ -1269,7 +1269,7 @@ export const getStripeCustomerIdFromAccount = (
 ): string | undefined => {
   if (!stripeAccount) {
     return account.identifier?.find((ident) => {
-      return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
+      return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE && !ident.extension;
     })?.value;
   } else {
     return account.identifier?.find((ident) => {
@@ -1281,6 +1281,23 @@ export const getStripeCustomerIdFromAccount = (
       );
     })?.value;
   }
+};
+
+export const getAllStripeCustomerAccountPairs = (
+  account: Account
+): { stripeAccount: string | undefined; customerId: string }[] => {
+  const stripeIdentifiers = account.identifier?.filter((ident) => {
+    return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
+  });
+  if (!stripeIdentifiers) {
+    return [];
+  }
+  return stripeIdentifiers.map((ident) => {
+    const stripeAccount = ident.extension?.find((ext) => {
+      return ext.url === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT;
+    })?.valueString;
+    return { stripeAccount, customerId: ident.value ?? '' };
+  });
 };
 
 export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
