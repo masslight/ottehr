@@ -15,6 +15,7 @@ import { expectNursingOrdersPage, NursingOrdersPage } from './NursingOrdersPage'
 import { expectPatientInfoPage, PatientInfoPage } from './PatientInfo';
 import { expectProceduresPage, ProceduresPage } from './ProceduresPage';
 import { expectSurgicalHistoryPage, SurgicalHistoryPage } from './SurgicalHistoryPage';
+import { expectVitalsPage, VitalsPage } from './VitalsPage';
 
 export class SideMenu {
   #page: Page;
@@ -51,6 +52,11 @@ export class SideMenu {
   async clickCcAndIntakeNotes(): Promise<PatientInfoPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('cc-and-intake-notes')).click();
     return expectPatientInfoPage(this.#page);
+  }
+
+  async clickVitals(): Promise<VitalsPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('vitals')).click();
+    return expectVitalsPage(this.#page);
   }
 
   async clickHpiAndTemplates(): Promise<HpiAndTemplatesPage> {

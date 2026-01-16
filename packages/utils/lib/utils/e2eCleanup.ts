@@ -359,6 +359,42 @@ export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promis
   await oystehr.fhir.batch({
     requests: batchDeleteRequests,
   });
+
+  console.log(`Deleted ${locationsToDelete.length} E2E test locations`);
+};
+
+export const cleanupE2ESchedules = async (oystehr: Oystehr, tag: string): Promise<void> => {
+  const params = [
+    {
+      name: '_tag',
+      value: tag,
+    },
+  ];
+  const processId = tag.split('|')[1];
+  if (!processId) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
+  const schedulesToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Schedule',
+      params,
+    })
+  ).unbundle();
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = schedulesToDelete.map((schedule) => ({
+    method: 'DELETE',
+    url: `Schedule/${schedule.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
+
+  console.log(`Deleted ${schedulesToDelete.length} E2E test schedules`);
 };
 
 export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise<void> => {

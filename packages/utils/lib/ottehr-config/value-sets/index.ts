@@ -656,4 +656,4 @@ const formValueSets = {
   ],
 };
 
-export const VALUE_SETS = mergeAndFreezeConfigObjects(formValueSets, OVERRIDES);
+export const VALUE_SETS = mergeAndFreezeConfigObjects(OVERRIDES, formValueSets);
