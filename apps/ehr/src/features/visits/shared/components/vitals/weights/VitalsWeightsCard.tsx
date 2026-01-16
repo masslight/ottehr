@@ -1,9 +1,10 @@
-import { Box, Grid, Typography } from '@mui/material';
+import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   formatWeight,
   formatWeightKg,
@@ -14,6 +15,7 @@ import {
   VitalFieldNames,
   vitalsConfig,
   VitalsWeightObservationDTO,
+  VitalsWeightOption,
 } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
@@ -28,6 +30,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   currentObs,
   historicalObs,
 }): JSX.Element => {
+  const theme = useTheme();
   const [weightKg, setWeightKg] = useState<number | undefined>(undefined);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -37,18 +40,38 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   }, [setIsCollapsed]);
 
   const latestWeightKg = currentObs[0]?.value;
+  const isPatientRefused = currentObs[0]?.extraWeightOptions?.includes('patient_refused');
 
+  const [isPatientRefusedOptionSelected, setOptionRefusedOptionSelected] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveWeightObservation = async (weightKg: number): Promise<void> => {
+  const handleSaveWeightObservation = async (): Promise<void> => {
+    if (!weightKg && !isPatientRefusedOptionSelected) {
+      return;
+    }
+
     try {
       setIsSaving(true);
-      const vitalObs: VitalsWeightObservationDTO = {
-        field: VitalFieldNames.VitalWeight,
-        value: weightKg,
-      };
+      let vitalObs: VitalsWeightObservationDTO;
+
+      if (isPatientRefusedOptionSelected) {
+        vitalObs = {
+          field: VitalFieldNames.VitalWeight,
+          extraWeightOptions: ['patient_refused'],
+        };
+      } else {
+        if (weightKg == null) {
+          return;
+        }
+
+        vitalObs = {
+          field: VitalFieldNames.VitalWeight,
+          value: weightKg,
+        };
+      }
       await handleSaveVital(vitalObs);
       setWeightKg(undefined);
+      setOptionRefusedOptionSelected(false);
     } catch {
       enqueueSnackbar('Error saving Weight data', { variant: 'error' });
     } finally {
@@ -69,6 +92,13 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     }
   }, []);
 
+  const handleWeightOptionChanged = useCallback((isChecked: boolean, weightOption: VitalsWeightOption): void => {
+    if (weightOption === 'patient_refused') {
+      setOptionRefusedOptionSelected(isChecked);
+      setWeightKg(undefined);
+    }
+  }, []);
+
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
@@ -81,6 +111,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
             <VitalHistoryElement
               historyEntry={historyEntry}
               onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              dataTestId={dataTestIds.vitalsPage.weightItem}
             />
           );
         }}
@@ -90,11 +121,20 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
 
   const title =
     `Weight (${vitalsConfig['vital-weight'].unit}) ` +
-    (latestWeightKg ? formatWeight(latestWeightKg, vitalsConfig['vital-weight'].unit) : '');
+    (isPatientRefused
+      ? 'Patient Refused'
+      : latestWeightKg
+      ? formatWeight(latestWeightKg, vitalsConfig['vital-weight'].unit)
+      : '');
 
   return (
     <Box sx={{ mt: 3 }}>
-      <AccordionCard label={title} collapsed={isCollapsed} onSwitch={handleSectionCollapse}>
+      <AccordionCard
+        label={title}
+        collapsed={isCollapsed}
+        onSwitch={handleSectionCollapse}
+        dataTestId={dataTestIds.vitalsPage.weightHeader}
+      >
         {isReadOnly ? (
           renderRightColumn()
         ) : (
@@ -126,15 +166,16 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                     <VitalsTextInputFiled
                       label="Weight (kg)"
                       value={weightKg ? formatWeightKg(weightKg) : ''}
-                      disabled={isSaving}
+                      disabled={isSaving || isPatientRefusedOptionSelected}
                       isInputError={false}
                       onChange={handleKgInput}
+                      data-testid={dataTestIds.vitalsPage.weightInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
                       label="Weight (lbs)"
                       value={weightKg ? formatWeightLbs(weightKg) : ''}
-                      disabled={isSaving}
+                      disabled={isSaving || isPatientRefusedOptionSelected}
                       isInputError={false}
                       onChange={handleLbsInput}
                     />
@@ -154,19 +195,59 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                 >
                   <RoundedButton
                     size="small"
-                    disabled={!weightKg}
+                    disabled={!weightKg && !isPatientRefusedOptionSelected}
                     loading={isSaving}
-                    onClick={() => weightKg && handleSaveWeightObservation(weightKg)}
+                    onClick={handleSaveWeightObservation}
                     color="primary"
-                    data-testid="add-weight-button"
                     sx={{
                       height: '40px',
                       px: 2,
                       ml: 1,
                     }}
+                    data-testid={dataTestIds.vitalsPage.weightAddButton}
                   >
                     Add
                   </RoundedButton>
+                </Grid>
+                <Grid item xs={12} sm={12} md={12} lg={12} order={{ xs: 5, sm: 5, md: 5, lg: 5 }} sx={{ mt: 1, ml: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'row' }}>
+                    {/* Patient refused checkbox option */}
+                    <FormControlLabel
+                      sx={{
+                        backgroundColor: 'transparent',
+                        pr: 0,
+                      }}
+                      control={
+                        <Checkbox
+                          size="small"
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&.Mui-checked': {
+                              color: theme.palette.primary.main,
+                            },
+                            '&.Mui-disabled': {
+                              color: lighten(theme.palette.primary.main, 0.4),
+                            },
+                          }}
+                          disabled={isSaving}
+                          checked={isPatientRefusedOptionSelected}
+                          onChange={(e) => handleWeightOptionChanged(e.target.checked, 'patient_refused')}
+                          data-testid={dataTestIds.vitalsPage.weightPatientRefusedCheckbox}
+                        />
+                      }
+                      label={
+                        <Typography
+                          sx={{
+                            fontSize: '16px',
+                            fontWeight: 500,
+                            color: isSaving ? lighten(theme.palette.text.primary, 0.4) : theme.palette.text.primary,
+                          }}
+                        >
+                          Patient Refused
+                        </Typography>
+                      }
+                    />
+                  </Box>
                 </Grid>
               </Grid>
             }

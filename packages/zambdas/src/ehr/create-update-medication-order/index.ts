@@ -340,11 +340,32 @@ async function changeOrderStatus(
 
   operations.push(replaceOperation('/status', mapOrderStatusToFhir(newStatus)));
 
-  return await oystehr.fhir.patch({
-    resourceType: 'MedicationAdministration',
-    id: pkg.medicationAdministration.id!,
-    operations,
-  });
+  const transactionRequests: BatchInputRequest<FhirResource>[] = [];
+
+  transactionRequests.push(
+    getPatchBinary({
+      resourceType: 'MedicationAdministration',
+      resourceId: pkg.medicationAdministration.id!,
+      patchOperations: operations,
+    })
+  );
+
+  // If we're cancelling a medication and there's a corresponding MedicationStatement, update its status to 'entered-in-error'
+  if (newStatus === 'cancelled' && pkg.medicationStatement && pkg.medicationStatement.id) {
+    transactionRequests.push(
+      getPatchBinary({
+        resourceType: 'MedicationStatement',
+        resourceId: pkg.medicationStatement.id,
+        patchOperations: [replaceOperation('/status', 'entered-in-error')],
+      })
+    );
+    console.log(`Adding MedicationStatement ${pkg.medicationStatement.id} status update to transaction`);
+  }
+
+  const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
+
+  return transactionResult.entry?.find((entry) => entry.resource?.resourceType === 'MedicationAdministration')
+    ?.resource as MedicationAdministration;
 }
 
 async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage | undefined> {

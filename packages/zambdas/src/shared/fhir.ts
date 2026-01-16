@@ -122,7 +122,7 @@ export async function getSchedules(
   }
   if (hsSchedulingStrategy === undefined && scheduleOwner?.resourceType === 'HealthcareService') {
     throw MISCONFIGURED_SCHEDULING_GROUP(
-      `HealthcareService/${scheduleOwner?.id} needs to be (configured with a scheduling strategy)[todo: link to docs] in order to be used as a schedule provider.`
+      `HealthcareService/${scheduleOwner?.id} needs to be configured with a scheduling strategy in order to be used as a schedule provider.`
     );
   }
 
@@ -143,7 +143,7 @@ export async function getSchedules(
 
   if (!schedule?.id && (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns)) {
     throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
-      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite (schedule extension json)[todo: link to docs].`
+      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite schedule extension json.`
     );
   }
 
