@@ -1,7 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  getScheduleOwnerFromAppointmentOrEncounter,
+  getSecret,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 
 // cSpell:ignore: ACSN, PLAC
 export const ADVAPACS_FHIR_BASE_URL = 'https://usa1.api.integration.advapacs.com/fhir/R5';
@@ -130,4 +136,16 @@ export const createOurDiagnosticReport = async (
 
   const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
   console.log('Created our DiagnosticReport: ', JSON.stringify(createResult, null, 2));
+};
+
+// Returns undefined if there is no advapacs location registered on the schedule owner
+export const getAdvaPACSLocationForAppointmentOrEncounter = async (
+  input: { appointmentId?: string; encounterId?: string },
+  oystehr: Oystehr
+): Promise<string | undefined> => {
+  const scheduleOwner = await getScheduleOwnerFromAppointmentOrEncounter(input, oystehr);
+
+  return scheduleOwner.extension?.find((ext) => {
+    return ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL;
+  })?.valueString;
 };
