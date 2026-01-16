@@ -4,6 +4,16 @@ import { Dialog, expectDialog } from '../patient-information/Dialog';
 import { SideMenu } from '../SideMenu';
 import { EditNoteDialog, expectEditNoteDialog } from './EditNoteDialog';
 
+const SCHEDULED_MEDICATION = 'Scheduled medication';
+const AS_NEEDED_MEDICATION = 'As needed medication';
+const AS_NEEDED_MEDICATION_DASH = 'As-needed medication';
+
+export interface MedicationInfo {
+  name: string;
+  dose: string;
+  date: string;
+}
+
 export class MedicationsPage {
   #page: Page;
 
@@ -14,83 +24,92 @@ export class MedicationsPage {
     return new SideMenu(this.#page);
   }
 
-  async selectMedication(medication: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)
-      .locator('input')
-      .fill(medication);
-    await this.#page.locator('li').getByText(medication, { exact: false }).click();
+  async addScheduledMedication(medicationInfo: MedicationInfo, whoAdded: string): Promise<void> {
+    await this.#checkScheduledMedicationRadio();
+    await this.#selectMedication(medicationInfo.name);
+    await this.#enterDoseUnits(medicationInfo.dose);
+    await this.#enterDateInput(medicationInfo.date);
+    await this.#clickAddButton();
+    await this.#verifyScheduledMedication(medicationInfo.name, medicationInfo.dose);
+    await this.#verifyMedicationInMedicationHistoryTable({
+      ...medicationInfo,
+      whoAdded,
+      type: SCHEDULED_MEDICATION,
+    });
   }
 
-  async verifyScheduledMedication(medicationName: string, dose: string): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledList)
-        .filter({ hasText: medicationName + '(' + dose })
-    ).toBeVisible();
-  }
-  async verifyRemovedScheduledMedicationIsNotVisible(medicationName: string, dose: string): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledList)
-        .filter({ hasText: medicationName + '(' + dose })
-    ).not.toBeVisible();
+  async removeScheduledMedication(medicationInfo: MedicationInfo): Promise<void> {
+    await this.#clickDeleteButton({ ...medicationInfo, type: 'scheduled' });
+    await this.#verifyScheduledMedicationIsNotVisible(medicationInfo.name, medicationInfo.dose);
+    await this.#verifyMedicationIsNotPresentInMedicationHistoryTable({ ...medicationInfo, type: 'scheduled' });
   }
 
-  async verifyAsNeededMedication(medicationName: string, dose: string): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededList)
-        .filter({ hasText: medicationName + '(' + dose })
-    ).toBeVisible();
+  async addAsNeededMedication(medicationInfo: MedicationInfo, whoAdded: string): Promise<void> {
+    await this.#checkAsNeededMedicationRadio();
+    await this.#selectMedication(medicationInfo.name);
+    await this.#enterDoseUnits(medicationInfo.dose);
+    await this.#enterDateInput(medicationInfo.date);
+    await this.#clickAddButton();
+    await this.#verifyAsNeededMedication(medicationInfo.name, medicationInfo.dose);
+    await this.#verifyMedicationInMedicationHistoryTable({
+      ...medicationInfo,
+      whoAdded,
+      type: AS_NEEDED_MEDICATION_DASH,
+    });
   }
 
-  async verifyRemovedAsNeededMedicationIsNotVisible(medicationName: string, dose: string): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededList)
-        .filter({ hasText: medicationName + '(' + dose })
-    ).not.toBeVisible();
+  async removeAsNeededMedication(medicationInfo: MedicationInfo): Promise<void> {
+    await this.#clickDeleteButton({ ...medicationInfo, type: 'as-needed' });
+    await this.#verifyAsNeededMedicationIsNotVisible(medicationInfo.name, medicationInfo.dose);
+    await this.#verifyMedicationIsNotPresentInMedicationHistoryTable({ ...medicationInfo, type: 'as-needed' });
   }
 
-  async enterDoseUnits(doseUnits: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput)
-      .locator('input')
-      .locator('visible=true')
-      .fill(doseUnits);
-  }
-
-  async enterDateInput(dateInput: string): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateTimeInput);
-    await locator.click();
-    await locator.pressSequentially(dateInput);
-  }
-
-  async selectScheduledMedication(scheduledMedication: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledRadioButton)
-      .getByText(scheduledMedication)
-      .setChecked(true);
-  }
-
-  async selectAsNeededMedication(asNeededMedication: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededRadioButton)
-      .getByText(asNeededMedication)
-      .setChecked(true);
-  }
-
-  async enterMedicationNote(note: string): Promise<void> {
+  async addMedicationNote(note: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.screeningPage.screeningNoteField)
       .locator('input')
       .locator('visible=true')
       .fill(note);
+    await this.#page.getByTestId(dataTestIds.medicationsPage.addNoteButton).click();
+    await this.#verifyMedicationNote(note);
   }
 
-  async verifyMedicationNote(note: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem)).toContainText(note);
+  async editMedicationNote(originalNote: string, editedNote: string): Promise<void> {
+    const editDialog = await this.#clickEditNoteButton(originalNote);
+    await editDialog.verifyTitle('Edit Medication Note');
+    await editDialog.clearNote();
+    await editDialog.enterNote(editedNote);
+    await editDialog.clickProceedButton();
+    await this.#verifyMedicationNote(editedNote);
+  }
+
+  async deleteMedicationNote(originalNote: string): Promise<void> {
+    const deleteDialog = await this.#clickDeleteNoteButton(originalNote);
+    await deleteDialog.verifyTitle('Delete medication note');
+    await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this medication note?');
+    await deleteDialog.verifyModalContent(originalNote);
+    await deleteDialog.clickProceedButton();
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: originalNote })
+    ).not.toBeVisible();
+  }
+
+  async #clickEditNoteButton(note: string): Promise<EditNoteDialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.medicationsPage.pencilIconButton)
+      .click();
+    return expectEditNoteDialog(this.#page);
+  }
+
+  async #clickDeleteNoteButton(note: string): Promise<Dialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.medicationsPage.deleteIcon)
+      .click();
+    return expectDialog(this.#page);
   }
 
   async verifyRemovedMedicationNoteIsNotVisible(note: string): Promise<void> {
@@ -99,36 +118,106 @@ export class MedicationsPage {
     ).toHaveCount(0);
   }
 
-  async clickAddMedicationNoteButton(): Promise<MedicationsPage> {
-    await this.#page.getByTestId(dataTestIds.medicationsPage.addNoteButton).click();
-    return expectMedicationsPage(this.#page);
+  async #selectMedication(medication: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)
+      .locator('input')
+      .fill(medication);
+    await this.#page.locator('li').getByText(medication, { exact: false }).click();
   }
 
-  async clickAddButton(): Promise<void> {
+  async #verifyScheduledMedication(medicationName: string, dose: string): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledList)
+        .filter({ hasText: medicationName + '(' + dose })
+    ).toBeVisible();
+  }
+
+  async #verifyScheduledMedicationIsNotVisible(medicationName: string, dose: string): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledList)
+        .filter({ hasText: medicationName + '(' + dose })
+    ).not.toBeVisible();
+  }
+
+  async #verifyAsNeededMedication(medicationName: string, dose: string): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededList)
+        .filter({ hasText: medicationName + '(' + dose })
+    ).toBeVisible();
+  }
+
+  async #verifyAsNeededMedicationIsNotVisible(medicationName: string, dose: string): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededList)
+        .filter({ hasText: medicationName + '(' + dose })
+    ).not.toBeVisible();
+  }
+
+  async #enterDoseUnits(doseUnits: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput)
+      .locator('input')
+      .locator('visible=true')
+      .fill(doseUnits);
+  }
+
+  async #enterDateInput(dateInput: string): Promise<void> {
+    const locator = this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateTimeInput);
+    await locator.click();
+    await locator.pressSequentially(dateInput);
+  }
+
+  async #checkScheduledMedicationRadio(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledRadioButton)
+      .getByText(SCHEDULED_MEDICATION)
+      .setChecked(true);
+  }
+
+  async #checkAsNeededMedicationRadio(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededRadioButton)
+      .getByText(AS_NEEDED_MEDICATION)
+      .setChecked(true);
+  }
+
+  async #verifyMedicationNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: note })
+    ).toBeVisible();
+  }
+
+  async #clickAddButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton).click();
     await expect(
       this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput).locator('input')
     ).toHaveValue('');
   }
 
-  async verifyMedicationInMedicationHistoryTable(input: {
-    medication: string;
-    doseUnits: string;
+  async #verifyMedicationInMedicationHistoryTable(medication: {
+    name: string;
+    dose: string;
     type: string;
     whoAdded: string;
   }): Promise<void> {
+    await this.#clickSeeMoreButton();
     const testIdToTextArray: { testId: string; text: string | undefined }[] = [
       {
         testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication,
-        text: input.medication + ' ' + '(' + input.doseUnits + ')',
+        text: medication.name + ' ' + '(' + medication.dose + ')',
       },
       {
         testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableType,
-        text: input.type,
+        text: medication.type,
       },
       {
         testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableWhoAdded,
-        text: input.whoAdded,
+        text: medication.whoAdded,
       },
     ];
     let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow);
@@ -142,19 +231,19 @@ export class MedicationsPage {
     }
   }
 
-  async verifyRemovedMedicationIsNotPresentInMedicationHistoryTable(input: {
-    medication: string;
-    doseUnits: string;
+  async #verifyMedicationIsNotPresentInMedicationHistoryTable(medication: {
+    name: string;
+    dose: string;
     type: string;
   }): Promise<void> {
     const testIdToTextArray: { testId: string; text: string | undefined }[] = [
       {
         testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication,
-        text: input.medication + ' ' + '(' + input.doseUnits + ')',
+        text: medication.name + ' ' + '(' + medication.dose + ')',
       },
       {
         testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableType,
-        text: input.type,
+        text: medication.type,
       },
     ];
     let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow);
@@ -168,11 +257,7 @@ export class MedicationsPage {
     }
   }
 
-  async clickSeeMoreButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.medicationsPage.seeMoreButton).click();
-  }
-
-  async clickDeleteButton(medication: { name: string; dose: string; type: 'scheduled' | 'as-needed' }): Promise<void> {
+  async #clickDeleteButton(medication: { name: string; dose: string; type: 'scheduled' | 'as-needed' }): Promise<void> {
     await this.#page
       .getByTestId(
         dataTestIds.telemedEhrFlow.hpiCurrentMedicationsListItem(
@@ -184,22 +269,11 @@ export class MedicationsPage {
       .click();
   }
 
-  async clickEditNoteButton(note: string): Promise<EditNoteDialog> {
-    await this.#page
-      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
-      .filter({ hasText: note })
-      .getByTestId(dataTestIds.medicationsPage.pencilIconButton)
-      .click();
-    return expectEditNoteDialog(this.#page);
-  }
-
-  async clickDeleteNoteButton(note: string): Promise<Dialog> {
-    await this.#page
-      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
-      .filter({ hasText: note })
-      .getByTestId(dataTestIds.medicationsPage.deleteIcon)
-      .click();
-    return expectDialog(this.#page);
+  async #clickSeeMoreButton(): Promise<void> {
+    const locator = this.#page.getByTestId(dataTestIds.medicationsPage.seeMoreButton);
+    if (await locator.isVisible()) {
+      await locator.click();
+    }
   }
 }
 
