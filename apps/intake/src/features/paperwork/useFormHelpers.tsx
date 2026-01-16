@@ -4,6 +4,7 @@ import { FieldValues, RefCallBack, useFormContext, useFormState } from 'react-ho
 import {
   DOB_DATE_FORMAT,
   IntakeQuestionnaireItem,
+  PHARMACY_COLLECTION_LINK_IDS,
   pickFirstValueFromAnswerItem,
   pickValueAsStringListFromAnswerItem,
 } from 'utils';
@@ -112,7 +113,11 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
         setValue('display-secondary-insurance.answer.0.valueBoolean', false);
       }
       const base = { linkId: item.linkId };
-      if (isStringValueTypeItem(item)) {
+      if (item.linkId === PHARMACY_COLLECTION_LINK_IDS.pharmacyCollection) {
+        // todo sarah add some sort of validation on e ? maybe
+        const updatedPharmCollection = { ...base, item: e };
+        return renderOnChange(updatedPharmCollection);
+      } else if (isStringValueTypeItem(item)) {
         if (item.acceptsMultipleAnswers) {
           const answer = e.target.value?.map((val: string) => {
             const valueString = val?.trimStart();

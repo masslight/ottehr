@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_1_3": {
+    "questionnaire-in-person-previsit-1_1_4": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.1.3",
+        "version": "1.1.4",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -753,16 +753,170 @@
             "type": "group",
             "item": [
               {
+                "linkId": "pharmacy-collection",
+                "text": "Pharmacy",
+                "type": "group",
+                "enableWhen": [
+                  {
+                    "question": "pharmacy-page-manual-entry",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
+                    "valueString": "pharmacy-collection"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                        "valueString": "pharmacy-page-manual-entry"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                        "valueBoolean": true
+                      }
+                    ]
+                  }
+                ],
+                "item": [
+                  {
+                    "linkId": "pharmacy-places-id",
+                    "text": "places id",
+                    "type": "string"
+                  },
+                  {
+                    "linkId": "pharmacy-places-name",
+                    "text": "places name",
+                    "type": "string"
+                  },
+                  {
+                    "linkId": "pharmacy-places-address",
+                    "text": "places address",
+                    "type": "string"
+                  },
+                  {
+                    "linkId": "pharmacy-places-saved",
+                    "text": "places saved",
+                    "type": "boolean"
+                  },
+                  {
+                    "linkId": "erx-pharmacy-id",
+                    "text": "erx pharmacy id",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "linkId": "pharmacy-page-manual-entry",
+                "text": "Can't find? Add manually",
+                "type": "boolean",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                        "valueString": "pharmacy-page-manual-entry"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                        "valueBoolean": true
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                        "valueString": "Use search"
+                      }
+                    ]
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Link"
+                  }
+                ],
+                "enableWhen": [
+                  {
+                    "question": "pharmacy-collection.pharmacy-places-saved",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ]
+              },
+              {
                 "linkId": "pharmacy-name",
                 "text": "Pharmacy name",
                 "type": "string",
-                "required": false
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "pharmacy-page-manual-entry",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                        "valueString": "pharmacy-page-manual-entry"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                        "valueString": "!="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                        "valueBoolean": true
+                      }
+                    ]
+                  }
+                ]
               },
               {
                 "linkId": "pharmacy-address",
                 "text": "Pharmacy address",
                 "type": "string",
-                "required": false
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "pharmacy-page-manual-entry",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                        "valueString": "pharmacy-page-manual-entry"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                        "valueString": "!="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                        "valueBoolean": true
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           },

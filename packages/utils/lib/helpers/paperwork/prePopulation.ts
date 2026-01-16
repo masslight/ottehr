@@ -32,6 +32,7 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
+  PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
 } from '../../types';
@@ -1309,6 +1310,7 @@ interface MapPharmacyItemsInput {
 }
 
 const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): QuestionnaireResponseItem[] => {
+  console.log('pharm mapping input', JSON.stringify(input)); // todo sarah remove when done with this function
   const { pharmacyResource, items } = input;
   const pharmacyName = pharmacyResource?.name;
   const pharmacyAddress = pharmacyResource?.address?.[0].text;
@@ -1320,6 +1322,9 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
     }
     if (linkId === 'pharmacy-address' && pharmacyAddress) {
       answer = makeAnswer(pharmacyAddress);
+    }
+    if (linkId === PHARMACY_COLLECTION_LINK_IDS.pharmacyCollection) {
+      return { linkId, item: mapPharmacyToQuestionnaireResponseItems({ items: item.item ?? [], pharmacyResource }) };
     }
     return {
       linkId,
