@@ -250,7 +250,11 @@ function getAgingBucket(daysPastDue: number): string {
   if (daysPastDue <= 30) return '16-30 days';
   if (daysPastDue <= 45) return '31-45 days';
   if (daysPastDue <= 60) return '46-60 days';
-  return '60+ days';
+  if (daysPastDue <= 75) return '61-75 days';
+  if (daysPastDue <= 90) return '76-90 days';
+  if (daysPastDue <= 105) return '91-105 days';
+  if (daysPastDue <= 120) return '106-120 days';
+  return '120+ days';
 }
 
 // Helper function to generate default filename
@@ -261,7 +265,7 @@ function getDefaultFilename(env: string): string {
   return path.join(downloadsDir, `${env}-past-due-invoices-${dateString}.csv`);
 }
 
-// Updated main function with aging buckets
+// Updated main function with expanded aging buckets
 async function main(): Promise<void> {
   const env = process.argv[2];
   const csvFilenameArg = process.argv[3]; // Optional CSV filename for report
@@ -304,13 +308,17 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Separate invoices into aging buckets
+  // Separate invoices into expanded aging buckets
   const buckets = {
     '0-15': [] as StripeInvoice[],
     '16-30': [] as StripeInvoice[],
     '31-45': [] as StripeInvoice[],
     '46-60': [] as StripeInvoice[],
-    '60+': [] as StripeInvoice[],
+    '61-75': [] as StripeInvoice[],
+    '76-90': [] as StripeInvoice[],
+    '91-105': [] as StripeInvoice[],
+    '106-120': [] as StripeInvoice[],
+    '120+': [] as StripeInvoice[],
   };
 
   for (const invoice of pastDueInvoices) {
@@ -323,7 +331,11 @@ async function main(): Promise<void> {
     else if (bucket === '16-30 days') buckets['16-30'].push(invoice);
     else if (bucket === '31-45 days') buckets['31-45'].push(invoice);
     else if (bucket === '46-60 days') buckets['46-60'].push(invoice);
-    else buckets['60+'].push(invoice);
+    else if (bucket === '61-75 days') buckets['61-75'].push(invoice);
+    else if (bucket === '76-90 days') buckets['76-90'].push(invoice);
+    else if (bucket === '91-105 days') buckets['91-105'].push(invoice);
+    else if (bucket === '106-120 days') buckets['106-120'].push(invoice);
+    else buckets['120+'].push(invoice);
   }
 
   // Calculate totals
@@ -333,28 +345,48 @@ async function main(): Promise<void> {
   console.log(`   Total invoices: ${pastDueInvoices.length} ($${(totalAmountDue / 100).toFixed(2)})`);
   console.log(`\n📊 Aging Buckets:`);
   console.log(
-    `   0-15 days:   ${buckets['0-15'].length.toString().padStart(4)} invoices ($${(
+    `   0-15 days:    ${buckets['0-15'].length.toString().padStart(4)} invoices ($${(
       buckets['0-15'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
     ).toFixed(2)})`
   );
   console.log(
-    `   16-30 days:  ${buckets['16-30'].length.toString().padStart(4)} invoices ($${(
+    `   16-30 days:   ${buckets['16-30'].length.toString().padStart(4)} invoices ($${(
       buckets['16-30'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
     ).toFixed(2)})`
   );
   console.log(
-    `   31-45 days:  ${buckets['31-45'].length.toString().padStart(4)} invoices ($${(
+    `   31-45 days:   ${buckets['31-45'].length.toString().padStart(4)} invoices ($${(
       buckets['31-45'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
     ).toFixed(2)})`
   );
   console.log(
-    `   46-60 days:  ${buckets['46-60'].length.toString().padStart(4)} invoices ($${(
+    `   46-60 days:   ${buckets['46-60'].length.toString().padStart(4)} invoices ($${(
       buckets['46-60'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
     ).toFixed(2)})`
   );
   console.log(
-    `   60+ days:    ${buckets['60+'].length.toString().padStart(4)} invoices ($${(
-      buckets['60+'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
+    `   61-75 days:   ${buckets['61-75'].length.toString().padStart(4)} invoices ($${(
+      buckets['61-75'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
+    ).toFixed(2)})`
+  );
+  console.log(
+    `   76-90 days:   ${buckets['76-90'].length.toString().padStart(4)} invoices ($${(
+      buckets['76-90'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
+    ).toFixed(2)})`
+  );
+  console.log(
+    `   91-105 days:  ${buckets['91-105'].length.toString().padStart(4)} invoices ($${(
+      buckets['91-105'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
+    ).toFixed(2)})`
+  );
+  console.log(
+    `   106-120 days: ${buckets['106-120'].length.toString().padStart(4)} invoices ($${(
+      buckets['106-120'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
+    ).toFixed(2)})`
+  );
+  console.log(
+    `   120+ days:    ${buckets['120+'].length.toString().padStart(4)} invoices ($${(
+      buckets['120+'].reduce((sum, inv) => sum + inv.amountDue, 0) / 100
     ).toFixed(2)})`
   );
 
@@ -402,7 +434,7 @@ async function main(): Promise<void> {
 
       successCount++;
 
-      // Add data to CSV report - removed invoiceLink
+      // Add data to CSV report
       csvReportData.push({
         firstName: firstName,
         lastName: lastName,
