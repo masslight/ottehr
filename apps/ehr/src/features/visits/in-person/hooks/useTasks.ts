@@ -287,7 +287,10 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
   let details: string | undefined = undefined;
 
   // Extract encounterId and check if it's a follow-up encounter
-  const encounterId = task.encounter?.reference?.split('/')?.[1];
+  let encounterId = task.encounter?.reference?.split('/')?.[1];
+  if (!encounterId) {
+    encounterId = getInputString(MANUAL_TASK.input.encounterId, task);
+  }
   const encounter = encounterId ? encountersMap?.get(encounterId) : undefined;
   const isFollowUp = encounter ? isFollowupEncounter(encounter) : false;
 
