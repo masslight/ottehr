@@ -530,7 +530,7 @@ describe('saving and getting vitals', () => {
             )
         );
         expect(systolicComponent).toBeDefined();
-        expect(systolicComponent?.valueQuantity?.value).toBe(69);
+        expect(systolicComponent?.valueQuantity?.value).toBe(58);
         assert(systolicComponent);
         const interpretation = systolicComponent.interpretation;
         expect(interpretation).toBeDefined();
@@ -792,7 +792,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 18.9,
+            value: 17.5,
           },
         ];
         await saveVital(obs, encounterId);
@@ -1018,7 +1018,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 120.1,
+            value: 130.5,
           },
           // too low heart rate
           {
