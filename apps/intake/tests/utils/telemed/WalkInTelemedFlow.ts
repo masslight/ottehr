@@ -94,7 +94,7 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
     await this.page.getByPlaceholder('Search or select').click();
     const locationOption = this.page
       .locator('[role="option"]')
-      .getByText(LOCATION_CONFIG.telemedLocations[0], { exact: true });
+      .getByText(LOCATION_CONFIG.telemedLocations[0].name, { exact: true });
     const location = await locationOption.textContent();
     await locationOption.click();
     await this.continue();

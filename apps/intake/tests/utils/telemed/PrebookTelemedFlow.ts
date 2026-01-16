@@ -114,7 +114,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(statesSelector).toBeVisible();
 
     await statesSelector.getByRole('button').click();
-    const firstAvailableState = LOCATION_CONFIG.telemedLocations[0];
+    const firstAvailableState = LOCATION_CONFIG.telemedLocations[0].name;
     if (!firstAvailableState) {
       throw new Error('No deployed telemed locations found');
     }

@@ -26,12 +26,12 @@ describe('location config matches spec', () => {
   });
 
   test('in-person locations match', () => {
-    const sortedInPersonConfig = [...LOCATION_CONFIG.inPersonLocations].sort();
+    const sortedInPersonConfig = [...LOCATION_CONFIG.inPersonLocations.map((loc) => loc.name)].sort();
     const sortedInPersonSpec = inPersonLocationsFromSpec.sort();
     expect(sortedInPersonConfig).toEqual(sortedInPersonSpec);
   });
   test('telemed locations match', () => {
-    const sortedTelemedConfig = [...LOCATION_CONFIG.telemedLocations].sort();
+    const sortedTelemedConfig = [...LOCATION_CONFIG.telemedLocations.map((loc) => loc.name)].sort();
     const sortedTelemedSpec = telemedLocationsFromSpec.sort();
     expect(sortedTelemedConfig).toEqual(sortedTelemedSpec);
   });
