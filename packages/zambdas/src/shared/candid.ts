@@ -385,8 +385,9 @@ async function fetchPreEncounterPatient(
   return patient;
 }
 
-async function createPreEncounterPatient(
+async function createOrUpdatePreEncounterPatient(
   patient: Patient,
+  candidPatient: CandidPreEncounterPatient | undefined,
   nonInsurancePayerId: string | undefined,
   apiClient: CandidApiClient
 ): Promise<CandidPreEncounterPatient> {
@@ -457,6 +458,60 @@ async function createPreEncounterPatient(
     throw INVALID_INPUT_ERROR(
       'In order to collect payment, patient phone number is required. Please update the patient record and try again.'
     );
+  }
+
+  // Update existing patient
+  if (candidPatient) {
+    const patientResponse = await apiClient.preEncounter.patients.v1.update(
+      candidPatient.id,
+      (candidPatient.version + 1).toString(),
+      {
+        name: {
+          family: lastName,
+          given: [firstName],
+          use: 'USUAL',
+        },
+        otherNames: [],
+        birthDate: dateOfBirth,
+        biologicalSex: mapGenderToSex(gender),
+        primaryAddress: {
+          line: patientAddress.line,
+          city: patientAddress.city,
+          state: patientAddress.state as State,
+          postalCode: patientAddress.postalCode,
+          use: mapAddressUse(patientAddress.use),
+          country: patientAddress.country ? patientAddress.country : 'US',
+        },
+        otherAddresses: [],
+        primaryTelecom: {
+          value: patientPhone,
+          use: ContactPointUse.Home,
+        },
+        otherTelecoms: [],
+        contacts: [],
+        generalPractitioners: [],
+        filingOrder: {
+          coverages: [],
+        },
+        nonInsurancePayerAssociations: nonInsurancePayerId
+          ? [
+              {
+                id: CanonicalNonInsurancePayerId(nonInsurancePayerId),
+              },
+            ]
+          : undefined,
+      }
+    );
+
+    if (!patientResponse.ok) {
+      throw new Error(
+        `Error creating Candid patient with MRN ${medicalRecordNumber}. Response body: ${JSON.stringify(
+          patientResponse.error
+        )}`
+      );
+    }
+
+    return patientResponse.body;
   }
 
   const patientResponse = await apiClient.preEncounter.patients.v1.createWithMrn({
@@ -627,9 +682,12 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
   // Get Candid Patient and create if it does not exist
   let candidPreEncounterPatient = await fetchPreEncounterPatient(ourPatient.id, candidApiClient);
 
-  if (!candidPreEncounterPatient) {
-    candidPreEncounterPatient = await createPreEncounterPatient(ourPatient, nonInsurancePayerId, candidApiClient);
-  }
+  candidPreEncounterPatient = await createOrUpdatePreEncounterPatient(
+    ourPatient,
+    candidPreEncounterPatient,
+    nonInsurancePayerId,
+    candidApiClient
+  );
 
   const candidCoverages = await createCandidCoverages(
     ourPatient,
