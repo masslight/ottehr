@@ -9,7 +9,6 @@ type ChartDataTextValueType = Pick<
   | 'chiefComplaint'
   | 'mechanismOfInjury'
   | 'ros'
-  | 'rosNarrative'
   | 'surgicalHistoryNote'
   | 'medicalDecision'
   | 'addendumNote'
@@ -20,7 +19,6 @@ const nameToTypeEnum = {
   chiefComplaint: 'text',
   mechanismOfInjury: 'text',
   ros: 'text',
-  rosNarrative: 'text',
   surgicalHistoryNote: 'text',
   medicalDecision: 'text',
   addendumNote: 'text',
@@ -31,7 +29,6 @@ const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
   chiefComplaint: 'Chief complaint note',
   mechanismOfInjury: 'Mechanism of injury note',
   ros: 'ROS note',
-  rosNarrative: 'ROS Narrative',
   surgicalHistoryNote: 'Surgical history note',
   medicalDecision: 'Medical Decision Making note',
   addendumNote: 'Addendum note',
@@ -43,7 +40,6 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
   historyOfPresentIllness: { _tag: 'history-of-present-illness' },
   mechanismOfInjury: { _tag: 'mechanism-of-injury' },
   ros: { _tag: 'ros' },
-  rosNarrative: { _tag: 'ros-narrative' },
   surgicalHistoryNote: { _tag: 'surgical-history-note' },
   medicalDecision: { _tag: 'medical-decision' },
   addendumNote: {},

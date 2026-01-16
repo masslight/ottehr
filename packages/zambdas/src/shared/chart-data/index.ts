@@ -1195,14 +1195,6 @@ const mapResourceToChartDataFields = (
     data.ros = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
-    resource?.resourceType === 'Condition' &&
-    chartDataResourceHasMetaTagByCode(resource, 'ros-narrative') &&
-    resourceReferencesEncounter(resource, encounterId)
-  ) {
-    logDuplicationWarning(data.ros, 'chart-data duplication warning: "ros-narrative" already exists');
-    data.rosNarrative = makeFreeTextNoteDTO(resource);
-    resourceMapped = true;
-  } else if (
     resource?.resourceType === 'AllergyIntolerance' &&
     chartDataResourceHasMetaTagByCode(resource, 'known-allergy')
   ) {

@@ -194,10 +194,6 @@ export async function getChartData(
     addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
-  if (requestedFields?.rosNarrative) {
-    addRequestIfNeeded({ field: 'rosNarrative', resourceType: 'Condition', defaultSearchBy: 'encounter' });
-  }
-
   if (requestedFields?.surgicalHistoryNote) {
     addRequestIfNeeded({ field: 'surgicalHistoryNote', resourceType: 'Procedure', defaultSearchBy: 'encounter' });
   }

@@ -8,7 +8,6 @@ export type ProviderChartDataFieldsNames =
   | 'history-of-present-illness'
   | 'mechanism-of-injury'
   | 'ros'
-  | 'ros-narrative'
   | 'current-medication'
   | 'in-house-medication'
   | 'prescribed-medication'
