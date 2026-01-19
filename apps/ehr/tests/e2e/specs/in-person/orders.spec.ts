@@ -398,7 +398,7 @@ test.describe('Nursing Orders Page', () => {
 // Procedures helpers
 async function setupPractitioners(page: Page): Promise<void> {
   const inPersonHeader = new InPersonHeader(page);
-  await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/review-and-sign`);
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
