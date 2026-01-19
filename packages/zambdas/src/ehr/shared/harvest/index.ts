@@ -105,7 +105,9 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
+  PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_EXTENSION_URL,
+  PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
   relatedPersonFieldPaths,
@@ -1204,8 +1206,18 @@ export const createUpdatePharmacyPatchOps = (
   const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
   const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
 
+  const placesPharmacyIdAnswer = getAnswer('pharmacy-places-id', flattenedItems);
+  const placesPharmacyNameAnswer = getAnswer('pharmacy-places-name', flattenedItems);
+  const placesPharmacyAddressAnswer = getAnswer('pharmacy-places-address', flattenedItems);
+  const exrPharmacyIdAnswer = getAnswer('erx-pharmacy-id', flattenedItems);
+
   // Check if pharmacy fields are present in the questionnaire response
-  const hasPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+  const hasManualPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+  const hasPlacesPharmacyFields =
+    placesPharmacyIdAnswer !== undefined ||
+    placesPharmacyNameAnswer !== undefined ||
+    placesPharmacyAddressAnswer !== undefined;
+  const hasPharmacyFields = hasManualPharmacyFields || hasPlacesPharmacyFields || exrPharmacyIdAnswer !== undefined;
 
   // Check if patient currently has pharmacy data
   const hasExistingPharmacy =
@@ -1217,8 +1229,8 @@ export const createUpdatePharmacyPatchOps = (
     return [];
   }
 
-  const inputPharmacyName = pharmacyNameAnswer?.valueString;
-  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString;
+  const inputPharmacyName = pharmacyNameAnswer?.valueString ?? placesPharmacyNameAnswer?.valueString;
+  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString ?? placesPharmacyAddressAnswer?.valueString;
 
   const operations: Operation[] = [];
 
@@ -1227,7 +1239,7 @@ export const createUpdatePharmacyPatchOps = (
 
   // Add new pharmacy if provided
   if (inputPharmacyName || inputPharmacyAddress) {
-    filteredContained.push({
+    const pharmacyOrg: Organization = {
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
       name: inputPharmacyName ?? '-',
@@ -1239,7 +1251,18 @@ export const createUpdatePharmacyPatchOps = (
             },
           ]
         : undefined,
-    });
+    };
+
+    if (placesPharmacyIdAnswer?.valueString) {
+      pharmacyOrg.extension = [
+        {
+          url: PREFERRED_PHARMACY_PLACES_ID_URL,
+          valueString: placesPharmacyIdAnswer?.valueString,
+        },
+      ];
+    }
+
+    filteredContained.push(pharmacyOrg);
   }
 
   // Create contained operation
@@ -1261,7 +1284,8 @@ export const createUpdatePharmacyPatchOps = (
   // Handle extension
   const currentExtensions = patient.extension ?? [];
   const filteredExtensions = currentExtensions.filter(
-    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
+    (extension) =>
+      extension.url !== PREFERRED_PHARMACY_EXTENSION_URL && extension.url !== PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL
   );
 
   // Add pharmacy reference if we have pharmacy data
@@ -1271,6 +1295,13 @@ export const createUpdatePharmacyPatchOps = (
       valueReference: {
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
+    });
+  }
+
+  if (exrPharmacyIdAnswer?.valueString) {
+    filteredExtensions.push({
+      url: PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
+      valueString: exrPharmacyIdAnswer?.valueString,
     });
   }
 

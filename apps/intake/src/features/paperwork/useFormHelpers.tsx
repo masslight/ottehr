@@ -115,7 +115,6 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
       }
       const base = { linkId: item.linkId };
       if (item.linkId === PHARMACY_COLLECTION_LINK_IDS.pharmacyCollection) {
-        // todo sarah add some sort of validation on e ? maybe
         const updatedPharmCollection = { ...base, item: e };
         return renderOnChange(updatedPharmCollection);
       } else if (isStringValueTypeItem(item)) {

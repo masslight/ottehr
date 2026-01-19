@@ -8,7 +8,21 @@ export function validateRequestParameters(input: ZambdaInput): SearchPlacesInput
 
   const { searchTerm, placesId } = JSON.parse(input.body);
 
-  // todo sarah do real validation :)
+  if (!searchTerm && !placesId) {
+    throw new Error('searchTerm or placesId must be sent');
+  }
+
+  if (searchTerm && placesId) {
+    throw new Error('Please send either searchTerm or placesId, only one param should be sent.');
+  }
+
+  if (searchTerm && typeof searchTerm !== 'string') {
+    throw new Error('Invalid parameter: searchTerm should be a string');
+  }
+
+  if (placesId && typeof placesId !== 'string') {
+    throw new Error('Invalid parameter: placesId should be a string');
+  }
 
   return {
     searchTerm,
