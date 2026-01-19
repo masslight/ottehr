@@ -269,6 +269,30 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
+        field: 'timeToProviderAverage',
+        headerName: 'Arrived to Provider Average (min)',
+        flex: 1,
+        minWidth: 210,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
+        field: 'timeToProviderMedian',
+        headerName: 'Arrived to Provider Median (min)',
+        flex: 1,
+        minWidth: 210,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
         field: 'readyToIntakeAverage',
         headerName: 'Ready to Intake Average (min)',
         flex: 1,
@@ -307,30 +331,6 @@ export default function PracticeKpis(): React.ReactElement {
       {
         field: 'intakeToProviderMedian',
         headerName: 'Intake to Provider Median (min)',
-        flex: 1,
-        minWidth: 210,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
-            return '—';
-          }
-          return params.value.toFixed(2);
-        },
-      },
-      {
-        field: 'timeToProviderAverage',
-        headerName: 'Arrived to Provider Average (min)',
-        flex: 1,
-        minWidth: 210,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
-            return '—';
-          }
-          return params.value.toFixed(2);
-        },
-      },
-      {
-        field: 'timeToProviderMedian',
-        headerName: 'Arrived to Provider Median (min)',
         flex: 1,
         minWidth: 210,
         valueFormatter: (params) => {
