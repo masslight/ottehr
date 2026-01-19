@@ -1,6 +1,7 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import InsightsIcon from '@mui/icons-material/Insights';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SpeedIcon from '@mui/icons-material/Speed';
@@ -104,6 +105,12 @@ export default function Reports(): React.ReactElement {
       description: 'Review daily payment reports and transaction summaries',
       icon: <AttachMoneyIcon />,
       path: '/reports/daily-payments',
+    },
+    {
+      title: 'Practice KPIs',
+      description: 'View location-level performance metrics for in-person visits',
+      icon: <InsightsIcon />,
+      path: '/reports/practice-kpis',
     },
     {
       title: 'Visits Overview',
