@@ -191,6 +191,12 @@ export default function PracticeKpis(): React.ReactElement {
         minWidth: 200,
       },
       {
+        field: 'visitCount',
+        headerName: 'Visit Count',
+        flex: 0.5,
+        minWidth: 120,
+      },
+      {
         field: 'arrivedToReadyAverage',
         headerName: 'Arrived to Ready Average (min)',
         flex: 1,
@@ -239,10 +245,52 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
-        field: 'visitCount',
-        headerName: 'Visit Count',
-        flex: 0.5,
-        minWidth: 120,
+        field: 'timeToIntakeAverage',
+        headerName: 'Time to Intake Average (min)',
+        flex: 1,
+        minWidth: 200,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
+        field: 'timeToIntakeMedian',
+        headerName: 'Time to Intake Median (min)',
+        flex: 1,
+        minWidth: 200,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
+        field: 'timeToProviderAverage',
+        headerName: 'Time to Provider Average (min)',
+        flex: 1,
+        minWidth: 210,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
+        field: 'timeToProviderMedian',
+        headerName: 'Time to Provider Median (min)',
+        flex: 1,
+        minWidth: 210,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
       },
     ],
     []
@@ -258,6 +306,10 @@ export default function PracticeKpis(): React.ReactElement {
       arrivedToReadyMedian: location.arrivedToReadyMedian,
       arrivedToDischargedAverage: location.arrivedToDischargedAverage,
       arrivedToDischargedMedian: location.arrivedToDischargedMedian,
+      timeToIntakeAverage: location.timeToIntakeAverage,
+      timeToIntakeMedian: location.timeToIntakeMedian,
+      timeToProviderAverage: location.timeToProviderAverage,
+      timeToProviderMedian: location.timeToProviderMedian,
       visitCount: location.visitCount,
     }));
   }, [reportData]);
