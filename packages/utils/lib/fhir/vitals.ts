@@ -17,6 +17,8 @@ import {
   VitalsVisionObservationDTO,
   VitalsVisionOption,
   VitalsWeightObservationDTO,
+  VitalsWeightOption,
+  VitalsWeightPatientRefusedDTO,
   VitalTemperatureObservationMethod,
 } from 'utils';
 
@@ -46,9 +48,11 @@ export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_SUPPLEMENTAL_O2 = '250591006';
 export const VITAL_LEFT_EYE_SNOMED_CODE = '8976008';
 export const VITAL_RIGHT_EYE_SNOMED_CODE = '8977004';
 
-export const VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
-export const VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
-export const VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
+export const VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
+export const VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
+export const VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
+
+export const VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE = '8675309';
 
 export const getTempObservationMethodCodable = (
   tempDTO: VitalsTemperatureObservationDTO
@@ -403,6 +407,48 @@ export const extractOxySaturationObservationMethod = (
   return undefined;
 };
 
+export const getWeightObservationComponents = (weightDTO: VitalsWeightObservationDTO): ObservationComponent[] => {
+  let result: ObservationComponent[] = [];
+  const hasPatientRefused = (dto: VitalsWeightObservationDTO): dto is VitalsWeightPatientRefusedDTO =>
+    !!dto.extraWeightOptions?.includes('patient_refused');
+
+  const makeExtraWeightOptionComponent = (option: VitalsWeightOption, optionValue: boolean): ObservationComponent => {
+    let optionCode = '';
+    let optionLabel = '';
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+      optionLabel = 'Patient Refused';
+    }
+
+    const optionCodeable: CodeableConcept = {
+      coding: [
+        {
+          system: SNOMED_SYSTEM,
+          code: optionCode,
+          display: optionLabel,
+        },
+      ],
+    };
+    const weightOptionComponent: ObservationComponent = {
+      code: optionCodeable,
+      valueBoolean: optionValue,
+    };
+    return weightOptionComponent;
+  };
+
+  if (hasPatientRefused(weightDTO)) {
+    return [makeExtraWeightOptionComponent('patient_refused', true)];
+  }
+
+  const extraWeightOptionsComponents = (weightDTO.extraWeightOptions ?? []).map((option) =>
+    makeExtraWeightOptionComponent(option as VitalsWeightOption, true)
+  );
+
+  result = [...result, ...extraWeightOptionsComponents];
+
+  return result;
+};
+
 export const getVisionObservationComponents = (visionDTO: VitalsVisionObservationDTO): ObservationComponent[] => {
   let result: ObservationComponent[] = [];
 
@@ -445,11 +491,11 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
   const makeExtraVisionOptionComponent = (option: VitalsVisionOption, optionValue: boolean): ObservationComponent => {
     let optionCode = '';
     if (option === 'child_too_young') {
-      optionCode = VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
     } else if (option === 'with_glasses') {
-      optionCode = VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE;
     } else if (option === 'without_glasses') {
-      optionCode = VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
     }
 
     let optionLabel = '';
@@ -508,11 +554,11 @@ export const extractVisionValues = (
   const getVisionExtraOptionValue = (option: VitalsVisionOption): boolean | undefined => {
     let optionCode = '';
     if (option === 'child_too_young') {
-      optionCode = VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
     } else if (option === 'with_glasses') {
-      optionCode = VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE;
     } else if (option === 'without_glasses') {
-      optionCode = VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
     }
 
     const optionComponent = components.find((cmp) => {
@@ -674,7 +720,10 @@ export function fillVitalObservationAttributes(
     return {
       ...baseResource,
       code: { coding: [{ system: LOINC_SYSTEM, code: '29463-7', display: 'Body weight' }] },
-      valueQuantity: { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' },
+      valueQuantity: weightDTO.value
+        ? { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' }
+        : undefined,
+      component: getWeightObservationComponents(weightDTO),
     };
   }
 
@@ -774,13 +823,26 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
   }
 
   if (fieldName === VitalFieldNames.VitalWeight) {
-    const obsNumericalValue = observation.valueQuantity?.value ?? 0;
-    const result: VitalsWeightObservationDTO = {
-      ...baseProps,
-      field: VitalFieldNames.VitalWeight,
-      value: obsNumericalValue,
-    };
-    return result;
+    const obsNumericalValue = observation.valueQuantity?.value;
+    const weightValues = extractWeightValues(observation.component ?? []);
+    const hasPatientRefused = weightValues.weightOptions?.includes('patient_refused');
+
+    if (hasPatientRefused) {
+      const result: VitalsWeightObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalWeight,
+        extraWeightOptions: ['patient_refused'],
+      };
+      return result;
+    } else {
+      const result: VitalsWeightObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalWeight,
+        value: obsNumericalValue ?? 0,
+        extraWeightOptions: weightValues.weightOptions as Omit<VitalsWeightOption, 'patient_refused'>[],
+      };
+      return result;
+    }
   }
 
   if (fieldName === VitalFieldNames.VitalHeight) {
@@ -807,3 +869,30 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
 
   return undefined;
 }
+
+const extractWeightValues = (
+  components: ObservationComponent[]
+): {
+  weightOptions?: VitalsWeightOption[];
+} => {
+  const getWeightExtraOptionValue = (option: VitalsWeightOption): boolean | undefined => {
+    let optionCode = '';
+
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+    }
+
+    const optionComponent = components.find((cmp) => {
+      return cmp.code?.coding?.find((coding) => coding?.code === optionCode);
+    });
+
+    return optionComponent?.valueBoolean;
+  };
+
+  const allExtraWeightOptions: VitalsWeightOption[] = ['patient_refused'];
+  const storedExtraWeightOptions = allExtraWeightOptions.filter((option) => getWeightExtraOptionValue(option) === true);
+
+  return {
+    weightOptions: storedExtraWeightOptions,
+  };
+};

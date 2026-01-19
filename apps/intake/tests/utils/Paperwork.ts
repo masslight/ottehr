@@ -1,6 +1,6 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { AllStates, PatientEthnicity, PatientRace } from 'utils';
+import { AllStates, checkFieldHidden, PatientEthnicity, PatientRace } from 'utils';
 import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
@@ -33,7 +33,7 @@ export interface PatientDetailsRequiredData {
   randomLanguage: string;
 }
 export interface PatientDetailsData extends PatientDetailsRequiredData {
-  randomPronoun: string;
+  randomPronoun: string | undefined;
   randomPoint: string;
 }
 
@@ -249,6 +249,7 @@ export class Paperwork {
   }
 
   async clickProceedToPaperwork(): Promise<void> {
+    await expect(this.locator.proceedToPaperwork).toBeVisible();
     await this.locator.proceedToPaperwork.click();
   }
 
@@ -686,12 +687,18 @@ export class Paperwork {
     return randomRace;
   }
   async fillPronoun(): Promise<PatientDetailsData['randomPronoun']> {
+    if (checkFieldHidden('patient-pronouns')) {
+      return undefined;
+    }
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
     const randomPronoun = this.getRandomElement(this.pronouns);
     await this.page.getByRole('option', { name: randomPronoun }).click();
     return randomPronoun;
   }
   async fillNotListedPronouns(): Promise<void> {
+    if (checkFieldHidden('patient-pronouns')) {
+      return;
+    }
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
     await this.page.getByRole('option', { name: 'My pronouns are not listed' }).click();
     await expect(this.locator.patientMyPronounsLabel).toBeVisible();

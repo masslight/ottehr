@@ -277,6 +277,7 @@ const FormFields = {
           label: "Policy holder's first name",
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+          disabledDisplay: 'disabled',
         },
         middleName: {
           key: 'policy-holder-middle-name',
@@ -284,6 +285,7 @@ const FormFields = {
           label: "Policy holder's middle name",
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-middle-name' },
+          disabledDisplay: 'disabled',
         },
         lastName: {
           key: 'policy-holder-last-name',
@@ -291,6 +293,7 @@ const FormFields = {
           label: "Policy holder's last name",
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+          disabledDisplay: 'disabled',
         },
         birthDate: {
           key: 'policy-holder-date-of-birth',
@@ -299,6 +302,7 @@ const FormFields = {
           dataType: 'DOB',
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+          disabledDisplay: 'disabled',
         },
         birthSex: {
           key: 'policy-holder-birth-sex',
@@ -307,12 +311,14 @@ const FormFields = {
           options: formValueSets.birthSexOptions,
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+          disabledDisplay: 'disabled',
         },
         policyHolderAddressAsPatient: {
           key: 'policy-holder-address-as-patient',
           type: 'boolean',
           label: "Policy holder address is the same as patient's address",
           triggers: [InsuredPersonNotSelfTrigger],
+          disabledDisplay: 'disabled',
         },
         streetAddress: {
           key: 'policy-holder-address',
@@ -321,6 +327,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-street-address' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         addressLine2: {
           key: 'policy-holder-address-additional-line',
@@ -329,6 +336,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         city: {
           key: 'policy-holder-city',
@@ -337,6 +345,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-city' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         state: {
           key: 'policy-holder-state',
@@ -346,6 +355,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-state' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         zip: {
           key: 'policy-holder-zip',
@@ -355,6 +365,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-zip' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         relationship: {
           key: 'patient-relationship-to-insured',
@@ -400,6 +411,7 @@ const FormFields = {
           label: "Policy holder's first name",
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+          disabledDisplay: 'disabled',
         },
         middleName: {
           key: 'policy-holder-middle-name-2',
@@ -407,6 +419,7 @@ const FormFields = {
           label: "Policy holder's middle name",
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-middle-name' },
+          disabledDisplay: 'disabled',
         },
         lastName: {
           key: 'policy-holder-last-name-2',
@@ -414,6 +427,7 @@ const FormFields = {
           label: "Policy holder's last name",
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+          disabledDisplay: 'disabled',
         },
         birthDate: {
           key: 'policy-holder-date-of-birth-2',
@@ -422,6 +436,7 @@ const FormFields = {
           dataType: 'DOB',
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+          disabledDisplay: 'disabled',
         },
         birthSex: {
           key: 'policy-holder-birth-sex-2',
@@ -430,12 +445,14 @@ const FormFields = {
           options: formValueSets.birthSexOptions,
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+          disabledDisplay: 'disabled',
         },
         policyHolderAddressAsPatient: {
           key: 'policy-holder-address-as-patient-2',
           type: 'boolean',
           label: "Policy holder address is the same as patient's address",
           triggers: [InsuredPersonNotSelfTrigger2],
+          disabledDisplay: 'disabled',
         },
         streetAddress: {
           key: 'policy-holder-address-2',
@@ -444,6 +461,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-street-address' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         addressLine2: {
           key: 'policy-holder-address-additional-line-2',
@@ -452,6 +470,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         city: {
           key: 'policy-holder-city-2',
@@ -460,6 +479,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-city' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         state: {
           key: 'policy-holder-state-2',
@@ -469,6 +489,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-state' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         zip: {
           key: 'policy-holder-zip-2',
@@ -478,6 +499,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-zip' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         relationship: {
           key: 'patient-relationship-to-insured-2',
@@ -587,6 +609,7 @@ const FormFields = {
         label: 'First name',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+        disabledDisplay: 'disabled',
       },
       lastName: {
         key: 'responsible-party-last-name',
@@ -594,6 +617,7 @@ const FormFields = {
         label: 'Last name',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+        disabledDisplay: 'disabled',
       },
       birthDate: {
         key: 'responsible-party-date-of-birth',
@@ -602,6 +626,7 @@ const FormFields = {
         dataType: 'DOB',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+        disabledDisplay: 'disabled',
       },
       birthSex: {
         key: 'responsible-party-birth-sex',
@@ -610,6 +635,7 @@ const FormFields = {
         options: formValueSets.birthSexOptions,
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+        disabledDisplay: 'disabled',
       },
       phone: {
         key: 'responsible-party-number',
@@ -618,6 +644,7 @@ const FormFields = {
         dataType: 'Phone Number',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-number' },
+        disabledDisplay: 'disabled',
       },
       email: {
         key: 'responsible-party-email',
@@ -626,12 +653,14 @@ const FormFields = {
         dataType: 'Email',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-email' },
+        disabledDisplay: 'disabled',
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
         label: "Responsible party's address is the same as patient's address",
         type: 'boolean',
         triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'disabled',
       },
       addressLine1: {
         key: 'responsible-party-address',
@@ -640,6 +669,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+        disabledDisplay: 'disabled',
       },
       addressLine2: {
         key: 'responsible-party-address-2',
@@ -648,6 +678,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+        disabledDisplay: 'disabled',
       },
       city: {
         key: 'responsible-party-city',
@@ -656,6 +687,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-city' },
+        disabledDisplay: 'disabled',
       },
       state: {
         key: 'responsible-party-state',
@@ -665,6 +697,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-state' },
+        disabledDisplay: 'disabled',
       },
       zip: {
         key: 'responsible-party-zip',
@@ -674,6 +707,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-zip' },
+        disabledDisplay: 'disabled',
       },
     },
     hiddenFields: [],
@@ -885,7 +919,7 @@ const PATIENT_RECORD_DEFAULTS = {
   FormFields,
 };
 
-const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(PATIENT_RECORD_DEFAULTS, OVERRIDES);
+const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(OVERRIDES, PATIENT_RECORD_DEFAULTS);
 
 const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,

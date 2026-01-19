@@ -12,7 +12,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -24,7 +24,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -36,7 +36,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -48,7 +48,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -60,7 +60,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -76,7 +76,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -99,7 +99,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -125,7 +125,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -260,7 +260,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -292,7 +292,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -321,7 +321,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -344,7 +344,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -454,7 +454,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -502,7 +502,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -549,7 +549,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -561,7 +561,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
@@ -580,7 +580,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -592,7 +592,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -604,7 +604,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -774,7 +774,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -790,7 +790,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -806,7 +806,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -822,7 +822,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -851,7 +851,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
@@ -879,7 +879,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -907,7 +907,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -993,7 +993,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -1005,7 +1005,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -1496,7 +1496,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -1508,7 +1508,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
@@ -1536,7 +1536,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -1564,7 +1564,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -1650,7 +1650,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -1662,7 +1662,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2153,7 +2153,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2165,7 +2165,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
@@ -2184,7 +2184,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2336,7 +2336,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2856,7 +2856,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2868,7 +2868,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2880,7 +2880,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2892,7 +2892,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2908,7 +2908,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2920,7 +2920,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2932,7 +2932,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2944,7 +2944,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -2956,7 +2956,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3126,7 +3126,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3142,7 +3142,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
@@ -3161,7 +3161,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3173,7 +3173,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
@@ -3183,19 +3183,6 @@
     "linkId": "employer-information-page",
     "type": "group",
     "text": "Worker's Compensation Information",
-    "enableWhen": [
-      {
-        "answerString": "workers-compensation",
-        "operator": "=",
-        "question": "patient-summary.appointment-service-category"
-      },
-      {
-        "answerBoolean": false,
-        "operator": "exists",
-        "question": "patient-summary.appointment-service-category"
-      }
-    ],
-    "enableBehavior": "any",
     "item": [
       {
         "linkId": "workers-comp-insurance-name",
@@ -3221,7 +3208,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -3250,7 +3237,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3262,7 +3249,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3274,7 +3261,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3286,7 +3273,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3298,7 +3285,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3468,7 +3455,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3484,7 +3471,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3496,7 +3483,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3508,7 +3495,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3520,7 +3507,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3536,7 +3523,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3552,7 +3539,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3568,29 +3555,29 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
-    ]
+    ],
+    "enableWhen": [
+      {
+        "question": "patient-summary.appointment-service-category",
+        "operator": "=",
+        "answerString": "workers-compensation"
+      },
+      {
+        "question": "patient-summary.appointment-service-category",
+        "operator": "exists",
+        "answerBoolean": false
+      }
+    ],
+    "enableBehavior": "any"
   },
   {
     "linkId": "occupational-medicine-employer-information-page",
     "type": "group",
     "text": "Employer - Occupational Medicine",
-    "enableWhen": [
-      {
-        "answerString": "occupational-medicine",
-        "operator": "=",
-        "question": "patient-summary.appointment-service-category"
-      },
-      {
-        "answerBoolean": false,
-        "operator": "exists",
-        "question": "patient-summary.appointment-service-category"
-      }
-    ],
-    "enableBehavior": "any",
     "item": [
       {
         "linkId": "occupational-medicine-employer",
@@ -3616,29 +3603,29 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
-    ]
+    ],
+    "enableWhen": [
+      {
+        "question": "patient-summary.appointment-service-category",
+        "operator": "=",
+        "answerString": "occupational-medicine"
+      },
+      {
+        "question": "patient-summary.appointment-service-category",
+        "operator": "exists",
+        "answerBoolean": false
+      }
+    ],
+    "enableBehavior": "any"
   },
   {
     "linkId": "attorney-mva-page",
     "type": "group",
     "text": "Attorney for Motor Vehicle Accident",
-    "enableWhen": [
-      {
-        "answerString": "Auto accident",
-        "operator": "=",
-        "question": "patient-summary.reason-for-visit"
-      },
-      {
-        "answerBoolean": false,
-        "operator": "exists",
-        "question": "patient-summary.reason-for-visit"
-      }
-    ],
-    "enableBehavior": "any",
     "item": [
       {
         "linkId": "attorney-mva-firm",
@@ -3648,7 +3635,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3660,7 +3647,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3672,7 +3659,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3688,7 +3675,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3704,7 +3691,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       },
@@ -3720,10 +3707,23 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
+            "valueString": "hidden"
           }
         ]
       }
-    ]
+    ],
+    "enableWhen": [
+      {
+        "question": "patient-summary.reason-for-visit",
+        "operator": "=",
+        "answerString": "Auto accident"
+      },
+      {
+        "question": "patient-summary.reason-for-visit",
+        "operator": "exists",
+        "answerBoolean": false
+      }
+    ],
+    "enableBehavior": "any"
   }
 ]

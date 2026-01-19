@@ -1,10 +1,4 @@
 {
-  "resourceType": "Questionnaire",
-  "url": "https://ottehr.com/FHIR/Questionnaire/book-appointment",
-  "version": "1.0.0",
-  "name": "BookAppointmentQuestionnaire",
-  "title": "Book Appointment Form",
-  "status": "active",
   "item": [
     {
       "linkId": "patient-information-page",
@@ -110,7 +104,7 @@
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
+              "valueString": "hidden"
             }
           ]
         },
@@ -133,7 +127,7 @@
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
+              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -173,7 +167,7 @@
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
+              "valueString": "hidden"
             }
           ]
         },
@@ -229,7 +223,7 @@
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
+              "valueString": "hidden"
             }
           ]
         },
@@ -456,7 +450,7 @@
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
+              "valueString": "hidden"
             }
           ]
         },
@@ -468,7 +462,7 @@
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
+              "valueString": "hidden"
             }
           ]
         },

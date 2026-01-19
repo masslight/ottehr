@@ -1209,7 +1209,9 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication')
+    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication') &&
+    // Chart data doesn't return cancelled orders. There is a separate endpoint that returns them (get-medication-orders)
+    resource.status !== 'entered-in-error'
   ) {
     data.inhouseMedications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
