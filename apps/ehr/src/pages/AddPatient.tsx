@@ -250,15 +250,15 @@ export default function AddPatient(): JSX.Element {
         <Grid item xs={5}>
           <CustomBreadcrumbs
             chain={[
-              { link: '/visits', children: 'In Person' },
-              { link: '#', children: 'Add Patient' },
+              { link: '/visits', children: 'Tracking Board' },
+              { link: '#', children: 'Add Visit' },
             ]}
           />
 
           {/* page title */}
 
           <Typography variant="h3" marginTop={1} color={'primary.dark'}>
-            Add Patient
+            Add Visit
           </Typography>
 
           {/* form content */}
