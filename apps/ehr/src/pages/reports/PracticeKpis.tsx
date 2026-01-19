@@ -292,6 +292,30 @@ export default function PracticeKpis(): React.ReactElement {
           return params.value.toFixed(2);
         },
       },
+      {
+        field: 'providerToDischargedAverage',
+        headerName: 'Provider to Discharged Average (min)',
+        flex: 1,
+        minWidth: 230,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
+        field: 'providerToDischargedMedian',
+        headerName: 'Provider to Discharged Median (min)',
+        flex: 1,
+        minWidth: 230,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
     ],
     []
   );
@@ -306,10 +330,12 @@ export default function PracticeKpis(): React.ReactElement {
       arrivedToReadyMedian: location.arrivedToReadyMedian,
       arrivedToDischargedAverage: location.arrivedToDischargedAverage,
       arrivedToDischargedMedian: location.arrivedToDischargedMedian,
-      timeToIntakeAverage: location.timeToIntakeAverage,
-      timeToIntakeMedian: location.timeToIntakeMedian,
-      timeToProviderAverage: location.timeToProviderAverage,
-      timeToProviderMedian: location.timeToProviderMedian,
+      arrivedToIntakeAverage: location.arrivedToIntakeAverage,
+      arrivedToIntakeMedian: location.arrivedToIntakeMedian,
+      arrivedToProviderAverage: location.arrivedToProviderAverage,
+      arrivedToProviderMedian: location.arrivedToProviderMedian,
+      providerToDischargedAverage: location.providerToDischargedAverage,
+      providerToDischargedMedian: location.providerToDischargedMedian,
       visitCount: location.visitCount,
     }));
   }, [reportData]);

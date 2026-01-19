@@ -12,10 +12,12 @@ export interface LocationKpiMetrics {
   arrivedToReadyMedian: number | null; // Median minutes in "arrived" status, null if no visits
   arrivedToDischargedAverage: number | null; // Average minutes from arrived to discharged, null if no visits
   arrivedToDischargedMedian: number | null; // Median minutes from arrived to discharged, null if no visits
-  timeToIntakeAverage: number | null; // Average minutes from arrived to intake (or later), null if no visits
-  timeToIntakeMedian: number | null; // Median minutes from arrived to intake (or later), null if no visits
-  timeToProviderAverage: number | null; // Average minutes from arrived to provider (or later), null if no visits
-  timeToProviderMedian: number | null; // Median minutes from arrived to provider (or later), null if no visits
+  arrivedToIntakeAverage: number | null; // Average minutes from arrived to intake, null if no visits
+  arrivedToIntakeMedian: number | null; // Median minutes from arrived to intake, null if no visits
+  arrivedToProviderAverage: number | null; // Average minutes from arrived to provider, null if no visits
+  arrivedToProviderMedian: number | null; // Median minutes from arrived to provider, null if no visits
+  providerToDischargedAverage: number | null; // Average minutes from provider to discharged, null if no visits
+  providerToDischargedMedian: number | null; // Median minutes from provider to discharged, null if no visits
   visitCount: number; // Number of discharged in-person visits
 }
 

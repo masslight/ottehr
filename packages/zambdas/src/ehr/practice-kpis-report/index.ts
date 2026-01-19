@@ -67,14 +67,8 @@ function getArrivedDuration(visitStatusHistory: VisitStatusHistoryEntry[]): numb
 // Helper function to get time from "arrived" to discharged status (with fallback to "ready" or "intake")
 // Returns total duration in minutes, or null if not calculable
 function getArrivedToDischargedDuration(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
-  // Find the start time (arrived, ready, or intake)
-  let arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'arrived');
-  if (!arrivedEntry) {
-    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'ready');
-  }
-  if (!arrivedEntry) {
-    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'intake');
-  }
+  // Find the start time (arrived only)
+  const arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'arrived');
 
   if (!arrivedEntry?.period.start) {
     return null;
@@ -99,38 +93,24 @@ function getArrivedToDischargedDuration(visitStatusHistory: VisitStatusHistoryEn
   return duration;
 }
 
-// Helper function to get time from "arrived" to "intake" status (or later status as backstop)
+// Helper function to get time from "arrived" to "intake" status
 // Returns total duration in minutes, or null if not calculable
-function getTimeToIntake(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
-  // Find the start time (arrived, ready, or intake)
-  let arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'arrived');
-  if (!arrivedEntry) {
-    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'ready');
-  }
-  if (!arrivedEntry) {
-    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'intake');
-  }
+function getArrivedToIntake(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
+  // Find the start time (arrived only)
+  const arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'arrived');
 
   if (!arrivedEntry?.period.start) {
     return null;
   }
 
-  // Find intake or the next status in progression (ready for provider, provider, discharged, etc.)
-  const intakeEntry = visitStatusHistory.findLast(
-    (entry) =>
-      entry.status === 'intake' ||
-      entry.status === 'ready for provider' ||
-      entry.status === 'provider' ||
-      entry.status === 'discharged' ||
-      entry.status === 'awaiting supervisor approval' ||
-      entry.status === 'completed'
-  );
+  // Find intake status
+  const intakeEntry = visitStatusHistory.findLast((entry) => entry.status === 'intake');
 
   if (!intakeEntry?.period.start) {
     return null;
   }
 
-  // Calculate duration from arrived to intake (or later)
+  // Calculate duration from arrived to intake
   const duration = DateTime.fromISO(intakeEntry.period.start).diff(
     DateTime.fromISO(arrivedEntry.period.start),
     'minutes'
@@ -139,38 +119,55 @@ function getTimeToIntake(visitStatusHistory: VisitStatusHistoryEntry[]): number 
   return duration;
 }
 
-// Helper function to get time from "arrived" to "provider" status (or later status as backstop)
+// Helper function to get time from "arrived" to "provider" status
 // Returns total duration in minutes, or null if not calculable
-function getTimeToProvider(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
-  // Find the start time (arrived, ready, or intake)
-  let arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'arrived');
-  if (!arrivedEntry) {
-    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'ready');
-  }
-  if (!arrivedEntry) {
-    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'intake');
-  }
+function getArrivedToProvider(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
+  // Find the start time (arrived only)
+  const arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'arrived');
 
   if (!arrivedEntry?.period.start) {
     return null;
   }
 
-  // Find provider or the next status in progression (discharged, etc.)
-  const providerEntry = visitStatusHistory.findLast(
-    (entry) =>
-      entry.status === 'provider' ||
-      entry.status === 'discharged' ||
-      entry.status === 'awaiting supervisor approval' ||
-      entry.status === 'completed'
-  );
+  // Find provider status
+  const providerEntry = visitStatusHistory.findLast((entry) => entry.status === 'provider');
 
   if (!providerEntry?.period.start) {
     return null;
   }
 
-  // Calculate duration from arrived to provider (or later)
+  // Calculate duration from arrived to provider
   const duration = DateTime.fromISO(providerEntry.period.start).diff(
     DateTime.fromISO(arrivedEntry.period.start),
+    'minutes'
+  ).minutes;
+
+  return duration;
+}
+
+// Helper function to get time from "provider" status to discharged
+// Returns total duration in minutes, or null if not calculable
+function getProviderToDischargedDuration(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
+  // Find when provider status started
+  const providerEntry = visitStatusHistory.findLast((entry) => entry.status === 'provider');
+
+  if (!providerEntry?.period.start) {
+    return null;
+  }
+
+  // Find the discharge time (discharged, awaiting supervisor approval, or completed)
+  const dischargedEntry = visitStatusHistory.findLast(
+    (entry) =>
+      entry.status === 'discharged' || entry.status === 'awaiting supervisor approval' || entry.status === 'completed'
+  );
+
+  if (!dischargedEntry?.period.start) {
+    return null;
+  }
+
+  // Calculate duration from provider to discharged
+  const duration = DateTime.fromISO(dischargedEntry.period.start).diff(
+    DateTime.fromISO(providerEntry.period.start),
     'minutes'
   ).minutes;
 
@@ -364,8 +361,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         locationId: string;
         arrivedDurations: number[];
         arrivedToDischargedDurations: number[];
-        timeToIntakeDurations: number[];
-        timeToProviderDurations: number[];
+        arrivedToIntakeDurations: number[];
+        arrivedToProviderDurations: number[];
+        providerToDischargedDurations: number[];
       }
     >();
 
@@ -389,21 +387,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           const statusHistory = getVisitStatusHistory(encounter);
           const arrivedDuration = getArrivedDuration(statusHistory);
           const arrivedToDischargedDuration = getArrivedToDischargedDuration(statusHistory);
-          const timeToIntake = getTimeToIntake(statusHistory);
-          const timeToProvider = getTimeToProvider(statusHistory);
+          const arrivedToIntake = getArrivedToIntake(statusHistory);
+          const arrivedToProvider = getArrivedToProvider(statusHistory);
+          const providerToDischargedDuration = getProviderToDischargedDuration(statusHistory);
 
           if (
             arrivedDuration !== null ||
             arrivedToDischargedDuration !== null ||
-            timeToIntake !== null ||
-            timeToProvider !== null
+            arrivedToIntake !== null ||
+            arrivedToProvider !== null ||
+            providerToDischargedDuration !== null
           ) {
             const currentData = locationMetricsMap.get(locationName) || {
               locationId,
               arrivedDurations: [],
               arrivedToDischargedDurations: [],
-              timeToIntakeDurations: [],
-              timeToProviderDurations: [],
+              arrivedToIntakeDurations: [],
+              arrivedToProviderDurations: [],
+              providerToDischargedDurations: [],
             };
 
             if (arrivedDuration !== null) {
@@ -412,11 +413,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             if (arrivedToDischargedDuration !== null) {
               currentData.arrivedToDischargedDurations.push(arrivedToDischargedDuration);
             }
-            if (timeToIntake !== null) {
-              currentData.timeToIntakeDurations.push(timeToIntake);
+            if (arrivedToIntake !== null) {
+              currentData.arrivedToIntakeDurations.push(arrivedToIntake);
             }
-            if (timeToProvider !== null) {
-              currentData.timeToProviderDurations.push(timeToProvider);
+            if (arrivedToProvider !== null) {
+              currentData.arrivedToProviderDurations.push(arrivedToProvider);
+            }
+            if (providerToDischargedDuration !== null) {
+              currentData.providerToDischargedDurations.push(providerToDischargedDuration);
             }
             locationMetricsMap.set(locationName, currentData);
           }
@@ -450,27 +454,47 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             }
           }
 
-          // Calculate time to intake average and median
-          let timeToIntakeAverage: number | null = null;
-          let timeToIntakeMedian: number | null = null;
-          if (metricsData.timeToIntakeDurations.length > 0) {
-            const intakeSum = metricsData.timeToIntakeDurations.reduce((acc, val) => acc + val, 0);
-            timeToIntakeAverage = Math.round((intakeSum / metricsData.timeToIntakeDurations.length) * 100) / 100;
-            timeToIntakeMedian = calculateMedian(metricsData.timeToIntakeDurations);
-            if (timeToIntakeMedian !== null) {
-              timeToIntakeMedian = Math.round(timeToIntakeMedian * 100) / 100;
+          // Calculate arrived to intake average and median
+          let arrivedToIntakeAverage: number | null = null;
+          let arrivedToIntakeMedian: number | null = null;
+          if (metricsData.arrivedToIntakeDurations.length > 0) {
+            const intakeSum = metricsData.arrivedToIntakeDurations.reduce((acc: number, val: number) => acc + val, 0);
+            arrivedToIntakeAverage = Math.round((intakeSum / metricsData.arrivedToIntakeDurations.length) * 100) / 100;
+            arrivedToIntakeMedian = calculateMedian(metricsData.arrivedToIntakeDurations);
+            if (arrivedToIntakeMedian !== null) {
+              arrivedToIntakeMedian = Math.round(arrivedToIntakeMedian * 100) / 100;
             }
           }
 
-          // Calculate time to provider average and median
-          let timeToProviderAverage: number | null = null;
-          let timeToProviderMedian: number | null = null;
-          if (metricsData.timeToProviderDurations.length > 0) {
-            const providerSum = metricsData.timeToProviderDurations.reduce((acc, val) => acc + val, 0);
-            timeToProviderAverage = Math.round((providerSum / metricsData.timeToProviderDurations.length) * 100) / 100;
-            timeToProviderMedian = calculateMedian(metricsData.timeToProviderDurations);
-            if (timeToProviderMedian !== null) {
-              timeToProviderMedian = Math.round(timeToProviderMedian * 100) / 100;
+          // Calculate arrived to provider average and median
+          let arrivedToProviderAverage: number | null = null;
+          let arrivedToProviderMedian: number | null = null;
+          if (metricsData.arrivedToProviderDurations.length > 0) {
+            const providerSum = metricsData.arrivedToProviderDurations.reduce(
+              (acc: number, val: number) => acc + val,
+              0
+            );
+            arrivedToProviderAverage =
+              Math.round((providerSum / metricsData.arrivedToProviderDurations.length) * 100) / 100;
+            arrivedToProviderMedian = calculateMedian(metricsData.arrivedToProviderDurations);
+            if (arrivedToProviderMedian !== null) {
+              arrivedToProviderMedian = Math.round(arrivedToProviderMedian * 100) / 100;
+            }
+          }
+
+          // Calculate provider to discharged average and median
+          let providerToDischargedAverage: number | null = null;
+          let providerToDischargedMedian: number | null = null;
+          if (metricsData.providerToDischargedDurations.length > 0) {
+            const providerToDischargedSum = metricsData.providerToDischargedDurations.reduce(
+              (acc, val) => acc + val,
+              0
+            );
+            providerToDischargedAverage =
+              Math.round((providerToDischargedSum / metricsData.providerToDischargedDurations.length) * 100) / 100;
+            providerToDischargedMedian = calculateMedian(metricsData.providerToDischargedDurations);
+            if (providerToDischargedMedian !== null) {
+              providerToDischargedMedian = Math.round(providerToDischargedMedian * 100) / 100;
             }
           }
 
@@ -481,10 +505,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             arrivedToReadyMedian: arrivedMedian !== null ? Math.round(arrivedMedian * 100) / 100 : null,
             arrivedToDischargedAverage,
             arrivedToDischargedMedian,
-            timeToIntakeAverage,
-            timeToIntakeMedian,
-            timeToProviderAverage,
-            timeToProviderMedian,
+            arrivedToIntakeAverage,
+            arrivedToIntakeMedian,
+            arrivedToProviderAverage,
+            arrivedToProviderMedian,
+            providerToDischargedAverage,
+            providerToDischargedMedian,
             visitCount: metricsData.arrivedDurations.length,
           };
         } else {
@@ -496,10 +522,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             arrivedToReadyMedian: null,
             arrivedToDischargedAverage: null,
             arrivedToDischargedMedian: null,
-            timeToIntakeAverage: null,
-            timeToIntakeMedian: null,
-            timeToProviderAverage: null,
-            timeToProviderMedian: null,
+            arrivedToIntakeAverage: null,
+            arrivedToIntakeMedian: null,
+            arrivedToProviderAverage: null,
+            arrivedToProviderMedian: null,
+            providerToDischargedAverage: null,
+            providerToDischargedMedian: null,
             visitCount: 0,
           };
         }
