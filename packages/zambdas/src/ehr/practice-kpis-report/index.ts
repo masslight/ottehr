@@ -420,6 +420,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         arrivedToProviderDurations: number[];
         providerToDischargedDurations: number[];
         preBookedCount: number;
+        walkInCount: number;
         onTimeCount: number;
       }
     >();
@@ -482,6 +483,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               arrivedToProviderDurations: [],
               providerToDischargedDurations: [],
               preBookedCount: 0,
+              walkInCount: 0,
               onTimeCount: 0,
             };
 
@@ -513,6 +515,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               if (arrivedOnTime) {
                 currentData.onTimeCount++;
               }
+            } else if (appointmentType === 'walk-in') {
+              currentData.walkInCount++;
             }
 
             locationMetricsMap.set(locationName, currentData);
@@ -644,6 +648,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             onTimePercent = Math.round((metricsData.onTimeCount / metricsData.preBookedCount) * 10000) / 100;
           }
 
+          // Calculate book ahead and walk-in percentages
+          const totalVisits = metricsData.arrivedDurations.length;
+          const bookAheadPercent =
+            totalVisits > 0 ? Math.round((metricsData.preBookedCount / totalVisits) * 10000) / 100 : null;
+          const walkInPercent =
+            totalVisits > 0 ? Math.round((metricsData.walkInCount / totalVisits) * 10000) / 100 : null;
+
           return {
             locationName,
             locationId,
@@ -664,6 +675,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             providerToDischargedAverage,
             providerToDischargedMedian,
             onTimePercent,
+            bookAheadPercent,
+            walkInPercent,
             visitCount: metricsData.arrivedDurations.length,
           };
         } else {
@@ -688,6 +701,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             providerToDischargedAverage: null,
             providerToDischargedMedian: null,
             onTimePercent: null,
+            bookAheadPercent: null,
+            walkInPercent: null,
             visitCount: 0,
           };
         }

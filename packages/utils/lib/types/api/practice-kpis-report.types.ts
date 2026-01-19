@@ -25,6 +25,8 @@ export interface LocationKpiMetrics {
   providerToDischargedAverage: number | null; // Average minutes from provider to discharged, null if no visits
   providerToDischargedMedian: number | null; // Median minutes from provider to discharged, null if no visits
   onTimePercent: number | null; // Percentage of pre-booked visits where arrived status time is before appointment time, null if no visits
+  bookAheadPercent: number | null; // Percentage of visits that are pre-booked, null if no visits
+  walkInPercent: number | null; // Percentage of visits that are walk-in, null if no visits
   visitCount: number; // Number of discharged in-person visits
 }
 

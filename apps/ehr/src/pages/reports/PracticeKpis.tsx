@@ -400,6 +400,30 @@ export default function PracticeKpis(): React.ReactElement {
           return `${params.value.toFixed(1)}%`;
         },
       },
+      {
+        field: 'bookAheadPercent',
+        headerName: '% Book Ahead',
+        flex: 1,
+        minWidth: 150,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return `${params.value.toFixed(1)}%`;
+        },
+      },
+      {
+        field: 'walkInPercent',
+        headerName: '% Walk-In',
+        flex: 1,
+        minWidth: 150,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return `${params.value.toFixed(1)}%`;
+        },
+      },
     ],
     []
   );
@@ -427,6 +451,8 @@ export default function PracticeKpis(): React.ReactElement {
       providerToDischargedAverage: location.providerToDischargedAverage,
       providerToDischargedMedian: location.providerToDischargedMedian,
       onTimePercent: location.onTimePercent,
+      bookAheadPercent: location.bookAheadPercent,
+      walkInPercent: location.walkInPercent,
       visitCount: location.visitCount,
     }));
   }, [reportData]);
