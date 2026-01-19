@@ -57,7 +57,7 @@ function getArrivedDuration(visitStatusHistory: VisitStatusHistoryEntry[]): numb
   // If status has ended, calculate duration between start and end
   if (endTime) {
     const duration = DateTime.fromISO(endTime).diff(DateTime.fromISO(startTime), 'minutes').minutes;
-    return Math.floor(duration);
+    return duration;
   }
 
   // If status hasn't ended yet (shouldn't happen for discharged visits), return null
@@ -96,7 +96,23 @@ function getArrivedToDischargedDuration(visitStatusHistory: VisitStatusHistoryEn
     'minutes'
   ).minutes;
 
-  return Math.floor(duration);
+  return duration;
+}
+
+// Helper function to calculate median from array of numbers
+function calculateMedian(values: number[]): number | null {
+  if (values.length === 0) return null;
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    // Even number of values - return average of two middle values
+    return (sorted[middle - 1] + sorted[middle]) / 2;
+  } else {
+    // Odd number of values - return middle value
+    return sorted[middle];
+  }
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -321,23 +337,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const metricsData = locationMetricsMap.get(locationName);
 
         if (metricsData && metricsData.arrivedDurations.length > 0) {
-          // Calculate arrived to ready average
+          // Calculate arrived to ready average and median
           const arrivedSum = metricsData.arrivedDurations.reduce((acc, val) => acc + val, 0);
           const arrivedAverage = arrivedSum / metricsData.arrivedDurations.length;
+          const arrivedMedian = calculateMedian(metricsData.arrivedDurations);
 
-          // Calculate arrived to discharged average
+          // Calculate arrived to discharged average and median
           let arrivedToDischargedAverage: number | null = null;
+          let arrivedToDischargedMedian: number | null = null;
           if (metricsData.arrivedToDischargedDurations.length > 0) {
             const dischargedSum = metricsData.arrivedToDischargedDurations.reduce((acc, val) => acc + val, 0);
             arrivedToDischargedAverage =
               Math.round((dischargedSum / metricsData.arrivedToDischargedDurations.length) * 100) / 100;
+            arrivedToDischargedMedian = calculateMedian(metricsData.arrivedToDischargedDurations);
+            if (arrivedToDischargedMedian !== null) {
+              arrivedToDischargedMedian = Math.round(arrivedToDischargedMedian * 100) / 100;
+            }
           }
 
           return {
             locationName,
             locationId,
-            arrivedToReadyAverage: Math.round(arrivedAverage * 100) / 100, // Round to 2 decimal places
+            arrivedToReadyAverage: Math.round(arrivedAverage * 100) / 100,
+            arrivedToReadyMedian: arrivedMedian !== null ? Math.round(arrivedMedian * 100) / 100 : null,
             arrivedToDischargedAverage,
+            arrivedToDischargedMedian,
             visitCount: metricsData.arrivedDurations.length,
           };
         } else {
@@ -346,7 +370,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             locationName,
             locationId,
             arrivedToReadyAverage: null,
+            arrivedToReadyMedian: null,
             arrivedToDischargedAverage: null,
+            arrivedToDischargedMedian: null,
             visitCount: 0,
           };
         }

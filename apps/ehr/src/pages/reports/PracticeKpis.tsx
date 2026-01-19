@@ -203,8 +203,32 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
+        field: 'arrivedToReadyMedian',
+        headerName: 'Arrived to Ready Median (min)',
+        flex: 1,
+        minWidth: 200,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
         field: 'arrivedToDischargedAverage',
         headerName: 'Arrived to Discharged Average (min)',
+        flex: 1,
+        minWidth: 220,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
+        field: 'arrivedToDischargedMedian',
+        headerName: 'Arrived to Discharged Median (min)',
         flex: 1,
         minWidth: 220,
         valueFormatter: (params) => {
@@ -231,7 +255,9 @@ export default function PracticeKpis(): React.ReactElement {
       id: location.locationId || index,
       locationName: location.locationName,
       arrivedToReadyAverage: location.arrivedToReadyAverage,
+      arrivedToReadyMedian: location.arrivedToReadyMedian,
       arrivedToDischargedAverage: location.arrivedToDischargedAverage,
+      arrivedToDischargedMedian: location.arrivedToDischargedMedian,
       visitCount: location.visitCount,
     }));
   }, [reportData]);

@@ -9,7 +9,9 @@ export interface LocationKpiMetrics {
   locationName: string;
   locationId: string;
   arrivedToReadyAverage: number | null; // Average minutes in "arrived" status, null if no visits
+  arrivedToReadyMedian: number | null; // Median minutes in "arrived" status, null if no visits
   arrivedToDischargedAverage: number | null; // Average minutes from arrived to discharged, null if no visits
+  arrivedToDischargedMedian: number | null; // Median minutes from arrived to discharged, null if no visits
   visitCount: number; // Number of discharged in-person visits
 }
 
