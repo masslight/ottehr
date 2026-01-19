@@ -203,6 +203,18 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
+        field: 'arrivedToDischargedAverage',
+        headerName: 'Arrived to Discharged Average (min)',
+        flex: 1,
+        minWidth: 220,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return params.value.toFixed(2);
+        },
+      },
+      {
         field: 'visitCount',
         headerName: 'Visit Count',
         flex: 0.5,
@@ -219,6 +231,7 @@ export default function PracticeKpis(): React.ReactElement {
       id: location.locationId || index,
       locationName: location.locationName,
       arrivedToReadyAverage: location.arrivedToReadyAverage,
+      arrivedToDischargedAverage: location.arrivedToDischargedAverage,
       visitCount: location.visitCount,
     }));
   }, [reportData]);

@@ -64,6 +64,41 @@ function getArrivedDuration(visitStatusHistory: VisitStatusHistoryEntry[]): numb
   return null;
 }
 
+// Helper function to get time from "arrived" to discharged status (with fallback to "ready" or "intake")
+// Returns total duration in minutes, or null if not calculable
+function getArrivedToDischargedDuration(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
+  // Find the start time (arrived, ready, or intake)
+  let arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'arrived');
+  if (!arrivedEntry) {
+    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'ready');
+  }
+  if (!arrivedEntry) {
+    arrivedEntry = visitStatusHistory.findLast((entry) => entry.status === 'intake');
+  }
+
+  if (!arrivedEntry?.period.start) {
+    return null;
+  }
+
+  // Find the discharge time (discharged, awaiting supervisor approval, or completed)
+  const dischargedEntry = visitStatusHistory.findLast(
+    (entry) =>
+      entry.status === 'discharged' || entry.status === 'awaiting supervisor approval' || entry.status === 'completed'
+  );
+
+  if (!dischargedEntry?.period.start) {
+    return null;
+  }
+
+  // Calculate duration from arrived to discharged
+  const duration = DateTime.fromISO(dischargedEntry.period.start).diff(
+    DateTime.fromISO(arrivedEntry.period.start),
+    'minutes'
+  ).minutes;
+
+  return Math.floor(duration);
+}
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let validatedParameters;
   try {
@@ -234,6 +269,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       {
         locationId: string;
         arrivedDurations: number[];
+        arrivedToDischargedDurations: number[];
       }
     >();
 
@@ -250,20 +286,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         locationName = location?.name || 'Unknown Location';
       }
 
-      // Get encounter and calculate arrived duration
+      // Get encounter and calculate metrics
       if (appointment.id) {
         const encounter = encounterMap.get(`Appointment/${appointment.id}`);
         if (encounter) {
           const statusHistory = getVisitStatusHistory(encounter);
           const arrivedDuration = getArrivedDuration(statusHistory);
+          const arrivedToDischargedDuration = getArrivedToDischargedDuration(statusHistory);
 
-          if (arrivedDuration !== null) {
+          if (arrivedDuration !== null || arrivedToDischargedDuration !== null) {
             const currentData = locationMetricsMap.get(locationName) || {
               locationId,
               arrivedDurations: [],
+              arrivedToDischargedDurations: [],
             };
 
-            currentData.arrivedDurations.push(arrivedDuration);
+            if (arrivedDuration !== null) {
+              currentData.arrivedDurations.push(arrivedDuration);
+            }
+            if (arrivedToDischargedDuration !== null) {
+              currentData.arrivedToDischargedDurations.push(arrivedToDischargedDuration);
+            }
             locationMetricsMap.set(locationName, currentData);
           }
         }
@@ -278,14 +321,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const metricsData = locationMetricsMap.get(locationName);
 
         if (metricsData && metricsData.arrivedDurations.length > 0) {
-          // Calculate average
-          const sum = metricsData.arrivedDurations.reduce((acc, val) => acc + val, 0);
-          const average = sum / metricsData.arrivedDurations.length;
+          // Calculate arrived to ready average
+          const arrivedSum = metricsData.arrivedDurations.reduce((acc, val) => acc + val, 0);
+          const arrivedAverage = arrivedSum / metricsData.arrivedDurations.length;
+
+          // Calculate arrived to discharged average
+          let arrivedToDischargedAverage: number | null = null;
+          if (metricsData.arrivedToDischargedDurations.length > 0) {
+            const dischargedSum = metricsData.arrivedToDischargedDurations.reduce((acc, val) => acc + val, 0);
+            arrivedToDischargedAverage =
+              Math.round((dischargedSum / metricsData.arrivedToDischargedDurations.length) * 100) / 100;
+          }
 
           return {
             locationName,
             locationId,
-            arrivedToReadyAverage: Math.round(average * 100) / 100, // Round to 2 decimal places
+            arrivedToReadyAverage: Math.round(arrivedAverage * 100) / 100, // Round to 2 decimal places
+            arrivedToDischargedAverage,
             visitCount: metricsData.arrivedDurations.length,
           };
         } else {
@@ -294,6 +346,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             locationName,
             locationId,
             arrivedToReadyAverage: null,
+            arrivedToDischargedAverage: null,
             visitCount: 0,
           };
         }
