@@ -200,7 +200,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToReadyAverage',
         headerName: 'Arrived to Ready Average (min)',
         flex: 1,
-        minWidth: 200,
+        minWidth: 240,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -212,7 +212,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToReadyMedian',
         headerName: 'Arrived to Ready Median (min)',
         flex: 1,
-        minWidth: 200,
+        minWidth: 240,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -224,7 +224,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToDischargedAverage',
         headerName: 'Arrived to Discharged Average (min)',
         flex: 1,
-        minWidth: 220,
+        minWidth: 270,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -236,7 +236,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToDischargedMedian',
         headerName: 'Arrived to Discharged Median (min)',
         flex: 1,
-        minWidth: 220,
+        minWidth: 270,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -248,7 +248,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToIntakeAverage',
         headerName: 'Arrived to Intake Average (min)',
         flex: 1,
-        minWidth: 200,
+        minWidth: 240,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -260,7 +260,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToIntakeMedian',
         headerName: 'Arrived to Intake Median (min)',
         flex: 1,
-        minWidth: 200,
+        minWidth: 240,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -272,7 +272,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToProviderAverage',
         headerName: 'Arrived to Provider Average (min)',
         flex: 1,
-        minWidth: 210,
+        minWidth: 250,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -284,7 +284,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToProviderMedian',
         headerName: 'Arrived to Provider Median (min)',
         flex: 1,
-        minWidth: 210,
+        minWidth: 250,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -296,7 +296,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToProviderUnder15Percent',
         headerName: '% Arrived to Provider < 15 min',
         flex: 1,
-        minWidth: 230,
+        minWidth: 250,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -308,7 +308,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'arrivedToProviderUnder45Percent',
         headerName: '% Arrived to Provider < 45 min',
         flex: 1,
-        minWidth: 230,
+        minWidth: 250,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -320,7 +320,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'readyToIntakeAverage',
         headerName: 'Ready to Intake Average (min)',
         flex: 1,
-        minWidth: 200,
+        minWidth: 230,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -332,7 +332,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'readyToIntakeMedian',
         headerName: 'Ready to Intake Median (min)',
         flex: 1,
-        minWidth: 200,
+        minWidth: 230,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -344,7 +344,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'intakeToProviderAverage',
         headerName: 'Intake to Provider Average (min)',
         flex: 1,
-        minWidth: 210,
+        minWidth: 240,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -356,7 +356,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'intakeToProviderMedian',
         headerName: 'Intake to Provider Median (min)',
         flex: 1,
-        minWidth: 210,
+        minWidth: 240,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -368,7 +368,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'providerToDischargedAverage',
         headerName: 'Provider to Discharged Average (min)',
         flex: 1,
-        minWidth: 230,
+        minWidth: 270,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -380,7 +380,7 @@ export default function PracticeKpis(): React.ReactElement {
         field: 'providerToDischargedMedian',
         headerName: 'Provider to Discharged Median (min)',
         flex: 1,
-        minWidth: 230,
+        minWidth: 270,
         valueFormatter: (params) => {
           if (params.value === null || params.value === undefined) {
             return '—';
@@ -457,11 +457,14 @@ export default function PracticeKpis(): React.ReactElement {
     }));
   }, [reportData]);
 
-  // Custom toolbar with export
+  // Custom toolbar with CSV export only
   const CustomToolbar = (): React.ReactElement => {
     return (
       <GridToolbarContainer>
-        <GridToolbarExport />
+        <GridToolbarExport
+          csvOptions={{ fileName: 'ottehr-practice-kpis' }}
+          printOptions={{ disableToolbarButton: true }}
+        />
       </GridToolbarContainer>
     );
   };
