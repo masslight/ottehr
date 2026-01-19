@@ -9,6 +9,16 @@ const CodingSchema = z.object({
   display: z.string().optional(),
 });
 
+const PathConfigSchema = z.union([
+  z.string(),
+  z.object({
+    default: z.string(),
+    byState: z.record(z.string(), z.string()).optional(),
+  }),
+]);
+
+type PathConfig = z.infer<typeof PathConfigSchema>;
+
 const ConsentFormSchema = z.object({
   id: z.string(),
   formTitle: z.string(),
@@ -18,13 +28,8 @@ const ConsentFormSchema = z.object({
     text: z.string().optional(),
   }),
   createsConsentResource: z.boolean(),
-  assetPath: z.union([
-    z.string(),
-    z.object({
-      default: z.string(),
-      byState: z.record(z.string(), z.string()).optional(),
-    }),
-  ]),
+  assetPath: PathConfigSchema,
+  publicUrl: PathConfigSchema,
 });
 
 const ConsentFormsConfigSchema = z.object({
@@ -46,6 +51,7 @@ const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
           IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
         },
       },
+      publicUrl: '/consent_to_treat_template.pdf',
       type: {
         coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
         text: 'Consent forms',
@@ -57,6 +63,7 @@ const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
       formTitle: 'HIPAA Acknowledgement',
       resourceTitle: 'HIPAA forms',
       assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+      publicUrl: '/hipaa_notice_template.pdf',
       type: {
         coding: [
           {
@@ -76,32 +83,29 @@ const mergedConsentFormsConfig = mergeAndFreezeConfigObjects(CONSENT_FORMS_OVERR
 
 export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentFormsConfig);
 
-export const getConsentForms = (): ConsentFormConfig[] => {
-  return CONSENT_FORMS_CONFIG.forms;
-};
-
-export const getConsentFormById = (formId: string): ConsentFormConfig | undefined => {
-  return CONSENT_FORMS_CONFIG.forms.find((f) => f.id === formId);
-};
-
-export const getConsentFormAssetPath = (formId: string, locationState?: string): string | undefined => {
-  const form = getConsentFormById(formId);
-  if (!form) return undefined;
-
-  if (typeof form.assetPath === 'string') {
-    return form.assetPath;
+const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
+  console.log(path);
+  console.log(locationState);
+  if (typeof path === 'string') {
+    return path;
   }
 
-  if (locationState && form.assetPath.byState?.[locationState]) {
-    return form.assetPath.byState[locationState];
+  if (locationState && path.byState?.[locationState]) {
+    return path.byState[locationState];
   }
 
-  return form.assetPath.default;
+  return path.default;
 };
 
-export const getConsentFormsForLocation = (locationState?: string): ConsentFormConfig[] => {
+export type ResolvedConsentFormConfig = Omit<ConsentFormConfig, 'assetPath' | 'publicUrl'> & {
+  assetPath: string;
+  publicUrl: string;
+};
+
+export const getConsentFormsForLocation = (locationState?: string): ResolvedConsentFormConfig[] => {
   return CONSENT_FORMS_CONFIG.forms.map((form) => ({
     ...form,
-    assetPath: getConsentFormAssetPath(form.id, locationState) || form.assetPath,
+    assetPath: resolveAssetPath(form.assetPath, locationState),
+    publicUrl: resolveAssetPath(form.publicUrl, locationState),
   }));
 };

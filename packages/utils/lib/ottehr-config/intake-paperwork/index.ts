@@ -3,7 +3,7 @@ import { camelCase } from 'lodash-es';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
-import { CONSENT_FORMS_CONFIG } from '../consent-forms';
+import { getConsentFormsForLocation } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
@@ -16,6 +16,8 @@ import {
   SELF_PAY_OPTION,
 } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
+
+const resolvedConsentForms = getConsentFormsForLocation();
 
 const FormFields = {
   contactInformation: {
@@ -1727,11 +1729,11 @@ const FormFields = {
     enableBehavior: 'all',
     items: {
       ...Object.fromEntries(
-        CONSENT_FORMS_CONFIG.forms.map((form) => [
+        resolvedConsentForms.map((form) => [
           camelCase(form.id),
           {
             key: form.id,
-            label: `I have reviewed and accept [${form.formTitle}](${form.assetPath})`,
+            label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
             type: 'boolean',
             triggers: [
               {
@@ -1822,7 +1824,7 @@ const FormFields = {
     },
     hiddenFields: [],
     requiredFields: [
-      ...CONSENT_FORMS_CONFIG.forms.map((f) => f.id),
+      ...resolvedConsentForms.map((f) => f.id),
       'signature',
       'full-name',
       'consent-form-signer-relationship',

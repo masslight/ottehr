@@ -66,8 +66,7 @@ import {
   getAllStripeCustomerAccountPairs,
   getArrayInfo,
   getConsentAndRelatedDocRefsForAppointment,
-  getConsentFormAssetPath,
-  getConsentForms,
+  getConsentFormsForLocation,
   getCurrentValue,
   getEmailForIndividual,
   getFullName,
@@ -318,12 +317,12 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     patientResource.id
   }/${Date.now()}`;
 
-  const consentForms = getConsentForms();
+  const consentForms = getConsentFormsForLocation(locationState);
 
   const pdfsToCreate = consentForms.map((form) => ({
     formId: form.id,
     uploadURL: `${baseUploadURL}-${form.id}.pdf`,
-    copyFromPath: getConsentFormAssetPath(form.id, locationState) || '',
+    copyFromPath: form.assetPath,
     formTitle: form.formTitle,
     resourceTitle: form.resourceTitle,
     type: form.type,
