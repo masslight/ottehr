@@ -129,6 +129,11 @@ export default function AddVisit(): JSX.Element {
               <Typography variant="h3" marginTop={1} color={'primary.dark'}>
                 Add Visit
               </Typography>
+              <Stack>
+                {formState.visitInfo.finished ? (
+                  <Typography>{VISIT_TYPES[formState.visitInfo.visitType]}</Typography>
+                ) : null}
+              </Stack>
               <Paper style={{ padding: '24px' }}>
                 <Stack style={{ display: !formState.visitInfo.finished ? 'block' : 'none' }} spacing={2}>
                   <Typography variant="h4" color="primary.dark">
