@@ -119,6 +119,58 @@ function getArrivedToIntake(visitStatusHistory: VisitStatusHistoryEntry[]): numb
   return duration;
 }
 
+// Helper function to get time from "ready" to "intake" status
+// Returns total duration in minutes, or null if not calculable
+function getReadyToIntake(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
+  // Find the start time (ready only)
+  const readyEntry = visitStatusHistory.findLast((entry) => entry.status === 'ready');
+
+  if (!readyEntry?.period.start) {
+    return null;
+  }
+
+  // Find intake status
+  const intakeEntry = visitStatusHistory.findLast((entry) => entry.status === 'intake');
+
+  if (!intakeEntry?.period.start) {
+    return null;
+  }
+
+  // Calculate duration from ready to intake
+  const duration = DateTime.fromISO(intakeEntry.period.start).diff(
+    DateTime.fromISO(readyEntry.period.start),
+    'minutes'
+  ).minutes;
+
+  return duration;
+}
+
+// Helper function to get time from "intake" to "provider" status
+// Returns total duration in minutes, or null if not calculable
+function getIntakeToProvider(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
+  // Find the start time (intake only)
+  const intakeEntry = visitStatusHistory.findLast((entry) => entry.status === 'intake');
+
+  if (!intakeEntry?.period.start) {
+    return null;
+  }
+
+  // Find provider status
+  const providerEntry = visitStatusHistory.findLast((entry) => entry.status === 'provider');
+
+  if (!providerEntry?.period.start) {
+    return null;
+  }
+
+  // Calculate duration from intake to provider
+  const duration = DateTime.fromISO(providerEntry.period.start).diff(
+    DateTime.fromISO(intakeEntry.period.start),
+    'minutes'
+  ).minutes;
+
+  return duration;
+}
+
 // Helper function to get time from "arrived" to "provider" status
 // Returns total duration in minutes, or null if not calculable
 function getArrivedToProvider(visitStatusHistory: VisitStatusHistoryEntry[]): number | null {
@@ -362,6 +414,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         arrivedDurations: number[];
         arrivedToDischargedDurations: number[];
         arrivedToIntakeDurations: number[];
+        readyToIntakeDurations: number[];
+        intakeToProviderDurations: number[];
         arrivedToProviderDurations: number[];
         providerToDischargedDurations: number[];
       }
@@ -388,6 +442,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           const arrivedDuration = getArrivedDuration(statusHistory);
           const arrivedToDischargedDuration = getArrivedToDischargedDuration(statusHistory);
           const arrivedToIntake = getArrivedToIntake(statusHistory);
+          const readyToIntake = getReadyToIntake(statusHistory);
+          const intakeToProvider = getIntakeToProvider(statusHistory);
           const arrivedToProvider = getArrivedToProvider(statusHistory);
           const providerToDischargedDuration = getProviderToDischargedDuration(statusHistory);
 
@@ -395,6 +451,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             arrivedDuration !== null ||
             arrivedToDischargedDuration !== null ||
             arrivedToIntake !== null ||
+            readyToIntake !== null ||
+            intakeToProvider !== null ||
             arrivedToProvider !== null ||
             providerToDischargedDuration !== null
           ) {
@@ -403,6 +461,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               arrivedDurations: [],
               arrivedToDischargedDurations: [],
               arrivedToIntakeDurations: [],
+              readyToIntakeDurations: [],
+              intakeToProviderDurations: [],
               arrivedToProviderDurations: [],
               providerToDischargedDurations: [],
             };
@@ -415,6 +475,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             }
             if (arrivedToIntake !== null) {
               currentData.arrivedToIntakeDurations.push(arrivedToIntake);
+            }
+            if (readyToIntake !== null) {
+              currentData.readyToIntakeDurations.push(readyToIntake);
+            }
+            if (intakeToProvider !== null) {
+              currentData.intakeToProviderDurations.push(intakeToProvider);
             }
             if (arrivedToProvider !== null) {
               currentData.arrivedToProviderDurations.push(arrivedToProvider);
@@ -466,6 +532,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             }
           }
 
+          // Calculate ready to intake average and median
+          let readyToIntakeAverage: number | null = null;
+          let readyToIntakeMedian: number | null = null;
+          if (metricsData.readyToIntakeDurations.length > 0) {
+            const readyIntakeSum = metricsData.readyToIntakeDurations.reduce(
+              (acc: number, val: number) => acc + val,
+              0
+            );
+            readyToIntakeAverage = Math.round((readyIntakeSum / metricsData.readyToIntakeDurations.length) * 100) / 100;
+            readyToIntakeMedian = calculateMedian(metricsData.readyToIntakeDurations);
+            if (readyToIntakeMedian !== null) {
+              readyToIntakeMedian = Math.round(readyToIntakeMedian * 100) / 100;
+            }
+          }
+
+          // Calculate intake to provider average and median
+          let intakeToProviderAverage: number | null = null;
+          let intakeToProviderMedian: number | null = null;
+          if (metricsData.intakeToProviderDurations.length > 0) {
+            const intakeProviderSum = metricsData.intakeToProviderDurations.reduce(
+              (acc: number, val: number) => acc + val,
+              0
+            );
+            intakeToProviderAverage =
+              Math.round((intakeProviderSum / metricsData.intakeToProviderDurations.length) * 100) / 100;
+            intakeToProviderMedian = calculateMedian(metricsData.intakeToProviderDurations);
+            if (intakeToProviderMedian !== null) {
+              intakeToProviderMedian = Math.round(intakeToProviderMedian * 100) / 100;
+            }
+          }
+
           // Calculate arrived to provider average and median
           let arrivedToProviderAverage: number | null = null;
           let arrivedToProviderMedian: number | null = null;
@@ -507,6 +604,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             arrivedToDischargedMedian,
             arrivedToIntakeAverage,
             arrivedToIntakeMedian,
+            readyToIntakeAverage,
+            readyToIntakeMedian,
+            intakeToProviderAverage,
+            intakeToProviderMedian,
             arrivedToProviderAverage,
             arrivedToProviderMedian,
             providerToDischargedAverage,
@@ -524,6 +625,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             arrivedToDischargedMedian: null,
             arrivedToIntakeAverage: null,
             arrivedToIntakeMedian: null,
+            readyToIntakeAverage: null,
+            readyToIntakeMedian: null,
+            intakeToProviderAverage: null,
+            intakeToProviderMedian: null,
             arrivedToProviderAverage: null,
             arrivedToProviderMedian: null,
             providerToDischargedAverage: null,
