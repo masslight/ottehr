@@ -84,7 +84,6 @@ export default function AddPatient(): JSX.Element {
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
-  console.log('visitType:', visitType);
   const [serviceCategory, setServiceCategory] = useState<string>();
   const [slot, setSlot] = useState<Slot | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
