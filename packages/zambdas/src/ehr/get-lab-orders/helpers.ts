@@ -826,13 +826,6 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     });
   }
 
-  if (searchBy.field === 'requisitionNumber') {
-    searchParams.push({
-      name: 'identifier',
-      value: searchBy.value.join(','),
-    });
-  }
-
   if (visitDate) {
     searchParams.push({
       name: 'encounter.appointment.date',

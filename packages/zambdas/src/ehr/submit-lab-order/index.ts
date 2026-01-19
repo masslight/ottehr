@@ -7,7 +7,6 @@ import { DateTime } from 'luxon';
 import {
   getPatchBinary,
   getSecret,
-  LabOrdersSearchBy,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   OYSTEHR_SUBMIT_LAB_API,
   SecretsKeys,
@@ -20,7 +19,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getLabResources } from '../get-lab-orders/helpers';
 import {
   getBundledOrderResources,
   makeOrderFormsAndDocRefs,
@@ -38,8 +36,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
-    const { requisitionNumbers, manualOrder, secrets } = validateRequestParameters(input);
-    console.log('manualOrder', requisitionNumbers, manualOrder);
+    const { serviceRequestIDs, manualOrder, secrets } = validateRequestParameters(input);
+    console.log('manualOrder', serviceRequestIDs, manualOrder);
 
     console.log('Getting token');
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -51,16 +49,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const currentUser = await createOystehrClient(userToken, secrets).user.me();
 
     const now = DateTime.now();
-    const searchBy: LabOrdersSearchBy = { searchBy: { field: 'requisitionNumber', value: requisitionNumbers } };
-
-    const { serviceRequests } = await getLabResources(oystehr, { ...searchBy, itemsPerPage: 100, secrets }, m2mToken, {
-      ...searchBy,
-    });
-    const serviceRequestIDs = serviceRequests.map((sr) => sr.id).filter((elm) => elm !== undefined);
-    console.log(
-      `${serviceRequestIDs.length} serviceRequestIds to submit`,
-      JSON.stringify(serviceRequestIDs, undefined, 2)
-    );
 
     console.log('getting resources needed for submit lab');
     const bundledOrdersByOrderNumber = await getBundledOrderResources(

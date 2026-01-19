@@ -217,7 +217,6 @@ type orderBundleDTO = {
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
   orders: (LabOrderListPageDTO | ReflexLabDTO)[];
-  fullBundleIsSubmitable: boolean | undefined; // tells us if every item in the bundle's requisition is submitable. May reference items not in the 'orders' due to pagination. Undefined for resulted orders
 };
 export type LabOrderListPageDTOGrouped = {
   pendingActionOrResults: Record<string, orderBundleDTO>;
@@ -230,8 +229,7 @@ export type LabOrdersSearchBy = {
     | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
     | { field: 'serviceRequestId'; value: string }
-    | { field: 'diagnosticReportId'; value: string }
-    | { field: 'requisitionNumber'; value: string[] };
+    | { field: 'diagnosticReportId'; value: string };
 };
 
 export type LabOrdersSearchFilters = {
@@ -263,7 +261,7 @@ export interface DynamicAOEInput {
 }
 
 export type SubmitLabOrderInput = {
-  requisitionNumbers: string[];
+  serviceRequestIDs: string[];
   manualOrder: boolean;
 };
 
