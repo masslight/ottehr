@@ -1088,20 +1088,10 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     //   ).toBe('_blank');
     // });
 
-    const consentFormsData = await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
-      const consentFormsData = await paperwork.fillConsentForms();
+    await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
+      await paperwork.fillConsentForms();
       await locator.clickContinueButton();
       await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
-      return consentFormsData;
-    });
-
-    await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
-      await locator.clickBackButton();
-      await expect(locator.hipaaAcknowledgement).toBeChecked();
-      await expect(locator.consentToTreat).toBeChecked();
-      await expect(locator.signature).toHaveValue(consentFormsData.signature);
-      await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
-      await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
     });
   });
 

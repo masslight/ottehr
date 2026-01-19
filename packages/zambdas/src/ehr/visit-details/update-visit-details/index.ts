@@ -1,9 +1,11 @@
 import Oystehr, { BatchInputJSONPatchRequest, BatchInputPatchRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Extension, Patient } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Extension, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BOOKING_CONFIG,
+  BookingDetails,
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
@@ -19,7 +21,6 @@ import {
   REASON_ADDITIONAL_MAX_CHAR,
   Secrets,
   SecretsKeys,
-  UpdateVisitDetailsInput,
   userMe,
   VALUE_SETS,
 } from 'utils';
@@ -60,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-interface EffectInput extends UpdateVisitDetailsInput {
+interface EffectInput extends Input {
   patient: Patient;
   user: User;
   appointment: Appointment;
@@ -305,6 +306,25 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     }
   }
 
+  if (bookingDetails.serviceCategory) {
+    const appointmentPatch: BatchInputJSONPatchRequest = {
+      url: '/Appointment/' + appointment.id,
+      method: 'PATCH',
+      operations: [
+        {
+          op: appointment?.serviceCategory ? 'replace' : 'add',
+          path: '/serviceCategory',
+          value: [
+            {
+              coding: [bookingDetails.serviceCategory],
+            },
+          ],
+        },
+      ],
+    };
+    patchRequests.push(appointmentPatch);
+  }
+
   // this will combine any requests to patch the same object. for now there's no possibility of conflicting operations
   // in this endpoint, so simply consolidating the requests is safe.
   const consolidatedPatches = consolidatePatchRequests(patchRequests);
@@ -356,9 +376,13 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   };
 };
 
-interface Input extends UpdateVisitDetailsInput {
+interface Input {
   userToken: string;
   secrets: Secrets | null;
+  appointmentId: string;
+  bookingDetails: Omit<BookingDetails, 'serviceCategory'> & {
+    serviceCategory?: Coding;
+  };
 }
 
 const validateRequestParameters = (input: ZambdaInput): Input => {
@@ -456,6 +480,18 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     }
   }
 
+  let serviceCategory: Coding | undefined = undefined;
+  if (bookingDetails.serviceCategory && typeof bookingDetails.serviceCategory !== 'string') {
+    throw INVALID_INPUT_ERROR('serviceCategory must be a string');
+  } else if (bookingDetails.serviceCategory) {
+    serviceCategory = BOOKING_CONFIG.serviceCategories.find(
+      (category) => category.code === bookingDetails.serviceCategory
+    );
+    if (!serviceCategory) {
+      throw INVALID_INPUT_ERROR(`serviceCategory, "${bookingDetails.serviceCategory}", is not a valid option`);
+    }
+  }
+
   // Require at least one field to be present
 
   if (
@@ -464,7 +500,8 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     bookingDetails.authorizedNonLegalGuardians === undefined &&
     bookingDetails.confirmedDob === undefined &&
     bookingDetails.patientName === undefined &&
-    bookingDetails.consentForms === undefined
+    bookingDetails.consentForms === undefined &&
+    bookingDetails.serviceCategory === undefined
   ) {
     throw INVALID_INPUT_ERROR('at least one field in bookingDetails must be provided');
   }
@@ -473,7 +510,10 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     secrets,
     userToken,
     appointmentId,
-    bookingDetails,
+    bookingDetails: {
+      ...bookingDetails,
+      serviceCategory,
+    },
   };
 };
 
