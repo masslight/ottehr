@@ -42,6 +42,24 @@ export type ConsentFormsConfig = z.infer<typeof ConsentFormsConfigSchema>;
 const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
   forms: [
     {
+      id: 'hipaa-acknowledgement',
+      formTitle: 'HIPAA Acknowledgement',
+      resourceTitle: 'HIPAA forms',
+      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+      publicUrl: '/hipaa_notice_template.pdf',
+      type: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: PRIVACY_POLICY_CODE,
+            display: 'Privacy Policy',
+          },
+        ],
+        text: 'HIPAA Acknowledgement forms',
+      },
+      createsConsentResource: false,
+    },
+    {
       id: 'consent-to-treat',
       formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
       resourceTitle: 'Consent forms',
@@ -68,24 +86,6 @@ const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
         text: 'Consent forms',
       },
       createsConsentResource: true,
-    },
-    {
-      id: 'hipaa-acknowledgement',
-      formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPAA forms',
-      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
-      publicUrl: '/hipaa_notice_template.pdf',
-      type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: PRIVACY_POLICY_CODE,
-            display: 'Privacy Policy',
-          },
-        ],
-        text: 'HIPAA Acknowledgement forms',
-      },
-      createsConsentResource: false,
     },
   ],
 };
