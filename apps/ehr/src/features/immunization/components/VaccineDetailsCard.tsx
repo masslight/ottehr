@@ -203,7 +203,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <SelectInput
                   name="administrationDetails.emergencyContact.relationship"
                   label="Relationship"
-                  options={RELATIONSHIP_OPTIONS}
+                  options={RELATIONSHIP_OPTIONS.map((option) => option.value)}
+                  getOptionLabel={(option) => RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option}
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                 />
@@ -270,7 +271,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
           medicationName={methods.getValues('details.medication.name')}
           dose={methods.getValues('details.dose')}
           unit={UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
-          route={ROUTE_OPTIONS.find((route) => route.value === methods.getValues('details.route'))?.label}
+          route={ROUTE_OPTIONS.find((route) => route.code === methods.getValues('details.route'))?.name}
           open={showAdministrationConfirmationDialog}
           handleClose={() => {
             setShowAdministrationConfirmationDialog(false);

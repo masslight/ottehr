@@ -717,7 +717,7 @@ export const testItems: TestItem[] = [
           },
           triggerAlert: 'Alcohol ≥ 0.02% requires a confirmation test',
           condition: {
-            description: 'BAC > 0.02',
+            description: 'BAC >= 0.02',
             language: 'text/fhirpath',
             expression:
               "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value >= 0.02",
@@ -749,6 +749,10 @@ export const testItems: TestItem[] = [
         display: {
           type: 'Numeric',
           nullOption: false,
+        },
+        reflexLogic: {
+          // this will need to be updated to match the current version of the AD
+          parentTestUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest|1.0.0',
         },
       },
     ],

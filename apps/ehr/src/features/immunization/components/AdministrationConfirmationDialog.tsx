@@ -70,12 +70,8 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
                 dataTestId={dataTestIds.administrationConfirmationDialog.reasonField}
                 name="reason"
                 label="Reason"
-                options={Object.entries(reasonListValues).map(([value, label]) => {
-                  return {
-                    value,
-                    label,
-                  };
-                })}
+                options={Object.keys(reasonListValues)}
+                getOptionLabel={(option) => reasonListValues[option as ReasonListCodes]}
                 required
               />
               {reason === ReasonListCodes.OTHER && <TextInput name="otherReason" label="Specify reason" required />}

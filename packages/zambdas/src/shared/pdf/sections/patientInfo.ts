@@ -1,7 +1,6 @@
-import { DateTime } from 'luxon';
 import {
-  DATE_FORMAT,
   FHIR_EXTENSION,
+  formatDateForDisplay,
   genderMap,
   getFormattedPatientFullName,
   getNameSuffix,
@@ -16,8 +15,8 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const fullName = getFormattedPatientFullName(patient, { skipNickname: true }) ?? '';
   const suffix = getNameSuffix(patient) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
-  const dob = patient?.birthDate ? DateTime.fromFormat(patient?.birthDate, DATE_FORMAT).toFormat('MM.dd.yyyy') : '';
-  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
+  const dob = formatDateForDisplay(patient?.birthDate);
+  const unconfirmedDOB = formatDateForDisplay(getUnconfirmedDOBForAppointment(appointment));
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';

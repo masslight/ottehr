@@ -1,3 +1,4 @@
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { defaultNoteLocales } from 'src/features/visits/shared/components/generic-notes-list/default-note-locales.helper';
 import { GenericNoteList } from 'src/features/visits/shared/components/generic-notes-list/GenericNoteList';
 import { GenericNotesConfig } from 'src/features/visits/shared/components/generic-notes-list/types';
@@ -22,5 +23,9 @@ const hospitalizationNotesConfig: GenericNotesConfig = {
 };
 
 export const HospitalizationNotes: React.FC = () => (
-  <GenericNoteList apiConfig={hospitalizationNotesConfig.apiConfig} locales={hospitalizationNotesConfig.locales} />
+  <GenericNoteList
+    addNoteButtonDataTestId={dataTestIds.hospitalizationPage.addNoteButton}
+    apiConfig={hospitalizationNotesConfig.apiConfig}
+    locales={hospitalizationNotesConfig.locales}
+  />
 );

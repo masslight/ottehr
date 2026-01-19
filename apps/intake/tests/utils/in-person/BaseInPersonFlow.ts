@@ -1,31 +1,21 @@
-import { BrowserContext, expect, Page } from '@playwright/test';
+import { BrowserContext, Page } from '@playwright/test';
 import { chooseJson, GetSlotDetailsResponse } from 'utils';
+import { BaseFlow, PatientBasicInfo } from '../BaseFlow';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
-import { Locators } from '../locators';
 import { InPersonPaperworkReturn, Paperwork } from '../Paperwork';
 import { FillingInfo } from './FillingInfo';
 
 export interface SlotAndLocation {
-  selectedSlot: string | undefined;
+  slot: string | undefined;
   location: string | null;
-  locationTitle?: string | null;
 }
 
 export interface StartVisitResponse {
   patientBasicInfo: PatientBasicInfo;
-  bookingUUID: string | null;
+  appointmentId: string;
   // only used in prebook flows
   slotAndLocation?: SlotAndLocation;
   slotDetails: GetSlotDetailsResponse | null;
-}
-
-export interface PatientBasicInfo {
-  firstName: string;
-  lastName: string;
-  birthSex: string;
-  email: string;
-  reasonForVisit: string;
-  dob: { m: string; d: string; y: string };
 }
 
 export interface FilledPaperworkInput {
@@ -35,9 +25,7 @@ export interface FilledPaperworkInput {
   patientBasicInfo?: PatientBasicInfo;
 }
 
-export abstract class BaseInPersonFlow {
-  protected page: Page;
-  protected locator: Locators;
+export abstract class BaseInPersonFlow extends BaseFlow {
   protected fillingInfo: FillingInfo;
   protected context: BrowserContext;
   protected commonLocatorsHelper: CommonLocatorsHelper;
@@ -45,9 +33,9 @@ export abstract class BaseInPersonFlow {
   slotDetails: GetSlotDetailsResponse | null = null;
 
   constructor(page: Page) {
-    this.page = page;
-    this.locator = new Locators(page);
-    this.fillingInfo = new FillingInfo(page);
+    const fillingInfo = new FillingInfo(page);
+    super(page, fillingInfo);
+    this.fillingInfo = fillingInfo;
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
     this.paperworkGeneral = new Paperwork(page);
@@ -86,13 +74,18 @@ export abstract class BaseInPersonFlow {
 
   // ---------------------------------------------------------------------------
 
+  abstract additionalStepsForPrebook(): Promise<SlotAndLocation>;
+
   async selectVisitAndContinue(): Promise<void> {
     await this.page.goto(`/home`);
     await this.clickVisitButton();
   }
 
   async fillNewPatientDataAndContinue(): Promise<PatientBasicInfo> {
-    const bookingData = await this.fillingInfo.fillNewPatientInfo();
+    const bookingData =
+      process.env.SMOKE_TEST === 'true'
+        ? await this.fillingInfo.fillNewPatientInfoSmoke()
+        : await this.fillingInfo.fillNewPatientInfo();
     const patientDob = await this.fillingInfo.fillDOBgreater18();
     await this.locator.clickContinueButton();
     return {
@@ -106,28 +99,8 @@ export abstract class BaseInPersonFlow {
         m: patientDob.randomMonth,
         y: patientDob.randomYear,
       },
+      isNewPatient: true,
     };
-  }
-
-  async findAndSelectExistingPatient(patient: PatientBasicInfo): Promise<void> {
-    // find and select existing patient
-    const patientName = this.page.getByRole('heading', {
-      name: new RegExp(`.*${patient.firstName} ${patient.lastName}.*`, 'i'),
-    });
-    await expect(patientName).toBeVisible();
-    await patientName.scrollIntoViewIfNeeded();
-    await patientName.click({ timeout: 40_000, noWaitAfter: true, force: true });
-    await this.locator.clickContinueButton();
-
-    // confirm dob
-    await this.fillingInfo.fillCorrectDOB(patient.dob.m, patient.dob.d, patient.dob.y);
-    await this.locator.clickContinueButton();
-
-    // select reason for visit
-    await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
-    await expect(this.locator.flowHeading).toHaveText('About the patient');
-    await this.fillingInfo.fillVisitReason();
-    await this.locator.continueButton.click();
   }
 
   async continue(): Promise<void> {

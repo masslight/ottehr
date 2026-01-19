@@ -60,7 +60,7 @@ test('RS. Reservation Screen check data is correct', async () => {
     expect.soft(prebookSlotTextContent).not.toBeNull();
     expect.soft(prebookSlotTextContent?.trim()).not.toBe('');
     expect.soft(prebookSlotTextContent?.trim().toLowerCase()).not.toBe('unknown');
-    await commonLocators.checkSlotIsCorrect(visitData.slotAndLocation?.selectedSlot);
+    await commonLocators.checkSlotIsCorrect(visitData.slotAndLocation?.slot);
   });
 
   await test.step('RS-5. Check links', async () => {

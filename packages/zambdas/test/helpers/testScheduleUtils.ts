@@ -31,8 +31,8 @@ interface StartOfDayParams {
   timezone?: string;
 }
 export const startOfDayWithTimezone = (input?: StartOfDayParams): DateTime => {
-  const baseDate = input?.date ?? DateTime.now();
   const timezone = input?.timezone ?? DEFAULT_TEST_TIMEZONE;
+  const baseDate = input?.date ?? DateTime.now().setZone(timezone);
   return DateTime.fromFormat(baseDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone });
 };
 

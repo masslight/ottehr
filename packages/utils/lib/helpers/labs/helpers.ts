@@ -12,7 +12,7 @@ import {
   LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
-  OYSTEHR_LAB_DOC_CATEGORY_CODING,
+  OYSTEHR_ABN_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -268,7 +268,7 @@ export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
     (cat) =>
       cat.coding?.some(
         (code) =>
-          code.code === OYSTEHR_LAB_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_LAB_DOC_CATEGORY_CODING.system
+          code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system
       )
   );
   return isCurrent && isAbn;

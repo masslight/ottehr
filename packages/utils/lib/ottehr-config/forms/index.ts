@@ -6,12 +6,12 @@ const DEFAULT_FORMS_CONFIG: FormsConfig = {
   forms: [
     {
       title: 'Texas Workers Compensation Form DWC073',
-      link: 'https://drive.google.com/file/d/1H2PLOAOlblpPJUkgmFvnw6XLJYRnW2GX/view?usp=drive_link',
+      link: '/dwc073.pdf',
     },
   ],
 };
 
-const mergedConfig = mergeAndFreezeConfigObjects(DEFAULT_FORMS_CONFIG, FORMS_CONFIG_OVERRIDE);
+const mergedConfig = mergeAndFreezeConfigObjects(FORMS_CONFIG_OVERRIDE, DEFAULT_FORMS_CONFIG);
 
 const FormSchema = z.object({
   title: z.string(),

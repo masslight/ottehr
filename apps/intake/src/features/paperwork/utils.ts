@@ -63,7 +63,6 @@ const inputTypeForDisplayItem = (item: IntakeQuestionnaireItem): FormItemType =>
   return 'Header 3';
 };
 
-const radioIds = ['payment-option'];
 const radioListIds = ['patient-filling-out-as'];
 const inputTypeForChoiceItem = (item: IntakeQuestionnaireItem): FormItemType => {
   /*if (item.linkId === 'relay-phone') {
@@ -75,9 +74,6 @@ const inputTypeForChoiceItem = (item: IntakeQuestionnaireItem): FormItemType => 
     item.preferredElement === 'Select'
   ) {
     return item.preferredElement;
-  }
-  if (radioIds.includes(item.id ?? '')) {
-    return 'Radio';
   }
   if (radioListIds.includes(item.id ?? '')) {
     return 'Radio List';

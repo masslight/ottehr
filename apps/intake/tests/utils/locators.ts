@@ -1,5 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';
@@ -256,6 +256,13 @@ export class Locators {
   emergencyContactCity: Locator;
   emergencyContactState: Locator;
   emergencyContactZip: Locator;
+  attorneyHasAttorney: Locator;
+  attorneyFirm: Locator;
+  attorneyFirstName: Locator;
+  attorneyLastName: Locator;
+  attorneyEmail: Locator;
+  attorneyMobile: Locator;
+  attorneyFax: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -269,7 +276,9 @@ export class Locators {
       this.continueButton = page.getByText('Continue');
     }
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
-    this.thankYouHeading = page.getByRole('heading', { name: `Thank you for choosing ${PROJECT_NAME}!` });
+    this.thankYouHeading = page.getByRole('heading', {
+      name: `Thank you for choosing ${BRANDING_CONFIG.projectName}!`,
+    });
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
@@ -280,7 +289,7 @@ export class Locators {
     this.editPaperwork = page.getByRole('button', { name: 'Edit paperwork' });
     this.backButton = page.getByTestId(dataTestIds.backButton);
     this.bookAgainButton = page.getByRole('button', { name: 'Book again' });
-    this.homeScreenHeading = page.getByRole('heading', { name: 'Welcome to Ottehr' });
+    this.homeScreenHeading = page.getByRole('heading', { name: `Welcome to ${BRANDING_CONFIG.projectName}` });
     this.numberErrorText = page.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
     this.emailErrorText = page.getByText('Email is not valid');
     this.zipErrorText = page.getByText('ZIP Code must be 5 numbers');
@@ -337,8 +346,8 @@ export class Locators {
     this.relayServiceYes = page.locator('[aria-labelledby="relay-phone-label"] input[type="radio"][value="Yes"]');
 
     // Payment, insurance locators
-    this.selfPayOption = page.getByLabel('I will pay without insurance');
-    this.insuranceOption = page.getByLabel('I have insurance');
+    this.selfPayOption = page.getByLabel(SELF_PAY_OPTION);
+    this.insuranceOption = page.getByLabel(INSURANCE_PAY_OPTION);
     this.insuranceHeading = page.getByText('We use this information to help determine your coverage and costs.');
     this.insuranceCarrier = page.locator("[id='insurance-carrier']");
     this.insuranceCarrierFirstOption = page.locator("[id='insurance-carrier-option-0']");
@@ -428,6 +437,15 @@ export class Locators {
     this.emergencyContactCity = page.locator('[id="emergency-contact-city"]');
     this.emergencyContactState = page.locator('[id="emergency-contact-state"]');
     this.emergencyContactZip = page.locator('[id="emergency-contact-zip"]');
+
+    // Attorney Information locators
+    this.attorneyHasAttorney = page.getByLabel('I have an attorney');
+    this.attorneyFirm = page.locator('[id="attorney-mva-firm"]');
+    this.attorneyFirstName = page.locator('[id="attorney-mva-first-name"]');
+    this.attorneyLastName = page.locator('[id="attorney-mva-last-name"]');
+    this.attorneyEmail = page.locator('[id="attorney-mva-email"]');
+    this.attorneyMobile = page.locator('[id="attorney-mva-mobile"]');
+    this.attorneyFax = page.locator('[id="attorney-mva-fax"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');

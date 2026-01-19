@@ -49,7 +49,7 @@ export const PatientInfoCollection: FC = () => {
     queryFn: async () => {
       if (!zambdaClient) throw new Error('Zambda client not initialized');
       if (!slotId) throw new Error('slotId is required');
-      const response = await api.getQuestionnaire(
+      const response = await api.getBookingQuestionnaire(
         {
           slotId: slotId,
           patientId: patientInfo?.id === 'new-patient' ? undefined : patientInfo?.id,
@@ -62,6 +62,8 @@ export const PatientInfoCollection: FC = () => {
   });
 
   const { allItems, questionnaireResponse: prepopulatedQuestionnaire } = questionnaireData || {};
+
+  console.log('questionnaireData', questionnaireData);
 
   const pages = useMemo(() => {
     return (allItems ?? []).filter((item) => {

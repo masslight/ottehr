@@ -5,19 +5,19 @@ import { submitLabOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  ExternalLabsStatus,
   GetLabOrdersParameters,
   LabOrderListPageDTO,
   LabOrdersSearchBy,
   LabsTableColumn,
   openPdf,
-  PdfAttachmentDTO,
   ReflexLabDTO,
 } from 'utils';
 import { LabsTable } from './LabsTable';
 import { LabsTableBundleHeaderRow } from './LabsTableBundleHeaderRow';
 
 type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
-  labOrders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
+  labOrders: (LabOrderListPageDTO | ReflexLabDTO)[];
   orderBundleName: string;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
@@ -32,6 +32,7 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactElement<any, string | JSXElementConstructor<any>> | null;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
@@ -122,7 +123,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
       .filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
     await submitOrders(true, labs);
   };
-  function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO): order is LabOrderListPageDTO {
+  function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO): order is LabOrderListPageDTO {
     return !('drCentricResultType' in order);
   }
 

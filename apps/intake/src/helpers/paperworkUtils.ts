@@ -1,4 +1,4 @@
-import { checkEnable, FileURLs, PaperworkPage, Question, QuestionnaireDataType } from 'utils';
+import { checkEnable, FileURLs, PaperworkPage, Question, QuestionnaireDataType, SELF_PAY_OPTION } from 'utils';
 import { FormInputType } from '../types';
 
 interface CompletedPaperwork {
@@ -43,7 +43,7 @@ function isPaymentOptionComplete(completedPaperwork: CompletedPaperwork, questio
       return valueExists(completedPaperwork[question.id]);
     });
 
-  const noInsurance = completedPaperwork['payment-option'] === 'I will pay without insurance';
+  const noInsurance = completedPaperwork['payment-option'] === SELF_PAY_OPTION;
 
   return noInsurance || requiredResponsesExist;
 }

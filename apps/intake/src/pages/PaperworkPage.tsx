@@ -214,7 +214,7 @@ export const PaperworkHome: FC = () => {
     });
   }, [allItems]);
 
-  const { data: stripeSetupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id);
+  const { data: stripeSetupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id, appointmentId);
 
   const {
     data: cardData,
@@ -222,6 +222,7 @@ export const PaperworkHome: FC = () => {
     refetch: refetchPaymentMethods,
   } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
+    appointmentId,
     setupCompleted: Boolean(stripeSetupData),
   });
 
@@ -451,6 +452,7 @@ export const PaperworkPage: FC = () => {
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
             const nextPage = getNextPage(updatedPaperwork);
+
             navigate(
               `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
             );

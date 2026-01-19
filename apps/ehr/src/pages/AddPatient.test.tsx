@@ -1,11 +1,10 @@
-import '@testing-library/jest-dom';
 import { render, screen, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import AddPatient from './AddPatient';
 
 vi.mock('react-router-dom', async () => {

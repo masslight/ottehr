@@ -42,6 +42,7 @@ interface PaymentDialogProps {
   isSubmitting: boolean;
   open: boolean;
   patient: Patient;
+  appointmentId: string | undefined;
 }
 
 const PatientHeader = (props: { patient: Patient }): ReactElement => {
@@ -109,6 +110,7 @@ export default function ({
   handleClose,
   open,
   patient,
+  appointmentId,
   isSubmitting,
 }: PaymentDialogProps): ReactElement {
   const buttonSx = {
@@ -231,6 +233,7 @@ export default function ({
             >
               <SelectCreditCard
                 patient={patient}
+                appointmentId={appointmentId}
                 selectedCardId={creditCard ?? ''}
                 handleCardSelected={(newVal: string | undefined) => {
                   setValue('creditCard', newVal ?? '');

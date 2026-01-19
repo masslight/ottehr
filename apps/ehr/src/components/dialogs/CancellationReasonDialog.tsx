@@ -16,7 +16,7 @@ import {
 import { Appointment, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
-import { CancelAppointmentZambdaInput, CancellationReasonOptionsInPerson } from 'utils';
+import { CancelAppointmentZambdaInput, VALUE_SETS } from 'utils';
 import { cancelAppointment } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -39,7 +39,7 @@ export default function CancellationReasonDialog({
   getAndSetResources,
 }: CancellationReasonDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [cancellationReason, setCancellationReason] = useState<CancellationReasonOptionsInPerson | ''>('');
+  const [cancellationReason, setCancellationReason] = useState<string>('');
   const [cancelLoading, setCancelLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const buttonSx = {
@@ -101,7 +101,7 @@ export default function CancellationReasonDialog({
   };
 
   const handleChange = (event: SelectChangeEvent<typeof cancellationReason>): void => {
-    const value = event.target.value as CancellationReasonOptionsInPerson;
+    const value = event.target.value as string;
     if (value && setCancellationReason) {
       setCancellationReason(value);
     }
@@ -143,9 +143,9 @@ export default function CancellationReasonDialog({
                 renderValue={(selected) => selected}
                 MenuProps={MenuProps}
               >
-                {Object.keys(CancellationReasonOptionsInPerson).map((reason) => (
-                  <MenuItem key={reason} value={reason}>
-                    <ListItemText primary={reason} />
+                {VALUE_SETS.cancelReasonOptions.map((reason) => (
+                  <MenuItem key={reason.value} value={reason.value}>
+                    <ListItemText primary={reason.label} />
                   </MenuItem>
                 ))}
               </Select>

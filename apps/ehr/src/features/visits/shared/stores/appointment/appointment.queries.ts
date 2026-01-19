@@ -884,9 +884,9 @@ export const useGetMedicationOrders = (
   return useQuery({
     queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy)],
 
-    queryFn: () => {
+    queryFn: async () => {
       if (apiClient) {
-        return apiClient.getMedicationOrders({ searchBy }) as Promise<GetMedicationOrdersResponse>;
+        return await apiClient.getMedicationOrders({ searchBy });
       }
       throw new Error('api client not defined');
     },

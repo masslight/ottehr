@@ -159,12 +159,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                 sx={{ boxShadow: 1, mt: 0, pt: 0, borderRadius: 2, [theme.breakpoints.down('md')]: { mx: 2 } }}
               >
                 <Box sx={{ m: 0, p: { xs: 3, md: 5 } }}>
-                  <Grid
-                    container
-                    spacing={{ xs: 0, md: 2 }}
-                    justifyContent="center"
-                    sx={{ justifyContent: 'space-between' }}
-                  >
+                  <Grid container spacing={{ xs: 0, md: 2 }} justifyContent="center" alignItems="center">
                     {title && (
                       <Grid item xs={12} md={gridWidths.title}>
                         <Typography

@@ -5,48 +5,19 @@ import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-ov
 import {
   makeAnswer,
   makePrepopulatedItemsFromPatientRecord,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
   PrePopulationFromPatientRecordInput,
+  ServiceMode,
 } from '../../main';
-import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../../types/data/paperwork';
 import { mergeAndFreezeConfigObjects } from '../helpers';
+import {
+  createQuestionnaireFromConfig,
+  FormFieldTrigger,
+  FormSectionArraySchema,
+  FormSectionSimpleSchema,
+  QuestionnaireBase,
+  QuestionnaireConfigSchema,
+} from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
-
-/*
-  THE SOURCE COMMENT
-*/
-const triggerEffectSchema = z.enum(['enable', 'require']);
-const triggerSchema = z
-  .object({
-    targetQuestionLinkId: z.string(),
-    effect: z.array(triggerEffectSchema),
-    operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
-    answerBoolean: z.boolean().optional(),
-    answerString: z.string().optional(),
-    answerDateTime: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      const definedAnswers = [data.answerBoolean, data.answerString, data.answerDateTime].filter(
-        (answer) => answer !== undefined
-      );
-      return definedAnswers.length === 1;
-    },
-    {
-      message: 'Exactly one of answerBoolean, answerString, or answerDecimal must be defined',
-    }
-  );
-
-export type FormFieldTrigger = z.infer<typeof triggerSchema>;
-
-const dynamicPopulationSchema = z.object({
-  sourceLinkId: z.string(),
-  // currently only supporting population when disabled, could see this evolve to a more flexible system where the trigger eval logic kicks off dynamic population
-  triggerState: z.literal('disabled').optional().default('disabled'),
-});
-
-// patient record fields
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
   label: `${option.candidCode} - ${option.label}`,
@@ -97,6 +68,32 @@ const FormFields = {
   patientSummary: {
     linkId: 'patient-info-section',
     title: 'Patient summary',
+    logicalItems: {
+      shouldDisplaySsnField: {
+        key: 'should-display-ssn-field',
+        type: 'boolean',
+        initialValue: false,
+      },
+      ssnFieldRequired: {
+        key: 'ssn-field-required',
+        type: 'boolean',
+      },
+      appointmentServiceCategory: {
+        key: 'appointment-service-category',
+        type: 'string',
+        required: false,
+      },
+      appointmentServiceMode: {
+        key: 'appointment-service-mode',
+        type: 'string',
+        required: false,
+      },
+      reasonForVisit: {
+        key: 'reason-for-visit',
+        type: 'string',
+        required: false,
+      },
+    },
     items: {
       firstName: { key: 'patient-first-name', type: 'string', label: 'First name' },
       middleName: { key: 'patient-middle-name', type: 'string', label: 'Middle name' },
@@ -121,16 +118,21 @@ const FormFields = {
         type: 'string',
         label: 'SSN',
         dataType: 'SSN',
-        /*triggers: [
+        triggers: [
           {
             targetQuestionLinkId: 'should-display-ssn-field',
-            effect: ['enable', 'require'],
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'ssn-field-required',
+            effect: ['require'],
             operator: '=',
             answerBoolean: true,
           },
         ],
         disabledDisplay: 'hidden',
-        */
       },
     },
     hiddenFields: [],
@@ -257,7 +259,7 @@ const FormFields = {
           dataSource: {
             answerSource: {
               resourceType: 'Organization',
-              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
               prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           },
@@ -275,6 +277,7 @@ const FormFields = {
           label: "Policy holder's first name",
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+          disabledDisplay: 'disabled',
         },
         middleName: {
           key: 'policy-holder-middle-name',
@@ -282,6 +285,7 @@ const FormFields = {
           label: "Policy holder's middle name",
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-middle-name' },
+          disabledDisplay: 'disabled',
         },
         lastName: {
           key: 'policy-holder-last-name',
@@ -289,6 +293,7 @@ const FormFields = {
           label: "Policy holder's last name",
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+          disabledDisplay: 'disabled',
         },
         birthDate: {
           key: 'policy-holder-date-of-birth',
@@ -297,6 +302,7 @@ const FormFields = {
           dataType: 'DOB',
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+          disabledDisplay: 'disabled',
         },
         birthSex: {
           key: 'policy-holder-birth-sex',
@@ -305,12 +311,14 @@ const FormFields = {
           options: formValueSets.birthSexOptions,
           triggers: [InsuredPersonNotSelfTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+          disabledDisplay: 'disabled',
         },
         policyHolderAddressAsPatient: {
           key: 'policy-holder-address-as-patient',
           type: 'boolean',
           label: "Policy holder address is the same as patient's address",
           triggers: [InsuredPersonNotSelfTrigger],
+          disabledDisplay: 'disabled',
         },
         streetAddress: {
           key: 'policy-holder-address',
@@ -319,6 +327,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-street-address' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         addressLine2: {
           key: 'policy-holder-address-additional-line',
@@ -327,6 +336,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         city: {
           key: 'policy-holder-city',
@@ -335,6 +345,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-city' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         state: {
           key: 'policy-holder-state',
@@ -344,6 +355,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-state' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         zip: {
           key: 'policy-holder-zip',
@@ -353,6 +365,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-zip' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         relationship: {
           key: 'patient-relationship-to-insured',
@@ -380,7 +393,7 @@ const FormFields = {
           dataSource: {
             answerSource: {
               resourceType: 'Organization',
-              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
               prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           },
@@ -398,6 +411,7 @@ const FormFields = {
           label: "Policy holder's first name",
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+          disabledDisplay: 'disabled',
         },
         middleName: {
           key: 'policy-holder-middle-name-2',
@@ -405,6 +419,7 @@ const FormFields = {
           label: "Policy holder's middle name",
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-middle-name' },
+          disabledDisplay: 'disabled',
         },
         lastName: {
           key: 'policy-holder-last-name-2',
@@ -412,6 +427,7 @@ const FormFields = {
           label: "Policy holder's last name",
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+          disabledDisplay: 'disabled',
         },
         birthDate: {
           key: 'policy-holder-date-of-birth-2',
@@ -420,6 +436,7 @@ const FormFields = {
           dataType: 'DOB',
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+          disabledDisplay: 'disabled',
         },
         birthSex: {
           key: 'policy-holder-birth-sex-2',
@@ -428,12 +445,14 @@ const FormFields = {
           options: formValueSets.birthSexOptions,
           triggers: [InsuredPersonNotSelfTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+          disabledDisplay: 'disabled',
         },
         policyHolderAddressAsPatient: {
           key: 'policy-holder-address-as-patient-2',
           type: 'boolean',
           label: "Policy holder address is the same as patient's address",
           triggers: [InsuredPersonNotSelfTrigger2],
+          disabledDisplay: 'disabled',
         },
         streetAddress: {
           key: 'policy-holder-address-2',
@@ -442,6 +461,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-street-address' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         addressLine2: {
           key: 'policy-holder-address-additional-line-2',
@@ -450,6 +470,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         city: {
           key: 'policy-holder-city-2',
@@ -458,6 +479,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-city' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         state: {
           key: 'policy-holder-state-2',
@@ -467,6 +489,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-state' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         zip: {
           key: 'policy-holder-zip-2',
@@ -476,6 +499,7 @@ const FormFields = {
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
           dynamicPopulation: { sourceLinkId: 'patient-zip' },
           enableBehavior: 'all',
+          disabledDisplay: 'disabled',
         },
         relationship: {
           key: 'patient-relationship-to-insured-2',
@@ -585,6 +609,7 @@ const FormFields = {
         label: 'First name',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+        disabledDisplay: 'disabled',
       },
       lastName: {
         key: 'responsible-party-last-name',
@@ -592,6 +617,7 @@ const FormFields = {
         label: 'Last name',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+        disabledDisplay: 'disabled',
       },
       birthDate: {
         key: 'responsible-party-date-of-birth',
@@ -600,6 +626,7 @@ const FormFields = {
         dataType: 'DOB',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+        disabledDisplay: 'disabled',
       },
       birthSex: {
         key: 'responsible-party-birth-sex',
@@ -608,6 +635,7 @@ const FormFields = {
         options: formValueSets.birthSexOptions,
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+        disabledDisplay: 'disabled',
       },
       phone: {
         key: 'responsible-party-number',
@@ -616,6 +644,7 @@ const FormFields = {
         dataType: 'Phone Number',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-number' },
+        disabledDisplay: 'disabled',
       },
       email: {
         key: 'responsible-party-email',
@@ -624,12 +653,14 @@ const FormFields = {
         dataType: 'Email',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-email' },
+        disabledDisplay: 'disabled',
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
         label: "Responsible party's address is the same as patient's address",
         type: 'boolean',
         triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'disabled',
       },
       addressLine1: {
         key: 'responsible-party-address',
@@ -638,6 +669,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+        disabledDisplay: 'disabled',
       },
       addressLine2: {
         key: 'responsible-party-address-2',
@@ -646,6 +678,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+        disabledDisplay: 'disabled',
       },
       city: {
         key: 'responsible-party-city',
@@ -654,6 +687,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-city' },
+        disabledDisplay: 'disabled',
       },
       state: {
         key: 'responsible-party-state',
@@ -663,6 +697,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-state' },
+        disabledDisplay: 'disabled',
       },
       zip: {
         key: 'responsible-party-zip',
@@ -672,6 +707,7 @@ const FormFields = {
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-zip' },
+        disabledDisplay: 'disabled',
       },
     },
     hiddenFields: [],
@@ -732,8 +768,44 @@ const FormFields = {
   },
   employerInformation: {
     linkId: 'employer-information-page',
-    title: 'Employer information',
+    title: "Worker's Compensation Information",
+    triggers: [
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'workers-compensation',
+      },
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
     items: {
+      workersCompInsurance: {
+        key: 'workers-comp-insurance-name',
+        type: 'reference',
+        label: 'Insurance carrier',
+        dataSource: {
+          answerSource: {
+            resourceType: 'Organization',
+            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
+            prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+          },
+        },
+        triggers: [
+          {
+            targetQuestionLinkId: 'workers-comp-insurance-member-id',
+            effect: ['require'],
+            operator: 'exists',
+            answerBoolean: true,
+          },
+        ],
+      },
+      workersCompMemberId: { key: 'workers-comp-insurance-member-id', type: 'string', label: 'Member ID' },
       employerName: { key: 'employer-name', type: 'string', label: 'Employer name' },
       addressLine1: { key: 'employer-address', type: 'string', label: 'Address line 1' },
       addressLine2: { key: 'employer-address-2', type: 'string', label: 'Address line 2' },
@@ -747,93 +819,74 @@ const FormFields = {
       contactPhone: { key: 'employer-contact-phone', type: 'string', label: 'Phone', dataType: 'Phone Number' },
       contactFax: { key: 'employer-contact-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
     },
+    hiddenFields: [],
+    requiredFields: [],
   },
-  hiddenFields: [],
-  requiredFields: [],
+  occupationalMedicineEmployerInformation: {
+    linkId: 'occupational-medicine-employer-information-page',
+    title: 'Employer - Occupational Medicine',
+    items: {
+      employerName: {
+        key: 'occupational-medicine-employer',
+        type: 'reference',
+        label: 'Employer name',
+        dataSource: {
+          answerSource: {
+            resourceType: 'Organization',
+            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
+            prependedIdentifier: '1',
+          },
+        },
+      },
+    },
+    triggers: [
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'occupational-medicine',
+      },
+      {
+        targetQuestionLinkId: 'patient-summary.appointment-service-category',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
+    hiddenFields: [],
+    requiredFields: [],
+  },
+  attorneyInformation: {
+    linkId: 'attorney-mva-page',
+    title: 'Attorney for Motor Vehicle Accident',
+    items: {
+      firm: { key: 'attorney-mva-firm', type: 'string', label: 'Firm' },
+      firstName: { key: 'attorney-mva-first-name', type: 'string', label: 'First name' },
+      lastName: { key: 'attorney-mva-last-name', type: 'string', label: 'Last name' },
+      email: { key: 'attorney-mva-email', type: 'string', label: 'Email', dataType: 'Email' },
+      mobile: { key: 'attorney-mva-mobile', type: 'string', label: 'Mobile', dataType: 'Phone Number' },
+      fax: { key: 'attorney-mva-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
+    },
+    triggers: [
+      {
+        targetQuestionLinkId: 'patient-summary.reason-for-visit',
+        effect: ['enable'],
+        operator: '=',
+        answerString: 'Auto accident',
+      },
+      {
+        targetQuestionLinkId: 'patient-summary.reason-for-visit',
+        effect: ['enable'],
+        operator: 'exists',
+        answerBoolean: false,
+      },
+    ],
+    enableBehavior: 'any',
+    hiddenFields: [],
+    requiredFields: [],
+  },
 };
-
-const ReferenceDataSourceSchema = z
-  .object({
-    answerSource: AnswerOptionSourceSchema.optional(),
-    valueSet: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      return data.answerSource !== undefined || data.valueSet !== undefined;
-    },
-    {
-      message: 'Either answerSource or valueSet must be provided',
-    }
-  );
-
-const FormFieldsValueTypeSchema = z
-  .object({
-    key: z.string(),
-    type: z.enum(['string', 'date', 'choice', 'boolean', 'reference']),
-    label: z.string(),
-    dataType: QuestionnaireDataTypeSchema.optional(),
-    options: z
-      .array(
-        z.object({
-          label: z.string(),
-          value: z.string(),
-        })
-      )
-      .optional(),
-    dataSource: ReferenceDataSourceSchema.optional(),
-    triggers: z.array(triggerSchema).optional(),
-    dynamicPopulation: dynamicPopulationSchema.optional(),
-    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-    disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
-  })
-  .refine(
-    (data) => {
-      if (data.type === 'choice') {
-        return (
-          Array.isArray(data.options) || {
-            message: 'Options must be provided for choice types',
-          }
-        );
-      }
-      return true;
-    },
-    {
-      message: 'Options must be provided for choice types',
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.type === 'reference') {
-        return data.dataSource !== undefined;
-      }
-      return true;
-    },
-    {
-      message: 'dataSource must be provided for reference types',
-    }
-  );
-
-export type FormFieldsItem = z.infer<typeof FormFieldsValueTypeSchema>;
-
-export const FormFieldItemRecordSchema = z.record(FormFieldsValueTypeSchema);
-export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
-export const FormSectionSimpleSchema = z.object({
-  linkId: z.string(),
-  title: z.string(),
-  items: FormFieldItemRecordSchema,
-  hiddenFields: z.array(z.string()).optional(),
-  requiredFields: z.array(z.string()).optional(),
-});
-
-const FormSectionArraySchema = z.object({
-  linkId: z.array(z.string()),
-  title: z.string(),
-  items: z.array(FormFieldItemRecordSchema),
-  hiddenFields: z.array(z.string()).optional(),
-  requiredFields: z.array(z.string()).optional(),
-});
-
-export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
 
 const FormFieldsSchema = z.object({
   patientSummary: FormSectionSimpleSchema,
@@ -845,19 +898,11 @@ const FormFieldsSchema = z.object({
   emergencyContact: FormSectionSimpleSchema,
   preferredPharmacy: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
+  occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
+  attorneyInformation: FormSectionSimpleSchema,
 });
 
 const hiddenFormSections: string[] = [];
-
-const QuestionnaireBaseSchema = z.object({
-  resourceType: z.literal('Questionnaire'),
-  url: z.string(),
-  version: z.string(),
-  name: z.string(),
-  title: z.string(),
-  status: z.enum(['draft', 'active', 'retired', 'unknown']),
-});
-export type QuestionnaireBase = z.infer<typeof QuestionnaireBaseSchema>;
 
 const questionnaireBaseDefaults: QuestionnaireBase = {
   resourceType: 'Questionnaire',
@@ -874,21 +919,20 @@ const PATIENT_RECORD_DEFAULTS = {
   FormFields,
 };
 
-const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(PATIENT_RECORD_DEFAULTS, OVERRIDES);
+const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(OVERRIDES, PATIENT_RECORD_DEFAULTS);
 
-//type FormFieldKey = keyof typeof mergedPatientRecordConfig.FormFields;
-
-const PatientRecordConfigSchema = z.object({
-  questionnaireBase: QuestionnaireBaseSchema,
-  hiddenFormSections: z.array(z.string()),
+const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,
 });
-type PatientRecordConfigType = z.infer<typeof PatientRecordConfigSchema>;
 
 export const PATIENT_RECORD_CONFIG = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
-
-const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireResponseItem[] => {
-  const shouldShowSSNField = !PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn');
+const prepopulateLogicalFields = (
+  questionnaire: Questionnaire,
+  appointmentContext?: AppointmentContext
+): QuestionnaireResponseItem[] => {
+  const shouldShowSSNField = !(
+    PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn') ?? false
+  );
   const ssnRequired =
     shouldShowSSNField && PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields?.includes('patient-ssn');
 
@@ -905,6 +949,15 @@ const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireRe
         if (linkId === 'ssn-field-required') {
           answer = makeAnswer(ssnRequired, 'Boolean');
         }
+        if (linkId === 'appointment-service-category' && appointmentContext?.appointmentServiceCategory) {
+          answer = makeAnswer(appointmentContext.appointmentServiceCategory);
+        }
+        if (linkId === 'appointment-service-mode' && appointmentContext?.appointmentServiceMode) {
+          answer = makeAnswer(appointmentContext.appointmentServiceMode);
+        }
+        if (linkId === 'reason-for-visit' && appointmentContext?.reasonForVisit) {
+          answer = makeAnswer(appointmentContext.reasonForVisit);
+        }
 
         return {
           linkId,
@@ -918,295 +971,34 @@ const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireRe
     };
   });
 
-  return item;
+  return item.flatMap((i) => i.item ?? []).filter((i) => i.answer !== undefined);
 };
 
+export interface AppointmentContext {
+  appointmentServiceCategory?: string;
+  appointmentServiceMode?: ServiceMode;
+  reasonForVisit?: string;
+}
+
+interface PrePopulationFromPatientRecordInputWithContext extends PrePopulationFromPatientRecordInput {
+  appointmentContext?: AppointmentContext;
+}
+
 export const prepopulatePatientRecordItems = (
-  input: PrePopulationFromPatientRecordInput
+  input: PrePopulationFromPatientRecordInputWithContext
 ): QuestionnaireResponseItem[] => {
   if (!input) {
     return [];
   }
 
   const q = input.questionnaire;
-  const logicalFieldItems = prepopulateLogicalFields(q);
+  const { appointmentContext } = input;
+  const logicalFieldItems = prepopulateLogicalFields(q, appointmentContext);
+  // todo: this is exported from another util file, but only used here. probably want to move it and
+  // consolidate the interface exposed to the rest of the system.
   const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: logicalFieldItems });
 
   return patientRecordItems;
 };
-
-const createDataTypeExtension = (dataType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
-  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type',
-  valueString: dataType,
-});
-
-const createDisabledDisplayExtension = (display: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
-  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display',
-  valueString: display,
-});
-
-const createFillFromWhenDisabledExtension = (
-  sourceLinkId: string
-): NonNullable<QuestionnaireItem['extension']>[number] => ({
-  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled',
-  valueString: sourceLinkId,
-});
-
-const createRequireWhenExtension = (
-  trigger: FormFieldTrigger
-): NonNullable<QuestionnaireItem['extension']>[number] => ({
-  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when',
-  extension: [
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question',
-      valueString: trigger.targetQuestionLinkId,
-    },
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator',
-      valueString: trigger.operator,
-    },
-    ...(trigger.answerBoolean !== undefined
-      ? [
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer',
-            valueBoolean: trigger.answerBoolean,
-          },
-        ]
-      : []),
-    ...(trigger.answerString !== undefined
-      ? [
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer',
-            valueString: trigger.answerString,
-          },
-        ]
-      : []),
-  ],
-});
-
-const createAnswerLoadingOptionsExtension = (
-  dataSource: any
-): NonNullable<QuestionnaireItem['extension']>[number] | undefined => {
-  const { answerSource } = dataSource;
-  if (!answerSource) return undefined;
-
-  return {
-    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options',
-    extension: [
-      {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/strategy',
-        valueString: 'dynamic',
-      },
-      {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/source',
-        valueExpression: {
-          language: 'application/x-fhir-query',
-          expression: `${answerSource.resourceType}?${answerSource.query}`,
-        },
-      },
-    ],
-  };
-};
-
-const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
-  const enableWhen: any = {
-    question: trigger.targetQuestionLinkId,
-    operator: trigger.operator,
-  };
-
-  if (trigger.answerBoolean !== undefined) {
-    enableWhen.answerBoolean = trigger.answerBoolean;
-  } else if (trigger.answerString !== undefined) {
-    enableWhen.answerString = trigger.answerString;
-  } else if (trigger.answerDateTime !== undefined) {
-    enableWhen.answerDateTime = trigger.answerDateTime;
-  }
-
-  return enableWhen;
-};
-
-const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: boolean): QuestionnaireItem => {
-  const item: QuestionnaireItem = {
-    linkId: field.key,
-    type: field.type === 'reference' ? 'choice' : (field.type as any),
-  };
-
-  // Add text if label is provided
-  if (field.label) {
-    item.text = field.label;
-  }
-
-  // Add required flag
-  item.required = isRequired;
-
-  // Add answer options for choice types
-  if (field.type === 'choice' && field.options) {
-    item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
-  }
-
-  // Handle reference type for dynamic data source
-  if (field.type === 'reference' && field.dataSource) {
-    item.answerOption = [{ valueString: '09' }]; // Placeholder, will be replaced dynamically
-    const answerLoadingExt = createAnswerLoadingOptionsExtension(field.dataSource);
-    if (answerLoadingExt) {
-      item.extension = [answerLoadingExt];
-    }
-  }
-
-  // Add extensions
-  const extensions: any[] = item.extension ? [...item.extension] : [];
-
-  if (field.dataType) {
-    extensions.push(createDataTypeExtension(field.dataType));
-  }
-
-  if (field.disabledDisplay && field.disabledDisplay !== 'disabled') {
-    extensions.push(createDisabledDisplayExtension(field.disabledDisplay));
-  }
-
-  if (field.dynamicPopulation) {
-    extensions.push(createFillFromWhenDisabledExtension(field.dynamicPopulation.sourceLinkId));
-    if (!field.disabledDisplay) {
-      extensions.push(createDisabledDisplayExtension('protected'));
-    }
-  }
-
-  // Add enableWhen from triggers
-  if (field.triggers && field.triggers.length > 0) {
-    const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
-    if (enableTriggers.length > 0) {
-      item.enableWhen = enableTriggers.flatMap((i) => createEnableWhen(i)!);
-    }
-
-    // Add require-when extension
-    const requireTriggers = field.triggers.filter((t) => t.effect.includes('require'));
-    if (requireTriggers.length > 0) {
-      requireTriggers.forEach((trigger) => {
-        extensions.push(createRequireWhenExtension(trigger));
-      });
-    }
-
-    // Add enableBehavior if specified
-    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
-      item.enableBehavior = field.enableBehavior;
-    }
-  }
-
-  if (extensions.length > 0) {
-    item.extension = extensions;
-  }
-
-  return item;
-};
-
-const createLogicalFields = (): QuestionnaireItem[] => {
-  return [
-    {
-      linkId: 'should-display-ssn-field',
-      type: 'boolean',
-      required: false,
-      readOnly: true,
-      initial: [{ valueBoolean: false }],
-    },
-    {
-      linkId: 'ssn-field-required',
-      type: 'boolean',
-      required: false,
-      readOnly: true,
-    },
-  ];
-};
-
-export const createQuestionnaireItemFromPatientRecordConfig = (
-  config: PatientRecordConfigType
-): Questionnaire['item'] => {
-  const questionnaireItems: QuestionnaireItem[] = [];
-
-  // Define the order of sections as they appear in the JSON
-  const sectionOrder = [
-    'patientSummary',
-    'patientContactInformation',
-    'patientDetails',
-    'primaryCarePhysician',
-    'insurance',
-    'responsibleParty',
-    'employerInformation',
-    'emergencyContact',
-    'preferredPharmacy',
-  ] as const;
-
-  for (const sectionKey of sectionOrder) {
-    const section = config.FormFields[sectionKey];
-    if (!section) continue;
-
-    // Handle array-based sections (like insurance)
-    if (Array.isArray(section.linkId)) {
-      section.linkId.forEach((linkId, index) => {
-        const items = Array.isArray(section.items) ? section.items[index] : section.items;
-        const groupItem: QuestionnaireItem = {
-          linkId,
-          type: 'group',
-          text: section.title,
-          repeats: true,
-          item: [],
-        };
-
-        // Add special logical fields for patient summary section
-        if (sectionKey === 'patientSummary' && index === 0) {
-          groupItem.item = createLogicalFields();
-        }
-
-        // Convert each field to a questionnaire item
-        for (const [, field] of Object.entries(items)) {
-          const isRequired = section.requiredFields?.includes(field.key) ?? false;
-          const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
-          groupItem.item!.push(questionnaireItem);
-        }
-
-        questionnaireItems.push(groupItem);
-      });
-    } else {
-      // Handle simple sections
-      const groupItem: QuestionnaireItem = {
-        linkId: section.linkId,
-        type: 'group',
-        text: section.title,
-        item: [],
-      };
-
-      // Add special logical fields for patient summary section
-      if (sectionKey === 'patientSummary') {
-        groupItem.item = createLogicalFields();
-      }
-
-      // Convert each field to a questionnaire item
-      for (const [, field] of Object.entries(section.items)) {
-        const isRequired = section.requiredFields?.includes(field.key) ?? false;
-        const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
-        groupItem.item!.push(questionnaireItem);
-      }
-
-      questionnaireItems.push(groupItem);
-    }
-  }
-
-  // Add user settings section at the end
-  questionnaireItems.push({
-    linkId: 'user-settings-section',
-    type: 'group',
-    text: 'User settings',
-    item: [],
-  });
-
-  return questionnaireItems;
-};
-
-const createQuestionnaireFromPatientRecordConfig = (config: PatientRecordConfigType): Questionnaire => {
-  return {
-    ...config.questionnaireBase,
-    item: createQuestionnaireItemFromPatientRecordConfig(config),
-  };
-};
-
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromPatientRecordConfig(PATIENT_RECORD_CONFIG)));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

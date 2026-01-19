@@ -3,7 +3,7 @@ import DoneIcon from '@mui/icons-material/Done';
 import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { CommunicationDTO, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, CommunicationDTO } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
@@ -43,6 +43,7 @@ export const PatientInstructionsCard: FC = () => {
   const onAdd = (): void => {
     const localInstructions = [...instructions, { text: instruction }];
 
+    // Optimistic update
     setPartialChartData({
       instructions: localInstructions,
     });
@@ -63,6 +64,7 @@ export const PatientInstructionsCard: FC = () => {
           enqueueSnackbar('An error has occurred while adding patient instruction. Please try again.', {
             variant: 'error',
           });
+          // Rollback to previous state
           setPartialChartData({ instructions });
           setInstruction(instruction);
         },
@@ -73,19 +75,28 @@ export const PatientInstructionsCard: FC = () => {
   };
 
   const onDelete = (value: CommunicationDTO): void => {
-    setPartialChartData({
-      instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
-    });
+    const prevInstructions = [...instructions];
+    // Optimistic update
+    setPartialChartData(
+      {
+        instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
+      },
+      { invalidateQueries: false }
+    );
     deleteChartData(
       {
         instructions: [value],
       },
       {
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
+        },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting patient instruction. Please try again.', {
             variant: 'error',
           });
-          setPartialChartData({ instructions });
+          // Rollback to previous state
+          setPartialChartData({ instructions: prevInstructions });
         },
       }
     );
@@ -107,7 +118,7 @@ export const PatientInstructionsCard: FC = () => {
                   onChange={(e) => setInstruction(e.target.value)}
                   size="small"
                   label="Instruction"
-                  placeholder={`Enter a new instruction of select from own saved or ${PROJECT_NAME} template`}
+                  placeholder={`Enter a new instruction of select from own saved or ${BRANDING_CONFIG.projectName} template`}
                   multiline
                   fullWidth
                 />
@@ -124,7 +135,9 @@ export const PatientInstructionsCard: FC = () => {
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My templates</RoundedButton>
-                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>{PROJECT_NAME} templates</RoundedButton>
+                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>
+                  {BRANDING_CONFIG.projectName} templates
+                </RoundedButton>
               </Box>
             </>
           )}

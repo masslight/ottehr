@@ -21,6 +21,14 @@ on:
           - staging
           - demo
         default: 'local'
+      mode:
+        description: 'Tests running mode'
+        required: false
+        type: choice
+        options:
+          - normal
+          - smoke
+        default: 'normal'
   workflow_call:
     inputs:
       environment:
@@ -150,6 +158,14 @@ jobs:
           for app in ehr intake; do
             setup_env "$app"
           done
+
+      - name: Restore seed data cache
+        if: needs.check-changes.outputs.environment == 'local' || needs.check-changes.outputs.environment == 'e2e'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: apps/ehr/tests/e2e-utils/seed-data/resources/
+          key: seed-data-${{ needs.check-changes.outputs.environment }}-${{ github.sha }}-${{ github.run_id }}
+          fail-on-cache-miss: true
       
       - name: Run E2E tests
         run: |
@@ -158,7 +174,12 @@ jobs:
           if [ "$ENV" == "local" ] || [ "$ENV" == "e2e" ]; then
             npm run ehr:e2e:$ENV:integration
           else
-            npm run ehr:e2e:$ENV
+            MODE="${{ inputs.mode }}"
+            if [ "$MODE" == "smoke" ]; then
+              npm run ehr:e2e:$ENV:smoke
+            else
+              npm run ehr:e2e:$ENV
+            fi
           fi
         env:
           CI: true

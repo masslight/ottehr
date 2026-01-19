@@ -289,7 +289,7 @@ describe('testing vitals config validation', () => {
       const nonAlertingTemperature: VitalsTemperatureObservationDTO = {
         patientId: testPatient.id,
         field: VitalFieldNames.VitalTemperature,
-        value: 36.5,
+        value: 36.6,
         resourceId: randomUUID(),
       };
       const nonAlertingTemperatureCriticality = getVitalObservationAlertLevel({

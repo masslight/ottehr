@@ -1,4 +1,5 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
@@ -6,14 +7,22 @@ import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
+import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { APIErrorCode, CPTCodeOption, emCodeOptions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetIcd10Search } from '../../stores/appointment/appointment.queries';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
+import {
+  useAppointmentData,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../../stores/appointment/appointment.store';
 
 export const BillingCodesContainer: FC = () => {
+  const queryClient = useQueryClient();
+  const { encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const cptCodes = chartData?.cptCodes || [];
@@ -50,6 +59,8 @@ export const BillingCodesContainer: FC = () => {
   };
 
   const onAdd = (value: CPTCodeOption): void => {
+    // Optimistic update
+    setPartialChartData({ cptCodes: [...cptCodes, value] }, { invalidateQueries: false });
     saveCPTChartData(
       {
         cptCodes: [value],
@@ -65,19 +76,28 @@ export const BillingCodesContainer: FC = () => {
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while adding CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
           setPartialChartData({
             cptCodes: cptCodes,
           });
         },
       }
     );
-    setPartialChartData({ cptCodes: [...cptCodes, value] });
   };
 
-  const onDelete = (resourceId: string): void => {
-    let localCodes = cptCodes;
-    const preparedValue = localCodes.find((item) => item.resourceId === resourceId)!;
-    const prevCodes = [...localCodes];
+  const onDelete = async (resourceId: string): Promise<void> => {
+    const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
+    const prevCodes = [...cptCodes];
+    const queryKey = [CHART_DATA_QUERY_KEY, encounter?.id];
+
+    // Cancel any outgoing refetches (from MDM field) to prevent race condition
+    await queryClient.cancelQueries({ queryKey });
+
+    // Optimistic update
+    setPartialChartData(
+      { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
+      { invalidateQueries: false }
+    );
 
     deleteCPTChartData(
       {
@@ -85,22 +105,30 @@ export const BillingCodesContainer: FC = () => {
       },
       {
         onSuccess: () => {
-          localCodes = localCodes.filter((item) => item.resourceId !== resourceId);
-          setPartialChartData({ cptCodes: [...localCodes] });
+          // Get fresh data from cache after cancellation and apply the filter again
+          const currentData = queryClient.getQueryData<any>(queryKey);
+          if (currentData?.cptCodes) {
+            setPartialChartData(
+              { cptCodes: currentData.cptCodes.filter((i: any) => i.resourceId !== resourceId) },
+              { invalidateQueries: false }
+            );
+          }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
           setPartialChartData({ cptCodes: prevCodes });
         },
       }
     );
-    setPartialChartData({ cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) });
   };
 
   const onEMCodeChange = (value: CPTCodeOption | null): void => {
     if (value) {
       const prevValue = emCode ? { ...emCode } : undefined;
 
+      // Optimistic update
+      setPartialChartData({ emCode: { ...emCode, ...value } }, { invalidateQueries: false });
       saveEMChartData(
         { emCode: { ...emCode, ...value } },
         {
@@ -114,26 +142,29 @@ export const BillingCodesContainer: FC = () => {
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue || undefined });
           },
         }
       );
-      setPartialChartData({ emCode: value });
     } else if (emCode) {
       const prevValue = { ...emCode };
+
+      // Optimistic update
+      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
       deleteEMChartData(
         { emCode },
         {
           onSuccess: async () => {
-            setPartialChartData({ emCode: undefined });
+            // No need to update again, optimistic update already applied
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue });
           },
         }
       );
-      setPartialChartData({ emCode: undefined });
     }
   };
 
