@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
-import { PAPERWORK_CONSENT_CODE_UNIQUE, PAPERWORK_CONSENT_CODING_LOINC, PRIVACY_POLICY_CODE } from '../../types';
+import { PRIVACY_POLICY_CODE } from '../../types';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const CodingSchema = z.object({
@@ -53,7 +53,18 @@ const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
       },
       publicUrl: '/consent_to_treat_template.pdf',
       type: {
-        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '59284-0',
+            display: 'Consent Documents',
+          },
+          {
+            system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+            code: 'patient-registration',
+            display: 'Patient Registration Consent',
+          },
+        ],
         text: 'Consent forms',
       },
       createsConsentResource: true,
