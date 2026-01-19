@@ -26,8 +26,8 @@ import EditVirtualLocationPage from './features/visits/telemed/components/teleme
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
+import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
-import AddVisit from './pages/AddVisit';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
@@ -203,7 +203,7 @@ function App(): ReactElement {
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
-                  <Route path="/visits/add" element={<AddVisit />} />
+                  <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
                   <Route path="/schedules" element={<SchedulesPage />} />
                   <Route path="/schedule/:schedule-type/add" element={<AddSchedulePage />} />
@@ -250,7 +250,7 @@ function App(): ReactElement {
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
-                  <Route path="/visits/add" element={<AddVisit />} />
+                  <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />

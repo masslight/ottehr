@@ -236,7 +236,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
 
   return (
     <>
-      <Grid container spacing={2} sx={{ mt: 1 }}>
+      <Grid container rowSpacing={2}>
         <Grid item>
           <Typography variant="h4" color="primary.dark">
             Patient information

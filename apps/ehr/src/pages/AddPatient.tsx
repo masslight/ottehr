@@ -8,6 +8,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material';
@@ -19,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
+  BOOKING_CONFIG,
   CreateAppointmentInputParams,
   CreateSlotParams,
   getAppointmentDurationFromSlot,
@@ -34,13 +36,20 @@ import {
 import { createAppointment, createSlot, getLocations } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
-import LocationSelect from '../components/LocationSelect';
+import LocationSelect, { LocationType } from '../components/LocationSelect';
 import SlotPicker from '../components/SlotPicker';
 import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType } from '../types/types';
+
+enum VisitType {
+  InPersonWalkIn = 'in-person-walk-in',
+  InPersonPreBook = 'in-person-pre-booked',
+  InPersonPostTelemed = 'in-person-post-telemed',
+  VirtualOnDemand = 'virtual-on-demand',
+  VirtualScheduled = 'virtual-scheduled',
+}
 
 type SlotLoadingState =
   | { status: 'initial'; input: undefined }
@@ -69,15 +78,14 @@ export interface LocationWithWalkinSchedule extends Location {
 }
 
 export default function AddPatient(): JSX.Element {
-  const storedLocation = localStorage?.getItem('selectedLocation');
-  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
-    storedLocation ? JSON.parse(storedLocation) : undefined
-  );
+  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule>();
   const [birthDate, setBirthDate] = useState<DateTime | null>(null); // i would love to not have to handle this state but i think the date search component would have to change and i dont want to touch that right now
   const [patientInfo, setPatientInfo] = useState<AddVisitPatientInfo | undefined>(undefined);
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
+  console.log('visitType:', visitType);
+  const [serviceCategory, setServiceCategory] = useState<string>();
   const [slot, setSlot] = useState<Slot | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
@@ -148,7 +156,12 @@ export default function AddPatient(): JSX.Element {
       setErrors({ ...errors, phone: false });
     }
 
-    if ((visitType === VisitType.PreBook || visitType === VisitType.PostTelemed) && slot === undefined) {
+    if (
+      (visitType === VisitType.InPersonPreBook ||
+        visitType === VisitType.InPersonPostTelemed ||
+        visitType === VisitType.VirtualScheduled) &&
+      slot === undefined
+    ) {
       setSelectSlotDialogOpen(true);
       return;
     }
@@ -165,7 +178,7 @@ export default function AddPatient(): JSX.Element {
       console.log('slot', slot);
       if (!oystehrZambda) throw new Error('Zambda client not found');
       let createSlotInput: CreateSlotParams;
-      if (visitType === VisitType.WalkIn) {
+      if (visitType === VisitType.InPersonWalkIn || visitType === VisitType.VirtualOnDemand) {
         if (!selectedLocation) {
           enqueueSnackbar('Please select a location', { variant: 'error' });
           setLoading(false);
@@ -176,8 +189,9 @@ export default function AddPatient(): JSX.Element {
           scheduleId: selectedLocation?.walkinSchedule?.id ?? '',
           startISO: DateTime.now().setZone(timezone).toISO() ?? '',
           lengthInMinutes: 15,
-          serviceModality: ServiceMode['in-person'],
+          serviceModality: visitType === VisitType.InPersonWalkIn ? ServiceMode['in-person'] : ServiceMode['virtual'],
           walkin: true,
+          serviceCategoryCode: serviceCategory,
         };
       } else {
         if (!slot) {
@@ -190,9 +204,13 @@ export default function AddPatient(): JSX.Element {
           scheduleId: scheduleId,
           startISO: slot?.start ?? '',
           lengthInMinutes: getAppointmentDurationFromSlot(slot),
-          serviceModality: ServiceMode['in-person'],
+          serviceModality:
+            visitType === VisitType.InPersonPreBook || visitType === VisitType.InPersonPostTelemed
+              ? ServiceMode['in-person']
+              : ServiceMode['virtual'],
           walkin: false,
-          postTelemedLabOnly: visitType === VisitType.PostTelemed,
+          postTelemedLabOnly: visitType === VisitType.InPersonPostTelemed,
+          serviceCategoryCode: serviceCategory,
         };
       }
       console.log('slot input: ', createSlotInput);
@@ -246,24 +264,66 @@ export default function AddPatient(): JSX.Element {
           {/* form content */}
           <Paper>
             <form onSubmit={(e) => handleFormSubmit(e)}>
-              <Box padding={3} marginTop={2}>
-                {/* Location Select */}
-                <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.addPatientPage.locationHeader}>
-                  Location
-                </Typography>
-
-                {/* location search */}
-                <Box sx={{ marginTop: 2 }}>
-                  <LocationSelect
-                    location={selectedLocation}
-                    setLocation={setSelectedLocation}
-                    updateURL={false}
+              <Stack spacing={2} padding={4}>
+                <FormControl fullWidth>
+                  <InputLabel id="visit-type-label">Visit type *</InputLabel>
+                  <Select
+                    data-testid={dataTestIds.addPatientPage.visitTypeDropdown}
+                    labelId="visit-type-label"
+                    id="visit-type-select"
+                    value={visitType || ''}
+                    label="Visit type *"
                     required
-                    renderInputProps={{ disabled: false }}
-                  />
-                </Box>
+                    onChange={(event) => {
+                      setSlot(undefined);
+                      setVisitType(event.target.value as VisitType);
+                    }}
+                  >
+                    <MenuItem value={VisitType.InPersonWalkIn}>Walk-in In Person Visit</MenuItem>
+                    <MenuItem value={VisitType.InPersonPreBook}>Pre-booked In Person Visit</MenuItem>
+                    <MenuItem value={VisitType.InPersonPostTelemed}>Post Telemed Lab Only</MenuItem>
+                    <MenuItem value={VisitType.VirtualOnDemand}>On Demand Virtual Visit</MenuItem>
+                    <MenuItem value={VisitType.VirtualScheduled}>Scheduled Virtual Visit</MenuItem>
+                  </Select>
+                </FormControl>
 
-                {/* Patient information */}
+                <FormControl fullWidth>
+                  <InputLabel id="service-category-label">Service category *</InputLabel>
+                  <Select
+                    labelId="service-category-label"
+                    id="service-category-select"
+                    value={serviceCategory || ''}
+                    label="Service category *"
+                    required
+                    onChange={(event) => {
+                      setServiceCategory(event.target.value);
+                    }}
+                  >
+                    {BOOKING_CONFIG.serviceCategories.map((category) => {
+                      return (
+                        <MenuItem value={category.code} key={category.code}>
+                          {category.display}
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+
+                <LocationSelect
+                  location={selectedLocation}
+                  setLocation={setSelectedLocation}
+                  updateURL={false}
+                  required
+                  renderInputProps={{ disabled: !visitType }}
+                  locationType={
+                    visitType === VisitType.InPersonWalkIn ||
+                    visitType === VisitType.InPersonPreBook ||
+                    visitType === VisitType.InPersonPostTelemed
+                      ? LocationType.IN_PERSON
+                      : LocationType.VIRTUAL
+                  }
+                />
+
                 <AddVisitPatientInformationCard
                   patientInfo={patientInfo}
                   setPatientInfo={setPatientInfo}
@@ -327,31 +387,12 @@ export default function AddPatient(): JSX.Element {
                         )}
                       </FormControl>
                     </Box>
-                    <Box marginTop={2}>
-                      <FormControl fullWidth>
-                        <InputLabel id="visit-type-label">Visit type *</InputLabel>
-                        <Select
-                          data-testid={dataTestIds.addPatientPage.visitTypeDropdown}
-                          labelId="visit-type-label"
-                          id="visit-type-select"
-                          value={visitType || ''}
-                          label="Visit type *"
-                          required
-                          onChange={(event) => {
-                            setSlot(undefined);
-                            setVisitType(event.target.value as VisitType);
-                          }}
-                        >
-                          <MenuItem value={VisitType.WalkIn}>Walk-in In Person Visit</MenuItem>
-                          <MenuItem value={VisitType.PreBook}>Pre-booked In Person Visit</MenuItem>
-                          <MenuItem value={VisitType.PostTelemed}>Post Telemed Lab Only</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Box>
-                    {(visitType === VisitType.PreBook || visitType === VisitType.PostTelemed) && (
+                    {(visitType === VisitType.InPersonPreBook ||
+                      visitType === VisitType.InPersonPostTelemed ||
+                      visitType === VisitType.VirtualScheduled) && (
                       <SlotPicker
                         slotData={
-                          visitType === VisitType.PostTelemed
+                          visitType === VisitType.InPersonPostTelemed
                             ? locationWithSlotData?.telemedAvailable?.map((si) => si.slot)
                             : locationWithSlotData?.available?.map((si) => si.slot)
                         }
@@ -405,7 +446,7 @@ export default function AddPatient(): JSX.Element {
                     Cancel
                   </Button>
                 </Box>
-              </Box>
+              </Stack>
             </form>
             <CustomDialog
               open={selectSlotDialogOpen}
