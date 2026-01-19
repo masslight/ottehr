@@ -579,6 +579,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             }
           }
 
+          // Calculate percentage of visits with arrived to provider < 15 minutes
+          let arrivedToProviderUnder15Percent: number | null = null;
+          if (metricsData.arrivedToProviderDurations.length > 0) {
+            const under15Count = metricsData.arrivedToProviderDurations.filter((duration) => duration < 15).length;
+            arrivedToProviderUnder15Percent =
+              Math.round((under15Count / metricsData.arrivedToProviderDurations.length) * 10000) / 100;
+          }
+
+          // Calculate percentage of visits with arrived to provider < 45 minutes
+          let arrivedToProviderUnder45Percent: number | null = null;
+          if (metricsData.arrivedToProviderDurations.length > 0) {
+            const under45Count = metricsData.arrivedToProviderDurations.filter((duration) => duration < 45).length;
+            arrivedToProviderUnder45Percent =
+              Math.round((under45Count / metricsData.arrivedToProviderDurations.length) * 10000) / 100;
+          }
+
           // Calculate provider to discharged average and median
           let providerToDischargedAverage: number | null = null;
           let providerToDischargedMedian: number | null = null;
@@ -610,6 +626,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             intakeToProviderMedian,
             arrivedToProviderAverage,
             arrivedToProviderMedian,
+            arrivedToProviderUnder15Percent,
+            arrivedToProviderUnder45Percent,
             providerToDischargedAverage,
             providerToDischargedMedian,
             visitCount: metricsData.arrivedDurations.length,
@@ -631,6 +649,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             intakeToProviderMedian: null,
             arrivedToProviderAverage: null,
             arrivedToProviderMedian: null,
+            arrivedToProviderUnder15Percent: null,
+            arrivedToProviderUnder45Percent: null,
             providerToDischargedAverage: null,
             providerToDischargedMedian: null,
             visitCount: 0,

@@ -245,7 +245,7 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
-        field: 'timeToIntakeAverage',
+        field: 'arrivedToIntakeAverage',
         headerName: 'Arrived to Intake Average (min)',
         flex: 1,
         minWidth: 200,
@@ -257,7 +257,7 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
-        field: 'timeToIntakeMedian',
+        field: 'arrivedToIntakeMedian',
         headerName: 'Arrived to Intake Median (min)',
         flex: 1,
         minWidth: 200,
@@ -269,7 +269,7 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
-        field: 'timeToProviderAverage',
+        field: 'arrivedToProviderAverage',
         headerName: 'Arrived to Provider Average (min)',
         flex: 1,
         minWidth: 210,
@@ -281,7 +281,7 @@ export default function PracticeKpis(): React.ReactElement {
         },
       },
       {
-        field: 'timeToProviderMedian',
+        field: 'arrivedToProviderMedian',
         headerName: 'Arrived to Provider Median (min)',
         flex: 1,
         minWidth: 210,
@@ -290,6 +290,30 @@ export default function PracticeKpis(): React.ReactElement {
             return '—';
           }
           return params.value.toFixed(2);
+        },
+      },
+      {
+        field: 'arrivedToProviderUnder15Percent',
+        headerName: '% Arrived to Provider < 15 min',
+        flex: 1,
+        minWidth: 230,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return `${params.value.toFixed(1)}%`;
+        },
+      },
+      {
+        field: 'arrivedToProviderUnder45Percent',
+        headerName: '% Arrived to Provider < 45 min',
+        flex: 1,
+        minWidth: 230,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return `${params.value.toFixed(1)}%`;
         },
       },
       {
@@ -386,6 +410,8 @@ export default function PracticeKpis(): React.ReactElement {
       intakeToProviderMedian: location.intakeToProviderMedian,
       arrivedToProviderAverage: location.arrivedToProviderAverage,
       arrivedToProviderMedian: location.arrivedToProviderMedian,
+      arrivedToProviderUnder15Percent: location.arrivedToProviderUnder15Percent,
+      arrivedToProviderUnder45Percent: location.arrivedToProviderUnder45Percent,
       providerToDischargedAverage: location.providerToDischargedAverage,
       providerToDischargedMedian: location.providerToDischargedMedian,
       visitCount: location.visitCount,
