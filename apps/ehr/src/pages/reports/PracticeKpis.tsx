@@ -388,6 +388,18 @@ export default function PracticeKpis(): React.ReactElement {
           return params.value.toFixed(2);
         },
       },
+      {
+        field: 'onTimePercent',
+        headerName: '% On-Time',
+        flex: 1,
+        minWidth: 150,
+        valueFormatter: (params) => {
+          if (params.value === null || params.value === undefined) {
+            return '—';
+          }
+          return `${params.value.toFixed(1)}%`;
+        },
+      },
     ],
     []
   );
@@ -414,6 +426,7 @@ export default function PracticeKpis(): React.ReactElement {
       arrivedToProviderUnder45Percent: location.arrivedToProviderUnder45Percent,
       providerToDischargedAverage: location.providerToDischargedAverage,
       providerToDischargedMedian: location.providerToDischargedMedian,
+      onTimePercent: location.onTimePercent,
       visitCount: location.visitCount,
     }));
   }, [reportData]);

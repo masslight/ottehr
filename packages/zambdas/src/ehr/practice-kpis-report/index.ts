@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  appointmentTypeForAppointment,
   getInPersonVisitStatus,
   getSecret,
   getVisitStatusHistory,
@@ -418,6 +419,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         intakeToProviderDurations: number[];
         arrivedToProviderDurations: number[];
         providerToDischargedDurations: number[];
+        preBookedCount: number;
+        onTimeCount: number;
       }
     >();
 
@@ -447,6 +450,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           const arrivedToProvider = getArrivedToProvider(statusHistory);
           const providerToDischargedDuration = getProviderToDischargedDuration(statusHistory);
 
+          // Check if this is a pre-booked appointment and if they arrived on time
+          const appointmentType = appointmentTypeForAppointment(appointment);
+          const isPreBooked = appointmentType === 'pre-booked';
+          let arrivedOnTime = false;
+          if (isPreBooked && appointment.start) {
+            const arrivedEntry = statusHistory.findLast((entry) => entry.status === 'arrived');
+            if (arrivedEntry?.period.start) {
+              const appointmentTime = DateTime.fromISO(appointment.start);
+              const arrivedTime = DateTime.fromISO(arrivedEntry.period.start);
+              arrivedOnTime = arrivedTime <= appointmentTime;
+            }
+          }
+
           if (
             arrivedDuration !== null ||
             arrivedToDischargedDuration !== null ||
@@ -465,6 +481,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               intakeToProviderDurations: [],
               arrivedToProviderDurations: [],
               providerToDischargedDurations: [],
+              preBookedCount: 0,
+              onTimeCount: 0,
             };
 
             if (arrivedDuration !== null) {
@@ -488,6 +506,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             if (providerToDischargedDuration !== null) {
               currentData.providerToDischargedDurations.push(providerToDischargedDuration);
             }
+
+            // Track on-time arrivals for pre-booked appointments
+            if (isPreBooked) {
+              currentData.preBookedCount++;
+              if (arrivedOnTime) {
+                currentData.onTimeCount++;
+              }
+            }
+
             locationMetricsMap.set(locationName, currentData);
           }
         }
@@ -611,6 +638,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             }
           }
 
+          // Calculate on-time percentage for pre-booked appointments
+          let onTimePercent: number | null = null;
+          if (metricsData.preBookedCount > 0) {
+            onTimePercent = Math.round((metricsData.onTimeCount / metricsData.preBookedCount) * 10000) / 100;
+          }
+
           return {
             locationName,
             locationId,
@@ -630,6 +663,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             arrivedToProviderUnder45Percent,
             providerToDischargedAverage,
             providerToDischargedMedian,
+            onTimePercent,
             visitCount: metricsData.arrivedDurations.length,
           };
         } else {
@@ -653,6 +687,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             arrivedToProviderUnder45Percent: null,
             providerToDischargedAverage: null,
             providerToDischargedMedian: null,
+            onTimePercent: null,
             visitCount: 0,
           };
         }
