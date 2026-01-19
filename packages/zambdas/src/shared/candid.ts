@@ -460,47 +460,49 @@ async function createOrUpdatePreEncounterPatient(
     );
   }
 
+  const baseCreateOrUpdatePayload: CandidApi.preEncounter.patients.v1.MutablePatient = {
+    name: {
+      family: lastName,
+      given: [firstName],
+      use: 'USUAL',
+    },
+    otherNames: [],
+    birthDate: dateOfBirth,
+    biologicalSex: mapGenderToSex(gender),
+    primaryAddress: {
+      line: patientAddress.line,
+      city: patientAddress.city,
+      state: patientAddress.state as State,
+      postalCode: patientAddress.postalCode,
+      use: mapAddressUse(patientAddress.use),
+      country: patientAddress.country ? patientAddress.country : 'US',
+    },
+    otherAddresses: [],
+    primaryTelecom: {
+      value: patientPhone,
+      use: ContactPointUse.Home,
+    },
+    otherTelecoms: [],
+    contacts: [],
+    generalPractitioners: [],
+    filingOrder: {
+      coverages: [],
+    },
+    nonInsurancePayerAssociations: nonInsurancePayerId
+      ? [
+          {
+            id: CanonicalNonInsurancePayerId(nonInsurancePayerId),
+          },
+        ]
+      : undefined,
+  };
+
   // Update existing patient
   if (candidPatient) {
     const patientResponse = await apiClient.preEncounter.patients.v1.update(
       candidPatient.id,
       (candidPatient.version + 1).toString(),
-      {
-        name: {
-          family: lastName,
-          given: [firstName],
-          use: 'USUAL',
-        },
-        otherNames: [],
-        birthDate: dateOfBirth,
-        biologicalSex: mapGenderToSex(gender),
-        primaryAddress: {
-          line: patientAddress.line,
-          city: patientAddress.city,
-          state: patientAddress.state as State,
-          postalCode: patientAddress.postalCode,
-          use: mapAddressUse(patientAddress.use),
-          country: patientAddress.country ? patientAddress.country : 'US',
-        },
-        otherAddresses: [],
-        primaryTelecom: {
-          value: patientPhone,
-          use: ContactPointUse.Home,
-        },
-        otherTelecoms: [],
-        contacts: [],
-        generalPractitioners: [],
-        filingOrder: {
-          coverages: [],
-        },
-        nonInsurancePayerAssociations: nonInsurancePayerId
-          ? [
-              {
-                id: CanonicalNonInsurancePayerId(nonInsurancePayerId),
-              },
-            ]
-          : undefined,
-      }
+      baseCreateOrUpdatePayload
     );
 
     if (!patientResponse.ok) {
@@ -514,46 +516,15 @@ async function createOrUpdatePreEncounterPatient(
     return patientResponse.body;
   }
 
-  const patientResponse = await apiClient.preEncounter.patients.v1.createWithMrn({
+  const createBody: CandidApi.preEncounter.patients.v1.CreatePatientWithMrnRequest = {
     skipDuplicateCheck: true, // continue adding to candid, even if it's a duplicate
     body: {
+      ...baseCreateOrUpdatePayload,
       mrn: medicalRecordNumber,
-      name: {
-        family: lastName,
-        given: [firstName],
-        use: 'USUAL',
-      },
-      otherNames: [],
-      birthDate: dateOfBirth,
-      biologicalSex: mapGenderToSex(gender),
-      primaryAddress: {
-        line: patientAddress.line,
-        city: patientAddress.city,
-        state: patientAddress.state as State,
-        postalCode: patientAddress.postalCode,
-        use: mapAddressUse(patientAddress.use),
-        country: patientAddress.country ? patientAddress.country : 'US',
-      },
-      otherAddresses: [],
-      primaryTelecom: {
-        value: patientPhone,
-        use: ContactPointUse.Home,
-      },
-      otherTelecoms: [],
-      contacts: [],
-      generalPractitioners: [],
-      filingOrder: {
-        coverages: [],
-      },
-      nonInsurancePayerAssociations: nonInsurancePayerId
-        ? [
-            {
-              id: CanonicalNonInsurancePayerId(nonInsurancePayerId),
-            },
-          ]
-        : undefined,
     },
-  });
+  };
+
+  const patientResponse = await apiClient.preEncounter.patients.v1.createWithMrn(createBody);
 
   if (!patientResponse.ok) {
     throw new Error(
