@@ -330,7 +330,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
 
   const ruleCriticality = rule.criticality;
   if (rule.type === 'min') {
-    if (value < thresholdValue) {
+    if (value <= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalLow;
       }
@@ -340,7 +340,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
     }
   }
   if (rule.type === 'max') {
-    if (value > thresholdValue) {
+    if (value >= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalHigh;
       }

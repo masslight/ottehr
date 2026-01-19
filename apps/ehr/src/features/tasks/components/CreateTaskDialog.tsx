@@ -46,6 +46,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       category: formValue.category,
       appointmentId: formValue.appointment,
       orderId: formValue.order,
+      encounterId: encounterId || undefined,
       taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
       assignee: formValue.assignee,

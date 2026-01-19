@@ -2819,6 +2819,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         updatedWorkersCompCoverage.identifier = [
           createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
         ];
+        updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
       }
       if (workersCompInsuranceOrg) {
         updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
@@ -2859,6 +2860,16 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         },
         type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
         payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+        relationship: {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
+              code: 'other',
+              display: 'Other',
+            },
+          ],
+        },
+        subscriberId: workersCompMemberId,
         class: [
           {
             type: {

@@ -1,4 +1,5 @@
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { primaryIcon } from '@theme/icons';
@@ -140,7 +141,7 @@ const WaitingRoom = (): JSX.Element => {
               primaryText="Leave waiting room"
               secondaryText="We will notify you once the call starts"
             >
-              <img alt="ottehr icon" src={primaryIcon} width={24} />
+              <LogoutIcon color="secondary" />
             </StyledListItemWithButton>
 
             <StyledListItemWithButton
