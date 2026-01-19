@@ -60,12 +60,18 @@ export const mapVitalsToDisplay = (
         break;
       case VitalFieldNames.VitalWeight: {
         parsed = observation as VitalsWeightObservationDTO;
-        const kgStr = formatWeightKg(parsed.value) + ' kg';
-        const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
-        if (vitalsConfig['vital-weight'].unit == 'kg') {
-          text = `${kgStr} = ${lbsStr}`;
-        } else {
-          text = `${lbsStr} = ${kgStr}`;
+        if (parsed.extraWeightOptions?.includes('patient_refused')) {
+          text = 'Patient Refused';
+          break;
+        }
+        if (parsed.value) {
+          const kgStr = formatWeightKg(parsed.value) + ' kg';
+          const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
+          if (vitalsConfig['vital-weight'].unit === 'kg') {
+            text = `${kgStr} = ${lbsStr}`;
+          } else {
+            text = `${lbsStr} = ${kgStr}`;
+          }
         }
         break;
       }

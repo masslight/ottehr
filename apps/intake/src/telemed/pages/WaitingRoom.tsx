@@ -1,7 +1,8 @@
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
+import { primaryIcon } from '@theme/icons';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -87,7 +88,7 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title="Waiting room"
-      img={ottehrLightBlue}
+      img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={80}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
@@ -140,7 +141,7 @@ const WaitingRoom = (): JSX.Element => {
               primaryText="Leave waiting room"
               secondaryText="We will notify you once the call starts"
             >
-              <img alt="ottehr icon" src={ottehrLightBlue} width={24} />
+              <LogoutIcon color="secondary" />
             </StyledListItemWithButton>
 
             <StyledListItemWithButton

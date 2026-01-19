@@ -22,6 +22,7 @@ export interface BookingDetails {
   consentForms?: {
     consentAttested: boolean;
   };
+  serviceCategory?: string;
 }
 
 export interface UpdateVisitDetailsInput {

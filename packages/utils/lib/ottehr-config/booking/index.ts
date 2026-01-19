@@ -57,6 +57,10 @@ const FormFields = {
         key: 'existing-patient-id',
         type: 'string',
       },
+      appointmentServiceCategory: {
+        key: 'appointment-service-category',
+        type: 'string',
+      },
     },
     items: {
       firstName: {
@@ -130,6 +134,52 @@ const FormFields = {
         label: 'Reason for visit',
         type: 'choice',
         options: VALUE_SETS.reasonForVisitOptions,
+        triggers: [
+          {
+            targetQuestionLinkId: 'appointment-service-category',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'urgent-care',
+          },
+          {
+            targetQuestionLinkId: 'appointment-service-category',
+            effect: ['enable', 'require'],
+            operator: 'exists',
+            answerBoolean: false,
+          },
+        ],
+        disabledDisplay: 'hidden',
+        enableBehavior: 'any',
+      },
+      reasonForVisitOccMed: {
+        key: 'reason-for-visit-om',
+        label: 'Reason for visit',
+        type: 'choice',
+        options: VALUE_SETS.reasonForVisitVirtualOptionsOccMed,
+        triggers: [
+          {
+            targetQuestionLinkId: 'appointment-service-category',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'occupational-medicine',
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      reasonForVisitWorkersComp: {
+        key: 'reason-for-visit-wc',
+        label: 'Reason for visit',
+        type: 'choice',
+        options: VALUE_SETS.reasonForVisitVirtualOptionsWorkersComp,
+        triggers: [
+          {
+            targetQuestionLinkId: 'appointment-service-category',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerString: 'workers-comp',
+          },
+        ],
+        disabledDisplay: 'hidden',
       },
       tellUsMore: {
         key: 'tell-us-more',
@@ -143,7 +193,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: ['patient-birth-sex', 'patient-email', 'reason-for-visit'],
+    requiredFields: ['patient-birth-sex', 'patient-email'],
   },
 };
 
@@ -219,7 +269,7 @@ const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
     code: 'occupational-medicine',
     system: SERVICE_CATEGORY_SYSTEM,
   },
-  { display: 'Workmans Comp', code: 'workmans-comp', system: SERVICE_CATEGORY_SYSTEM },
+  { display: 'Workmans Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
 ];
 
 interface BookingContext {
@@ -262,6 +312,8 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
         patientInfo.phoneNumber = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'reason-for-visit':
+      case 'reason-for-visit-om':
+      case 'reason-for-visit-wc':
         patientInfo.reasonForVisit = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'tell-us-more':
@@ -318,7 +370,7 @@ const BOOKING_DEFAULTS = {
 };
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
-export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
+export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_OVERRIDES, BOOKING_DEFAULTS);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
@@ -385,7 +437,7 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
 
   // assuming here we never need to collect this when we already have it
   const shouldShowSSNField = !ssn && !formConfig.FormFields.patientInfo.hiddenFields?.includes('patient-ssn');
-  const ssnRequired = serviceCategoryCode === 'workmans-comp' && shouldShowSSNField;
+  const ssnRequired = serviceCategoryCode === 'workers-comp' && shouldShowSSNField;
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -402,6 +454,9 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
           }
           if (linkId === 'ssn-field-required') {
             answer = makeAnswer(ssnRequired, 'Boolean');
+          }
+          if (linkId === 'appointment-service-category') {
+            answer = makeAnswer(serviceCategoryCode);
           }
           if (linkId === 'patient-first-name' && patient) {
             answer = makeAnswer(getFirstName(patient) ?? '');

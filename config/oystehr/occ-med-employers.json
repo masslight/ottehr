@@ -1,0 +1,51 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "example-employer-1": {
+      "resource": {
+        "resourceType": "Organization",
+        "active": true,
+        "name": "Example Employer 1",
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/organization-type",
+                "code": "occupational-medicine-employer"
+              }
+            ]
+          }
+        ],
+        "identifier": [
+          {
+            "system": "https://api.joincandidhealth.com/api/non-insurance-payers/v1/response/non_insurance_payer_id",
+            "value": "#{var/candid-occ-med-non-insurance-payer-1}"
+          }
+        ]
+      }
+    },
+    "example-employer-2": {
+      "resource": {
+        "resourceType": "Organization",
+        "active": true,
+        "name": "Example Employer 2",
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/organization-type",
+                "code": "occupational-medicine-employer"
+              }
+            ]
+          }
+        ],
+        "identifier": [
+          {
+            "system": "https://api.joincandidhealth.com/api/non-insurance-payers/v1/response/non_insurance_payer_id",
+            "value": "#{var/candid-occ-med-non-insurance-payer-2}"
+          }
+        ]
+      }
+    }
+  }
+}

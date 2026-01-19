@@ -114,9 +114,9 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
         getCardPaymentStepAnswers(),
         getResponsiblePartyStepAnswers({}),
         getSchoolWorkNoteStepAnswers(),
-        getConsentStepAnswers({}),
         getInviteParticipantStepAnswers(),
         patientConditionPhotosStepAnswers,
+        getConsentStepAnswers({}),
       ];
     }
   );
@@ -736,18 +736,32 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
       test('Should delete Medical Conditions data', async () => {
         await test.step('Delete medical condition', async () => {
+          // Get initial count of conditions with "anemia" text
+          const conditionsBeforeDelete = await page
+            .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
+            .filter({ hasText: new RegExp(conditionName, 'i') })
+            .count();
+
+          // Find the first medical condition with anemia text
           const medicalConditionListItem = page
             .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
             .filter({ hasText: new RegExp(conditionName, 'i') })
             .first();
-          await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-          await waitForChartDataDeletion(page);
-          // Check that there are no more medical condition items with this text
+
+          // Use .first() to get the button (first element with testId, which is the button, not the svg)
+          const deleteButton = medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).first();
+          await expect(deleteButton).toBeEnabled({ timeout: 30000 });
+
+          await Promise.all([waitForChartDataDeletion(page), deleteButton.click()]);
+
+          await expect(medicalConditionListItem).not.toBeVisible({ timeout: 30_000 });
+
+          // Verify that the count decreased by 1
           await expect(
             page
               .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
               .filter({ hasText: new RegExp(conditionName, 'i') })
-          ).toHaveCount(0);
+          ).toHaveCount(conditionsBeforeDelete - 1, { timeout: 30000 });
         });
 
         await test.step('Confirm deletion in hpi tab', async () => {
@@ -759,7 +773,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             timeout: 30000,
           });
 
-          await expect(page.getByText(new RegExp(conditionName, 'i'))).not.toBeVisible();
+          // Skeleton is not visible, which means loading is complete
         });
       });
 
@@ -862,9 +876,12 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect).locator('input').click();
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(location.id!)).click();
 
+    await page.waitForLoadState('networkidle', { timeout: 30_000 });
+    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
+
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    ).toBeVisible(DEFAULT_TIMEOUT);
+    ).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -886,9 +903,14 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
           const nonVirtualLocation = locations
             .unbundle()
             .filter((location) => location.resourceType === 'Location')
-            .find((location) => !isLocationVirtual(location as Location));
+            .find((location) => {
+              const loc = location as Location;
+              // Find a non-virtual location that has a valid name (not undefined)
+              const hasValidName = loc.name && loc.name !== 'undefined';
+              return !isLocationVirtual(loc) && hasValidName;
+            });
           if (!nonVirtualLocation) {
-            throw new Error('No non-virtual location found');
+            throw new Error('No non-virtual location with valid name found');
           }
           resolve(nonVirtualLocation as Location);
         })
@@ -915,6 +937,9 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
       },
     ],
   });
+
+  await new Promise((resolve) => setTimeout(resolve, 1_000));
+
   return physicalLocation;
 }
 

@@ -40,8 +40,6 @@ const defaultLocalesConstants = {
           <br />
           <br />
           <strong>{`This lab is already ${testItemStatus}. Are you sure you want to delete the electronic record of it?`}</strong>
-          <br />
-          {testItemStatus === 'sent' && <>Deleting this lab order may result in unsolicited results.</>}
         </>
       )}
       <br />

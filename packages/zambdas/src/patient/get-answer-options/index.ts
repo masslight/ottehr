@@ -138,7 +138,6 @@ const formatQueryResult = (
   prependedIdentifier?: string
 ): QuestionnaireItemAnswerOption => {
   let name = resourceType === 'Organization' ? result.alias?.[0] || result.name : result.name;
-  console.log('prependedIdentifier:', prependedIdentifier);
   if (prependedIdentifier) {
     const identifierValue = result.identifier?.find((id: any) => {
       return (

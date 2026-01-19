@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
-import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { dataTestIds } from 'src/helpers/data-test-ids';
+import { BOOKING_CONFIG, DEPLOYED_INPERSON_LOCATIONS, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { SlotAndLocation, StartVisitResponse } from '../in-person/BaseInPersonFlow';
@@ -85,11 +86,37 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
       await this.fillingInfo.selectFirstServiceCategory();
     }
 
+    if (BOOKING_CONFIG.inPersonPrebookRoutingParams.some((param) => param.key === 'bookingOn') === false) {
+      // if there is no bookingOn param, the location selector will be presented
+      return this.selectTimeLocationAndContinue();
+    }
+
+    await expect(this.locator.firstAvailableTime).toBeVisible();
+    const title = await this.locator.pageTitle.textContent();
+    const locationTitle = title ? title.replace('Book a visit at ', '').trim() : null;
+
+    const { slot } = await this.fillingInfo.selectRandomSlot();
+    expect(slot, { message: 'No slot was selected' }).toBeTruthy();
+    return { slot, location: locationTitle };
+  }
+
+  async selectTimeLocationAndContinue(): Promise<SlotAndLocation> {
+    const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
+    await expect(statesSelector).toBeVisible();
+
+    await statesSelector.getByRole('button').click();
+    const firstAvailableState = DEPLOYED_INPERSON_LOCATIONS[0]?.name;
+    if (!firstAvailableState) {
+      throw new Error('No deployed in-person locations found');
+    }
+    const locationOption = this.page.locator('[role="option"]').getByText(firstAvailableState, { exact: true });
+    await locationOption.click();
     await expect(this.locator.firstAvailableTime).toBeVisible();
     const title = await this.locator.pageTitle.textContent();
     const location = title ? title.replace('Book a visit at ', '').trim() : null;
-
     const { slot } = await this.fillingInfo.selectRandomSlot();
+    expect(slot, { message: 'No slot was selected' }).toBeTruthy();
+    await this.continue();
     return { slot, location };
   }
 
