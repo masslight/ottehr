@@ -102,11 +102,13 @@ import {
   patientFieldPaths,
   PatientMasterRecordResource,
   PatientMasterRecordResourceType,
+  PHARMACY_COLLECTION_LINK_IDS,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_EXTENSION_URL,
+  PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
@@ -1206,10 +1208,11 @@ export const createUpdatePharmacyPatchOps = (
   const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
   const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
 
-  const placesPharmacyIdAnswer = getAnswer('pharmacy-places-id', flattenedItems);
-  const placesPharmacyNameAnswer = getAnswer('pharmacy-places-name', flattenedItems);
-  const placesPharmacyAddressAnswer = getAnswer('pharmacy-places-address', flattenedItems);
-  const exrPharmacyIdAnswer = getAnswer('erx-pharmacy-id', flattenedItems);
+  const pharmacyWasManuallyEntered = getAnswer('pharmacy-page-manual-entry', flattenedItems);
+  const placesPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesId, flattenedItems);
+  const placesPharmacyNameAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesName, flattenedItems);
+  const placesPharmacyAddressAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesAddress, flattenedItems);
+  const exrPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, flattenedItems);
 
   // Check if pharmacy fields are present in the questionnaire response
   const hasManualPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
@@ -1253,7 +1256,14 @@ export const createUpdatePharmacyPatchOps = (
         : undefined,
     };
 
-    if (placesPharmacyIdAnswer?.valueString) {
+    if (pharmacyWasManuallyEntered?.valueBoolean) {
+      pharmacyOrg.extension = [
+        {
+          url: PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
+          valueBoolean: true,
+        },
+      ];
+    } else if (placesPharmacyIdAnswer?.valueString) {
       pharmacyOrg.extension = [
         {
           url: PREFERRED_PHARMACY_PLACES_ID_URL,

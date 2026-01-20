@@ -25,6 +25,7 @@ import {
   LANGUAGE_OPTIONS,
   LanguageOption,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
+  PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
@@ -1452,8 +1453,12 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
   const { pharmacyResource, patientResource, items } = input;
   const pharmacyName = pharmacyResource?.name;
   const pharmacyAddress = pharmacyResource?.address?.[0].text;
-  const pharmacyIsFromPlaces = pharmacyResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_PLACES_ID_URL)
-    ?.valueString;
+  const pharmacyWasManuallyEntered = !!pharmacyResource?.extension?.find(
+    (ext) => ext.url === PREFERRED_PHARMACY_MANUAL_ENTRY_URL
+  )?.valueBoolean;
+  const pharmacyIsFromPlaces = !!pharmacyResource?.extension?.find(
+    (ext) => ext.url === PREFERRED_PHARMACY_PLACES_ID_URL
+  )?.valueString;
   const pharmacyErxId = patientResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL)
     ?.valueString;
 
@@ -1466,6 +1471,10 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
     }
     if (linkId === 'pharmacy-address' && pharmacyAddress) {
       answer = makeAnswer(pharmacyAddress);
+    }
+
+    if (linkId === 'pharmacy-page-manual-entry' && pharmacyWasManuallyEntered) {
+      answer = makeAnswer(true, 'Boolean');
     }
 
     if (pharmacyIsFromPlaces) {
@@ -1483,7 +1492,7 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
       }
     }
 
-    if (linkId === PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId) {
+    if (linkId === PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId && pharmacyErxId) {
       answer = makeAnswer(pharmacyErxId);
     }
 
