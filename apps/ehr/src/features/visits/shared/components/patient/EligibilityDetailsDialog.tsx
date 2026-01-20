@@ -123,7 +123,7 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
   // Filter copays for view details popup:
   // benefit_coverage_code = B, benefit_level_code = IND, benefit_code = UC
   const copayBenefits = (eligibilityCheck.copay || []).filter(
-    (benefit) => benefit.levelCode === 'IND' && benefit.code === 'UC'
+    (benefit) => benefit.coverageCode === 'B' && benefit.levelCode === 'IND' && benefit.code === 'UC'
   );
 
   const hasErrors = errorDetails && errorDetails.length > 0;
