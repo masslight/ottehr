@@ -2887,6 +2887,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             },
           ],
         },
+        // sounds like this should be the employer??
+        // subscriber: {
+        //   reference: `Patient/${patient.id}`,
+        // },
         subscriberId: workersCompMemberId,
         class: [
           {

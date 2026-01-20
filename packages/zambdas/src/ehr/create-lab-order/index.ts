@@ -760,6 +760,11 @@ const getAdditionalResources = async (
       throw new Error(`Incorrect number of workers comp accounts found: ${workersCompAccounts.length}`);
     }
 
+    if (!workersCompInsurance) {
+      console.log(`workersCompInsurance not found for encounter: ${encounter.id}`);
+      throw EXTERNAL_LAB_ERROR(`No coverage is found for this workers comp account`);
+    }
+
     const workersCompAccount = workersCompAccounts[0];
     const workersCompInsuranceId = (workersCompInsurance as Coverage | undefined)?.id;
     const insuranceMatchesAccount = workersCompAccount.coverage?.some(
