@@ -256,7 +256,7 @@ export class VitalsPage {
   }
 
   async addLastMenstrualPeriodObservation(date: string): Promise<void> {
-    const dateInput = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodDateInput).locator('input');
+    const dateInput = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodDateInput);
     await dateInput.click();
     await dateInput.pressSequentially(date);
     const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodAddButton);

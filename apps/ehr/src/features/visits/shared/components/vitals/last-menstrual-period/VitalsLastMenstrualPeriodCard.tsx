@@ -156,10 +156,14 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                         textField: {
                           fullWidth: true,
                           size: 'small',
-                          InputLabelProps: { shrink: true },
+                          InputLabelProps: {
+                            shrink: true,
+                          },
+                          inputProps: {
+                            'data-testid': dataTestIds.vitalsPage.lastMenstrualPeriodDateInput,
+                          },
                         },
                       }}
-                      data-testid={dataTestIds.vitalsPage.lastMenstrualPeriodDateInput}
                     />
                   </LocalizationProvider>
                 </Grid>
