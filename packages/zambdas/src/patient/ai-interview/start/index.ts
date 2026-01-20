@@ -88,18 +88,39 @@ function calculateAge(birthDate: string | undefined): number | undefined {
 function formatPatientInfo(patient: Patient, reasonForVisit: string | undefined): string {
   const firstName = patient.name?.[0]?.given?.[0];
   const lastName = patient.name?.[0]?.family;
-  const name = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'the patient';
+  const name = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName;
   const age = calculateAge(patient.birthDate);
-  const ageStr = age !== undefined ? `${age} year old` : '';
-  const gender = patient.gender || '';
-  const reason = reasonForVisit ? `with reason for visit: ${reasonForVisit}` : '';
+  const gender = patient.gender;
   
-  const parts = ['The patient is', name];
-  if (ageStr) parts.push(ageStr);
-  if (gender) parts.push(gender);
-  if (reason) parts.push(reason);
+  const parts: string[] = [];
   
-  return parts.join(' ').replace(/\s+/g, ' ').trim() + '.';
+  if (name) {
+    parts.push(`The patient is ${name}`);
+    if (age !== undefined && gender) {
+      parts.push(`a ${age} year old ${gender}`);
+    } else if (age !== undefined) {
+      parts.push(`${age} years old`);
+    } else if (gender) {
+      parts.push(`gender: ${gender}`);
+    }
+  } else {
+    // No name available
+    if (age !== undefined && gender) {
+      parts.push(`The patient is a ${age} year old ${gender}`);
+    } else if (age !== undefined) {
+      parts.push(`The patient is ${age} years old`);
+    } else if (gender) {
+      parts.push(`The patient is ${gender}`);
+    } else {
+      parts.push('The patient information is being collected');
+    }
+  }
+  
+  if (reasonForVisit) {
+    parts.push(`Reason for visit: ${reasonForVisit}`);
+  }
+  
+  return parts.join(', ') + '.';
 }
 
 const ZAMBDA_NAME = 'ai-interview-start';
