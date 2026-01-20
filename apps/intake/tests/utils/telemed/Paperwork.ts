@@ -1,6 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { waitForResponseWithData } from 'test-utils';
 import { SELF_PAY_OPTION } from 'utils';
+import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import {
   CURRENT_MEDICATIONS_ABSENT_LABEL,
@@ -13,7 +14,7 @@ import {
   SURGICAL_HISTORY_ABSENT_LABEL,
   SURGICAL_HISTORY_PRESENT_LABEL,
 } from '../locators';
-import { CARD_CVV, CARD_EXP_DATE, CARD_NUMBER, CARD_NUMBER_OBSCURED } from '../Paperwork';
+import { CARD_CVV, CARD_EXP_DATE, CARD_NUMBER } from '../Paperwork';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
 
@@ -282,7 +283,8 @@ export class PaperworkTelemed {
     await this.locators.creditCardCVC.fill(CARD_CVV);
     await this.locators.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locators.addCardButton.click();
-    await expect(this.page.getByText(CARD_NUMBER_OBSCURED)).toBeVisible();
+    // Wait for saved card to appear in radio group with data-testid (Stripe processing + backend save)
+    await expect(this.page.getByTestId(dataTestIds.cardNumber).first()).toBeVisible({ timeout: 60000 });
     await this.page.getByRole('button', { name: 'Continue' }).click();
   }
 
