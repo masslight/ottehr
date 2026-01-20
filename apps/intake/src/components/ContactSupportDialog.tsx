@@ -1,13 +1,13 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getLocationNames, getSupportPhoneFor } from 'utils';
+import { ALL_LOCATIONS, getSupportPhoneFor } from 'utils';
 import { CustomDialog } from './CustomDialog';
 import PageForm from './PageForm';
 
 type ContactSupportDialogProps = { onClose: () => void };
 
 export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose }) => {
-  const locationNames = getLocationNames();
+  const locationNames = ALL_LOCATIONS.map((location) => location.name);
   return (
     <CustomDialog open={true} onClose={onClose}>
       <Typography variant="h2" color="primary.main" sx={{ mb: 2 }}>
