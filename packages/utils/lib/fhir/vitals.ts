@@ -1,4 +1,4 @@
-import { CodeableConcept, Observation, ObservationComponent } from 'fhir/r4b';
+import { CodeableConcept, Observation, ObservationComponent, Practitioner } from 'fhir/r4b';
 import {
   getVitalObservationFhirComponentInterpretations,
   ObservationDTO,
@@ -22,6 +22,9 @@ import {
   VitalsWeightPatientRefusedDTO,
   VitalTemperatureObservationMethod,
 } from 'utils';
+import { PATIENT_VITALS_META_SYSTEM } from '../types/api/chart-data/chart-data.types';
+import { PRIVATE_EXTENSION_BASE_URL } from './constants';
+import { getFullName } from './patient';
 
 export const SNOMED_SYSTEM = 'http://snomed.info/sct';
 export const LOINC_SYSTEM = 'http://loinc.org';
@@ -965,3 +968,46 @@ const extractWeightValues = (
     weightOptions: storedExtraWeightOptions,
   };
 };
+
+export function parseLastMenstrualPeriodObservation(
+  observation: Observation,
+  performer: Practitioner
+): VitalsLastMenstrualPeriodObservationDTO | undefined {
+  const fieldCode = observation?.meta?.tag?.find(
+    (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
+  )?.code;
+
+  if (fieldCode !== VitalFieldNames.VitalLastMenstrualPeriod) return undefined;
+
+  const components = observation.component || [];
+  const hasUnsure = components.some(
+    (cmp) =>
+      cmp.code?.coding?.some(
+        (coding) =>
+          coding.code === VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE && coding.system === SNOMED_SYSTEM
+      ) && cmp.valueBoolean === true
+  );
+
+  if (hasUnsure) {
+    return {
+      resourceId: observation.id,
+      field: VitalFieldNames.VitalLastMenstrualPeriod,
+      isUnsure: true,
+      authorId: performer.id,
+      authorName: getFullName(performer),
+      lastUpdated: observation.effectiveDateTime || '',
+    };
+  }
+
+  const value = observation.valueDateTime;
+  if (value === undefined) return undefined;
+
+  return {
+    resourceId: observation.id,
+    field: VitalFieldNames.VitalLastMenstrualPeriod,
+    value,
+    authorId: performer.id,
+    authorName: getFullName(performer),
+    lastUpdated: observation.effectiveDateTime || '',
+  };
+}
