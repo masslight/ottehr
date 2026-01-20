@@ -203,10 +203,18 @@ export const parseCoverageEligibilityResponse = (
             (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND' && benefit.periodCode === '27'
           );
           
+          // Define regex patterns for benefit period description matching
+          const PAID_PATTERN = /\bpaid\b/i;
+          const LIMIT_PATTERN = /\blimit\b/i;
+          const TOTAL_PATTERN = /\btotal\b/i;
+          const REMAINING_PATTERN = /\bremaining\b/i;
+          
           // Calculate paid if not in response: paid = total - remaining when both are known
           const calculatePaid = (total: number | undefined, remaining: number | undefined, paid: number | undefined): number | undefined => {
-            if (paid !== undefined && paid > 0) return paid;
-            if (total !== undefined && remaining !== undefined && total > 0 && remaining >= 0) {
+            // If paid is explicitly provided (including zero), use it
+            if (paid !== undefined && paid >= 0) return paid;
+            // Calculate from total and remaining if both are available
+            if (total !== undefined && remaining !== undefined && total >= 0 && remaining >= 0) {
               return total - remaining;
             }
             return undefined;
@@ -217,15 +225,15 @@ export const parseCoverageEligibilityResponse = (
           // Fallback to description matching if period codes are not specific enough
           const indivDeductiblePaid = individualDeductible.find((benefit) => 
             benefit.periodCode === '24' ||
-            (benefit.periodDescription && /\bpaid\b/i.test(benefit.periodDescription))
+            (benefit.periodDescription && PAID_PATTERN.test(benefit.periodDescription))
           )?.amountInUSD;
           const indivDeductibleTotal = individualDeductible.find((benefit) => 
             benefit.periodCode === '23' ||
-            (benefit.periodDescription && (/\blimit\b/i.test(benefit.periodDescription) || /\btotal\b/i.test(benefit.periodDescription)))
+            (benefit.periodDescription && (LIMIT_PATTERN.test(benefit.periodDescription) || TOTAL_PATTERN.test(benefit.periodDescription)))
           )?.amountInUSD;
           const indivDeductibleRemaining = individualDeductible.find((benefit) => 
             benefit.periodCode === '29' ||
-            (benefit.periodDescription && /\bremaining\b/i.test(benefit.periodDescription))
+            (benefit.periodDescription && REMAINING_PATTERN.test(benefit.periodDescription))
           )?.amountInUSD;
           
           financialDetails.push({
@@ -237,15 +245,15 @@ export const parseCoverageEligibilityResponse = (
           
           const famDeductiblePaid = familyDeductible.find((benefit) => 
             benefit.periodCode === '24' ||
-            (benefit.periodDescription && /\bpaid\b/i.test(benefit.periodDescription))
+            (benefit.periodDescription && PAID_PATTERN.test(benefit.periodDescription))
           )?.amountInUSD;
           const famDeductibleTotal = familyDeductible.find((benefit) => 
             benefit.periodCode === '23' ||
-            (benefit.periodDescription && (/\blimit\b/i.test(benefit.periodDescription) || /\btotal\b/i.test(benefit.periodDescription)))
+            (benefit.periodDescription && (LIMIT_PATTERN.test(benefit.periodDescription) || TOTAL_PATTERN.test(benefit.periodDescription)))
           )?.amountInUSD;
           const famDeductibleRemaining = familyDeductible.find((benefit) => 
             benefit.periodCode === '29' ||
-            (benefit.periodDescription && /\bremaining\b/i.test(benefit.periodDescription))
+            (benefit.periodDescription && REMAINING_PATTERN.test(benefit.periodDescription))
           )?.amountInUSD;
           
           financialDetails.push({
@@ -257,15 +265,15 @@ export const parseCoverageEligibilityResponse = (
           
           const oopPaid = outOfPocketMax.find((benefit) => 
             benefit.periodCode === '24' ||
-            (benefit.periodDescription && /\bpaid\b/i.test(benefit.periodDescription))
+            (benefit.periodDescription && PAID_PATTERN.test(benefit.periodDescription))
           )?.amountInUSD;
           const oopTotal = outOfPocketMax.find((benefit) => 
             benefit.periodCode === '23' ||
-            (benefit.periodDescription && (/\blimit\b/i.test(benefit.periodDescription) || /\btotal\b/i.test(benefit.periodDescription)))
+            (benefit.periodDescription && (LIMIT_PATTERN.test(benefit.periodDescription) || TOTAL_PATTERN.test(benefit.periodDescription)))
           )?.amountInUSD;
           const oopRemaining = outOfPocketMax.find((benefit) => 
             benefit.periodCode === '29' ||
-            (benefit.periodDescription && /\bremaining\b/i.test(benefit.periodDescription))
+            (benefit.periodDescription && REMAINING_PATTERN.test(benefit.periodDescription))
           )?.amountInUSD;
           
           financialDetails.push({
