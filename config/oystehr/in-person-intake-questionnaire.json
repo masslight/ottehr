@@ -1043,7 +1043,7 @@
                 "enableWhen": [
                   {
                     "question": "pharmacy-collection.pharmacy-places-saved",
-                    "operator": "=",
+                    "operator": "!=",
                     "answerBoolean": true
                   }
                 ],
