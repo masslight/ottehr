@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   AI_QUESTIONNAIRE_ID,
   createOystehrClient,
@@ -22,22 +23,27 @@ import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const INITIAL_USER_MESSAGE_URGENT_CARE = `Perform a medical history intake session in the manner of a physician preparing me or my dependent for an urgent care visit, without using a fake name:
+function getInitialUserMessageUrgentCare(patientInfo: string): string {
+  return `Perform a medical history intake session in the manner of a physician preparing me or my dependent for an urgent care visit, without using a fake name:
 •	Use a friendly and concerned physician's tone
-•	Determine who the patient is
+•	${patientInfo}
+•	Determine if you are communicating with the patient directly or a parent/guardian.
 •	Ask only one question at a time.
-•	Ask no more than 20 questions in total.
+•	Ask no more than 8 questions total.
 •	Don't number the questions.
 •	Cover all the major domains efficiently: chief complaint, history of present illness, past medical history, past surgical history, medications, allergies, family history, social history, hospitalizations, and relevant review of systems.
 •	Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
 •	If I give vague or incomplete answers, ask a brief follow-up before moving on.
 •	When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
+}
 
-const INITIAL_USER_MESSAGE_INJURY_JOB = `Perform a medical history intake session in the manner of a physician doing patient intake for a potential job related injury.
+function getInitialUserMessageInjuryJob(patientInfo: string): string {
+  return `Perform a medical history intake session in the manner of a physician doing patient intake for a potential job related injury.
 • Use a friendly and concerned physician's tone, but do not give yourself a name
-• Determine who the patient is
+• ${patientInfo}
+• Determine if you are communicating with the patient directly or a parent/guardian.
 • Ask only one question at a time.
-• Ask no more than 15 questions in total.
+• Ask no more than 8 questions total.
 • Don't number the questions.
 
 Be sure to cover the following:
@@ -64,11 +70,36 @@ If time permits ask about past medical history, past surgical history, medicatio
 • Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
 • If I give vague or incomplete answers, ask a brief follow-up before moving on.
 • When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
+}
 
 let oystehrToken: string;
 
 interface Input extends StartInterviewInput {
   secrets: Secrets | null;
+}
+
+function calculateAge(birthDate: string | undefined): number | undefined {
+  if (!birthDate) return undefined;
+  const birth = DateTime.fromISO(birthDate);
+  const now = DateTime.now();
+  return Math.floor(now.diff(birth, 'years').years);
+}
+
+function formatPatientInfo(patient: Patient, reasonForVisit: string | undefined): string {
+  const firstName = patient.name?.[0]?.given?.[0];
+  const lastName = patient.name?.[0]?.family;
+  const name = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'the patient';
+  const age = calculateAge(patient.birthDate);
+  const ageStr = age !== undefined ? `${age} year old` : '';
+  const gender = patient.gender || '';
+  const reason = reasonForVisit ? `with reason for visit: ${reasonForVisit}` : '';
+  
+  const parts = ['The patient is', name];
+  if (ageStr) parts.push(ageStr);
+  if (gender) parts.push(gender);
+  if (reason) parts.push(reason);
+  
+  return parts.join(' ').replace(/\s+/g, ' ').trim() + '.';
 }
 
 const ZAMBDA_NAME = 'ai-interview-start';
@@ -79,7 +110,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = await createOystehr(secrets);
 
     const resources = (
-      await oystehr.fhir.search<Encounter | Appointment>({
+      await oystehr.fhir.search<Encounter | Appointment | Patient>({
         resourceType: 'Encounter',
         params: [
           {
@@ -90,22 +121,35 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             name: '_include',
             value: 'Encounter:appointment',
           },
+          {
+            name: '_include',
+            value: 'Encounter:patient',
+          },
         ],
       })
     ).unbundle();
-    const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
+    const encounter = resources.find((resource) => resource.resourceType === 'Encounter') as Encounter | undefined;
     const encounterId = encounter?.id;
     if (encounter == null || encounterId == null) {
       throw new Error(`Encounter for appointment ID ${appointmentId} not found`);
     }
 
-    const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+    const appointment = resources.find((resource) => resource.resourceType === 'Appointment') as Appointment | undefined;
     if (appointment == null) {
       throw new Error(`Appointment for appointment ID ${appointmentId} not found`);
     }
+
+    const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient | undefined;
+    if (patient == null) {
+      throw new Error(`Patient for appointment ID ${appointmentId} not found`);
+    }
+
+    const reasonForVisit = appointment.description;
+    const patientInfo = formatPatientInfo(patient, reasonForVisit);
+
     let questionnaireResponse: QuestionnaireResponse;
     const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
-    let prompt = INITIAL_USER_MESSAGE_URGENT_CARE;
+    let prompt = getInitialUserMessageUrgentCare(patientInfo);
 
     if (
       appointment.serviceCategory?.find(
@@ -116,7 +160,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       )
     ) {
       console.log('Using workers compensation prompt');
-      prompt = INITIAL_USER_MESSAGE_INJURY_JOB;
+      prompt = getInitialUserMessageInjuryJob(patientInfo);
     }
 
     if (existingQuestionnaireResponse != null) {
