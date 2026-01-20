@@ -1,0 +1,22 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL = exports.SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL = exports.SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL = exports.SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL = exports.SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL = exports.SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL = exports.DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL = exports.ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM = exports.FILLER_ORDER_NUMBER_CODE_SYSTEM = exports.PLACER_ORDER_NUMBER_CODE_SYSTEM = exports.ACCESSION_NUMBER_CODE_SYSTEM = exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER = exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER = exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER = exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM = exports.ORDER_TYPE_CODE_SYSTEM = exports.ADVAPACS_VIEWER_LAUNCH_URL = exports.ADVAPACS_FHIR_BASE_URL = void 0;
+// cSpell:ignore: ACSN, PLAC
+exports.ADVAPACS_FHIR_BASE_URL = 'https://usa1.api.integration.advapacs.com/fhir/R5';
+exports.ADVAPACS_VIEWER_LAUNCH_URL = 'https://usa1.api.integration.advapacs.com/viewer/launch';
+exports.ORDER_TYPE_CODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/order-type-tag';
+exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER = 'ACSN';
+exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER = 'PLAC';
+exports.HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER = 'FILL';
+exports.ACCESSION_NUMBER_CODE_SYSTEM = 'https://fhir.ottehr.com/Identifier/accession-number';
+exports.PLACER_ORDER_NUMBER_CODE_SYSTEM = 'https://fhir.ottehr.com/Identifier/placer-order-number';
+exports.FILLER_ORDER_NUMBER_CODE_SYSTEM = 'https://fhir.ottehr.com/Identifier/filler-order-number';
+exports.ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/advapacs-fhir-resource-id';
+exports.DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/diagnostic-report-preliminary-review-on';
+exports.SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/service-request-performed-on';
+exports.SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/service-request-requested-time';
+exports.SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL = 'https://fhir.ottehr.com/Extension/service-request-order-detail-pre-release';
+exports.SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL = 'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release';
+exports.SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL = 'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-code';
+exports.SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL = 'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-value-string';
