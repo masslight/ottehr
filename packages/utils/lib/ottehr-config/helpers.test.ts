@@ -192,6 +192,10 @@ describe('mergeAndFreezeConfigObjects', () => {
               baseOnly: 'preserved',
               shared: 'base',
               overrideOnly: '',
+              overrideExtended: {
+                foo: 'foo',
+                bar: 'bar',
+              },
             },
           },
         },
@@ -202,6 +206,11 @@ describe('mergeAndFreezeConfigObjects', () => {
             level3: {
               shared: 'override',
               overrideOnly: 'added',
+              overrideExtended: {
+                foo: 'foo',
+                bar: 'bar',
+                baz: 'baz',
+              },
             },
           },
         },
@@ -212,6 +221,186 @@ describe('mergeAndFreezeConfigObjects', () => {
       expect(result.level1.level2.level3.baseOnly).toBe('preserved');
       expect(result.level1.level2.level3.shared).toBe('override');
       expect(result.level1.level2.level3.overrideOnly).toBe('added');
+      expect(result.level1.level2.level3.overrideExtended.foo).toBe('foo');
+      expect(result.level1.level2.level3.overrideExtended.bar).toBe('bar');
+      expect(result.level1.level2.level3.overrideExtended.baz).toBe('baz');
+
+      const defaultFormFields = {
+        consentForms: {
+          linkId: 'consent-forms-page',
+          title: 'Complete consent forms',
+          reviewText: 'Consent forms',
+          triggers: [
+            {
+              targetQuestionLinkId: '$status',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'completed',
+            },
+            {
+              targetQuestionLinkId: '$status',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'amended',
+            },
+          ],
+          enableBehavior: 'all',
+          items: {
+            hipaaAcknowledgement: {
+              key: 'hipaa-acknowledgement',
+              label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
+              type: 'boolean',
+              triggers: [
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'completed',
+                },
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'amended',
+                },
+              ],
+              enableBehavior: 'all',
+              permissibleValue: true,
+              disabledDisplay: 'disabled',
+            },
+            consentToTreat: {
+              key: 'consent-to-treat',
+              label:
+                'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
+              type: 'boolean',
+              triggers: [
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'completed',
+                },
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'amended',
+                },
+              ],
+              enableBehavior: 'all',
+              permissibleValue: true,
+              disabledDisplay: 'disabled',
+            },
+            signature: {
+              key: 'signature',
+              label: 'Signature',
+              type: 'string',
+              dataType: 'Signature',
+              triggers: [
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'completed',
+                },
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'amended',
+                },
+              ],
+              enableBehavior: 'all',
+              disabledDisplay: 'disabled',
+            },
+            fullName: {
+              key: 'full-name',
+              label: 'Full name',
+              type: 'string',
+              triggers: [
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'completed',
+                },
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'amended',
+                },
+              ],
+              enableBehavior: 'all',
+              autocomplete: 'section-consent-forms shipping name',
+              disabledDisplay: 'disabled',
+            },
+            consentFormSignerRelationship: {
+              key: 'consent-form-signer-relationship',
+              label: 'Relationship to the patient',
+              type: 'choice',
+              options: [
+                { label: 'option 1', value: 'option1' },
+                { label: 'option 2', value: 'option2' },
+              ],
+              triggers: [
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'completed',
+                },
+                {
+                  targetQuestionLinkId: '$status',
+                  effect: ['enable'],
+                  operator: '!=',
+                  answerString: 'amended',
+                },
+              ],
+              enableBehavior: 'all',
+              disabledDisplay: 'disabled',
+            },
+          },
+          hiddenFields: [],
+          requiredFields: [
+            'hipaa-acknowledgement',
+            'consent-to-treat',
+            'signature',
+            'full-name',
+            'consent-form-signer-relationship',
+          ],
+        },
+      };
+
+      const overrideFormFields = {
+        consentForms: {
+          items: {
+            hipaaAcknowledgement: {
+              label: 'I have reviewed and agree I guess',
+            },
+            consentToTreat: {
+              label: 'Sure these look fine',
+            },
+            financialResponsibility: {
+              key: 'financial-responsibility',
+              label: 'Yeah im good for it',
+              type: 'boolean',
+              permissibleValue: true,
+            },
+            rightsAndResponsibilities: {
+              key: 'rights-and-responsibilities',
+              label: 'Yup',
+              type: 'boolean',
+              permissibleValue: true,
+            },
+          },
+        },
+      };
+      const result2 = mergeAndFreezeConfigObjects(defaultFormFields, overrideFormFields);
+      expect(result2.consentForms.items.hipaaAcknowledgement.label).toBe('I have reviewed and agree I guess');
+      expect(result2.consentForms.items.consentToTreat.label).toBe('Sure these look fine');
+      expect(result2.consentForms.items.financialResponsibility.label).toBe('Yeah im good for it');
+      expect(result2.consentForms.items.rightsAndResponsibilities.label).toBe('Yup');
     });
   });
 
@@ -331,7 +520,7 @@ describe('mergeAndFreezeConfigObjects', () => {
       };
       const overrideConfig = {
         value: undefined,
-      };
+      } as any;
 
       const result = mergeAndFreezeConfigObjects(baseConfig, overrideConfig);
 
