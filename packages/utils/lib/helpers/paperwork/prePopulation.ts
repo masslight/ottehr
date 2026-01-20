@@ -1456,9 +1456,8 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
   const pharmacyWasManuallyEntered = !!pharmacyResource?.extension?.find(
     (ext) => ext.url === PREFERRED_PHARMACY_MANUAL_ENTRY_URL
   )?.valueBoolean;
-  const pharmacyIsFromPlaces = !!pharmacyResource?.extension?.find(
-    (ext) => ext.url === PREFERRED_PHARMACY_PLACES_ID_URL
-  )?.valueString;
+  const pharmacyIdFromPlaces = pharmacyResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_PLACES_ID_URL)
+    ?.valueString;
   const pharmacyErxId = patientResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL)
     ?.valueString;
 
@@ -1477,7 +1476,7 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
       answer = makeAnswer(true, 'Boolean');
     }
 
-    if (pharmacyIsFromPlaces) {
+    if (pharmacyIdFromPlaces) {
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesName) {
         answer = makeAnswer(pharmacyName);
       }
@@ -1485,7 +1484,7 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
         answer = makeAnswer(pharmacyAddress);
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesId) {
-        answer = makeAnswer(pharmacyIsFromPlaces);
+        answer = makeAnswer(pharmacyIdFromPlaces);
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesDataSaved) {
         answer = makeAnswer(true, 'Boolean');

@@ -652,6 +652,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     ],
   };
   console.log('making transaction request');
+  console.log('QR detail', JSON.stringify(postQuestionnaireResponseRequest.resource));
   const bundle = await oystehr.fhir.transaction(transactionInput);
   const resources = extractResourcesFromBundle(bundle);
   return resources;
