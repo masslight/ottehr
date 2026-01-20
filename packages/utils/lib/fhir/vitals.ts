@@ -9,6 +9,7 @@ import {
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsOxygenSatObservationMethod,
@@ -53,6 +54,9 @@ export const VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
 export const VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
 
 export const VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE = '8675309';
+
+export const VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE = '8665-2';
+export const VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE = '261665006';
 
 export const getTempObservationMethodCodable = (
   tempDTO: VitalsTemperatureObservationDTO
@@ -586,7 +590,8 @@ export function isVitalObservation(data: ObservationDTO): data is VitalsObservat
     isBloodPressureVitalObservation(data) ||
     isOxygenSaturationVitalObservation(data) ||
     isRespirationRateVitalObservation(data) ||
-    isVisionVitalObservation(data)
+    isVisionVitalObservation(data) ||
+    isLastMenstrualPeriodVitalObservation(data)
   );
 }
 
@@ -628,6 +633,13 @@ export function isRespirationRateVitalObservation(data: ObservationDTO): data is
 export function isOxygenSaturationVitalObservation(data: ObservationDTO): data is VitalsOxygenSatObservationDTO {
   const fieldName = data.field;
   return fieldName === VitalFieldNames.VitalOxygenSaturation;
+}
+
+export function isLastMenstrualPeriodVitalObservation(
+  data: ObservationDTO
+): data is VitalsLastMenstrualPeriodObservationDTO {
+  const fieldName = data.field;
+  return fieldName === VitalFieldNames.VitalLastMenstrualPeriod;
 }
 
 export function toVitalTemperatureObservationMethod(
@@ -741,6 +753,39 @@ export function fillVitalObservationAttributes(
     return {
       ...baseResource,
       component: getVisionObservationComponents(visionDTO),
+    };
+  }
+
+  if (isLastMenstrualPeriodVitalObservation(vitalDTO)) {
+    const lmpDTO = vitalDTO as VitalsLastMenstrualPeriodObservationDTO;
+    return {
+      ...baseResource,
+      code: {
+        coding: [
+          {
+            system: LOINC_SYSTEM,
+            code: VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE,
+            display: 'Last menstrual period start date',
+          },
+        ],
+      },
+      valueDateTime: lmpDTO.isUnsure ? undefined : lmpDTO.value,
+      component: lmpDTO.isUnsure
+        ? [
+            {
+              code: {
+                coding: [
+                  {
+                    system: SNOMED_SYSTEM,
+                    code: VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE,
+                    display: 'Unknown',
+                  },
+                ],
+              },
+              valueBoolean: true,
+            },
+          ]
+        : undefined,
     };
   }
 
@@ -865,6 +910,30 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
       extraVisionOptions: visionValues.visionOptions,
     };
     return result;
+  }
+
+  if (fieldName === VitalFieldNames.VitalLastMenstrualPeriod) {
+    const hasUnsure = observation.component?.some(
+      (cmp) =>
+        cmp.code?.coding?.some((coding) => coding.code === VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE) &&
+        cmp.valueBoolean === true
+    );
+
+    if (hasUnsure) {
+      const result: VitalsLastMenstrualPeriodObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalLastMenstrualPeriod,
+        isUnsure: true,
+      };
+      return result;
+    } else {
+      const result: VitalsLastMenstrualPeriodObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalLastMenstrualPeriod,
+        value: observation.valueDateTime ?? '',
+      };
+      return result;
+    }
   }
 
   return undefined;

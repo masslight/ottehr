@@ -209,6 +209,7 @@ test.describe('In-Person Visit Chart Data', async () => {
     const HEIGHT_CM = '175';
     const VISION_LEFT = '2.5';
     const VISION_RIGHT = '3.1';
+    const LMP_DATE = '01/15/2024';
 
     let vitalsPage: VitalsPage;
 
@@ -281,6 +282,20 @@ test.describe('In-Person Visit Chart Data', async () => {
         await waitForSaveChartDataResponse(page);
         await vitalsPage.checkAddedVisionObservationInHistory(VISION_LEFT, VISION_RIGHT);
       });
+
+      await test.step('VIT-1.10 Add last menstrual period observation', async () => {
+        await vitalsPage.addLastMenstrualPeriodObservation(LMP_DATE);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedLastMenstrualPeriodObservationInHistory(LMP_DATE);
+        await vitalsPage.checkAddedLastMenstrualPeriodIsShownInHeader(LMP_DATE);
+      });
+
+      await test.step('VIT-1.11 Add last menstrual period observation with Unsure', async () => {
+        await vitalsPage.addLastMenstrualPeriodObservationUnsure();
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkUnsureInHistory();
+        await vitalsPage.checkAddedLastMenstrualPeriodUnsureIsShownInHeader();
+      });
     });
 
     test('Verify all vitals in progress note', async () => {
@@ -326,6 +341,14 @@ test.describe('In-Person Visit Chart Data', async () => {
       await test.step('VIT-2.9 Verify vision in progress note', async () => {
         expect(vitalsText).toContain(VISION_LEFT);
         expect(vitalsText).toContain(VISION_RIGHT);
+      });
+
+      await test.step('VIT-2.10 Verify last menstrual period in progress note', async () => {
+        expect(vitalsText).toContain(LMP_DATE);
+      });
+
+      await test.step('VIT-2.11 Verify Unsure in progress note', async () => {
+        expect(vitalsText).toContain('Unsure');
       });
 
       await sideMenu.clickVitals();
@@ -398,6 +421,22 @@ test.describe('In-Person Visit Chart Data', async () => {
 
         await expect(
           page.getByText(new RegExp(`Vision Left eye: ${VISION_LEFT}; Right eye: ${VISION_RIGHT}`))
+        ).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
+
+      await test.step('VIT-3.10 Delete Unsure last menstrual period observation', async () => {
+        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory('Unsure');
+        await waitForChartDataDeletion(page);
+        await expect(
+          page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText('Unsure')
+        ).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
+
+      await test.step('VIT-3.11 Delete last menstrual period observation', async () => {
+        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(LMP_DATE);
+        await waitForChartDataDeletion(page);
+        await expect(
+          page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText(LMP_DATE)
         ).not.toBeVisible(DEFAULT_TIMEOUT);
       });
     });

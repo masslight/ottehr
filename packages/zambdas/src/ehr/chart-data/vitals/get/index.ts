@@ -21,12 +21,15 @@ import {
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   SecretsKeys,
+  SNOMED_SYSTEM,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
+  VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsTemperatureObservationDTO,
@@ -185,6 +188,8 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
         vitalObservation = parseVisionObservation(observation, performer);
       } else if (field === VitalFieldNames.VitalWeight) {
         vitalObservation = parseWeightObservation(observation, performer);
+      } else if (field === VitalFieldNames.VitalLastMenstrualPeriod) {
+        vitalObservation = parseLastMenstrualPeriodObservation(observation, performer);
       } else {
         vitalObservation = parseNumericValueObservation(observation, performer, field);
       }
@@ -314,6 +319,49 @@ const parseVisionObservation = (
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
     extraVisionOptions: visionOptions,
+  };
+};
+
+const parseLastMenstrualPeriodObservation = (
+  observation: Observation,
+  performer: Practitioner
+): VitalsLastMenstrualPeriodObservationDTO | undefined => {
+  const fieldCode = observation?.meta?.tag?.find(
+    (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
+  )?.code;
+
+  if (fieldCode !== VitalFieldNames.VitalLastMenstrualPeriod) return undefined;
+
+  const components = observation.component || [];
+  const hasUnsure = components.some(
+    (cmp) =>
+      cmp.code?.coding?.some(
+        (coding) =>
+          coding.code === VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE && coding.system === SNOMED_SYSTEM
+      ) && cmp.valueBoolean === true
+  );
+
+  if (hasUnsure) {
+    return {
+      resourceId: observation.id,
+      field: VitalFieldNames.VitalLastMenstrualPeriod,
+      isUnsure: true,
+      authorId: performer.id,
+      authorName: getFullName(performer),
+      lastUpdated: observation.effectiveDateTime || '',
+    };
+  }
+
+  const value = observation.valueDateTime;
+  if (value === undefined) return undefined;
+
+  return {
+    resourceId: observation.id,
+    field: VitalFieldNames.VitalLastMenstrualPeriod,
+    value,
+    authorId: performer.id,
+    authorName: getFullName(performer),
+    lastUpdated: observation.effectiveDateTime || '',
   };
 };
 
