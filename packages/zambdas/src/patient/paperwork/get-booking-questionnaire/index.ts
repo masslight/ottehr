@@ -16,6 +16,7 @@ import {
   prepopulateBookingForm,
   Secrets,
   SecretsKeys,
+  selectBookingQuestionnaire,
   ServiceCategoryCode,
   ServiceMode,
 } from 'utils';
@@ -163,7 +164,7 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
     throw new Error('Could not determine service mode from slot');
   }
 
-  const { templateQuestionnaire } = BOOKING_CONFIG.selectBookingQuestionnaire(slot);
+  const { templateQuestionnaire } = selectBookingQuestionnaire(slot);
 
   if (!templateQuestionnaire) {
     throw INVALID_INPUT_ERROR(

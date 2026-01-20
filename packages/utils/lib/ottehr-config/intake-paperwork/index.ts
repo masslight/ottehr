@@ -1724,50 +1724,57 @@ const FormFields = {
     ],
     enableBehavior: 'all',
     items: {
-      hipaaAcknowledgement: {
-        key: 'hipaa-acknowledgement',
-        label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
+      checkboxGroup: {
+        key: 'consent-forms-checkbox-group',
+        type: 'group',
+        items: {
+          hipaaAcknowledgement: {
+            key: 'hipaa-acknowledgement',
+            label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
+            type: 'boolean',
+            triggers: [
+              {
+                targetQuestionLinkId: '$status',
+                effect: ['enable'],
+                operator: '!=',
+                answerString: 'completed',
+              },
+              {
+                targetQuestionLinkId: '$status',
+                effect: ['enable'],
+                operator: '!=',
+                answerString: 'amended',
+              },
+            ],
+            enableBehavior: 'all',
+            permissibleValue: true,
+            disabledDisplay: 'disabled',
           },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
+          consentToTreat: {
+            key: 'consent-to-treat',
+            label:
+              'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
+            type: 'boolean',
+            triggers: [
+              {
+                targetQuestionLinkId: '$status',
+                effect: ['enable'],
+                operator: '!=',
+                answerString: 'completed',
+              },
+              {
+                targetQuestionLinkId: '$status',
+                effect: ['enable'],
+                operator: '!=',
+                answerString: 'amended',
+              },
+            ],
+            enableBehavior: 'all',
+            permissibleValue: true,
+            disabledDisplay: 'disabled',
           },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-        disabledDisplay: 'disabled',
-      },
-      consentToTreat: {
-        key: 'consent-to-treat',
-        label:
-          'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-        disabledDisplay: 'disabled',
+        },
+        requiredFields: ['hipaa-acknowledgement', 'consent-to-treat'],
       },
       signature: {
         key: 'signature',
