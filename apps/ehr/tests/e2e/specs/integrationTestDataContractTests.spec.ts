@@ -46,6 +46,11 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
   const e2eResources = await getAllResourcesFromFHIR(e2eHandler.appointment.id!);
   const integrationResources = await getAllResourcesFromFHIR(integrationHandler.appointment.id!);
 
+  console.log(
+    'E2E Resources.length === Integration Resources.length:',
+    e2eResources.length === integrationResources.length
+  );
+
   console.group('appointment tests');
   appointmentTests(e2eResources, integrationResources);
   console.groupEnd();
