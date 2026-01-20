@@ -443,8 +443,15 @@ const checkKeysAndValuesBothWays = (e2eResource: any, integrationResource: any, 
 
 const cleanOutMetaStuff = (resource: any): Resource => {
   resource.id = SKIP_ME;
-  resource.meta.versionId = SKIP_ME;
-  resource.meta.lastUpdated = SKIP_ME;
+  if (resource.meta) {
+    resource.meta.versionId = SKIP_ME;
+    resource.meta.lastUpdated = SKIP_ME;
+  } else {
+    resource.meta = {
+      versionId: SKIP_ME,
+      lastUpdated: SKIP_ME,
+    };
+  }
   return resource;
 };
 
