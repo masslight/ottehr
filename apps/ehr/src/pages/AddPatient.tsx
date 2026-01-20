@@ -256,7 +256,12 @@ export default function AddPatient(): JSX.Element {
 
           {/* page title */}
 
-          <Typography variant="h3" marginTop={1} color={'primary.dark'}>
+          <Typography
+            variant="h3"
+            marginTop={1}
+            color={'primary.dark'}
+            data-testid={dataTestIds.addPatientPage.pageTitle}
+          >
             Add Visit
           </Typography>
 

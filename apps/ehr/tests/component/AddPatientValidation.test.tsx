@@ -131,7 +131,7 @@ describe('AddPatient - Validation Tests', () => {
       await user.click(addButton);
 
       // HTML5 validation should prevent submission - form should still be visible
-      expect(screen.getByTestId(dataTestIds.addPatientPage.locationHeader)).toBeInTheDocument();
+      expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toBeInTheDocument();
 
       // Verify location input has required attribute
       const locationInput = screen.getByTestId(dataTestIds.dashboard.locationSelect).querySelector('input');

@@ -52,7 +52,7 @@ export const dataTestIds = {
     changeStatusDropdown: 'change-status-dropdown-in-appointment-page',
   },
   addPatientPage: {
-    locationHeader: 'location-header',
+    pageTitle: 'page-title',
     mobilePhoneInput: 'mobile-phone-input',
     searchForPatientsButton: 'search-for-patients-button',
     addButton: 'add-button',
