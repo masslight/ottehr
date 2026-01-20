@@ -860,7 +860,14 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
 
   let paymentOptionValue: string | undefined;
 
-  if (primaryInsurancePlanReference || secondaryInsurancePlanReference) {
+  // For occupational medicine and workers comp appointments, check if there's a workers comp coverage
+  // If so, set payment option to "Employer" instead of "I have insurance"
+  if (
+    coverages.workersComp &&
+    (appointmentServiceCategory === 'occupational-medicine' || appointmentServiceCategory === 'workmans-comp')
+  ) {
+    paymentOptionValue = 'Employer';
+  } else if (primaryInsurancePlanReference || secondaryInsurancePlanReference) {
     paymentOptionValue = 'I have insurance';
   }
 
