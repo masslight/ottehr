@@ -154,7 +154,10 @@ const complexSubmitValidation = async (
   const validationSchema = makeValidationSchema(items, undefined);
   console.log('answersToValidate', JSON.stringify(updatedAnswers));
   try {
-    await validationSchema.validate(updatedAnswers, { abortEarly: false });
+    await validationSchema.validate(updatedAnswers, {
+      abortEarly: false,
+      context: { questionnaireResponse: fullQRResource },
+    });
   } catch (e) {
     const validationErrors = (e as any).inner as ValidationError[];
     if (Array.isArray(validationErrors)) {
