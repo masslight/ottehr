@@ -28,11 +28,11 @@ export const INTERVIEW_COMPLETED = 'Interview completed.';
 
 function buildPatientContext(patient: Patient, appointment: Appointment): string {
   const name = getFullName(patient);
-  const age = calculatePatientAge(patient.birthDate);
+  const age = calculatePatientAge(patient.birthDate) || 'unknown age';
   const gender = patient.gender ? mapGenderToLabel[patient.gender] : 'Unknown';
   const reasonForVisit = getReasonForVisitFromAppointment(appointment);
   
-  return `The patient is ${name}, ${age} ${gender.toLowerCase()}${reasonForVisit ? ` with reason for visit: ${reasonForVisit}` : ''}.`;
+  return `The patient is ${name}, ${age}, ${gender.toLowerCase()}${reasonForVisit ? ` with reason for visit: ${reasonForVisit}` : ''}.`;
 }
 
 const buildInitialUserMessageUrgentCare = (patientContext: string): string => `Perform a medical history intake session in the manner of a physician preparing me or my dependent for an urgent care visit, without using a fake name:
@@ -123,14 +123,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error(`Appointment for appointment ID ${appointmentId} not found`);
     }
     
-    const patient = resources.find((resource) => resource.resourceType === 'Patient');
+    const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient | undefined;
     if (patient == null) {
       throw new Error(`Patient for appointment ID ${appointmentId} not found`);
     }
     
     let questionnaireResponse: QuestionnaireResponse;
     const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
-    const patientContext = buildPatientContext(patient as Patient, appointment as Appointment);
+    const patientContext = buildPatientContext(patient, appointment);
     let prompt: string;
 
     if (
