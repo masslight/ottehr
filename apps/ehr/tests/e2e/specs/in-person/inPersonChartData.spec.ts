@@ -132,10 +132,10 @@ test.describe('In-Person Visit Chart Data', async () => {
         const practitionerName = await getCurrentPractitionerFirstLastName();
         await sideMenu.clickMedications();
         await test.step('MED-1.1 Add Medications', async () => {
-          await medicationsPage.addScheduledMedication(SCHEDULED_MEDICATION_A, practitionerName);
-          await medicationsPage.addScheduledMedication(SCHEDULED_MEDICATION_B, practitionerName);
-          await medicationsPage.addAsNeededMedication(AS_NEEDED_MEDICATION_C, practitionerName);
-          await medicationsPage.addAsNeededMedication(AS_NEEDED_MEDICATION_D, practitionerName);
+          await medicationsPage.addMedication(SCHEDULED_MEDICATION_A, practitionerName, 'scheduled');
+          await medicationsPage.addMedication(SCHEDULED_MEDICATION_B, practitionerName, 'scheduled');
+          await medicationsPage.addMedication(AS_NEEDED_MEDICATION_C, practitionerName, 'as-needed');
+          await medicationsPage.addMedication(AS_NEEDED_MEDICATION_D, practitionerName, 'as-needed');
           await medicationsPage.addMedicationNote(MEDICATION_NOTE_1);
           await medicationsPage.addMedicationNote(MEDICATION_NOTE_2);
         });
@@ -210,8 +210,8 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       test('MED-1.3 Perform changes on Medications page', async () => {
         await sideMenu.clickMedications();
-        await medicationsPage.removeScheduledMedication({ ...SCHEDULED_MEDICATION_A });
-        await medicationsPage.removeAsNeededMedication({ ...AS_NEEDED_MEDICATION_C });
+        await medicationsPage.removeMedication({ ...SCHEDULED_MEDICATION_A }, 'scheduled');
+        await medicationsPage.removeMedication({ ...AS_NEEDED_MEDICATION_C }, 'as-needed');
         await medicationsPage.editMedicationNote(MEDICATION_NOTE_1, MEDICATION_NOTE_1_EDITED);
         await medicationsPage.deleteMedicationNote(MEDICATION_NOTE_2);
       });

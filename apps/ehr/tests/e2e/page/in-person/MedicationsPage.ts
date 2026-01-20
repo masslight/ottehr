@@ -24,44 +24,43 @@ export class MedicationsPage {
     return new SideMenu(this.#page);
   }
 
-  async addScheduledMedication(medicationInfo: MedicationInfo, whoAdded: string): Promise<void> {
-    await this.#checkScheduledMedicationRadio();
+  async addMedication(
+    medicationInfo: MedicationInfo,
+    whoAdded: string,
+    type: 'scheduled' | 'as-needed'
+  ): Promise<void> {
+    if (type === 'scheduled') {
+      await this.#checkScheduledMedicationRadio();
+    } else {
+      await this.#checkAsNeededMedicationRadio();
+    }
+
     await this.#selectMedication(medicationInfo.name);
     await this.#enterDoseUnits(medicationInfo.dose);
     await this.#enterDateInput(medicationInfo.date);
     await this.#clickAddButton();
-    await this.#verifyScheduledMedication(medicationInfo.name, medicationInfo.dose);
+
+    if (type === 'scheduled') {
+      await this.#verifyScheduledMedication(medicationInfo.name, medicationInfo.dose);
+    } else {
+      await this.#verifyAsNeededMedication(medicationInfo.name, medicationInfo.dose);
+    }
+
     await this.#verifyMedicationInMedicationHistoryTable({
       ...medicationInfo,
       whoAdded,
-      type: SCHEDULED_MEDICATION,
+      type: type === 'scheduled' ? SCHEDULED_MEDICATION : AS_NEEDED_MEDICATION_DASH,
     });
   }
 
-  async removeScheduledMedication(medicationInfo: MedicationInfo): Promise<void> {
-    await this.#clickDeleteButton({ ...medicationInfo, type: 'scheduled' });
-    await this.#verifyScheduledMedicationIsNotVisible(medicationInfo.name, medicationInfo.dose);
-    await this.#verifyMedicationIsNotPresentInMedicationHistoryTable({ ...medicationInfo, type: 'scheduled' });
-  }
-
-  async addAsNeededMedication(medicationInfo: MedicationInfo, whoAdded: string): Promise<void> {
-    await this.#checkAsNeededMedicationRadio();
-    await this.#selectMedication(medicationInfo.name);
-    await this.#enterDoseUnits(medicationInfo.dose);
-    await this.#enterDateInput(medicationInfo.date);
-    await this.#clickAddButton();
-    await this.#verifyAsNeededMedication(medicationInfo.name, medicationInfo.dose);
-    await this.#verifyMedicationInMedicationHistoryTable({
-      ...medicationInfo,
-      whoAdded,
-      type: AS_NEEDED_MEDICATION_DASH,
-    });
-  }
-
-  async removeAsNeededMedication(medicationInfo: MedicationInfo): Promise<void> {
-    await this.#clickDeleteButton({ ...medicationInfo, type: 'as-needed' });
-    await this.#verifyAsNeededMedicationIsNotVisible(medicationInfo.name, medicationInfo.dose);
-    await this.#verifyMedicationIsNotPresentInMedicationHistoryTable({ ...medicationInfo, type: 'as-needed' });
+  async removeMedication(medicationInfo: MedicationInfo, type: 'scheduled' | 'as-needed'): Promise<void> {
+    await this.#clickDeleteButton({ ...medicationInfo, type });
+    if (type === 'scheduled') {
+      await this.#verifyScheduledMedicationIsNotVisible(medicationInfo.name, medicationInfo.dose);
+    } else {
+      await this.#verifyAsNeededMedicationIsNotVisible(medicationInfo.name, medicationInfo.dose);
+    }
+    await this.#verifyMedicationIsNotPresentInMedicationHistoryTable({ ...medicationInfo, type });
   }
 
   async addMedicationNote(note: string): Promise<void> {
