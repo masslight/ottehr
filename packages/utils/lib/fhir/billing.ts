@@ -178,28 +178,51 @@ export const parseCoverageEligibilityResponse = (
           copay = benefitsTemp.filter((benefit) => benefit.coverageCode === 'A' || benefit.coverageCode === 'B');
           deductible = benefitsTemp.filter((benefit) => benefit.coverageCode === 'C');
 
-          const individualDeductible = deductible.filter((benefit) => benefit.levelCode === 'IND');
-          const familyDeductible = deductible.filter((benefit) => benefit.levelCode === 'FAM');
+          // Filter deductibles and out-of-pocket for in-network only
+          const individualDeductible = deductible.filter((benefit) => benefit.levelCode === 'IND' && benefit.inNetwork);
+          const familyDeductible = deductible.filter((benefit) => benefit.levelCode === 'FAM' && benefit.inNetwork);
           const outOfPocketMax = benefitsTemp.filter(
-            (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND'
+            (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND' && benefit.inNetwork
           );
+          
+          // Helper function to calculate paid amount if not provided
+          const calculatePaid = (total: number | undefined, remaining: number | undefined, paid: number | undefined): number | undefined => {
+            if (paid !== undefined) return paid;
+            if (total !== undefined && remaining !== undefined) {
+              return total - remaining;
+            }
+            return undefined;
+          };
+          
+          const indDeductiblePaid = individualDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD;
+          const indDeductibleTotal = individualDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD;
+          const indDeductibleRemaining = individualDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD;
+          
+          const famDeductiblePaid = familyDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD;
+          const famDeductibleTotal = familyDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD;
+          const famDeductibleRemaining = familyDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD;
+          
+          const oopPaid = outOfPocketMax.find((benefit) => benefit.periodCode === '24')?.amountInUSD;
+          const oopTotal = outOfPocketMax.find((benefit) => benefit.periodCode === '23')?.amountInUSD;
+          const oopRemaining = outOfPocketMax.find((benefit) => benefit.periodCode === '29')?.amountInUSD;
+          
           financialDetails.push({
             name: 'Individual Deductible',
-            paid: individualDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
-            total: individualDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
-            remaining: individualDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+            paid: calculatePaid(indDeductibleTotal, indDeductibleRemaining, indDeductiblePaid),
+            total: indDeductibleTotal,
+            remaining: indDeductibleRemaining,
           });
           financialDetails.push({
             name: 'Family Deductible',
-            paid: familyDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
-            total: familyDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
-            remaining: familyDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+            paid: calculatePaid(famDeductibleTotal, famDeductibleRemaining, famDeductiblePaid),
+            total: famDeductibleTotal,
+            remaining: famDeductibleRemaining,
           });
           financialDetails.push({
             name: 'Out-of-Pocket Max',
-            paid: outOfPocketMax.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
-            total: outOfPocketMax.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
-            remaining: outOfPocketMax.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+            paid: calculatePaid(oopTotal, oopRemaining, oopPaid),
+            total: oopTotal,
+            remaining: oopRemaining,
           });
         } catch (error) {
           console.error('Error parsing fullBenefitJSON', error);
@@ -241,7 +264,8 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
         code: item['benefit_code'] ?? '',
         description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',
         // cSpell:disable-next in plan network
-        inNetwork: item['inplan_network'] === 'Y',
+        // inplan_network is Y or W for in-network
+        inNetwork: item['inplan_network'] === 'Y' || item['inplan_network'] === 'W',
         coverageDescription: item['benefit_coverage_description'] ?? '',
         coverageCode: benefitCoverageCode,
         periodDescription: item['benefit_period_description'] ?? '',

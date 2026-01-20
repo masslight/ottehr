@@ -15,8 +15,18 @@ const supportedServiceCodes = new Set(['UC']);
 
 export const CopayWidget: FC<CopayWidgetProps> = ({ copay }) => {
   const { inNetworkList, outOfNetworkList } = useMemo(() => {
-    const filteredByService = copay.filter((b) => supportedServiceCodes.has(b.code));
+    // Filter for payment considerations section:
+    // benefit_coverage_code = B, benefit_level_code = IND, benefit_period_code = 27, benefit_code = UC
+    const filteredByService = copay.filter(
+      (b) =>
+        supportedServiceCodes.has(b.code) &&
+        b.coverageCode === 'B' &&
+        b.levelCode === 'IND' &&
+        b.periodCode === '27'
+    );
+    // For in-network: inplan_network = Y or W
     const inNetworkList = filteredByService.filter((b) => b.inNetwork);
+    // For out-of-network: inplan_network != Y and != W
     const outOfNetworkList = filteredByService.filter((b) => !b.inNetwork);
     return { inNetworkList, outOfNetworkList };
   }, [copay]);
