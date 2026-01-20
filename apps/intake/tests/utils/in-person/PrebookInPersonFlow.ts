@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { dataTestIds } from 'src/helpers/data-test-ids';
-import { BOOKING_CONFIG, DEPLOYED_INPERSON_LOCATIONS, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { BOOKING_CONFIG, LOCATION_CONFIG, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { SlotAndLocation, StartVisitResponse } from '../in-person/BaseInPersonFlow';
@@ -105,7 +105,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     await expect(statesSelector).toBeVisible();
 
     await statesSelector.getByRole('button').click();
-    const firstAvailableState = DEPLOYED_INPERSON_LOCATIONS[0]?.name;
+    const firstAvailableState = LOCATION_CONFIG.inPersonLocations[0]?.name;
     if (!firstAvailableState) {
       throw new Error('No deployed in-person locations found');
     }

@@ -13,6 +13,7 @@ import {
   InPersonConfirmationTemplateData,
   InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
+  LOCATION_CONFIG,
   Secrets,
   SecretsKeys,
   SENDGRID_CONFIG,
@@ -97,6 +98,7 @@ class EmailClient {
     }
 
     const { email: baseEmail, projectName } = BRANDING_CONFIG;
+    const { locationSupportPhoneNumberMap, supportPhoneNumber: defaultSupportPhoneNumber } = LOCATION_CONFIG;
 
     const projectDomain = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
