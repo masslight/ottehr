@@ -39,4 +39,5 @@ echo ""
 echo "Done! Merge drivers are now active for:"
 echo "  - package.json / package-lock.json (auto-resolve version conflicts)"
 echo "  - seed data files (keep downstream version)"
+echo "  - config/ directory (keep current branch version)"
 

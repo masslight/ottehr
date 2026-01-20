@@ -2,7 +2,7 @@ import { Box, Divider, Grid, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
-import { BRANDING_CONFIG, getSupportPhoneFor, SCHOOL_WORK_NOTE } from 'utils';
+import { getSupportPhoneFor, SCHOOL_WORK_NOTE } from 'utils';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { DoubleColumnContainer } from '../../../../components/DoubleColumnContainer';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
@@ -44,7 +44,7 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
   const workExcuse = presignedFiles.find((file) => file.type === 'work');
   const schoolExcuse = presignedFiles.find((file) => file.type === 'school');
 
-  const supportPhoneNumber = getSupportPhoneFor(locationName) ?? BRANDING_CONFIG.email.supportPhoneNumber;
+  const supportPhoneNumber = getSupportPhoneFor(locationName);
   const onDelete = (id: string): void => {
     const schoolWorkNotes = chartData?.schoolWorkNotes || [];
     const note = schoolWorkNotes.find((note) => note.id === id)!;

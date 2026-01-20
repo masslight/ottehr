@@ -27,10 +27,11 @@ import { AppointmentStatusChip } from 'src/features/visits/shared/components/App
 import {
   calculatePatientAge,
   formatDateForDisplay,
+  getSupportPhoneFor,
   TelemedAppointmentInformation,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { quickTexts } from '../../utils/appointments';
+import { getQuickTexts } from '../../utils/appointments';
 import { getTelemedAppointmentUrl, getTelemedVisitDetailsUrl } from '../../utils/routing';
 import { StatusHistory } from '../tracking-board/StatusHistory';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
@@ -122,6 +123,11 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
     throw new Error('Appointment start time is missing');
   }
   const start = DateTime.fromISO(appointment.start).toFormat('h:mm a');
+
+  const quickTexts = useMemo(() => {
+    const locationName = appointment.locationVirtual.name;
+    return getQuickTexts(getSupportPhoneFor(locationName) || '');
+  }, [appointment.locationVirtual.name]);
 
   return (
     <TableRow
