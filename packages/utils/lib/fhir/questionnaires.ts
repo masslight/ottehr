@@ -3,7 +3,6 @@ import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
 import {
-  BOOKING_CONFIG,
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   PATIENT_RECORD_QUESTIONNAIRE,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
@@ -80,6 +79,8 @@ export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): Qu
     if (!questionnaireUrl) {
       return false;
     }
-    return BOOKING_CONFIG.intakeQuestionnaires.some((questionnaire) => questionnaireUrl.startsWith(questionnaire.url!));
+    return [IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(), VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()].some(
+      (questionnaire: Questionnaire) => questionnaireUrl.startsWith(questionnaire.url!)
+    );
   }) as QuestionnaireResponse | undefined;
 };
