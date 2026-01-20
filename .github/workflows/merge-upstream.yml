@@ -1,0 +1,259 @@
+name: Merge Upstream to Downstream
+run-name: Merge upstream/${{ inputs.upstream_branch || 'develop' }} to origin/${{ inputs.downstream_branch || 'develop' }}
+
+on:
+  # Run nightly at 2 AM UTC (only for downstream repos, not ottehr)
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual triggering with branch selection
+  workflow_dispatch:
+    inputs:
+      upstream_branch:
+        description: "Upstream branch to merge from"
+        required: true
+        type: string
+        default: "develop"
+      downstream_branch:
+        description: "Downstream branch to merge into"
+        required: true
+        type: string
+        default: "develop"
+
+env:
+  NODE_VERSION: "22"
+  UPSTREAM_REPO: "masslight/ottehr"
+  GITHUB_APP_ID: ${{ secrets.OTTEHR_GITHUB_APP_ID }}
+  GITHUB_APP_PRIVATE_KEY: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }}
+
+jobs:
+  # Only run this workflow in downstream repos (not in ottehr itself)
+  check-repo:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check if this is a downstream repo
+        id: check
+        run: |
+          if [[ "${{ github.repository }}" == "${{ env.UPSTREAM_REPO }}" ]]; then
+            echo "This is the upstream repo. Skipping workflow."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          else
+            echo "This is a downstream repo. Proceeding with merge."
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          fi
+
+  merge-upstream:
+    needs: check-repo
+    if: needs.check-repo.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Generate GitHub App Token
+        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
+        id: app-token
+        with:
+          app-id: ${{ env.GITHUB_APP_ID }}
+          private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: Set branch names
+        id: branches
+        run: |
+          UPSTREAM_BRANCH="${{ inputs.upstream_branch || 'develop' }}"
+          DOWNSTREAM_BRANCH="${{ inputs.downstream_branch || 'develop' }}"
+          echo "upstream_branch=${UPSTREAM_BRANCH}" >> $GITHUB_OUTPUT
+          echo "downstream_branch=${DOWNSTREAM_BRANCH}" >> $GITHUB_OUTPUT
+          echo "Upstream branch: ${UPSTREAM_BRANCH}"
+          echo "Downstream branch: ${DOWNSTREAM_BRANCH}"
+
+      - name: Install SSH Client
+        uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+
+      - name: Checkout downstream repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ steps.branches.outputs.downstream_branch }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Action Merge Upstream"
+          git config user.email "tech-support@ottehr.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git || true
+          git remote -v
+
+      - name: Fetch upstream
+        run: |
+          git fetch upstream ${{ steps.branches.outputs.upstream_branch }}
+
+      - name: Setup Git merge driver
+        run: |
+          bash ./scripts/setup-git-merge-driver.sh
+
+      - name: Generate unique branch name
+        id: branch-name
+        run: |
+          UUID=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -d'-' -f1)
+          BRANCH_NAME="merge-upstream-${{ steps.branches.outputs.upstream_branch }}-${UUID}"
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Merge branch name: ${BRANCH_NAME}"
+
+      - name: Create merge branch
+        run: |
+          git checkout -b ${{ steps.branch-name.outputs.branch_name }}
+
+      - name: Attempt merge
+        id: merge
+        run: |
+          # Attempt merge and capture result
+          if git merge upstream/${{ steps.branches.outputs.upstream_branch }} --no-ff -m "Merge upstream/${{ steps.branches.outputs.upstream_branch }} into ${{ steps.branches.outputs.downstream_branch }}"; then
+            echo "merge_status=success" >> $GITHUB_OUTPUT
+            echo "✅ Merge completed without conflicts"
+          else
+            echo "merge_status=conflicts" >> $GITHUB_OUTPUT
+            echo "⚠️ Merge has conflicts, committing as-is for manual resolution"
+            # Commit with conflicts present
+            git add .
+            git commit --no-edit || git commit -m "Merge upstream/${{ steps.branches.outputs.upstream_branch }} into ${{ steps.branches.outputs.downstream_branch }} (with conflicts)"
+          fi
+
+      - name: Check for conflicts
+        id: conflicts
+        run: |
+          if [[ "${{ steps.merge.outputs.merge_status }}" == "conflicts" ]]; then
+            # List files that were changed in the merge commit (includes conflict files)
+            CONFLICTS=$(git diff --name-only HEAD^ HEAD || echo "See PR for conflict details")
+            echo "has_conflicts=true" >> $GITHUB_OUTPUT
+            echo "conflicts<<EOF" >> $GITHUB_OUTPUT
+            echo "$CONFLICTS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "⚠️ Files with conflicts:"
+            echo "$CONFLICTS"
+          else
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push merge branch
+        run: |
+          git push origin ${{ steps.branch-name.outputs.branch_name }}
+
+      - name: Create Pull Request
+        id: create-pr
+        run: |
+          TITLE="${{ steps.conflicts.outputs.has_conflicts == 'true' && '⚠️' || '🔄' }} Merge upstream/${{ steps.branches.outputs.upstream_branch }} to ${{ steps.branches.outputs.downstream_branch }}"
+          DRAFT_FLAG="${{ steps.conflicts.outputs.has_conflicts == 'true' && '--draft' || '' }}"
+          
+          # Create PR body in a file to avoid shell escaping issues
+          cat > /tmp/pr-body.md <<'EOF'
+          ## Automated Upstream Merge
+          
+          This PR merges changes from `upstream/${{ steps.branches.outputs.upstream_branch }}` into `${{ steps.branches.outputs.downstream_branch }}`.
+          
+          **Merge Status:** ${{ steps.conflicts.outputs.has_conflicts == 'true' && '⚠️ Has conflicts - requires manual resolution' || '✅ No conflicts' }}
+          EOF
+          
+          if [[ "${{ steps.conflicts.outputs.has_conflicts }}" == "true" ]]; then
+            cat >> /tmp/pr-body.md <<'EOF'
+          
+          ### Files with Conflicts
+          ```
+          ${{ steps.conflicts.outputs.conflicts }}
+          ```
+          
+          **Action Required:** Please resolve the merge conflicts manually.
+          EOF
+          fi
+          
+          cat >> /tmp/pr-body.md <<'EOF'
+          
+          ---
+          Generated by automated workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+          
+          PR_URL=$(gh pr create \
+            --repo "${{ github.repository }}" \
+            --title "$TITLE" \
+            --body-file /tmp/pr-body.md \
+            --base "${{ steps.branches.outputs.downstream_branch }}" \
+            --head "${{ steps.branch-name.outputs.branch_name }}" \
+            $DRAFT_FLAG)
+          
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "pull-request-number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+          echo "pull-request-url=${PR_URL}" >> $GITHUB_OUTPUT
+          echo "Created PR #${PR_NUMBER}: ${PR_URL}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Enable auto-merge
+        if: steps.create-pr.outputs.pull-request-number && steps.conflicts.outputs.has_conflicts != 'true'
+        run: |
+          gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --squash --delete-branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Determine overall status
+        id: status
+        if: always()
+        run: |
+          if [[ "${{ steps.create-pr.outcome }}" != "success" ]]; then
+            echo "status=pr_failed" >> $GITHUB_OUTPUT
+            echo "message=Failed to create pull request" >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.conflicts.outputs.has_conflicts }}" == "true" ]]; then
+            echo "status=success_with_conflicts" >> $GITHUB_OUTPUT
+            echo "message=PR created with conflicts requiring manual resolution" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=Merge completed successfully without conflicts" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Slack
+        if: always() && steps.create-pr.outputs.pull-request-number
+        uses: edge/simple-slack-notify@d841831738af1d83ecc27186e722322145c21488 # v1.1.2
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          channel: "#ottehr-notifications"
+          status: "${{ steps.conflicts.outputs.has_conflicts == 'true' && 'warning' || 'success' }}"
+          success_text: "${{ steps.conflicts.outputs.has_conflicts == 'true' && '⚠️ Upstream Merge Created with Conflicts' || '✅ Upstream Merge Completed Successfully' }}"
+          fields: |
+            [
+              { "title": "Repository", "value": "${{ github.repository }}", "short": true },
+              { "title": "Status", "value": "${{ steps.conflicts.outputs.has_conflicts == 'true' && 'Conflicts Detected' || 'No Conflicts' }}", "short": true },
+              { "title": "Upstream Branch", "value": "${{ steps.branches.outputs.upstream_branch }}", "short": true },
+              { "title": "Downstream Branch", "value": "${{ steps.branches.outputs.downstream_branch }}", "short": true },
+              { "title": "Pull Request", "value": "${{ github.server_url }}/${{ github.repository }}/pull/${{ steps.create-pr.outputs.pull-request-number }}", "short": false }${{ steps.conflicts.outputs.has_conflicts == 'true' && format(',\n              {{ "title": "Conflicts in Files", "value": "{0}", "short": false }}', steps.conflicts.outputs.conflicts) || '' }},
+              { "title": "Action URL", "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+            ]
+
+      - name: Notify Slack on Failure
+        if: always() && steps.status.outputs.status == 'pr_failed'
+        uses: edge/simple-slack-notify@d841831738af1d83ecc27186e722322145c21488 # v1.1.2
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          channel: "#ottehr-notifications"
+          status: "failure"
+          failure_text: "❌ Upstream Merge Failed"
+          fields: |
+            [
+              { "title": "Repository", "value": "${{ github.repository }}", "short": true },
+              { "title": "Status", "value": "Failed", "short": true },
+              { "title": "Upstream Branch", "value": "${{ steps.branches.outputs.upstream_branch }}", "short": true },
+              { "title": "Downstream Branch", "value": "${{ steps.branches.outputs.downstream_branch }}", "short": true },
+              { "title": "Message", "value": "${{ steps.status.outputs.message }}", "short": false },
+              { "title": "Action URL", "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+            ]
