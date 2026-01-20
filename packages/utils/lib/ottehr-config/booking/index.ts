@@ -9,8 +9,6 @@ import {
 } from 'fhir/r4b';
 import _ from 'lodash';
 import z from 'zod';
-import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
@@ -233,30 +231,7 @@ const formConfig = BookingPaperworkConfigSchema.parse(mergedBookingQConfig);
 const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
 
-export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
-  const inPersonQ = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
-    (q) =>
-      q.resource.resourceType === 'Questionnaire' &&
-      q.resource.status === 'active' &&
-      q.resource.url.includes('intake-paperwork-inperson')
-  )?.resource as Questionnaire | undefined;
-  const virtualQ = Object.values(virtualIntakeQuestionnaireJson.fhirResources).find(
-    (q) =>
-      q.resource.resourceType === 'Questionnaire' &&
-      q.resource.status === 'active' &&
-      q.resource.url.includes('intake-paperwork-virtual')
-  )?.resource as Questionnaire | undefined;
-  const questionnaires = new Array<Questionnaire>();
-  if (inPersonQ) {
-    questionnaires.push(inPersonQ);
-  }
-  if (virtualQ) {
-    questionnaires.push(virtualQ);
-  }
-  return questionnaires;
-})();
-
-interface StrongCoding extends Coding {
+export interface StrongCoding extends Coding {
   code: string;
   display: string;
   system: string;
@@ -282,7 +257,7 @@ interface BookingFormPrePopulationInput {
   patient?: Patient;
 }
 
-const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
+export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
   const items = flattenQuestionnaireAnswers(qrItem);
   const patientInfo: PatientInfo = {};
   items.forEach((item) => {
@@ -335,12 +310,41 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
   return patientInfo;
 };
 
+export const selectBookingQuestionnaire: (_slot?: Slot) => {
+  url: string;
+  version: string;
+  templateQuestionnaire: Questionnaire;
+} = (_slot?: Slot): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
+  // can read properties of slot to determine which questionnaire to return
+  // if desired. by default, we return just a single questionnaire regardless of slot
+  const Q = BOOKING_QUESTIONNAIRE();
+  if (!Q.url || !Q.version) {
+    throw new Error('Booking questionnaire is missing url or version');
+  }
+  return { url: Q.url, version: Q.version, templateQuestionnaire: Q };
+};
+
 const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'bookingOn', value: 'visit-followup-group' },
   { key: 'scheduleType', value: 'group' },
 ];
 
-const BOOKING_DEFAULTS = {
+export interface BookingConfig {
+  serviceCategoriesEnabled: {
+    serviceModes: string[];
+    visitType: string[];
+  };
+  homepageOptions: string[];
+  serviceCategories: StrongCoding[];
+  formConfig: z.infer<typeof QuestionnaireConfigSchema>;
+  inPersonPrebookRoutingParams: { key: string; value: string }[];
+  // Questionnaire-related fields used for building the form
+  FormFields?: Record<string, unknown>;
+  questionnaireBase?: QuestionnaireBase;
+  hiddenFormSections?: string[];
+}
+
+const BOOKING_DEFAULTS: BookingConfig = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
@@ -352,25 +356,15 @@ const BOOKING_DEFAULTS = {
     'schedule-virtual-visit',
   ],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
-  intakeQuestionnaires,
-  selectBookingQuestionnaire: (
-    _slot?: Slot
-  ): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
-    // can read properties of slot to determine which questionnaire to return
-    // if desired. by default, we return just a single questionnaire regardless of slot
-    const Q = BOOKING_QUESTIONNAIRE();
-    if (!Q.url || !Q.version) {
-      throw new Error('Booking questionnaire is missing url or version');
-    }
-    return { url: Q.url, version: Q.version, templateQuestionnaire: Q };
-  },
-  mapBookingQRItemToPatientInfo,
   formConfig,
   inPersonPrebookRoutingParams,
 };
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
-export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_OVERRIDES, BOOKING_DEFAULTS);
+export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(
+  BOOKING_DEFAULTS,
+  BOOKING_OVERRIDES as Partial<BookingConfig>
+);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
@@ -381,7 +375,7 @@ export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: st
 };
 
 export const ServiceCategoryCodeSchema = z.enum(
-  BOOKING_CONFIG.serviceCategories.map((category) => category.code) as [string, ...string[]]
+  BOOKING_CONFIG.serviceCategories.map((category: { code: string }) => category.code) as [string, ...string[]]
 );
 
 export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;

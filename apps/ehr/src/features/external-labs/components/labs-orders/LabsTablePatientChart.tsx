@@ -1,11 +1,11 @@
 import { Box, Button, Pagination, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { LabOrdersSearchBy, LabsTableColumn } from 'utils';
+import { GetLabOrdersParameters, LabsTableColumn } from 'utils';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableContainer } from './LabsTableContainer';
 import { usePatientLabOrders } from './usePatientLabOrders';
 
-type LabsTablePatientChartProps<SearchBy extends LabOrdersSearchBy> = {
+type LabsTablePatientChartProps<SearchBy extends GetLabOrdersParameters> = {
   searchBy: SearchBy;
   columns: LabsTableColumn[];
   allowDelete: boolean;
@@ -13,7 +13,7 @@ type LabsTablePatientChartProps<SearchBy extends LabOrdersSearchBy> = {
   onCreateOrder?: () => void;
 };
 
-export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
+export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
   searchBy,
   columns,
   allowDelete,

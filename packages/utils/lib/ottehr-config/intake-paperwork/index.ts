@@ -1728,33 +1728,40 @@ const FormFields = {
     ],
     enableBehavior: 'all',
     items: {
-      ...Object.fromEntries(
-        resolvedConsentForms.map((form) => [
-          camelCase(form.id),
-          {
-            key: form.id,
-            label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
-            type: 'boolean',
-            triggers: [
+      checkboxGroup: {
+        key: 'consent-forms-checkbox-group',
+        type: 'group',
+        items: {
+          ...Object.fromEntries(
+            resolvedConsentForms.map((form) => [
+              camelCase(form.id),
               {
-                targetQuestionLinkId: '$status',
-                effect: ['enable'],
-                operator: '!=',
-                answerString: 'completed',
+                key: form.id,
+                label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
+                type: 'boolean',
+                triggers: [
+                  {
+                    targetQuestionLinkId: '$status',
+                    effect: ['enable'],
+                    operator: '!=',
+                    answerString: 'completed',
+                  },
+                  {
+                    targetQuestionLinkId: '$status',
+                    effect: ['enable'],
+                    operator: '!=',
+                    answerString: 'amended',
+                  },
+                ],
+                enableBehavior: 'all',
+                permissibleValue: true,
+                disabledDisplay: 'disabled',
               },
-              {
-                targetQuestionLinkId: '$status',
-                effect: ['enable'],
-                operator: '!=',
-                answerString: 'amended',
-              },
-            ],
-            enableBehavior: 'all',
-            permissibleValue: true,
-            disabledDisplay: 'disabled',
-          },
-        ])
-      ),
+            ])
+          ),
+        },
+        requiredFields: [...resolvedConsentForms.map((f) => f.id)],
+      },
       signature: {
         key: 'signature',
         label: 'Signature',
@@ -1823,12 +1830,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: [
-      ...resolvedConsentForms.map((f) => f.id),
-      'signature',
-      'full-name',
-      'consent-form-signer-relationship',
-    ],
+    requiredFields: ['signature', 'full-name', 'consent-form-signer-relationship'],
   },
   medicalHistory: {
     linkId: 'medical-history-page',
@@ -1884,7 +1886,7 @@ const INTAKE_PAPERWORK_DEFAULTS = {
   FormFields,
 };
 
-const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(OVERRIDES, INTAKE_PAPERWORK_DEFAULTS);
+const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, OVERRIDES);
 
 const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,

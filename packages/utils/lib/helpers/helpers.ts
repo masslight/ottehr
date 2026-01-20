@@ -1090,18 +1090,23 @@ export function getConsentStepAnswers({
     linkId: 'consent-forms-page',
     item: [
       {
-        linkId: 'hipaa-acknowledgement',
-        answer: [
+        linkId: 'consent-forms-checkbox-group',
+        item: [
           {
-            valueBoolean: true,
+            linkId: 'hipaa-acknowledgement',
+            answer: [
+              {
+                valueBoolean: true,
+              },
+            ],
           },
-        ],
-      },
-      {
-        linkId: 'consent-to-treat',
-        answer: [
           {
-            valueBoolean: true,
+            linkId: 'consent-to-treat',
+            answer: [
+              {
+                valueBoolean: true,
+              },
+            ],
           },
         ],
       },
