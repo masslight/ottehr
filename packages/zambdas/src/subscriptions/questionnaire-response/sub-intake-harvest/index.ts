@@ -325,7 +325,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     try {
       console.log('updating encounter payment variant and account references');
       const paymentOption = flattenedPaperwork.find(
-        (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
+        (response: QuestionnaireResponseItem) => response.linkId === 'payment-option' || response.linkId === 'payment-option-occupational'
       )?.answer?.[0]?.valueString;
       let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
       if (paymentOption === INSURANCE_PAY_OPTION) {
