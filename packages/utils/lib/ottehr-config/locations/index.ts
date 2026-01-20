@@ -41,11 +41,7 @@ export function getSupportPhoneFor(locationName?: string): string | undefined {
 
   if (locationSupportPhoneNumberMap && locationName) {
     // if the location exists but for some reason isn't in the map, fall back to the default support phone number
-    return (
-      locationSupportPhoneNumberMap[locationName] ||
-      locationSupportPhoneNumberMap[locationName.split('Telemed ')[1]] ||
-      supportPhoneNumber
-    );
+    return locationSupportPhoneNumberMap[locationName] || supportPhoneNumber;
   }
 
   return supportPhoneNumber;
