@@ -10,7 +10,7 @@ import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/Order
 import { VaccineDetailsTab } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsTab';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
-import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
+import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { getFirstName, getLastName, medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
 import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
@@ -215,7 +215,8 @@ test.describe('Immunization Page mutating tests', () => {
     await inPersonHeader.verifyStatus('pending');
     await inPersonHeader.selectIntakePractitioner();
     await inPersonHeader.selectProviderPractitioner();
-    await expectPatientInfoPage(page);
+    const sideMenu = new SideMenu(page);
+    await sideMenu.clickCcAndIntakeNotes();
   }
 
   async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {

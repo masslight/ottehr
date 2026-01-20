@@ -6,7 +6,6 @@ import { InHouseMedicationsPage } from 'tests/e2e/page/in-person/InHouseMedicati
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openOrderMedicationPage } from 'tests/e2e/page/OrderMedicationPage';
-import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
 import { ProceduresPage } from 'tests/e2e/page/ProceduresPage';
 import {
   CreateRadiologyOrderPage,
@@ -119,7 +118,8 @@ async function setupPractitioners(page: Page): Promise<void> {
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await expectPatientInfoPage(page);
+  const sideMenu = new SideMenu(page);
+  await sideMenu.clickCcAndIntakeNotes();
 }
 
 // Helper function to add vitals (required for medication orders)
