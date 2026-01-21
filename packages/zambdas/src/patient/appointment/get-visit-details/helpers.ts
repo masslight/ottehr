@@ -23,6 +23,7 @@ const loincCodeToDocumentTypeMap: { [code: string]: string } = {
   '34105-7': 'receipt',
   '75498-6': 'visit-note',
   '47420-5': 'school-work-note',
+  'statement-code': 'statement',
 };
 
 function getDocumentTypeFromLoincCode(code: string | undefined): string | null {
