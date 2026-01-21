@@ -72,7 +72,7 @@ export const VideoControls: FC = () => {
         </IconButtonContained>
         {isRegularParticipant && isMobile && (
           <IconButtonContained onClick={() => setIsMoreOpen(!isMoreOpen)} variant={isMoreOpen ? 'disabled' : undefined}>
-            <MoreVertIcon sx={{ color: isMoreOpen ? palette.primary.dark : otherColors.white }} />
+            <MoreVertIcon sx={{ color: otherColors.white }} />
           </IconButtonContained>
         )}
         <CallSettingsTooltip
