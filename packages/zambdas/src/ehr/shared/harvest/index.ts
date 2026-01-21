@@ -2887,10 +2887,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             },
           ],
         },
-        // sounds like this should be the employer??
-        // subscriber: {
-        //   reference: `Patient/${patient.id}`,
-        // },
+        // todo labs subscriber is needed for submit lab but we might need to change later
+        subscriber: {
+          reference: `Patient/${patient.id}`,
+        },
         subscriberId: workersCompMemberId,
         class: [
           {
