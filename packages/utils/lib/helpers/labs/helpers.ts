@@ -189,17 +189,31 @@ export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
 };
 
 export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentMethod {
-  let paymentMethod = LabPaymentMethod.Insurance;
-  const coverageTypeFromCoding = coverage.type?.coding?.[0]?.code;
-  switch (coverageTypeFromCoding) {
-    case 'pay':
-      paymentMethod = LabPaymentMethod.SelfPay;
-      break;
-    case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
-      paymentMethod = LabPaymentMethod.ClientBill;
-      break;
+  let hasPay = false;
+  let hasClientBill = false;
+
+  for (const coding of coverage.type?.coding ?? []) {
+    switch (coding.code) {
+      case 'WC':
+        return LabPaymentMethod.WorkersComp;
+      case 'pay':
+        hasPay = true;
+        break;
+      case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
+        hasClientBill = true;
+        break;
+    }
   }
-  return paymentMethod;
+
+  if (hasPay) {
+    return LabPaymentMethod.SelfPay;
+  }
+
+  if (hasClientBill) {
+    return LabPaymentMethod.ClientBill;
+  }
+
+  return LabPaymentMethod.Insurance;
 }
 
 export function serviceRequestPaymentMethod(

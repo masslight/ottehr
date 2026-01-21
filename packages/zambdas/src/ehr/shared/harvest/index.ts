@@ -2928,6 +2928,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             },
           ],
         },
+        // todo labs subscriber is needed for submit lab but we might need to change later
+        subscriber: {
+          reference: `Patient/${patient.id}`,
+        },
         subscriberId: workersCompMemberId,
         class: [
           {
