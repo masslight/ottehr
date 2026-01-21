@@ -774,7 +774,7 @@ const FormFields = {
         targetQuestionLinkId: 'patient-summary.appointment-service-category',
         effect: ['enable'],
         operator: '=',
-        answerString: 'workers-compensation',
+        answerString: 'workers-comp',
       },
       {
         targetQuestionLinkId: 'patient-summary.appointment-service-category',
