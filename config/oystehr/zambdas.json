@@ -467,6 +467,13 @@
       "src": "src/patient/payment-methods/set-default/index",
       "zip": ".dist/zips/payment-methods-set-default.zip"
     },
+    "SEARCH-PLACES": {
+      "name": "search-places",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/search-places/index",
+      "zip": ".dist/zips/search-places.zip"
+    },
     "VIDEO-CHAT-INVITES-CANCEL": {
       "name": "video-chat-invites-cancel",
       "type": "http_auth",

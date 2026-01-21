@@ -322,15 +322,111 @@ const FormFields = {
     linkId: 'pharmacy-page',
     title: 'Preferred pharmacy',
     items: {
+      pharmacyCollection: {
+        key: 'pharmacy-collection',
+        text: 'Pharmacy',
+        type: 'group',
+        groupType: 'pharmacy-collection',
+        items: {
+          pharmacyPlacesId: {
+            key: 'pharmacy-places-id',
+            label: 'places id',
+            type: 'string',
+          },
+          pharmacyPlacesName: {
+            key: 'pharmacy-places-name',
+            label: 'places name',
+            type: 'string',
+          },
+          pharmacyPlacesAddress: {
+            key: 'pharmacy-places-address',
+            label: 'places address',
+            type: 'string',
+          },
+          pharmacyPlacesSaved: {
+            key: 'pharmacy-places-saved',
+            label: 'places saved',
+            type: 'boolean',
+          },
+          erxPharmacyId: {
+            key: 'erx-pharmacy-id',
+            label: 'erx pharmacy id',
+            type: 'string',
+          },
+        },
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+      },
+      manualEntry: {
+        key: 'pharmacy-page-manual-entry',
+        label: "Can't find? Add manually",
+        type: 'boolean',
+        element: 'Link',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-collection.pharmacy-places-saved',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['sub-text'],
+            operator: '=',
+            answerBoolean: true,
+            substituteText: 'Use search',
+          },
+        ],
+      },
       name: {
         key: 'pharmacy-name',
         label: 'Pharmacy name',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
       },
       address: {
         key: 'pharmacy-address',
         label: 'Pharmacy address',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
       },
     },
     hiddenFields: [],

@@ -24,6 +24,9 @@ import {
   getPronounsFromExtension,
   LANGUAGE_OPTIONS,
   LanguageOption,
+  PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
+  PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
+  PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
 import { DOES_NOT_HAVE_ATTORNEY_OPTION, HAS_ATTORNEY_OPTION, INSURANCE_PAY_OPTION } from '../../ottehr-config';
@@ -33,6 +36,7 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
+  PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
 } from '../../types';
@@ -268,6 +272,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapPharmacyToQuestionnaireResponseItems({
           items: itemItems,
           pharmacyResource: accountInfo?.pharmacy,
+          patientResource: accountInfo?.patient,
         });
       } else if (GUARANTOR_ITEMS.includes(item.linkId)) {
         return mapGuarantorToQuestionnaireResponseItems({
@@ -1441,21 +1446,62 @@ const PHARMACY_ITEMS = ['preferred-pharmacy-section', 'pharmacy-page'];
 interface MapPharmacyItemsInput {
   items: QuestionnaireItem[];
   pharmacyResource?: Organization;
+  patientResource?: Patient;
 }
 
 const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): QuestionnaireResponseItem[] => {
-  const { pharmacyResource, items } = input;
+  const { pharmacyResource, patientResource, items } = input;
   const pharmacyName = pharmacyResource?.name;
   const pharmacyAddress = pharmacyResource?.address?.[0].text;
+  const pharmacyWasManuallyEntered = !!pharmacyResource?.extension?.find(
+    (ext) => ext.url === PREFERRED_PHARMACY_MANUAL_ENTRY_URL
+  )?.valueBoolean;
+  const pharmacyIdFromPlaces = pharmacyResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_PLACES_ID_URL)
+    ?.valueString;
+  const pharmacyErxId = patientResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL)
+    ?.valueString;
+
   return items.map((item) => {
     const { linkId } = item;
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
+
     if (linkId === 'pharmacy-name' && pharmacyName && pharmacyName != '-') {
       answer = makeAnswer(pharmacyName);
     }
     if (linkId === 'pharmacy-address' && pharmacyAddress) {
       answer = makeAnswer(pharmacyAddress);
     }
+
+    if (linkId === 'pharmacy-page-manual-entry' && pharmacyWasManuallyEntered) {
+      answer = makeAnswer(true, 'Boolean');
+    }
+
+    if (pharmacyIdFromPlaces) {
+      if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesName) {
+        answer = makeAnswer(pharmacyName);
+      }
+      if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesAddress) {
+        answer = makeAnswer(pharmacyAddress);
+      }
+      if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesId) {
+        answer = makeAnswer(pharmacyIdFromPlaces);
+      }
+      if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesDataSaved) {
+        answer = makeAnswer(true, 'Boolean');
+      }
+    }
+
+    if (linkId === PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId && pharmacyErxId) {
+      answer = makeAnswer(pharmacyErxId);
+    }
+
+    if (linkId === PHARMACY_COLLECTION_LINK_IDS.pharmacyCollection) {
+      return {
+        linkId,
+        item: mapPharmacyToQuestionnaireResponseItems({ items: item.item ?? [], pharmacyResource, patientResource }),
+      };
+    }
+
     return {
       linkId,
       answer,
