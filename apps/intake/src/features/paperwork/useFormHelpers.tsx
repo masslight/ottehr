@@ -5,6 +5,7 @@ import {
   DOB_DATE_FORMAT,
   INSURANCE_PAY_OPTION,
   IntakeQuestionnaireItem,
+  PHARMACY_COLLECTION_LINK_IDS,
   pickFirstValueFromAnswerItem,
   pickValueAsStringListFromAnswerItem,
 } from 'utils';
@@ -113,7 +114,10 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
         setValue('display-secondary-insurance.answer.0.valueBoolean', false);
       }
       const base = { linkId: item.linkId };
-      if (isStringValueTypeItem(item)) {
+      if (item.linkId === PHARMACY_COLLECTION_LINK_IDS.pharmacyCollection) {
+        const updatedPharmCollection = { ...base, item: e };
+        return renderOnChange(updatedPharmCollection);
+      } else if (isStringValueTypeItem(item)) {
         if (item.acceptsMultipleAnswers) {
           const answer = e.target.value?.map((val: string) => {
             const valueString = val?.trimStart();

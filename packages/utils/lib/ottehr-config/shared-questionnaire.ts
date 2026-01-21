@@ -184,7 +184,7 @@ const FormFieldsGroupFieldSchema = z.lazy(() =>
     customLinkId: z.string().optional(),
     categoryTag: z.string().optional(),
     acceptsMultipleAnswers: z.boolean().optional(),
-    groupType: z.literal('list-with-form').optional(),
+    groupType: z.enum(['list-with-form', 'pharmacy-collection']).optional(),
   })
 ) as z.ZodType<any>;
 

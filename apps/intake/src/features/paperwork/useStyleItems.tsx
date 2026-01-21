@@ -50,6 +50,7 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
     'display-secondary-insurance',
     'responsible-party-address-as-patient',
     'emergency-contact-address-as-patient',
+    'pharmacy-page-manual-entry',
     ...CONSENT_FORMS_CONFIG.forms.map((form) => form.id),
   ].includes(item.linkId);
   const minRows = item.minRows;
