@@ -116,7 +116,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const patient = resources.find((resource) => resource.resourceType === 'Patient');
-    console.log(patient);
     let questionnaireResponse: QuestionnaireResponse;
     const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
     const patientInfoDetails = [];
@@ -213,7 +212,6 @@ async function createQuestionnaireResponse(
   secrets: Secrets | null
 ): Promise<QuestionnaireResponse> {
   const firstAIQuestion = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
-  console.log('prompt: ' + prompt);
   return oystehr.fhir.create<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     status: 'in-progress',
