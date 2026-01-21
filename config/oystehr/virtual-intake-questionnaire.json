@@ -5624,60 +5624,40 @@
             "text": "Complete consent forms",
             "item": [
               {
-                "linkId": "hipaa-acknowledgement",
-                "type": "boolean",
-                "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
-                "required": true,
-                "enableWhen": [
+                "linkId": "consent-forms-checkbox-group",
+                "type": "group",
+                "item": [
                   {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "completed"
+                    "linkId": "hipaa-acknowledgement",
+                    "type": "boolean",
+                    "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
+                    "required": true,
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                        "valueString": "hidden"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                        "valueBoolean": true
+                      }
+                    ]
                   },
                   {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "amended"
-                  }
-                ],
-                "enableBehavior": "all",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "hidden"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
-                    "valueBoolean": true
-                  }
-                ]
-              },
-              {
-                "linkId": "consent-to-treat",
-                "type": "boolean",
-                "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
-                "required": true,
-                "enableWhen": [
-                  {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "completed"
-                  },
-                  {
-                    "question": "$status",
-                    "operator": "!=",
-                    "answerString": "amended"
-                  }
-                ],
-                "enableBehavior": "all",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                    "valueString": "hidden"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
-                    "valueBoolean": true
+                    "linkId": "consent-to-treat",
+                    "type": "boolean",
+                    "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
+                    "required": true,
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                        "valueString": "hidden"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                        "valueBoolean": true
+                      }
+                    ]
                   }
                 ]
               },

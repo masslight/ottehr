@@ -257,6 +257,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const consentToTreat = flattenedPaperwork.find((data) => data.linkId === 'consent-to-treat')?.answer?.[0]
     ?.valueBoolean;
 
+  console.log('Flattened paperwork: ', JSON.stringify(flattenedPaperwork, null, 2));
+  console.log('HIPAA: ', hipaa);
+  console.log('Consent to Treat: ', consentToTreat);
+  console.log('qr.status', qr.status);
+
   if (appointmentResource === undefined || appointmentResource.id === undefined) {
     throw new Error('Appointment resource not found');
   }

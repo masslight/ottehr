@@ -249,6 +249,7 @@ export class Paperwork {
   }
 
   async clickProceedToPaperwork(): Promise<void> {
+    await expect(this.locator.proceedToPaperwork).toBeVisible();
     await this.locator.proceedToPaperwork.click();
   }
 

@@ -395,6 +395,11 @@ export const dataTestIds = {
     visionRightInput: 'vision-right-input',
     visionAddButton: 'vision-add-button',
     visionItem: 'vision-item',
+    lastMenstrualPeriodHeader: 'last-menstrual-period-header',
+    lastMenstrualPeriodDateInput: 'last-menstrual-period-date-input',
+    lastMenstrualPeriodUnsureCheckbox: 'last-menstrual-period-unsure-checkbox',
+    lastMenstrualPeriodAddButton: 'last-menstrual-period-add-button',
+    lastMenstrualPeriodItem: 'last-menstrual-period-item',
   },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',

@@ -99,6 +99,31 @@ If you need to configure this manually:
 git config merge.ours.driver true
 ```
 
+## Config Directory Merge Driver
+
+All files in the `config/` directory use the "ours" merge strategy, which always keeps the current branch version during merges, even when there are no conflicts.
+
+### How It Works
+
+1. `.gitattributes` specifies `merge=ours` for all files under `config/**`
+2. The `merge.ours.driver=true` config ensures the current branch version is always used
+3. During merges, incoming changes to config files are ignored and the current branch version is preserved
+
+### Use Case
+
+This is useful when:
+- Configuration files in the current branch should never be overwritten by incoming changes
+- You want to maintain branch-specific configuration without manual merge conflict resolution
+- Configuration files should remain stable during merges from other branches
+
+### Manual Setup
+
+The setup script automatically configures this, but you can also configure manually:
+
+```bash
+git config merge.ours.driver true
+```
+
 ### When to Regenerate Seed Data
 
 Downstream repositories should regenerate their seed data at appropriate times, such as:

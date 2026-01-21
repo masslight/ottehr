@@ -40,6 +40,9 @@ export const ExternalLabOrdersListPage: React.FC = () => {
     return null;
   }
 
+  // default is 10, but to handle edge cases, we're upping the number. realistically most encounters won't have more than 10 anyway
+  const ITEMS_PER_PAGE = 100;
+
   return (
     <ListViewContainer>
       <Box>
@@ -70,7 +73,7 @@ export const ExternalLabOrdersListPage: React.FC = () => {
           </Paper>
         )}
         <LabsTablePatientChart
-          searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
+          searchBy={{ searchBy: { field: 'encounterId', value: encounterId }, itemsPerPage: ITEMS_PER_PAGE }}
           columns={externalLabsColumns}
           allowDelete={!isReadOnly}
           allowSubmit={!isReadOnly}

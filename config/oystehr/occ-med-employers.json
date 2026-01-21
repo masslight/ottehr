@@ -15,9 +15,14 @@
               }
             ]
           }
+        ],
+        "identifier": [
+          {
+            "system": "https://api.joincandidhealth.com/api/non-insurance-payers/v1/response/non_insurance_payer_id",
+            "value": "#{var/candid-occ-med-non-insurance-payer-1}"
+          }
         ]
-      },
-      "managedFields": ["type"]
+      }
     },
     "example-employer-2": {
       "resource": {
@@ -33,9 +38,14 @@
               }
             ]
           }
+        ],
+        "identifier": [
+          {
+            "system": "https://api.joincandidhealth.com/api/non-insurance-payers/v1/response/non_insurance_payer_id",
+            "value": "#{var/candid-occ-med-non-insurance-payer-2}"
+          }
         ]
-      },
-      "managedFields": ["type"]
+      }
     }
   }
 }

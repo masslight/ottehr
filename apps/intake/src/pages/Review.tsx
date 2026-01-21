@@ -9,7 +9,7 @@ import { TermsAndConditions } from 'src/components/TermsAndConditions';
 import {
   APIError,
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
-  BOOKING_CONFIG,
+  mapBookingQRItemToPatientInfo,
   PatientInfo,
   ServiceMode,
   VisitType,
@@ -73,7 +73,7 @@ const Review = (): JSX.Element => {
         linkId: key,
         item: Object.values(value as Record<string, unknown>),
       })) as QuestionnaireResponseItem[];
-      return BOOKING_CONFIG.mapBookingQRItemToPatientInfo(storedItems);
+      return mapBookingQRItemToPatientInfo(storedItems);
     } catch (error) {
       console.error('Error parsing stored patient information:', error);
     }

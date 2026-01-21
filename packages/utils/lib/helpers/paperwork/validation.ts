@@ -890,18 +890,27 @@ const evalCondition = (
   any answer or item props. this makes for valid fhir and also ensure ordering is preserved
   within groups (which may be important for downstream implementation)
 */
-export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values: any): any => {
+export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values: any, rootContext?: any): any => {
+  // Use rootContext for filter-when evaluation (to access parent-level values like payment-option)
+  // Use values for finding matching items at the current nesting level
+  const context = rootContext ?? values;
   const filteredItems = items.filter((item) => item && item?.type !== 'display' && !item?.readOnly);
   const stringifiedInput = JSON.stringify(values);
   const output = filteredItems.map((item) => {
     const match = values?.find((i: any) => {
       return i?.linkId === item?.linkId;
     });
-    if (!match || evalFilterWhen(item, values)) {
+    if (!match || evalFilterWhen(item, context)) {
       return { linkId: item.linkId };
     }
-    if (match.item) {
-      return { ...trimInvalidAnswersFromItem(match), item: recursiveGroupTransform(match.item ?? [], match.item) };
+    if (match.item?.length) {
+      return {
+        ...trimInvalidAnswersFromItem(match),
+        item: recursiveGroupTransform(item.item ?? [], match.item, context),
+      };
+    } else if (match.item) {
+      // Empty item array submitted - preserve it as empty rather than populating with placeholders
+      return { ...trimInvalidAnswersFromItem(match), item: [] };
     } else {
       return trimInvalidAnswersFromItem(match);
     }
@@ -911,7 +920,7 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
   if (stringifiedInput === stringifiedOutput) {
     return output;
   } else {
-    return recursiveGroupTransform(items, output);
+    return recursiveGroupTransform(items, output, context);
   }
 };
 
