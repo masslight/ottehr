@@ -26,14 +26,7 @@ export class PatientInfoPage {
 }
 
 export async function expectPatientInfoPage(page: Page): Promise<PatientInfoPage> {
-  const patientInfoPath = new RegExp(`/in-person/.*/cc-and-intake-notes`);
-
-  try {
-    await page.waitForURL(patientInfoPath, { timeout: 5000 });
-  } catch {
-    await page.getByTestId(dataTestIds.sideMenu.sideMenuItem('cc-and-intake-notes')).click();
-    await page.waitForURL(patientInfoPath, { timeout: 10000 });
-  }
+  await page.waitForURL(new RegExp(`/in-person/.*/cc-and-intake-notes`), { timeout: 10000 });
   await expect(
     page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')
   ).toBeEnabled();
