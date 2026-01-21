@@ -6,6 +6,7 @@ export * from './intake-paperwork';
 export * from './intake-paperwork-virtual';
 export * from './legal';
 export * from './locations';
+export * from './medical-history';
 export * from './patient-record';
 export * from './radiology';
 export * from './screening-questions';
