@@ -5,6 +5,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box } from '@mui/material';
+import { palette } from '@theme/index';
 import { useLocalVideo, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -52,7 +53,7 @@ export const VideoControls: FC = () => {
       <Box
         sx={{
           alignItems: 'center',
-          backgroundColor: otherColors.appBarBackground,
+          backgroundColor: palette.primary.dark,
           display: 'flex',
           gap: 3,
           justifyContent: 'center',
@@ -63,19 +64,15 @@ export const VideoControls: FC = () => {
           {isVideoEnabled ? (
             <VideocamIcon sx={{ color: otherColors.white }} />
           ) : (
-            <VideocamOffIcon sx={{ color: otherColors.appBarBackground }} />
+            <VideocamOffIcon sx={{ color: otherColors.white }} />
           )}
         </IconButtonContained>
         <IconButtonContained onClick={toggleMute} variant={!muted ? undefined : 'disabled'}>
-          {!muted ? (
-            <MicIcon sx={{ color: otherColors.white }} />
-          ) : (
-            <MicOffIcon sx={{ color: otherColors.appBarBackground }} />
-          )}
+          {!muted ? <MicIcon sx={{ color: otherColors.white }} /> : <MicOffIcon sx={{ color: otherColors.white }} />}
         </IconButtonContained>
         {isRegularParticipant && isMobile && (
           <IconButtonContained onClick={() => setIsMoreOpen(!isMoreOpen)} variant={isMoreOpen ? 'disabled' : undefined}>
-            <MoreVertIcon sx={{ color: isMoreOpen ? otherColors.appBarBackground : otherColors.white }} />
+            <MoreVertIcon sx={{ color: isMoreOpen ? palette.primary.dark : otherColors.white }} />
           </IconButtonContained>
         )}
         <CallSettingsTooltip

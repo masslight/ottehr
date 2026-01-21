@@ -67,7 +67,7 @@ export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
             }
           >
             <IconButtonContained onClick={handleTooltipOpen} variant={isTooltipOpen ? 'disabled' : undefined}>
-              <SettingsIcon sx={{ color: isTooltipOpen ? otherColors.darkPurple : otherColors.white }} />
+              <SettingsIcon sx={{ color: otherColors.white }} />
             </IconButtonContained>
           </CustomTooltip>
         </div>
