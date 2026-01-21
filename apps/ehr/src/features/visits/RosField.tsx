@@ -5,13 +5,28 @@ import TaskList from '@tiptap/extension-task-list';
 import { Markdown } from '@tiptap/markdown';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { FC, useEffect } from 'react';
+import { FC, useEffect, useRef } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
+const normalizeMarkdown = (md: string): { raw: string; normalized: string } => {
+  const lines = md.split('\n');
+
+  const meaningfulLines = lines.filter((line) => !line.match(/^-\s*\[\s\]\s*$/));
+
+  return {
+    raw: md.trim(),
+    normalized: meaningfulLines.join('\n').trim(),
+  };
+};
+
 export const RosField: FC = () => {
-  const { data: chartDataFields } = useChartFields({
+  const {
+    data: chartDataFields,
+    isFetching,
+    isFetched,
+  } = useChartFields({
     requestedFields: {
       ros: { _tag: 'ros' },
     },
@@ -22,6 +37,12 @@ export const RosField: FC = () => {
     isLoading: isRosLoading,
     isChartDataLoading: isRosChartDataLoading,
   } = useDebounceNotesField('ros');
+
+  const isUpdatingFromServer = useRef(false);
+  const isInitialized = useRef(false);
+  const lastContent = useRef<string>('');
+  const hadUserInput = useRef(false);
+  const hadServerValue = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -53,21 +74,66 @@ export const RosField: FC = () => {
       },
     },
     onUpdate: ({ editor }) => {
-      onRosChange(editor.getMarkdown());
+      if (isUpdatingFromServer.current || !isInitialized.current) return;
+
+      const { raw, normalized } = normalizeMarkdown(editor.getMarkdown());
+
+      if (raw !== '') {
+        hadUserInput.current = true;
+      }
+
+      if (normalized === '' && raw !== '' && !hadServerValue.current) {
+        return;
+      }
+
+      if (normalized === '' && !hadServerValue.current) {
+        return;
+      }
+
+      if (normalized !== lastContent.current) {
+        lastContent.current = normalized;
+        onRosChange(normalized);
+      }
     },
   });
 
   useEffect(() => {
-    if (chartDataFields?.ros?.text !== undefined && editor) {
-      const currentContent = editor.getMarkdown();
-      const newContent = chartDataFields.ros.text;
+    if (!editor) return;
+    if (!isFetched) return;
 
-      // Only update if content is different to avoid cursor jumps
-      if (currentContent !== newContent) {
-        editor.commands.setContent(newContent, { contentType: 'markdown' });
+    if (!isInitialized.current) {
+      const markdown = chartDataFields?.ros?.text;
+      hadServerValue.current = markdown !== undefined && markdown !== '';
+      const content = markdown || '';
+      isUpdatingFromServer.current = true;
+      editor.commands.setContent(content, {
+        contentType: 'markdown',
+        emitUpdate: false,
+      });
+      lastContent.current = content;
+
+      isUpdatingFromServer.current = false;
+      isInitialized.current = true;
+
+      return;
+    }
+
+    if (!isFetching) {
+      const rosMarkdown = chartDataFields?.ros?.text || '';
+      const { normalized: currentMarkdown } = normalizeMarkdown(editor.getMarkdown());
+
+      if (currentMarkdown !== rosMarkdown) {
+        isUpdatingFromServer.current = true;
+        editor.commands.setContent(rosMarkdown, {
+          contentType: 'markdown',
+          emitUpdate: false,
+        });
+        lastContent.current = rosMarkdown;
+
+        isUpdatingFromServer.current = false;
       }
     }
-  }, [chartDataFields?.ros?.text, editor]);
+  }, [chartDataFields?.ros?.text, editor, isFetched, isFetching]);
 
   useEffect(() => {
     if (editor) {
