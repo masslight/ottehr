@@ -95,8 +95,6 @@ const mergedConsentFormsConfig = mergeAndFreezeConfigObjects(CONSENT_FORMS_OVERR
 export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentFormsConfig);
 
 const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
-  console.log(path);
-  console.log(locationState);
   if (typeof path === 'string') {
     return path;
   }
