@@ -4,7 +4,7 @@ import { QuestionnaireResponseItem } from 'fhir/r4b';
 import * as fs from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG, getConsentFormsForLocation } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
@@ -1053,6 +1053,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
   });
 
   test('PCF. Consent forms', async () => {
+    const consentForms = getConsentFormsForLocation();
     await test.step('PCF-1. Open consent forms page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/consent-forms`);
       await paperwork.checkCorrectPageOpens('Complete consent forms');
@@ -1062,31 +1063,28 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
     });
 
-    // todo these should come from config!
-    // await test.step('PCF-3. Check required fields', async () => {
-    //   await paperwork.checkRequiredFields(
-    //     '"I have reviewed and accept HIPAA Acknowledgement","I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement","Signature","Full name","Relationship to the patient"',
-    //     'Complete consent forms',
-    //     true
-    //   );
-    // });
+    await test.step('PCF-3. Check required fields', async () => {
+      const requiredConsentTitles = consentForms.map((form) => `"I have reviewed and accept ${form.formTitle}"`);
+      const requiredFieldsString = [
+        ...requiredConsentTitles,
+        '"Signature"',
+        '"Full name"',
+        '"Relationship to the patient"',
+      ].join(',');
+      await paperwork.checkRequiredFields(requiredFieldsString, 'Complete consent forms', true);
+    });
 
-    // await test.step('PCF-4. Check links are correct', async () => {
-    //   expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
-    //   expect(
-    //     await page.getAttribute('a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")', 'href')
-    //   ).toBe('/consent_to_treat_template.pdf');
-    // });
+    await test.step('PCF-4. Check links are correct', async () => {
+      for (const form of consentForms) {
+        expect(await page.getAttribute(`a:has-text(${form.formTitle})`, 'href')).toBe(form.publicUrl);
+      }
+    });
 
-    // await test.step('PCF-5. Check links opens in new tab', async () => {
-    //   expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'target')).toBe('_blank');
-    //   expect(
-    //     await page.getAttribute(
-    //       'a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")',
-    //       'target'
-    //     )
-    //   ).toBe('_blank');
-    // });
+    await test.step('PCF-5. Check links opens in new tab', async () => {
+      for (const form of consentForms) {
+        expect(await page.getAttribute(`a:has-text(${form.formTitle})`, 'target')).toBe('_blank');
+      }
+    });
 
     await test.step('PCF-6. Fill all data and click on [Continue]', async () => {
       await paperwork.fillConsentForms();
