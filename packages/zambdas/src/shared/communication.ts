@@ -7,12 +7,12 @@ import {
   EmailTemplate,
   ErrorReportTemplateData,
   getSecret,
+  getSupportPhoneFor,
   InPersonCancelationTemplateData,
   InPersonCompletionTemplateData,
   InPersonConfirmationTemplateData,
   InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
-  LOCATION_CONFIG,
   Secrets,
   SecretsKeys,
   SENDGRID_CONFIG,
@@ -97,15 +97,11 @@ class EmailClient {
     }
 
     const { email: baseEmail, projectName } = BRANDING_CONFIG;
-    const { locationSupportPhoneNumberMap, supportPhoneNumber: defaultSupportPhoneNumber } = LOCATION_CONFIG;
 
     const projectDomain = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
     const { sender, replyTo: configReplyTo, ...emailRest } = baseEmail;
-    let supportPhoneNumber = defaultSupportPhoneNumber;
-    if (locationSupportPhoneNumberMap && (templateData as any).location) {
-      supportPhoneNumber = locationSupportPhoneNumberMap[(templateData as any).location] || defaultSupportPhoneNumber;
-    }
+    const supportPhoneNumber = getSupportPhoneFor((templateData as any).location);
 
     const fromEmail = ENVIRONMENT !== 'local' ? sender : defaultLowersFromEmail;
     const replyTo = ENVIRONMENT !== 'local' ? configReplyTo : defaultLowersFromEmail;

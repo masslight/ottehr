@@ -168,7 +168,7 @@ export abstract class BaseProgressNotePage {
     ).toBeVisible();
   }
 
-  async verifyRemovedMedicationNoteIsNotShown(note: string): Promise<void> {
+  async verifyMedicationNoteNotShown(note: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
         hasText: note,
@@ -176,7 +176,7 @@ export abstract class BaseProgressNotePage {
     ).not.toBeVisible();
   }
 
-  async verifyRemovedMedicationIsNotShown(medication: string): Promise<void> {
+  async verifyMedicationNotShown(medication: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
         hasText: medication,
