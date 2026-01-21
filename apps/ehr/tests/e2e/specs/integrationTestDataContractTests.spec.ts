@@ -294,17 +294,45 @@ const documentReferenceTests = (e2eResources: Resource[], integrationResources: 
   const e2eCleaned = e2eDocumentReferences.map((docRef) => cleanDocumentReference(docRef));
   const integrationCleaned = integrationDocumentReferences.map((docRef) => cleanDocumentReference(docRef));
 
+  const usedIntegrationRefs = new Set<DocumentReference>();
+
+  function findMatchingIntegrationDoc(
+    e2eDocRef: DocumentReference,
+    integrationDocs: DocumentReference[]
+  ): DocumentReference | undefined {
+    const loincCode = e2eDocRef.type?.coding?.find((coding) => coding.system === 'http://loinc.org')?.code;
+    if (!loincCode) return undefined;
+
+    return integrationDocs.find((integrationDocRef) => {
+      if (usedIntegrationRefs.has(integrationDocRef)) return false;
+
+      const integrationLoinc = integrationDocRef.type?.coding?.find((c) => c.system === 'http://loinc.org')?.code;
+      if (integrationLoinc !== loincCode) return false;
+
+      if (
+        e2eDocRef.content?.[0]?.attachment?.title &&
+        integrationDocRef.content?.[0]?.attachment?.title &&
+        e2eDocRef.content[0].attachment.title !== integrationDocRef.content[0].attachment.title
+      )
+        return false;
+
+      return true;
+    });
+  }
+
   e2eCleaned.forEach((e2eDocRef) => {
-    const e2eDocTypeLoincCoding = e2eDocRef.type?.coding?.find((coding) => coding.system === 'http://loinc.org');
+    const loincCode = e2eDocRef.type?.coding?.find((coding) => coding.system === 'http://loinc.org')?.code;
+    if (!loincCode) {
+      console.warn('No LOINC code found in e2eDocRef');
+      return;
+    }
 
-    const integrationDocRef = integrationCleaned.find(
-      (integrationDocRef) =>
-        integrationDocRef.type?.coding?.find(
-          (coding) => coding.system === 'http://loinc.org' && coding.code === e2eDocTypeLoincCoding!.code
-        )
-    );
+    const integrationDocRef = findMatchingIntegrationDoc(e2eDocRef, integrationCleaned);
+    if (integrationDocRef) {
+      usedIntegrationRefs.add(integrationDocRef);
+    }
 
-    checkKeysAndValuesBothWays(e2eDocRef, integrationDocRef, `${e2eDocTypeLoincCoding!.code} DocumentReference`);
+    checkKeysAndValuesBothWays(e2eDocRef, integrationDocRef, `${loincCode} DocumentReference`);
   });
 };
 
