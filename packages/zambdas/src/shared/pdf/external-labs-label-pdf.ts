@@ -14,6 +14,7 @@ import {
 } from 'utils';
 import { makeZ3Url } from './../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from './../z3Utils';
+import { getLabListResource } from './lab-pdf-utils';
 import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
 import { createPdfClient, PdfInfo } from './pdf-utils';
 import { PdfClientStyles, TextStyle } from './types';
@@ -218,6 +219,8 @@ export async function createExternalLabsLabelPDF(
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 
+  const labListResource = await getLabListResource(oystehr, labelConfig.content.patientId, pdfInfo.title);
+
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],
     type: { coding: [EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE], text: 'External lab sample label' },
@@ -239,7 +242,7 @@ export async function createExternalLabsLabelPDF(
     oystehr,
     searchParams: [{ name: 'related', value: `ServiceRequest/${serviceRequestID}` }],
     generateUUID: randomUUID,
-    listResources: [], // this for whatever reason needs to get added otherwise the function never adds the new docRef to the returned array
+    listResources: labListResource ? [labListResource] : [], // this for whatever reason needs to get added otherwise the function never adds the new docRef to the returned array
   });
 
   console.log(`These are the docRefs returned for the label: `, JSON.stringify(docRefs));

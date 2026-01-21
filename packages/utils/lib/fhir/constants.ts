@@ -440,8 +440,8 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.LABS,
     display: 'Labs',
     documentTypeCode: [
-      LAB_ORDER_DOC_REF_CODING_CODE.code,
-      LAB_RESULT_DOC_REF_CODING_CODE.code,
+      LAB_ORDER_DOC_REF_CODING_CODE.code, // external lab ottehr generated order form and eReqs
+      LAB_RESULT_DOC_REF_CODING_CODE.code, // lab results -- includes lab-generated and ottehr generated for external, as well as internal results
       EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
       OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
     ],
