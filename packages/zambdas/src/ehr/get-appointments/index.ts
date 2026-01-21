@@ -18,6 +18,7 @@ import { DateTime } from 'luxon';
 import {
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
+  CONSENT_FORMS_CONFIG,
   flattenItems,
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
@@ -607,10 +608,10 @@ const makeAppointmentInformation = (
 
   const flattenedItems = flattenItems(questionnaireResponse?.item ?? []);
   const consentComplete =
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'hipaa-acknowledgement')?.answer?.[0]
-      .valueBoolean === true &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-to-treat')?.answer?.[0].valueBoolean ===
-      true &&
+    CONSENT_FORMS_CONFIG.forms.every(
+      (form) =>
+        flattenedItems.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
+    ) &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'signature') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
