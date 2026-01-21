@@ -626,13 +626,13 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
     await test.step('PCF-4. Check links are correct', async () => {
       for (const form of consentForms) {
-        expect(await page.getAttribute(`a:has-text(${form.formTitle})`, 'href')).toBe(form.publicUrl);
+        expect(await page.getAttribute(`a:has-text("${form.formTitle}")`, 'href')).toBe(form.publicUrl);
       }
     });
 
     await test.step('PCF-5. Check links opens in new tab', async () => {
       for (const form of consentForms) {
-        expect(await page.getAttribute(`a:has-text(${form.formTitle})`, 'target')).toBe('_blank');
+        expect(await page.getAttribute(`a:has-text("${form.formTitle}")`, 'target')).toBe('_blank');
       }
     });
 

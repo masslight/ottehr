@@ -601,8 +601,12 @@ const cleanQuestionnaireResponse = (questionnaireResponse: QuestionnaireResponse
 const cleanConsent = (consent: Consent): Consent => {
   let cleanedConsent = { ...consent };
   cleanedConsent = cleanOutMetaStuff(cleanedConsent) as Consent;
-  cleanedConsent.patient!.reference = cleanedConsent.patient!.reference?.split('/')[0]; // cut off the UUID for comparison
-  cleanedConsent.sourceReference!.reference = cleanedConsent.sourceReference!.reference?.split('/')[0]; // cut off the UUID for comparison
+  if (cleanedConsent.patient?.reference) {
+    cleanedConsent.patient.reference = cleanedConsent.patient.reference?.split('/')[0]; // cut off the UUID for comparison
+  }
+  if (cleanedConsent.sourceReference?.reference) {
+    cleanedConsent.sourceReference.reference = cleanedConsent.sourceReference.reference?.split('/')[0]; // cut off the UUID for comparison
+  }
   cleanedConsent.dateTime = SKIP_ME;
   return cleanedConsent;
 };
