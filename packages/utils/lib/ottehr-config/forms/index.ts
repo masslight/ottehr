@@ -11,7 +11,7 @@ const DEFAULT_FORMS_CONFIG: FormsConfig = {
   ],
 };
 
-const mergedConfig = mergeAndFreezeConfigObjects(FORMS_CONFIG_OVERRIDE, DEFAULT_FORMS_CONFIG);
+const mergedConfig = mergeAndFreezeConfigObjects(DEFAULT_FORMS_CONFIG, FORMS_CONFIG_OVERRIDE);
 
 const FormSchema = z.object({
   title: z.string(),

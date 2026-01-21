@@ -13,11 +13,7 @@ interface PlanProps {
 }
 
 export const Plan: FC<PlanProps> = () => {
-  const {
-    resources: { appointment },
-    isAppointmentLoading,
-    appointmentError,
-  } = useAppointmentData();
+  const { appointment, location, isAppointmentLoading, appointmentError } = useAppointmentData();
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;
@@ -26,13 +22,14 @@ export const Plan: FC<PlanProps> = () => {
   if (isLoading || isChartDataLoading) return <Loader />;
   if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
+  const locationName = location?.name;
 
   return (
     <Stack spacing={1}>
       <PageTitle label="Plan" showIntakeNotesButton={false} />
       <PatientInstructionsCard />
       <DispositionCard />
-      <SchoolWorkExcuseCard />
+      <SchoolWorkExcuseCard locationName={locationName} />
       {FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
     </Stack>
   );

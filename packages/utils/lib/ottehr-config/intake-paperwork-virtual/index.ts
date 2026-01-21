@@ -2137,48 +2137,25 @@ const FormFields = {
     ],
     enableBehavior: 'all',
     items: {
-      hipaaAcknowledgement: {
-        key: 'hipaa-acknowledgement',
-        label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
+      checkboxGroup: {
+        key: 'consent-forms-checkbox-group',
+        type: 'group',
+        items: {
+          hipaaAcknowledgement: {
+            key: 'hipaa-acknowledgement',
+            label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
+            type: 'boolean',
+            permissibleValue: true,
           },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
+          consentToTreat: {
+            key: 'consent-to-treat',
+            label:
+              'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
+            type: 'boolean',
+            permissibleValue: true,
           },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-      },
-      consentToTreat: {
-        key: 'consent-to-treat',
-        label:
-          'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
+        },
+        requiredFields: ['hipaa-acknowledgement', 'consent-to-treat'],
       },
       signature: {
         key: 'signature',
@@ -2215,13 +2192,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: [
-      'hipaa-acknowledgement',
-      'consent-to-treat',
-      'signature',
-      'full-name',
-      'consent-form-signer-relationship',
-    ],
+    requiredFields: ['signature', 'full-name', 'consent-form-signer-relationship'],
   },
   inviteParticipant: {
     linkId: 'invite-participant-page',
@@ -2382,7 +2353,7 @@ const INTAKE_PAPERWORK_DEFAULTS = {
   FormFields,
 };
 
-const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(OVERRIDES, INTAKE_PAPERWORK_DEFAULTS);
+const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, OVERRIDES);
 
 const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,

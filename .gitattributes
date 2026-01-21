@@ -5,3 +5,6 @@ package-lock.json merge=package-version
 
 # Keep downstream version of seed data resources during merges from upstream
 apps/ehr/tests/e2e-utils/seed-data/resources/*.json merge=ours
+
+# Keep current branch version of all config files during merges
+config/** merge=ours
