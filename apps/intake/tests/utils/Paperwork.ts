@@ -560,6 +560,7 @@ export class Paperwork {
     if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
     }
+    await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Patient condition');
     let uploadedPhotoCondition: Locator | null = null;
