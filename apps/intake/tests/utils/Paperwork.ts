@@ -554,8 +554,10 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (!requiredOnly) {
+    if (QuestionnaireHelper.isPhotoIdFrontRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
+    }
+    if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
     }
     await this.locator.clickContinueButton();

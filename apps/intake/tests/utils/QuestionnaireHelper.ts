@@ -96,4 +96,32 @@ export class QuestionnaireHelper {
   static attorneyPageIsVisible(responseItems: QuestionnaireResponseItem[]): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireItemIsVisible('attorney-mva-page', responseItems);
   }
+
+  /**
+   * Checks if an item with the given linkId is marked as required in the questionnaire.
+   *
+   * @param linkId - The linkId of the item to check
+   * @returns true if the item exists and is required, false otherwise
+   */
+  static inPersonQuestionnaireItemIsRequired(linkId: string): boolean {
+    const allItems = QuestionnaireHelper.loadInPersonQuestionnaireItems();
+    const flatItems = QuestionnaireHelper.flattenItems(allItems);
+    const targetItem = flatItems.find((item) => item.linkId === linkId);
+
+    return targetItem?.required === true;
+  }
+
+  /**
+   * Checks if the photo ID front field is required in the questionnaire.
+   */
+  static isPhotoIdFrontRequired(): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireItemIsRequired('photo-id-front');
+  }
+
+  /**
+   * Checks if the photo ID back field is required in the questionnaire.
+   */
+  static isPhotoIdBackRequired(): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireItemIsRequired('photo-id-back');
+  }
 }
