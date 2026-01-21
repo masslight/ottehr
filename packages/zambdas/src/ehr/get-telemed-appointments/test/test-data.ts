@@ -503,12 +503,10 @@ export const questionnaireForReadyEncounter: QuestionnaireResponse = {
         },
       ],
     },
-    ...CONSENT_FORMS_CONFIG.forms
-      .filter((form) => form.createsConsentResource)
-      .map((form) => ({
-        linkId: form.id,
-        answer: [{ valueBoolean: true }],
-      })),
+    ...CONSENT_FORMS_CONFIG.forms.map((form) => ({
+      linkId: form.id,
+      answer: [{ valueBoolean: true }],
+    })),
     {
       linkId: 'signature',
       answer: [
@@ -855,12 +853,10 @@ export const questionnaireForPreVideoEncounter: QuestionnaireResponse = {
         },
       ],
     },
-    ...CONSENT_FORMS_CONFIG.forms
-      .filter((form) => form.createsConsentResource)
-      .map((form) => ({
-        linkId: form.id,
-        answer: [{ valueBoolean: true }],
-      })),
+    ...CONSENT_FORMS_CONFIG.forms.map((form) => ({
+      linkId: form.id,
+      answer: [{ valueBoolean: true }],
+    })),
     {
       linkId: 'signature',
       answer: [
