@@ -219,7 +219,7 @@ export async function createExternalLabsLabelPDF(
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 
-  const labListResource = await getLabListResource(oystehr, labelConfig.content.patientId, pdfInfo.title);
+  const labListResource = await getLabListResource(oystehr, labelConfig.content.patientId, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],

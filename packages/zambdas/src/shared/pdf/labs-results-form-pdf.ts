@@ -457,6 +457,7 @@ export async function createExternalLabResultPDFBasedOnDr(
 
   await makeLabPdfDocumentReference({
     oystehr,
+    secrets,
     type,
     pdfInfo: pdfDetail,
     patientID: patient.id,
@@ -563,6 +564,7 @@ export async function createExternalLabResultPDF(
 
   await makeLabPdfDocumentReference({
     oystehr,
+    secrets,
     type: 'results',
     pdfInfo: pdfDetail,
     patientID: patient.id,
@@ -646,6 +648,7 @@ export async function createInHouseLabResultPDF(
 
   await makeLabPdfDocumentReference({
     oystehr,
+    secrets,
     type: 'results',
     pdfInfo: pdfDetail,
     patientID: patient.id,
@@ -1440,6 +1443,7 @@ function generateLabResultFileName(
 
 export async function makeLabPdfDocumentReference({
   oystehr,
+  secrets,
   type,
   pdfInfo,
   patientID,
@@ -1449,6 +1453,7 @@ export async function makeLabPdfDocumentReference({
   reviewed,
 }: {
   oystehr: Oystehr;
+  secrets: Secrets | null;
   type: 'order' | 'results' | LabDrTypeTagCode;
   pdfInfo: PdfInfo;
   patientID: string;
@@ -1486,7 +1491,7 @@ export async function makeLabPdfDocumentReference({
     docRefContext.encounter = [{ reference: `Encounter/${encounterID}` }];
   }
 
-  const labListResource = await getLabListResource(oystehr, patientID, pdfInfo.title);
+  const labListResource = await getLabListResource(oystehr, patientID, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [

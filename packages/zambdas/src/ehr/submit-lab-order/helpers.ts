@@ -529,18 +529,9 @@ export async function makeOrderFormsAndDocRefs(
 
     if (docRefsToAddToLabFolder.length) {
       console.log('eReq and/or ABN must be added to labs folder');
-      const labList = await getLabListResource(oystehr, patientId);
+      const labList = await getLabListResource(oystehr, patientId, secrets);
       if (labList) {
-        try {
-          await addDocsToLabList(oystehr, labList, docRefsToAddToLabFolder);
-        } catch (e) {
-          console.warn(
-            `encountered error while adding docs to the labs list folder: ${JSON.stringify(
-              docRefsToAddToLabFolder
-            )}. Swallowing error, ABN and or eReq will not be added to labs list folder. Error is: `,
-            e
-          );
-        }
+        await addDocsToLabList(oystehr, labList, docRefsToAddToLabFolder, secrets);
       }
     }
 
@@ -564,6 +555,7 @@ export async function makeOrderFormsAndDocRefs(
         acc.docRefPromises.push(
           makeLabPdfDocumentReference({
             oystehr,
+            secrets,
             type: 'order',
             pdfInfo: detail.pdfInfo,
             patientID: detail.patientId,

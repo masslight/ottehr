@@ -221,18 +221,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (attachments && patient && (isUnsolicitedAndMatched || !isUnsolicited)) {
       console.log('adding attachments to patient lab folder');
       const attachmentDocRefReferences = attachments.map((attachment) => `DocumentReference/${attachment.id}`);
-      const labList = await getLabListResource(oystehr, patient.id!);
+      const labList = await getLabListResource(oystehr, patient.id!, secrets);
       if (labList) {
-        try {
-          await addDocsToLabList(oystehr, labList, attachmentDocRefReferences);
-        } catch (e) {
-          console.warn(
-            `encountered error while adding attachments to the Patient/${patient.id} labs list folder: ${JSON.stringify(
-              attachmentDocRefReferences
-            )}. Swallowing error, attachments will not be added. Error is: `,
-            e
-          );
-        }
+        await addDocsToLabList(oystehr, labList, attachmentDocRefReferences, secrets);
       }
     }
 
