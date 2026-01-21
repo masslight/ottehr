@@ -218,13 +218,6 @@
       "src": "src/ehr/sync-user/index",
       "zip": ".dist/zips/sync-user.zip"
     },
-    "ICD-SEARCH": {
-      "name": "icd-search",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/icd-search/index",
-      "zip": ".dist/zips/icd-search.zip"
-    },
     "ICD-10-SEARCH": {
       "name": "icd-10-search",
       "type": "http_auth",

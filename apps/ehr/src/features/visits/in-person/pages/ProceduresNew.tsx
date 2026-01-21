@@ -58,7 +58,7 @@ import {
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useGetIcd10Search, useRecommendBillingCodes } from '../../shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch, useRecommendBillingCodes } from '../../shared/stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
 import { useAppFlags } from '../../shared/stores/contexts/useAppFlags';
 import AiSuggestion from '../components/AiSuggestion';
@@ -400,7 +400,7 @@ export default function ProceduresNew(): ReactElement {
   };
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
+  const { isFetching: isSearching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = (data as { codes?: CPTCodeDTO[] })?.codes || [];
   const { debounce } = useDebounce(800);
   const debouncedHandleInputChange = (data: string): void => {

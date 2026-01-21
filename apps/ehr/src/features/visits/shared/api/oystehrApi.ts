@@ -24,8 +24,6 @@ import {
   GetTelemedAppointmentsResponseEhr,
   GetUnsolicitedResultsResourcesInput,
   GetUnsolicitedResultsResourcesOutput,
-  IcdSearchRequestParams,
-  IcdSearchResponse,
   InitTelemedSessionRequestParams,
   InitTelemedSessionResponse,
   LabOrderResourcesRes,
@@ -138,7 +136,6 @@ export const getOystehrTelemedAPI = (
   getPatientInstructions: typeof getPatientInstructions;
   savePatientInstruction: typeof savePatientInstruction;
   deletePatientInstruction: typeof deletePatientInstruction;
-  icdSearch: typeof icdSearch;
   recommendBillingSuggestions: typeof recommendBillingSuggestions;
   recommendBillingCodes: typeof recommendBillingCodes;
   createUpdateMedicationOrder: typeof createUpdateMedicationOrder;
@@ -302,10 +299,6 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('create update patient followup', parameters);
   };
 
-  const icdSearch = async (parameters: IcdSearchRequestParams): Promise<IcdSearchResponse> => {
-    return await makeZapRequest('icd search', parameters);
-  };
-
   const recommendBillingSuggestions = async (parameters: {
     diagnoses: DiagnosisDTO[] | undefined;
     billing: CPTCodeDTO[] | undefined;
@@ -394,7 +387,6 @@ export const getOystehrTelemedAPI = (
     getPatientInstructions,
     savePatientInstruction,
     deletePatientInstruction,
-    icdSearch,
     recommendBillingSuggestions,
     recommendBillingCodes,
     getMedicationOrders,

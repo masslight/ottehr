@@ -12,7 +12,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { APIErrorCode, CPTCodeOption, emCodeOptions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { useGetIcd10Search } from '../../stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch } from '../../stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
@@ -33,7 +33,7 @@ export const BillingCodesContainer: FC = () => {
     isFetching: isSearching,
     data,
     error: icdSearchError,
-  } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
+  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = data?.codes || [];
 
   const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
