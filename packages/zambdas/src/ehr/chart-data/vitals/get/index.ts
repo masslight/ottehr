@@ -280,7 +280,7 @@ const parseWeightObservation = (
     resourceId: observation.id,
     field: VitalFieldNames.VitalWeight,
     value,
-    extraWeightOptions: weightOptions as Omit<VitalsWeightOption, 'patient_refused'>[],
+    extraWeightOptions: weightOptions,
     authorId: performer.id,
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
