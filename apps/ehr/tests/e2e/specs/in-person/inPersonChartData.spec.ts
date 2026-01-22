@@ -134,7 +134,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         });
       });
 
-      test('Add all vitals observations', async () => {
+      test('VIT-1. Add all vitals observations', async () => {
         await sideMenu.clickVitals();
         await test.step('VIT-1.1 Add temperature observation', async () => {
           await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
