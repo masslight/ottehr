@@ -787,6 +787,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       ],
     })
   ).unbundle();
+  console.log('bundle.length', bundle.length);
   const resultMap: RecentlyAssignedTasksMap = {};
   const practitionerIdMap: { [key: string]: Practitioner } = {};
   const tasks: Task[] = [];
@@ -798,6 +799,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       tasks.push(res as Task);
     }
   });
+  console.log('tasks.length', tasks.length);
   tasks.forEach((task) => {
     if (task.owner?.reference) {
       const assignedDateTimeExt = task.owner.extension?.find(
