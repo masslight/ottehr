@@ -461,10 +461,7 @@ export default function PracticeKpis(): React.ReactElement {
   const CustomToolbar = (): React.ReactElement => {
     return (
       <GridToolbarContainer>
-        <GridToolbarExport
-          csvOptions={{ fileName: 'practice-kpis' }}
-          printOptions={{ disableToolbarButton: true }}
-        />
+        <GridToolbarExport csvOptions={{ fileName: 'practice-kpis' }} printOptions={{ disableToolbarButton: true }} />
       </GridToolbarContainer>
     );
   };
