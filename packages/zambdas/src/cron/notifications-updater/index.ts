@@ -345,7 +345,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             console.log('2026-01-22: notifications on');
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
             console.log('2026-01-22: status', status);
-            const taskDescription = task.description || 'New task';
+            const taskDescription = task.input?.find(
+              (input) =>
+                input.type.coding?.some((coding) => coding.code === 'https://fhir.ottehr.com/CodeSystem/task-input')
+            )?.valueString;
 
             const request: BatchInputPostRequest<Communication> = {
               method: 'POST',
@@ -366,7 +369,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 status: status,
                 basedOn: [{ reference: `Task/${task.id}` }],
                 recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-                payload: [{ contentString: `Task assigned: ${taskDescription}` }],
+                payload: [{ contentString: `A new task has been assigned to you: ${taskDescription}` }],
               },
             };
             console.log('2026-01-22: request', JSON.stringify(request));
