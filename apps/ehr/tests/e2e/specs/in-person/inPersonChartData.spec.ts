@@ -187,7 +187,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_2);
       });
 
-      test('Verify Progress Note shows Vitals', async () => {
+      test('VIT-2. Verify Progress Note shows Vitals', async () => {
         await test.step('VIT-2.1 Verify temperature in progress note', async () => {
           await progressNotePage.verifyVitalIsShown(TEMPERATURE_C);
         });
