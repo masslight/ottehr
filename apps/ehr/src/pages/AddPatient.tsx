@@ -294,6 +294,7 @@ export default function AddPatient(): JSX.Element {
                 <FormControl fullWidth>
                   <InputLabel id="service-category-label">Service category *</InputLabel>
                   <Select
+                    data-testid={dataTestIds.addPatientPage.serviceCategoryDropdown}
                     labelId="service-category-label"
                     id="service-category-select"
                     value={serviceCategory || ''}
