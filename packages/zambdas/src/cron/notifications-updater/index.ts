@@ -782,7 +782,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
         },
         {
           name: '_include',
-          value: 'Task:owner',
+          value: 'Task:owner:Practitioner',
         },
       ],
     })
