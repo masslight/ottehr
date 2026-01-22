@@ -15,6 +15,8 @@ on:
         type: choice
         options:
           - e2e
+          - e2e2
+          - e2e3
           - local
           - testing
           - development
@@ -160,7 +162,7 @@ jobs:
           done
 
       - name: Restore seed data cache
-        if: needs.check-changes.outputs.environment == 'local' || needs.check-changes.outputs.environment == 'e2e'
+        if: needs.check-changes.outputs.environment == 'local' || needs.check-changes.outputs.environment == 'e2e' || needs.check-changes.outputs.environment == 'e2e2' || needs.check-changes.outputs.environment == 'e2e3'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: apps/ehr/tests/e2e-utils/seed-data/resources/
@@ -171,7 +173,7 @@ jobs:
         run: |
           ENV="${{ needs.check-changes.outputs.environment }}"
           
-          if [ "$ENV" == "local" ] || [ "$ENV" == "e2e" ]; then
+          if [ "$ENV" == "local" ] || [ "$ENV" == "e2e" ] || [ "$ENV" == "e2e2" ] || [ "$ENV" == "e2e3" ]; then
             npm run ehr:e2e:$ENV:integration
           else
             MODE="${{ inputs.mode }}"

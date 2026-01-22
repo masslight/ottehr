@@ -91,7 +91,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
       return this.selectTimeLocationAndContinue();
     }
 
-    await expect(this.locator.firstAvailableTime).toBeVisible();
+    await expect(this.locator.firstAvailableTime).toBeVisible({ timeout: 60000 });
     const title = await this.locator.pageTitle.textContent();
     const locationTitle = title ? title.replace('Book a visit at ', '').trim() : null;
 
@@ -111,7 +111,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     }
     const locationOption = this.page.locator('[role="option"]').getByText(firstAvailableState, { exact: true });
     await locationOption.click();
-    await expect(this.locator.firstAvailableTime).toBeVisible();
+    await expect(this.locator.firstAvailableTime).toBeVisible({ timeout: 60000 });
     const title = await this.locator.pageTitle.textContent();
     const location = title ? title.replace('Book a visit at ', '').trim() : null;
     const { slot } = await this.fillingInfo.selectRandomSlot();

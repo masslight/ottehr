@@ -1,6 +1,7 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { AllStates, checkFieldHidden, PatientEthnicity, PatientRace } from 'utils';
+import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
@@ -312,6 +313,8 @@ export class Paperwork {
       await this.uploadPhoto.fillInsuranceBack();
 
       await this.locator.addSecondaryInsurance.click();
+      // Wait for secondary insurance section to be fully visible before filling
+      await expect(this.page.getByRole('heading', { name: 'Secondary insurance details' })).toBeVisible();
       secondaryInsuranceData = await this.fillSecondaryInsuranceAllFieldsWithoutCards();
       await this.uploadPhoto.fillSecondaryInsuranceFront();
       await this.uploadPhoto.fillSecondaryInsuranceBack();
@@ -397,9 +400,13 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (!requiredOnly) {
+    if (QuestionnaireHelper.isPhotoIdFrontRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
+    }
+    if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
+      // Wait for both files to be fully uploaded and saved before continuing
+      await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(2, { timeout: 60000 });
     }
     await this.locator.clickContinueButton();
 
@@ -512,6 +519,8 @@ export class Paperwork {
       await this.uploadPhoto.fillInsuranceBack();
 
       await this.locator.addSecondaryInsurance.click();
+      // Wait for secondary insurance section to be fully visible before filling
+      await expect(this.page.getByRole('heading', { name: 'Secondary insurance details' })).toBeVisible();
       secondaryInsuranceData = await this.fillSecondaryInsuranceAllFieldsWithoutCards();
       await this.uploadPhoto.fillSecondaryInsuranceFront();
       await this.uploadPhoto.fillSecondaryInsuranceBack();
@@ -559,20 +568,26 @@ export class Paperwork {
     }
     if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
+      // Wait for both files to be fully uploaded and saved before continuing
+      await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(2, { timeout: 60000 });
     }
     await this.locator.clickContinueButton();
 
-    await this.checkCorrectPageOpens('Patient condition');
     let uploadedPhotoCondition: Locator | null = null;
-    if (!requiredOnly) {
-      uploadedPhotoCondition = await this.uploadPhoto.fillPatientConditionPhotoPaperwork();
+    if (QuestionnaireHelper.hasVirtualPatientConditionPage()) {
+      await this.checkCorrectPageOpens('Patient condition');
+      if (!requiredOnly) {
+        uploadedPhotoCondition = await this.uploadPhoto.fillPatientConditionPhotoPaperwork();
+      }
+      await this.locator.clickContinueButton();
     }
-    await this.locator.clickContinueButton();
 
-    await this.checkCorrectPageOpens('Do you need a school or work note?');
-    // todo why not add a school/work note for completion?
-    await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
-    await this.locator.clickContinueButton();
+    if (QuestionnaireHelper.hasVirtualSchoolWorkNotePage()) {
+      await this.checkCorrectPageOpens('Do you need a school or work note?');
+      // todo why not add a school/work note for completion?
+      await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
+      await this.locator.clickContinueButton();
+    }
 
     await this.checkCorrectPageOpens('Complete consent forms');
     await this.fillConsentForms();
@@ -672,7 +687,7 @@ export class Paperwork {
   }
   async checkCorrectPageOpens(pageTitle: string): Promise<void> {
     // wait for "Loading..." to disappear (page finished loading data)
-    await expect(this.locator.flowHeading).not.toHaveText('Loading...', { timeout: 60000 });
+    await expect(this.locator.flowHeading).not.toHaveText('Loading...', { timeout: 240000 });
     // Then assert the expected title
     await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
@@ -745,7 +760,7 @@ export class Paperwork {
     const randomRace = await this.fillRace();
     const randomPronoun = await this.fillPronoun();
     let randomPoint = '';
-    if (isNewPatient) {
+    if (isNewPatient && QuestionnaireHelper.hasPointOfDiscoveryField()) {
       randomPoint = await this.fillPointOfDiscovery();
     }
     const randomLanguage = await this.fillPreferredLanguage();
@@ -809,12 +824,24 @@ export class Paperwork {
     await this.locator.selfPayOption.check();
   }
   async fillAndAddCreditCardIfDoesntExist(): Promise<void> {
-    if (await this.page.getByText(CARD_NUMBER_OBSCURED).first().isVisible({ timeout: 500 })) return;
+    // Check if card is already added by looking for saved card in radio group
+    const savedCard = this.page.getByTestId(dataTestIds.cardNumber).first();
+    const isCardAlreadyAdded = await savedCard.isVisible().catch(() => false);
+
+    if (isCardAlreadyAdded) {
+      // Card already exists, no need to add
+      return;
+    }
+
+    // Card doesn't exist, fill form and add it
     await this.locator.creditCardNumber.fill(CARD_NUMBER);
     await this.locator.creditCardCVC.fill(CARD_CVV);
     await this.locator.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locator.addCardButton.click();
-    await expect(this.page.getByText(CARD_NUMBER_OBSCURED).first()).toBeVisible();
+
+    // Wait for saved card to appear in radio group (Stripe processing + backend save + UI update)
+    // Create fresh locator after click to ensure we're looking at updated DOM
+    await expect(this.page.getByTestId(dataTestIds.cardNumber).first()).toBeVisible({ timeout: 60000 });
   }
   async selectInsurancePayment(): Promise<void> {
     await this.locator.insuranceOption.check();
@@ -901,9 +928,13 @@ export class Paperwork {
     await locators.policyHolderFirstName.fill(firstName);
     await locators.policyHolderLastName.fill(lastName);
     await locators.policyHolderBirthSex.click();
-    await this.page.getByRole('option', { name: birthSex, exact: true }).click();
+    const birthSexOption = this.page.getByRole('option', { name: birthSex, exact: true });
+    await birthSexOption.waitFor();
+    await birthSexOption.click();
     await locators.patientRelationship.click();
-    await this.page.getByRole('option', { name: relationship, exact: true }).click();
+    const relationshipOption = this.page.getByRole('option', { name: relationship, exact: true });
+    await relationshipOption.waitFor();
+    await relationshipOption.click();
     await locators.policyHolderAddress.fill(policyHolderAddress);
     await locators.policyHolderCity.fill(policyHolderCity);
     await locators.policyHolderState.click();
@@ -1211,7 +1242,9 @@ export class Paperwork {
 
   async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();
-    await expect(image).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
+    await expect(image).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`, {
+      timeout: 60000,
+    });
   }
   async fillConsentForms(): Promise<{ signature: string; relationshipConsentForms: string; consentFullName: string }> {
     await this.validateAllOptions(

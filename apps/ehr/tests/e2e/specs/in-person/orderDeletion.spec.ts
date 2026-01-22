@@ -180,6 +180,9 @@ test.describe('Order Deletion - Happy Path', () => {
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
         // Verify diagnosis was added (UI check)
         await expect(page.getByText(DIAGNOSIS)).toBeVisible();
 
@@ -294,6 +297,10 @@ test.describe('Order Deletion - Happy Path', () => {
         await sideMenu.clickAssessment();
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
+
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        // This is the optimistic UI indicator that the diagnosis is ready to be used
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
 
         // Verify diagnosis was added (UI check)
         await expect(page.getByText(DIAGNOSIS)).toBeVisible();
@@ -457,6 +464,9 @@ test.describe('Order Deletion - Happy Path', () => {
         await sideMenu.clickAssessment();
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
+
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
 
         // Verify diagnosis was added (UI check)
         await expect(page.getByText(DIAGNOSIS)).toBeVisible();

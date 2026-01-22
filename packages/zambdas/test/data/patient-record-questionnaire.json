@@ -3564,7 +3564,7 @@
       {
         "question": "patient-summary.appointment-service-category",
         "operator": "=",
-        "answerString": "workers-compensation"
+        "answerString": "workers-comp"
       },
       {
         "question": "patient-summary.appointment-service-category",
