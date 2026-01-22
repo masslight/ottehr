@@ -47,6 +47,9 @@ const inputTypeForBoolean = (item: IntakeQuestionnaireItem): FormItemType => {
   if (item.preferredElement === 'Button') {
     return 'Button';
   }
+  if (item.preferredElement === 'Link') {
+    return 'Link';
+  }
   return 'Checkbox';
 };
 

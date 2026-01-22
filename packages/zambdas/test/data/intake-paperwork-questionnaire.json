@@ -935,14 +935,179 @@
       "text": "Preferred pharmacy",
       "item": [
         {
-          "linkId": "pharmacy-name",
-          "type": "string",
-          "text": "Pharmacy name",
+          "linkId": "pharmacy-collection",
+          "type": "group",
+          "item": [
+            {
+              "linkId": "pharmacy-places-id",
+              "type": "string",
+              "text": "places id",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "hidden"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-places-name",
+              "type": "string",
+              "text": "places name",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "hidden"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-places-address",
+              "type": "string",
+              "text": "places address",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "hidden"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-places-saved",
+              "type": "boolean",
+              "text": "places saved",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "hidden"
+                }
+              ]
+            },
+            {
+              "linkId": "erx-pharmacy-id",
+              "type": "string",
+              "text": "erx pharmacy id",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "hidden"
+                }
+              ]
+            }
+          ],
+          "text": "Pharmacy",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
+              "valueString": "pharmacy-collection"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "pharmacy-page-manual-entry"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueBoolean": true
+                }
+              ]
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "pharmacy-page-manual-entry",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ]
+        },
+        {
+          "linkId": "pharmacy-page-manual-entry",
+          "type": "boolean",
+          "text": "Can't find? Add manually",
           "required": false,
+          "enableWhen": [
+            {
+              "question": "pharmacy-collection.pharmacy-places-saved",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
               "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+              "valueString": "Link"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                  "valueString": "pharmacy-page-manual-entry"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                  "valueBoolean": true
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                  "valueString": "Use search"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "pharmacy-name",
+          "type": "string",
+          "text": "Pharmacy name",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "pharmacy-page-manual-entry",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "pharmacy-page-manual-entry"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueBoolean": true
+                }
+              ]
             }
           ]
         },
@@ -951,10 +1116,34 @@
           "type": "string",
           "text": "Pharmacy address",
           "required": false,
+          "enableWhen": [
+            {
+              "question": "pharmacy-page-manual-entry",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
               "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "pharmacy-page-manual-entry"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueBoolean": true
+                }
+              ]
             }
           ]
         }
@@ -4424,60 +4613,66 @@
       "text": "Complete consent forms",
       "item": [
         {
-          "linkId": "hipaa-acknowledgement",
-          "type": "boolean",
-          "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
-          "required": true,
-          "enableWhen": [
+          "linkId": "consent-forms-checkbox-group",
+          "type": "group",
+          "item": [
             {
-              "question": "$status",
-              "operator": "!=",
-              "answerString": "completed"
+              "linkId": "hipaa-acknowledgement",
+              "type": "boolean",
+              "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
+              "required": true,
+              "enableWhen": [
+                {
+                  "question": "$status",
+                  "operator": "!=",
+                  "answerString": "completed"
+                },
+                {
+                  "question": "$status",
+                  "operator": "!=",
+                  "answerString": "amended"
+                }
+              ],
+              "enableBehavior": "all",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "protected"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                  "valueBoolean": true
+                }
+              ]
             },
             {
-              "question": "$status",
-              "operator": "!=",
-              "answerString": "amended"
-            }
-          ],
-          "enableBehavior": "all",
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
-              "valueBoolean": true
-            }
-          ]
-        },
-        {
-          "linkId": "consent-to-treat",
-          "type": "boolean",
-          "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
-          "required": true,
-          "enableWhen": [
-            {
-              "question": "$status",
-              "operator": "!=",
-              "answerString": "completed"
-            },
-            {
-              "question": "$status",
-              "operator": "!=",
-              "answerString": "amended"
-            }
-          ],
-          "enableBehavior": "all",
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
-              "valueBoolean": true
+              "linkId": "consent-to-treat",
+              "type": "boolean",
+              "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
+              "required": true,
+              "enableWhen": [
+                {
+                  "question": "$status",
+                  "operator": "!=",
+                  "answerString": "completed"
+                },
+                {
+                  "question": "$status",
+                  "operator": "!=",
+                  "answerString": "amended"
+                }
+              ],
+              "enableBehavior": "all",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "protected"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                  "valueBoolean": true
+                }
+              ]
             }
           ]
         },

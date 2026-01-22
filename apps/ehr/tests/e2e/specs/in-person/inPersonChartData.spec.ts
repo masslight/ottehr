@@ -10,6 +10,7 @@ import {
   expectInPersonProgressNotePage,
   InPersonProgressNotePage,
 } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { MedicationInfo, MedicationsPage } from 'tests/e2e/page/in-person/MedicationsPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { MedicalConditionsPage } from 'tests/e2e/page/MedicalConditionsPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
@@ -25,7 +26,7 @@ import {
   testTextComponent,
   waitForFieldSave,
 } from 'tests/e2e-utils/helpers/exam-tab.test-helpers';
-import { MDM_FIELD_DEFAULT_TEXT } from 'utils';
+import { getFirstName, getLastName, MDM_FIELD_DEFAULT_TEXT } from 'utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { AllergiesPage } from '../../page/in-person/AllergiesPage';
 
@@ -59,6 +60,34 @@ const HEIGHT_CM = '175';
 const VISION_LEFT = '2.5';
 const VISION_RIGHT = '3.1';
 
+const SCHEDULED_MEDICATION_A: MedicationInfo = {
+  name: 'Warfarin Sodium  Powder',
+  dose: '1 mg',
+  date: '11/28/2025 01:00 PM',
+};
+
+const SCHEDULED_MEDICATION_B: MedicationInfo = {
+  name: 'Albuterol Sulfate  Powder',
+  dose: '10 g',
+  date: '01/01/2025 03:00 PM',
+};
+
+const AS_NEEDED_MEDICATION_C: MedicationInfo = {
+  name: 'Water Oral Oral Liquid',
+  dose: '2 mg',
+  date: '02/02/2025 02:00 PM',
+};
+
+const AS_NEEDED_MEDICATION_D: MedicationInfo = {
+  name: 'Banana Cream Flavor  Liquid',
+  dose: '5 mg',
+  date: '03/03/2025 05:00 PM',
+};
+
+const MEDICATION_NOTE_1 = 'Test medication note 1';
+const MEDICATION_NOTE_2 = 'Test medication note 2';
+const MEDICATION_NOTE_1_EDITED = 'Test medication note 1 edited';
+
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 test.describe('In-Person Visit Chart Data', async () => {
@@ -80,6 +109,7 @@ test.describe('In-Person Visit Chart Data', async () => {
   });
 
   let allergyPage: AllergiesPage;
+  let medicationsPage: MedicationsPage;
   let medicalConditionsPage: MedicalConditionsPage;
   let surgicalHistoryPage: SurgicalHistoryPage;
   let hospitalizationPage: HospitalizationPage;
@@ -96,6 +126,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         sideMenu = new SideMenu(page);
         await sideMenu.clickAllergies();
         allergyPage = new AllergiesPage(page);
+        medicationsPage = new MedicationsPage(page);
         medicalConditionsPage = new MedicalConditionsPage(page);
         surgicalHistoryPage = new SurgicalHistoryPage(page);
         hospitalizationPage = new HospitalizationPage(page);
@@ -107,6 +138,19 @@ test.describe('In-Person Visit Chart Data', async () => {
         });
         await test.step('ALG-1.2 Check added allergy is shown in In-Person header', async () => {
           await allergyPage.checkAddedAllergyIsShownInHeader(ALLERGY);
+        });
+      });
+
+      test('Medications', async () => {
+        const practitionerName = await getCurrentPractitionerFirstLastName();
+        await sideMenu.clickMedications();
+        await test.step('MED-1.1 Add Medications', async () => {
+          await medicationsPage.addMedication(SCHEDULED_MEDICATION_A, practitionerName, 'scheduled');
+          await medicationsPage.addMedication(SCHEDULED_MEDICATION_B, practitionerName, 'scheduled');
+          await medicationsPage.addMedication(AS_NEEDED_MEDICATION_C, practitionerName, 'as-needed');
+          await medicationsPage.addMedication(AS_NEEDED_MEDICATION_D, practitionerName, 'as-needed');
+          await medicationsPage.addMedicationNote(MEDICATION_NOTE_1);
+          await medicationsPage.addMedicationNote(MEDICATION_NOTE_2);
         });
       });
 
@@ -172,6 +216,15 @@ test.describe('In-Person Visit Chart Data', async () => {
         await progressNotePage.verifyAddedAllergyIsShown(ALLERGY);
       });
 
+      test('MED-1.2 Verify Progress Note shows medications', async () => {
+        await progressNotePage.verifyMedication(SCHEDULED_MEDICATION_A.name);
+        await progressNotePage.verifyMedication(SCHEDULED_MEDICATION_B.name);
+        await progressNotePage.verifyMedication(AS_NEEDED_MEDICATION_C.name);
+        await progressNotePage.verifyMedication(AS_NEEDED_MEDICATION_D.name);
+        await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_1);
+        await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_2);
+      });
+
       test('MC-1.2 Verify Progress Note shows Medical Condition', async () => {
         await progressNotePage.verifyAddedMedicalConditionIsShown(MEDICAL_CONDITION);
       });
@@ -228,6 +281,14 @@ test.describe('In-Person Visit Chart Data', async () => {
         await test.step('ALG-1.5 Check removed allergy is not shown in In-Person header', async () => {
           await allergyPage.checkRemovedAllergyIsNotShownInHeader(ALLERGY);
         });
+      });
+
+      test('MED-1.3 Perform changes on Medications page', async () => {
+        await sideMenu.clickMedications();
+        await medicationsPage.removeMedication({ ...SCHEDULED_MEDICATION_A }, 'scheduled');
+        await medicationsPage.removeMedication({ ...AS_NEEDED_MEDICATION_C }, 'as-needed');
+        await medicationsPage.editMedicationNote(MEDICATION_NOTE_1, MEDICATION_NOTE_1_EDITED);
+        await medicationsPage.deleteMedicationNote(MEDICATION_NOTE_2);
       });
 
       test('MC-1.3 Open Medical Conditions page and Remove Medical Condition', async () => {
@@ -294,6 +355,15 @@ test.describe('In-Person Visit Chart Data', async () => {
         await progressNotePage.verifyRemovedAllergyIsNotShown(ALLERGY);
       });
 
+      test('MED-1.4 Verify medications changed data on Progress note', async () => {
+        await progressNotePage.verifyMedication(SCHEDULED_MEDICATION_B.name);
+        await progressNotePage.verifyMedication(AS_NEEDED_MEDICATION_D.name);
+        await progressNotePage.verifyMedicationNotShown(SCHEDULED_MEDICATION_A.name);
+        await progressNotePage.verifyMedicationNotShown(AS_NEEDED_MEDICATION_C.name);
+        await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_1_EDITED);
+        await progressNotePage.verifyMedicationNoteNotShown(MEDICATION_NOTE_2);
+      });
+
       test('MC-1.4 Verify Progress Note does not show removed Medical Condition', async () => {
         await progressNotePage.verifyRemovedMedicalConditionIsNotShown(MEDICAL_CONDITION);
       });
@@ -353,6 +423,7 @@ test.describe('In-Person Visit Chart Data', async () => {
     const HEIGHT_CM = '175';
     const VISION_LEFT = '2.5';
     const VISION_RIGHT = '3.1';
+    const LMP_DATE = '01/15/2024';
 
     let vitalsPage: VitalsPage;
 
@@ -425,6 +496,20 @@ test.describe('In-Person Visit Chart Data', async () => {
         await waitForSaveChartDataResponse(page);
         await vitalsPage.checkAddedVisionObservationInHistory(VISION_LEFT, VISION_RIGHT);
       });
+
+      await test.step('VIT-1.10 Add last menstrual period observation', async () => {
+        await vitalsPage.addLastMenstrualPeriodObservation(LMP_DATE);
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkAddedLastMenstrualPeriodObservationInHistory(LMP_DATE);
+        await vitalsPage.checkAddedLastMenstrualPeriodIsShownInHeader(LMP_DATE);
+      });
+
+      await test.step('VIT-1.11 Add last menstrual period observation with Unsure', async () => {
+        await vitalsPage.addLastMenstrualPeriodObservationUnsure();
+        await waitForSaveChartDataResponse(page);
+        await vitalsPage.checkUnsureInHistory();
+        await vitalsPage.checkAddedLastMenstrualPeriodUnsureIsShownInHeader();
+      });
     });
 
     test('Verify all vitals in progress note', async () => {
@@ -470,6 +555,14 @@ test.describe('In-Person Visit Chart Data', async () => {
       await test.step('VIT-2.9 Verify vision in progress note', async () => {
         expect(vitalsText).toContain(VISION_LEFT);
         expect(vitalsText).toContain(VISION_RIGHT);
+      });
+
+      await test.step('VIT-2.10 Verify last menstrual period in progress note', async () => {
+        expect(vitalsText).toContain(LMP_DATE);
+      });
+
+      await test.step('VIT-2.11 Verify Unsure in progress note', async () => {
+        expect(vitalsText).toContain('Unsure');
       });
 
       await sideMenu.clickVitals();
@@ -542,6 +635,22 @@ test.describe('In-Person Visit Chart Data', async () => {
 
         await expect(
           page.getByText(new RegExp(`Vision Left eye: ${VISION_LEFT}; Right eye: ${VISION_RIGHT}`))
+        ).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
+
+      await test.step('VIT-3.10 Delete Unsure last menstrual period observation', async () => {
+        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory('Unsure');
+        await waitForChartDataDeletion(page);
+        await expect(
+          page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText('Unsure')
+        ).not.toBeVisible(DEFAULT_TIMEOUT);
+      });
+
+      await test.step('VIT-3.11 Delete last menstrual period observation', async () => {
+        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(LMP_DATE);
+        await waitForChartDataDeletion(page);
+        await expect(
+          page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText(LMP_DATE)
         ).not.toBeVisible(DEFAULT_TIMEOUT);
       });
     });
@@ -1154,4 +1263,9 @@ async function openVisit(page: Page): Promise<void> {
   const inPersonHeader = new InPersonHeader(page);
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
+}
+
+async function getCurrentPractitionerFirstLastName(): Promise<string> {
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+  return getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner);
 }

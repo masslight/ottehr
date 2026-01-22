@@ -7,6 +7,7 @@ import {
   EmailTemplate,
   ErrorReportTemplateData,
   getSecret,
+  getSupportPhoneFor,
   InPersonCancelationTemplateData,
   InPersonCompletionTemplateData,
   InPersonConfirmationTemplateData,
@@ -99,17 +100,8 @@ class EmailClient {
 
     const projectDomain = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
-    const {
-      supportPhoneNumber: defaultSupportPhoneNumber,
-      locationSupportPhoneNumberMap,
-      sender,
-      replyTo: configReplyTo,
-      ...emailRest
-    } = baseEmail;
-    let supportPhoneNumber = defaultSupportPhoneNumber;
-    if (locationSupportPhoneNumberMap && (templateData as any).location) {
-      supportPhoneNumber = locationSupportPhoneNumberMap[(templateData as any).location] || defaultSupportPhoneNumber;
-    }
+    const { sender, replyTo: configReplyTo, ...emailRest } = baseEmail;
+    const supportPhoneNumber = getSupportPhoneFor((templateData as any).location);
 
     const fromEmail = ENVIRONMENT !== 'local' ? sender : defaultLowersFromEmail;
     const replyTo = ENVIRONMENT !== 'local' ? configReplyTo : defaultLowersFromEmail;

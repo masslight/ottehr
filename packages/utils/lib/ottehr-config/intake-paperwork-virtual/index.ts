@@ -1,7 +1,9 @@
 import { Questionnaire } from 'fhir/r4b';
+import { camelCase } from 'lodash-es';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
+import { getConsentFormsForLocation } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
@@ -57,6 +59,8 @@ SOURCE QUESTIONNAIRE CONTEXT
 
 
 */
+
+const resolvedConsentForms = getConsentFormsForLocation();
 
 const FormFields = {
   contactInformation: {
@@ -322,15 +326,111 @@ const FormFields = {
     linkId: 'pharmacy-page',
     title: 'Preferred pharmacy',
     items: {
+      pharmacyCollection: {
+        key: 'pharmacy-collection',
+        text: 'Pharmacy',
+        type: 'group',
+        groupType: 'pharmacy-collection',
+        items: {
+          pharmacyPlacesId: {
+            key: 'pharmacy-places-id',
+            label: 'places id',
+            type: 'string',
+          },
+          pharmacyPlacesName: {
+            key: 'pharmacy-places-name',
+            label: 'places name',
+            type: 'string',
+          },
+          pharmacyPlacesAddress: {
+            key: 'pharmacy-places-address',
+            label: 'places address',
+            type: 'string',
+          },
+          pharmacyPlacesSaved: {
+            key: 'pharmacy-places-saved',
+            label: 'places saved',
+            type: 'boolean',
+          },
+          erxPharmacyId: {
+            key: 'erx-pharmacy-id',
+            label: 'erx pharmacy id',
+            type: 'string',
+          },
+        },
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+      },
+      manualEntry: {
+        key: 'pharmacy-page-manual-entry',
+        label: "Can't find? Add manually",
+        type: 'boolean',
+        element: 'Link',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-collection.pharmacy-places-saved',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['sub-text'],
+            operator: '=',
+            answerBoolean: true,
+            substituteText: 'Use search',
+          },
+        ],
+      },
       name: {
         key: 'pharmacy-name',
         label: 'Pharmacy name',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
       },
       address: {
         key: 'pharmacy-address',
         label: 'Pharmacy address',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
       },
     },
     hiddenFields: [],
@@ -2137,48 +2237,23 @@ const FormFields = {
     ],
     enableBehavior: 'all',
     items: {
-      hipaaAcknowledgement: {
-        key: 'hipaa-acknowledgement',
-        label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-      },
-      consentToTreat: {
-        key: 'consent-to-treat',
-        label:
-          'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
+      checkboxGroup: {
+        key: 'consent-forms-checkbox-group',
+        type: 'group',
+        items: {
+          ...Object.fromEntries(
+            resolvedConsentForms.map((form) => [
+              camelCase(form.id),
+              {
+                key: form.id,
+                label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
+                type: 'boolean',
+                permissibleValue: true,
+              },
+            ])
+          ),
+        },
+        requiredFields: [...resolvedConsentForms.map((f) => f.id)],
       },
       signature: {
         key: 'signature',
@@ -2215,13 +2290,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: [
-      'hipaa-acknowledgement',
-      'consent-to-treat',
-      'signature',
-      'full-name',
-      'consent-form-signer-relationship',
-    ],
+    requiredFields: ['signature', 'full-name', 'consent-form-signer-relationship'],
   },
   inviteParticipant: {
     linkId: 'invite-participant-page',
@@ -2382,7 +2451,7 @@ const INTAKE_PAPERWORK_DEFAULTS = {
   FormFields,
 };
 
-const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(OVERRIDES, INTAKE_PAPERWORK_DEFAULTS);
+const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, OVERRIDES);
 
 const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,

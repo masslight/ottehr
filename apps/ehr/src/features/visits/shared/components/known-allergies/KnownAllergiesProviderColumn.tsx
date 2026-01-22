@@ -19,7 +19,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { AllergyDTO } from 'utils';
+import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -31,6 +31,7 @@ import {
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
+import { SelectFromFavoritesButton } from '../medical-history-tab/SelectFromFavoritesButton';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const KnownAllergiesProviderColumn: FC = () => {
@@ -316,6 +317,16 @@ const AddAllergyField: FC = () => {
     }
   };
 
+  const handleFavoriteSelect = async (
+    favorite: (typeof MEDICAL_HISTORY_CONFIG.allergies.favorites)[number]
+  ): Promise<void> => {
+    const favoriteAsAllergy: ExtractObjectType<ErxSearchAllergensResponse> = {
+      name: favorite.name,
+      id: favorite.id,
+    } as ExtractObjectType<ErxSearchAllergensResponse>;
+    await handleSelectOption(favoriteAsAllergy);
+  };
+
   const onSubmitForm = async (data: {
     value: ExtractObjectType<ErxSearchAllergensResponse> | null;
     otherAllergyName: string;
@@ -342,6 +353,12 @@ const AddAllergyField: FC = () => {
           gap: 2,
         }}
       >
+        <SelectFromFavoritesButton
+          favorites={MEDICAL_HISTORY_CONFIG.allergies.favorites}
+          getLabel={(favorite) => favorite.name}
+          onSelect={handleFavoriteSelect}
+          disabled={isChartDataLoading || isLoading}
+        />
         <Controller
           name="value"
           control={control}

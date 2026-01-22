@@ -2,6 +2,7 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
 import { UploadDocs } from 'tests/utils/UploadDocs';
 import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLocation } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
@@ -274,6 +275,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
   });
 
   test('PRS-13. Edit icon opens additional questions page', async () => {
+    test.skip(!QuestionnaireHelper.hasVirtualAdditionalPage(), 'Additional questions page is hidden via config');
     await test.step('PRS-13.1. Open Review and submit page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkCorrectPageOpens('Review and submit');
@@ -288,6 +290,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
   });
 
   test('PRS-14. Edit icon opens patient condition page', async () => {
+    test.skip(!QuestionnaireHelper.hasVirtualPatientConditionPage(), 'Patient condition page is hidden via config');
     await test.step('PRS-14.1. Open Review and submit page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkCorrectPageOpens('Review and submit');
@@ -302,6 +305,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
   });
 
   test('PRS-15. Edit icon opens school/work notes page', async () => {
+    test.skip(!QuestionnaireHelper.hasVirtualSchoolWorkNotePage(), 'School/work note page is hidden via config');
     await test.step('PRS-15.1. Open Review and submit page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkCorrectPageOpens('Review and submit');

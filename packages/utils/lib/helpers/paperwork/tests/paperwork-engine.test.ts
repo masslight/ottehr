@@ -1,4 +1,10 @@
-import { Extension, Questionnaire, QuestionnaireItem, QuestionnaireItemEnableWhen } from 'fhir/r4b';
+import {
+  Extension,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireItemEnableWhen,
+  QuestionnaireResponse,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { assert, describe, expect, it } from 'vitest';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir';
@@ -1296,6 +1302,168 @@ describe('Conditional logic', () => {
       assert(conditionalExactlyQuestion != undefined);
       const enabled = evalEnableWhen(conditionalExactlyQuestion, structuredItems, formValues);
       expect(enabled).toBe(false);
+    });
+
+    it('not enabled when $status enableWhen condition is not satisfied - status completed', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, completedQR);
+      expect(enabled).toBe(false);
+    });
+
+    it('not enabled when $status enableWhen condition is not satisfied - status amended', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      const amendedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'amended',
+      };
+
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, amendedQR);
+      expect(enabled).toBe(false);
+    });
+
+    it('enabled when $status enableWhen condition is satisfied - status in-progress', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      const inProgressQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'in-progress',
+      };
+
+      const enabled = evalEnableWhen(
+        itemWithStatusCondition as any,
+        [itemWithStatusCondition as any],
+        {},
+        inProgressQR
+      );
+      expect(enabled).toBe(true);
+    });
+
+    it('not enabled when $status enableWhen uses = operator and status does not match', () => {
+      const itemWithStatusCondition = {
+        linkId: 'new-patient-only-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '=',
+            answerString: 'in-progress',
+          },
+        ],
+        item: [{ linkId: 'some-field', type: 'string' }],
+      };
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, completedQR);
+      expect(enabled).toBe(false);
+    });
+
+    it('enabled when $status enableWhen uses = operator and status matches', () => {
+      const itemWithStatusCondition = {
+        linkId: 'new-patient-only-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '=',
+            answerString: 'in-progress',
+          },
+        ],
+        item: [{ linkId: 'some-field', type: 'string' }],
+      };
+
+      const inProgressQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'in-progress',
+      };
+
+      const enabled = evalEnableWhen(
+        itemWithStatusCondition as any,
+        [itemWithStatusCondition as any],
+        {},
+        inProgressQR
+      );
+      expect(enabled).toBe(true);
+    });
+
+    it('enabled when no QuestionnaireResponse is provided (no $status check possible)', () => {
+      const itemWithStatusCondition = {
+        linkId: 'consent-forms-page',
+        type: 'group',
+        enableWhen: [
+          {
+            question: '$status',
+            operator: '!=',
+            answerString: 'completed',
+          },
+        ],
+        item: [{ linkId: 'some-required-field', type: 'string', required: true }],
+      };
+
+      // When no QR is provided, status is undefined, so != 'completed' should be true
+      const enabled = evalEnableWhen(itemWithStatusCondition as any, [itemWithStatusCondition as any], {}, undefined);
+      expect(enabled).toBe(true);
     });
   });
   describe('requireWhen tests', () => {

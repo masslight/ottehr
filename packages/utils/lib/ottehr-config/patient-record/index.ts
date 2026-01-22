@@ -774,7 +774,7 @@ const FormFields = {
         targetQuestionLinkId: 'patient-summary.appointment-service-category',
         effect: ['enable'],
         operator: '=',
-        answerString: 'workers-compensation',
+        answerString: 'workers-comp',
       },
       {
         targetQuestionLinkId: 'patient-summary.appointment-service-category',
@@ -919,7 +919,7 @@ const PATIENT_RECORD_DEFAULTS = {
   FormFields,
 };
 
-const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(OVERRIDES, PATIENT_RECORD_DEFAULTS);
+const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(PATIENT_RECORD_DEFAULTS, OVERRIDES);
 
 const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,

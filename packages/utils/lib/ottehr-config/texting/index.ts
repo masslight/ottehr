@@ -9,6 +9,9 @@ const TEXTING_DEFAULTS_BASE = Object.freeze({
       "Thank you for visiting <clinic>! 💳 If we have your card on file, it will be billed on <due-date>, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date.",
     dueDateInDays: 30,
   },
+  telemed: {
+    inviteSms: `You have been invited to join a telemedicine visit with <patientName>. Please click <inviteUrl> to join.`,
+  },
 });
 
 type TextingDefaults = typeof TEXTING_DEFAULTS_BASE;
