@@ -773,8 +773,8 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       resourceType: 'Task',
       params: [
         {
-          name: 'status',
-          value: 'requested',
+          name: 'status:not',
+          value: 'cancelled',
         },
         {
           name: '_lastUpdated',
@@ -782,7 +782,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
         },
         {
           name: '_include',
-          value: 'Task:owner:Practitioner',
+          value: 'Task:owner',
         },
       ],
     })
