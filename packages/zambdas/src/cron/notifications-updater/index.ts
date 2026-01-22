@@ -809,7 +809,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
         ? DateTime.fromISO(assignedDateTimeExt.valueDateTime)
         : null;
 
-      if (assignedDateTime && assignedDateTime <= fromDate) {
+      if (assignedDateTime && assignedDateTime >= fromDate) {
         const practitionerId = removePrefix('Practitioner/', task.owner.reference);
         if (practitionerId && practitionerIdMap[practitionerId]) {
           resultMap[task.id!] = {
