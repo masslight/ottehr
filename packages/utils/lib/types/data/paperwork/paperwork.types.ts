@@ -362,6 +362,7 @@ export interface SubmitPaperworkParameters {
 export interface PatchPaperworkParameters {
   answers: QuestionnaireResponseItem;
   questionnaireResponseId: string;
+  appointmentId?: string;
 }
 
 interface ComplexValidationBaseCase {

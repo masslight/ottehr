@@ -448,6 +448,7 @@ export const PaperworkPage: FC = () => {
             const updatedPaperwork = await api.patchPaperwork(zambdaClient, {
               answers: { linkId: currentPage.linkId, item },
               questionnaireResponseId,
+              appointmentId: appointmentID,
             });
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);

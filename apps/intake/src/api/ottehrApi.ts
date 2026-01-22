@@ -172,10 +172,11 @@ class API {
       if (PATCH_PAPERWORK_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('update appointment environment variable could not be loaded');
       }
-      const { answers, questionnaireResponseId } = parameters;
+      const { answers, questionnaireResponseId, appointmentId } = parameters;
       const response = await zambdaClient.executePublic(PATCH_PAPERWORK_ZAMBDA_ID, {
         answers,
         questionnaireResponseId,
+        appointmentId,
       });
 
       const jsonToUse = chooseJson(response);
