@@ -243,6 +243,28 @@ function calculateMedian(values: number[]): number | null {
   }
 }
 
+// Helper function to calculate average from an array of numbers
+function calculateAverage(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sum = values.reduce((acc, val) => acc + val, 0);
+  return Math.round((sum / values.length) * 100) / 100;
+}
+
+// Helper function to calculate both average and median from an array of numbers
+function calculateAverageAndMedian(values: number[]): { average: number | null; median: number | null } {
+  if (values.length === 0) {
+    return { average: null, median: null };
+  }
+
+  const average = calculateAverage(values);
+  const median = calculateMedian(values);
+
+  return {
+    average,
+    median: median !== null ? Math.round(median * 100) / 100 : null,
+  };
+}
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let validatedParameters;
   try {
@@ -534,81 +556,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
         if (metricsData && metricsData.arrivedDurations.length > 0) {
           // Calculate arrived to ready average and median
-          const arrivedSum = metricsData.arrivedDurations.reduce((acc, val) => acc + val, 0);
-          const arrivedAverage = arrivedSum / metricsData.arrivedDurations.length;
-          const arrivedMedian = calculateMedian(metricsData.arrivedDurations);
+          const { average: arrivedAverage, median: arrivedMedian } = calculateAverageAndMedian(
+            metricsData.arrivedDurations
+          );
 
           // Calculate arrived to discharged average and median
-          let arrivedToDischargedAverage: number | null = null;
-          let arrivedToDischargedMedian: number | null = null;
-          if (metricsData.arrivedToDischargedDurations.length > 0) {
-            const dischargedSum = metricsData.arrivedToDischargedDurations.reduce((acc, val) => acc + val, 0);
-            arrivedToDischargedAverage =
-              Math.round((dischargedSum / metricsData.arrivedToDischargedDurations.length) * 100) / 100;
-            arrivedToDischargedMedian = calculateMedian(metricsData.arrivedToDischargedDurations);
-            if (arrivedToDischargedMedian !== null) {
-              arrivedToDischargedMedian = Math.round(arrivedToDischargedMedian * 100) / 100;
-            }
-          }
+          const { average: arrivedToDischargedAverage, median: arrivedToDischargedMedian } = calculateAverageAndMedian(
+            metricsData.arrivedToDischargedDurations
+          );
 
           // Calculate arrived to intake average and median
-          let arrivedToIntakeAverage: number | null = null;
-          let arrivedToIntakeMedian: number | null = null;
-          if (metricsData.arrivedToIntakeDurations.length > 0) {
-            const intakeSum = metricsData.arrivedToIntakeDurations.reduce((acc: number, val: number) => acc + val, 0);
-            arrivedToIntakeAverage = Math.round((intakeSum / metricsData.arrivedToIntakeDurations.length) * 100) / 100;
-            arrivedToIntakeMedian = calculateMedian(metricsData.arrivedToIntakeDurations);
-            if (arrivedToIntakeMedian !== null) {
-              arrivedToIntakeMedian = Math.round(arrivedToIntakeMedian * 100) / 100;
-            }
-          }
+          const { average: arrivedToIntakeAverage, median: arrivedToIntakeMedian } = calculateAverageAndMedian(
+            metricsData.arrivedToIntakeDurations
+          );
 
           // Calculate ready to intake average and median
-          let readyToIntakeAverage: number | null = null;
-          let readyToIntakeMedian: number | null = null;
-          if (metricsData.readyToIntakeDurations.length > 0) {
-            const readyIntakeSum = metricsData.readyToIntakeDurations.reduce(
-              (acc: number, val: number) => acc + val,
-              0
-            );
-            readyToIntakeAverage = Math.round((readyIntakeSum / metricsData.readyToIntakeDurations.length) * 100) / 100;
-            readyToIntakeMedian = calculateMedian(metricsData.readyToIntakeDurations);
-            if (readyToIntakeMedian !== null) {
-              readyToIntakeMedian = Math.round(readyToIntakeMedian * 100) / 100;
-            }
-          }
+          const { average: readyToIntakeAverage, median: readyToIntakeMedian } = calculateAverageAndMedian(
+            metricsData.readyToIntakeDurations
+          );
 
           // Calculate intake to provider average and median
-          let intakeToProviderAverage: number | null = null;
-          let intakeToProviderMedian: number | null = null;
-          if (metricsData.intakeToProviderDurations.length > 0) {
-            const intakeProviderSum = metricsData.intakeToProviderDurations.reduce(
-              (acc: number, val: number) => acc + val,
-              0
-            );
-            intakeToProviderAverage =
-              Math.round((intakeProviderSum / metricsData.intakeToProviderDurations.length) * 100) / 100;
-            intakeToProviderMedian = calculateMedian(metricsData.intakeToProviderDurations);
-            if (intakeToProviderMedian !== null) {
-              intakeToProviderMedian = Math.round(intakeToProviderMedian * 100) / 100;
-            }
-          }
+          const { average: intakeToProviderAverage, median: intakeToProviderMedian } = calculateAverageAndMedian(
+            metricsData.intakeToProviderDurations
+          );
 
           // Calculate arrived to provider average and median
-          let arrivedToProviderAverage: number | null = null;
-          let arrivedToProviderMedian: number | null = null;
-          if (metricsData.arrivedToProviderDurations.length > 0) {
-            const providerSum = metricsData.arrivedToProviderDurations.reduce(
-              (acc: number, val: number) => acc + val,
-              0
-            );
-            arrivedToProviderAverage =
-              Math.round((providerSum / metricsData.arrivedToProviderDurations.length) * 100) / 100;
-            arrivedToProviderMedian = calculateMedian(metricsData.arrivedToProviderDurations);
-            if (arrivedToProviderMedian !== null) {
-              arrivedToProviderMedian = Math.round(arrivedToProviderMedian * 100) / 100;
-            }
-          }
+          const { average: arrivedToProviderAverage, median: arrivedToProviderMedian } = calculateAverageAndMedian(
+            metricsData.arrivedToProviderDurations
+          );
 
           // Calculate percentage of visits with arrived to provider < 15 minutes
           let arrivedToProviderUnder15Percent: number | null = null;
@@ -627,20 +602,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }
 
           // Calculate provider to discharged average and median
-          let providerToDischargedAverage: number | null = null;
-          let providerToDischargedMedian: number | null = null;
-          if (metricsData.providerToDischargedDurations.length > 0) {
-            const providerToDischargedSum = metricsData.providerToDischargedDurations.reduce(
-              (acc, val) => acc + val,
-              0
-            );
-            providerToDischargedAverage =
-              Math.round((providerToDischargedSum / metricsData.providerToDischargedDurations.length) * 100) / 100;
-            providerToDischargedMedian = calculateMedian(metricsData.providerToDischargedDurations);
-            if (providerToDischargedMedian !== null) {
-              providerToDischargedMedian = Math.round(providerToDischargedMedian * 100) / 100;
-            }
-          }
+          const { average: providerToDischargedAverage, median: providerToDischargedMedian } =
+            calculateAverageAndMedian(metricsData.providerToDischargedDurations);
 
           // Calculate on-time percentage for pre-booked appointments
           let onTimePercent: number | null = null;
@@ -658,8 +621,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           return {
             locationName,
             locationId,
-            arrivedToReadyAverage: Math.round(arrivedAverage * 100) / 100,
-            arrivedToReadyMedian: arrivedMedian !== null ? Math.round(arrivedMedian * 100) / 100 : null,
+            arrivedToReadyAverage: arrivedAverage,
+            arrivedToReadyMedian: arrivedMedian,
             arrivedToDischargedAverage,
             arrivedToDischargedMedian,
             arrivedToIntakeAverage,
