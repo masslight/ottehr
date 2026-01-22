@@ -824,24 +824,12 @@ export class Paperwork {
     await this.locator.selfPayOption.check();
   }
   async fillAndAddCreditCardIfDoesntExist(): Promise<void> {
-    // Check if card is already added by looking for saved card in radio group
-    const savedCard = this.page.getByTestId(dataTestIds.cardNumber).first();
-    const isCardAlreadyAdded = await savedCard.isVisible().catch(() => false);
-
-    if (isCardAlreadyAdded) {
-      // Card already exists, no need to add
-      return;
-    }
-
-    // Card doesn't exist, fill form and add it
+    if (await this.page.getByText(CARD_NUMBER_OBSCURED).first().isVisible({ timeout: 500 })) return;
     await this.locator.creditCardNumber.fill(CARD_NUMBER);
     await this.locator.creditCardCVC.fill(CARD_CVV);
     await this.locator.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locator.addCardButton.click();
-
-    // Wait for saved card to appear in radio group (Stripe processing + backend save + UI update)
-    // Create fresh locator after click to ensure we're looking at updated DOM
-    await expect(this.page.getByTestId(dataTestIds.cardNumber).first()).toBeVisible({ timeout: 60000 });
+    await expect(this.page.getByText(CARD_NUMBER_OBSCURED).first()).toBeVisible();
   }
   async selectInsurancePayment(): Promise<void> {
     await this.locator.insuranceOption.check();
