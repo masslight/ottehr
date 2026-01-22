@@ -557,7 +557,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                           variant="contained"
                         >
                           <AddIcon />
-                          <Typography fontWeight="bold">Add patient</Typography>
+                          <Typography fontWeight="bold">Visit</Typography>
                         </Button>
                       </Link>
                     </Grid>
@@ -579,7 +579,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   variant="contained"
                 >
                   <AddIcon />
-                  <Typography fontWeight="bold">Add patient</Typography>
+                  <Typography fontWeight="bold">Visit</Typography>
                 </Button>
               </Link>
             </Box>

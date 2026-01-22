@@ -120,14 +120,20 @@ export class AddPatientPage {
     await buttonLocator.click();
     return (await buttonLocator.textContent()) ?? '';
   }
+
   async clickCloseSelectDateWarningDialog(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+  }
+
+  async selectServiceCategory(serviceCategory: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown).click();
+    await this.#page.getByText(serviceCategory).click();
   }
 }
 
 export async function expectAddPatientPage(page: Page): Promise<AddPatientPage> {
   await page.waitForURL(`/visits/add`);
-  await expect(page.locator('h3').getByText('Add Patient')).toBeVisible();
+  await expect(page.locator('h3').getByText('Add Visit')).toBeVisible();
   return new AddPatientPage(page);
 }
 

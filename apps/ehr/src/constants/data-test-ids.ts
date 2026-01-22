@@ -52,7 +52,7 @@ export const dataTestIds = {
     changeStatusDropdown: 'change-status-dropdown-in-appointment-page',
   },
   addPatientPage: {
-    locationHeader: 'location-header',
+    pageTitle: 'page-title',
     mobilePhoneInput: 'mobile-phone-input',
     searchForPatientsButton: 'search-for-patients-button',
     addButton: 'add-button',
@@ -63,6 +63,7 @@ export const dataTestIds = {
     sexAtBirthDropdown: 'sex-at-birth-dropdown',
     reasonForVisitDropdown: 'reason-for-visit-dropdown',
     visitTypeDropdown: 'visit-type-dropdown',
+    serviceCategoryDropdown: ' service-category-dropdown',
     dateFormatValidationError: 'date-format-validation-error',
     prefillForButton: 'prefill-for-button',
     prefilledPatientName: 'prefilled-patient-name',
