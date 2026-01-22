@@ -14,6 +14,7 @@ import {
   SURGICAL_HISTORY_PRESENT_LABEL,
 } from '../locators';
 import { CARD_CVV, CARD_EXP_DATE, CARD_NUMBER, CARD_NUMBER_OBSCURED } from '../Paperwork';
+import { QuestionnaireHelper } from '../QuestionnaireHelper';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
 
@@ -232,8 +233,11 @@ export class PaperworkTelemed {
 
     await this.checkFilledSurgicalHistory([filledValue, selectedValue]);
 
+    const nextPageHeading = QuestionnaireHelper.hasVirtualAdditionalPage()
+      ? 'Additional questions'
+      : 'How would you like to pay for your visit?';
     await this.nextBackClick(async () => {
-      await this.page.getByRole('heading', { name: 'Additional questions', level: 2 }).waitFor({ state: 'visible' });
+      await this.page.getByRole('heading', { name: nextPageHeading, level: 2 }).waitFor({ state: 'visible' });
     });
     await expect(this.page.getByRole('heading', { name: 'Surgical history', level: 2 })).toBeVisible();
 

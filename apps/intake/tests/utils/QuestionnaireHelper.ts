@@ -162,4 +162,28 @@ export class QuestionnaireHelper {
   static hasVirtualPointOfDiscoveryField(): boolean {
     return QuestionnaireHelper.virtualQuestionnaireHasItem('patient-point-of-discovery');
   }
+
+  /**
+   * Checks if the additional questions page exists in the virtual questionnaire.
+   * This page may be hidden via hiddenFormSections config.
+   */
+  static hasVirtualAdditionalPage(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('additional-page');
+  }
+
+  /**
+   * Checks if the school/work note page exists in the virtual questionnaire.
+   * This page may be hidden via hiddenFormSections config.
+   */
+  static hasVirtualSchoolWorkNotePage(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('school-work-note-page');
+  }
+
+  /**
+   * Checks if the patient condition page exists in the virtual questionnaire.
+   * This page may be hidden via hiddenFormSections config.
+   */
+  static hasVirtualPatientConditionPage(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('patient-condition-page');
+  }
 }

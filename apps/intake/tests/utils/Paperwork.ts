@@ -564,17 +564,21 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
-    await this.checkCorrectPageOpens('Patient condition');
     let uploadedPhotoCondition: Locator | null = null;
-    if (!requiredOnly) {
-      uploadedPhotoCondition = await this.uploadPhoto.fillPatientConditionPhotoPaperwork();
+    if (QuestionnaireHelper.hasVirtualPatientConditionPage()) {
+      await this.checkCorrectPageOpens('Patient condition');
+      if (!requiredOnly) {
+        uploadedPhotoCondition = await this.uploadPhoto.fillPatientConditionPhotoPaperwork();
+      }
+      await this.locator.clickContinueButton();
     }
-    await this.locator.clickContinueButton();
 
-    await this.checkCorrectPageOpens('Do you need a school or work note?');
-    // todo why not add a school/work note for completion?
-    await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
-    await this.locator.clickContinueButton();
+    if (QuestionnaireHelper.hasVirtualSchoolWorkNotePage()) {
+      await this.checkCorrectPageOpens('Do you need a school or work note?');
+      // todo why not add a school/work note for completion?
+      await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
+      await this.locator.clickContinueButton();
+    }
 
     await this.checkCorrectPageOpens('Complete consent forms');
     await this.fillConsentForms();
