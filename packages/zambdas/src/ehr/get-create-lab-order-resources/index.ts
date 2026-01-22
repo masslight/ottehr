@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Coverage, Location, Organization } from 'fhir/r4b';
 import {
   CODE_SYSTEM_COVERAGE_CLASS,
+  CPTCodeOption,
   CreateLabCoverageInfo,
   EXTERNAL_LAB_ERROR,
   ExternalLabOrderingLocations,
@@ -16,6 +17,7 @@ import {
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
   SecretsKeys,
+  VALUE_SETS,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -55,9 +57,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       labs = await getLabs(labOrgsGUIDs, testItemSearch, m2mToken);
     }
 
+    // not every instance will have values for this
+    let additionalCptCodes: CPTCodeOption[] | undefined = undefined;
+    const additionalCptCodeToInclude = VALUE_SETS.externalLabAdditionalCptCodesToAdd;
+    if (additionalCptCodeToInclude && additionalCptCodeToInclude.length > 0) {
+      additionalCptCodes = additionalCptCodeToInclude.map((coding: any) => {
+        const cpt: CPTCodeOption = {
+          code: coding.value,
+          display: coding.label,
+        };
+        return cpt;
+      });
+    }
+
     const response: LabOrderResourcesRes = {
       coverages: coverageInfo,
       labs,
+      additionalCptCodes,
       ...orderingLocationDetails,
     };
 
