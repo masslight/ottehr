@@ -369,7 +369,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           }
         }
       } catch (error) {
-        console.error(`2026-01-21: Error trying to process task assignment notification for task ${taskId}`, error);
+        console.error(`Error trying to process task assignment notification for task ${taskId}`, error);
         captureException(error);
       }
     });
@@ -787,7 +787,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       ],
     })
   ).unbundle();
-  console.log('bundle.length', bundle.length);
+  console.log('2026-01-22: bundle', JSON.stringify(bundle));
   const resultMap: RecentlyAssignedTasksMap = {};
   const practitionerIdMap: { [key: string]: Practitioner } = {};
   const tasks: Task[] = [];
@@ -799,19 +799,28 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       tasks.push(res as Task);
     }
   });
-  console.log('tasks.length', tasks.length);
+  console.log('2026-01-22: practitionerIdMap', JSON.stringify(practitionerIdMap));
+  console.log('2026-01-22: tasks', JSON.stringify(tasks));
   tasks.forEach((task) => {
+    console.log('2026-01-22: task', task.id);
     if (task.owner?.reference) {
+      console.log('2026-01-22: task has owner');
       const assignedDateTimeExt = task.owner.extension?.find(
         (ext) => ext.url === TASK_ASSIGNED_DATE_TIME_EXTENSION_URL
       );
+      console.log('2026-01-22: assignedDateTimeExt', JSON.stringify(assignedDateTimeExt));
       const assignedDateTime = assignedDateTimeExt?.valueDateTime
         ? DateTime.fromISO(assignedDateTimeExt.valueDateTime)
         : null;
+      console.log('2026-01-22: assignedDateTime', JSON.stringify(assignedDateTime));
+      console.log('2026-01-22: fromDate', fromDate);
 
       if (assignedDateTime && assignedDateTime >= fromDate) {
+        console.log('2026-01-22: in first conditional');
         const practitionerId = removePrefix('Practitioner/', task.owner.reference);
+        console.log('2026-01-22: practitionerId', JSON.stringify(practitionerId));
         if (practitionerId && practitionerIdMap[practitionerId]) {
+          console.log('2026-01-22: in second conditional');
           resultMap[task.id!] = {
             task,
             practitioner: practitionerIdMap[practitionerId],
@@ -820,6 +829,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       }
     }
   });
+  console.log('2026-01-22: resultMap', JSON.stringify(resultMap));
   return resultMap;
 }
 
