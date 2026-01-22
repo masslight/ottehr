@@ -83,5 +83,7 @@ export const RADIOLOGY_TASK = {
     orderDate: 'order-date',
     appointmentId: 'appointment-id',
     providerName: 'provider-name',
+    studyTypeDisplay: 'study-type-display',
+    studyTypeCode: 'study-type-code',
   },
 } as const;

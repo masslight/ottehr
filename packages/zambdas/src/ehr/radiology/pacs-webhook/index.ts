@@ -1,10 +1,19 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { DiagnosticReport, Encounter, FhirResource, Patient, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
+import {
+  DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  Practitioner,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
-import { getFullestAvailableName, getSecret, RADIOLOGY_TASK, Secrets, SecretsKeys } from 'utils';
+import { CODE_SYSTEM_ICD_10, getFullestAvailableName, getSecret, RADIOLOGY_TASK, Secrets, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -39,6 +48,7 @@ interface HandleDrAdditionalResources {
   patient: Patient;
   encounter: Encounter;
   requestingProvider: Practitioner;
+  location: Location | undefined;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -194,7 +204,7 @@ const handleDiagnosticReport = async (
   console.log('processing DiagnosticReport');
   // First we want to figure out if we need to create or update, so we search for the DR in our FHIR store
   const drSearchResults = (
-    await oystehr.fhir.search<DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner>({
+    await oystehr.fhir.search<DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner | Location>({
       resourceType: 'DiagnosticReport',
       params: [
         {
@@ -218,11 +228,15 @@ const handleDiagnosticReport = async (
           name: '_include:iterate',
           value: 'ServiceRequest:requester',
         },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:location', // to get location name to record on task for displays
+        },
       ],
     })
   ).unbundle();
 
-  const { diagnosticReports, serviceRequests, patients, encounters, practitioners } = drSearchResults.reduce(
+  const { diagnosticReports, serviceRequests, patients, encounters, practitioners, locations } = drSearchResults.reduce(
     (
       acc: {
         diagnosticReports: DiagnosticReport[];
@@ -230,6 +244,7 @@ const handleDiagnosticReport = async (
         patients: Patient[];
         encounters: Encounter[];
         practitioners: Practitioner[];
+        locations: Location[];
       },
       resource
     ) => {
@@ -238,9 +253,10 @@ const handleDiagnosticReport = async (
       if (resource.resourceType === 'Patient') acc.patients.push(resource);
       if (resource.resourceType === 'Encounter') acc.encounters.push(resource);
       if (resource.resourceType === 'Practitioner') acc.practitioners.push(resource);
+      if (resource.resourceType === 'Location') acc.locations.push(resource);
       return acc;
     },
-    { diagnosticReports: [], serviceRequests: [], patients: [], encounters: [], practitioners: [] }
+    { diagnosticReports: [], serviceRequests: [], patients: [], encounters: [], practitioners: [], locations: [] }
   );
 
   if (diagnosticReports.length > 1) {
@@ -255,7 +271,8 @@ const handleDiagnosticReport = async (
       serviceRequests,
       patients,
       encounters,
-      practitioners
+      practitioners,
+      locations
     );
     await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, additionalResources, oystehr);
   } else if (drSearchResults.length === 0) {
@@ -358,15 +375,28 @@ const configReviewResultTask = (
   additionalResources: HandleDrAdditionalResources
 ): BatchInputPostRequest<Task> => {
   console.log('configuring review radiology final results task for', diagnosticReport.id);
-  const { encounter, serviceRequest, patient, requestingProvider } = additionalResources;
+  const { encounter, serviceRequest, patient, requestingProvider, location } = additionalResources;
   const serviceRequestRef = diagnosticReport.basedOn?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
     ?.reference;
   const appointmentId = encounter.appointment?.[0].reference?.replace('Appointment/', '');
-  const locationId = encounter.location
-    ?.find((loc) => loc.location.reference?.startsWith('Location/'))
-    ?.location.reference?.replace('Location/', '');
+
+  let locationInput:
+    | {
+        id: string;
+        name?: string;
+      }
+    | undefined = undefined;
+  if (location?.id) {
+    locationInput = { id: location.id };
+    if (location.name) locationInput.name = location.name;
+  }
+
   const providerFirstName = requestingProvider?.name?.[0]?.given?.[0];
   const providerLastName = requestingProvider?.name?.[0]?.family;
+
+  const studyTypeCoding = serviceRequest.code?.coding?.find((c) => c.system === CODE_SYSTEM_ICD_10);
+  const studyTypeCode = studyTypeCoding?.code;
+  const studyTypeDisplay = studyTypeCoding?.display;
 
   const newTask = createTask({
     category: RADIOLOGY_TASK.category,
@@ -376,7 +406,7 @@ const configReviewResultTask = (
     },
     encounterId: encounter.id,
     basedOn: [`DiagnosticReport/${diagnosticReport.id}`, ...(serviceRequestRef ? [serviceRequestRef] : [])],
-    location: locationId ? { id: locationId } : undefined,
+    location: locationInput,
     input: [
       {
         type: RADIOLOGY_TASK.input.appointmentId,
@@ -394,6 +424,14 @@ const configReviewResultTask = (
         type: RADIOLOGY_TASK.input.providerName,
         valueString: `${providerFirstName} ${providerLastName}`,
       },
+      {
+        type: RADIOLOGY_TASK.input.studyTypeCode,
+        valueString: studyTypeCode,
+      },
+      {
+        type: RADIOLOGY_TASK.input.studyTypeDisplay,
+        valueString: studyTypeDisplay,
+      },
     ],
   });
 
@@ -410,7 +448,8 @@ const validateAdditionalResources = (
   serviceRequests: ServiceRequest[],
   patients: Patient[],
   encounters: Encounter[],
-  practitioners: Practitioner[]
+  practitioners: Practitioner[],
+  locations: Location[]
 ): HandleDrAdditionalResources => {
   if (serviceRequests.length !== 1) {
     throw new Error(
@@ -433,11 +472,18 @@ const validateAdditionalResources = (
     );
   }
 
+  const encounter = encounters[0];
+  const locationId = encounter?.location
+    ?.find((loc) => loc.location.reference?.startsWith('Location/'))
+    ?.location.reference?.replace('Location/', '');
+  const locationFromEncounter = locations.find((loc) => loc.id === locationId);
+
   return {
     patient: patients[0],
     serviceRequest: serviceRequests[0],
-    encounter: encounters[0],
+    encounter,
     requestingProvider: practitioners[0],
+    location: locationFromEncounter,
   };
 };
 
