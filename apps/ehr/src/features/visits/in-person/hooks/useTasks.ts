@@ -13,7 +13,6 @@ import {
   LAB_ORDER_TASK,
   LabType,
   MANUAL_TASK,
-  PROVIDER_NOTIFICATION_TAG_SYSTEM,
   RADIOLOGY_TASK,
   Task,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -209,10 +208,11 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
             path: '/status',
             value: 'ready',
           },
-          {
-            op: 'remove',
-            path: `/meta/tag[?(@.system=='${PROVIDER_NOTIFICATION_TAG_SYSTEM}')]`,
-          },
+          // todo remove meta tag for provider notification when unassigned
+          // {
+          //   op: 'remove',
+          //   path: `/meta/tag[?(@.system=='${PROVIDER_NOTIFICATION_TAG_SYSTEM}')]`,
+          // },
         ],
       });
     },
