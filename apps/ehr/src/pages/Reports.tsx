@@ -4,7 +4,6 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import InsightsIcon from '@mui/icons-material/Insights';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import SpeedIcon from '@mui/icons-material/Speed';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
@@ -117,12 +116,6 @@ export default function Reports(): React.ReactElement {
       description: 'View appointment statistics and charts showing visit types (in-person vs telemed)',
       icon: <AssessmentIcon />,
       path: '/reports/visits-overview',
-    },
-    {
-      title: 'Workflow Efficiency',
-      description: 'Analyze visit metrics, time-to-provider statistics, and appointment status workflows',
-      icon: <SpeedIcon />,
-      path: '/reports/workflow-efficiency',
     },
     {
       title: 'Recent Patients',
