@@ -247,7 +247,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         await hospitalizationPage.deleteHospitalizationNote(HOSPITALIZATION_NOTE_2);
       });
 
-      test('Remove Vitals', async () => {
+      test('VIT-3. Remove Vitals', async () => {
         await sideMenu.clickVitals();
         await test.step('VIT-3.1 Delete temperature observation', async () => {
           await vitalsPage.removeTemperatureObservationFromHistory(TEMPERATURE_C);
