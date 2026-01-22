@@ -30,6 +30,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
@@ -345,7 +346,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             to={
               row.serviceMode === ServiceMode.virtual
                 ? `/telemed/appointments/${row.appointmentId}?tab=sign`
-                : `/in-person/${row.appointmentId}/progress-note`
+                : `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
             }
           >
             Progress Note

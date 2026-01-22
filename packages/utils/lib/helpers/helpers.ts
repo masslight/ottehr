@@ -23,7 +23,7 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
-import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config';
+import { CONSENT_FORMS_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import {
   appointmentTypeLabels,
@@ -1091,24 +1091,12 @@ export function getConsentStepAnswers({
     item: [
       {
         linkId: 'consent-forms-checkbox-group',
-        item: [
-          {
-            linkId: 'hipaa-acknowledgement',
-            answer: [
-              {
-                valueBoolean: true,
-              },
-            ],
-          },
-          {
-            linkId: 'consent-to-treat',
-            answer: [
-              {
-                valueBoolean: true,
-              },
-            ],
-          },
-        ],
+        item: CONSENT_FORMS_CONFIG.forms
+          .filter((form) => form.createsConsentResource)
+          .map((form) => ({
+            linkId: form.id,
+            answer: [{ valueBoolean: true }],
+          })),
       },
       {
         linkId: 'signature',

@@ -397,8 +397,10 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (!requiredOnly) {
+    if (QuestionnaireHelper.isPhotoIdFrontRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
+    }
+    if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
     }
     await this.locator.clickContinueButton();
@@ -554,23 +556,29 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (!requiredOnly) {
+    if (QuestionnaireHelper.isPhotoIdFrontRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
+    }
+    if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
     }
     await this.locator.clickContinueButton();
 
-    await this.checkCorrectPageOpens('Patient condition');
     let uploadedPhotoCondition: Locator | null = null;
-    if (!requiredOnly) {
-      uploadedPhotoCondition = await this.uploadPhoto.fillPatientConditionPhotoPaperwork();
+    if (QuestionnaireHelper.hasVirtualPatientConditionPage()) {
+      await this.checkCorrectPageOpens('Patient condition');
+      if (!requiredOnly) {
+        uploadedPhotoCondition = await this.uploadPhoto.fillPatientConditionPhotoPaperwork();
+      }
+      await this.locator.clickContinueButton();
     }
-    await this.locator.clickContinueButton();
 
-    await this.checkCorrectPageOpens('Do you need a school or work note?');
-    // todo why not add a school/work note for completion?
-    await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
-    await this.locator.clickContinueButton();
+    if (QuestionnaireHelper.hasVirtualSchoolWorkNotePage()) {
+      await this.checkCorrectPageOpens('Do you need a school or work note?');
+      // todo why not add a school/work note for completion?
+      await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
+      await this.locator.clickContinueButton();
+    }
 
     await this.checkCorrectPageOpens('Complete consent forms');
     await this.fillConsentForms();
@@ -743,7 +751,7 @@ export class Paperwork {
     const randomRace = await this.fillRace();
     const randomPronoun = await this.fillPronoun();
     let randomPoint = '';
-    if (isNewPatient) {
+    if (isNewPatient && QuestionnaireHelper.hasPointOfDiscoveryField()) {
       randomPoint = await this.fillPointOfDiscovery();
     }
     const randomLanguage = await this.fillPreferredLanguage();

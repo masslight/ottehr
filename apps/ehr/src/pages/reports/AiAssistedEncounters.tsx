@@ -27,6 +27,7 @@ import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
 import { getAiAssistedEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -367,8 +368,8 @@ export default function AiAssistedEncounters(): React.ReactElement {
 
           const linkPath =
             visitType === 'Telemed'
-              ? `/telemed/appointments/${appointmentId}`
-              : `/in-person/${appointmentId}/progress-note`;
+              ? `/telemed/appointments/${appointmentId}?tab=sign`
+              : `/in-person/${appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
 
           return (
             <Link

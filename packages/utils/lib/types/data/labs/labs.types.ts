@@ -288,17 +288,23 @@ type SelfPayResource = {
   type: LabPaymentMethod.SelfPay;
   coverage?: Coverage;
 };
-export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource;
+type WorkersCompResource = {
+  type: LabPaymentMethod.WorkersComp;
+  coverage: Coverage;
+};
+export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource | WorkersCompResource;
 
 export enum LabPaymentMethod {
   Insurance = 'insurance',
   SelfPay = 'selfPay',
   ClientBill = 'clientBill',
+  WorkersComp = 'workersComp',
 }
 export type CreateLabPaymentMethod =
   | LabPaymentMethod.Insurance
   | LabPaymentMethod.SelfPay
-  | LabPaymentMethod.ClientBill;
+  | LabPaymentMethod.ClientBill
+  | LabPaymentMethod.WorkersComp;
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];
@@ -314,8 +320,8 @@ export type CreateLabOrderZambdaOutput = Record<string, never>;
 
 export type GetCreateLabOrderResources = {
   patientId?: string;
+  encounterId?: string;
   search?: string;
-  selectedOfficeId?: string;
   labOrgIdsString?: string;
 };
 
@@ -336,6 +342,7 @@ export type ExternalLabOrderingLocations = {
 export type LabOrderResourcesRes = {
   coverages?: CreateLabCoverageInfo[];
   labs: OrderableItemSearchResult[];
+  isWorkersCompEncounter: boolean;
   additionalCptCodes?: CPTCodeOption[];
 } & ExternalLabOrderingLocations;
 

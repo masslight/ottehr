@@ -16,3 +16,4 @@ export * from './texting';
 export * from './types';
 export * from './value-sets';
 export * from './vitals';
+export * from './consent-forms';
