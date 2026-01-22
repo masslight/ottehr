@@ -66,6 +66,7 @@ import {
   getAllStripeCustomerAccountPairs,
   getArrayInfo,
   getConsentAndRelatedDocRefsForAppointment,
+  getConsentFormsForLocation,
   getCurrentValue,
   getEmailForIndividual,
   getFullName,
@@ -93,7 +94,6 @@ import {
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
   PAPERWORK_CONSENT_CODE_UNIQUE,
-  PAPERWORK_CONSENT_CODING_LOINC,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
@@ -110,7 +110,6 @@ import {
   PREFERRED_PHARMACY_EXTENSION_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
-  PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
   relatedPersonFieldPaths,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
@@ -321,38 +320,18 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   const baseUploadURL = `${getSecret(SecretsKeys.PROJECT_API, secrets)}/z3/${bucket}/${
     patientResource.id
   }/${Date.now()}`;
-  const consentDocument =
-    locationState === 'IL'
-      ? './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf'
-      : './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf';
-  const pdfsToCreate = [
-    {
-      uploadURL: `${baseUploadURL}-consent-to-treat.pdf`,
-      copyFromPath: consentDocument,
-      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
-      resourceTitle: 'Consent forms',
-      type: {
-        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
-        text: 'Consent forms',
-      },
-    },
-    {
-      uploadURL: `${baseUploadURL}-hipaa-acknowledgement.pdf`,
-      copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
-      formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPAA forms',
-      type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: PRIVACY_POLICY_CODE,
-            display: 'Privacy Policy',
-          },
-        ],
-        text: 'HIPAA Acknowledgement forms',
-      },
-    },
-  ];
+
+  const consentForms = getConsentFormsForLocation(locationState);
+
+  const pdfsToCreate = consentForms.map((form) => ({
+    formId: form.id,
+    uploadURL: `${baseUploadURL}-${form.id}.pdf`,
+    copyFromPath: form.assetPath,
+    formTitle: form.formTitle,
+    resourceTitle: form.resourceTitle,
+    type: form.type,
+    createsConsentResource: form.createsConsentResource,
+  }));
 
   const pdfGroups: Record<string, typeof pdfsToCreate> = {};
   for (const pdfInfo of pdfsToCreate) {
@@ -461,6 +440,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   for (const pdfInfo of pdfsToCreate) {
+    if (!pdfInfo.createsConsentResource) {
+      continue;
+    }
+
     let typeCode = pdfInfo.type.coding[0].code;
     // only in the case of Consent DRs, we have introduced multiple codings so we can tell different kinds of Consents apart (labs vs paperwork)
     if (pdfInfo.type.coding.length > 1) {
@@ -481,9 +464,8 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    if (typeCode === PAPERWORK_CONSENT_CODE_UNIQUE.code) {
-      await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
-    }
+    await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
+    console.log(`Created Consent resource for ${pdfInfo.formTitle}`);
   }
 }
 

@@ -1,7 +1,9 @@
 import { Questionnaire } from 'fhir/r4b';
+import { camelCase } from 'lodash-es';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
+import { getConsentFormsForLocation } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
@@ -57,6 +59,8 @@ SOURCE QUESTIONNAIRE CONTEXT
 
 
 */
+
+const resolvedConsentForms = getConsentFormsForLocation();
 
 const FormFields = {
   contactInformation: {
@@ -2237,21 +2241,19 @@ const FormFields = {
         key: 'consent-forms-checkbox-group',
         type: 'group',
         items: {
-          hipaaAcknowledgement: {
-            key: 'hipaa-acknowledgement',
-            label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
-            type: 'boolean',
-            permissibleValue: true,
-          },
-          consentToTreat: {
-            key: 'consent-to-treat',
-            label:
-              'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
-            type: 'boolean',
-            permissibleValue: true,
-          },
+          ...Object.fromEntries(
+            resolvedConsentForms.map((form) => [
+              camelCase(form.id),
+              {
+                key: form.id,
+                label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
+                type: 'boolean',
+                permissibleValue: true,
+              },
+            ])
+          ),
         },
-        requiredFields: ['hipaa-acknowledgement', 'consent-to-treat'],
+        requiredFields: [...resolvedConsentForms.map((f) => f.id)],
       },
       signature: {
         key: 'signature',
