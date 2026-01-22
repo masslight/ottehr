@@ -462,7 +462,7 @@ export default function PracticeKpis(): React.ReactElement {
     return (
       <GridToolbarContainer>
         <GridToolbarExport
-          csvOptions={{ fileName: 'ottehr-practice-kpis' }}
+          csvOptions={{ fileName: 'practice-kpis' }}
           printOptions={{ disableToolbarButton: true }}
         />
       </GridToolbarContainer>
