@@ -59,6 +59,10 @@ const FormFields = {
         key: 'appointment-service-category',
         type: 'string',
       },
+      appointmentServiceMode: {
+        key: 'appointment-service-mode',
+        type: 'string',
+      },
     },
     items: {
       firstName: {
@@ -247,9 +251,10 @@ const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
   { display: 'Workmans Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
 ];
 
+// todo: consolidate these constants
 interface BookingContext {
   serviceMode: 'in-person' | 'virtual';
-  serviceCategoryCode: string;
+  serviceCategoryCode: 'urgent-care' | 'occupational-medicine' | 'workers-comp';
 }
 interface BookingFormPrePopulationInput {
   questionnaire: Questionnaire;
@@ -452,6 +457,9 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
           if (linkId === 'appointment-service-category') {
             answer = makeAnswer(serviceCategoryCode);
           }
+          if (linkId === 'appointment-service-mode') {
+            answer = makeAnswer(serviceMode);
+          }
           if (linkId === 'patient-first-name' && patient) {
             answer = makeAnswer(getFirstName(patient) ?? '');
           }
@@ -492,4 +500,27 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
   });
 
   return item;
+};
+
+export const reasonForVisitFilter = (bookingContext: BookingContext): { label: string; value: string }[] => {
+  const { serviceCategoryCode, serviceMode } = bookingContext;
+  if (serviceMode === 'virtual') {
+    switch (serviceCategoryCode) {
+      case 'occupational-medicine':
+        return VALUE_SETS.reasonForVisitVirtualOptionsOccMed;
+      case 'workers-comp':
+        return VALUE_SETS.reasonForVisitVirtualOptionsWorkersComp;
+      default:
+        return VALUE_SETS.reasonForVisitOptions;
+    }
+  }
+
+  switch (serviceCategoryCode) {
+    case 'occupational-medicine':
+      return VALUE_SETS.reasonForVisitOptionsOccMed;
+    case 'workers-comp':
+      return VALUE_SETS.reasonForVisitOptionsWorkersComp;
+    default:
+      return VALUE_SETS.reasonForVisitOptions;
+  }
 };

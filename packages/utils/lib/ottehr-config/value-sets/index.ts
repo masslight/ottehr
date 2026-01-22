@@ -360,6 +360,15 @@ const formValueSets = {
     { label: 'Auto accident', value: 'Auto accident' },
     { label: 'Other', value: 'Other' },
   ],
+  reasonForVisitOptionsOccMed: [
+    { label: 'Injury', value: 'Injury' },
+    { label: 'Testing', value: 'Testing' },
+    { label: 'Physical', value: 'Physical' },
+  ],
+  reasonForVisitOptionsWorkersComp: [
+    { label: 'New injury', value: 'New injury' },
+    { label: 'Follow-up', value: 'Follow-up' },
+  ],
   reasonForVisitVirtualOptionsOccMed: [
     { label: 'Injury', value: 'Injury' },
     { label: 'Testing', value: 'Testing' },
