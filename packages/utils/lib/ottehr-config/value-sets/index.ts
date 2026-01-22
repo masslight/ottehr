@@ -369,15 +369,6 @@ const formValueSets = {
     { label: 'New injury', value: 'New injury' },
     { label: 'Follow-up', value: 'Follow-up' },
   ],
-  reasonForVisitVirtualOptionsOccMed: [
-    { label: 'Injury', value: 'Injury' },
-    { label: 'Testing', value: 'Testing' },
-    { label: 'Physical', value: 'Physical' },
-  ],
-  reasonForVisitVirtualOptionsWorkersComp: [
-    { label: 'New injury', value: 'New injury' },
-    { label: 'Follow-up', value: 'Follow-up' },
-  ],
   relationshipOptions: [
     { label: 'Self', value: 'Self' },
     { label: 'Spouse', value: 'Spouse' },

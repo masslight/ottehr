@@ -157,7 +157,7 @@ const FormFields = {
         key: 'reason-for-visit-om',
         label: 'Reason for visit',
         type: 'choice',
-        options: VALUE_SETS.reasonForVisitVirtualOptionsOccMed,
+        options: VALUE_SETS.reasonForVisitOptionsOccMed,
         triggers: [
           {
             targetQuestionLinkId: 'appointment-service-category',
@@ -172,7 +172,7 @@ const FormFields = {
         key: 'reason-for-visit-wc',
         label: 'Reason for visit',
         type: 'choice',
-        options: VALUE_SETS.reasonForVisitVirtualOptionsWorkersComp,
+        options: VALUE_SETS.reasonForVisitOptionsWorkersComp,
         triggers: [
           {
             targetQuestionLinkId: 'appointment-service-category',
@@ -262,9 +262,46 @@ interface BookingFormPrePopulationInput {
   patient?: Patient;
 }
 
+/**
+ * Infers the reason for visit based on the booking context. Some use cases may wish to hide the reason for visit
+ * because it is implied for a given service category or booking flow and can accomplish that using this function.
+ * The output will be passed in as the reasonForVisit value when the appointment is created.
+ * @param _bookingContext - stores the service mode and service category code
+ *
+ * @returns The inferred reason for visit, or undefined if it cannot be determined
+ */
+
+const inferredReasonForVisitSchema = z
+  .function()
+  .args(
+    z.object({
+      serviceMode: z.enum(['in-person', 'virtual']).optional(),
+      serviceCategoryCode: z.enum(['urgent-care', 'occupational-medicine', 'workers-comp']).optional(),
+    })
+  )
+  .returns(z.string().optional());
+
+const inferredReasonForVisit =
+  inferredReasonForVisitSchema.safeParse(BOOKING_OVERRIDES.inferredReasonForVisit)?.data ??
+  ((_bookingContext: Partial<BookingContext>): string | undefined => {
+    return undefined;
+  });
+
 export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
   const items = flattenQuestionnaireAnswers(qrItem);
   const patientInfo: PatientInfo = {};
+  const bookingContext: Partial<BookingContext> = {};
+  const serviceModeItem = items.find((item) => item.linkId === 'appointment-service-mode');
+  if (serviceModeItem) {
+    bookingContext.serviceMode = pickFirstValueFromAnswerItem(serviceModeItem, 'string') as 'in-person' | 'virtual';
+  }
+  const serviceCategoryItem = items.find((item) => item.linkId === 'appointment-service-category');
+  if (serviceCategoryItem) {
+    bookingContext.serviceCategoryCode = pickFirstValueFromAnswerItem(serviceCategoryItem, 'string') as
+      | 'urgent-care'
+      | 'occupational-medicine'
+      | 'workers-comp';
+  }
   items.forEach((item) => {
     switch (item.linkId) {
       case 'existing-patient-id':
@@ -312,6 +349,9 @@ export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[
         break;
     }
   });
+  if (!patientInfo.reasonForVisit) {
+    patientInfo.reasonForVisit = inferredReasonForVisit(bookingContext);
+  }
   return patientInfo;
 };
 
@@ -500,27 +540,4 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
   });
 
   return item;
-};
-
-export const reasonForVisitFilter = (bookingContext: BookingContext): { label: string; value: string }[] => {
-  const { serviceCategoryCode, serviceMode } = bookingContext;
-  if (serviceMode === 'virtual') {
-    switch (serviceCategoryCode) {
-      case 'occupational-medicine':
-        return VALUE_SETS.reasonForVisitVirtualOptionsOccMed;
-      case 'workers-comp':
-        return VALUE_SETS.reasonForVisitVirtualOptionsWorkersComp;
-      default:
-        return VALUE_SETS.reasonForVisitOptions;
-    }
-  }
-
-  switch (serviceCategoryCode) {
-    case 'occupational-medicine':
-      return VALUE_SETS.reasonForVisitOptionsOccMed;
-    case 'workers-comp':
-      return VALUE_SETS.reasonForVisitOptionsWorkersComp;
-    default:
-      return VALUE_SETS.reasonForVisitOptions;
-  }
 };
