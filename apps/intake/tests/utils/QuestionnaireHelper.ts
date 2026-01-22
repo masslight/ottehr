@@ -5,11 +5,14 @@ import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   IntakeQuestionnaireItem,
   mapQuestionnaireAndValueSetsToItemsList,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 
 export class QuestionnaireHelper {
   private static inPersonQuestionnaireItems: IntakeQuestionnaireItem[] = [];
   private static hasLoadedInPersonQuestionnaire = false;
+  private static virtualQuestionnaireItems: IntakeQuestionnaireItem[] = [];
+  private static hasLoadedVirtualQuestionnaire = false;
 
   private static loadInPersonQuestionnaireItems(): IntakeQuestionnaireItem[] {
     if (!QuestionnaireHelper.hasLoadedInPersonQuestionnaire) {
@@ -21,6 +24,17 @@ export class QuestionnaireHelper {
       QuestionnaireHelper.hasLoadedInPersonQuestionnaire = true;
     }
     return QuestionnaireHelper.inPersonQuestionnaireItems;
+  }
+
+  private static loadVirtualQuestionnaireItems(): IntakeQuestionnaireItem[] {
+    if (!QuestionnaireHelper.hasLoadedVirtualQuestionnaire) {
+      QuestionnaireHelper.virtualQuestionnaireItems = mapQuestionnaireAndValueSetsToItemsList(
+        VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE().item ?? [],
+        []
+      );
+      QuestionnaireHelper.hasLoadedVirtualQuestionnaire = true;
+    }
+    return QuestionnaireHelper.virtualQuestionnaireItems;
   }
 
   private static flattenItems(items: QuestionnaireItem[]): QuestionnaireItem[] {
@@ -95,5 +109,81 @@ export class QuestionnaireHelper {
 
   static attorneyPageIsVisible(responseItems: QuestionnaireResponseItem[]): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireItemIsVisible('attorney-mva-page', responseItems);
+  }
+
+  /**
+   * Checks if an item with the given linkId is marked as required in the questionnaire.
+   *
+   * @param linkId - The linkId of the item to check
+   * @returns true if the item exists and is required, false otherwise
+   */
+  static inPersonQuestionnaireItemIsRequired(linkId: string): boolean {
+    const allItems = QuestionnaireHelper.loadInPersonQuestionnaireItems();
+    const flatItems = QuestionnaireHelper.flattenItems(allItems);
+    const targetItem = flatItems.find((item) => item.linkId === linkId);
+
+    return targetItem?.required === true;
+  }
+
+  /**
+   * Checks if the photo ID front field is required in the questionnaire.
+   */
+  static isPhotoIdFrontRequired(): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireItemIsRequired('photo-id-front');
+  }
+
+  /**
+   * Checks if the photo ID back field is required in the questionnaire.
+   */
+  static isPhotoIdBackRequired(): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireItemIsRequired('photo-id-back');
+  }
+
+  /**
+   * Checks if the point of discovery field exists in the in-person questionnaire.
+   */
+  static hasPointOfDiscoveryField(): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireHasItem('patient-point-of-discovery');
+  }
+
+  // ==================== Virtual/Telemed Questionnaire Methods ====================
+
+  /**
+   * Checks if an item with the given linkId exists in the virtual questionnaire (regardless of enableWhen conditions).
+   */
+  static virtualQuestionnaireHasItem(linkId: string): boolean {
+    const items = QuestionnaireHelper.flattenItems(QuestionnaireHelper.loadVirtualQuestionnaireItems());
+    return items.some((item) => item.linkId === linkId);
+  }
+
+  /**
+   * Checks if the point of discovery field exists in the virtual questionnaire.
+   */
+  static hasVirtualPointOfDiscoveryField(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('patient-point-of-discovery');
+  }
+
+  /**
+   * Checks if the additional questions page exists in the virtual questionnaire.
+   * This page may be hidden via hiddenFormSections config.
+   */
+  static hasVirtualAdditionalPage(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('additional-page');
+  }
+
+  /**
+   * Checks if the school/work note page exists in the virtual questionnaire.
+   * This page may be hidden via hiddenFormSections config.
+   */
+  static hasVirtualSchoolWorkNotePage(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('school-work-note-page');
+  }
+
+  /**
+   * Checks if the patient condition page exists in the virtual questionnaire.
+   * This page may be hidden via hiddenFormSections config.
+   */
+  static hasVirtualPatientConditionPage(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('patient-condition-page');
   }
 }

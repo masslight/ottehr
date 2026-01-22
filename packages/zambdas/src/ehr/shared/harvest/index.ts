@@ -66,6 +66,7 @@ import {
   getAllStripeCustomerAccountPairs,
   getArrayInfo,
   getConsentAndRelatedDocRefsForAppointment,
+  getConsentFormsForLocation,
   getCurrentValue,
   getEmailForIndividual,
   getFullName,
@@ -93,7 +94,6 @@ import {
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
   PAPERWORK_CONSENT_CODE_UNIQUE,
-  PAPERWORK_CONSENT_CODING_LOINC,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
@@ -102,11 +102,14 @@ import {
   patientFieldPaths,
   PatientMasterRecordResource,
   PatientMasterRecordResourceType,
+  PHARMACY_COLLECTION_LINK_IDS,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
+  PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_EXTENSION_URL,
-  PRIVACY_POLICY_CODE,
+  PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
+  PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
   relatedPersonFieldPaths,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
@@ -317,38 +320,18 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   const baseUploadURL = `${getSecret(SecretsKeys.PROJECT_API, secrets)}/z3/${bucket}/${
     patientResource.id
   }/${Date.now()}`;
-  const consentDocument =
-    locationState === 'IL'
-      ? './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf'
-      : './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf';
-  const pdfsToCreate = [
-    {
-      uploadURL: `${baseUploadURL}-consent-to-treat.pdf`,
-      copyFromPath: consentDocument,
-      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
-      resourceTitle: 'Consent forms',
-      type: {
-        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
-        text: 'Consent forms',
-      },
-    },
-    {
-      uploadURL: `${baseUploadURL}-hipaa-acknowledgement.pdf`,
-      copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
-      formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPAA forms',
-      type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: PRIVACY_POLICY_CODE,
-            display: 'Privacy Policy',
-          },
-        ],
-        text: 'HIPAA Acknowledgement forms',
-      },
-    },
-  ];
+
+  const consentForms = getConsentFormsForLocation(locationState);
+
+  const pdfsToCreate = consentForms.map((form) => ({
+    formId: form.id,
+    uploadURL: `${baseUploadURL}-${form.id}.pdf`,
+    copyFromPath: form.assetPath,
+    formTitle: form.formTitle,
+    resourceTitle: form.resourceTitle,
+    type: form.type,
+    createsConsentResource: form.createsConsentResource,
+  }));
 
   const pdfGroups: Record<string, typeof pdfsToCreate> = {};
   for (const pdfInfo of pdfsToCreate) {
@@ -457,6 +440,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   for (const pdfInfo of pdfsToCreate) {
+    if (!pdfInfo.createsConsentResource) {
+      continue;
+    }
+
     let typeCode = pdfInfo.type.coding[0].code;
     // only in the case of Consent DRs, we have introduced multiple codings so we can tell different kinds of Consents apart (labs vs paperwork)
     if (pdfInfo.type.coding.length > 1) {
@@ -477,9 +464,8 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    if (typeCode === PAPERWORK_CONSENT_CODE_UNIQUE.code) {
-      await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
-    }
+    await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
+    console.log(`Created Consent resource for ${pdfInfo.formTitle}`);
   }
 }
 
@@ -1204,8 +1190,19 @@ export const createUpdatePharmacyPatchOps = (
   const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
   const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
 
+  const pharmacyWasManuallyEntered = getAnswer('pharmacy-page-manual-entry', flattenedItems);
+  const placesPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesId, flattenedItems);
+  const placesPharmacyNameAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesName, flattenedItems);
+  const placesPharmacyAddressAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesAddress, flattenedItems);
+  const exrPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, flattenedItems);
+
   // Check if pharmacy fields are present in the questionnaire response
-  const hasPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+  const hasManualPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+  const hasPlacesPharmacyFields =
+    placesPharmacyIdAnswer !== undefined ||
+    placesPharmacyNameAnswer !== undefined ||
+    placesPharmacyAddressAnswer !== undefined;
+  const hasPharmacyFields = hasManualPharmacyFields || hasPlacesPharmacyFields || exrPharmacyIdAnswer !== undefined;
 
   // Check if patient currently has pharmacy data
   const hasExistingPharmacy =
@@ -1217,8 +1214,8 @@ export const createUpdatePharmacyPatchOps = (
     return [];
   }
 
-  const inputPharmacyName = pharmacyNameAnswer?.valueString;
-  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString;
+  const inputPharmacyName = pharmacyNameAnswer?.valueString ?? placesPharmacyNameAnswer?.valueString;
+  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString ?? placesPharmacyAddressAnswer?.valueString;
 
   const operations: Operation[] = [];
 
@@ -1227,7 +1224,7 @@ export const createUpdatePharmacyPatchOps = (
 
   // Add new pharmacy if provided
   if (inputPharmacyName || inputPharmacyAddress) {
-    filteredContained.push({
+    const pharmacyOrg: Organization = {
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
       name: inputPharmacyName ?? '-',
@@ -1239,7 +1236,25 @@ export const createUpdatePharmacyPatchOps = (
             },
           ]
         : undefined,
-    });
+    };
+
+    if (pharmacyWasManuallyEntered?.valueBoolean) {
+      pharmacyOrg.extension = [
+        {
+          url: PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
+          valueBoolean: true,
+        },
+      ];
+    } else if (placesPharmacyIdAnswer?.valueString) {
+      pharmacyOrg.extension = [
+        {
+          url: PREFERRED_PHARMACY_PLACES_ID_URL,
+          valueString: placesPharmacyIdAnswer?.valueString,
+        },
+      ];
+    }
+
+    filteredContained.push(pharmacyOrg);
   }
 
   // Create contained operation
@@ -1261,7 +1276,8 @@ export const createUpdatePharmacyPatchOps = (
   // Handle extension
   const currentExtensions = patient.extension ?? [];
   const filteredExtensions = currentExtensions.filter(
-    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
+    (extension) =>
+      extension.url !== PREFERRED_PHARMACY_EXTENSION_URL && extension.url !== PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL
   );
 
   // Add pharmacy reference if we have pharmacy data
@@ -1271,6 +1287,13 @@ export const createUpdatePharmacyPatchOps = (
       valueReference: {
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
+    });
+  }
+
+  if (exrPharmacyIdAnswer?.valueString) {
+    filteredExtensions.push({
+      url: PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
+      valueString: exrPharmacyIdAnswer?.valueString,
     });
   }
 
@@ -2886,6 +2909,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
               display: 'Other',
             },
           ],
+        },
+        // todo labs subscriber is needed for submit lab but we might need to change later
+        subscriber: {
+          reference: `Patient/${patient.id}`,
         },
         subscriberId: workersCompMemberId,
         class: [

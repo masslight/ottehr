@@ -53,13 +53,14 @@ import {
   SecretsKeys,
   serviceRequestPaymentMethod,
   SPECIMEN_CODING_CONFIG,
+  WORKERS_COMP_SERVICE_REQUEST_CATEGORY,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
-import { accountIsPatientBill, sortCoveragesByPriority } from '../shared/labs';
+import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -242,6 +243,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         };
         requests.push(postClientBillCoverageRequest);
         serviceRequestConfig.insurance = [{ reference: clientBillCoverageFullUrl }];
+      }
+    } else if (coverageDetails.type === LabPaymentMethod.WorkersComp) {
+      console.log('adding workers comp insurance and category to ServiceRequest');
+      serviceRequestConfig.insurance = [{ reference: `Coverage/${coverageDetails.workersCompInsurance.id}` }];
+      if (serviceRequestConfig.category) {
+        serviceRequestConfig.category.push({ coding: [WORKERS_COMP_SERVICE_REQUEST_CATEGORY] });
+      } else {
+        serviceRequestConfig.category = [{ coding: [WORKERS_COMP_SERVICE_REQUEST_CATEGORY] }];
       }
     }
 
@@ -554,7 +563,8 @@ const getProvenanceConfig = (
 type CreateLabCoverageDetails =
   | { type: LabPaymentMethod.Insurance; insuranceCoverages: Coverage[] }
   | { type: LabPaymentMethod.ClientBill; clientBillCoverage: Coverage | undefined; clientOrg: Organization }
-  | { type: LabPaymentMethod.SelfPay };
+  | { type: LabPaymentMethod.SelfPay }
+  | { type: LabPaymentMethod.WorkersComp; workersCompInsurance: Coverage };
 const getAdditionalResources = async (
   orderableItem: OrderableItemSearchResult,
   encounter: Encounter,
@@ -607,9 +617,11 @@ const getAdditionalResources = async (
   const serviceRequestsForBundle: ServiceRequest[] = [];
   const patientSearchResults: Patient[] = [];
   const orderLevelNotes: Communication[] = [];
+  const workersCompAccounts: Account[] = [];
   let orderingLocation: Location | undefined = undefined;
   let clientOrg: Organization | undefined = undefined;
   let clientBillCoverage: Coverage | undefined = undefined;
+  let workersCompInsurance: Coverage | undefined = undefined;
 
   const resources = flattenBundleResources<
     Organization | Coverage | Patient | Account | ServiceRequest | Location | Communication
@@ -637,13 +649,20 @@ const getAdditionalResources = async (
           }
           clientBillCoverage = resource;
         }
+      } else if (paymentMethod === LabPaymentMethod.WorkersComp) {
+        if (workersCompInsurance) {
+          console.warn(`Warning: multiple active workers comp coverages exist for this encounter ${encounter.id}`);
+        }
+        workersCompInsurance = resource;
       }
     }
     if (resource.resourceType === 'Patient') patientSearchResults.push(resource);
     if (resource.resourceType === 'Account' && resource.status === 'active') {
-      // todo labs team - this logic will change when we implement workers comp, but for now
-      // we will just ignore those types of accounts to restore functionality
-      if (accountIsPatientBill(resource)) accountSearchResults.push(resource);
+      if (accountIsPatientBill(resource)) {
+        accountSearchResults.push(resource);
+      } else if (accountIsWorkersComp(resource)) {
+        workersCompAccounts.push(resource);
+      }
     }
     if (resource.resourceType === 'Location') {
       if (
@@ -736,6 +755,28 @@ const getAdditionalResources = async (
     throw EXTERNAL_LAB_ERROR(`No location found matching selected office Location id ${modifiedOrderingLocation.id}`);
   }
 
+  if (selectedPaymentMethod === LabPaymentMethod.WorkersComp) {
+    if (workersCompAccounts.length !== 1) {
+      throw new Error(`Incorrect number of workers comp accounts found: ${workersCompAccounts.length}`);
+    }
+
+    if (!workersCompInsurance) {
+      console.log(`workersCompInsurance not found for encounter: ${encounter.id}`);
+      throw EXTERNAL_LAB_ERROR(`No coverage is found for this workers comp account`);
+    }
+
+    const workersCompAccount = workersCompAccounts[0];
+    const workersCompInsuranceId = (workersCompInsurance as Coverage | undefined)?.id;
+    const insuranceMatchesAccount = workersCompAccount.coverage?.some(
+      (cov) => cov.coverage.reference === `Coverage/${workersCompInsuranceId}`
+    );
+    if (!insuranceMatchesAccount) {
+      throw new Error(
+        `Insurance mismatch on workers comp account: Account/${workersCompAccount.id} Coverage/${workersCompInsuranceId}`
+      );
+    }
+  }
+
   let coverageDetails: CreateLabCoverageDetails | undefined;
   switch (selectedPaymentMethod) {
     case LabPaymentMethod.ClientBill:
@@ -762,6 +803,15 @@ const getAdditionalResources = async (
     case LabPaymentMethod.SelfPay:
       coverageDetails = {
         type: LabPaymentMethod.SelfPay,
+      };
+      break;
+    case LabPaymentMethod.WorkersComp:
+      if (!workersCompInsurance) {
+        throw new Error(`workersCompInsurance not found for encounter: ${encounter.id}`);
+      }
+      coverageDetails = {
+        type: LabPaymentMethod.WorkersComp,
+        workersCompInsurance,
       };
       break;
     default:

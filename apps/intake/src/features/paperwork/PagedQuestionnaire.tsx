@@ -12,6 +12,7 @@ import {
   IconButton,
   InputBaseComponentProps,
   InputProps,
+  Link,
   Stack,
   SxProps,
   TextField,
@@ -56,6 +57,7 @@ import FileInput, { AttachmentType } from './components/FileInput';
 import FreeMultiSelectInput from './components/FreeMultiSelectInput';
 import GroupContainer from './components/group/GroupContainer';
 import MultiAnswerHeader from './components/group/MultiAnswerHeader';
+import { PharmacyCollection } from './components/Pharmacy/PharmacyCollection';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
@@ -366,7 +368,11 @@ const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
       {styledItems.map((item, idx) => {
         if (item.type === 'display') {
           return <FormDisplayField item={item} key={`FDF-${fieldId ?? item.linkId}-${idx}`} />;
-        } else if (item.type === 'group' && item.dataType !== 'DOB') {
+        } else if (
+          item.type === 'group' &&
+          item.dataType !== 'DOB' &&
+          item.groupType !== QuestionnaireItemGroupType.PharmacyCollection
+        ) {
           return (
             <GroupContainer
               item={item}
@@ -771,6 +777,8 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               />
             </>
           );
+        } else if (item.groupType == QuestionnaireItemGroupType.PharmacyCollection) {
+          return <PharmacyCollection onChange={smartOnChange} />;
         } else {
           return <RenderItems pageItem={pageItem} parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
         }
@@ -785,6 +793,29 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         );
       case 'Medical History':
         return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;
+      case 'Link':
+        return (
+          <Link
+            component="button"
+            type="button"
+            onClick={() => smartOnChange(!unwrappedValue)}
+            aria-label={`${item.linkId}-toggle`}
+            underline="hover"
+            sx={{
+              pt: item.hideControlLabel ? 0 : 1,
+              textAlign: 'left',
+              display: 'inline',
+              cursor: 'pointer',
+              color: otherColors.purple,
+              fontWeight: 500,
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            {item.text}
+          </Link>
+        );
       default:
         return <></>;
     }

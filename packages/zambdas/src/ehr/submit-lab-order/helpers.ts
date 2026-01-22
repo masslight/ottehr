@@ -586,6 +586,9 @@ function makePaymentResourceConfig(
   const selfPayCoverage = coveragesAndOrgs.find(
     (data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.SelfPay
   );
+  const workersCompCoverage = coveragesAndOrgs.find(
+    (data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.WorkersComp
+  );
 
   if (clientBillCoverageAndOrg && coveragesAndOrgs.length === 1) {
     return { type: LabPaymentMethod.ClientBill, coverage: clientBillCoverageAndOrg.coverage };
@@ -633,6 +636,8 @@ function makePaymentResourceConfig(
     return { type: LabPaymentMethod.Insurance, coverageAndOrgs: coveragesAndOrgsWithRank };
   } else if (selfPayCoverage && coveragesAndOrgs.length === 1) {
     return { type: LabPaymentMethod.SelfPay, coverage: selfPayCoverage.coverage };
+  } else if (workersCompCoverage && coveragesAndOrgs.length === 1) {
+    return { type: LabPaymentMethod.WorkersComp, coverage: workersCompCoverage.coverage };
   } else {
     const coverageIdWithPaymentMethod = coveragesAndOrgs.map((data) => ({
       coverageId: data.coverage.id,

@@ -184,7 +184,7 @@ const FormFieldsGroupFieldSchema = z.lazy(() =>
     customLinkId: z.string().optional(),
     categoryTag: z.string().optional(),
     acceptsMultipleAnswers: z.boolean().optional(),
-    groupType: z.literal('list-with-form').optional(),
+    groupType: z.enum(['list-with-form', 'pharmacy-collection']).optional(),
   })
 ) as z.ZodType<any>;
 
@@ -980,6 +980,8 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
     // Handle array-based sections (like insurance)
     if (Array.isArray(section.linkId)) {
       section.linkId.forEach((linkId, index) => {
+        // Skip hidden form sections
+        if (config.hiddenFormSections?.includes(linkId)) return;
         const items = Array.isArray(section.items) ? section.items[index] : section.items;
         const groupItem: QuestionnaireItem = {
           linkId,
@@ -1030,6 +1032,9 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
       });
     } else {
       // Handle simple sections
+      // Skip hidden form sections
+      if (config.hiddenFormSections?.includes(section.linkId)) continue;
+
       const groupItem: QuestionnaireItem = {
         linkId: section.linkId,
         type: 'group',

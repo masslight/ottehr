@@ -1,11 +1,11 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { waitForResponseWithData } from 'test-utils';
 import { SELF_PAY_OPTION } from 'utils';
-import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import {
   CURRENT_MEDICATIONS_ABSENT_LABEL,
   CURRENT_MEDICATIONS_PRESENT_LABEL,
+  getConsentFormIdsForTests,
   KNOWN_ALLERGIES_ABSENT_LABEL,
   KNOWN_ALLERGIES_PRESENT_LABEL,
   Locators,
@@ -14,7 +14,8 @@ import {
   SURGICAL_HISTORY_ABSENT_LABEL,
   SURGICAL_HISTORY_PRESENT_LABEL,
 } from '../locators';
-import { CARD_CVV, CARD_EXP_DATE, CARD_NUMBER } from '../Paperwork';
+import { CARD_CVV, CARD_EXP_DATE, CARD_NUMBER, CARD_NUMBER_OBSCURED } from '../Paperwork';
+import { QuestionnaireHelper } from '../QuestionnaireHelper';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
 
@@ -233,8 +234,11 @@ export class PaperworkTelemed {
 
     await this.checkFilledSurgicalHistory([filledValue, selectedValue]);
 
+    const nextPageHeading = QuestionnaireHelper.hasVirtualAdditionalPage()
+      ? 'Additional questions'
+      : 'How would you like to pay for your visit?';
     await this.nextBackClick(async () => {
-      await this.page.getByRole('heading', { name: 'Additional questions', level: 2 }).waitFor({ state: 'visible' });
+      await this.page.getByRole('heading', { name: nextPageHeading, level: 2 }).waitFor({ state: 'visible' });
     });
     await expect(this.page.getByRole('heading', { name: 'Surgical history', level: 2 })).toBeVisible();
 
@@ -283,8 +287,7 @@ export class PaperworkTelemed {
     await this.locators.creditCardCVC.fill(CARD_CVV);
     await this.locators.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locators.addCardButton.click();
-    // Wait for saved card to appear in radio group with data-testid (Stripe processing + backend save)
-    await expect(this.page.getByTestId(dataTestIds.cardNumber).first()).toBeVisible({ timeout: 60000 });
+    await expect(this.page.getByText(CARD_NUMBER_OBSCURED)).toBeVisible();
     await this.page.getByRole('button', { name: 'Continue' }).click();
   }
 
@@ -395,8 +398,11 @@ export class PaperworkTelemed {
   }
 
   async fillAndCheckConsentForms() {
-    await this.page.getByLabel('hipaa-acknowledgement-label').click();
-    await this.page.getByLabel('consent-to-treat-label').click();
+    const formIds = getConsentFormIdsForTests();
+
+    for (const formId of formIds) {
+      await this.page.getByLabel(`${formId}-label`).click();
+    }
     await this.page.locator('#signature').fill('sign');
     await this.page.locator('#full-name').fill('Full Name');
     await this.page.locator('#consent-form-signer-relationship').click();
@@ -406,8 +412,10 @@ export class PaperworkTelemed {
   }
 
   async checkConsentForms() {
-    await expect(this.page.getByLabel('hipaa-acknowledgement-label').getByRole('checkbox')).toBeChecked();
-    await expect(this.page.getByLabel('consent-to-treat-label').getByRole('checkbox')).toBeChecked();
+    const formIds = getConsentFormIdsForTests();
+    for (const formId of formIds) {
+      await expect(this.page.getByLabel(`${formId}-label`).getByRole('checkbox')).toBeChecked();
+    }
     await expect(this.page.locator('#signature')).toHaveValue('sign');
     await expect(this.page.locator('#full-name')).toHaveValue('Full Name');
     await expect(this.page.locator('#consent-form-signer-relationship')).toHaveValue('Parent');

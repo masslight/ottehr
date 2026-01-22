@@ -2,6 +2,7 @@ import { GridSize } from '@mui/system';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMemo } from 'react';
 import {
+  CONSENT_FORMS_CONFIG,
   EMAIL_FIELDS,
   evalItemText,
   evalRequired,
@@ -44,13 +45,13 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
   // todo: move this into form extensions
   const hidesLabel = [
     'mobile-opt-in',
-    'hipaa-acknowledgement',
-    'consent-to-treat',
     'policy-holder-address-as-patient',
     'policy-holder-address-as-patient-2',
     'display-secondary-insurance',
     'responsible-party-address-as-patient',
     'emergency-contact-address-as-patient',
+    'pharmacy-page-manual-entry',
+    ...CONSENT_FORMS_CONFIG.forms.map((form) => form.id),
   ].includes(item.linkId);
   const minRows = item.minRows;
 

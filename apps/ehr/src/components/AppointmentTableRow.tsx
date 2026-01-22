@@ -30,6 +30,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
@@ -633,7 +634,7 @@ export default function AppointmentTableRow({
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      navigate(`/in-person/${appointment.id}`);
+      navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
