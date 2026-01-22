@@ -3,7 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { VitalFieldNames } from 'utils';
+import { VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { useChartFields } from '../hooks/useChartFields';
@@ -64,10 +64,25 @@ export const ERX: FC<{
     enabled: Boolean(encounter?.id),
   });
 
-  const hasVitals = Boolean(
-    heightVitalObservationResponse?.vitalsObservations?.find((obs) => obs.field === VitalFieldNames.VitalHeight) &&
-      weightVitalObservationResponse?.vitalsObservations?.find((obs) => obs.field === VitalFieldNames.VitalWeight)
-  );
+  const hasValidHeight = (observations?: VitalsObservationDTO[]): boolean =>
+    observations?.some(
+      (obs) => obs.field === VitalFieldNames.VitalHeight && 'value' in obs && typeof obs.value === 'number'
+    ) ?? false;
+
+  const hasValidWeight = (observations?: VitalsObservationDTO[]): boolean =>
+    observations?.some((obs) => {
+      if (obs.field !== VitalFieldNames.VitalWeight) return false;
+
+      if ('value' in obs && typeof obs.value === 'number') {
+        return true;
+      }
+
+      return 'extraWeightOptions' in obs && obs.extraWeightOptions?.includes('patient_refused');
+    }) ?? false;
+
+  const hasVitals =
+    hasValidHeight(heightVitalObservationResponse?.vitalsObservations) &&
+    hasValidWeight(weightVitalObservationResponse?.vitalsObservations);
   const isVitalsLoading = isHeightLoading || isWeightLoading;
   const isVitalsFetched = isHeightFetched && isWeightFetched;
 
