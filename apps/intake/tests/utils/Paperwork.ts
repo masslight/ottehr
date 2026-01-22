@@ -397,8 +397,10 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (!requiredOnly) {
+    if (QuestionnaireHelper.isPhotoIdFrontRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
+    }
+    if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
     }
     await this.locator.clickContinueButton();
@@ -745,7 +747,7 @@ export class Paperwork {
     const randomRace = await this.fillRace();
     const randomPronoun = await this.fillPronoun();
     let randomPoint = '';
-    if (isNewPatient) {
+    if (isNewPatient && QuestionnaireHelper.hasPointOfDiscoveryField()) {
       randomPoint = await this.fillPointOfDiscovery();
     }
     const randomLanguage = await this.fillPreferredLanguage();

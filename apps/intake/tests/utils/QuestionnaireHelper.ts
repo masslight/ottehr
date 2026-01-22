@@ -5,11 +5,14 @@ import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   IntakeQuestionnaireItem,
   mapQuestionnaireAndValueSetsToItemsList,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 
 export class QuestionnaireHelper {
   private static inPersonQuestionnaireItems: IntakeQuestionnaireItem[] = [];
   private static hasLoadedInPersonQuestionnaire = false;
+  private static virtualQuestionnaireItems: IntakeQuestionnaireItem[] = [];
+  private static hasLoadedVirtualQuestionnaire = false;
 
   private static loadInPersonQuestionnaireItems(): IntakeQuestionnaireItem[] {
     if (!QuestionnaireHelper.hasLoadedInPersonQuestionnaire) {
@@ -21,6 +24,17 @@ export class QuestionnaireHelper {
       QuestionnaireHelper.hasLoadedInPersonQuestionnaire = true;
     }
     return QuestionnaireHelper.inPersonQuestionnaireItems;
+  }
+
+  private static loadVirtualQuestionnaireItems(): IntakeQuestionnaireItem[] {
+    if (!QuestionnaireHelper.hasLoadedVirtualQuestionnaire) {
+      QuestionnaireHelper.virtualQuestionnaireItems = mapQuestionnaireAndValueSetsToItemsList(
+        VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE().item ?? [],
+        []
+      );
+      QuestionnaireHelper.hasLoadedVirtualQuestionnaire = true;
+    }
+    return QuestionnaireHelper.virtualQuestionnaireItems;
   }
 
   private static flattenItems(items: QuestionnaireItem[]): QuestionnaireItem[] {
@@ -123,5 +137,29 @@ export class QuestionnaireHelper {
    */
   static isPhotoIdBackRequired(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireItemIsRequired('photo-id-back');
+  }
+
+  /**
+   * Checks if the point of discovery field exists in the in-person questionnaire.
+   */
+  static hasPointOfDiscoveryField(): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireHasItem('patient-point-of-discovery');
+  }
+
+  // ==================== Virtual/Telemed Questionnaire Methods ====================
+
+  /**
+   * Checks if an item with the given linkId exists in the virtual questionnaire (regardless of enableWhen conditions).
+   */
+  static virtualQuestionnaireHasItem(linkId: string): boolean {
+    const items = QuestionnaireHelper.flattenItems(QuestionnaireHelper.loadVirtualQuestionnaireItems());
+    return items.some((item) => item.linkId === linkId);
+  }
+
+  /**
+   * Checks if the point of discovery field exists in the virtual questionnaire.
+   */
+  static hasVirtualPointOfDiscoveryField(): boolean {
+    return QuestionnaireHelper.virtualQuestionnaireHasItem('patient-point-of-discovery');
   }
 }

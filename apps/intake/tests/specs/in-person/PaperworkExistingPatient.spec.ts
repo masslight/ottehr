@@ -5,6 +5,7 @@ import * as path from 'path';
 import { checkFieldHidden } from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
+import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { InPersonRpInsNoReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
@@ -58,7 +59,9 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: not 
       if (patient.patientDetailsData.randomPronoun && checkFieldHidden('patient-pronouns') === false) {
         await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
       }
-      await expect(locator.patientPointOfDiscovery).toBeHidden();
+      if (QuestionnaireHelper.hasPointOfDiscoveryField()) {
+        await expect(locator.patientPointOfDiscovery).toBeHidden();
+      }
       await expect(locator.patientPreferredLanguage).toHaveValue(patient.patientDetailsData.randomLanguage);
     });
   });
