@@ -270,6 +270,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const addAdditionalCptCodesToEncounter = async (): Promise<void> => {
     const chartCptCodes = chartData?.cptCodes || [];
     const existingCodes = chartCptCodes.map((cptCode) => cptCode.code);
+    // per product each of these codes will only be added once per encounter
     const filteredCodesToAdd = additionalCptCodesToAdd?.filter((codeToAdd) => !existingCodes.includes(codeToAdd.code));
 
     if (filteredCodesToAdd && filteredCodesToAdd.length > 0) {
