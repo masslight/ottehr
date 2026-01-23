@@ -172,6 +172,25 @@
           ]
         },
         {
+          "linkId": "patient-weight",
+          "type": "decimal",
+          "text": "Weight (lbs)",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "appointment-service-mode",
+              "operator": "=",
+              "answerString": "virtual"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ]
+        },
+        {
           "linkId": "patient-ssn",
           "type": "string",
           "text": "SSN",
@@ -509,6 +528,18 @@
         },
         {
           "linkId": "appointment-service-category",
+          "type": "string",
+          "required": true,
+          "readOnly": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ]
+        },
+        {
+          "linkId": "appointment-service-mode",
           "type": "string",
           "required": true,
           "readOnly": true,
