@@ -1,9 +1,10 @@
-import { Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, QuestionnaireResponse, Resource } from 'fhir/r4b';
 import {
   AppointmentLocation,
   appointmentTypeForAppointment,
   getTelemedEncounterStatusHistory,
   getTelemedVisitStatus,
+  isLocationVirtual,
   isTruthy,
   TelemedCallStatuses,
 } from 'utils';
@@ -15,7 +16,8 @@ import { AppointmentPackage, LocationIdToStateAbbreviationMap } from './types';
 
 export const findVirtualLocationForAppointment = (
   appointment: Appointment,
-  virtualLocationsMap: LocationIdToStateAbbreviationMap
+  virtualLocationsMap: LocationIdToStateAbbreviationMap,
+  allResources?: Resource[]
 ): AppointmentLocation | undefined => {
   const locationId = getLocationIdFromAppointment(appointment);
   if (locationId) {
@@ -23,7 +25,32 @@ export const findVirtualLocationForAppointment = (
       return virtualLocationsMap[abbreviation].find((location) => location.id === locationId);
     });
     if (!stateAbbreviation) {
-      console.error('No state abbreviation found for location', locationId);
+      // Fallback: check if location is in allResources (for newly created locations)
+      //
+      // Why this is needed:
+      // virtualLocationsMap is built once at the start of the zambda by calling getAllVirtualLocationsMap(),
+      // which does a FHIR search for all Location resources. However, this search may not include
+      // created locations.
+      //
+      // The FHIR search for appointments includes Location resources via _include:Appointment:location,
+      // so newly created locations will be present in allResources even if they're not in virtualLocationsMap yet.
+      if (allResources) {
+        const location = allResources.find((r) => r.resourceType === 'Location' && r.id === locationId) as
+          | Location
+          | undefined;
+
+        if (location && isLocationVirtual(location) && location.address?.state) {
+          return {
+            reference: `Location/${locationId}`,
+            name: location.name,
+            state: location.address.state,
+            resourceType: 'Location',
+            id: locationId,
+            extension: location.extension,
+          };
+        }
+      }
+
       return undefined;
     }
     const location = virtualLocationsMap[stateAbbreviation].find((location) => location.id === locationId)!;
@@ -110,14 +137,13 @@ export const filterAppointmentsAndCreatePackages = ({
       const paperwork = encounterQuestionnaireMap[encounter.id!];
 
       if (telemedStatus && statusesFilter.includes(telemedStatus)) {
-        const locationVirtual = findVirtualLocationForAppointment(appointment, virtualLocationsMap);
+        const locationVirtual = findVirtualLocationForAppointment(appointment, virtualLocationsMap, allResources);
         const practitioner = filterPractitionerForEncounter(allResources, encounter);
 
         if (!locationVirtual) {
           console.error('No location for appointment', appointment.id);
           return;
         }
-
         resultAppointments.push({
           appointment,
           paperwork,
