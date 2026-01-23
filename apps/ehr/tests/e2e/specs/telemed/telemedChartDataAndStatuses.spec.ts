@@ -580,7 +580,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             .first()
             .fill(providerNote);
           await waitForSaveChartDataResponse(page);
-          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
+          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill(ROS);
           await waitForSaveChartDataResponse(page);
         });
       });
@@ -640,7 +640,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).locator('textarea').first().fill('');
         await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
         await waitForChartDataDeletion(page);
-        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
+        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill('');
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).click();
         await waitForChartDataDeletion(page);
       });
