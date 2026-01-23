@@ -1,6 +1,12 @@
 // cSpell:ignore Hyperlegible
 import fs from 'node:fs';
+import Oystehr from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
+import { List, ListEntry } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
+import { addOperation, BUCKET_NAMES, FOLDERS_CONFIG, getSecret, Secrets, SecretsKeys } from 'utils';
+import { sendErrors } from '../errors';
 import {
   HEADER_FONT_SIZE,
   PDF_CLIENT_STYLES,
@@ -237,3 +243,125 @@ export const drawFourColumnText = (
 };
 
 export const LABS_PDF_LEFT_INDENTATION_XPOS = 50;
+
+/**
+ * Grabs the List resource representing the Labs folder for patient docs. Swallows errors and returns undefined when List is not found.
+ * */
+export const getLabListResource = async (
+  oystehr: Oystehr,
+  patientId: string,
+  secrets: Secrets | null,
+  pdfTitle?: string
+): Promise<List | undefined> => {
+  console.log('Getting lab list...');
+  try {
+    const labsFolderConfig = FOLDERS_CONFIG.find((config) => config.title === BUCKET_NAMES.LABS);
+    if (!labsFolderConfig) {
+      console.error(`Labs folder config cannot be found: ${JSON.stringify(FOLDERS_CONFIG)}`);
+      throw new Error('Labs folder config cannot be found');
+    }
+    const resources = (
+      await oystehr.fhir.search<List>({
+        resourceType: 'List',
+        params: [
+          {
+            name: 'subject',
+            value: `Patient/${patientId}`,
+          },
+          {
+            name: 'code',
+            value: 'patient-docs-folder',
+          },
+          {
+            name: 'identifier',
+            value: labsFolderConfig.title,
+          },
+        ],
+      })
+    ).unbundle();
+    if (resources?.length !== 1) {
+      console.error(`Got none or too many lab Lists`, JSON.stringify(resources?.map((res) => res.id)));
+      throw new Error('Unable to determine Labs List. Found none or many');
+    }
+    const labListResource = resources[0];
+    console.log(`Got lab list List/${labListResource.id}`);
+    return labListResource;
+  } catch (e) {
+    console.warn(
+      `Ran into problems getting Labs List. Swallowing error.${
+        pdfTitle ? ` ${pdfTitle} will not be added to Patient/${patientId} Labs folder.` : ''
+      } Error: ${e}`
+    );
+    console.log('sending error to sentry');
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendErrors(e, ENVIRONMENT);
+    return;
+  }
+};
+
+/**
+ * Dedupes DocRefs and adds any new DocRefs to the labListResource. Swallows errors but sends to Sentry
+ * @param oystehr
+ * @param labListResource
+ * @param docRefReferences
+ * @param secrets
+ */
+export const addDocsToLabList = async (
+  oystehr: Oystehr,
+  labListResource: List,
+  docRefReferences: string[],
+  secrets: Secrets | null
+): Promise<void> => {
+  // grab current entries from the list resource, figure out which unique docs need to get added
+  const currentDocRefs = new Set(
+    labListResource.entry
+      ?.map((entry) => {
+        if (entry.item.reference?.startsWith('DocumentReference/')) {
+          return entry.item.reference;
+        }
+        return;
+      })
+      .filter((elm) => elm !== undefined) ?? []
+  );
+
+  const uniqueDocRefs = [...new Set(docRefReferences)];
+  const docRefReferencesToAdd = uniqueDocRefs.filter((docRef) => !currentDocRefs.has(docRef));
+  const now = DateTime.now().setZone('UTC').toISO() ?? '';
+  const newIdsAsEntries: ListEntry[] = docRefReferencesToAdd.map((ref) => {
+    return {
+      date: now,
+      item: {
+        type: 'DocumentReference',
+        reference: ref,
+      },
+    };
+  });
+
+  console.log('These are the new ids as entries', JSON.stringify(newIdsAsEntries));
+
+  // trying to avoid copying all the existing docs in the folder again since that will grow over time
+  const patchOperations: Operation[] = currentDocRefs.size
+    ? newIdsAsEntries.map((entry) => addOperation('/entry/-', entry))
+    : [addOperation('/entry', newIdsAsEntries)];
+
+  console.log(`These are the patch operations`, JSON.stringify(patchOperations));
+  try {
+    const listPatchResult = await oystehr.fhir.patch<List>({
+      resourceType: 'List',
+      id: labListResource?.id ?? '',
+      operations: patchOperations,
+    });
+
+    console.log('patch results: ', JSON.stringify(listPatchResult));
+  } catch (e) {
+    console.warn(
+      `Encountered error while adding docs to the labs list folder: ${JSON.stringify(
+        uniqueDocRefs
+      )}. Swallowing error, docs will not be added to labs list folder. Error is: `,
+      e
+    );
+    console.log('sending error to sentry');
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendErrors(e, ENVIRONMENT);
+  }
+};
