@@ -126,6 +126,7 @@ export interface InPersonAppointmentInformation
   room?: string;
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
+  serviceCategory?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {
