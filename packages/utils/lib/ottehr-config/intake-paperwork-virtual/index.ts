@@ -725,6 +725,7 @@ const FormFields = {
         key: 'self-pay-alert-text',
         text: 'By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.',
         type: 'display',
+        dataType: 'Call Out',
         triggers: [
           {
             targetQuestionLinkId: 'payment-option',

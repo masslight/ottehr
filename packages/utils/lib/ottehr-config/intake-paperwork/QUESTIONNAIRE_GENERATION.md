@@ -242,6 +242,7 @@ Special `dataType` values trigger specific UI behavior:
 - **`Phone Number`**: Phone number formatting
 - **`State`**: US state validation
 - **`Select`**: Dropdown instead of radio buttons
+- **`Call Out`**: Styled callout/alert box for important messages (can be used on display fields)
 
 ## Section Order and Structure
 

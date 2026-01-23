@@ -88,6 +88,7 @@ const FormFieldsDisplayFieldSchema = z.object({
   type: z.literal('display'),
   text: z.string(),
   element: z.enum(['h3', 'h4', 'p']).optional(),
+  dataType: QuestionnaireDataTypeSchema.optional(),
   triggers: z.array(triggerSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
   disabledDisplay: z.literal('hidden').optional().default('hidden'),
@@ -526,6 +527,10 @@ const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): Q
 
   if (field.element) {
     extensions.push(createPreferredElementExtension(field.element));
+  }
+
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
   }
 
   // Add enableWhen and textWhen from triggers
