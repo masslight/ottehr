@@ -58,7 +58,8 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
-  _searchBy: SearchBy
+  _searchBy: SearchBy,
+  refreshKey?: number
 ): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
@@ -198,7 +199,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     } else {
       console.error('searchParams are not valid', searchParams);
     }
-  }, [fetchLabOrders, page, memoizedSearchBy]);
+  }, [fetchLabOrders, page, memoizedSearchBy, refreshKey]);
 
   const handleDeleteLabOrder = useCallback(
     async ({ serviceRequestId }: DeleteLabOrderZambdaInput): Promise<boolean> => {

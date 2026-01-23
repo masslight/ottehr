@@ -56,6 +56,7 @@ export type NursingOrdersSearchBy = z.infer<typeof NursingOrdersSearchBySchema>;
 
 export const GetNursingOrdersInputSchema = z.object({
   searchBy: NursingOrdersSearchBySchema,
+  refreshKey: z.number().optional(),
 });
 
 export type GetNursingOrdersInput = z.infer<typeof GetNursingOrdersInputSchema>;

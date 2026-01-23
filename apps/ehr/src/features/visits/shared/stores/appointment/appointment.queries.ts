@@ -874,7 +874,8 @@ export const useCreateUpdateMedicationOrder = () => {
 };
 
 export const useGetMedicationOrders = (
-  searchBy: GetMedicationOrdersInput['searchBy']
+  searchBy: GetMedicationOrdersInput['searchBy'],
+  refreshKey?: number
 ): UseQueryResult<GetMedicationOrdersResponse, Error> => {
   const apiClient = useOystehrAPIClient();
 
@@ -882,7 +883,7 @@ export const useGetMedicationOrders = (
   const encounterIdsHasLen = searchBy.field === 'encounterIds' && searchBy.value.length > 0;
 
   return useQuery({
-    queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy)],
+    queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy), refreshKey],
 
     queryFn: async () => {
       if (apiClient) {
