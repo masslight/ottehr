@@ -23,7 +23,11 @@ test.describe.parallel('THP. Telemed Homepage', () => {
   // why is this in the "telemed homepage" spec?
   test('THP-2. Should open Book In-Person Visit', async ({ page }) => {
     await page.goto('/home');
-    await page.getByRole('button', { name: 'Schedule an In-Person Visit' }).click();
+    await page
+      .getByRole('button', {
+        name: BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'schedule-in-person-visit')?.label,
+      })
+      .click();
 
     if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
       const availableCategories = BOOKING_CONFIG.serviceCategories || [];

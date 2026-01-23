@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import Homepage from '../../src/pages/Homepage';
 
@@ -104,10 +105,13 @@ describe('Homepage Authentication and Navigation', () => {
       </MemoryRouter>
     );
 
-    const scheduleVirtualButton = screen.getByRole('button', { name: /Schedule a Virtual Visit/i });
+    const scheduleVirtualButton = screen.getByRole('button', {
+      name: BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'schedule-virtual-visit')?.label,
+    });
     expect(scheduleVirtualButton).toBeDefined();
     await user.click(scheduleVirtualButton);
     await waitFor(() => {
+      // todo: all these paths can be derived from BOOKING_CONFIG
       expect(mockNavigate).toHaveBeenCalledWith('/prebook/virtual');
     });
   });
@@ -121,7 +125,9 @@ describe('Homepage Authentication and Navigation', () => {
       </MemoryRouter>
     );
 
-    const scheduleInPersonVisitButton = screen.getByRole('button', { name: /Schedule an In-Person Visit/i });
+    const scheduleInPersonVisitButton = screen.getByRole('button', {
+      name: BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'schedule-in-person-visit')?.label,
+    });
     expect(scheduleInPersonVisitButton).toBeDefined();
     await user.click(scheduleInPersonVisitButton);
     await waitFor(() => {
@@ -140,7 +146,9 @@ describe('Homepage Authentication and Navigation', () => {
       </MemoryRouter>
     );
 
-    const virtualVisitCheckInButton = screen.getByRole('button', { name: /Virtual Visit Check-In/i });
+    const virtualVisitCheckInButton = screen.getByRole('button', {
+      name: BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'start-virtual-visit')?.label,
+    });
     expect(virtualVisitCheckInButton).toBeDefined();
     await user.click(virtualVisitCheckInButton);
     await waitFor(() => {

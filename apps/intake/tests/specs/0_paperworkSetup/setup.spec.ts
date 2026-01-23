@@ -301,7 +301,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', { tag
 
 test.describe.parallel('Telemed: Create test patients and appointments', { tag: '@smoke' }, () => {
   test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
-    if (!BOOKING_CONFIG.homepageOptions.includes('schedule-virtual-visit')) {
+    if (!BOOKING_CONFIG.homepageOptions.map((option) => option.id).includes('schedule-virtual-visit')) {
       test.skip();
     }
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {

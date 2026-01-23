@@ -147,10 +147,10 @@ const Homepage = (): JSX.Element => {
   };
 
   const { homepageOptions } = BOOKING_CONFIG;
-  const showScheduleVirtualOption = homepageOptions.includes('schedule-virtual-visit');
-  const showStartVirtualOption = homepageOptions.includes('start-virtual-visit');
-  const showScheduleInPersonOption = homepageOptions.includes('schedule-in-person-visit');
-  const showStartInPersonOption = homepageOptions.includes('start-in-person-visit');
+  const showScheduleVirtualOption = homepageOptions.some((option) => option.id === 'schedule-virtual-visit');
+  const showStartVirtualOption = homepageOptions.some((option) => option.id === 'start-virtual-visit');
+  const showScheduleInPersonOption = homepageOptions.some((option) => option.id === 'schedule-in-person-visit');
+  const showStartInPersonOption = homepageOptions.some((option) => option.id === 'start-in-person-visit');
 
   return (
     <CustomContainer title={`Welcome to ${BRANDING_CONFIG.projectName}`} description="" isFirstPage={true}>
@@ -204,7 +204,10 @@ const Homepage = (): JSX.Element => {
 
             {showScheduleVirtualOption ? (
               <HomepageOption
-                title="Schedule a Virtual Visit"
+                title={
+                  BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'schedule-virtual-visit')?.label ||
+                  'Schedule a Virtual Visit'
+                }
                 icon={<VideoCameraFrontOutlinedIcon />}
                 handleClick={handleScheduleVirtual}
                 dataTestId={dataTestIds.scheduleVirtualVisitButton}
@@ -212,7 +215,10 @@ const Homepage = (): JSX.Element => {
             ) : null}
             {showScheduleInPersonOption ? (
               <HomepageOption
-                title="Schedule an In-Person Visit"
+                title={
+                  BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'schedule-in-person-visit')?.label ||
+                  'Schedule an In-Person Visit'
+                }
                 icon={<LocalHospitalOutlinedIcon />}
                 handleClick={handleInPerson}
                 dataTestId={dataTestIds.scheduleInPersonVisitButton}
@@ -220,7 +226,10 @@ const Homepage = (): JSX.Element => {
             ) : null}
             {showStartVirtualOption ? (
               <HomepageOption
-                title="Virtual Visit Check-In"
+                title={
+                  BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'start-virtual-visit')?.label ||
+                  'Virtual Visit Check-In'
+                }
                 icon={<VideoCameraFrontOutlinedIcon />}
                 handleClick={handleRequestVisit}
                 dataTestId={dataTestIds.startVirtualVisitButton}
@@ -229,7 +238,10 @@ const Homepage = (): JSX.Element => {
 
             {showStartInPersonOption ? (
               <HomepageOption
-                title="In-Person Check-In"
+                title={
+                  BOOKING_CONFIG.homepageOptions.find((option) => option.id === 'start-in-person-visit')?.label ||
+                  'In-Person Check-In'
+                }
                 icon={<LocalHospitalOutlinedIcon />}
                 handleClick={handleWalkIn}
                 dataTestId={dataTestIds.startInPersonVisitButton}

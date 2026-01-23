@@ -374,12 +374,18 @@ const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'scheduleType', value: 'group' },
 ];
 
+// todo: move routing params onto this object
+export const HomepageOptionSchema = z.object({
+  id: z.enum(['start-in-person-visit', 'schedule-in-person-visit', 'start-virtual-visit', 'schedule-virtual-visit']),
+  label: z.string(),
+});
+export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
 export interface BookingConfig {
   serviceCategoriesEnabled: {
     serviceModes: string[];
     visitType: string[];
   };
-  homepageOptions: string[];
+  homepageOptions: HomepageOption[];
   serviceCategories: StrongCoding[];
   formConfig: z.infer<typeof QuestionnaireConfigSchema>;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
@@ -395,10 +401,10 @@ const BOOKING_DEFAULTS: BookingConfig = {
     visitType: ['prebook', 'walk-in'],
   },
   homepageOptions: [
-    'start-in-person-visit',
-    'schedule-in-person-visit',
-    'start-virtual-visit',
-    'schedule-virtual-visit',
+    { id: 'start-in-person-visit', label: 'Inn-Person Check-in' },
+    { id: 'schedule-in-person-visit', label: 'Schedule an In-Person Visit' },
+    { id: 'start-virtual-visit', label: 'Virtual Visit Check-in' },
+    { id: 'schedule-virtual-visit', label: 'Schedule a Virtual Visit' },
   ],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,
@@ -424,10 +430,6 @@ export const ServiceCategoryCodeSchema = z.enum(
 );
 
 export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
-
-export const HomepageOptionSchema = z.enum(BOOKING_CONFIG.homepageOptions as [string, ...string[]]);
-
-export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
 
 export function getEnabledHomepageOptions(): HomepageOption[] {
   return BOOKING_CONFIG.homepageOptions ?? [];
