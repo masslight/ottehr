@@ -21,46 +21,6 @@ import {
 } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
-/*
-
-SOURCE QUESTIONNAIRE CONTEXT
- {
-                "linkId": "other-preferred-language",
-                "text": "Other preferred language",
-                "type": "string",
-                "required": false,
-                "enableWhen": [
-                  {
-                    "question": "preferred-language",
-                    "operator": "=",
-                    "answerString": "Other"
-                  }
-                ]
-              },
-              {
-                "linkId": "relay-phone",
-                "text": "Do you require a Hearing Impaired Relay Service? (711)",
-                "type": "choice",
-                "answerOption": [
-                  {
-                    "valueString": "No"
-                  },
-                  {
-                    "valueString": "Yes"
-                  }
-                ],
-                "required": true,
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-                    "valueString": "Radio List"
-                  }
-                ]
-              }
-
-
-*/
-
 const resolvedConsentForms = getConsentFormsForLocation();
 
 const FormFields = {
