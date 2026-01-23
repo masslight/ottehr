@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { DiagnosticReport, DocumentReference, Encounter, Organization, Patient, Task } from 'fhir/r4b';
-import { LAB_ORDER_TASK, LAB_RESULT_DOC_REF_CODING_CODE, LabOrderTaskCode } from 'utils';
+import { DiagnosticReport, Encounter, Organization, Patient, Task } from 'fhir/r4b';
+import { LAB_ORDER_TASK, LabOrderTaskCode } from 'utils';
 
 export const ACCEPTED_RESULTS_STATUS = ['preliminary', 'final', 'corrected', 'cancelled'];
 type AcceptedResultsStatus = (typeof ACCEPTED_RESULTS_STATUS)[number];
@@ -28,10 +28,9 @@ export async function fetchRelatedResources(
   patient?: Patient;
   labOrg?: Organization;
   encounter?: Encounter;
-  attachments?: DocumentReference[];
 }> {
   const resources = (
-    await oystehr.fhir.search<DiagnosticReport | Patient | Organization | Task | Encounter | DocumentReference>({
+    await oystehr.fhir.search<DiagnosticReport | Patient | Organization | Task | Encounter>({
       resourceType: 'DiagnosticReport',
       params: [
         { name: '_id', value: diagnosticReport.id ?? '' },
@@ -39,7 +38,6 @@ export async function fetchRelatedResources(
         { name: '_include', value: 'DiagnosticReport:subject' }, // patient
         { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
         { name: '_include', value: 'DiagnosticReport:encounter' }, // to grab the appointment id
-        { name: '_revinclude', value: 'DocumentReference:related' }, // to grab any lab generated attachments
       ],
     })
   ).unbundle();
@@ -69,7 +67,6 @@ export async function fetchRelatedResources(
     patient?: Patient;
     labOrg?: Organization;
     encounter?: Encounter; // unsolicited results will not have
-    attachments?: DocumentReference[];
   } = { tasks: [] };
 
   resources.forEach((resource) => {
@@ -84,17 +81,6 @@ export async function fetchRelatedResources(
     }
     if (resource.resourceType === 'Encounter') {
       result.encounter = resource;
-    }
-    if (
-      resource.resourceType === 'DocumentReference' &&
-      resource.status === 'current' &&
-      resource.type?.coding?.some(
-        (coding) =>
-          coding.system === LAB_RESULT_DOC_REF_CODING_CODE.system && coding.code === LAB_RESULT_DOC_REF_CODING_CODE.code
-      )
-    ) {
-      if (result.attachments) result.attachments.push(resource);
-      else result.attachments = [resource];
     }
   });
 

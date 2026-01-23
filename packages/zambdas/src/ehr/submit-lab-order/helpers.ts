@@ -33,7 +33,6 @@ import {
   Secrets,
 } from 'utils';
 import { createExternalLabsOrderFormPDF, getOrderFormDataConfig } from '../../shared/pdf/external-labs-order-form-pdf';
-import { addDocsToLabList, getLabListResource } from '../../shared/pdf/lab-pdf-utils';
 import { makeLabPdfDocumentReference, makeRelatedForLabsPDFDocRef } from '../../shared/pdf/labs-results-form-pdf';
 import { PdfInfo } from '../../shared/pdf/pdf-utils';
 import {
@@ -514,25 +513,14 @@ export async function makeOrderFormsAndDocRefs(
     let pdfInfo: PdfInfo | undefined;
     let labGeneratedEReqUrl: string | undefined;
     let abnUrl: string | undefined;
-    const docRefsToAddToLabFolder: string[] = [];
     if (resources.labGeneratedEReq) {
       labGeneratedEReqUrl = resources.labGeneratedEReq.content[0].attachment.url || '';
-      docRefsToAddToLabFolder.push(`DocumentReference/${resources.labGeneratedEReq.id}`);
     } else {
       const orderFormDataConfig = getOrderFormDataConfig(orderNumber, resources, now, oystehr);
       pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientId, secrets, token);
     }
     if (resources.abnDocRef) {
       abnUrl = resources.abnDocRef.content[0].attachment.url || '';
-      docRefsToAddToLabFolder.push(`DocumentReference/${resources.abnDocRef.id}`);
-    }
-
-    if (docRefsToAddToLabFolder.length) {
-      console.log('eReq and/or ABN must be added to labs folder');
-      const labList = await getLabListResource(oystehr, patientId, secrets);
-      if (labList) {
-        await addDocsToLabList(oystehr, labList, docRefsToAddToLabFolder, secrets);
-      }
     }
 
     return {
@@ -555,7 +543,6 @@ export async function makeOrderFormsAndDocRefs(
         acc.docRefPromises.push(
           makeLabPdfDocumentReference({
             oystehr,
-            secrets,
             type: 'order',
             pdfInfo: detail.pdfInfo,
             patientID: detail.patientId,
