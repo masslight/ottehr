@@ -2192,6 +2192,10 @@
         ],
         "extension": [
           {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Call Out"
+          },
+          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
             "extension": [
               {
