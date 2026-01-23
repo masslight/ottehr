@@ -293,7 +293,15 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     schemaTemp = objSchema;
   }
   if (item.type === 'decimal') {
-    let decimalSchema = Yup.number();
+    let decimalSchema = Yup.number()
+      .transform((value, originalValue) => {
+        // Treat empty string as undefined so required() validation works properly
+        if (originalValue === '' || originalValue === undefined || originalValue === null) {
+          return undefined;
+        }
+        return value;
+      })
+      .typeError(REQUIRED_FIELD_ERROR_MESSAGE);
     if (required) {
       decimalSchema = decimalSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
