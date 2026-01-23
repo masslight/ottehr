@@ -116,6 +116,7 @@ const FormFields = {
             answerString: 'virtual',
           },
         ],
+        disabledDisplay: 'hidden',
       },
       ssn: {
         key: 'patient-ssn',
