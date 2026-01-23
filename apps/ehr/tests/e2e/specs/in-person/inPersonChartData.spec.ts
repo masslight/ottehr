@@ -429,6 +429,12 @@ test.describe('In-Person Visit Chart Data', async () => {
           await progressNotePage.verifyVitalNotShown(VISION_LEFT);
           await progressNotePage.verifyVitalNotShown(VISION_RIGHT);
         });
+        await test.step('VIT-4.10 Verify Unsure last menstrual period observation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown('Unsure');
+        });
+        await test.step('VIT-4.11 Verify last menstrual period observation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(LMP_DATE);
+        });
       });
     });
   });
