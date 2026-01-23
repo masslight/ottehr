@@ -20,7 +20,6 @@ import {
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
-  TASK_TITLE_SYSTEM,
   TaskAlertCode,
 } from 'utils';
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
@@ -42,7 +41,6 @@ export interface TasksSearchParams {
 
 export interface AssignTaskRequest {
   taskId: string;
-  taskTitle: string;
   assignee: {
     id: string;
     name: string;
@@ -179,14 +177,6 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
             op: 'replace',
             path: '/status',
             value: 'in-progress',
-          },
-          {
-            op: 'add',
-            path: '/code/coding/-',
-            value: {
-              system: TASK_TITLE_SYSTEM,
-              code: input.taskTitle,
-            },
           },
         ],
       });

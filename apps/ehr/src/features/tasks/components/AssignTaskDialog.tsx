@@ -20,7 +20,6 @@ export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose, refetchDa
   const handleConfirm = async (): Promise<void> => {
     await assignTask({
       taskId: task.id,
-      taskTitle: task.title,
       assignee: {
         id: assignee.id,
         name: assignee.name,
