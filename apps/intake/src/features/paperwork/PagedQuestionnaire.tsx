@@ -52,6 +52,7 @@ import { ControlButtonsProps } from '../../types';
 import AIInterview from './components/AIInterview';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
+import DecimalInput from './components/DecimalInput';
 import { FieldHelperText } from './components/FieldHelperText';
 import FileInput, { AttachmentType } from './components/FileInput';
 import FreeMultiSelectInput from './components/FreeMultiSelectInput';
@@ -609,7 +610,11 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               ...inputBaseProps,
               inputMode:
                 inputMode ??
-                (item.type === 'integer' || item.type === 'decimal' || item.dataType === 'ZIP' ? 'numeric' : 'text'),
+                (item.type === 'decimal'
+                  ? 'decimal'
+                  : item.type === 'integer' || item.dataType === 'ZIP'
+                  ? 'numeric'
+                  : 'text'),
               ...(item.dataType === 'ZIP' && { pattern: '[0-9]*', maxLength: 5 }),
             }}
             placeholder={item.placeholder}
@@ -748,6 +753,18 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
             item={item}
             fieldId={parentItem ? fieldId : item.linkId}
             onChange={smartOnChange}
+          />
+        );
+      case 'Decimal':
+        return (
+          <DecimalInput
+            item={item}
+            value={unwrappedValue}
+            fieldId={fieldId}
+            onChange={smartOnChange}
+            inputRef={parentItem ? ref : inputRef}
+            error={error.hasError}
+            disabled={item.displayStrategy !== 'enabled'}
           />
         );
       case 'Attachment':

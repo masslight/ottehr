@@ -292,6 +292,21 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
     schemaTemp = objSchema;
   }
+  if (item.type === 'decimal') {
+    let decimalSchema = Yup.number();
+    if (required) {
+      decimalSchema = decimalSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    let schema: Yup.AnySchema = Yup.object({
+      valueDecimal: decimalSchema,
+    });
+    if (required) {
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    } else {
+      schema = schema.optional();
+    }
+    schemaTemp = schema;
+  }
   if (!schemaTemp) {
     throw new Error(`no schema defined for item ${item.linkId} ${JSON.stringify(item)}`);
   }
