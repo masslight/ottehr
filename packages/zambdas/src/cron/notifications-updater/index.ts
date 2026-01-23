@@ -316,15 +316,15 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     Object.keys(recentlyAssignedTasksMap).forEach((taskId) => {
       try {
         const { task, practitioner } = recentlyAssignedTasksMap[taskId];
-        console.log('2026-01-22: task & practitioner', taskId, practitioner.id);
 
         const isProcessed = task.meta?.tag?.find(
-          (tag) => tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM && tag.code === 'task-assigned'
+          (tag) =>
+            tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM &&
+            tag.code === AppointmentProviderNotificationTypes.task_assigned
         );
-        console.log('2026-01-22: isProcessed', isProcessed);
+        console.log('omarTempTaskLog: isProcessed', !!isProcessed);
 
         if (!isProcessed && practitioner) {
-          console.log('2026-01-22: adding request to update task');
           updateTaskRequests.push(
             getPatchBinary({
               resourceId: task.id!,
@@ -339,12 +339,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           );
 
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
-          console.log('2026-01-22: notificationSettings', JSON.stringify(notificationSettings));
+          console.log('omarTempTaskLog: notifications', notificationSettings?.enabled);
 
           if (notificationSettings?.enabled) {
-            console.log('2026-01-22: notifications on');
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
-            console.log('2026-01-22: status', status);
             const taskTitle = task.input?.find(
               (input) =>
                 input.type.coding?.some(
@@ -363,7 +361,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                     coding: [
                       {
                         system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                        code: 'task-assigned',
+                        code: AppointmentProviderNotificationTypes.task_assigned,
                       },
                     ],
                   },
@@ -375,7 +373,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 payload: [{ contentString: `A new task has been assigned to you: ${taskTitle}` }],
               },
             };
-            console.log('2026-01-22: request', JSON.stringify(request));
+            console.log('omarTempTaskLog: request', JSON.stringify(request));
 
             createCommunicationRequests.push(request);
             addNewSMSCommunicationForPractitioner(practitioner, request.resource as Communication, status);
