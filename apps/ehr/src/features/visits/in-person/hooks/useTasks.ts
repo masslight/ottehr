@@ -13,6 +13,7 @@ import {
   LAB_ORDER_TASK,
   LabType,
   MANUAL_TASK,
+  PROVIDER_NOTIFICATION_TAG_SYSTEM,
   RADIOLOGY_TASK,
   Task,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -195,6 +196,11 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
   return useMutation({
     mutationFn: async (input: UnassignTaskRequest) => {
       if (!oystehr) throw new Error('oystehr not defined');
+      const taskResource = await oystehr.fhir.get<FhirTask>({
+        resourceType: 'Task',
+        id: input.taskId,
+      });
+      const updatedMetaTags = taskResource.meta?.tag?.filter((tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM);
       await oystehr.fhir.patch<FhirTask>({
         resourceType: 'Task',
         id: input.taskId,
@@ -208,11 +214,11 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
             path: '/status',
             value: 'ready',
           },
-          // todo remove meta tag for provider notification when unassigned
-          // {
-          //   op: 'remove',
-          //   path: `/meta/tag[?(@.system=='${PROVIDER_NOTIFICATION_TAG_SYSTEM}')]`,
-          // },
+          {
+            op: 'replace',
+            path: `/meta/tag`,
+            value: updatedMetaTags,
+          },
         ],
       });
     },
