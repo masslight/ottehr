@@ -259,13 +259,8 @@ export class VitalsPage {
     await dateInput.pressSequentially(date);
     const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodAddButton);
     await addButton.click();
-  }
-
-  async checkAddedLastMenstrualPeriodObservationInHistory(date: string): Promise<void> {
+    await waitForSaveChartDataResponse(this.#page);
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first()).toContainText(date);
-  }
-
-  async checkAddedLastMenstrualPeriodIsShownInHeader(date: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText(date);
   }
 
@@ -275,15 +270,10 @@ export class VitalsPage {
 
     const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodAddButton);
     await addButton.click();
-  }
-
-  async checkUnsureInHistory(): Promise<void> {
+    await waitForSaveChartDataResponse(this.#page);
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first()).toContainText(
       'Unsure'
     );
-  }
-
-  async checkAddedLastMenstrualPeriodUnsureIsShownInHeader(): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText('Unsure');
   }
 
@@ -297,6 +287,10 @@ export class VitalsPage {
       .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
       .getByTestId(dataTestIds.dialog.proceedButton)
       .click();
+    await waitForChartDataDeletion(this.#page);
+    await expect(
+      this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText('Unsure')
+    ).not.toBeVisible();
   }
 }
 
