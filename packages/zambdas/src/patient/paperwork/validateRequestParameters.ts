@@ -29,6 +29,8 @@ export interface PatchPaperworkEffectInput {
   patchIndex: number;
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
+  ipAddress: string;
+  appointmentId?: string;
 }
 
 export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>, ZambdaInput {
@@ -224,7 +226,7 @@ const complexPatchValidation = async (
   oystehr: Oystehr
 ): Promise<PatchPaperworkEffectInput> => {
   // we should return QR id and use it to get both appointment Id and Questionnaire
-  const { answers: itemToPatch, questionnaireResponseId } = input;
+  const { answers: itemToPatch, questionnaireResponseId, ipAddress, appointmentId } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
 
   if (!qrAndQItems) {
@@ -264,6 +266,8 @@ const complexPatchValidation = async (
     updatedAnswers: [...currentAnswersToKeep, ...submittedAnswers],
     patchIndex: updatedAnswerIndex,
     currentQRStatus: fullQRResource.status,
+    ipAddress,
+    appointmentId,
   };
 };
 
