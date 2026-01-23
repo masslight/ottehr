@@ -22,6 +22,7 @@ import {
   Secrets,
   SecretsKeys,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+  TASK_TITLE_SYSTEM,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -344,11 +345,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (notificationSettings?.enabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
             const taskTitle = task.input?.find(
-              (input) =>
-                input.type.coding?.some(
-                  (coding) =>
-                    coding.system === 'https://fhir.ottehr.com/CodeSystem/task-input' && coding.code === 'title'
-                )
+              (input) => input.type.coding?.some((coding) => coding.system === TASK_TITLE_SYSTEM)
             )?.valueString;
 
             const request: BatchInputPostRequest<Communication> = {
