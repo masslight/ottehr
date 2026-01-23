@@ -111,7 +111,7 @@ const FormFields = {
         triggers: [
           {
             targetQuestionLinkId: 'appointment-service-mode',
-            effect: ['enable', 'require'],
+            effect: ['enable'],
             operator: '=',
             answerString: 'virtual',
           },
