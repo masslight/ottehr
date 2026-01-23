@@ -688,20 +688,40 @@ const FormFields = {
         dataType: 'Call Out',
         triggers: [
           {
+            targetQuestionLinkId: 'contact-information-page.appointment-service-category',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'workers-comp',
+          },
+          {
             targetQuestionLinkId: 'payment-option',
             effect: ['enable'],
             operator: '=',
             answerString: SELF_PAY_OPTION,
           },
+        ],
+        enableBehavior: 'all',
+      },
+      workersCompAlert: {
+        key: 'workers-comp-alert-text',
+        text: 'By clicking "Continue," I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance.',
+        type: 'display',
+        dataType: 'Call Out',
+        triggers: [
           {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['sub-text'],
+            targetQuestionLinkId: 'contact-information-page.appointment-service-category',
+            effect: ['enable'],
             operator: '=',
             answerString: 'workers-comp',
-            substituteText:
-              'By clicking "Continue," I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance.',
+          },
+          {
+            targetQuestionLinkId: 'payment-option', // shown when either payment option is selected
+            effect: ['enable'],
+            operator: 'exists',
+            answerBoolean: true,
           },
         ],
+        enableBehavior: 'all',
       },
       insuranceDetailsText: {
         key: 'insurance-details-text',
