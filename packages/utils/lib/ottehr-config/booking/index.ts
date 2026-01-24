@@ -59,6 +59,10 @@ const FormFields = {
         key: 'appointment-service-category',
         type: 'string',
       },
+      appointmentServiceMode: {
+        key: 'appointment-service-mode',
+        type: 'string',
+      },
     },
     items: {
       firstName: {
@@ -99,6 +103,20 @@ const FormFields = {
         label: 'Birth sex',
         type: 'choice',
         options: VALUE_SETS.birthSexOptions,
+      },
+      weight: {
+        key: 'patient-weight',
+        label: 'Weight (lbs)',
+        type: 'decimal',
+        triggers: [
+          {
+            targetQuestionLinkId: 'appointment-service-mode',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'virtual',
+          },
+        ],
+        disabledDisplay: 'hidden',
       },
       ssn: {
         key: 'patient-ssn',
@@ -303,6 +321,11 @@ export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[
       case 'patient-birth-sex':
         patientInfo.sex = PersonSex[pickFirstValueFromAnswerItem(item, 'string') as keyof typeof PersonSex];
         break;
+      case 'patient-weight':
+        // eslint-disable-next-line no-case-declarations
+        const weight = parseFloat(pickFirstValueFromAnswerItem(item, 'string') || '');
+        patientInfo.weight = Number.isNaN(weight) ? undefined : weight;
+        break;
       default:
         break;
     }
@@ -451,6 +474,9 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
           }
           if (linkId === 'appointment-service-category') {
             answer = makeAnswer(serviceCategoryCode);
+          }
+          if (linkId === 'appointment-service-mode') {
+            answer = makeAnswer(serviceMode);
           }
           if (linkId === 'patient-first-name' && patient) {
             answer = makeAnswer(getFirstName(patient) ?? '');

@@ -7,6 +7,9 @@ export const getInputTypeForItem = (item: IntakeQuestionnaireItem): FormItemType
     case 'text':
       inputType = 'Text';
       break;
+    case 'decimal':
+      inputType = 'Decimal';
+      break;
     case 'boolean':
       inputType = inputTypeForBoolean(item);
       break;

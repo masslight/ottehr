@@ -96,7 +96,7 @@ const FormFieldsDisplayFieldSchema = z.object({
 
 const FormFieldsValueTypeBaseSchema = z.object({
   key: z.string(),
-  type: z.enum(['string', 'text', 'date', 'choice', 'open-choice', 'boolean', 'reference']),
+  type: z.enum(['string', 'text', 'date', 'choice', 'open-choice', 'boolean', 'reference', 'decimal']),
   label: z.string(),
   dataType: QuestionnaireDataTypeSchema.optional(),
   options: z

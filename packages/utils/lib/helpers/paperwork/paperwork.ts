@@ -532,14 +532,14 @@ export const getComponentKeysFromDateGroup = (item: QuestionnaireItem): DateKeys
 
 export const pickFirstValueFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
-  type: 'string' | 'boolean' | 'attachment' | 'reference' = 'string'
+  type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'
 ): any => {
   const valString = `value${capitalizeFirstLetter(type)}` as keyof QuestionnaireResponseItemAnswer;
   return item?.answer?.[0]?.[valString];
 };
 export const pickValueAsStringListFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
-  type: 'string' | 'boolean' | 'attachment' | 'reference' = 'string'
+  type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'
 ): any => {
   const valString = `value${capitalizeFirstLetter(type)}` as keyof QuestionnaireResponseItemAnswer;
   return (item?.answer ?? []).map((ent) => {
