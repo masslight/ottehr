@@ -3,6 +3,7 @@ import { camelCase } from 'lodash-es';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
+import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
@@ -134,8 +135,7 @@ const FormFields = {
       },
       mobileOptIn: {
         key: 'mobile-opt-in',
-        label:
-          'Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.',
+        label: `Yes! I would like to receive helpful text messages from ${BRANDING_CONFIG.projectName} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.`,
         type: 'boolean',
       },
     },
@@ -422,20 +422,40 @@ const FormFields = {
         dataType: 'Call Out',
         triggers: [
           {
+            targetQuestionLinkId: 'contact-information-page.appointment-service-category',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'workers-comp',
+          },
+          {
             targetQuestionLinkId: 'payment-option',
             effect: ['enable'],
             operator: '=',
             answerString: SELF_PAY_OPTION,
           },
+        ],
+        enableBehavior: 'all',
+      },
+      workersCompAlert: {
+        key: 'workers-comp-alert-text',
+        text: 'By clicking "Continue," I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance.',
+        type: 'display',
+        dataType: 'Call Out',
+        triggers: [
           {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['sub-text'],
+            targetQuestionLinkId: 'contact-information-page.appointment-service-category',
+            effect: ['enable'],
             operator: '=',
             answerString: 'workers-comp',
-            substituteText:
-              'By clicking "Continue," I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance.',
+          },
+          {
+            targetQuestionLinkId: 'payment-option', // shown when either payment option is selected
+            effect: ['enable'],
+            operator: 'exists',
+            answerBoolean: true,
           },
         ],
+        enableBehavior: 'all',
       },
       insuranceDetailsText: {
         key: 'insurance-details-text',
@@ -1098,6 +1118,7 @@ const FormFields = {
         key: 'self-pay-alert-text-occupational',
         text: 'By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.',
         type: 'display',
+        dataType: 'Call Out',
         triggers: [
           {
             targetQuestionLinkId: 'payment-option-occupational',
