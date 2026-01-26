@@ -17,8 +17,11 @@ export const UpdateInvoiceTaskZambdaInputSchema = z.object({
 export type UpdateInvoiceTaskZambdaInput = z.infer<typeof UpdateInvoiceTaskZambdaInputSchema>;
 
 export type InvoiceMessagesPlaceholders = {
+  'patient-full-name'?: string;
+  location?: string;
+  'visit-date'?: string;
+  'url-to-patient-portal'?: string;
   clinic?: string;
-  amount?: string;
   'due-date'?: string;
   'invoice-link'?: string;
 };

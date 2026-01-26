@@ -47,6 +47,7 @@ interface SendInvoiceToPatientDialogProps {
   submitButtonName: string;
   invoiceTask?: Task;
   patientAndRP?: GetPatientAndResponsiblePartyInfoEndpointOutput;
+  additionalData?: { visitDate?: string; location?: string };
 }
 
 export default function SendInvoiceToPatientDialog({
@@ -57,6 +58,7 @@ export default function SendInvoiceToPatientDialog({
   submitButtonName,
   invoiceTask,
   patientAndRP,
+  additionalData,
 }: SendInvoiceToPatientDialogProps): ReactElement {
   const [disableAllFields, setDisableAllFields] = useState(true);
   const {
@@ -68,11 +70,16 @@ export default function SendInvoiceToPatientDialog({
   } = useForm<SendInvoiceFormData>({
     mode: 'onBlur',
   });
+  const { visitDate, location } = additionalData ?? {};
   const invoiceMessagesPlaceholders: InvoiceMessagesPlaceholders = {
     clinic: BRANDING_CONFIG.projectName,
     amount: watch('amount')?.toString(),
     'due-date': watch('dueDate'),
     'invoice-link': 'https://example.com/invoice-link',
+    'patient-full-name': patientAndRP?.patient.fullName ?? '',
+    'url-to-patient-portal': 'https://example.com/patient-portal',
+    'visit-date': visitDate,
+    location,
   };
   const smsMessagePrefilledPreview = replaceTemplateVariablesArrows(
     watch('smsTextMessage'),

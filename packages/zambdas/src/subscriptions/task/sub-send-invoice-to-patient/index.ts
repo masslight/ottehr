@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Account, Encounter, Patient, Task, TaskOutput } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Location, Patient, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   BRANDING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
+  getFullName,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
@@ -51,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
-      const { patient, encounter, account } = fhirResources;
+      const { patient, encounter, account, appointment, location } = fhirResources;
       console.log('Fhir resources fetched');
 
       const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
@@ -63,10 +64,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
       console.log('Stripe and candid ids retrieved');
 
+      const locationName = location.name;
+      const visitDateObj = DateTime.fromISO(appointment.start ?? '');
+      const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
+      const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
+      if (!locationName || !visitDate) throw new Error('visit date or location name are missing required fields');
+
       console.log('Creating invoice and invoice item');
       const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
       if (!patientId) throw new Error("Encounter doesn't have patient reference");
-      const filledMemo = memo ? fillMessagePlaceholders(memo, amountCents, dueDate) : undefined;
+      const filledMemo = memo
+        ? fillMessagePlaceholders(memo, {
+            patientFullName: getFullName(fhirResources.patient),
+            location: locationName,
+            visitDate,
+            dueDate,
+            patientPortalUrl,
+          })
+        : undefined;
       const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
         oystEncounterId: encounterId,
         oystPatientId: patientId,
@@ -88,7 +103,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       console.log('Filling in invoice sms messages placeholders');
       const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-      const smsMessage = fillMessagePlaceholders(smsTextMessage, amountCents, dueDate, invoiceUrl);
+      const smsMessage = fillMessagePlaceholders(smsTextMessage, {
+        patientFullName: getFullName(fhirResources.patient),
+        location: locationName,
+        visitDate,
+        dueDate,
+        invoiceLink: invoiceUrl,
+      });
 
       console.log('Sending sms to patient');
       await sendInvoiceSmsToPatient(oystehr, smsMessage, patient, secrets);
@@ -181,7 +202,7 @@ async function createInvoice(
 async function getFhirResources(
   oystehr: Oystehr,
   encounterId: string
-): Promise<{ patient: Patient; encounter: Encounter; account: Account }> {
+): Promise<{ patient: Patient; encounter: Encounter; account: Account; appointment: Appointment; location: Location }> {
   const response = (
     await oystehr.fhir.search({
       resourceType: 'Encounter',
@@ -193,6 +214,14 @@ async function getFhirResources(
         {
           name: '_include',
           value: 'Encounter:patient',
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:location',
         },
         {
           name: '_revinclude:iterate',
@@ -219,14 +248,27 @@ async function getFhirResources(
   const account = accounts.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
   if (!account) throw FHIR_RESOURCE_NOT_FOUND('Account');
 
+  const appointment = response.find((res) => res.resourceType === 'Appointment') as Appointment;
+  if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
+  const locationId = appointment.participant
+    ?.find((p) => p.actor?.reference?.startsWith('Location/'))
+    ?.actor?.reference?.split('/')[1];
+  if (!locationId) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Appointment doesn't have location id");
+  const location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
+  if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
+
   console.log('Fhir encounter found: ', encounter.id);
   console.log('Fhir patient found: ', patient.id);
   console.log('Fhir account found', account?.id);
+  console.log('Fhir appointment found: ', appointment.id);
+  console.log('Fhir location found: ', location.id);
 
   return {
     encounter,
     patient,
     account,
+    appointment,
+    location,
   };
 }
 
@@ -298,11 +340,24 @@ async function sendInvoiceSmsToPatient(
   await sendSmsForPatient(smsTextMessage, oystehr, patient, ENVIRONMENT);
 }
 
-function fillMessagePlaceholders(message: string, amountCents: number, dueDate: string, invoiceLink?: string): string {
+interface MessagePlaceholders {
+  patientFullName: string;
+  location: string;
+  visitDate: string;
+  dueDate: string;
+  patientPortalUrl?: string;
+  invoiceLink?: string;
+}
+
+function fillMessagePlaceholders(message: string, placeholders: MessagePlaceholders): string {
+  const { patientFullName, location, visitDate, dueDate, patientPortalUrl, invoiceLink } = placeholders;
   const clinic = BRANDING_CONFIG.projectName;
   const params: InvoiceMessagesPlaceholders = {
+    'patient-full-name': patientFullName,
+    location,
+    'visit-date': visitDate,
+    'url-to-patient-portal': patientPortalUrl,
     clinic,
-    amount: (amountCents / 100).toString(),
     'due-date': dueDate,
     'invoice-link': invoiceLink,
   };
