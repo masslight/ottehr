@@ -74,7 +74,7 @@ export class PdfTestHelper {
 
     // Save to temp file
     const filePath = path.join(os.tmpdir(), `${fileNamePrefix}-${Date.now()}.pdf`);
-    fs.writeFileSync(filePath, Buffer.from(pdfBuffer));
+    fs.writeFileSync(filePath, new Uint8Array(pdfBuffer));
 
     return filePath;
   }

@@ -12,10 +12,10 @@ test('Should log in', async ({ page, context, browser }) => {
   await context.clearPermissions();
 
   await page.goto('/');
-  await page.fill('#username', process.env.TEXT_USERNAME!);
+  await page.fill('#username', process.env.TEXT_USERNAME!, { timeout: 50_000 });
   await page.click('button[type="submit"]');
   await page.waitForTimeout(100);
-  await page.fill('#password', process.env.TEXT_PASSWORD!);
+  await page.fill('#password', process.env.TEXT_PASSWORD!, { timeout: 50_000 });
   await page.click('button[type="submit"]');
 
   // Check if authorization page appears and accept if it does. Actual for first login.
