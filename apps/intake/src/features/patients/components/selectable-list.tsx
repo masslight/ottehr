@@ -37,7 +37,7 @@ const PatientList: React.FC<PatientListProps> = ({
         type: 'Radio',
         name: 'patientID',
         label: subtitle,
-        defaultValue: selectedPatient,
+        defaultValue: selectedPatient?.id,
         required: true,
         radioOptions: hasNoPatients
           ? []
