@@ -2020,3 +2020,19 @@ export const checkFieldHidden = (fieldKey: string): boolean => {
     .flatMap((section) => section.hiddenFields)
     .includes(fieldKey);
 };
+
+const GetPageSubtitleSchema = z.function().args(z.string(), z.string()).returns(z.string());
+
+let parsedGetPageSubtitle: z.infer<typeof GetPageSubtitleSchema> | undefined;
+if (OVERRIDES.getIntakeFormPageSubtitle != undefined) {
+  parsedGetPageSubtitle = GetPageSubtitleSchema.parse(OVERRIDES.getIntakeFormPageSubtitle);
+}
+
+export const getIntakeFormPageSubtitle =
+  parsedGetPageSubtitle ??
+  ((pageLinkId: string, patientName: string): string => {
+    if (pageLinkId === 'photo-id-page') {
+      return `Adult Guardian for ${patientName}`;
+    }
+    return patientName;
+  });

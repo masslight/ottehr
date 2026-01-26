@@ -29,6 +29,7 @@ import {
   evalEnableWhen,
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
+  getIntakeFormPageSubtitle,
   getSelectors,
   IntakeQuestionnaireItem,
   isApiError,
@@ -553,9 +554,7 @@ export const PaperworkPage: FC = () => {
             onSubmit={finishPaperworkPage}
             pageId={currentPage?.linkId ?? ''}
             pageItem={currentPage}
-            patientName={
-              pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
-            }
+            pageSubtitle={getIntakeFormPageSubtitle(currentPage?.linkId ?? '', patientFullName ?? '')}
             options={{ controlButtons }}
             items={questionnaireItems}
             defaultValues={paperworkGroupDefaults}
