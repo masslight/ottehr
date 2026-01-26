@@ -946,10 +946,8 @@ const prepopulateLogicalFields = (
   const shouldShowSSNField = !(
     PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn') ?? false
   );
-  console.log('shouldShowSSNField', shouldShowSSNField);
   const ssnRequired =
     shouldShowSSNField && PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields?.includes('patient-ssn');
-  console.log('ssnRequired', ssnRequired);
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {

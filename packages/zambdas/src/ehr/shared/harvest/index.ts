@@ -1094,7 +1094,14 @@ export function createMasterRecordPatchOperations(
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
   // this needs to go here for now because consolidateOperations breaks it
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
-  console.log('result.patient.patchOps', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
+  // sanitize the patient patch ops so no SSN is leaked in logs
+  const sanitizedPatchOps = result.patient.patchOpsForDirectUpdate.map((op) => {
+    if (op.path?.includes('patient-ssn')) {
+      return { ...op, value: '***REDACTED***' };
+    }
+    return op;
+  });
+  console.log('result.patient.patchOps', JSON.stringify(sanitizedPatchOps, null, 2));
   return result;
 }
 
