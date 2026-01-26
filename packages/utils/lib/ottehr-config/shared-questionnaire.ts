@@ -6,6 +6,7 @@ import { VALUE_SETS as formValueSets } from './value-sets';
 export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
 export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
 export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[0].value; // 'Self'
+export const OCC_MED_EMPLOYER_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[1].value; // 'Employer'
 
 export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value; // some flavor of 'yes'
 export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
