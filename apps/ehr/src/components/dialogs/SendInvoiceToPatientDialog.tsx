@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -26,6 +27,7 @@ import {
   PrefilledInvoiceInfo,
   replaceTemplateVariablesArrows,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  textingConfig,
 } from 'utils';
 import { BasicDatePicker } from '../form';
 import { RoundedButton } from '../RoundedButton';
@@ -96,12 +98,15 @@ export default function SendInvoiceToPatientDialog({
       try {
         const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
         if (invoiceTaskInput) {
-          const { dueDate, memo, smsTextMessage, amountCents } = invoiceTaskInput;
+          const { amountCents } = invoiceTaskInput;
+          const dueDate = DateTime.now().plus({ days: textingConfig.invoicing.dueDateInDays }).toISODate();
+          const memo = textingConfig.invoicing.stripeMemoMessage;
+          const smsMessage = textingConfig.invoicing.smsMessage;
           reset({
             amount: amountCents / 100,
             dueDate: dueDate,
             memo: memo,
-            smsTextMessage: smsTextMessage,
+            smsTextMessage: smsMessage,
           });
           setDisableAllFields(false);
         }

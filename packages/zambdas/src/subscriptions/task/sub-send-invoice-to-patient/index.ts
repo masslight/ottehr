@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   BRANDING_CONFIG,
+  FHIR_RESOURCE_NOT_FOUND,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
@@ -15,6 +16,7 @@ import {
   RcmTaskCodings,
   removePrefix,
   replaceTemplateVariablesArrows,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -49,7 +51,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
-      if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
       const { patient, encounter, account } = fhirResources;
       console.log('Fhir resources fetched');
 
@@ -180,7 +181,7 @@ async function createInvoice(
 async function getFhirResources(
   oystehr: Oystehr,
   encounterId: string
-): Promise<{ patient: Patient; encounter: Encounter; account: Account } | undefined> {
+): Promise<{ patient: Patient; encounter: Encounter; account: Account }> {
   const response = (
     await oystehr.fhir.search({
       resourceType: 'Encounter',
@@ -202,23 +203,25 @@ async function getFhirResources(
   ).unbundle();
 
   const encounter = response.find((resource) => resource.resourceType === 'Encounter') as Encounter;
+  if (!encounter) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
+
   const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
-  if (!patientId) {
-    console.error("Encounter doesn't have patient reference");
-    return undefined;
-  }
+  if (!patientId) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Encounter doesn't have patient reference");
+
   const patient = response.find(
     (resource) => resource.resourceType === 'Patient' && resource.id === patientId
   ) as Patient;
+  if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
   const accounts = response.filter(
     (resource) =>
       resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
   ) as Account[];
   const account = accounts.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
+  if (!account) throw FHIR_RESOURCE_NOT_FOUND('Account');
+
   console.log('Fhir encounter found: ', encounter.id);
   console.log('Fhir patient found: ', patient.id);
   console.log('Fhir account found', account?.id);
-  if (!encounter || !patient || !account) return undefined;
 
   return {
     encounter,
