@@ -51,7 +51,7 @@ export class EditMedicationCard {
   async selectMedication(medication: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.MEDICATION);
     await this.#page.getByTestId(dataTestId).click();
-    await this.chooseOption(medication);
+    await this.chooseOption(medication, true);
   }
 
   async clearMedication(): Promise<void> {
