@@ -22,6 +22,7 @@ export type InvoiceMessagesPlaceholders = {
   'visit-date'?: string;
   'url-to-patient-portal'?: string;
   clinic?: string;
+  amount?: string;
   'due-date'?: string;
   'invoice-link'?: string;
 };

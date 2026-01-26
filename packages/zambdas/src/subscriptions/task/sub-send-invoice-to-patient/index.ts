@@ -79,6 +79,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             location: locationName,
             visitDate,
             dueDate,
+            amount: `${amountCents / 100}`,
             patientPortalUrl,
           })
         : undefined;
@@ -108,6 +109,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         location: locationName,
         visitDate,
         dueDate,
+        amount: `${amountCents / 100}`,
         invoiceLink: invoiceUrl,
       });
 
@@ -345,6 +347,7 @@ interface MessagePlaceholders {
   location: string;
   visitDate: string;
   dueDate: string;
+  amount?: string;
   patientPortalUrl?: string;
   invoiceLink?: string;
 }
