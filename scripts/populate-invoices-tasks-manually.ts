@@ -51,8 +51,7 @@ async function main(): Promise<void> {
   const maxCandidPages = 18;
   const startFrom = DateTime.fromFormat('01/14/2026', 'MM/dd/yyyy');
   const endOn = startFrom.plus({ weeks: 2 });
-  const token =
-    'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlRRc2xGbWlRX01ZTzg4Z3BRUnlvRCJ9.eyJpc3MiOiJodHRwczovL2F1dGguemFwZWhyLmNvbS8iLCJzdWIiOiJhdXRoMHw2NzU3NTM3NTRhYWY3OGU0NTllOWQ4OTMiLCJhdWQiOlsiaHR0cHM6Ly9hcGkuemFwZWhyLmNvbSIsImh0dHBzOi8vemFwZWhyLnVzLmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE3NjkxMDk0MDAsImV4cCI6MTc2OTE5NTgwMCwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCBvZmZsaW5lX2FjY2VzcyIsImF6cCI6Im8zcnN6bDJuS0k2STFhSDZzYmw4ZEZyRmdNVkcyaU1jIn0.DrdnUe4pXDk_aAi2IUYz_xXDdevk8V2fN8NPqWTcL7W4_n1nh3F6-e_XLCau1nY9xlEpoEJC0SAIIi5S8sHqEgMvpIkDeRkLN3heyX_UlC8vHwB4s1mACCJJlhEVwU2-BSurj0VIOo4Cyra14eagN6J8_n72KP9VlGoBHsOt_FVswWpw1SnRvHZERIiuDhlJOD8Adklu5aulRL3q_ycWT9KPDRPCxqS1vMC3b8XCj2VOGMhSY9NQKyKNoZltgOojfS72D640DlqKwGvsbZIedtKjZa9pp4BEtHyf2Xchfs-87uG1VDaYReB6AwO1WbkW2rTgwVrMhYokFjBFxTzrUw';
+  const token = '<a-key-from-ottehr-console-here>';
 
   console.log(`Reading environment variables from packages/zambdas/.env/${environment}.json.`);
   const zambdaEnv: Record<string, string> = JSON.parse(
@@ -66,8 +65,13 @@ async function main(): Promise<void> {
   candidClaims = candidClaims.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
   candidClaims = candidClaims.filter((claim) => DateTime.fromJSDate(claim.timestamp) <= endOn);
 
-  const firstDate = DateTime.fromJSDate(candidClaims[0].timestamp).toFormat('MM/dd/yyyy') ?? '';
-  const lastDate = DateTime.fromJSDate(candidClaims.at(-1).timestamp).toFormat('MM/dd/yyyy') ?? '';
+  let firstDate = '';
+  let lastDate = '';
+  if (candidClaims.length > 0) {
+    firstDate = DateTime.fromJSDate(candidClaims[0].timestamp).toFormat('MM/dd/yyyy') ?? '';
+    const lastClaim = candidClaims[candidClaims.length - 1];
+    lastDate = DateTime.fromJSDate(lastClaim.timestamp).toFormat('MM/dd/yyyy') ?? '';
+  }
   console.log(`Found ${candidClaims.length} claims between ${firstDate} and ${lastDate}`);
 
   const pkgs = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
