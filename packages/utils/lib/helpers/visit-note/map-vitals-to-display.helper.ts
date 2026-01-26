@@ -90,11 +90,8 @@ export const mapVitalsToDisplay = (
         break;
       case VitalFieldNames.VitalLastMenstrualPeriod: {
         parsed = observation as VitalsLastMenstrualPeriodObservationDTO;
-        if (parsed.isUnsure) {
-          text = 'Unsure';
-        } else if (parsed.value) {
-          const date = formatDateTimeToZone(parsed.value, timezone ?? 'America/New_York');
-          text = date ? date.split(' ')[0] : parsed.value;
+        if (parsed.value) {
+          text = `${parsed.value}${parsed.isUnsure ? ' (unsure)' : ''}`;
         }
         break;
       }

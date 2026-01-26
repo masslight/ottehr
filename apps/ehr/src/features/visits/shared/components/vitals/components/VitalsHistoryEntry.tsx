@@ -2,7 +2,6 @@ import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
-import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import {
   celsiusToFahrenheit,
@@ -168,18 +167,7 @@ export const getObservationValueElements = (
         </>,
       ];
     case 'vital-last-menstrual-period': {
-      if (historyEntry.isUnsure) {
-        return ['Unsure'];
-      }
-      if (historyEntry.value) {
-        try {
-          const date = DateTime.fromISO(historyEntry.value);
-          return [date.isValid ? date.toFormat('MM/dd/yyyy') : historyEntry.value];
-        } catch {
-          return [historyEntry.value];
-        }
-      }
-      return [];
+      return [historyEntry.value, historyEntry.isUnsure ? ' (unsure)' : ''];
     }
     default:
       return [];

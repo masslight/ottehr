@@ -772,7 +772,7 @@ export function fillVitalObservationAttributes(
           },
         ],
       },
-      valueDateTime: lmpDTO.isUnsure ? undefined : lmpDTO.value,
+      valueDateTime: lmpDTO.value,
       component: lmpDTO.isUnsure
         ? [
             {
@@ -922,21 +922,13 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
         cmp.valueBoolean === true
     );
 
-    if (hasUnsure) {
-      const result: VitalsLastMenstrualPeriodObservationDTO = {
-        ...baseProps,
-        field: VitalFieldNames.VitalLastMenstrualPeriod,
-        isUnsure: true,
-      };
-      return result;
-    } else {
-      const result: VitalsLastMenstrualPeriodObservationDTO = {
-        ...baseProps,
-        field: VitalFieldNames.VitalLastMenstrualPeriod,
-        value: observation.valueDateTime ?? '',
-      };
-      return result;
-    }
+    const result: VitalsLastMenstrualPeriodObservationDTO = {
+      ...baseProps,
+      field: VitalFieldNames.VitalLastMenstrualPeriod,
+      value: observation.valueDateTime ?? '',
+      isUnsure: hasUnsure,
+    };
+    return result;
   }
 
   return undefined;
@@ -988,17 +980,6 @@ export function parseLastMenstrualPeriodObservation(
       ) && cmp.valueBoolean === true
   );
 
-  if (hasUnsure) {
-    return {
-      resourceId: observation.id,
-      field: VitalFieldNames.VitalLastMenstrualPeriod,
-      isUnsure: true,
-      authorId: performer.id,
-      authorName: getFullName(performer),
-      lastUpdated: observation.effectiveDateTime || '',
-    };
-  }
-
   const value = observation.valueDateTime;
   if (value === undefined) return undefined;
 
@@ -1006,6 +987,7 @@ export function parseLastMenstrualPeriodObservation(
     resourceId: observation.id,
     field: VitalFieldNames.VitalLastMenstrualPeriod,
     value,
+    isUnsure: hasUnsure,
     authorId: performer.id,
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
