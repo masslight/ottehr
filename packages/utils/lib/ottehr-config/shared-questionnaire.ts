@@ -6,6 +6,7 @@ import { VALUE_SETS as formValueSets } from './value-sets';
 export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
 export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
 export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[0].value; // 'Self'
+export const OCC_MED_EMPLOYER_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[1].value; // 'Employer'
 
 export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value; // some flavor of 'yes'
 export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
@@ -88,6 +89,7 @@ const FormFieldsDisplayFieldSchema = z.object({
   type: z.literal('display'),
   text: z.string(),
   element: z.enum(['h3', 'h4', 'p']).optional(),
+  dataType: QuestionnaireDataTypeSchema.optional(),
   triggers: z.array(triggerSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
   disabledDisplay: z.literal('hidden').optional().default('hidden'),
@@ -95,7 +97,7 @@ const FormFieldsDisplayFieldSchema = z.object({
 
 const FormFieldsValueTypeBaseSchema = z.object({
   key: z.string(),
-  type: z.enum(['string', 'text', 'date', 'choice', 'open-choice', 'boolean', 'reference']),
+  type: z.enum(['string', 'text', 'date', 'choice', 'open-choice', 'boolean', 'reference', 'decimal']),
   label: z.string(),
   dataType: QuestionnaireDataTypeSchema.optional(),
   options: z
@@ -526,6 +528,10 @@ const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): Q
 
   if (field.element) {
     extensions.push(createPreferredElementExtension(field.element));
+  }
+
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
   }
 
   // Add enableWhen and textWhen from triggers

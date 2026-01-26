@@ -3238,6 +3238,23 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
             "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "workers-comp-insurance-name"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "exists"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
       },
@@ -3564,7 +3581,7 @@
       {
         "question": "patient-summary.appointment-service-category",
         "operator": "=",
-        "answerString": "workers-compensation"
+        "answerString": "workers-comp"
       },
       {
         "question": "patient-summary.appointment-service-category",

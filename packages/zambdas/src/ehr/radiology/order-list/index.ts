@@ -224,7 +224,7 @@ const parseResultsToOrder = (
     const isFinalReview = task.code?.coding?.some(
       (c) => c.system === RADIOLOGY_TASK.system && c.code === RADIOLOGY_TASK.code.reviewFinalResultTask
     );
-    return basedOnSr && isRadiologyTask && isFinalReview;
+    return basedOnSr && isRadiologyTask && isFinalReview && task.status !== 'cancelled';
   });
   console.log('finalReviewTask found: ', finalReviewTask?.id);
   let formattedFinalReviewTask: OttehrTask | undefined;
@@ -256,15 +256,19 @@ const parseResultsToOrder = (
         const orderDate = serviceRequest.extension?.find(
           (ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL
         )?.valueDateTime;
+        let taskSubtitle = `Ordered by ${providerFirstName} ${providerLastName} on ${formatDate(
+          orderDate ?? '',
+          'MM/dd/yyyy h:mm a'
+        )}`;
+        if (finalReviewTask?.location?.display) {
+          taskSubtitle += ` | ${finalReviewTask?.location?.display}`;
+        }
         formattedFinalReviewTask = {
           id: finalReviewTask?.id || '',
           category: RADIOLOGY_TASK.category,
           createdDate: finalReviewTask?.authoredOn ?? '',
           title: 'Review Radiology Final Results',
-          subtitle: `Ordered by ${providerFirstName} ${providerLastName} on ${formatDate(
-            orderDate ?? '',
-            'MM/dd/yyyy h:mm a'
-          )}`,
+          subtitle: taskSubtitle,
           status: finalReviewTask?.status || 'unknown',
           assignee: finalReviewTask?.owner
             ? {

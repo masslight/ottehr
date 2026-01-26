@@ -56,8 +56,16 @@ export class CreateRadiologyOrderPage {
       return;
     }
 
-    // Select diagnosis from dropdown
+    // Type first 3 characters to trigger search (autocomplete requires typing)
     await diagnosisField.click();
+    const searchTerm = diagnosis.substring(0, 3);
+    await diagnosisField.pressSequentially(searchTerm);
+
+    // Wait for options to load (debounced search)
+    await this.#page
+      .getByRole('option', { name: new RegExp(diagnosis) })
+      .waitFor({ state: 'visible', timeout: 30_000 });
+
     await this.#page.getByRole('option', { name: new RegExp(diagnosis) }).click();
   }
 

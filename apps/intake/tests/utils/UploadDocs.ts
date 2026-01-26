@@ -32,6 +32,9 @@ export class UploadDocs {
       }
     });
 
+    // Count existing Clear buttons before upload
+    const clearButtonsCountBefore = await this.page.getByTestId(dataTestIds.fileCardClearButton).count();
+
     const [fileChooser] = await Promise.all([
       this.page.waitForEvent('filechooser'),
       this.page.locator(locator).click(),
@@ -39,11 +42,18 @@ export class UploadDocs {
 
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
     await fileChooser.setFiles(filePath);
-    await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toBeVisible({ visible: false });
+
+    // Wait for no "Uploading..." buttons to be visible (all uploads completed)
+    await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toHaveCount(0, { timeout: 60000 });
+
+    // Wait for one more "Clear" button to appear (confirms this file is uploaded and saved)
+    await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(clearButtonsCountBefore + 1, {
+      timeout: 60000,
+    });
 
     expect(requestUrl).toBeDefined();
     const uploadedPhoto = this.page.locator(`img[src*="${requestUrl}"]`);
-    await expect(uploadedPhoto).toBeVisible();
+    await expect(uploadedPhoto).toBeVisible({ timeout: 60000 });
     return uploadedPhoto;
   }
 

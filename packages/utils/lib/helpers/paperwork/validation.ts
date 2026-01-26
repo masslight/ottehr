@@ -292,6 +292,29 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
     schemaTemp = objSchema;
   }
+  if (item.type === 'decimal') {
+    let decimalSchema = Yup.number()
+      .transform((value, originalValue) => {
+        // Treat empty string as undefined so required() validation works properly
+        if (originalValue === '' || originalValue === undefined || originalValue === null) {
+          return undefined;
+        }
+        return value;
+      })
+      .typeError(REQUIRED_FIELD_ERROR_MESSAGE);
+    if (required) {
+      decimalSchema = decimalSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    let schema: Yup.AnySchema = Yup.object({
+      valueDecimal: decimalSchema,
+    });
+    if (required) {
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    } else {
+      schema = schema.optional();
+    }
+    schemaTemp = schema;
+  }
   if (!schemaTemp) {
     throw new Error(`no schema defined for item ${item.linkId} ${JSON.stringify(item)}`);
   }

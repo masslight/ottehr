@@ -454,9 +454,9 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     }
   }
   if (category === RADIOLOGY_TASK.category) {
-    // const patientName = getInputString(IN_HOUSE_LAB_TASK.input.patientName, task);
+    const patientName = getInputString(RADIOLOGY_TASK.input.patientName, task);
     const code = getCoding(task.code, RADIOLOGY_TASK.system)?.code ?? '';
-    const appointmentId = getInputString(IN_HOUSE_LAB_TASK.input.appointmentId, task) ?? '';
+    const appointmentId = getInputString(RADIOLOGY_TASK.input.appointmentId, task) ?? '';
     const orderId =
       task.basedOn
         ?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
@@ -465,13 +465,19 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     action = { name: GO_TO_ORDER, link: addEncounterIdToLink(link) };
 
     const orderDate = getInputString(RADIOLOGY_TASK.input.orderDate, task);
-    const providerName = getInputString(LAB_ORDER_TASK.input.providerName, task);
-    subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
+    const providerName = getInputString(RADIOLOGY_TASK.input.providerName, task);
+    const locationDisplay = task.location?.display ? ` | ${task.location?.display}` : '';
+    subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}${locationDisplay}`;
+
+    const studyTypeCode = getInputString(RADIOLOGY_TASK.input.studyTypeCode, task);
+    const studyTypeDisplay = getInputString(RADIOLOGY_TASK.input.studyTypeDisplay, task);
+    const studyTypeForTitle = studyTypeCode || studyTypeDisplay ? `for ${studyTypeCode} - ${studyTypeDisplay}` : '';
 
     if (code === RADIOLOGY_TASK.code.reviewFinalResultTask) {
-      title = `Review Radiology Final Results`;
+      title = `Review Radiology Final Results ${studyTypeForTitle} for ${patientName}`;
     }
   }
+
   return {
     id: task.id ?? '',
     category: category,

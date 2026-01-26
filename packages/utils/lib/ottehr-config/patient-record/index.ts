@@ -774,7 +774,7 @@ const FormFields = {
         targetQuestionLinkId: 'patient-summary.appointment-service-category',
         effect: ['enable'],
         operator: '=',
-        answerString: 'workers-compensation',
+        answerString: 'workers-comp',
       },
       {
         targetQuestionLinkId: 'patient-summary.appointment-service-category',
@@ -805,7 +805,19 @@ const FormFields = {
           },
         ],
       },
-      workersCompMemberId: { key: 'workers-comp-insurance-member-id', type: 'string', label: 'Member ID' },
+      workersCompMemberId: {
+        key: 'workers-comp-insurance-member-id',
+        type: 'string',
+        label: 'Member ID',
+        triggers: [
+          {
+            targetQuestionLinkId: 'workers-comp-insurance-name',
+            effect: ['require'],
+            operator: 'exists',
+            answerBoolean: true,
+          },
+        ],
+      },
       employerName: { key: 'employer-name', type: 'string', label: 'Employer name' },
       addressLine1: { key: 'employer-address', type: 'string', label: 'Address line 1' },
       addressLine2: { key: 'employer-address-2', type: 'string', label: 'Address line 2' },

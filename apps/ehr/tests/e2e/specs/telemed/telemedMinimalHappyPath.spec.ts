@@ -98,6 +98,9 @@ test('Should fill all required fields', async () => {
   await page.keyboard.press('Enter');
   await expect(diagnosisAutocomplete.locator('input')).toBeEnabled();
 
+  // Wait for delete button to be enabled (indicates diagnosis is fully saved with resourceId)
+  await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
   const emAutocomplete = page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown);
   await expect(emAutocomplete).toBeVisible();
   await emAutocomplete.click();

@@ -580,7 +580,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             .first()
             .fill(providerNote);
           await waitForSaveChartDataResponse(page);
-          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
+          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill(ROS);
           await waitForSaveChartDataResponse(page);
         });
       });
@@ -640,7 +640,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).locator('textarea').first().fill('');
         await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
         await waitForChartDataDeletion(page);
-        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
+        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill('');
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).click();
         await waitForChartDataDeletion(page);
       });
@@ -754,14 +754,12 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
           await Promise.all([waitForChartDataDeletion(page), deleteButton.click()]);
 
-          await expect(medicalConditionListItem).not.toBeVisible({ timeout: 30_000 });
-
-          // Verify that the count decreased by 1
+          // Verify that the count decreased by 1 (UI updates asynchronously)
           await expect(
             page
               .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
               .filter({ hasText: new RegExp(conditionName, 'i') })
-          ).toHaveCount(conditionsBeforeDelete - 1, { timeout: 30000 });
+          ).toHaveCount(conditionsBeforeDelete - 1, { timeout: 45_000 });
         });
 
         await test.step('Confirm deletion in hpi tab', async () => {

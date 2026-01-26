@@ -115,7 +115,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await expect(locator.flowHeading).toHaveText('Emergency Contact');
     await paperwork.fillEmergencyContactInformation();
     await commonLocatorsHelper.clickContinue();
-    const attorneyPageVisible = QuestionnaireHelper.attorneyPageIsVisible([
+    const attorneyPageVisible = QuestionnaireHelper.inPersonAttorneyPageIsVisible([
       {
         linkId: 'contact-information-page',
         item: [
@@ -147,7 +147,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
           },
         ];
         // Check if attorney page would be visible for this reason for visit
-        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonAttorneyPageIsVisible(responseItems);
       })(),
       'Attorney page not visible for this appointment type; skipping test.'
     );

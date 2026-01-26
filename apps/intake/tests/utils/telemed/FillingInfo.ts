@@ -216,9 +216,13 @@ export class FillingInfo extends BaseFillingInfo {
     await input.click();
     await input.fill(filledValue);
     await this.page.keyboard.press('Enter');
+    // Wait for the first chip to appear
+    await expect(this.page.getByText(filledValue)).toBeVisible();
 
     await input.click();
     await this.page.getByRole('option', { name: selectedValue }).click();
+    // Wait for the second chip to appear
+    await expect(this.page.getByText(selectedValue)).toBeVisible();
 
     return { filledValue, selectedValue };
   }
@@ -236,10 +240,14 @@ export class FillingInfo extends BaseFillingInfo {
     await input.click();
     await input.fill(filledValue);
     await this.page.keyboard.press('Enter');
+    // Wait for the first chip to appear
+    await expect(this.page.getByText(`${filledValue} | Other`)).toBeVisible();
 
     await this.page.locator(`input[value='Medications']`).click();
     await input.click();
     await this.page.getByRole('option', { name: selectedValue }).click();
+    // Wait for the second chip to appear
+    await expect(this.page.getByText(`${selectedValue} | Medication`)).toBeVisible();
 
     return { filledValue: `${filledValue} | Other`, selectedValue: `${selectedValue} | Medication` };
   }

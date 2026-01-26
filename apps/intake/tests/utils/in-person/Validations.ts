@@ -1,4 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
+import { QuestionnaireHelper } from '../QuestionnaireHelper';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class Validations {
@@ -82,6 +83,9 @@ export class Validations {
     ).toBeVisible();
   }
   async validateHowDidYouHear() {
+    if (!QuestionnaireHelper.inPersonHasPointOfDiscoveryField()) {
+      return;
+    }
     await this.page.locator("[id='patient-point-of-discovery']").click();
     const options = [
       'Friend/Family',
