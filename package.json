@@ -218,6 +218,7 @@
     "lint-staged": "^15.0.2",
     "msw": "^2.10.2",
     "parquetjs": "^0.11.2",
+    "pdf-parse": "^2.4.5",
     "prettier": "^3.0.0",
     "simple-zustand-devtools": "^1.1.0",
     "start-server-and-test": "^2.0.12",
