@@ -381,7 +381,7 @@ export class Paperwork {
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
-    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+    const attorneyInformation = QuestionnaireHelper.inPersonAttorneyPageIsVisible([
       {
         linkId: 'contact-information-page',
         item: [
@@ -400,10 +400,10 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (QuestionnaireHelper.isPhotoIdFrontRequired() || !requiredOnly) {
+    if (QuestionnaireHelper.inPersonIsPhotoIdFrontRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
     }
-    if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
+    if (QuestionnaireHelper.inPersonIsPhotoIdBackRequired() || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
       // Wait for both files to be fully uploaded and saved before continuing
       await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(2, { timeout: 60000 });
@@ -541,10 +541,13 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
-    await this.checkCorrectPageOpens('Emergency Contact');
-    const emergencyContactData = await this.fillEmergencyContactInformation();
-    await this.locator.clickContinueButton();
-    const attorneyInformation = QuestionnaireHelper.attorneyPageIsVisible([
+    let emergencyContactData: EmergencyContactData | undefined = undefined;
+    if (QuestionnaireHelper.virtualQuestionnaireHasItem('emergency-contact-page')) {
+      await this.checkCorrectPageOpens('Emergency Contact');
+      emergencyContactData = await this.fillEmergencyContactInformation();
+      await this.locator.clickContinueButton();
+    }
+    const attorneyInformation = QuestionnaireHelper.inPersonAttorneyPageIsVisible([
       {
         linkId: 'contact-information-page',
         item: [
@@ -563,10 +566,10 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (QuestionnaireHelper.isPhotoIdFrontRequired() || !requiredOnly) {
+    if (QuestionnaireHelper.virtualQuestionnaireHasItem('photo-id-front') || !requiredOnly) {
       await this.uploadPhoto.fillPhotoFrontID();
     }
-    if (QuestionnaireHelper.isPhotoIdBackRequired() || !requiredOnly) {
+    if (QuestionnaireHelper.virtualQuestionnaireHasItem('photo-id-back') || !requiredOnly) {
       await this.uploadPhoto.fillPhotoBackID();
       // Wait for both files to be fully uploaded and saved before continuing
       await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(2, { timeout: 60000 });
@@ -761,7 +764,12 @@ export class Paperwork {
     const randomRace = await this.fillRace();
     const randomPronoun = await this.fillPronoun();
     let randomPoint = '';
-    if (isNewPatient && QuestionnaireHelper.hasPointOfDiscoveryField()) {
+    if (
+      isNewPatient &&
+      (telemed
+        ? QuestionnaireHelper.virtualQuestionnaireHasItem('patient-point-of-discovery')
+        : QuestionnaireHelper.inPersonHasPointOfDiscoveryField())
+    ) {
       randomPoint = await this.fillPointOfDiscovery();
     }
     const randomLanguage = await this.fillPreferredLanguage();

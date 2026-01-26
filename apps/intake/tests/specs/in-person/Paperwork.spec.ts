@@ -460,7 +460,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
         ];
 
         // Check if employer page would be visible for this service category
-        return !QuestionnaireHelper.employerInformationPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonEmployerInformationPageIsVisible(responseItems);
       })(),
       'Employer information page not visible for this appointment type'
     );
@@ -521,7 +521,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
           },
         ];
         // Check if attorney page would be visible for this reason for visit
-        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonAttorneyPageIsVisible(responseItems);
       })(),
       'Attorney page not visible for this appointment type'
     );
