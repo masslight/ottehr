@@ -44,7 +44,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   omitRowWrapper = false,
   disabled = false,
 }) => {
-  const { control, watch, setValue, getValues } = useFormContext();
+  const { control, watch, setValue, getValues, clearErrors } = useFormContext();
 
   const { triggers, enableBehavior = 'any', disabledDisplay } = item;
 
@@ -194,6 +194,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     if (item.type === 'display') {
       return rules;
     }
+
     if (isRequired) {
       rules.required = REQUIRED_FIELD_ERROR_MESSAGE;
     }
@@ -260,6 +261,10 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     }
     return rules;
   })();
+
+  if (!isRequired) {
+    clearErrors(item.key);
+  }
 
   let placeholder: string | undefined;
   let mask: string | undefined;
