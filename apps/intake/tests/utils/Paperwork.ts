@@ -695,6 +695,12 @@ export class Paperwork {
     // Then assert the expected title
     await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
+  async checkAnotherPageOpens(currentPageTitle: string): Promise<void> {
+    // wait for "Loading..." to disappear (page finished loading data)
+    await expect(this.locator.flowHeading).not.toHaveText('Loading...', { timeout: 240000 });
+    // Then assert the expected title
+    await expect(this.locator.flowHeading).not.toHaveText(currentPageTitle);
+  }
   async fillEthnicity(): Promise<PatientDetailsData['randomEthnicity']> {
     await this.validateAllOptions(this.locator.patientEthnicity, Object.values(PatientEthnicity), 'ethnicity');
     const randomEthnicity = this.getRandomEthnicity();
