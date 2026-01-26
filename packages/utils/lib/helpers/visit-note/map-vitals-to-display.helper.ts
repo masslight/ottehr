@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { vitalsConfig } from '../../ottehr-config';
 import {
   VitalFieldNames,
@@ -91,7 +92,9 @@ export const mapVitalsToDisplay = (
       case VitalFieldNames.VitalLastMenstrualPeriod: {
         parsed = observation as VitalsLastMenstrualPeriodObservationDTO;
         if (parsed.value) {
-          text = `${parsed.value}${parsed.isUnsure ? ' (unsure)' : ''}`;
+          const date = DateTime.fromISO(parsed.value);
+          const formattedDate = date.isValid ? date.toFormat('MM/dd/yyyy') : parsed.value;
+          text = `${formattedDate}${parsed.isUnsure ? ' (unsure)' : ''}`;
         }
         break;
       }
