@@ -214,12 +214,13 @@ export const getAllPartiallyPreFilteredFhirResources = async (
 };
 
 export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<LocationIdToStateAbbreviationMap> => {
-  // todo: add meta filter to search virtual only
-  const resources = (
-    await oystehr.fhir.search({
+  const resources = await getAllFhirSearchPages<Location>(
+    {
       resourceType: 'Location',
-    })
-  ).unbundle();
+      params: [],
+    },
+    oystehr
+  );
 
   const virtualLocationsMap: LocationIdToStateAbbreviationMap = {};
   const locationsByState: Record<string, Location[]> = {};
