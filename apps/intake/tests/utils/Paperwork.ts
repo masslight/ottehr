@@ -1,6 +1,6 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { AllStates, checkFieldHidden, PatientEthnicity, PatientRace } from 'utils';
+import { AllStates, checkFieldHidden, getIntakeFormPageSubtitle, PatientEthnicity, PatientRace } from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
@@ -680,7 +680,8 @@ export class Paperwork {
   }
   async checkPatientNameIsDisplayed(firstName: string, lastName: string, isPhotoIdPage?: boolean): Promise<void> {
     if (isPhotoIdPage) {
-      await expect(this.page.getByText(`Adult Guardian for ${firstName} ${lastName}`)).toBeVisible();
+      const subtitleText = getIntakeFormPageSubtitle('photo-id-page', `${firstName} ${lastName}`);
+      await expect(this.page.getByText(subtitleText)).toBeVisible();
     } else {
       await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
     }

@@ -78,7 +78,7 @@ interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
   pageId: string;
   pageItem?: IntakeQuestionnaireItem;
-  patientName?: string;
+  pageSubtitle?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
   isSaving?: boolean;
@@ -187,7 +187,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
   pageId,
   pageItem,
-  patientName,
+  pageSubtitle,
   defaultValues,
   options = {},
   isSaving,
@@ -230,7 +230,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   }, [cache, defaultValues, items, reset, pageId]);
   return (
     <FormProvider {...methods}>
-      {pageItem && patientName ? <PaperworkPageTitle pageItem={pageItem} patientName={patientName} /> : null}
+      {pageItem && pageSubtitle ? <PaperworkPageTitle pageItem={pageItem} pageSubtitle={pageSubtitle} /> : null}
       <PaperworkFormRoot
         pageItem={pageItem}
         items={items}
@@ -245,10 +245,10 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 
 interface PaperworkPageTitleProps {
   pageItem: IntakeQuestionnaireItem;
-  patientName: string;
+  pageSubtitle: string;
 }
 
-const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName }) => {
+const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitle }) => {
   const theme = useTheme();
   const [styledPageItem] = useStyledItems({ formItems: [pageItem] });
   return (
@@ -263,9 +263,9 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName
       >
         {styledPageItem?.text}
       </Typography>
-      {patientName && (
+      {pageSubtitle && (
         <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
-          {patientName}
+          {pageSubtitle}
         </Typography>
       )}
     </Stack>

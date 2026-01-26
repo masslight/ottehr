@@ -4077,15 +4077,15 @@
       {
         "question": "contact-information-page.appointment-service-category",
         "operator": "!=",
-        "answerString": "occupational-medicine"
+        "answerString": "workers-comp"
       },
       {
         "question": "payment-option-occ-med-page.payment-option-occupational",
-        "operator": "=",
-        "answerString": "Self"
+        "operator": "!=",
+        "answerString": "Employer"
       }
     ],
-    "enableBehavior": "any"
+    "enableBehavior": "all"
   },
   {
     "linkId": "responsible-party-page",

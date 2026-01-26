@@ -11,6 +11,7 @@ import {
   FormSectionSimpleSchema,
   HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
+  OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   QuestionnaireBase,
   QuestionnaireConfigSchema,
@@ -1191,16 +1192,16 @@ const FormFields = {
         targetQuestionLinkId: 'contact-information-page.appointment-service-category',
         effect: ['enable'],
         operator: '!=',
-        answerString: 'occupational-medicine',
+        answerString: 'workers-comp',
       },
       {
         targetQuestionLinkId: 'payment-option-occ-med-page.payment-option-occupational',
         effect: ['enable'],
-        operator: '=',
-        answerString: OCC_MED_SELF_PAY_OPTION,
+        operator: '!=',
+        answerString: OCC_MED_EMPLOYER_PAY_OPTION,
       },
     ],
-    enableBehavior: 'any',
+    enableBehavior: 'all',
   },
   responsibleParty: {
     linkId: 'responsible-party-page',
@@ -2019,3 +2020,19 @@ export const checkFieldHidden = (fieldKey: string): boolean => {
     .flatMap((section) => section.hiddenFields)
     .includes(fieldKey);
 };
+
+const GetPageSubtitleSchema = z.function().args(z.string(), z.string()).returns(z.string());
+
+let parsedGetPageSubtitle: z.infer<typeof GetPageSubtitleSchema> | undefined;
+if (OVERRIDES.getIntakeFormPageSubtitle != undefined) {
+  parsedGetPageSubtitle = GetPageSubtitleSchema.parse(OVERRIDES.getIntakeFormPageSubtitle);
+}
+
+export const getIntakeFormPageSubtitle =
+  parsedGetPageSubtitle ??
+  ((pageLinkId: string, patientName: string): string => {
+    if (pageLinkId === 'photo-id-page') {
+      return `Adult Guardian for ${patientName}`;
+    }
+    return patientName;
+  });
