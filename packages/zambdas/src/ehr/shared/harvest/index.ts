@@ -949,9 +949,6 @@ export function createMasterRecordPatchOperations(
         if (item.linkId === 'patient-ssn' && value) {
           const currentValue = getTaxID(patient);
           if (currentValue !== value) {
-            // create a patch operation that will update the patient's SSN correctly whether a current identifier field
-            // exists on the patient record, or an identifier fields needs to be added, or if there is an identifier, whether an SNN
-            // type entry needs to be added, or an existing entry updated in the case the values don't match
             const ssnIdentifier = makeSSNIdentifier(value as string);
 
             if (!patient.identifier) {
