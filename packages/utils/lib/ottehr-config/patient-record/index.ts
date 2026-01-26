@@ -3,6 +3,7 @@ import _ from 'lodash';
 import { z } from 'zod';
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import {
+  getTaxID,
   makeAnswer,
   makePrepopulatedItemsFromPatientRecord,
   PrePopulationFromPatientRecordInput,
@@ -945,8 +946,10 @@ const prepopulateLogicalFields = (
   const shouldShowSSNField = !(
     PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn') ?? false
   );
+  console.log('shouldShowSSNField', shouldShowSSNField);
   const ssnRequired =
     shouldShowSSNField && PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields?.includes('patient-ssn');
+  console.log('ssnRequired', ssnRequired);
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -1004,11 +1007,20 @@ export const prepopulatePatientRecordItems = (
   }
 
   const q = input.questionnaire;
-  const { appointmentContext } = input;
-  const logicalFieldItems = prepopulateLogicalFields(q, appointmentContext);
+  const { appointmentContext, patient } = input;
+  const prepopOverrides = prepopulateLogicalFields(q, appointmentContext);
   // todo: this is exported from another util file, but only used here. probably want to move it and
   // consolidate the interface exposed to the rest of the system.
-  const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: logicalFieldItems });
+  if (prepopOverrides.some((item) => item.linkId === 'should-display-ssn-field' && item.answer?.[0]?.valueBoolean)) {
+    const ssn = getTaxID(patient);
+    if (ssn) {
+      prepopOverrides.push({
+        linkId: 'patient-ssn',
+        answer: makeAnswer(ssn),
+      });
+    }
+  }
+  const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: prepopOverrides });
 
   return patientRecordItems;
 };

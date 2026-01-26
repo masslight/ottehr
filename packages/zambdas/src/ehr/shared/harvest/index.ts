@@ -79,6 +79,7 @@ import {
   getPayerId,
   getPhoneNumberForIndividual,
   getSecret,
+  getTaxID,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -88,6 +89,7 @@ import {
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
+  makeSSNIdentifier,
   mapBirthSexToGender,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   OrderedCoverages,
@@ -752,6 +754,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
   'common-well-consent': patientFieldPaths.commonWellConsent,
+  'patient-ssn': patientFieldPaths.ssn,
   'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
@@ -943,6 +946,44 @@ export function createMasterRecordPatchOperations(
           return;
         }
 
+        if (item.linkId === 'patient-ssn' && value) {
+          const currentValue = getTaxID(patient);
+          if (currentValue !== value) {
+            // create a patch operation that will update the patient's SSN correctly whether a current identifier field
+            // exists on the patient record, or an identifier fields needs to be added, or if there is an identifier, whether an SNN
+            // type entry needs to be added, or an existing entry updated in the case the values don't match
+            const ssnIdentifier = makeSSNIdentifier(value as string);
+
+            if (!patient.identifier) {
+              // Scenario 1: No identifier field exists - add new identifier array with SSN
+              tempOperations.patient.push({
+                op: 'add',
+                path: '/identifier',
+                value: [ssnIdentifier],
+              });
+            } else {
+              // Find existing SSN identifier index
+              const ssnIndex = patient.identifier.findIndex((id) => id.system === ssnIdentifier.system);
+
+              if (ssnIndex === -1) {
+                // Scenario 2: Identifier exists but no SSN entry - add SSN to array
+                tempOperations.patient.push({
+                  op: 'add',
+                  path: `/identifier/-`,
+                  value: ssnIdentifier,
+                });
+              } else {
+                // Scenario 3: SSN entry exists - replace entire identifier to ensure type field is included
+                tempOperations.patient.push({
+                  op: 'replace',
+                  path: `/identifier/${ssnIndex}`,
+                  value: ssnIdentifier,
+                });
+              }
+            }
+          }
+          return;
+        }
         if (item.linkId === 'patient-preferred-name') {
           const preferredNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
           const currentPath = path.replace(/name\/\d+/, `name/${preferredNameIndex}`);
