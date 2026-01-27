@@ -5,6 +5,7 @@ import {
   BookableItem,
   BookableItemListResponse,
   createOystehrClient,
+  getAllFhirSearchPages,
   GetBookableItemListParams,
   getSecret,
   getSlugForBookableResource,
@@ -59,16 +60,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function getTelemedLocations(oystehr: Oystehr): Promise<BookableItem[]> {
-  const resources = (
-    await oystehr.fhir.search<Location>({
+  const allLocations = await getAllFhirSearchPages<Location>(
+    {
       resourceType: 'Location',
       params: [],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
   // todo: add a relationship to a HealthcareService for all TM locations with a specific type property to
   // make this fhir-queryable?
-  const telemedLocations = resources.filter((location) => isLocationVirtual(location));
+  const telemedLocations = allLocations.filter((location) => isLocationVirtual(location));
 
   const someUndefined = telemedLocations.map((location) => makeBookableVirtualLocation(location));
 
@@ -90,19 +92,21 @@ async function getGroups(oystehr: Oystehr, serviceMode: ServiceMode): Promise<Bo
       ].join(','),
     });
   }
-  const resources = (
-    await oystehr.fhir.search<HealthcareService | Location>({
+
+  const allResources = await getAllFhirSearchPages<HealthcareService | Location>(
+    {
       resourceType: 'HealthcareService',
       params,
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
-  console.log('group resources', resources);
+  console.log('group resources', allResources);
   const hsObjects: { hs: HealthcareService; loc: Location[] }[] = [];
-  resources.forEach((hsOrLoc, idx) => {
+  allResources.forEach((hsOrLoc, idx) => {
     if (hsOrLoc.resourceType === 'HealthcareService') {
       const hs: HealthcareService = hsOrLoc;
-      const loc = resources.slice(idx).filter((res) => {
+      const loc = allResources.slice(idx).filter((res) => {
         return (
           res.resourceType === 'Location' &&
           hs.location?.some((locRef) => {
@@ -120,19 +124,15 @@ async function getGroups(oystehr: Oystehr, serviceMode: ServiceMode): Promise<Bo
 }
 
 async function getPhysicalLocations(oystehr: Oystehr): Promise<BookableItem[]> {
-  const resources = (
-    await oystehr.fhir.search<Location>({
+  const allLocations = await getAllFhirSearchPages<Location>(
+    {
       resourceType: 'Location',
-      params: [
-        {
-          name: 'address-city:missing',
-          value: 'false',
-        },
-      ],
-    })
-  ).unbundle();
+      params: [{ name: 'address-city:missing', value: 'false' }],
+    },
+    oystehr
+  );
 
-  const physicalLocations = resources.filter((location) => !isLocationVirtual(location));
+  const physicalLocations = allLocations.filter((location) => !isLocationVirtual(location));
 
   console.log('physical locations found', physicalLocations);
 
