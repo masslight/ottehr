@@ -655,8 +655,16 @@ export class Paperwork {
     const state = this.getRandomState();
     await this.locator.patientState.click();
     await this.locator.patientState.fill(state);
-    await this.page.getByRole('option', { name: state }).click();
+
+    // Wait for dropdown to be visible with options
+    const option = this.page.getByRole('option', { name: state });
+    await expect(option).toBeVisible({ timeout: 10000 });
+    await option.click();
+
+    // Ensure value is set and stable
     await expect(this.locator.patientState).toHaveValue(state);
+    await this.page.waitForTimeout(500); // Small delay to ensure state is stable after React updates
+    await expect(this.locator.patientState).toHaveValue(state); // Verify again after delay
     return state;
   }
   async fillPatientZip(): Promise<void> {
