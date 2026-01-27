@@ -41,10 +41,7 @@ export function getSupportPhoneFor(locationName?: string): string | undefined {
   const { locationSupportPhoneNumberMap, supportPhoneNumber } = LOCATION_CONFIG;
 
   if (locationSupportPhoneNumberMap && locationName) {
-    const trimmedName = locationName.trim();
-    const baseName = trimmedName.replace(/^telemed\s+/i, '');
-
-    return locationSupportPhoneNumberMap[trimmedName] || locationSupportPhoneNumberMap[baseName] || supportPhoneNumber;
+    return locationSupportPhoneNumberMap[locationName] || supportPhoneNumber;
   }
 
   return supportPhoneNumber;

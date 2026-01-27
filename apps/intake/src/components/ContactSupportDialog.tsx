@@ -16,10 +16,6 @@ export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose })
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {supportGroups.map((group) => (
           <Box key={group.hours} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-              {group.hours}
-            </Typography>
-
             {group.locations.map((location) => (
               <Typography key={location} variant="body2">
                 <Box component="span" sx={{ fontWeight: 700 }}>
@@ -28,6 +24,9 @@ export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose })
                 {getSupportPhoneFor(location)}
               </Typography>
             ))}
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {group.hours}
+            </Typography>
           </Box>
         ))}
 
