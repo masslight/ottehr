@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test';
 import { uuidRegex } from 'utils/lib/validation/regex';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
@@ -13,6 +14,7 @@ export class WalkInInPersonFlow extends BaseInPersonFlow {
   // - cancel appointment
 
   async clickVisitButton(): Promise<void> {
+    await expect(this.locator.startInPersonVisitButton).toBeVisible({ timeout: 60000 });
     await this.locator.startInPersonVisitButton.click();
   }
 

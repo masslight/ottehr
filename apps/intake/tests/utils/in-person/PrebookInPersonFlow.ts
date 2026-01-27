@@ -17,6 +17,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
   // - cancel appointment
 
   async clickVisitButton(): Promise<void> {
+    await expect(this.locator.scheduleInPersonVisitButton).toBeVisible({ timeout: 60000 });
     await this.locator.scheduleInPersonVisitButton.click();
   }
 
