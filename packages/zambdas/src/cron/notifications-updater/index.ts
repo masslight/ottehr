@@ -332,7 +332,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               patchOperations: [
                 getPatchOperationForNewMetaTag(task, {
                   system: PROVIDER_NOTIFICATION_TAG_SYSTEM,
-                  code: 'task-assigned',
+                  code: AppointmentProviderNotificationTypes.task_assigned,
                 }),
               ],
             })
