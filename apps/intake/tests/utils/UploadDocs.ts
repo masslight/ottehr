@@ -3,6 +3,7 @@ import { expect, Locator, Page } from '@playwright/test';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
+import { FileUploadHelpers } from './playwright-helpers';
 
 export type UploadedFile = { uploadedFile: Locator; link: string | null };
 export class UploadDocs {
@@ -35,13 +36,31 @@ export class UploadDocs {
     // Count existing Clear buttons before upload
     const clearButtonsCountBefore = await this.page.getByTestId(dataTestIds.fileCardClearButton).count();
 
-    const [fileChooser] = await Promise.all([
-      this.page.waitForEvent('filechooser'),
-      this.page.locator(locator).click(),
-    ]);
-
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
-    await fileChooser.setFiles(filePath);
+
+    // Extract id value from selector (supports both #id and [id="value"] formats)
+    let idValue: string;
+    if (locator.startsWith('#')) {
+      idValue = locator.replace('#', '');
+    } else if (locator.startsWith('[id=')) {
+      const match = locator.match(/\[id=["']([^"']+)["']\]/);
+      idValue = match ? match[1] : locator;
+    } else {
+      idValue = locator;
+    }
+
+    // Check if THIS specific field has "Click to re-upload" link (scoped to field container)
+    const fieldContainer = this.page.locator(`[for="${idValue}"]`).locator('..');
+    const reuploadLink = fieldContainer.getByText('Click to re-upload');
+    const hasReupload = (await reuploadLink.count()) > 0;
+
+    if (hasReupload) {
+      // File already uploaded, use reupload helper
+      await FileUploadHelpers.reuploadFile(this.page, locator, filePath);
+    } else {
+      // File not uploaded yet, use regular upload helper
+      await FileUploadHelpers.uploadFile(this.page, locator, filePath);
+    }
 
     // Wait for no "Uploading..." buttons to be visible (all uploads completed)
     await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toHaveCount(0, { timeout: 60000 });
