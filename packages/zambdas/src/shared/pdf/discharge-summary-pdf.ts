@@ -283,6 +283,7 @@ function composeDataForDischargeSummaryPdf(
       weight: vitals?.['vital-weight']?.at(-1) ?? '',
       height: vitals?.['vital-height']?.at(-1) ?? '',
       vision: vitals?.['vital-vision']?.at(-1) ?? '',
+      lastMenstrualPeriod: vitals?.['vital-last-menstrual-period']?.at(-1) ?? '',
     },
     currentMedications,
     currentMedicationsNotes,
@@ -413,6 +414,7 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
       ['HR', data.vitals.hr, 'Weight', data.vitals.weight],
       ['RR', data.vitals.rr, 'Height', data.vitals.height],
       ['BP', data.vitals.bp, 'Vision', data.vitals.vision],
+      ['Last Menstrual Period', data.vitals.lastMenstrualPeriod],
     ];
 
     const leftX = pdfClient.getLeftBound();
@@ -450,6 +452,10 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
           rightBound: leftX + label1Width + colWidth,
         }
       );
+
+      if (!label2) {
+        return;
+      }
 
       pdfClient.setY(y);
       pdfClient.drawTextSequential(

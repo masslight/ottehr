@@ -90,7 +90,7 @@ const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
   ],
 };
 
-const mergedConsentFormsConfig = mergeAndFreezeConfigObjects(CONSENT_FORMS_OVERRIDE, DEFAULT_CONSENT_FORMS);
+const mergedConsentFormsConfig = mergeAndFreezeConfigObjects(DEFAULT_CONSENT_FORMS, CONSENT_FORMS_OVERRIDE);
 
 export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentFormsConfig);
 

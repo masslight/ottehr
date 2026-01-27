@@ -16,6 +16,7 @@ import {
   evalEnableWhen,
   evalItemText,
   evalRequired,
+  filterDisabledPages,
   recursiveGroupTransform,
 } from '../validation';
 
@@ -2176,6 +2177,315 @@ describe('Conditional logic', () => {
       triggerEval = evalComplexValidationTrigger(conditionalStringItem, formValues);
       expect(triggerEval).toBeDefined();
       expect(triggerEval).toBe(true);
+    });
+  });
+
+  describe('filterDisabledPages tests', () => {
+    it('should keep pages without enableWhen conditions', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'patient-info-page',
+          type: 'group',
+          item: [
+            { linkId: 'first-name', type: 'string' },
+            { linkId: 'last-name', type: 'string' },
+          ],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'patient-info-page',
+          item: [
+            { linkId: 'first-name', answer: [{ valueString: 'John' }] },
+            { linkId: 'last-name', answer: [{ valueString: 'Doe' }] },
+          ],
+        },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      expect(result).toEqual(responseItems);
+    });
+
+    it('should filter out disabled pages based on regular enableWhen conditions', () => {
+      const questionnaireItems = [
+        { linkId: 'has-insurance', type: 'boolean' },
+        {
+          linkId: 'preliminary-page',
+          type: 'group',
+          item: [{ linkId: 'has-insurance', type: 'boolean' }],
+        },
+        {
+          linkId: 'insurance-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: 'has-insurance',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          item: [{ linkId: 'insurance-provider', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'preliminary-page',
+          item: [{ linkId: 'has-insurance', answer: [{ valueBoolean: false }] }],
+        },
+        {
+          linkId: 'insurance-page',
+          item: [{ linkId: 'insurance-provider', answer: [{ valueString: 'Blue Cross' }] }],
+        },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      // Insurance page should be filtered to just linkId since has-insurance is false
+      expect(result[1]).toEqual({ linkId: 'insurance-page' });
+    });
+
+    it('should keep enabled pages based on regular enableWhen conditions', () => {
+      const questionnaireItems = [
+        { linkId: 'has-insurance', type: 'boolean' },
+        {
+          linkId: 'preliminary-page',
+          type: 'group',
+          item: [{ linkId: 'has-insurance', type: 'boolean' }],
+        },
+        {
+          linkId: 'insurance-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: 'has-insurance',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          item: [{ linkId: 'insurance-provider', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'preliminary-page',
+          item: [{ linkId: 'has-insurance', answer: [{ valueBoolean: true }] }],
+        },
+        {
+          linkId: 'insurance-page',
+          item: [{ linkId: 'insurance-provider', answer: [{ valueString: 'Blue Cross' }] }],
+        },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      // Insurance page should be kept as-is since has-insurance is true
+      expect(result[1]).toEqual(responseItems[1]);
+    });
+
+    it('should skip filtering pages with only $status enableWhen conditions - keep page content', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'consent-forms-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'completed',
+            },
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'amended',
+            },
+          ],
+          enableBehavior: 'all',
+          item: [{ linkId: 'consent-signature', type: 'string', required: true }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'consent-forms-page',
+          item: [{ linkId: 'consent-signature', answer: [{ valueString: 'John Doe' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should keep its content even though status is 'completed'
+      // because $status conditions are removed before evaluation
+      expect(result[0]).toEqual(responseItems[0]);
+      expect(result[0].item).toBeDefined();
+      expect(result[0].item?.length).toBe(1);
+    });
+
+    it('should skip filtering pages with mixed $status and regular enableWhen conditions - evaluate only regular conditions', () => {
+      const questionnaireItems = [
+        { linkId: 'is-new-patient', type: 'boolean' },
+        {
+          linkId: 'patient-page',
+          type: 'group',
+          item: [{ linkId: 'is-new-patient', type: 'boolean' }],
+        },
+        {
+          linkId: 'conditional-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'completed',
+            },
+            {
+              question: 'is-new-patient',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          enableBehavior: 'all',
+          item: [{ linkId: 'new-patient-field', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'patient-page',
+          item: [{ linkId: 'is-new-patient', answer: [{ valueBoolean: false }] }],
+        },
+        {
+          linkId: 'conditional-page',
+          item: [{ linkId: 'new-patient-field', answer: [{ valueString: 'Some data' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should be filtered because is-new-patient is false
+      // (status condition is ignored, but the regular condition fails)
+      expect(result[1]).toEqual({ linkId: 'conditional-page' });
+    });
+
+    it('should keep page with mixed conditions when regular condition is satisfied', () => {
+      const questionnaireItems = [
+        { linkId: 'is-new-patient', type: 'boolean' },
+        {
+          linkId: 'patient-page',
+          type: 'group',
+          item: [{ linkId: 'is-new-patient', type: 'boolean' }],
+        },
+        {
+          linkId: 'conditional-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '!=',
+              answerString: 'completed',
+            },
+            {
+              question: 'is-new-patient',
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          enableBehavior: 'all',
+          item: [{ linkId: 'new-patient-field', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'patient-page',
+          item: [{ linkId: 'is-new-patient', answer: [{ valueBoolean: true }] }],
+        },
+        {
+          linkId: 'conditional-page',
+          item: [{ linkId: 'new-patient-field', answer: [{ valueString: 'Some data' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should be kept because is-new-patient is true
+      // (status condition is ignored, only regular condition evaluated)
+      expect(result[1]).toEqual(responseItems[1]);
+      expect(result[1].item).toBeDefined();
+    });
+
+    it('should handle pages not found in questionnaire items', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'page-1',
+          type: 'group',
+          item: [],
+        },
+      ] as any;
+
+      const responseItems = [
+        { linkId: 'page-1', item: [] },
+        { linkId: 'unknown-page', item: [{ linkId: 'some-field', answer: [{ valueString: 'value' }] }] },
+      ];
+
+      const result = filterDisabledPages(questionnaireItems, responseItems);
+
+      // Unknown page should be kept as-is
+      expect(result[1]).toEqual(responseItems[1]);
+    });
+
+    it('should handle empty enableWhen after removing $status conditions', () => {
+      const questionnaireItems = [
+        {
+          linkId: 'status-only-page',
+          type: 'group',
+          enableWhen: [
+            {
+              question: '$status',
+              operator: '=',
+              answerString: 'in-progress',
+            },
+          ],
+          item: [{ linkId: 'status-field', type: 'string' }],
+        },
+      ] as any;
+
+      const responseItems = [
+        {
+          linkId: 'status-only-page',
+          item: [{ linkId: 'status-field', answer: [{ valueString: 'Data' }] }],
+        },
+      ];
+
+      const completedQR: QuestionnaireResponse = {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+      };
+
+      const result = filterDisabledPages(questionnaireItems, responseItems, completedQR);
+
+      // Page should be kept because after removing $status conditions,
+      // there are no enableWhen conditions left, so page is considered enabled
+      expect(result[0]).toEqual(responseItems[0]);
+      expect(result[0].item).toBeDefined();
     });
   });
 });

@@ -39,29 +39,17 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSaveLMPObservation = async (): Promise<void> => {
-    if (!selectedDate && !isUnsureOptionSelected) {
+    if (!selectedDate) {
       return;
     }
 
     try {
       setIsSaving(true);
-      let vitalObs: VitalsLastMenstrualPeriodObservationDTO;
-
-      if (isUnsureOptionSelected) {
-        vitalObs = {
-          field: VitalFieldNames.VitalLastMenstrualPeriod,
-          isUnsure: true,
-        };
-      } else {
-        if (!selectedDate) {
-          return;
-        }
-
-        vitalObs = {
-          field: VitalFieldNames.VitalLastMenstrualPeriod,
-          value: selectedDate.toISODate() ?? '',
-        };
-      }
+      const vitalObs: VitalsLastMenstrualPeriodObservationDTO = {
+        field: VitalFieldNames.VitalLastMenstrualPeriod,
+        value: selectedDate.toISODate() ?? '',
+        isUnsure: isUnsureOptionSelected,
+      };
       await handleSaveVital(vitalObs);
       setSelectedDate(null);
       setIsUnsureOptionSelected(false);
@@ -71,20 +59,6 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
       setIsSaving(false);
     }
   };
-
-  const handleDateChange = useCallback((date: DateTime | null): void => {
-    setSelectedDate(date);
-    if (date) {
-      setIsUnsureOptionSelected(false);
-    }
-  }, []);
-
-  const handleUnsureOptionChanged = useCallback((isChecked: boolean): void => {
-    setIsUnsureOptionSelected(isChecked);
-    if (isChecked) {
-      setSelectedDate(null);
-    }
-  }, []);
 
   const renderRightColumn = (): JSX.Element => {
     return (
@@ -115,7 +89,8 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
     }
   };
 
-  const title = 'Last Menstrual Period ' + (isUnsure ? 'Unsure' : latestDate ? formatDateForDisplay(latestDate) : '');
+  const title =
+    'Last Menstrual Period ' + (latestDate && `${formatDateForDisplay(latestDate)}${isUnsure ? ' (unsure)' : ''}`);
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -149,8 +124,8 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                     <DatePicker
                       label="Last Menstrual Period"
                       value={selectedDate}
-                      onChange={handleDateChange}
-                      disabled={isSaving || isUnsureOptionSelected}
+                      onChange={setSelectedDate}
+                      disabled={isSaving}
                       maxDate={DateTime.now()}
                       slotProps={{
                         textField: {
@@ -180,7 +155,7 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                 >
                   <RoundedButton
                     size="small"
-                    disabled={!selectedDate && !isUnsureOptionSelected}
+                    disabled={!selectedDate}
                     loading={isSaving}
                     onClick={handleSaveLMPObservation}
                     color="primary"
@@ -215,7 +190,7 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                           }}
                           disabled={isSaving}
                           checked={isUnsureOptionSelected}
-                          onChange={(e) => handleUnsureOptionChanged(e.target.checked)}
+                          onChange={(e) => setIsUnsureOptionSelected(e.target.checked)}
                           data-testid={dataTestIds.vitalsPage.lastMenstrualPeriodUnsureCheckbox}
                         />
                       }

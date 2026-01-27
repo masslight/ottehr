@@ -1447,7 +1447,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: [],
+    requiredFields: ['valid-card-on-file'],
     triggers: [
       {
         targetQuestionLinkId: 'contact-information-page.appointment-service-category',
