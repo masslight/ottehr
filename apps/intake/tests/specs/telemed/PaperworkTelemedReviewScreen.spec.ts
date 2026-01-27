@@ -79,7 +79,6 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
       await expect(locator.additionalQuestionsChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.insuranceDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.responsiblePartyChipStatus).toHaveAttribute('data-testid', 'completed');
-      // Photo ID status depends on whether fields are required in questionnaire config
       await paperwork.expectChipStatusBasedOnConfig(locator.photoIdChipStatus, 'photo-id-page', true);
       // todo need to change to 'uncompleted' when https://github.com/masslight/ottehr/issues/1594 is fixed
       await expect(locator.patientConditionChipStatus).toHaveAttribute('data-testid', 'completed');
