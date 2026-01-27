@@ -324,13 +324,6 @@ export class Paperwork {
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Credit card details');
-    if (requiredOnly) {
-      // test skipping credit card is fine when no insurance submitted
-      await this.locator.clickContinueButton();
-      await this.checkCorrectPageOpens('Responsible party information');
-      await this.locator.clickBackButton();
-    }
-
     await this.fillAndAddCreditCardIfDoesntExist();
     await this.locator.clickContinueButton();
 
