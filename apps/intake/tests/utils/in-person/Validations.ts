@@ -83,7 +83,7 @@ export class Validations {
     ).toBeVisible();
   }
   async validateHowDidYouHear() {
-    if (!QuestionnaireHelper.hasPointOfDiscoveryField()) {
+    if (!QuestionnaireHelper.inPersonHasPointOfDiscoveryField()) {
       return;
     }
     await this.page.locator("[id='patient-point-of-discovery']").click();

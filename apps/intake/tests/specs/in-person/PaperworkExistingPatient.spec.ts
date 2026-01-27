@@ -59,7 +59,7 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: not 
       if (patient.patientDetailsData.randomPronoun && checkFieldHidden('patient-pronouns') === false) {
         await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
       }
-      if (QuestionnaireHelper.hasPointOfDiscoveryField()) {
+      if (QuestionnaireHelper.inPersonHasPointOfDiscoveryField()) {
         await expect(locator.patientPointOfDiscovery).toBeHidden();
       }
       await expect(locator.patientPreferredLanguage).toHaveValue(patient.patientDetailsData.randomLanguage);

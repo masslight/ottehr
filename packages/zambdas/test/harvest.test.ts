@@ -380,4 +380,177 @@ describe('Patient Master Record Tests', () => {
       relatedPerson: {},
     });
   });
+
+  test('should add SSN identifier when patient has no identifier field', () => {
+    const patientNoIdentifier: Patient = {
+      id: 'patient-no-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['John'], family: 'Doe' }],
+    };
+
+    const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '123-45-6789' }] }];
+
+    const result = createMasterRecordPatchOperations(ssnItems, patientNoIdentifier);
+
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [
+              [
+                {
+                  system: 'http://hl7.org/fhir/sid/us-ssn',
+                  type: {
+                    coding: [
+                      {
+                        system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                        code: 'SS',
+                      },
+                    ],
+                  },
+                  value: '123-45-6789',
+                },
+              ],
+            ],
+          },
+        ],
+      },
+      relatedPerson: {},
+    });
+  });
+
+  test('should append SSN identifier when patient has identifier field but no SSN entry', () => {
+    const patientWithOtherIdentifier: Patient = {
+      id: 'patient-with-other-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+      identifier: [
+        {
+          system: 'http://example.org/mrn',
+          value: 'MRN-12345',
+        },
+      ],
+    };
+
+    const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '987-65-4321' }] }];
+
+    const result = createMasterRecordPatchOperations(ssnItems, patientWithOtherIdentifier);
+
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [
+          {
+            op: 'add',
+            path: '/identifier/-',
+            value: {
+              system: 'http://hl7.org/fhir/sid/us-ssn',
+              type: {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                    code: 'SS',
+                  },
+                ],
+              },
+              value: '987-65-4321',
+            },
+          },
+        ],
+      },
+      relatedPerson: {},
+    });
+  });
+
+  test('should replace entire SSN identifier when patient has existing SSN with different value', () => {
+    const patientWithExistingSSN: Patient = {
+      id: 'patient-with-existing-ssn',
+      resourceType: 'Patient',
+      name: [{ given: ['Bob'], family: 'Johnson' }],
+      identifier: [
+        {
+          system: 'http://hl7.org/fhir/sid/us-ssn',
+          type: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                code: 'SS',
+              },
+            ],
+          },
+          value: '111-11-1111',
+        },
+      ],
+    };
+
+    const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '222-22-2222' }] }];
+
+    const result = createMasterRecordPatchOperations(ssnItems, patientWithExistingSSN);
+
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [
+          {
+            op: 'replace',
+            path: '/identifier/0',
+            value: {
+              system: 'http://hl7.org/fhir/sid/us-ssn',
+              type: {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                    code: 'SS',
+                  },
+                ],
+              },
+              value: '222-22-2222',
+            },
+          },
+        ],
+      },
+      relatedPerson: {},
+    });
+  });
+
+  test('should not generate patch operation when patient SSN matches questionnaire response', () => {
+    const patientWithMatchingSSN: Patient = {
+      id: 'patient-with-matching-ssn',
+      resourceType: 'Patient',
+      name: [{ given: ['Alice'], family: 'Williams' }],
+      identifier: [
+        {
+          system: 'http://hl7.org/fhir/sid/us-ssn',
+          type: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                code: 'SS',
+              },
+            ],
+          },
+          value: '333-33-3333',
+        },
+      ],
+    };
+
+    const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '333-33-3333' }] }];
+
+    const result = createMasterRecordPatchOperations(ssnItems, patientWithMatchingSSN);
+
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [],
+      },
+      relatedPerson: {},
+    });
+  });
 });
