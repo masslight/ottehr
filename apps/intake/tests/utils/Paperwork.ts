@@ -330,9 +330,8 @@ export class Paperwork {
       await this.checkCorrectPageOpens('Responsible party information');
       await this.locator.clickBackButton();
     }
-    if (payment === 'card') {
-      await this.fillAndAddCreditCardIfDoesntExist();
-    }
+
+    await this.fillAndAddCreditCardIfDoesntExist();
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Responsible party information');
