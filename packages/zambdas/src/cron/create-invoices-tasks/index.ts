@@ -107,7 +107,7 @@ async function getPrefilledInvoiceInfo(patientBalanceInCents: number): Promise<P
   }
 }
 
-async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
+export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
@@ -211,7 +211,7 @@ async function getEncountersWithPendingTasksFhir(
   return await populateAmountInPackagesAndFilterZeroAmount(candid, packages);
 }
 
-async function getEncountersWithoutTaskFhir(
+export async function getEncountersWithoutTaskFhir(
   oystehr: Oystehr,
   candid: CandidApiClient,
   claims: InventoryRecord[]
@@ -259,7 +259,7 @@ async function getEncountersWithoutTaskFhir(
   return await populateAmountInPackagesAndFilterZeroAmount(candid, result);
 }
 
-async function populateAmountInPackagesAndFilterZeroAmount(
+export async function populateAmountInPackagesAndFilterZeroAmount(
   candid: CandidApiClient,
   packages: Omit<EncounterPackage, 'amountCents'>[]
 ): Promise<EncounterPackage[]> {

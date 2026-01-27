@@ -249,6 +249,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           userTimezone: DateTime.local().zoneName,
         });
         setSelectedInvoiceTask(undefined);
+        setAdditionalDataForInvoiceDialog(undefined);
         void refetchVisitHistory();
         enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
       }
@@ -620,7 +621,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       <SendInvoiceToPatientDialog
         title="Send invoice"
         modalOpen={selectedInvoiceTask !== undefined}
-        handleClose={() => setSelectedInvoiceTask(undefined)}
+        handleClose={() => {
+          setSelectedInvoiceTask(undefined);
+          setAdditionalDataForInvoiceDialog(undefined);
+        }}
         submitButtonName="Send Invoice"
         onSubmit={sendInvoice}
         invoiceTask={selectedInvoiceTask}
