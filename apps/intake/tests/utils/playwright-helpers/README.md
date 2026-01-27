@@ -128,6 +128,35 @@ export class DatePickerHelpers {
 4. **Document edge cases**: Note limitations (e.g., virtualization issues)
 5. **Keep helpers focused**: Each helper should do one thing well
 
+## FileUploadHelpers
+
+Utilities for handling file uploads with automatic re-upload detection.
+
+### uploadWithReuploadSupport
+
+Handles file upload with automatic "Click to re-upload" link detection. This prevents flaky tests when files were already uploaded in previous test runs.
+
+```typescript
+import { FileUploadHelpers } from './playwright-helpers';
+
+// Upload a file, automatically handling re-upload scenarios
+await FileUploadHelpers.uploadWithReuploadSupport(
+  page,
+  '#photo-id-front', // ID of the upload button (not the hidden input)
+  '/absolute/path/to/file.jpg'
+);
+```
+
+**How it works**:
+- Finds the specific field container using the label's `for` attribute
+- Checks if "Click to re-upload" link exists within that container (not globally)
+- Scrolls the element into view to handle pages with multiple upload fields
+- If re-upload link exists, clicks it directly (it triggers the hidden file input via React ref)
+- Otherwise, clicks the upload button which also triggers the hidden file input
+- Both paths properly wait for the filechooser event before setting files
+
+**When to use**: When uploading files that might already exist from previous test runs. The helper automatically detects the UI state and handles both initial upload and re-upload scenarios, properly scoped to the specific field.
+
 ## Migration Notes
 
 When refactoring existing tests to use these helpers:
