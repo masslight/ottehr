@@ -224,10 +224,36 @@ export const handleMatchUnsolicitedRequest = async ({
   srToMatchId?: string;
 }): Promise<void> => {
   console.log('getting the diagnostic report', diagnosticReportId);
-  const diagnosticReportResource = await oystehr.fhir.get<DiagnosticReport>({
-    resourceType: 'DiagnosticReport',
-    id: diagnosticReportId,
-  });
+  const { diagnosticReports, documentReferences } = (
+    await oystehr.fhir.search<DiagnosticReport | DocumentReference>({
+      resourceType: 'DiagnosticReport',
+      params: [
+        {
+          name: '_id',
+          value: diagnosticReportId,
+        },
+        {
+          name: '_revinclude',
+          value: 'DocumentReference:related', // grab any attachments
+        },
+      ],
+    })
+  )
+    .unbundle()
+    .reduce(
+      (acc, res) => {
+        if (res.resourceType === 'DiagnosticReport') acc.diagnosticReports.push(res);
+        if (res.resourceType === 'DocumentReference') acc.documentReferences.push(res);
+        return acc;
+      },
+      { diagnosticReports: [], documentReferences: [] } as {
+        diagnosticReports: DiagnosticReport[];
+        documentReferences: DocumentReference[];
+      }
+    );
+
+  if (!diagnosticReports.length) throw new Error(`Unable to find DiagnosticReport/${diagnosticReportId}`);
+  const diagnosticReportResource = diagnosticReports[0];
 
   console.log('formatting fhir patch requests to handle matching unsolicited results');
   const task = await oystehr.fhir.get<Task>({
@@ -293,10 +319,26 @@ export const handleMatchUnsolicitedRequest = async ({
     ifMatch: diagnosticReportResource.meta?.versionId ? `W/"${diagnosticReportResource.meta.versionId}"` : undefined,
   };
 
-  const requests = [diagnosticReportPutRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
+  const documentReferencePutRequests: BatchInputRequest<DocumentReference>[] = documentReferences.map((docRef) => {
+    const docRefWithPatient: DocumentReference = { ...docRef, subject: { reference: `Patient/${patientToMatchId}` } };
+
+    return {
+      method: 'PUT',
+      url: `DocumentReference/${docRef.id}`,
+      resource: docRefWithPatient,
+      ifMatch: docRef.meta?.versionId ? `W/"${docRef.meta.versionId}"` : undefined,
+    };
+  });
+
+  const requests = [
+    diagnosticReportPutRequest,
+    markTaskAsCompleteRequest,
+    ...serviceRequestPatch,
+    ...documentReferencePutRequests,
+  ];
 
   console.log('making fhir requests, total requests to make: ', requests.length);
-  await oystehr.fhir.transaction<DiagnosticReport | Task | ServiceRequest>({ requests });
+  await oystehr.fhir.transaction<DiagnosticReport | Task | ServiceRequest | DocumentReference>({ requests });
 };
 
 export const handleRejectedAbn = async ({

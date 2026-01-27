@@ -1,7 +1,9 @@
 import { Questionnaire } from 'fhir/r4b';
+import { camelCase } from 'lodash-es';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
+import { getConsentFormsForLocation } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
@@ -14,6 +16,8 @@ import {
   SELF_PAY_OPTION,
 } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
+
+const resolvedConsentForms = getConsentFormsForLocation();
 
 const FormFields = {
   contactInformation: {
@@ -280,15 +284,111 @@ const FormFields = {
     linkId: 'pharmacy-page',
     title: 'Preferred pharmacy',
     items: {
+      pharmacyCollection: {
+        key: 'pharmacy-collection',
+        text: 'Pharmacy',
+        type: 'group',
+        groupType: 'pharmacy-collection',
+        items: {
+          pharmacyPlacesId: {
+            key: 'pharmacy-places-id',
+            label: 'places id',
+            type: 'string',
+          },
+          pharmacyPlacesName: {
+            key: 'pharmacy-places-name',
+            label: 'places name',
+            type: 'string',
+          },
+          pharmacyPlacesAddress: {
+            key: 'pharmacy-places-address',
+            label: 'places address',
+            type: 'string',
+          },
+          pharmacyPlacesSaved: {
+            key: 'pharmacy-places-saved',
+            label: 'places saved',
+            type: 'boolean',
+          },
+          erxPharmacyId: {
+            key: 'erx-pharmacy-id',
+            label: 'erx pharmacy id',
+            type: 'string',
+          },
+        },
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+      },
+      manualEntry: {
+        key: 'pharmacy-page-manual-entry',
+        label: "Can't find? Add manually",
+        type: 'boolean',
+        element: 'Link',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-collection.pharmacy-places-saved',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['sub-text'],
+            operator: '=',
+            answerBoolean: true,
+            substituteText: 'Use search',
+          },
+        ],
+      },
       name: {
         key: 'pharmacy-name',
         label: 'Pharmacy name',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
       },
       address: {
         key: 'pharmacy-address',
         label: 'Pharmacy address',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['filter'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
       },
     },
     hiddenFields: [],
@@ -1728,53 +1828,35 @@ const FormFields = {
         key: 'consent-forms-checkbox-group',
         type: 'group',
         items: {
-          hipaaAcknowledgement: {
-            key: 'hipaa-acknowledgement',
-            label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
-            type: 'boolean',
-            triggers: [
+          ...Object.fromEntries(
+            resolvedConsentForms.map((form) => [
+              camelCase(form.id),
               {
-                targetQuestionLinkId: '$status',
-                effect: ['enable'],
-                operator: '!=',
-                answerString: 'completed',
+                key: form.id,
+                label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
+                type: 'boolean',
+                triggers: [
+                  {
+                    targetQuestionLinkId: '$status',
+                    effect: ['enable'],
+                    operator: '!=',
+                    answerString: 'completed',
+                  },
+                  {
+                    targetQuestionLinkId: '$status',
+                    effect: ['enable'],
+                    operator: '!=',
+                    answerString: 'amended',
+                  },
+                ],
+                enableBehavior: 'all',
+                permissibleValue: true,
+                disabledDisplay: 'disabled',
               },
-              {
-                targetQuestionLinkId: '$status',
-                effect: ['enable'],
-                operator: '!=',
-                answerString: 'amended',
-              },
-            ],
-            enableBehavior: 'all',
-            permissibleValue: true,
-            disabledDisplay: 'disabled',
-          },
-          consentToTreat: {
-            key: 'consent-to-treat',
-            label:
-              'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
-            type: 'boolean',
-            triggers: [
-              {
-                targetQuestionLinkId: '$status',
-                effect: ['enable'],
-                operator: '!=',
-                answerString: 'completed',
-              },
-              {
-                targetQuestionLinkId: '$status',
-                effect: ['enable'],
-                operator: '!=',
-                answerString: 'amended',
-              },
-            ],
-            enableBehavior: 'all',
-            permissibleValue: true,
-            disabledDisplay: 'disabled',
-          },
+            ])
+          ),
         },
-        requiredFields: ['hipaa-acknowledgement', 'consent-to-treat'],
+        requiredFields: [...resolvedConsentForms.map((f) => f.id)],
       },
       signature: {
         key: 'signature',
@@ -1844,13 +1926,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: [
-      'hipaa-acknowledgement',
-      'consent-to-treat',
-      'signature',
-      'full-name',
-      'consent-form-signer-relationship',
-    ],
+    requiredFields: ['signature', 'full-name', 'consent-form-signer-relationship'],
   },
   medicalHistory: {
     linkId: 'medical-history-page',

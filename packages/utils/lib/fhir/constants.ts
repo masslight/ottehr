@@ -440,8 +440,8 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.LABS,
     display: 'Labs',
     documentTypeCode: [
-      LAB_ORDER_DOC_REF_CODING_CODE.code,
-      LAB_RESULT_DOC_REF_CODING_CODE.code,
+      LAB_ORDER_DOC_REF_CODING_CODE.code, // external lab ottehr generated order form and eReqs
+      LAB_RESULT_DOC_REF_CODING_CODE.code, // lab results -- includes lab-generated and ottehr generated for external, as well as internal results
       EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
       OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
     ],
@@ -662,7 +662,13 @@ export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/perform
 export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';
 
 export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-method';
+
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
+export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
+export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-places-id'); // added when the pharmacy was selected with places search
+// docs.oystehr.com/oystehr/services/erx/patient-sync/#preferred-pharmacy
+export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
+  'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 

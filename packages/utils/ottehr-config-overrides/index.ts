@@ -4,6 +4,7 @@ export * from './examination';
 export * from './forms';
 export * from './legal';
 export * from './locations';
+export * from './medical-history';
 export * from './patient-record';
 export * from './radiology';
 export * from './screening-questions';

@@ -264,6 +264,22 @@ export interface VitalsRespirationRateObservationDTO extends VitalsNumericValueO
   field: Extract<VitalFieldNames, 'vital-respiration-rate'>;
 }
 
+type VitalsLastMenstrualPeriodWithDateDTO = VitalsBaseObservationDTO & {
+  field: Extract<VitalFieldNames, 'vital-last-menstrual-period'>;
+  value: string;
+  isUnsure?: never;
+};
+
+export type VitalsLastMenstrualPeriodUnsureDTO = VitalsBaseObservationDTO & {
+  field: Extract<VitalFieldNames, 'vital-last-menstrual-period'>;
+  isUnsure: true;
+  value?: never;
+};
+
+export type VitalsLastMenstrualPeriodObservationDTO =
+  | VitalsLastMenstrualPeriodWithDateDTO
+  | VitalsLastMenstrualPeriodUnsureDTO;
+
 export type VitalsObservationDTO =
   | VitalsTemperatureObservationDTO
   | VitalsHeartbeatObservationDTO
@@ -272,7 +288,8 @@ export type VitalsObservationDTO =
   | VitalsRespirationRateObservationDTO
   | VitalsWeightObservationDTO
   | VitalsHeightObservationDTO
-  | VitalsVisionObservationDTO;
+  | VitalsVisionObservationDTO
+  | VitalsLastMenstrualPeriodObservationDTO;
 
 export interface ObservationBooleanFieldDTO extends SaveableDTO {
   field: string;

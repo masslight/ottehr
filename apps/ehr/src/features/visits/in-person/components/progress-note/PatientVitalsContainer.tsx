@@ -22,6 +22,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
   const weight = encounterVitals?.[VitalFieldNames.VitalWeight] || [];
   const height = encounterVitals?.[VitalFieldNames.VitalHeight] || [];
   const vision = encounterVitals?.[VitalFieldNames.VitalVision] || [];
+  const lastMenstrualPeriod = encounterVitals?.[VitalFieldNames.VitalLastMenstrualPeriod] || [];
 
   return (
     <Box
@@ -93,6 +94,14 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
           <AssessmentTitle>Vision</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {vision?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
+          </Box>
+        </>
+      )}
+      {lastMenstrualPeriod && lastMenstrualPeriod.length > 0 && (
+        <>
+          <AssessmentTitle>Last Menstrual Period</AssessmentTitle>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {lastMenstrualPeriod?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}

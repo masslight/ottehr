@@ -10,7 +10,7 @@ const LOCATION_DEFAULTS: any = {
   supportScheduleGroups: [],
 };
 
-const mergedLocationConfig = mergeAndFreezeConfigObjects(overrides, LOCATION_DEFAULTS);
+const mergedLocationConfig = mergeAndFreezeConfigObjects(LOCATION_DEFAULTS, overrides);
 
 const locationArraySchema = z.array(
   z.object({

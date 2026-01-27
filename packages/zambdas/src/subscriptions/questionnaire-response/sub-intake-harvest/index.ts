@@ -17,6 +17,7 @@ import {
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  CONSENT_FORMS_CONFIG,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
   flattenQuestionnaireAnswers,
@@ -252,14 +253,12 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     paperwork as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
-
-  const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
-  const consentToTreat = flattenedPaperwork.find((data) => data.linkId === 'consent-to-treat')?.answer?.[0]
-    ?.valueBoolean;
-
+  const consentFormsSigned = CONSENT_FORMS_CONFIG.forms.every(
+    (form) =>
+      flattenedPaperwork.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
+  );
   console.log('Flattened paperwork: ', JSON.stringify(flattenedPaperwork, null, 2));
-  console.log('HIPAA: ', hipaa);
-  console.log('Consent to Treat: ', consentToTreat);
+  console.log('Consent forms signed: ', consentFormsSigned);
   console.log('qr.status', qr.status);
 
   if (appointmentResource === undefined || appointmentResource.id === undefined) {
@@ -268,7 +267,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   // only create the consent resources once when qr goes to completed.
   // it seems QR is saved twice in rapid succession on submission
-  if (hipaa === true && consentToTreat === true && qr.status === 'completed') {
+  if (consentFormsSigned && qr.status === 'completed') {
     console.time('creating consent resources');
     try {
       await createConsentResources({
@@ -325,7 +324,8 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     try {
       console.log('updating encounter payment variant and account references');
       const paymentOption = flattenedPaperwork.find(
-        (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
+        (response: QuestionnaireResponseItem) =>
+          response.linkId === 'payment-option' || response.linkId === 'payment-option-occupational'
       )?.answer?.[0]?.valueString;
       let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
       if (paymentOption === INSURANCE_PAY_OPTION) {

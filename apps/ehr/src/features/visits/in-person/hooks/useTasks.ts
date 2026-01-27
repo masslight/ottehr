@@ -31,6 +31,12 @@ const GO_TO_ORDER = 'Go to Order';
 
 export const TASKS_PAGE_SIZE = 20;
 
+const TASK_CODES_TO_EXCLUDE = [
+  LAB_ORDER_TASK.code.preSubmission,
+  IN_HOUSE_LAB_TASK.code.collectSampleTask,
+  IN_HOUSE_LAB_TASK.code.inputResultsTask,
+];
+
 export interface TasksSearchParams {
   assignedTo?: string | null;
   category?: string | null;
@@ -88,6 +94,7 @@ export const useGetTasks = ({
           name: 'status:not',
           value: 'cancelled',
         },
+        ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
       ];
       if (page) {
         params.push({

@@ -16,6 +16,7 @@ import {
 } from 'utils';
 import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
@@ -66,7 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
-    const { tasks, patient, labOrg, encounter } = await fetchRelatedResources(diagnosticReport, oystehr);
+    const { tasks, patient, labOrg, encounter, attachments } = await fetchRelatedResources(diagnosticReport, oystehr);
 
     const requests: BatchInputRequest<Task>[] = [];
 
@@ -247,6 +248,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     } else {
       console.log('skipping pdf creation'); // shouldn't reach this tbh
+    }
+
+    // we should add attachments to the patient lab folder for any solicited result, or matched unsolicited results
+    if (attachments && patient && (isUnsolicitedAndMatched || !isUnsolicited)) {
+      console.log('adding attachments to patient lab folder');
+      const attachmentDocRefReferences = attachments.map((attachment) => `DocumentReference/${attachment.id}`);
+      const labList = await getLabListResource(oystehr, patient.id!, secrets);
+      if (labList) {
+        await addDocsToLabList(oystehr, labList, attachmentDocRefReferences, secrets);
+      }
     }
 
     return {

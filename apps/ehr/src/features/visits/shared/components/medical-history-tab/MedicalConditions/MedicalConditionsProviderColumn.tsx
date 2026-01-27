@@ -18,7 +18,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -30,6 +30,7 @@ import {
 } from '../../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
+import { SelectFromFavoritesButton } from '../SelectFromFavoritesButton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
@@ -298,6 +299,16 @@ const AddMedicalConditionField: FC = () => {
     }
   };
 
+  const handleFavoriteSelect = async (
+    favorite: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.favorites)[number]
+  ): Promise<void> => {
+    const favoriteAsIcdCode: IcdSearchResponse['codes'][number] = {
+      code: favorite.code,
+      display: favorite.display,
+    };
+    await handleSelectOption(favoriteAsIcdCode);
+  };
+
   if (isChartDataLoading) {
     return <Skeleton variant="rectangular" width="100%" height={56} />;
   }
@@ -314,6 +325,12 @@ const AddMedicalConditionField: FC = () => {
         gap: 2,
       }}
     >
+      <SelectFromFavoritesButton
+        favorites={MEDICAL_HISTORY_CONFIG.medicalConditions.favorites}
+        getLabel={(favorite) => `${favorite.code} ${favorite.display}`}
+        onSelect={handleFavoriteSelect}
+        disabled={isChartDataLoading || isLoading}
+      />
       <Controller
         name="value"
         control={control}

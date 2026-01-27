@@ -659,6 +659,7 @@ async function createVisitNotePdfBytes(
         [VitalFieldNames.VitalWeight]: 'Weight',
         [VitalFieldNames.VitalHeight]: 'Height',
         [VitalFieldNames.VitalVision]: 'Vision',
+        [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
         notes: 'Vitals notes',
       };
 

@@ -10,8 +10,10 @@ import {
   getSecret,
   getVirtualServiceResourceExtension,
   PROJECT_WEBSITE,
+  replaceTemplateVariablesArrows,
   SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
+  textingConfig,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
 } from 'utils';
@@ -145,7 +147,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (rawPhone) {
         rawPhone = rawPhone.replace(/[()\s-]/g, '');
         const phone = formatPhoneNumber(rawPhone);
-        const message = `You have been invited to join a telemedicine visit with ${patientChosenName}. Please click ${inviteUrl} to join.`;
+        const message = replaceTemplateVariablesArrows(textingConfig.telemed.inviteSms, {
+          patientName: patientChosenName,
+          inviteUrl: inviteUrl,
+        });
         console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${phone};`);
 
         const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);

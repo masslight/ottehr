@@ -1,5 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { BRANDING_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from 'utils';
+import { BRANDING_CONFIG, CONSENT_FORMS_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';
@@ -635,3 +635,5 @@ export class Locators {
     await this.reserveButton.click();
   }
 }
+
+export const getConsentFormIdsForTests = (): string[] => CONSENT_FORMS_CONFIG.forms.map((form) => form.id);

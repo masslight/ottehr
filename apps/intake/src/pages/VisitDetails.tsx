@@ -91,6 +91,28 @@ const VisitDetailsContent = ({
         </>
       )}
 
+      {data?.files['statement'] && (
+        <>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+            <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+              Statement
+            </Typography>
+            <Button
+              variant="text"
+              startIcon={<DownloadIcon />}
+              onClick={() => {
+                openExternalLink(data.files['statement'].presignedUrl || '');
+              }}
+              disabled={!data?.files['statement'].presignedUrl}
+            >
+              Download PDF
+            </Button>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+        </>
+      )}
+
       {['school', 'work'].map((docType) => (
         <ExcuseNoteContent key={docType} data={data} docType={docType} />
       ))}
