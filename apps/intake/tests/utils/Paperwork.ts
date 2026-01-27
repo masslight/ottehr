@@ -392,13 +392,19 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (QuestionnaireHelper.inPersonIsPhotoIdFrontRequired() || !requiredOnly) {
+    const uploadedFront = QuestionnaireHelper.inPersonIsPhotoIdFrontRequired() || !requiredOnly;
+    const uploadedBack = QuestionnaireHelper.inPersonIsPhotoIdBackRequired() || !requiredOnly;
+    if (uploadedFront) {
       await this.uploadPhoto.fillPhotoFrontID();
     }
-    if (QuestionnaireHelper.inPersonIsPhotoIdBackRequired() || !requiredOnly) {
+    if (uploadedBack) {
       await this.uploadPhoto.fillPhotoBackID();
-      // Wait for both files to be fully uploaded and saved before continuing
+    }
+    // Wait for all files to be fully uploaded and saved before continuing
+    if (uploadedFront && uploadedBack) {
       await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(2, { timeout: 60000 });
+    } else if (uploadedFront || uploadedBack) {
+      await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(1, { timeout: 60000 });
     }
     await this.locator.clickContinueButton();
 
