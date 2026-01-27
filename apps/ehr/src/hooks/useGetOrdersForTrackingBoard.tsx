@@ -9,12 +9,17 @@ import { useGetErxOrders } from './useGetErxOrders';
 
 interface UseGetOrdersForTrackingBoardParams {
   encounterIds: string[];
-  refreshKey: number;
+  refreshKey: number; // drives the refetch for apis not migrated to react query
+}
+
+interface UseGetOrdersForTrackingBoardOutput {
+  orders: OrdersForTrackingBoardTable;
+  refetchOrders: () => Promise<void>;
 }
 
 export const useGetOrdersForTrackingBoard = (
   input: UseGetOrdersForTrackingBoardParams
-): OrdersForTrackingBoardTable => {
+): UseGetOrdersForTrackingBoardOutput => {
   const { encounterIds, refreshKey } = input;
 
   const externalLabOrders = usePatientLabOrders({
@@ -34,36 +39,42 @@ export const useGetOrdersForTrackingBoard = (
     refreshKey,
   });
 
-  const { data: inHouseMedications } = useGetMedicationOrders(
-    {
-      field: 'encounterIds',
-      value: encounterIds,
-    },
-    refreshKey
-  );
+  const medicationOrdersQuery = useGetMedicationOrders({
+    field: 'encounterIds',
+    value: encounterIds,
+  });
 
   const { orders: radiologyOrders } = usePatientRadiologyOrders({ encounterIds, refreshKey });
 
-  const { data: erxOrders } = useGetErxOrders({ encounterIds, refreshKey });
+  const erxOrdersQuery = useGetErxOrders({ encounterIds });
 
-  return useMemo(
+  const orders = useMemo(
     () => ({
       externalLabOrdersByAppointmentId: groupByAppointmentId(externalLabOrders?.labOrders),
       inHouseLabOrdersByAppointmentId: groupByAppointmentId(inHouseOrders?.labOrders),
       nursingOrdersByAppointmentId: groupByAppointmentId(nursingOrders),
-      inHouseMedicationsByEncounterId: groupByEncounterId(inHouseMedications?.orders),
+      inHouseMedicationsByEncounterId: groupByEncounterId(medicationOrdersQuery.data?.orders),
       radiologyOrdersByAppointmentId: groupByAppointmentId(radiologyOrders),
-      erxOrdersByEncounterId: groupByEncounterId(erxOrders?.orders),
+      erxOrdersByEncounterId: groupByEncounterId(erxOrdersQuery.data?.orders),
     }),
     [
       externalLabOrders?.labOrders,
       inHouseOrders?.labOrders,
       nursingOrders,
-      inHouseMedications?.orders,
+      medicationOrdersQuery.data?.orders,
       radiologyOrders,
-      erxOrders?.orders,
+      erxOrdersQuery.data?.orders,
     ]
   );
+
+  const refetchOrders = async (): Promise<void> => {
+    await Promise.all([medicationOrdersQuery.refetch(), erxOrdersQuery.refetch()]);
+  };
+
+  return {
+    orders,
+    refetchOrders,
+  };
 };
 
 const groupByAppointmentId = <T extends { appointmentId: string }>(items?: T[]): Record<string, T[]> =>

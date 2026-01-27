@@ -109,7 +109,7 @@ export default function Appointments(): ReactElement {
   const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
   const encountersIdsEligibleForOrders = [...inOfficeEncounterIds, ...completedEncounterIds];
 
-  const orders = useGetOrdersForTrackingBoard({
+  const { orders, refetchOrders } = useGetOrdersForTrackingBoard({
     encounterIds: encountersIdsEligibleForOrders,
     refreshKey: appointmentsVersion,
   });
@@ -220,7 +220,10 @@ export default function Appointments(): ReactElement {
           supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
 
+        // drives refetch for apis not using react hook query yet
         setAppointmentsVersion(Date.now());
+        // drives refetch for apis using react hook query
+        void refetchOrders();
 
         debounce(() => {
           setSearchResults(searchResults || []);
@@ -256,6 +259,7 @@ export default function Appointments(): ReactElement {
     queryParams,
     pageIsVisible,
     debounce,
+    refetchOrders,
   ]);
 
   useEffect(() => {
