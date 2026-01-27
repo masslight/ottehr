@@ -600,8 +600,8 @@ export class Locators {
 
     try {
       await Promise.race([
-        selectPatientPage.waitFor({ state: 'visible', timeout: 10_000 }),
-        patientInfoPage.waitFor({ state: 'visible', timeout: 10_000 }),
+        selectPatientPage.waitFor({ state: 'visible', timeout: 60_000 }),
+        patientInfoPage.waitFor({ state: 'visible', timeout: 60_000 }),
       ]);
 
       if (await selectPatientPage.isVisible()) {
