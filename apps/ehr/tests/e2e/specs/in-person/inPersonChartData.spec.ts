@@ -280,6 +280,7 @@ test.describe('In-Person Visit Chart Data', async () => {
     const VISION_LEFT = '2.5';
     const VISION_RIGHT = '3.1';
     const LMP_DATE = '01/15/2024';
+    const LMP_DATE_UNSURE = '01/20/2024';
 
     let vitalsPage: VitalsPage;
 
@@ -361,10 +362,10 @@ test.describe('In-Person Visit Chart Data', async () => {
       });
 
       await test.step('VIT-1.11 Add last menstrual period observation with Unsure', async () => {
-        await vitalsPage.addLastMenstrualPeriodObservationUnsure();
+        await vitalsPage.addLastMenstrualPeriodObservationUnsure(LMP_DATE_UNSURE);
         await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkUnsureInHistory();
-        await vitalsPage.checkAddedLastMenstrualPeriodUnsureIsShownInHeader();
+        await vitalsPage.checkUnsureInHistory(LMP_DATE_UNSURE);
+        await vitalsPage.checkAddedLastMenstrualPeriodUnsureIsShownInHeader(LMP_DATE_UNSURE);
       });
     });
 
@@ -418,7 +419,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       });
 
       await test.step('VIT-2.11 Verify Unsure in progress note', async () => {
-        expect(vitalsText).toContain('Unsure');
+        expect(vitalsText).toContain(`${LMP_DATE_UNSURE} (unsure)`);
       });
 
       await sideMenu.clickVitals();
@@ -495,10 +496,13 @@ test.describe('In-Person Visit Chart Data', async () => {
       });
 
       await test.step('VIT-3.10 Delete Unsure last menstrual period observation', async () => {
-        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory('Unsure');
+        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(`${LMP_DATE_UNSURE} (unsure)`);
         await waitForChartDataDeletion(page);
         await expect(
-          page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText('Unsure')
+          page
+            .getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem)
+            .first()
+            .getByText(`${LMP_DATE_UNSURE} (unsure)`)
         ).not.toBeVisible(DEFAULT_TIMEOUT);
       });
 
