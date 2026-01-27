@@ -322,7 +322,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM &&
             tag.code === AppointmentProviderNotificationTypes.task_assigned
         );
-        console.log('omarTempTaskLog: isProcessed', !!isProcessed);
 
         if (!isProcessed && practitioner) {
           updateTaskRequests.push(
@@ -339,7 +338,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           );
 
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
-          console.log('omarTempTaskLog: notifications', notificationSettings?.enabled);
 
           if (notificationSettings?.enabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
@@ -366,7 +364,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 payload: [{ contentString: `A new task has been assigned to you: ${task.description}` }],
               },
             };
-            console.log('omarTempTaskLog: request', JSON.stringify(request));
 
             createCommunicationRequests.push(request);
             addNewSMSCommunicationForPractitioner(practitioner, request.resource as Communication, status);
