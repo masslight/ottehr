@@ -38,8 +38,29 @@ export class UploadDocs {
 
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
 
-    // Use helper to handle both initial upload and re-upload scenarios
-    await FileUploadHelpers.uploadWithReuploadSupport(this.page, locator, filePath);
+    // Extract id value from selector (supports both #id and [id="value"] formats)
+    let idValue: string;
+    if (locator.startsWith('#')) {
+      idValue = locator.replace('#', '');
+    } else if (locator.startsWith('[id=')) {
+      const match = locator.match(/\[id=["']([^"']+)["']\]/);
+      idValue = match ? match[1] : locator;
+    } else {
+      idValue = locator;
+    }
+
+    // Check if THIS specific field has "Click to re-upload" link (scoped to field container)
+    const fieldContainer = this.page.locator(`[for="${idValue}"]`).locator('..');
+    const reuploadLink = fieldContainer.getByText('Click to re-upload');
+    const hasReupload = (await reuploadLink.count()) > 0;
+
+    if (hasReupload) {
+      // File already uploaded, use reupload helper
+      await FileUploadHelpers.reuploadFile(this.page, locator, filePath);
+    } else {
+      // File not uploaded yet, use regular upload helper
+      await FileUploadHelpers.uploadFile(this.page, locator, filePath);
+    }
 
     // Wait for no "Uploading..." buttons to be visible (all uploads completed)
     await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toHaveCount(0, { timeout: 60000 });
