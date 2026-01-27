@@ -379,6 +379,71 @@ export const InPersonExamConfig = {
       comment: { 'heart-comment': { label: 'Heart comment', type: 'text' } },
     },
   },
+  vascular: {
+    label: 'Vascular',
+    components: {
+      normal: {
+        'capillary-refill-less-than-2-seconds': {
+          label: 'Capillary refill <2 seconds',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'extremities-warm-and-well-perfused': {
+          label: 'Extremities warm and well-perfused',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'no-edema': {
+          label: 'No edema',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'radial-posterior-tibial-and-dorsalis-pulses-2-bilaterally': {
+          label: 'Radial, posterior tibial, and dorsalis pulses 2+ bilaterally',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'no-calf-tenderness': {
+          label: 'No calf tenderness',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+      },
+      abnormal: {
+        'capillary-refill-greater-than-2-seconds': {
+          label: 'Capillary refill >2 seconds',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'cool-extremity-or-mottled-appearance-of-extremity': {
+          label: 'Cool extremity or mottled appearance of extremity',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        edema: {
+          label: 'Edema',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'diminished-pulses': {
+          label: 'Diminished pulses',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'calf-tenderness': {
+          label: 'Calf tenderness',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+      },
+      comment: {
+        'vascular-comment': {
+          label: 'Vascular comment',
+          type: 'text',
+        },
+      },
+    },
+  },
   lungs: {
     label: 'Lungs, Chest Wall',
     components: {
@@ -454,11 +519,36 @@ export const InPersonExamConfig = {
     label: 'Abdomen',
     components: {
       normal: {
-        soft: { label: 'Soft', defaultValue: true, type: 'checkbox' },
-        nondistended: { label: 'Nondistended', defaultValue: true, type: 'checkbox' },
-        nontender: { label: 'Nontender', defaultValue: true, type: 'checkbox' },
-        'no-cva-tenderness': { label: 'No CVA tenderness', defaultValue: false, type: 'checkbox' },
-        'no-hepatosplenomegaly': { label: 'No hepatosplenomegaly', defaultValue: false, type: 'checkbox' },
+        soft: {
+          label: 'Soft',
+          defaultValue: true,
+          type: 'checkbox',
+        },
+        nondistended: {
+          label: 'Nondistended',
+          defaultValue: true,
+          type: 'checkbox',
+        },
+        nontender: {
+          label: 'Nontender',
+          defaultValue: true,
+          type: 'checkbox',
+        },
+        'normal-bowel-sounds': {
+          label: 'Normal Bowel Sounds',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'no-cva-tenderness': {
+          label: 'No CVA tenderness',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'no-hepatosplenomegaly': {
+          label: 'No hepatosplenomegaly',
+          defaultValue: false,
+          type: 'checkbox',
+        },
         'hops-with-no-pain': {
           label:
             'Hops with no pain; negative Rovsing’s, psoas, and obturator signs; no rebound tenderness; no guarding',
@@ -467,24 +557,133 @@ export const InPersonExamConfig = {
         },
       },
       abnormal: {
-        tender: {
-          label: 'Tender',
-          type: 'multi-select',
-          options: {
-            diffusely: { label: 'Diffusely', defaultValue: false },
-            ruq: { label: 'RUQ', defaultValue: false },
-            rlq: { label: 'RLQ', defaultValue: false },
-            luq: { label: 'LUQ', defaultValue: false },
-            lll: { label: 'LLL', defaultValue: false },
-          },
+        'tender-r-cva': {
+          label: 'Tender R CVA',
+          defaultValue: false,
+          type: 'checkbox',
         },
-        hepatomegaly: { label: 'Hepatomegaly', defaultValue: false, type: 'checkbox' },
-        splenomegaly: { label: 'Splenomegaly', defaultValue: false, type: 'checkbox' },
-        'pain-with-hopping': { label: 'Pain with hopping', defaultValue: false, type: 'checkbox' },
-        rebound: { label: 'Rebound', defaultValue: false, type: 'checkbox' },
-        guarding: { label: 'Guarding', defaultValue: false, type: 'checkbox' },
+        'tender-l-cva': {
+          label: 'Tender L CVA',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        hepatomegaly: {
+          label: 'Hepatomegaly',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        splenomegaly: {
+          label: 'Splenomegaly',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'hypoactive-bowel-sounds': {
+          label: 'Hypoactive Bowel Sounds',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'hyperactive-bowel-sounds': {
+          label: 'Hyperactive Bowel Sounds',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'absent-bowel-sounds': {
+          label: 'Absent Bowel Sounds',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'pain-with-hopping': {
+          label: 'Pain with hopping',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        rebound: {
+          label: 'Rebound',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        guarding: {
+          label: 'Guarding',
+          defaultValue: false,
+          type: 'checkbox',
+        },
       },
-      comment: { 'abdomen-comment': { label: 'Abdomen comment', type: 'text' } },
+      comment: {
+        'abdomen-comment': {
+          label: 'Abdomen comment',
+          type: 'text',
+        },
+      },
+    },
+  },
+  back: {
+    label: 'Back',
+    components: {
+      normal: {
+        'no-tenderness-to-palpation': {
+          label: 'No tenderness to palpation',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'full-range-of-motion': {
+          label: 'Full range of motion',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'no-visible-deformity': {
+          label: 'No visible deformity',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'normal-alignment': {
+          label: 'Normal alignment',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'no-paraspinal-muscle-spasm': {
+          label: 'No paraspinal muscle spasm',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+      },
+      abnormal: {
+        'midline-spinal-tenderness': {
+          label: 'Midline spinal tenderness',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'paraspinal-muscle-tenderness': {
+          label: 'Paraspinal muscle tenderness',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'limited-range-of-motion': {
+          label: 'Limited range of motion',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'visible-deformity-step-off': {
+          label: 'Visible deformity, step-off',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'scoliosis-kyphosis-lordosis': {
+          label: 'Scoliosis/kyphosis/lordosis',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'muscle-spasm': {
+          label: 'Muscle spasm',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+      },
+      comment: {
+        'back-comment': {
+          label: 'Back comment',
+          type: 'text',
+        },
+      },
     },
   },
   extremities: {
