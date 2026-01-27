@@ -163,7 +163,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       title = `Review results for “${fullTestName}” for ${patientName}`;
     }
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
-      title = ' Match unsolicited test results';
+      title = 'Match unsolicited test results';
     }
     if (
       code === LAB_ORDER_TASK.code.reviewFinalResult ||
