@@ -1018,7 +1018,7 @@ export const filterDisabledPages = (
       questionnaireResponse
     );
     // If page is disabled, return only the linkId (no items)
-    if (!isPageEnabled && responsePage.linkId !== 'consent-forms-page') {
+    if (!isPageEnabled) {
       return { linkId: responsePage.linkId };
     }
 
