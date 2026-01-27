@@ -774,8 +774,8 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       resourceType: 'Task',
       params: [
         {
-          name: 'status:not',
-          value: 'cancelled',
+          name: 'status',
+          value: 'requested|received|accepted|ready|in-progress',
         },
         {
           name: '_lastUpdated',
