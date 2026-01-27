@@ -213,7 +213,9 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
   const timezone = getTimezone(schedule);
 
-  const startTime = DateTime.fromISO(startISO);
+  // setZone: true preserves the timezone from the input ISO string instead of converting to system timezone
+  // This prevents DST offset issues when the system timezone differs from the intended timezone
+  const startTime = DateTime.fromISO(startISO, { setZone: true });
   const endTime = startTime.plus({ [apptLength.unit]: apptLength.length });
 
   const start = startTime.setZone(timezone).toISO();

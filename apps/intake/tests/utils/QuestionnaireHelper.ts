@@ -89,7 +89,7 @@ export class QuestionnaireHelper {
    * Note: This does NOT check if it's visible based on enableWhen conditions.
    * Use inPersonQuestionnaireItemIsVisible() to check visibility.
    */
-  static hasEmployerInformationPage(): boolean {
+  static inPersonHasEmployerInformationPage(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireHasItem('employer-information-page');
   }
 
@@ -99,15 +99,15 @@ export class QuestionnaireHelper {
    * @param responseItems - The current questionnaire response items (filled form data)
    * @returns true if the page exists and is visible, false otherwise
    */
-  static employerInformationPageIsVisible(responseItems: QuestionnaireResponseItem[]): boolean {
+  static inPersonEmployerInformationPageIsVisible(responseItems: QuestionnaireResponseItem[]): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireItemIsVisible('employer-information-page', responseItems);
   }
 
-  static hasAttorneyPage(): boolean {
+  static inPersonHasAttorneyPage(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireHasItem('attorney-mva-page');
   }
 
-  static attorneyPageIsVisible(responseItems: QuestionnaireResponseItem[]): boolean {
+  static inPersonAttorneyPageIsVisible(responseItems: QuestionnaireResponseItem[]): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireItemIsVisible('attorney-mva-page', responseItems);
   }
 
@@ -128,21 +128,21 @@ export class QuestionnaireHelper {
   /**
    * Checks if the photo ID front field is required in the questionnaire.
    */
-  static isPhotoIdFrontRequired(): boolean {
+  static inPersonIsPhotoIdFrontRequired(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireItemIsRequired('photo-id-front');
   }
 
   /**
    * Checks if the photo ID back field is required in the questionnaire.
    */
-  static isPhotoIdBackRequired(): boolean {
+  static inPersonIsPhotoIdBackRequired(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireItemIsRequired('photo-id-back');
   }
 
   /**
    * Checks if the point of discovery field exists in the in-person questionnaire.
    */
-  static hasPointOfDiscoveryField(): boolean {
+  static inPersonHasPointOfDiscoveryField(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireHasItem('patient-point-of-discovery');
   }
 

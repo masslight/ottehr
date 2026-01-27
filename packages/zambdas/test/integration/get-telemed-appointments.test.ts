@@ -27,6 +27,7 @@ describe('get-telemed-appointments integration tests', () => {
   let userToken: string;
   let processId: string;
   let endOfTomorrowSlotStart: string;
+  let testReferenceTime: DateTime; // Fixed time for all date calculations
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('get-telemed-appointments.test.ts', M2MClientMockType.provider);
@@ -35,6 +36,17 @@ describe('get-telemed-appointments integration tests', () => {
     cleanupAppointmentGraph = setup.cleanup;
     userToken = setup.token;
     processId = setup.processId;
+
+    // for debugging:
+    // run in terminal from zambdas root directory:
+    // for hour in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23; do result=$(TEST_TIME_GET_TELEMED_APPOINTMENTS=2026-1-23-$hour npm test -- get-telemed-appointments.test.ts 2>&1 | grep -E "(FAIL|PASS|✓.*get-telemed-appointments.test.ts)" | tail -1); echo "Hour $hour: $result"; done
+    const testTimeOverride = process.env.TEST_TIME_GET_TELEMED_APPOINTMENTS;
+    if (testTimeOverride) {
+      const [year, month, day, hour] = testTimeOverride.split('-').map(Number);
+      testReferenceTime = DateTime.fromObject({ year, month, day, hour, minute: 0, second: 0 }, { zone: 'UTC' });
+    } else {
+      testReferenceTime = DateTime.now();
+    }
 
     // Create a virtual location for telemed appointments
     virtualLocation = (await oystehr.fhir.create({
@@ -89,7 +101,7 @@ describe('get-telemed-appointments integration tests', () => {
       )
     )) as Schedule;
 
-    endOfTomorrowSlotStart = DateTime.now()
+    endOfTomorrowSlotStart = testReferenceTime
       .setZone('America/New_York')
       .startOf('day')
       .plus({ days: 1, hours: 23, minutes: 45 })
@@ -143,14 +155,30 @@ describe('get-telemed-appointments integration tests', () => {
 
     // Note that appointment stores start time in UTC
     expect(createAppointmentResponse).toBeDefined();
-    console.log('appointment start time, ', createAppointmentResponse.resources.appointment.start);
+    console.log('');
+    console.log('  CREATED APPOINTMENT:');
+    console.log('   ID:', createAppointmentResponse.resources.appointment.id);
+    console.log('   Start time:', createAppointmentResponse.resources.appointment.start);
+    console.log('   Status:', createAppointmentResponse.resources.appointment.status);
+    console.log(
+      '   Location:',
+      createAppointmentResponse.resources.appointment.participant?.find(
+        (p) => p.actor?.reference?.includes('Location/')
+      )?.actor?.reference
+    );
+    console.log('   Expected start (UTC):', DateTime.fromISO(endOfTomorrowSlotStart).setZone('UTC').toISO());
+    console.log('');
+
     expect(createAppointmentResponse.resources.appointment.start).toEqual(
       DateTime.fromISO(endOfTomorrowSlotStart).setZone('UTC').toISO()
     );
 
-    await oystehr.fhir.update({
+    const updatedAppt = await oystehr.fhir.update({
       ...addProcessIdMetaTagToResource(createAppointmentResponse.resources.appointment, processId),
     });
+
+    console.log('  APPOINTMENT UPDATED with processId meta tag');
+    console.log('   Meta tags:', JSON.stringify(updatedAppt.meta?.tag, null, 2));
 
     expect(createAppointmentResponse).toBeDefined();
     expect(createAppointmentResponse.appointmentId).toBeDefined();
@@ -184,7 +212,7 @@ describe('get-telemed-appointments integration tests', () => {
         patientFilter: 'all-patients',
         statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
         locationsIdsFilter: [virtualLocation.id!], // We need the location filter for the location we just made so we don't get stuff from other tests
-        dateFilter: DateTime.now().setZone('America/New_York').toFormat('yyyy-MM-dd'), // "Today" in New York time
+        dateFilter: testReferenceTime.setZone('America/New_York').toFormat('yyyy-MM-dd'), // "Today" in New York time
         timeZone: 'America/New_York',
         userToken,
       };
@@ -213,11 +241,22 @@ describe('get-telemed-appointments integration tests', () => {
     });
 
     it('should get appointments for tomorrow NY time, find one, and validate shape of telemed appointment information -- success', async () => {
+      console.log('');
+      console.log('==================== TEST 2: TOMORROW NY TIME ====================');
+      const dateFilterValue = testReferenceTime.plus({ days: 1 }).setZone('America/New_York').toFormat('yyyy-MM-dd');
+
+      console.log('  Test will search for date:', dateFilterValue);
+      console.log('  Timezone:', 'America/New_York');
+      console.log('  That translates to UTC range:');
+      const searchDate = DateTime.fromISO(dateFilterValue, { zone: 'America/New_York' });
+      console.log('   ge:', searchDate.startOf('day').toUTC().toISO());
+      console.log('   lt:', searchDate.plus({ days: 1 }).startOf('day').toUTC().toISO());
+
       const getTelemedAppointmentsInput: Omit<GetTelemedAppointmentsInput, 'userToken'> = {
         patientFilter: 'all-patients',
         statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
         locationsIdsFilter: [virtualLocation.id!],
-        dateFilter: DateTime.now().plus({ days: 1 }).setZone('America/New_York').toFormat('yyyy-MM-dd'),
+        dateFilter: dateFilterValue,
         timeZone: 'America/New_York',
       };
 
@@ -274,11 +313,17 @@ describe('get-telemed-appointments integration tests', () => {
     });
 
     it('should get appointments for tomorrow in Bermuda time and not find any -- success', async () => {
+      console.log('');
+      console.log('==================== TEST 3: TOMORROW BERMUDA TIME ====================');
       const getTelemedAppointmentsInput: Omit<GetTelemedAppointmentsInput, 'userToken'> = {
         patientFilter: 'all-patients',
         statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
         locationsIdsFilter: [virtualLocation.id!],
-        dateFilter: DateTime.now().setZone('America/New_York').startOf('day').plus({ days: 1 }).toFormat('yyyy-MM-dd'),
+        dateFilter: testReferenceTime
+          .setZone('America/New_York')
+          .startOf('day')
+          .plus({ days: 1 })
+          .toFormat('yyyy-MM-dd'),
         timeZone: 'Atlantic/Bermuda',
       };
 

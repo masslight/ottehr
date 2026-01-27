@@ -33,7 +33,7 @@ on:
 jobs:
   login-e2e:
     # Run for e2e environment
-    if: github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e'
+    if: github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
@@ -168,7 +168,7 @@ jobs:
     needs: login-e2e
     if: |
       always() && 
-      (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e2')
+      (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e2' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
@@ -303,7 +303,7 @@ jobs:
     needs: login-e2e2
     if: |
       always() && 
-      (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e3')
+      (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e3' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:

@@ -591,9 +591,10 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
   });
 
   test('PRPI. Responsible party information', async () => {
+    const pageTitle = 'Responsible party information';
     await test.step('PRPI-1. Open responsible party information page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/responsible-party`);
-      await paperwork.checkCorrectPageOpens('Responsible party information');
+      await paperwork.checkCorrectPageOpens(pageTitle);
     });
 
     await test.step('PRPI-2. Check patient name is displayed', async () => {
@@ -657,13 +658,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
       await expect(locator.dateOlder18YearsError).not.toBeVisible();
       await expect(locator.dateFutureError).not.toBeVisible();
       await locator.clickContinueButton();
-      // Check which page appears (employer information is conditional)
-      const currentPageTitle = await locator.flowHeading.textContent();
-      if (currentPageTitle === 'Employer information') {
-        // If employer information page is shown, we'll handle it in the PEI test
-      } else {
-        await paperwork.checkCorrectPageOpens('Emergency Contact');
-      }
+      await paperwork.checkAnotherPageOpens(pageTitle);
       return responsiblePartyData;
     });
 
@@ -706,7 +701,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
         ];
 
         // Check if employer page would be visible for this service category
-        return !QuestionnaireHelper.employerInformationPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonEmployerInformationPageIsVisible(responseItems);
       })(),
       'Employer information page not visible for this appointment type'
     );
@@ -753,6 +748,13 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
   });
 
   test('PEC. Emergency Contact', async () => {
+    test.skip(
+      (() => {
+        // Check if emergency contact page would be visible for this paperwork
+        return !QuestionnaireHelper.virtualQuestionnaireHasItem('emergency-contact-page');
+      })(),
+      'Emergency Contact page not visible for this paperwork flow'
+    );
     await test.step('PEC-1. Open Emergency Contact page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/emergency-contact`);
       await paperwork.checkCorrectPageOpens('Emergency Contact');
@@ -814,7 +816,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
           },
         ];
         // Check if attorney page would be visible for this reason for visit
-        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonAttorneyPageIsVisible(responseItems);
       })(),
       'Attorney page not visible for this appointment type'
     );
