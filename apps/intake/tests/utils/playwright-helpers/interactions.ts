@@ -144,35 +144,42 @@ export class NavigationHelpers {
  */
 export class FileUploadHelpers {
   /**
-   * Handles file upload with automatic re-upload link detection
-   * Checks if file was previously uploaded and clicks "Click to re-upload" if needed
+   * Clicks upload button and sets file
    * @param page - Playwright Page object
-   * @param uploadButtonSelector - Selector for the upload button (e.g., '#photo-id-front')
+   * @param uploadButtonSelector - Selector for the upload button
    * @param filePath - Absolute path to the file
    */
-  static async uploadWithReuploadSupport(page: Page, uploadButtonSelector: string, filePath: string): Promise<void> {
-    // Find the container for this specific upload field by looking near the button/label
-    const fieldContainer = page.locator(`[for="${uploadButtonSelector.replace('#', '')}"]`).locator('..');
+  static async uploadFile(page: Page, uploadButtonSelector: string, filePath: string): Promise<void> {
+    const uploadButton = page.locator(uploadButtonSelector);
+    await uploadButton.scrollIntoViewIfNeeded();
 
-    // Check if "Click to re-upload" link exists within this field's container
-    const reuploadLink = fieldContainer.getByText('Click to re-upload');
-    const reuploadCount = await reuploadLink.count();
+    const [fileChooser] = await Promise.all([page.waitForEvent('filechooser'), uploadButton.click()]);
+    await fileChooser.setFiles(filePath);
+  }
 
-    if (reuploadCount > 0) {
-      // Scroll the link into view to ensure it's interactable
-      await reuploadLink.scrollIntoViewIfNeeded();
-
-      // The "Click to re-upload" link triggers the hidden file input directly via ref
-      // So we just need to wait for filechooser after clicking the link
-      const [fileChooser] = await Promise.all([page.waitForEvent('filechooser'), reuploadLink.click()]);
-      await fileChooser.setFiles(filePath);
+  /**
+   * Clicks "Click to re-upload" link and sets file
+   * @param page - Playwright Page object
+   * @param uploadButtonSelector - Selector for the upload button (e.g., '#photo-id-front' or '[id="secondary-insurance.item.14"]')
+   * @param filePath - Absolute path to the file
+   */
+  static async reuploadFile(page: Page, uploadButtonSelector: string, filePath: string): Promise<void> {
+    // Extract id value from selector
+    let idValue: string;
+    if (uploadButtonSelector.startsWith('#')) {
+      idValue = uploadButtonSelector.replace('#', '');
+    } else if (uploadButtonSelector.startsWith('[id=')) {
+      const match = uploadButtonSelector.match(/\[id=["']([^"']+)["']\]/);
+      idValue = match ? match[1] : uploadButtonSelector;
     } else {
-      // Normal upload flow: click the upload button which triggers the hidden file input
-      const uploadButton = page.locator(uploadButtonSelector);
-      await uploadButton.scrollIntoViewIfNeeded();
-
-      const [fileChooser] = await Promise.all([page.waitForEvent('filechooser'), uploadButton.click()]);
-      await fileChooser.setFiles(filePath);
+      idValue = uploadButtonSelector;
     }
+
+    const fieldContainer = page.locator(`[for="${idValue}"]`).locator('..');
+    const reuploadLink = fieldContainer.getByText('Click to re-upload');
+    await reuploadLink.scrollIntoViewIfNeeded();
+
+    const [fileChooser] = await Promise.all([page.waitForEvent('filechooser'), reuploadLink.click()]);
+    await fileChooser.setFiles(filePath);
   }
 }

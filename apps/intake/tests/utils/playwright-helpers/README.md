@@ -130,32 +130,41 @@ export class DatePickerHelpers {
 
 ## FileUploadHelpers
 
-Utilities for handling file uploads with automatic re-upload detection.
+Simple utilities for file upload operations.
 
-### uploadWithReuploadSupport
+### uploadFile
 
-Handles file upload with automatic "Click to re-upload" link detection. This prevents flaky tests when files were already uploaded in previous test runs.
+Clicks upload button and uploads a file.
 
 ```typescript
 import { FileUploadHelpers } from './playwright-helpers';
 
-// Upload a file, automatically handling re-upload scenarios
-await FileUploadHelpers.uploadWithReuploadSupport(
-  page,
-  '#photo-id-front', // ID of the upload button (not the hidden input)
-  '/absolute/path/to/file.jpg'
-);
+await FileUploadHelpers.uploadFile(page, '#photo-id-front', '/absolute/path/to/file.jpg');
+
+// Also supports attribute selectors for complex ids
+await FileUploadHelpers.uploadFile(page, '[id="secondary-insurance.item.14"]', '/absolute/path/to/file.jpg');
 ```
 
-**How it works**:
-- Finds the specific field container using the label's `for` attribute
-- Checks if "Click to re-upload" link exists within that container (not globally)
-- Scrolls the element into view to handle pages with multiple upload fields
-- If re-upload link exists, clicks it directly (it triggers the hidden file input via React ref)
-- Otherwise, clicks the upload button which also triggers the hidden file input
-- Both paths properly wait for the filechooser event before setting files
+### reuploadFile
 
-**When to use**: When uploading files that might already exist from previous test runs. The helper automatically detects the UI state and handles both initial upload and re-upload scenarios, properly scoped to the specific field.
+Clicks "Click to re-upload" link and uploads a file (when file was already uploaded).
+
+```typescript
+await FileUploadHelpers.reuploadFile(page, '#photo-id-front', '/absolute/path/to/file.jpg');
+
+// Also supports attribute selectors for complex ids
+await FileUploadHelpers.reuploadFile(page, '[id="secondary-insurance.item.14"]', '/absolute/path/to/file.jpg');
+```
+
+**Selector formats supported**:
+- Simple id: `#photo-id-front` → extracts `photo-id-front`
+- Attribute selector: `[id="secondary-insurance.item.14"]` → extracts `secondary-insurance.item.14`
+
+**When to use**: 
+- `uploadFile` - when uploading a new file
+- `reuploadFile` - when file is already uploaded and you see "Click to re-upload" link
+
+**Note**: Tests should check if file is already uploaded before calling these helpers.
 
 ## Migration Notes
 
