@@ -1,5 +1,5 @@
 import { Appointment } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType } from 'utils';
+import { formatDateToMDYWithTime, getAppointmentType, LOCATION_CONFIG } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { PdfSection, VisitDataInput, VisitInfo } from '../types';
 
@@ -11,7 +11,8 @@ export const validateVisitData = (appointment: Appointment): void => {
 
 export const composeVisitData: DataComposer<VisitDataInput, VisitInfo> = ({ appointment, location, timezone }) => {
   const { type } = getAppointmentType(appointment);
-  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
+  const { date = '', time = '' } =
+    formatDateToMDYWithTime(appointment?.start, timezone ?? LOCATION_CONFIG.defaultTimezone) ?? {};
   const locationName = location?.name ?? '';
   const reasonForVisit = appointment?.description ?? '';
   return { type, time, date, location: locationName, reasonForVisit };

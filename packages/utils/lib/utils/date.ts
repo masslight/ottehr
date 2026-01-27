@@ -1,4 +1,5 @@
 import { DateTime, DateTimeJSOptions } from 'luxon';
+import { LOCATION_CONFIG } from '../ottehr-config';
 import { DateComponents, Timezone } from '../types';
 
 interface timezone {
@@ -30,7 +31,7 @@ export const availableTimezones = (date: DateTime | undefined): timezone[] => {
 
 export function createLocalDateTime(
   dateTime: DateTime | string | undefined,
-  timezone: string | undefined = 'America/New_York'
+  timezone: string | undefined = LOCATION_CONFIG.defaultTimezone
 ): DateTime | undefined {
   if (!dateTime) return undefined;
   let localDateTime: DateTime | undefined;

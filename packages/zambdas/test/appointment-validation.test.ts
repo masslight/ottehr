@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { LOCATION_CONFIG } from 'utils';
 import { expect, vi } from 'vitest';
 import { SECRETS } from './data/secrets';
 
@@ -13,6 +14,7 @@ export const patient: any = {
 };
 
 export const location = '71bc5925-65d6-471f-abd0-be357043172a';
+export const timezone = LOCATION_CONFIG.defaultTimezone;
 
 export const healthcareContacts: any = {
   physicianFirstName: 'a',
@@ -88,7 +90,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: {},
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -103,7 +105,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: {},
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -118,7 +120,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: {},
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -133,7 +135,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: {},
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -148,7 +150,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: {},
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -163,7 +165,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: {},
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -178,7 +180,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: {},
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -195,7 +197,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContactsTemp,
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -210,7 +212,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContactsTemp,
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -225,7 +227,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContactsTemp,
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -240,7 +242,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContactsTemp,
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -255,7 +257,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContactsTemp,
         contact: {},
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -274,7 +276,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -289,7 +291,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -304,7 +306,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -319,7 +321,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -336,7 +338,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -353,7 +355,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -370,7 +372,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: healthcareContacts,
         contact: contact,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -387,7 +389,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: healthcareContacts,
         contact: contact,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -405,7 +407,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: healthcareContacts,
         contact: contact,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -423,7 +425,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: healthcareContacts,
         contact: contact,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -440,7 +442,7 @@ describe.skip('appointments validation tests', () => {
         patient: patientTemp,
         healthcareContacts: healthcareContacts,
         contact: contact,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -457,7 +459,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContactsTemp,
         contact: contact,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -474,7 +476,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -487,7 +489,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -504,7 +506,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -518,7 +520,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contactTemp,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({
@@ -549,7 +551,7 @@ describe.skip('appointments validation tests', () => {
         patient: patient,
         healthcareContacts: healthcareContacts,
         contact: contact,
-        timezone: 'America/New_York',
+        timezone: timezone,
         location: location,
       })
     ).rejects.toEqual({

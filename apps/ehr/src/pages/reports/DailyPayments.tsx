@@ -76,7 +76,7 @@ export default function DailyPayments(): React.ReactElement {
 
   const getDateRange = useCallback(
     (filter: string, selectedDate?: string): { start: string; end: string } => {
-      const now = DateTime.now().setZone('America/New_York');
+      const now = DateTime.now().setZone(LOCATION_CONFIG.defaultTimezone);
 
       switch (filter) {
         case 'today':
@@ -103,15 +103,15 @@ export default function DailyPayments(): React.ReactElement {
           };
         case 'custom': {
           if (!selectedDate) return { start: '', end: '' };
-          const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
+          const customDateTime = DateTime.fromISO(selectedDate).setZone(LOCATION_CONFIG.defaultTimezone);
           return {
             start: customDateTime.startOf('day').toISO() ?? '',
             end: customDateTime.endOf('day').toISO() ?? '',
           };
         }
         case 'customRange': {
-          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
-          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          const startDateTime = DateTime.fromISO(customStartDate).setZone(LOCATION_CONFIG.defaultTimezone);
+          const endDateTime = DateTime.fromISO(customEndDate).setZone(LOCATION_CONFIG.defaultTimezone);
           return {
             start: startDateTime.startOf('day').toISO() ?? '',
             end: endDateTime.endOf('day').toISO() ?? '',

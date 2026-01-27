@@ -368,6 +368,7 @@ export interface VirtualLocationBody {
   name: string;
   state: StateType;
   meta?: Location['meta'];
+  timezone?: string;
 }
 
 export const AllStatesToVirtualLocationLabels: {

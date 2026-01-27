@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { calculatePatientAge, formatDateForDisplay } from 'utils';
+import { calculatePatientAge, formatDateForDisplay, LOCATION_CONFIG } from 'utils';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   datesCompareFn,
@@ -134,7 +134,7 @@ describe('formatDateTime helpers', () => {
 
   describe('getTimezone', () => {
     it('should return default timezone if location is undefined', () => {
-      expect(getTimezone(undefined)).toBe('America/New_York');
+      expect(getTimezone(undefined)).toBe(LOCATION_CONFIG.defaultTimezone);
     });
 
     it('should return timezone from location extension', () => {
@@ -158,12 +158,12 @@ describe('formatDateTime helpers', () => {
           },
         ],
       };
-      expect(getTimezone(location as any)).toBe('America/New_York');
+      expect(getTimezone(location as any)).toBe(LOCATION_CONFIG.defaultTimezone);
     });
 
     it('should return default timezone if extension array is empty', () => {
       const location = { extension: [] };
-      expect(getTimezone(location as any)).toBe('America/New_York');
+      expect(getTimezone(location as any)).toBe(LOCATION_CONFIG.defaultTimezone);
     });
   });
 });

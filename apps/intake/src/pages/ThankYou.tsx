@@ -17,6 +17,7 @@ import {
   formatPhoneNumberDisplay,
   getSelectors,
   getSlugAndStateFromLocation,
+  LOCATION_CONFIG,
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
@@ -204,7 +205,7 @@ const ThankYou = (): JSX.Element => {
 
   const selectedSlotTimezoneAdjusted = useMemo(() => {
     const selectedAppointmentStart = appointmentData.appointment?.start;
-    const timezone = appointmentData.appointment?.location.timezone ?? 'America/New_York';
+    const timezone = appointmentData.appointment?.location.timezone ?? LOCATION_CONFIG.defaultTimezone;
     if (selectedAppointmentStart) {
       return DateTime.fromISO(selectedAppointmentStart).setZone(timezone).setLocale('en-us');
     }

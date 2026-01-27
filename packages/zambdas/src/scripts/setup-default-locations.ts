@@ -9,6 +9,7 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
+  LOCATION_CONFIG,
   ROOM_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   SlotServiceCategory,
@@ -83,7 +84,7 @@ const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr:
       },
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
+        valueString: LOCATION_CONFIG.defaultTimezone,
       },
     ],
     identifier: [
@@ -117,7 +118,7 @@ const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr:
       },
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
+        valueString: LOCATION_CONFIG.defaultTimezone,
       },
     ],
     actor: [

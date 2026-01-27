@@ -11,6 +11,7 @@ import {
   createSlotParamsFromSlotAndOptions,
   GetScheduleResponse,
   isApiError,
+  LOCATION_CONFIG,
   ScheduleType,
   ServiceCategoryCode,
   ServiceCategoryCodeSchema,
@@ -308,7 +309,7 @@ const PrebookVisit: FC = () => {
               slotData={(slotData?.available ?? []).map((sli) => sli.slot)}
               slotsLoading={false}
               existingSelectedSlot={findSelectedSlotFromAvailable(slotData?.available ?? [], selectedSlot)}
-              timezone={selectedLocation?.timezone ?? slotData?.timezone ?? 'America/New_York'}
+              timezone={selectedLocation?.timezone ?? slotData?.timezone ?? LOCATION_CONFIG.defaultTimezone}
               forceClosedToday={false}
               forceClosedTomorrow={false}
               handleSlotSelected={noop}

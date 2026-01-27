@@ -11,6 +11,7 @@ import {
   BRANDING_CONFIG,
   CANT_UPDATE_CANCELED_APT_ERROR,
   GetAppointmentResponseAppointmentDetails,
+  LOCATION_CONFIG,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   PROJECT_WEBSITE,
   SlotListItem,
@@ -205,7 +206,7 @@ const Reschedule = (): JSX.Element => {
           slotsLoading={loading}
           backButton={true}
           submitLabelAdjective={i18n.t('appointments.modifyTo')}
-          timezone={location?.timezone || 'America/New_York'}
+          timezone={location?.timezone || LOCATION_CONFIG.defaultTimezone}
           existingSelectedSlot={selectedSlot}
           handleSlotSelected={async (slot) => {
             void rescheduleAppointment(slot);

@@ -9,6 +9,7 @@ import { TermsAndConditions } from 'src/components/TermsAndConditions';
 import {
   convertQRItemToLinkIdMap,
   evalEnableWhen,
+  LOCATION_CONFIG,
   makeValidationSchema,
   pickFirstValueFromAnswerItem,
   ServiceMode,
@@ -78,7 +79,7 @@ const ReviewPaperwork = (): JSX.Element => {
 
   const selectedSlotTimezoneAdjusted = useMemo(() => {
     const selectedAppointmentStart = appointmentData?.start;
-    const timezone = appointmentData?.location.timezone ?? 'America/New_York';
+    const timezone = appointmentData?.location.timezone ?? LOCATION_CONFIG.defaultTimezone;
     if (selectedAppointmentStart) {
       return DateTime.fromISO(selectedAppointmentStart).setZone(timezone).setLocale('en-us');
     }

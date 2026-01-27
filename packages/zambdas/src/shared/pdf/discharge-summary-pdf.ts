@@ -29,6 +29,7 @@ import {
   getDefaultNote,
   GetRadiologyOrderListZambdaOutput,
   LabDocumentRelatedToDiagnosticReport,
+  LOCATION_CONFIG,
   mapDispositionTypeToLabel,
   mapErxMedicationsToDisplay,
   mapMedicationsToDisplay,
@@ -152,7 +153,8 @@ function composeDataForDischargeSummaryPdf(
 
   // --- Visit information ---
   const { type } = getAppointmentType(appointment);
-  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
+  const { date = '', time = '' } =
+    formatDateToMDYWithTime(appointment?.start, timezone ?? LOCATION_CONFIG.defaultTimezone) ?? {};
   const locationName = location?.name ?? '';
   const reasonForVisit = appointment?.description ?? '';
 

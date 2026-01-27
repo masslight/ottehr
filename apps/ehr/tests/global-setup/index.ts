@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { Location, Schedule } from 'fhir/r4b';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  LOCATION_CONFIG,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
@@ -96,7 +97,7 @@ const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr:
       },
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
+        valueString: locationData.timezone ?? LOCATION_CONFIG.defaultTimezone,
       },
     ],
     identifier: [
@@ -131,7 +132,7 @@ const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr:
       },
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
+        valueString: LOCATION_CONFIG.defaultTimezone,
       },
     ],
     actor: [

@@ -4,8 +4,15 @@ import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const overrides: any = OVERRIDES || {};
 const LOCATION_DEFAULTS: any = {
-  inPersonLocations: [{ name: 'New York' }, { name: 'Los Angeles' }],
-  telemedLocations: [{ name: 'Telemed New Jersey' }, { name: 'Telemed Ohio' }],
+  inPersonLocations: [
+    { name: 'New York', timezone: 'America/New_York' },
+    { name: 'Los Angeles', timezone: 'America/Los_Angeles' },
+  ],
+  telemedLocations: [
+    { name: 'Telemed New Jersey', timezone: 'America/New_York' },
+    { name: 'Telemed Ohio', timezone: 'America/New_York' },
+  ],
+  defaultTimezone: 'America/New_York',
   supportPhoneNumber: '(202) 555-1212',
   supportScheduleGroups: [],
 };
@@ -15,11 +22,13 @@ const mergedLocationConfig = mergeAndFreezeConfigObjects(LOCATION_DEFAULTS, over
 const locationArraySchema = z.array(
   z.object({
     name: z.string().min(1, { message: 'Location name cannot be empty' }),
+    timezone: z.string().optional(),
   })
 );
 const LocationConfigSchema = z.object({
   inPersonLocations: locationArraySchema,
   telemedLocations: locationArraySchema,
+  defaultTimezone: z.string(),
   supportPhoneNumber: z.string().optional(),
   locationSupportPhoneNumberMap: z.record(z.string().min(1), z.string().min(1)).optional(),
   supportScheduleGroups: z

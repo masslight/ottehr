@@ -6,6 +6,7 @@ import fs from 'fs';
 import {
   allLicensesForPractitioner,
   FULL_DAY_SCHEDULE,
+  LOCATION_CONFIG,
   makeQualificationForPractitioner,
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL,
@@ -502,7 +503,9 @@ async function ensureOwnerResourceSchedulesAndSlots(
               { url: SCHEDULE_EXTENSION_URL, valueString: FULL_DAY_SCHEDULE },
               {
                 url: TIMEZONE_EXTENSION_URL,
-                valueString: existingTimezoneExtension ? existingTimezoneExtension.valueString : 'America/New_York',
+                valueString: existingTimezoneExtension
+                  ? existingTimezoneExtension.valueString
+                  : LOCATION_CONFIG.defaultTimezone,
               },
             ],
           },
@@ -523,7 +526,7 @@ async function ensureOwnerResourceSchedulesAndSlots(
         ...owner,
         extension: [
           ...extension.filter((ext) => ext.url !== TIMEZONE_EXTENSION_URL),
-          { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+          { url: TIMEZONE_EXTENSION_URL, valueString: LOCATION_CONFIG.defaultTimezone },
         ],
       },
     });
@@ -550,7 +553,7 @@ function createScheduleRequest(owner: Location | Practitioner | Schedule): Batch
       },
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
+        valueString: LOCATION_CONFIG.defaultTimezone,
       },
     ],
     actor: [

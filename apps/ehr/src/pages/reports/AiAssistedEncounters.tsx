@@ -28,7 +28,7 @@ import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
-import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
+import { DEFAULT_BATCH_DAYS, LOCATION_CONFIG, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
 import { getAiAssistedEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -248,7 +248,7 @@ export default function AiAssistedEncounters(): React.ReactElement {
 
   const getDateRange = useCallback(
     (filter: DateRangeFilter): { start: string; end: string } => {
-      const now = DateTime.now().setZone('America/New_York');
+      const now = DateTime.now().setZone(LOCATION_CONFIG.defaultTimezone);
       const today = now.startOf('day');
 
       switch (filter) {
@@ -284,15 +284,15 @@ export default function AiAssistedEncounters(): React.ReactElement {
           };
         }
         case 'custom': {
-          const customDateTime = DateTime.fromISO(customDate).setZone('America/New_York');
+          const customDateTime = DateTime.fromISO(customDate).setZone(LOCATION_CONFIG.defaultTimezone);
           return {
             start: customDateTime.startOf('day').toISO() ?? '',
             end: customDateTime.endOf('day').toISO() ?? '',
           };
         }
         case 'customRange': {
-          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
-          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          const startDateTime = DateTime.fromISO(customStartDate).setZone(LOCATION_CONFIG.defaultTimezone);
+          const endDateTime = DateTime.fromISO(customEndDate).setZone(LOCATION_CONFIG.defaultTimezone);
           return {
             start: startDateTime.startOf('day').toISO() ?? '',
             end: endDateTime.endOf('day').toISO() ?? '',

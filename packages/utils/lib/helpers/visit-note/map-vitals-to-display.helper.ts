@@ -1,4 +1,4 @@
-import { vitalsConfig } from '../../ottehr-config';
+import { LOCATION_CONFIG, vitalsConfig } from '../../ottehr-config';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
@@ -30,7 +30,7 @@ export const mapVitalsToDisplay = (
 ): VitalsVisitNoteData | undefined =>
   vitalsObservations?.reduce((vitals, observation) => {
     const field = observation.field;
-    const time = formatDateTimeToZone(observation.lastUpdated, timezone ?? 'America/New_York');
+    const time = formatDateTimeToZone(observation.lastUpdated, timezone ?? LOCATION_CONFIG.defaultTimezone);
     let text;
     let parsed;
 
@@ -93,7 +93,7 @@ export const mapVitalsToDisplay = (
         if (parsed.isUnsure) {
           text = 'Unsure';
         } else if (parsed.value) {
-          const date = formatDateTimeToZone(parsed.value, timezone ?? 'America/New_York');
+          const date = formatDateTimeToZone(parsed.value, timezone ?? LOCATION_CONFIG.defaultTimezone);
           text = date ? date.split(' ')[0] : parsed.value;
         }
         break;
