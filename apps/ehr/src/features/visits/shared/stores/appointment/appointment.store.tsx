@@ -58,6 +58,7 @@ import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
+import { resetExamObservationsStore } from './reset-exam-observations';
 
 export type AppointmentTelemedState = {
   appointment: Appointment | undefined;
@@ -603,6 +604,7 @@ export const useDeleteChartData = (): UseMutationResult<
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (chartDataFields: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
@@ -613,6 +615,14 @@ export const useDeleteChartData = (): UseMutationResult<
         });
       }
       throw new Error('api client not defined or encounterId not provided');
+    },
+    onError: async () => {
+      // Usually this happens due to an attempt to delete an already deleted resource. Thus full state refresh is required.
+      resetExamObservationsStore();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
+        queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+      ]);
     },
     retry: 2,
   });
