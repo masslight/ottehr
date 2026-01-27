@@ -72,7 +72,8 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
       await expect(locator.pcpChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.insuranceDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.responsiblePartyChipStatus).toHaveAttribute('data-testid', 'completed');
-      await expect(locator.photoIdChipStatus).toHaveAttribute('data-testid', 'uncompleted');
+      // Photo ID status depends on whether fields are required in questionnaire config
+      await paperwork.expectChipStatusBasedOnConfig(locator.photoIdChipStatus, 'photo-id-page', false);
       await expect(locator.consentFormsChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.continueButton).toBeVisible();
     });
