@@ -992,9 +992,31 @@ export const filterDisabledPages = (
       return responsePage;
     }
 
-    // Check if page is enabled
-    const isPageEnabled = evalEnableWhen(questionnairePage, questionnaireItems, allValues, questionnaireResponse);
+    // there is an unfortunate amount of complexity here.
+    // What's happening is:
+    // 1. We remove any enableWhen conditions that reference the $status question.
+    // 2. We create a new questionnaire page object with these conditions removed.
+    // 3. We evaluate the enableWhen conditions on this modified page to determine if the page is enabled.
+    // This is necessary because:
+    // 1. On the visit details page we read straight from the QR to get details about who signed the consent,
+    // rather than persisting those details on the consent itself.
+    // 2. We have logic that filters out the consent page once processed.
+    // 3. We have logic here that makes sure any disabled pages have their irrelevant content
+    // removed from the QR.
+    // 4. The logic to remove disabled pages from the QR relies on the enableWhen evaluation, and therefore
+    // erases the data necessary for rendering the consent signer details.
+    const enableWhenMinusStatusConditions = questionnairePage.enableWhen?.filter(
+      (condition) => condition.question !== '$status'
+    );
+    const qrPageWithStatusConditionsRemoved = { ...questionnairePage, enableWhen: enableWhenMinusStatusConditions };
 
+    // Check if page is enabled
+    const isPageEnabled = evalEnableWhen(
+      qrPageWithStatusConditionsRemoved,
+      questionnaireItems,
+      allValues,
+      questionnaireResponse
+    );
     // If page is disabled, return only the linkId (no items)
     if (!isPageEnabled) {
       return { linkId: responsePage.linkId };

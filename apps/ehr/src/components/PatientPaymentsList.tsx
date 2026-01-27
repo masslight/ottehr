@@ -332,7 +332,7 @@ export default function PatientPaymentList({
         }}
         sx={{ mt: 2 }}
       >
-        {isUrgentCare || isWorkmansComp ? (
+        {isUrgentCare ? (
           <FormControlLabel
             disabled={updateEncounter.isPending || isEncounterRefetching}
             value={PaymentVariant.insurance}
@@ -340,14 +340,12 @@ export default function PatientPaymentList({
             label="Insurance"
           />
         ) : null}
-        {isUrgentCare || isOccupationalMedicine ? (
-          <FormControlLabel
-            disabled={updateEncounter.isPending || isEncounterRefetching}
-            value={PaymentVariant.selfPay}
-            control={<Radio />}
-            label="Self"
-          />
-        ) : null}
+        <FormControlLabel
+          disabled={updateEncounter.isPending || isEncounterRefetching}
+          value={PaymentVariant.selfPay}
+          control={<Radio />}
+          label="Self"
+        />
         {isOccupationalMedicine || isWorkmansComp ? (
           <FormControlLabel
             disabled={updateEncounter.isPending || isEncounterRefetching}
