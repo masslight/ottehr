@@ -4048,7 +4048,7 @@
       {
         "linkId": "valid-card-on-file",
         "type": "boolean",
-        "required": false,
+        "required": true,
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
