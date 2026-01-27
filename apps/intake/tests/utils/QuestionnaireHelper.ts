@@ -186,4 +186,60 @@ export class QuestionnaireHelper {
   static hasVirtualPatientConditionPage(): boolean {
     return QuestionnaireHelper.virtualQuestionnaireHasItem('patient-condition-page');
   }
+
+  /**
+   * Checks if an item with the given linkId is marked as required in the virtual questionnaire.
+   *
+   * @param linkId - The linkId of the item to check
+   * @returns true if the item exists and is required, false otherwise
+   */
+  static virtualQuestionnaireItemIsRequired(linkId: string): boolean {
+    const allItems = QuestionnaireHelper.loadVirtualQuestionnaireItems();
+    const flatItems = QuestionnaireHelper.flattenItems(allItems);
+    const targetItem = flatItems.find((item) => item.linkId === linkId);
+
+    return targetItem?.required === true;
+  }
+
+  /**
+   * Checks if a page has any required fields in the virtual questionnaire.
+   * Returns true if at least one field in the page is required.
+   *
+   * @param pageLinkId - The linkId of the page to check (e.g., 'photo-id-page')
+   * @returns true if the page has at least one required field, false otherwise
+   */
+  static virtualPageHasRequiredFields(pageLinkId: string): boolean {
+    const allItems = QuestionnaireHelper.loadVirtualQuestionnaireItems();
+    const flatItems = QuestionnaireHelper.flattenItems(allItems);
+    const page = flatItems.find((item) => item.linkId === pageLinkId);
+
+    if (!page || !page.item) {
+      return false;
+    }
+
+    // Check if any child item is required
+    const childItems = QuestionnaireHelper.flattenItems(page.item);
+    return childItems.some((item) => item.required === true);
+  }
+
+  /**
+   * Checks if a page has any required fields in the in-person questionnaire.
+   * Returns true if at least one field in the page is required.
+   *
+   * @param pageLinkId - The linkId of the page to check (e.g., 'photo-id-page')
+   * @returns true if the page has at least one required field, false otherwise
+   */
+  static inPersonPageHasRequiredFields(pageLinkId: string): boolean {
+    const allItems = QuestionnaireHelper.loadInPersonQuestionnaireItems();
+    const flatItems = QuestionnaireHelper.flattenItems(allItems);
+    const page = flatItems.find((item) => item.linkId === pageLinkId);
+
+    if (!page || !page.item) {
+      return false;
+    }
+
+    // Check if any child item is required
+    const childItems = QuestionnaireHelper.flattenItems(page.item);
+    return childItems.some((item) => item.required === true);
+  }
 }
