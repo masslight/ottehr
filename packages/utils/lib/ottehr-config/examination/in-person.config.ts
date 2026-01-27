@@ -557,6 +557,17 @@ export const InPersonExamConfig = {
         },
       },
       abnormal: {
+        tender: {
+          label: 'Tender',
+          type: 'multi-select',
+          options: {
+            diffusely: { label: 'Diffusely', defaultValue: false },
+            ruq: { label: 'RUQ', defaultValue: false },
+            rlq: { label: 'RLQ', defaultValue: false },
+            luq: { label: 'LUQ', defaultValue: false },
+            lll: { label: 'LLL', defaultValue: false },
+          },
+        },
         'tender-r-cva': {
           label: 'Tender R CVA',
           defaultValue: false,
