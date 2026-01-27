@@ -566,17 +566,9 @@ export const InPersonExamConfig = {
             rlq: { label: 'RLQ', defaultValue: false },
             luq: { label: 'LUQ', defaultValue: false },
             lll: { label: 'LLL', defaultValue: false },
+            'r-cva': { label: 'R CVA', defaultValue: false },
+            'l-cva': { label: 'L CVA', defaultValue: false },
           },
-        },
-        'tender-r-cva': {
-          label: 'Tender R CVA',
-          defaultValue: false,
-          type: 'checkbox',
-        },
-        'tender-l-cva': {
-          label: 'Tender L CVA',
-          defaultValue: false,
-          type: 'checkbox',
         },
         hepatomegaly: {
           label: 'Hepatomegaly',
