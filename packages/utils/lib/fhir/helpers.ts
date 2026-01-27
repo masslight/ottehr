@@ -624,10 +624,11 @@ export const getAbbreviationFromLocation = (location: Location): string | undefi
   return location.address?.state;
 };
 
-export function getTaskResource(coding: TaskCoding, appointmentID: string, encounterId?: string): Task {
+export function getTaskResource(coding: TaskCoding, title: string, appointmentID: string, encounterId?: string): Task {
   return {
     resourceType: 'Task',
     status: 'requested',
+    description: title,
     intent: 'plan',
     focus: {
       type: 'Appointment',

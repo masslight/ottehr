@@ -120,6 +120,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterP
     const task: Task = {
       resourceType: 'Task',
       status: pendingTaskStatus,
+      description: `Send invoice for $${(amountCents / 100).toFixed(2)}`,
       intent: 'order',
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),

@@ -16,6 +16,7 @@ import { DateTime } from 'luxon';
 import {
   CreateNursingOrderInputValidated,
   getAttendingPractitionerId,
+  getFullestAvailableName,
   getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -201,6 +202,7 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
     const taskConfig: Task = {
       resourceType: 'Task',
       status: 'requested',
+      description: `Create nursing order for ${getFullestAvailableName(patient)}`,
       basedOn: [{ reference: serviceRequestFullUrl }],
       encounter: { reference: `Encounter/${encounterId}` },
       authoredOn: DateTime.now().toISO(),

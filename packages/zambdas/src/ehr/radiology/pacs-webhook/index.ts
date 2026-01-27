@@ -370,6 +370,7 @@ const configReviewResultTask = (
 
   const newTask = createTask({
     category: RADIOLOGY_TASK.category,
+    title: 'Review Radiology Final Results',
     code: {
       system: RADIOLOGY_TASK.system,
       code: RADIOLOGY_TASK.code.reviewFinalResultTask,

@@ -1756,6 +1756,7 @@ export function makeEncounterTaskResource(encounterId: string, coding: TaskCodin
     resourceType: 'Task',
     status: 'requested',
     intent: 'order',
+    description: `Update chart data with recommended diagnosis code ${coding.code}`,
     focus: { reference: `Encounter/${encounterId}` },
     encounter: { reference: `Encounter/${encounterId}` },
     code: {

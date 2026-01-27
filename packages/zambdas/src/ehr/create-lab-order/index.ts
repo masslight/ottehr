@@ -267,8 +267,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       }));
     }
 
+    const patientName = getFullestAvailableName(patient);
+    const testName = activityDefinitionToContain.name;
+    const labName = labOrganization.name;
+    const fullTestName = testName + (labName ? ' / ' + labName : '');
+
     const preSubmissionTaskConfig = createTask({
       category: LAB_ORDER_TASK.category,
+      title: `Collect sample for “${fullTestName}” for ${patientName}`,
       code: {
         system: LAB_ORDER_TASK.system,
         code: LAB_ORDER_TASK.code.preSubmission,
@@ -291,7 +297,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         },
         {
           type: LAB_ORDER_TASK.input.patientName,
-          valueString: getFullestAvailableName(patient),
+          valueString: patientName,
         },
         {
           type: LAB_ORDER_TASK.input.providerName,

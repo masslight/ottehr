@@ -401,8 +401,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ];
     }
 
+    const patientName = getFullestAvailableName(patient);
+
     const taskConfig = createTask({
       category: IN_HOUSE_LAB_TASK.category,
+      title: `Collect sample for “${activityDefinition.name}” for ${patientName}`,
       code: {
         system: IN_HOUSE_LAB_TASK.system,
         code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
@@ -420,7 +423,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         {
           type: IN_HOUSE_LAB_TASK.input.patientName,
-          valueString: getFullestAvailableName(patient),
+          valueString: patientName,
         },
         {
           type: IN_HOUSE_LAB_TASK.input.providerName,
