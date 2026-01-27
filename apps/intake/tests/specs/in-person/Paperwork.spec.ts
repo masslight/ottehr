@@ -318,6 +318,16 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PSI-8. Upload and clear insurance cards', async () => {
+      // Check if cards are already uploaded from previous test, if so - clear them first
+      const reuploadLinksCount = await page.getByText('Click to re-upload').count();
+      if (reuploadLinksCount > 0) {
+        // Cards already uploaded, clear them
+        const clearButtons = await locator.clearImage.count();
+        for (let i = 0; i < clearButtons; i++) {
+          await locator.clearImage.first().click();
+        }
+      }
+
       const uploadedFrontPhoto = await uploadPhoto.fillSecondaryInsuranceFront();
       await locator.clearImage.click();
       await expect(uploadedFrontPhoto).toBeHidden();
