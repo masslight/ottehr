@@ -22,6 +22,7 @@ import { CustomTooltip } from '../components/CustomTooltip';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { BoldPurpleInputLabel } from '../components/form';
 import PageForm from '../components/PageForm';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedLocations } from '../telemed/features/appointments';
@@ -169,6 +170,7 @@ const StartVirtualVisit = (): JSX.Element => {
         <>
           <Autocomplete
             id="states-autocomplete"
+            data-testid={dataTestIds.scheduleVirtualVisitStatesSelector}
             options={sortedLocations}
             getOptionLabel={(option) => option.fullName || option.state || ''}
             onChange={(_e, newValue) =>
