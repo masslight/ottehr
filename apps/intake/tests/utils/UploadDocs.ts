@@ -3,6 +3,7 @@ import { expect, Locator, Page } from '@playwright/test';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
+import { FileUploadHelpers } from './playwright-helpers';
 
 export type UploadedFile = { uploadedFile: Locator; link: string | null };
 export class UploadDocs {
@@ -35,13 +36,10 @@ export class UploadDocs {
     // Count existing Clear buttons before upload
     const clearButtonsCountBefore = await this.page.getByTestId(dataTestIds.fileCardClearButton).count();
 
-    const [fileChooser] = await Promise.all([
-      this.page.waitForEvent('filechooser'),
-      this.page.locator(locator).click(),
-    ]);
-
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
-    await fileChooser.setFiles(filePath);
+
+    // Use helper to handle both initial upload and re-upload scenarios
+    await FileUploadHelpers.uploadWithReuploadSupport(this.page, locator, filePath);
 
     // Wait for no "Uploading..." buttons to be visible (all uploads completed)
     await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toHaveCount(0, { timeout: 60000 });
