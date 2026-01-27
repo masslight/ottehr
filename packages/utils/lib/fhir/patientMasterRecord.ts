@@ -79,6 +79,7 @@ export const patientFieldPaths = {
   responsiblePartyEmail: 'Patient/contact/0/telecom/1/value',
   releaseOfInfo: `Patient/extension/${PATIENT_RELEASE_OF_INFO_URL}`,
   rxHistoryConsentStatus: `Patient/extension/${PATIENT_RX_HISTORY_CONSENT_STATUS_URL}`,
+  ssn: 'Patient/identifier/0/value',
   active: 'Patient/active',
   deceased: 'Patient/deceasedBoolean',
   deceasedDate: 'Patient/deceasedDateTime',
