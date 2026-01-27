@@ -22,7 +22,6 @@ import {
   Secrets,
   SecretsKeys,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-  TASK_TITLE_SYSTEM,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -344,9 +343,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
           if (notificationSettings?.enabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
-            const taskTitle = task.input?.find(
-              (input) => input.type.coding?.some((coding) => coding.system === TASK_TITLE_SYSTEM)
-            )?.valueString;
 
             const request: BatchInputPostRequest<Communication> = {
               method: 'POST',
@@ -367,7 +363,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 status: status,
                 basedOn: [{ reference: `Task/${task.id}` }],
                 recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-                payload: [{ contentString: `A new task has been assigned to you: ${taskTitle}` }],
+                payload: [{ contentString: `A new task has been assigned to you: ${task.description}` }],
               },
             };
             console.log('omarTempTaskLog: request', JSON.stringify(request));
