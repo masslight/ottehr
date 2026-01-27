@@ -10,7 +10,7 @@ export const useGetErxOrders = (input: GetErxOrdersInput): UseQueryResult<GetErx
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const response = await oystehrZambda.zambda.execute({
-        ...input,
+        encounterIds: input.encounterIds,
         id: 'get-erx-orders',
       });
       return chooseJson(response);
