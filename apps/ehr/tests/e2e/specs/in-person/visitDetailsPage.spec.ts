@@ -1,15 +1,15 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { PATIENT_SSN, ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { isMainOttehrRepository, PdfTestHelper } from 'utils';
+import { PATIENT_RECORD_CONFIG, PdfTestHelper } from 'utils';
 import { expectVisitDetailsPage } from '../../page/VisitDetailsPage';
 
 const PROCESS_ID = `visitDetailsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 const NEW_SSN = '987-65-4321';
 
-// Check if SSN tests should run (only in main ottehr repository)
-const shouldRunSsnTests = isMainOttehrRepository();
+// Check if SSN tests should run by verifying the field exists in the form configuration
+const shouldRunSsnTests = !PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn');
 
 test.describe('Visit details page', { tag: '@smoke' }, async () => {
   let page: Page;
@@ -33,8 +33,8 @@ test.describe('Visit details page', { tag: '@smoke' }, async () => {
   test.describe.configure({ mode: 'serial' });
 
   test('should display SSN from pre-paperwork', async () => {
-    // Skip test if not in main repository (downstream repos don't have SSN field)
-    test.skip(!shouldRunSsnTests, 'SSN field only available in main ottehr repository');
+    // Skip test if SSN field is not configured in the patient record form
+    test.skip(!shouldRunSsnTests, 'SSN field is not configured in the patient record form');
 
     const visitDetailsPage = await expectVisitDetailsPage(page, resourceHandler.appointment.id!);
 
@@ -43,8 +43,8 @@ test.describe('Visit details page', { tag: '@smoke' }, async () => {
   });
 
   test('should allow editing and saving SSN', async () => {
-    // Skip test if not in main repository (downstream repos don't have SSN field)
-    test.skip(!shouldRunSsnTests, 'SSN field only available in main ottehr repository');
+    // Skip test if SSN field is not configured in the patient record form
+    test.skip(!shouldRunSsnTests, 'SSN field is not configured in the patient record form');
 
     const visitDetailsPage = await expectVisitDetailsPage(page, resourceHandler.appointment.id!);
 
@@ -65,8 +65,8 @@ test.describe('Visit details page', { tag: '@smoke' }, async () => {
   });
 
   test('should generate Visit Details PDF with SSN', async () => {
-    // Skip test if not in main repository (downstream repos don't have SSN field)
-    test.skip(!shouldRunSsnTests, 'SSN field only available in main ottehr repository');
+    // Skip test if SSN field is not configured in the patient record form
+    test.skip(!shouldRunSsnTests, 'SSN field is not configured in the patient record form');
 
     const pdfHelper = new PdfTestHelper(page);
 
