@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { DOW, getScheduleExtension, getTimezone } from '../utils';
 import { PUBLIC_EXTENSION_BASE_URL, SLUG_SYSTEM } from './constants';
+import { getAllFhirSearchPages } from './getAllFhirSearchPages';
 import { getFullName } from './patient';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
@@ -72,8 +73,8 @@ export async function getTelemedLocation(oystehr: Oystehr, state: string): Promi
 }
 
 export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLocation[] | undefined> {
-  const resources = (
-    await oystehr.fhir.search<Location | Schedule>({
+  const resources = await getAllFhirSearchPages<Location | Schedule>(
+    {
       resourceType: 'Location',
       params: [
         {
@@ -81,8 +82,9 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
           value: 'Schedule:actor:Location',
         },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
   const telemedLocations = resources.filter(
     (location) => location.resourceType === 'Location' && isLocationVirtual(location)
