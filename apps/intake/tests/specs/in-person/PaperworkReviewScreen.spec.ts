@@ -72,8 +72,8 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
       await expect(locator.pcpChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.insuranceDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.responsiblePartyChipStatus).toHaveAttribute('data-testid', 'completed');
-      // Photo ID status depends on whether fields are required in questionnaire config
-      await paperwork.expectChipStatusBasedOnConfig(locator.photoIdChipStatus, 'photo-id-page', false);
+      // Photo ID is always 'uncompleted' when not uploaded (hardcoded in ReviewPaperwork.tsx lines 167-172)
+      await expect(locator.photoIdChipStatus).toHaveAttribute('data-testid', 'uncompleted');
       await expect(locator.consentFormsChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.continueButton).toBeVisible();
     });
