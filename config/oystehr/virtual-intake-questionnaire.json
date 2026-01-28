@@ -4070,18 +4070,6 @@
                     "valueString": "hidden"
                   }
                 ]
-              },
-              {
-                "linkId": "card-payment-details-text",
-                "type": "display",
-                "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
-                "enableWhen": [
-                  {
-                    "question": "card-payment-details-text",
-                    "operator": "=",
-                    "answerString": "-"
-                  }
-                ]
               }
             ],
             "enableWhen": [
