@@ -59,7 +59,8 @@ export class AddPatientPage {
   }
 
   async enterDateOfBirth(dateOfBirth: string): Promise<void> {
-    const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]', { timeout: 60_000 });
+    const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
+    await locator.waitFor({ state: 'visible', timeout: 60_000 });
     await locator.click();
     await this.#page.waitForTimeout(2000);
     // just because of date input for some reason not accepting wrong date
