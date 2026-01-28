@@ -90,7 +90,7 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
   };
 
   const title =
-    'Last Menstrual Period ' + (latestDate && `${formatDateForDisplay(latestDate)}${isUnsure ? ' (unsure)' : ''}`);
+    'Last Menstrual Period ' + (latestDate ? `${formatDateForDisplay(latestDate)}${isUnsure ? ' (unsure)' : ''}` : '');
 
   return (
     <Box sx={{ mt: 3 }}>
