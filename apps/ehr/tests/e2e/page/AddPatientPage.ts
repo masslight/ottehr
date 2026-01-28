@@ -46,6 +46,8 @@ export class AddPatientPage {
 
   async clickPatientNotFoundButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.addPatientPage.patientNotFoundButton).click();
+    // Wait for new patient form to appear
+    await expect(this.#page.locator('[placeholder="MM/DD/YYYY"]')).toBeVisible({ timeout: 60_000 });
   }
 
   async enterFirstName(firstName: string): Promise<void> {
@@ -58,6 +60,7 @@ export class AddPatientPage {
 
   async enterDateOfBirth(dateOfBirth: string): Promise<void> {
     const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
+    await locator.waitFor({ state: 'visible', timeout: 60_000 });
     await locator.click();
     await this.#page.waitForTimeout(2000);
     // just because of date input for some reason not accepting wrong date
