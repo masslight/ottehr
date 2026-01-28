@@ -392,13 +392,19 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (QuestionnaireHelper.inPersonIsPhotoIdFrontRequired() || !requiredOnly) {
+    const uploadedFront = QuestionnaireHelper.inPersonIsPhotoIdFrontRequired() || !requiredOnly;
+    const uploadedBack = QuestionnaireHelper.inPersonIsPhotoIdBackRequired() || !requiredOnly;
+    if (uploadedFront) {
       await this.uploadPhoto.fillPhotoFrontID();
     }
-    if (QuestionnaireHelper.inPersonIsPhotoIdBackRequired() || !requiredOnly) {
+    if (uploadedBack) {
       await this.uploadPhoto.fillPhotoBackID();
-      // Wait for both files to be fully uploaded and saved before continuing
+    }
+    // Wait for all files to be fully uploaded and saved before continuing
+    if (uploadedFront && uploadedBack) {
       await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(2, { timeout: 60000 });
+    } else if (uploadedFront || uploadedBack) {
+      await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(1, { timeout: 60000 });
     }
     await this.locator.clickContinueButton();
 
@@ -1270,8 +1276,13 @@ export class Paperwork {
     const relationshipConsentForms = this.getRandomElement(this.relationshipConsentForms);
     const signature = 'Test signature';
     const consentFullName = 'Test consent full name';
-    await this.locator.hipaaAcknowledgement.check();
-    await this.locator.consentToTreat.check();
+
+    // Dynamically check all consent form checkboxes based on configuration
+    const consentFormCheckboxes = this.locator.getAllConsentFormCheckboxes();
+    for (const { locator } of consentFormCheckboxes) {
+      await locator.check();
+    }
+
     await this.locator.signature.click();
     await this.locator.signature.fill(signature);
     await this.locator.consentFullName.click();

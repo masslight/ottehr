@@ -219,8 +219,10 @@ VirtualPrebookDependentTests('Telemed - Prefilled Paperwork, Responsible Party: 
     });
 
     await test.step("VVPP-8.2. Check all fields don't have prefilled values", async () => {
-      await expect(locator.hipaaAcknowledgement).not.toBeChecked();
-      await expect(locator.consentToTreat).not.toBeChecked();
+      // Validate all configured consent form checkboxes are not checked
+      for (const { locator: checkboxLocator } of locator.getAllConsentFormCheckboxes()) {
+        await expect(checkboxLocator).not.toBeChecked();
+      }
       await expect(locator.signature).toHaveValue('');
       await expect(locator.consentFullName).toHaveValue('');
       await expect(locator.consentSignerRelationship).toHaveValue('');

@@ -214,8 +214,10 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: not 
     });
 
     await test.step("IPPP-8.2. Check all fields don't have prefilled values", async () => {
-      await expect(locator.hipaaAcknowledgement).not.toBeChecked();
-      await expect(locator.consentToTreat).not.toBeChecked();
+      // Validate all configured consent form checkboxes are not checked
+      for (const { locator: checkboxLocator } of locator.getAllConsentFormCheckboxes()) {
+        await expect(checkboxLocator).not.toBeChecked();
+      }
       await expect(locator.signature).toHaveValue('');
       await expect(locator.consentFullName).toHaveValue('');
       await expect(locator.consentSignerRelationship).toHaveValue('');
