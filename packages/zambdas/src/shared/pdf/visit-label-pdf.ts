@@ -29,6 +29,7 @@ interface VisitLabelContent {
   patientDateOfBirth: DateTime | undefined;
   patientGender: string;
   visitDate: DateTime | undefined;
+  visitTimeZone: string | undefined;
 }
 
 export interface VisitLabelConfig {
@@ -118,7 +119,18 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
     patientDateOfBirth,
     patientGender,
     visitDate,
+    visitTimeZone,
   } = content;
+
+  // expect this to print in the system timezone
+  console.log('this is DateTime.toFormat no zone', visitDate?.toFormat(DATE_FORMAT + ' ZZZ'));
+  if (visitTimeZone) {
+    // this prints out with the appropriate schedule
+    console.log(
+      'this is DateTime.toFormat with zone',
+      visitDate?.setZone(visitTimeZone).toFormat(DATE_FORMAT + ' ZZZ')
+    );
+  } else console.log('no zone in visitTimeZone');
 
   drawHeaderAndInlineText('PID', patientId);
   pdfClient.newLine(NEWLINE_Y_DROP);
@@ -135,7 +147,10 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
   drawHeaderAndInlineText('DOB', `${patientDOBString} ${renderAgeString}, ${patientGender}`);
   pdfClient.newLine(NEWLINE_Y_DROP);
 
-  drawHeaderAndInlineText('Visit date', visitDate ? visitDate.toFormat(DATE_FORMAT) : '');
+  drawHeaderAndInlineText(
+    'Visit date',
+    visitDate ? visitDate.setZone(visitTimeZone ? visitTimeZone : 'UTC').toFormat(DATE_FORMAT) : ''
+  );
 
   return await pdfClient.save();
 };
@@ -145,7 +160,7 @@ async function createVisitLabelPDFHelper(
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  console.log('Creating external labs label pdf bytes');
+  console.log('Creating visit label pdf bytes');
 
   const pdfBytes = await createVisitLabelPdfBytes(input).catch((error) => {
     throw new Error('failed creating visit label pdfBytes: ' + error.message);
