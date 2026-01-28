@@ -127,6 +127,10 @@ test('Should fill all required fields', async () => {
 });
 
 test('Should sign visit', async () => {
+  // Wait for the review and sign button to become enabled
+  await expect(page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton)).toBeEnabled({ timeout: 60000 });
+
   await page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton).click();
   await telemedDialogConfirm(page);
 
