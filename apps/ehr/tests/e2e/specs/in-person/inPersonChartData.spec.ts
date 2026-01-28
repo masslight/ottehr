@@ -49,6 +49,17 @@ const HOSPITALIZATION_REASON_2 = HospitalizationOptions[1].display;
 const HOSPITALIZATION_NOTE_1 = 'Test hospitalization note 1';
 const HOSPITALIZATION_NOTE_2 = 'Test hospitalization note 2';
 const HOSPITALIZATION_NOTE_1_EDITED = 'Test hospitalization note 1 edited';
+const TEMPERATURE_C = '37.5';
+const HEARTBEAT_BPM = '75';
+const RESPIRATION_RATE = '16';
+const BLOOD_PRESSURE_SYSTOLIC = '120';
+const BLOOD_PRESSURE_DIASTOLIC = '80';
+const OXYGEN_SAT = '98';
+const WEIGHT_KG = '70';
+const HEIGHT_CM = '175';
+const VISION_LEFT = '2.5';
+const VISION_RIGHT = '3.1';
+const LMP_DATE = '01/15/2024';
 
 const SCHEDULED_MEDICATION_A: MedicationInfo = {
   name: 'Warfarin Sodium  Powder',
@@ -79,6 +90,7 @@ const MEDICATION_NOTE_2 = 'Test medication note 2';
 const MEDICATION_NOTE_1_EDITED = 'Test medication note 1 edited';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
+const LMP_DATE_UNSURE = '01/20/2024';
 
 test.describe('In-Person Visit Chart Data', async () => {
   let page: Page;
@@ -105,6 +117,7 @@ test.describe('In-Person Visit Chart Data', async () => {
   let hospitalizationPage: HospitalizationPage;
   let sideMenu: SideMenu;
   let progressNotePage: InPersonProgressNotePage;
+  let vitalsPage: VitalsPage;
 
   test.describe.configure({ mode: 'serial' });
 
@@ -120,6 +133,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         surgicalHistoryPage = new SurgicalHistoryPage(page);
         hospitalizationPage = new HospitalizationPage(page);
         progressNotePage = new InPersonProgressNotePage(page);
+        vitalsPage = new VitalsPage(page);
 
         await test.step('ALG-1.1 Add allergy', async () => {
           await allergyPage.addAllergy(ALLERGY);
@@ -165,6 +179,43 @@ test.describe('In-Person Visit Chart Data', async () => {
           await hospitalizationPage.addHospitalizationNote(HOSPITALIZATION_NOTE_2);
         });
       });
+
+      test('VIT-1. Add all vitals observations', async () => {
+        await sideMenu.clickVitals();
+        await test.step('VIT-1.1 Add temperature observation', async () => {
+          await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
+        });
+        await test.step('VIT-1.2 Add heartbeat observation', async () => {
+          await vitalsPage.addHeartbeatObservation(HEARTBEAT_BPM);
+        });
+        await test.step('VIT-1.3 Add respiration rate observation', async () => {
+          await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
+        });
+        await test.step('VIT-1.4 Add blood pressure observation', async () => {
+          await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+        });
+        await test.step('VIT-1.5 Add oxygen saturation observation', async () => {
+          await vitalsPage.addOxygenSaturationObservation(OXYGEN_SAT);
+        });
+        await test.step('VIT-1.6 Add weight observation', async () => {
+          await vitalsPage.addWeightObservation(WEIGHT_KG);
+        });
+        await test.step('VIT-1.7 Add weight observation with Patient Refused', async () => {
+          await vitalsPage.addWeightObservationPatientRefused();
+        });
+        await test.step('VIT-1.8 Add height observation', async () => {
+          await vitalsPage.addHeightObservation(HEIGHT_CM);
+        });
+        await test.step('VIT-1.9 Add vision observation', async () => {
+          await vitalsPage.addVisionObservation(VISION_LEFT, VISION_RIGHT);
+        });
+        await test.step('VIT-1.10 Add last menstrual period observation', async () => {
+          await vitalsPage.addLastMenstrualPeriodObservation(LMP_DATE);
+        });
+        await test.step('VIT-1.11 Add last menstrual period observation with Unsure', async () => {
+          await vitalsPage.addLastMenstrualPeriodObservationUnsure(LMP_DATE_UNSURE);
+        });
+      });
     });
 
     test.describe('Check progress note page for the filled in data presence', async () => {
@@ -195,6 +246,44 @@ test.describe('In-Person Visit Chart Data', async () => {
         await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_2);
         await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_1);
         await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_2);
+      });
+
+      test('VIT-2. Verify Progress Note shows Vitals', async () => {
+        await test.step('VIT-2.1 Verify temperature in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(TEMPERATURE_C);
+        });
+        await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(HEARTBEAT_BPM);
+        });
+        await test.step('VIT-2.3 Verify respiration rate in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(RESPIRATION_RATE);
+        });
+        await test.step('VIT-2.4 Verify blood pressure in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
+        });
+        await test.step('VIT-2.5 Verify oxygen saturation in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(OXYGEN_SAT);
+        });
+        await test.step('VIT-2.6 Verify weight in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(WEIGHT_KG);
+        });
+        await test.step('VIT-2.7 Verify Patient Refused in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown('Patient Refused');
+        });
+        await test.step('VIT-2.8 Verify height in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(HEIGHT_CM);
+        });
+        await test.step('VIT-2.9 Verify vision in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(VISION_LEFT);
+          await progressNotePage.verifyVitalIsShown(VISION_RIGHT);
+        });
+        await test.step('VIT-2.10 Verify last menstrual period in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown(LMP_DATE);
+        });
+
+        await test.step('VIT-2.11 Verify Unsure in progress note', async () => {
+          await progressNotePage.verifyVitalIsShown('Unsure');
+        });
       });
     });
 
@@ -233,6 +322,52 @@ test.describe('In-Person Visit Chart Data', async () => {
         await hospitalizationPage.editHospitalizationNote(HOSPITALIZATION_NOTE_1, HOSPITALIZATION_NOTE_1_EDITED);
         await hospitalizationPage.deleteHospitalizationNote(HOSPITALIZATION_NOTE_2);
       });
+
+      test('VIT-3. Remove Vitals', async () => {
+        await sideMenu.clickVitals();
+        await test.step('VIT-3.1 Delete temperature observation', async () => {
+          await vitalsPage.removeTemperatureObservationFromHistory(TEMPERATURE_C);
+        });
+
+        await test.step('VIT-3.2 Delete heartbeat observation', async () => {
+          await vitalsPage.removeHeartbeatObservationFromHistory(HEARTBEAT_BPM);
+        });
+
+        await test.step('VIT-3.3 Delete respiration rate observation', async () => {
+          await vitalsPage.removeRespirationRateObservationFromHistory(RESPIRATION_RATE);
+        });
+
+        await test.step('VIT-3.4 Delete blood pressure observation', async () => {
+          await vitalsPage.removeBloodPressureObservationFromHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+        });
+
+        await test.step('VIT-3.5 Delete oxygen saturation observation', async () => {
+          await vitalsPage.removeOxygenSaturationObservationFromHistory(OXYGEN_SAT);
+        });
+
+        await test.step('VIT-3.6 Delete weight observation', async () => {
+          await vitalsPage.removeWeightObservationFromHistory(WEIGHT_KG);
+        });
+
+        await test.step('VIT-3.7 Delete Patient Refused weight observation', async () => {
+          await vitalsPage.removeWeightObservationFromHistory('Patient Refused');
+        });
+
+        await test.step('VIT-3.8 Delete height observation', async () => {
+          await vitalsPage.removeHeightObservationFromHistory(HEIGHT_CM);
+        });
+
+        await test.step('VIT-3.9 Delete vision observation', async () => {
+          await vitalsPage.removeVisionObservationFromHistory(VISION_LEFT, VISION_RIGHT);
+        });
+        await test.step('VIT-3.10 Delete Unsure last menstrual period observation', async () => {
+          await vitalsPage.removeLastMenstrualPeriodObservationFromHistory('Unsure');
+        });
+
+        await test.step('VIT-3.11 Delete last menstrual period observation', async () => {
+          await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(LMP_DATE);
+        });
+      });
     });
 
     test.describe('Check progress note page for the modified data', async () => {
@@ -265,253 +400,286 @@ test.describe('In-Person Visit Chart Data', async () => {
         await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_1_EDITED);
         await progressNotePage.verifyHospitalizationNoteNotShown(HOSPITALIZATION_NOTE_2);
       });
-    });
-  });
 
-  test.describe('Vitals page tests', () => {
-    const TEMPERATURE_C = '37.5';
-    const HEARTBEAT_BPM = '75';
-    const RESPIRATION_RATE = '16';
-    const BLOOD_PRESSURE_SYSTOLIC = '120';
-    const BLOOD_PRESSURE_DIASTOLIC = '80';
-    const OXYGEN_SAT = '98';
-    const WEIGHT_KG = '70';
-    const HEIGHT_CM = '175';
-    const VISION_LEFT = '2.5';
-    const VISION_RIGHT = '3.1';
-    const LMP_DATE = '01/15/2024';
-    const LMP_DATE_UNSURE = '01/20/2024';
+      // test.describe('Vitals page tests', () => {
+      //   const TEMPERATURE_C = '37.5';
+      //   const HEARTBEAT_BPM = '75';
+      //   const RESPIRATION_RATE = '16';
+      //   const BLOOD_PRESSURE_SYSTOLIC = '120';
+      //   const BLOOD_PRESSURE_DIASTOLIC = '80';
+      //   const OXYGEN_SAT = '98';
+      //   const WEIGHT_KG = '70';
+      //   const HEIGHT_CM = '175';
+      //   const VISION_LEFT = '2.5';
+      //   const VISION_RIGHT = '3.1';
+      //   const LMP_DATE = '01/15/2024';
+      //   const LMP_DATE_UNSURE = '01/20/2024';
 
-    let vitalsPage: VitalsPage;
+      //   let vitalsPage: VitalsPage;
 
-    test.beforeAll(async () => {
-      await openVisit(page);
-      sideMenu = new SideMenu(page);
-      vitalsPage = new VitalsPage(page);
-      progressNotePage = new InPersonProgressNotePage(page);
-      await sideMenu.clickVitals();
-    });
+      //   test.beforeAll(async () => {
+      //     await openVisit(page);
+      //     sideMenu = new SideMenu(page);
+      //     vitalsPage = new VitalsPage(page);
+      //     progressNotePage = new InPersonProgressNotePage(page);
+      //     await sideMenu.clickVitals();
+      //   });
 
-    test('Add all vitals observations', async () => {
-      await test.step('VIT-1.1 Add temperature observation', async () => {
-        await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedTemperatureObservationInHistory(TEMPERATURE_C);
-        await vitalsPage.checkAddedTemperatureIsShownInHeader(TEMPERATURE_C);
-      });
+      //   test('Add all vitals observations', async () => {
+      //     await test.step('VIT-1.1 Add temperature observation', async () => {
+      //       await vitalsPage.addTemperatureObservation(TEMPERATURE_C);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedTemperatureObservationInHistory(TEMPERATURE_C);
+      //       await vitalsPage.checkAddedTemperatureIsShownInHeader(TEMPERATURE_C);
+      //     });
 
-      await test.step('VIT-1.2 Add heartbeat observation', async () => {
-        await vitalsPage.addHeartbeatObservation(HEARTBEAT_BPM);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedHeartbeatObservationInHistory(HEARTBEAT_BPM);
-        await vitalsPage.checkAddedHeartbeatIsShownInHeader(HEARTBEAT_BPM);
-      });
+      //     await test.step('VIT-1.2 Add heartbeat observation', async () => {
+      //       await vitalsPage.addHeartbeatObservation(HEARTBEAT_BPM);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedHeartbeatObservationInHistory(HEARTBEAT_BPM);
+      //       await vitalsPage.checkAddedHeartbeatIsShownInHeader(HEARTBEAT_BPM);
+      //     });
 
-      await test.step('VIT-1.3 Add respiration rate observation', async () => {
-        await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedRespirationRateObservationInHistory(RESPIRATION_RATE);
-        await vitalsPage.checkAddedRespirationRateIsShownInHeader(RESPIRATION_RATE);
-      });
+      //     await test.step('VIT-1.3 Add respiration rate observation', async () => {
+      //       await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedRespirationRateObservationInHistory(RESPIRATION_RATE);
+      //       await vitalsPage.checkAddedRespirationRateIsShownInHeader(RESPIRATION_RATE);
+      //     });
 
-      await test.step('VIT-1.4 Add blood pressure observation', async () => {
-        await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedBloodPressureObservationInHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
-        await vitalsPage.checkAddedBloodPressureIsShownInHeader(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
-      });
+      //     await test.step('VIT-1.4 Add blood pressure observation', async () => {
+      //       await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedBloodPressureObservationInHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+      //       await vitalsPage.checkAddedBloodPressureIsShownInHeader(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+      //     });
 
-      await test.step('VIT-1.5 Add oxygen saturation observation', async () => {
-        await vitalsPage.addOxygenSaturationObservation(OXYGEN_SAT);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedOxygenSaturationObservationInHistory(OXYGEN_SAT);
-        await vitalsPage.checkAddedOxygenSaturationIsShownInHeader(OXYGEN_SAT);
-      });
+      //     await test.step('VIT-1.5 Add oxygen saturation observation', async () => {
+      //       await vitalsPage.addOxygenSaturationObservation(OXYGEN_SAT);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedOxygenSaturationObservationInHistory(OXYGEN_SAT);
+      //       await vitalsPage.checkAddedOxygenSaturationIsShownInHeader(OXYGEN_SAT);
+      //     });
 
-      await test.step('VIT-1.6 Add weight observation', async () => {
-        await vitalsPage.addWeightObservation(WEIGHT_KG);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedWeightObservationInHistory(WEIGHT_KG);
-        await vitalsPage.checkAddedWeightIsShownInHeader(WEIGHT_KG);
-      });
+      //     await test.step('VIT-1.6 Add weight observation', async () => {
+      //       await vitalsPage.addWeightObservation(WEIGHT_KG);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedWeightObservationInHistory(WEIGHT_KG);
+      //       await vitalsPage.checkAddedWeightIsShownInHeader(WEIGHT_KG);
+      //     });
 
-      await test.step('VIT-1.7 Add weight observation with Patient Refused', async () => {
-        await vitalsPage.addWeightObservationPatientRefused();
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkPatientRefusedInHistory();
-        await vitalsPage.checkAddedWeightIsShownInHeader('Patient Refused');
-      });
+      //     await test.step('VIT-1.7 Add weight observation with Patient Refused', async () => {
+      //       await vitalsPage.addWeightObservationPatientRefused();
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkPatientRefusedInHistory();
+      //       await vitalsPage.checkAddedWeightIsShownInHeader('Patient Refused');
+      //     });
 
-      await test.step('VIT-1.8 Add height observation', async () => {
-        await vitalsPage.addHeightObservation(HEIGHT_CM);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedHeightObservationInHistory(HEIGHT_CM);
-      });
+      //     await test.step('VIT-1.8 Add height observation', async () => {
+      //       await vitalsPage.addHeightObservation(HEIGHT_CM);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedHeightObservationInHistory(HEIGHT_CM);
+      //     });
 
-      await test.step('VIT-1.9 Add vision observation', async () => {
-        await vitalsPage.addVisionObservation(VISION_LEFT, VISION_RIGHT);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedVisionObservationInHistory(VISION_LEFT, VISION_RIGHT);
-      });
+      //     await test.step('VIT-1.9 Add vision observation', async () => {
+      //       await vitalsPage.addVisionObservation(VISION_LEFT, VISION_RIGHT);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedVisionObservationInHistory(VISION_LEFT, VISION_RIGHT);
+      //     });
 
-      await test.step('VIT-1.10 Add last menstrual period observation', async () => {
-        await vitalsPage.addLastMenstrualPeriodObservation(LMP_DATE);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkAddedLastMenstrualPeriodObservationInHistory(LMP_DATE);
-        await vitalsPage.checkAddedLastMenstrualPeriodIsShownInHeader(LMP_DATE);
-      });
+      //     await test.step('VIT-1.10 Add last menstrual period observation', async () => {
+      //       await vitalsPage.addLastMenstrualPeriodObservation(LMP_DATE);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkAddedLastMenstrualPeriodObservationInHistory(LMP_DATE);
+      //       await vitalsPage.checkAddedLastMenstrualPeriodIsShownInHeader(LMP_DATE);
+      //     });
 
-      await test.step('VIT-1.11 Add last menstrual period observation with Unsure', async () => {
-        await vitalsPage.addLastMenstrualPeriodObservationUnsure(LMP_DATE_UNSURE);
-        await waitForSaveChartDataResponse(page);
-        await vitalsPage.checkUnsureInHistory(LMP_DATE_UNSURE);
-        await vitalsPage.checkAddedLastMenstrualPeriodUnsureIsShownInHeader(LMP_DATE_UNSURE);
-      });
-    });
+      //     await test.step('VIT-1.11 Add last menstrual period observation with Unsure', async () => {
+      //       await vitalsPage.addLastMenstrualPeriodObservationUnsure(LMP_DATE_UNSURE);
+      //       await waitForSaveChartDataResponse(page);
+      //       await vitalsPage.checkUnsureInHistory(LMP_DATE_UNSURE);
+      //       await vitalsPage.checkAddedLastMenstrualPeriodUnsureIsShownInHeader(LMP_DATE_UNSURE);
+      //     });
+      //   });
 
-    test('Verify all vitals in progress note', async () => {
-      await sideMenu.clickReviewAndSign();
-      await progressNotePage.expectLoaded();
+      //   test('Verify all vitals in progress note', async () => {
+      //     await sideMenu.clickReviewAndSign();
+      //     await progressNotePage.expectLoaded();
 
-      const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
-      await expect(vitalsSection).toBeVisible();
-      const vitalsText = await vitalsSection.textContent();
+      //     const vitalsSection = page.getByTestId(dataTestIds.progressNotePage.vitalsContainer);
+      //     await expect(vitalsSection).toBeVisible();
+      //     const vitalsText = await vitalsSection.textContent();
 
-      await test.step('VIT-2.1 Verify temperature in progress note', async () => {
-        expect(vitalsText).toContain(TEMPERATURE_C);
-      });
+      //     await test.step('VIT-2.1 Verify temperature in progress note', async () => {
+      //       expect(vitalsText).toContain(TEMPERATURE_C);
+      //     });
 
-      await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
-        expect(vitalsText).toContain(HEARTBEAT_BPM);
-      });
+      //     await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
+      //       expect(vitalsText).toContain(HEARTBEAT_BPM);
+      //     });
 
-      await test.step('VIT-2.3 Verify respiration rate in progress note', async () => {
-        expect(vitalsText).toContain(RESPIRATION_RATE);
-      });
+      //     await test.step('VIT-2.3 Verify respiration rate in progress note', async () => {
+      //       expect(vitalsText).toContain(RESPIRATION_RATE);
+      //     });
 
-      await test.step('VIT-2.4 Verify blood pressure in progress note', async () => {
-        expect(vitalsText).toContain(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
-      });
+      //     await test.step('VIT-2.4 Verify blood pressure in progress note', async () => {
+      //       expect(vitalsText).toContain(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
+      //     });
 
-      await test.step('VIT-2.5 Verify oxygen saturation in progress note', async () => {
-        expect(vitalsText).toContain(OXYGEN_SAT);
-      });
+      //     await test.step('VIT-2.5 Verify oxygen saturation in progress note', async () => {
+      //       expect(vitalsText).toContain(OXYGEN_SAT);
+      //     });
 
-      await test.step('VIT-2.6 Verify weight in progress note', async () => {
-        expect(vitalsText).toContain(WEIGHT_KG);
-      });
+      //     await test.step('VIT-2.6 Verify weight in progress note', async () => {
+      //       expect(vitalsText).toContain(WEIGHT_KG);
+      //     });
 
-      await test.step('VIT-2.7 Verify Patient Refused in progress note', async () => {
-        expect(vitalsText).toContain('Patient Refused');
-      });
+      //     await test.step('VIT-2.7 Verify Patient Refused in progress note', async () => {
+      //       expect(vitalsText).toContain('Patient Refused');
+      //     });
 
-      await test.step('VIT-2.8 Verify height in progress note', async () => {
-        expect(vitalsText).toContain(HEIGHT_CM);
-      });
+      //     await test.step('VIT-2.8 Verify height in progress note', async () => {
+      //       expect(vitalsText).toContain(HEIGHT_CM);
+      //     });
 
-      await test.step('VIT-2.9 Verify vision in progress note', async () => {
-        expect(vitalsText).toContain(VISION_LEFT);
-        expect(vitalsText).toContain(VISION_RIGHT);
-      });
+      //     await test.step('VIT-2.9 Verify vision in progress note', async () => {
+      //       expect(vitalsText).toContain(VISION_LEFT);
+      //       expect(vitalsText).toContain(VISION_RIGHT);
+      //     });
 
-      await test.step('VIT-2.10 Verify last menstrual period in progress note', async () => {
-        expect(vitalsText).toContain(LMP_DATE);
-      });
+      //     await test.step('VIT-2.10 Verify last menstrual period in progress note', async () => {
+      //       expect(vitalsText).toContain(LMP_DATE);
+      //     });
 
-      await test.step('VIT-2.11 Verify Unsure in progress note', async () => {
-        expect(vitalsText).toContain(`${LMP_DATE_UNSURE} (unsure)`);
-      });
+      //     await test.step('VIT-2.11 Verify Unsure in progress note', async () => {
+      //       expect(vitalsText).toContain(`${LMP_DATE_UNSURE} (unsure)`);
+      //     });
 
-      await sideMenu.clickVitals();
-    });
+      //     await sideMenu.clickVitals();
+      //   });
 
-    test('Remove all vitals observations', async () => {
-      await test.step('VIT-3.1 Delete temperature observation', async () => {
-        await vitalsPage.removeTemperatureObservationFromHistory(TEMPERATURE_C);
+      //   test('Remove all vitals observations', async () => {
+      //     await test.step('VIT-3.1 Delete temperature observation', async () => {
+      //       await vitalsPage.removeTemperatureObservationFromHistory(TEMPERATURE_C);
 
-        await waitForChartDataDeletion(page);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(page.getByText(new RegExp(`${TEMPERATURE_C}.*C`))).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(page.getByText(new RegExp(`${TEMPERATURE_C}.*C`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.2 Delete heartbeat observation', async () => {
-        await vitalsPage.removeHeartbeatObservationFromHistory(HEARTBEAT_BPM);
-        await waitForChartDataDeletion(page);
+      //     await test.step('VIT-3.2 Delete heartbeat observation', async () => {
+      //       await vitalsPage.removeHeartbeatObservationFromHistory(HEARTBEAT_BPM);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(page.getByText(new RegExp(`${HEARTBEAT_BPM}.*bpm`))).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(page.getByText(new RegExp(`${HEARTBEAT_BPM}.*bpm`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.3 Delete respiration rate observation', async () => {
-        await vitalsPage.removeRespirationRateObservationFromHistory(RESPIRATION_RATE);
-        await waitForChartDataDeletion(page);
+      //     await test.step('VIT-3.3 Delete respiration rate observation', async () => {
+      //       await vitalsPage.removeRespirationRateObservationFromHistory(RESPIRATION_RATE);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(page.getByText(new RegExp(`${RESPIRATION_RATE}.*breaths/min`))).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(page.getByText(new RegExp(`${RESPIRATION_RATE}.*breaths/min`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.4 Delete blood pressure observation', async () => {
-        await vitalsPage.removeBloodPressureObservationFromHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
-        await waitForChartDataDeletion(page);
+      //     await test.step('VIT-3.4 Delete blood pressure observation', async () => {
+      //       await vitalsPage.removeBloodPressureObservationFromHistory(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(
-          page.getByText(new RegExp(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}.*mmHg`))
-        ).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(
+      //         page.getByText(new RegExp(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}.*mmHg`))
+      //       ).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.5 Delete oxygen saturation observation', async () => {
-        await vitalsPage.removeOxygenSaturationObservationFromHistory(OXYGEN_SAT);
-        await waitForChartDataDeletion(page);
+      //     await test.step('VIT-3.5 Delete oxygen saturation observation', async () => {
+      //       await vitalsPage.removeOxygenSaturationObservationFromHistory(OXYGEN_SAT);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(page.getByText(new RegExp(`${OXYGEN_SAT}.*%`))).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(page.getByText(new RegExp(`${OXYGEN_SAT}.*%`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.6 Delete weight observation', async () => {
-        await vitalsPage.removeWeightObservationFromHistory(WEIGHT_KG);
-        await waitForChartDataDeletion(page);
+      //     await test.step('VIT-3.6 Delete weight observation', async () => {
+      //       await vitalsPage.removeWeightObservationFromHistory(WEIGHT_KG);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(page.getByText(new RegExp(`${WEIGHT_KG}.*kg`))).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(page.getByText(new RegExp(`${WEIGHT_KG}.*kg`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.7 Delete Patient Refused weight observation', async () => {
-        await vitalsPage.removeWeightObservationFromHistory('Patient Refused');
-        await waitForChartDataDeletion(page);
-        await expect(
-          page.getByTestId(dataTestIds.vitalsPage.weightItem).first().getByText('Patient Refused')
-        ).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //     await test.step('VIT-3.7 Delete Patient Refused weight observation', async () => {
+      //       await vitalsPage.removeWeightObservationFromHistory('Patient Refused');
+      //       await waitForChartDataDeletion(page);
+      //       await expect(
+      //         page.getByTestId(dataTestIds.vitalsPage.weightItem).first().getByText('Patient Refused')
+      //       ).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.8 Delete height observation', async () => {
-        await vitalsPage.removeHeightObservationFromHistory(HEIGHT_CM);
-        await waitForChartDataDeletion(page);
+      //     await test.step('VIT-3.8 Delete height observation', async () => {
+      //       await vitalsPage.removeHeightObservationFromHistory(HEIGHT_CM);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(page.getByText(new RegExp(`${HEIGHT_CM}.*cm`))).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(page.getByText(new RegExp(`${HEIGHT_CM}.*cm`))).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.9 Delete vision observation', async () => {
-        await vitalsPage.removeVisionObservationFromHistory(VISION_LEFT, VISION_RIGHT);
-        await waitForChartDataDeletion(page);
+      //     await test.step('VIT-3.9 Delete vision observation', async () => {
+      //       await vitalsPage.removeVisionObservationFromHistory(VISION_LEFT, VISION_RIGHT);
+      //       await waitForChartDataDeletion(page);
 
-        await expect(
-          page.getByText(new RegExp(`Vision Left eye: ${VISION_LEFT}; Right eye: ${VISION_RIGHT}`))
-        ).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //       await expect(
+      //         page.getByText(new RegExp(`Vision Left eye: ${VISION_LEFT}; Right eye: ${VISION_RIGHT}`))
+      //       ).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.10 Delete Unsure last menstrual period observation', async () => {
-        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(`${LMP_DATE_UNSURE} (unsure)`);
-        await waitForChartDataDeletion(page);
-        await expect(
-          page
-            .getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem)
-            .first()
-            .getByText(`${LMP_DATE_UNSURE} (unsure)`)
-        ).not.toBeVisible(DEFAULT_TIMEOUT);
-      });
+      //     await test.step('VIT-3.10 Delete Unsure last menstrual period observation', async () => {
+      //       await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(`${LMP_DATE_UNSURE} (unsure)`);
+      //       await waitForChartDataDeletion(page);
+      //       await expect(
+      //         page
+      //           .getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem)
+      //           .first()
+      //           .getByText(`${LMP_DATE_UNSURE} (unsure)`)
+      //       ).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     });
 
-      await test.step('VIT-3.11 Delete last menstrual period observation', async () => {
-        await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(LMP_DATE);
-        await waitForChartDataDeletion(page);
-        await expect(
-          page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText(LMP_DATE)
-        ).not.toBeVisible(DEFAULT_TIMEOUT);
+      //     await test.step('VIT-3.11 Delete last menstrual period observation', async () => {
+      //       await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(LMP_DATE);
+      //       await waitForChartDataDeletion(page);
+      //       await expect(
+      //         page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText(LMP_DATE)
+      //       ).not.toBeVisible(DEFAULT_TIMEOUT);
+      test('VIT-4. Verify Progress Note does not show removed Vitals', async () => {
+        await test.step('VIT-4.1 Verify temperature in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(TEMPERATURE_C);
+        });
+        await test.step('VIT-4.2 Verify heartbeat in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(HEARTBEAT_BPM);
+        });
+        await test.step('VIT-4.3 Verify respiration rate in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(RESPIRATION_RATE);
+        });
+        await test.step('VIT-4.4 Verify blood pressure in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
+        });
+        await test.step('VIT-4.5 Verify oxygen saturation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(OXYGEN_SAT);
+        });
+        await test.step('VIT-4.6 Verify weight in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(WEIGHT_KG);
+        });
+        await test.step('VIT-4.7 Verify Patient Refused in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown('Patient Refused');
+        });
+        await test.step('VIT-4.8 Verify height in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(HEIGHT_CM);
+        });
+        await test.step('VIT-4.9 Verify vision in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(VISION_LEFT);
+          await progressNotePage.verifyVitalNotShown(VISION_RIGHT);
+        });
+        await test.step('VIT-4.10 Verify Unsure last menstrual period observation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown('Unsure');
+        });
+        await test.step('VIT-4.11 Verify last menstrual period observation in progress note', async () => {
+          await progressNotePage.verifyVitalNotShown(LMP_DATE);
+        });
       });
     });
   });
