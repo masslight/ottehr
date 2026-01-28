@@ -2,6 +2,7 @@ import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
+  BOOKING_CONFIG,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -1769,6 +1770,8 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
   test('Check state, ethnicity, race, relationship to patient are required', async () => {
     await page.goto('/patient/' + resourceHandler.patient.id);
     const addPatientPage = await openAddPatientPage(page);
+    await addPatientPage.selectVisitType('Walk-in In Person Visit');
+    await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].display);
     await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
     await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);
     await addPatientPage.clickSearchForPatientsButton();
@@ -1778,7 +1781,6 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
     await addPatientPage.enterDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
     await addPatientPage.selectSexAtBirth(NEW_PATIENT_BIRTH_SEX);
     await addPatientPage.selectReasonForVisit(NEW_REASON_FOR_VISIT);
-    await addPatientPage.selectVisitType('Walk-in In Person Visit');
     const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
     await addPatientPage.clickAddButton();
 

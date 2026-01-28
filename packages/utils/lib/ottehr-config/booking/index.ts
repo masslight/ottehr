@@ -59,6 +59,10 @@ const FormFields = {
         key: 'appointment-service-category',
         type: 'string',
       },
+      appointmentServiceMode: {
+        key: 'appointment-service-mode',
+        type: 'string',
+      },
     },
     items: {
       firstName: {
@@ -99,6 +103,20 @@ const FormFields = {
         label: 'Birth sex',
         type: 'choice',
         options: VALUE_SETS.birthSexOptions,
+      },
+      weight: {
+        key: 'patient-weight',
+        label: 'Weight (lbs)',
+        type: 'decimal',
+        triggers: [
+          {
+            targetQuestionLinkId: 'appointment-service-mode',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'virtual',
+          },
+        ],
+        disabledDisplay: 'hidden',
       },
       ssn: {
         key: 'patient-ssn',
@@ -257,6 +275,26 @@ interface BookingFormPrePopulationInput {
   patient?: Patient;
 }
 
+// Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
+// Cleared fields trigger FHIR resource removal in harvest/update-visit-details zambdas
+export const FIELDS_TO_TRACK_CLEARING = ['patient-preferred-name', 'authorized-non-legal-guardian'] as const;
+
+// Helper to normalize form data by converting empty objects to proper questionnaire response format
+// react-hook-form returns {} for conditionally hidden fields with disabled-display extension
+export const normalizeFormDataToQRItems = (data: Record<string, unknown>): QuestionnaireResponseItem[] => {
+  return Object.entries(data)
+    .map(([key, value]) => {
+      // Skip empty objects that are not tracked fields
+      if (value && typeof value === 'object' && Object.keys(value).length === 0) {
+        return FIELDS_TO_TRACK_CLEARING.includes(key as (typeof FIELDS_TO_TRACK_CLEARING)[number])
+          ? { linkId: key, answer: [] }
+          : null;
+      }
+      return value;
+    })
+    .filter((item): item is QuestionnaireResponseItem => item !== null) as QuestionnaireResponseItem[];
+};
+
 export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
   const items = flattenQuestionnaireAnswers(qrItem);
   const patientInfo: PatientInfo = {};
@@ -278,7 +316,7 @@ export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[
         patientInfo.dateOfBirth = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'authorized-non-legal-guardian':
-        patientInfo.authorizedNonLegalGuardians = pickFirstValueFromAnswerItem(item, 'string');
+        patientInfo.authorizedNonLegalGuardians = pickFirstValueFromAnswerItem(item, 'string') || '';
         break;
       case 'patient-email':
         patientInfo.email = pickFirstValueFromAnswerItem(item, 'string');
@@ -295,13 +333,18 @@ export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[
         patientInfo.reasonAdditional = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'patient-preferred-name':
-        patientInfo.chosenName = pickFirstValueFromAnswerItem(item, 'string');
+        patientInfo.chosenName = pickFirstValueFromAnswerItem(item, 'string') || '';
         break;
       case 'patient-ssn':
         patientInfo.ssn = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'patient-birth-sex':
         patientInfo.sex = PersonSex[pickFirstValueFromAnswerItem(item, 'string') as keyof typeof PersonSex];
+        break;
+      case 'patient-weight':
+        // eslint-disable-next-line no-case-declarations
+        const weight = parseFloat(pickFirstValueFromAnswerItem(item, 'string') || '');
+        patientInfo.weight = Number.isNaN(weight) ? undefined : weight;
         break;
       default:
         break;
@@ -451,6 +494,9 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
           }
           if (linkId === 'appointment-service-category') {
             answer = makeAnswer(serviceCategoryCode);
+          }
+          if (linkId === 'appointment-service-mode') {
+            answer = makeAnswer(serviceMode);
           }
           if (linkId === 'patient-first-name' && patient) {
             answer = makeAnswer(getFirstName(patient) ?? '');

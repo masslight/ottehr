@@ -104,6 +104,7 @@ export type FormItemType =
   | 'Medical History'
   | 'Call Out'
   | 'Link'
+  | 'Decimal'
   | undefined;
 
 export type PromiseReturnType<T> = T extends Promise<infer R> ? R : never;

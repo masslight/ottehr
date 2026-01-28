@@ -211,7 +211,7 @@ export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
 
 export const isAppointmentWorkersComp = (appointment: Appointment): boolean => {
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === 'workmans-comp';
+  return serviceCategory === 'workers-comp';
 };
 
 export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean => {

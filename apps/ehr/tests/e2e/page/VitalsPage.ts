@@ -264,17 +264,30 @@ export class VitalsPage {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText(date);
   }
 
-  async addLastMenstrualPeriodObservationUnsure(): Promise<void> {
+  async addLastMenstrualPeriodObservationUnsure(date: string): Promise<void> {
     const unsureCheckbox = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodUnsureCheckbox);
     await unsureCheckbox.check();
+
+    const dateInput = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodDateInput);
+    await dateInput.click();
+    await dateInput.pressSequentially(date);
 
     const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodAddButton);
     await addButton.click();
     await waitForSaveChartDataResponse(this.#page);
+  }
+
+  async checkUnsureInHistory(date: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first()).toContainText(
-      'Unsure'
+      `${date} (unsure)`
     );
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText('Unsure');
+  }
+
+  async checkAddedLastMenstrualPeriodUnsureIsShownInHeader(date: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodHeader)).toContainText(
+      `${date} (unsure)`
+    );
   }
 
   async removeLastMenstrualPeriodObservationFromHistory(text: string): Promise<void> {

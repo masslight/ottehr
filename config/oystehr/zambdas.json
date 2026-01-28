@@ -50,6 +50,13 @@
       "src": "src/ehr/daily-payments-report/index",
       "zip": ".dist/zips/daily-payments-report.zip"
     },
+    "PRACTICE-KPIS-REPORT": {
+      "name": "practice-kpis-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-kpis-report/index",
+      "zip": ".dist/zips/practice-kpis-report.zip"
+    },
     "VISITS-OVERVIEW-REPORT": {
       "name": "visits-overview-report",
       "type": "http_auth",

@@ -25309,7 +25309,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
-                        "valueString": "appointment-service-category = workmans-comp : Insurance"
+                        "valueString": "appointment-service-category = workers-comp : Insurance"
                       }
                     ]
                   },
@@ -25318,7 +25318,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
-                        "valueString": "appointment-service-category != workmans-comp"
+                        "valueString": "appointment-service-category != workers-comp"
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
@@ -25335,7 +25335,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
-                        "valueString": "appointment-service-category = workmans-comp"
+                        "valueString": "appointment-service-category = workers-comp"
                       }
                     ]
                   }
@@ -29330,7 +29330,7 @@
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
-                    "valueString": "workmans-comp"
+                    "valueString": "workers-comp"
                   },
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
@@ -29356,7 +29356,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
-                        "valueString": "appointment-service-category = workmans-comp : Insurance"
+                        "valueString": "appointment-service-category = workers-comp : Insurance"
                       }
                     ]
                   },
@@ -29365,7 +29365,7 @@
                     "extension": [
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
-                        "valueString": "appointment-service-category != workmans-comp"
+                        "valueString": "appointment-service-category != workers-comp"
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
@@ -29382,7 +29382,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
-                        "valueString": "appointment-service-category = workmans-comp"
+                        "valueString": "appointment-service-category = workers-comp"
                       }
                     ]
                   }

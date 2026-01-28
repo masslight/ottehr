@@ -52,6 +52,7 @@ import { ControlButtonsProps } from '../../types';
 import AIInterview from './components/AIInterview';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
+import DecimalInput from './components/DecimalInput';
 import { FieldHelperText } from './components/FieldHelperText';
 import FileInput, { AttachmentType } from './components/FileInput';
 import FreeMultiSelectInput from './components/FreeMultiSelectInput';
@@ -77,7 +78,7 @@ interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
   pageId: string;
   pageItem?: IntakeQuestionnaireItem;
-  patientName?: string;
+  pageSubtitle?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
   isSaving?: boolean;
@@ -186,7 +187,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
   pageId,
   pageItem,
-  patientName,
+  pageSubtitle,
   defaultValues,
   options = {},
   isSaving,
@@ -229,7 +230,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   }, [cache, defaultValues, items, reset, pageId]);
   return (
     <FormProvider {...methods}>
-      {pageItem && patientName ? <PaperworkPageTitle pageItem={pageItem} patientName={patientName} /> : null}
+      {pageItem && pageSubtitle ? <PaperworkPageTitle pageItem={pageItem} pageSubtitle={pageSubtitle} /> : null}
       <PaperworkFormRoot
         pageItem={pageItem}
         items={items}
@@ -244,10 +245,10 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 
 interface PaperworkPageTitleProps {
   pageItem: IntakeQuestionnaireItem;
-  patientName: string;
+  pageSubtitle: string;
 }
 
-const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName }) => {
+const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitle }) => {
   const theme = useTheme();
   const [styledPageItem] = useStyledItems({ formItems: [pageItem] });
   return (
@@ -262,9 +263,9 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName
       >
         {styledPageItem?.text}
       </Typography>
-      {patientName && (
+      {pageSubtitle && (
         <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
-          {patientName}
+          {pageSubtitle}
         </Typography>
       )}
     </Stack>
@@ -609,7 +610,11 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               ...inputBaseProps,
               inputMode:
                 inputMode ??
-                (item.type === 'integer' || item.type === 'decimal' || item.dataType === 'ZIP' ? 'numeric' : 'text'),
+                (item.type === 'decimal'
+                  ? 'decimal'
+                  : item.type === 'integer' || item.dataType === 'ZIP'
+                  ? 'numeric'
+                  : 'text'),
               ...(item.dataType === 'ZIP' && { pattern: '[0-9]*', maxLength: 5 }),
             }}
             placeholder={item.placeholder}
@@ -748,6 +753,18 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
             item={item}
             fieldId={parentItem ? fieldId : item.linkId}
             onChange={smartOnChange}
+          />
+        );
+      case 'Decimal':
+        return (
+          <DecimalInput
+            item={item}
+            value={unwrappedValue}
+            fieldId={fieldId}
+            onChange={smartOnChange}
+            inputRef={parentItem ? ref : inputRef}
+            error={error.hasError}
+            disabled={item.displayStrategy !== 'enabled'}
           />
         );
       case 'Attachment':

@@ -31,7 +31,7 @@ export class UIDesign {
     //await expect(this.page.getByLabel('Pharmacy phone')).toBeVisible();
     await expect(this.page.locator("[id='pharmacy-phone']")).toBeVisible();
     await expect(this.page.getByRole('heading', { name: 'Additional information' })).toBeVisible();
-    if (QuestionnaireHelper.hasPointOfDiscoveryField()) {
+    if (QuestionnaireHelper.inPersonHasPointOfDiscoveryField()) {
       await expect(this.page.getByText('How did you hear about us?')).toBeVisible();
       await expect(this.page.locator("[id='patient-point-of-discovery']")).toBeVisible();
     }

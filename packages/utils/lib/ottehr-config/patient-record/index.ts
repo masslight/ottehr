@@ -3,6 +3,7 @@ import _ from 'lodash';
 import { z } from 'zod';
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import {
+  getTaxID,
   makeAnswer,
   makePrepopulatedItemsFromPatientRecord,
   PrePopulationFromPatientRecordInput,
@@ -805,7 +806,19 @@ const FormFields = {
           },
         ],
       },
-      workersCompMemberId: { key: 'workers-comp-insurance-member-id', type: 'string', label: 'Member ID' },
+      workersCompMemberId: {
+        key: 'workers-comp-insurance-member-id',
+        type: 'string',
+        label: 'Member ID',
+        triggers: [
+          {
+            targetQuestionLinkId: 'workers-comp-insurance-name',
+            effect: ['require'],
+            operator: 'exists',
+            answerBoolean: true,
+          },
+        ],
+      },
       employerName: { key: 'employer-name', type: 'string', label: 'Employer name' },
       addressLine1: { key: 'employer-address', type: 'string', label: 'Address line 1' },
       addressLine2: { key: 'employer-address-2', type: 'string', label: 'Address line 2' },
@@ -992,11 +1005,20 @@ export const prepopulatePatientRecordItems = (
   }
 
   const q = input.questionnaire;
-  const { appointmentContext } = input;
-  const logicalFieldItems = prepopulateLogicalFields(q, appointmentContext);
+  const { appointmentContext, patient } = input;
+  const prepopOverrides = prepopulateLogicalFields(q, appointmentContext);
   // todo: this is exported from another util file, but only used here. probably want to move it and
   // consolidate the interface exposed to the rest of the system.
-  const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: logicalFieldItems });
+  if (prepopOverrides.some((item) => item.linkId === 'should-display-ssn-field' && item.answer?.[0]?.valueBoolean)) {
+    const ssn = getTaxID(patient);
+    if (ssn) {
+      prepopOverrides.push({
+        linkId: 'patient-ssn',
+        answer: makeAnswer(ssn),
+      });
+    }
+  }
+  const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: prepopOverrides });
 
   return patientRecordItems;
 };

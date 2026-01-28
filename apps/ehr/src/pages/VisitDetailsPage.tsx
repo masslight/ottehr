@@ -799,7 +799,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
-    'none';
+    '';
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
@@ -1109,10 +1109,9 @@ export default function VisitDetailsPage(): ReactElement {
                             serviceCategory ??
                             '',
                           'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
-                          'Authorized non-legal guardian(s)':
-                            patient?.extension?.find(
-                              (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
-                            )?.valueString || 'none',
+                          'Authorized non-legal guardian(s)': patient?.extension?.find(
+                            (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+                          )?.valueString || <></>,
                         }}
                         icon={{
                           "Patient's date of birth (Unmatched)": (

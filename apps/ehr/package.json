@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.26.1",
+  "version": "1.26.11",
   "private": true,
   "type": "module",
   "engines": {
@@ -30,6 +30,8 @@
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build:local": "npm run build",
     "build:e2e": "ENV=e2e npm run build-skeleton",
+    "build:e2e2": "ENV=e2e2 npm run build-skeleton",
+    "build:e2e3": "ENV=e2e3 npm run build-skeleton",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",
@@ -61,6 +63,7 @@
     "@mui/x-date-pickers-pro": "^6.3.0",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
+    "@tiptap/markdown": "^3.14.0",
     "@twilio/conversations": "^2.4.1",
     "@types/wavesurfer.js": "^6.0.12",
     "amazon-chime-sdk-component-library-react": "^3.10.0",

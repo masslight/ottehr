@@ -318,6 +318,16 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PSI-8. Upload and clear insurance cards', async () => {
+      // Check if cards are already uploaded from previous test, if so - clear them first
+      const reuploadLinksCount = await page.getByText('Click to re-upload').count();
+      if (reuploadLinksCount > 0) {
+        // Cards already uploaded, clear them
+        const clearButtons = await locator.clearImage.count();
+        for (let i = 0; i < clearButtons; i++) {
+          await locator.clearImage.first().click();
+        }
+      }
+
       const uploadedFrontPhoto = await uploadPhoto.fillSecondaryInsuranceFront();
       await locator.clearImage.click();
       await expect(uploadedFrontPhoto).toBeHidden();
@@ -460,7 +470,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
         ];
 
         // Check if employer page would be visible for this service category
-        return !QuestionnaireHelper.employerInformationPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonEmployerInformationPageIsVisible(responseItems);
       })(),
       'Employer information page not visible for this appointment type'
     );
@@ -521,7 +531,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
           },
         ];
         // Check if attorney page would be visible for this reason for visit
-        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonAttorneyPageIsVisible(responseItems);
       })(),
       'Attorney page not visible for this appointment type'
     );
@@ -645,8 +655,10 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
     await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
       await locator.clickBackButton();
-      await expect(locator.hipaaAcknowledgement).toBeChecked();
-      await expect(locator.consentToTreat).toBeChecked();
+      // Validate all configured consent form checkboxes are checked
+      for (const { locator: checkboxLocator } of locator.getAllConsentFormCheckboxes()) {
+        await expect(checkboxLocator).toBeChecked();
+      }
       await expect(locator.signature).toHaveValue(consentFormsData.signature);
       await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
       await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);

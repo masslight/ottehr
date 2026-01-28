@@ -74,8 +74,8 @@ describe('AddPatient', () => {
       </BrowserRouter>
     );
 
-    const locationHeader = screen.getByTestId(dataTestIds.addPatientPage.locationHeader);
-    expect(locationHeader).toBeVisible();
+    const pageTitle = screen.getByTestId(dataTestIds.addPatientPage.pageTitle);
+    expect(pageTitle).toBeVisible();
   });
 
   it('Should test that when the user clicks on the cancel button, `navigate(/visits)` is called', async () => {

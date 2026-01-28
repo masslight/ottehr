@@ -1184,32 +1184,45 @@
           "text": "By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.",
           "enableWhen": [
             {
+              "question": "contact-information-page.appointment-service-category",
+              "operator": "!=",
+              "answerString": "workers-comp"
+            },
+            {
               "question": "payment-option",
               "operator": "=",
               "answerString": "I will pay without insurance"
             }
           ],
+          "enableBehavior": "all",
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
-                  "valueString": "appointment-service-category"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
-                  "valueString": "="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
-                  "valueString": "workers-comp"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
-                  "valueString": "By clicking \"Continue,\" I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance."
-                }
-              ]
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Call Out"
+            }
+          ]
+        },
+        {
+          "linkId": "workers-comp-alert-text",
+          "type": "display",
+          "text": "By clicking \"Continue,\" I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance.",
+          "enableWhen": [
+            {
+              "question": "contact-information-page.appointment-service-category",
+              "operator": "=",
+              "answerString": "workers-comp"
+            },
+            {
+              "question": "payment-option",
+              "operator": "exists",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Call Out"
             }
           ]
         },
@@ -2961,6 +2974,12 @@
               "operator": "=",
               "answerString": "Self"
             }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Call Out"
+            }
           ]
         }
       ],
@@ -3057,15 +3076,15 @@
         {
           "question": "contact-information-page.appointment-service-category",
           "operator": "!=",
-          "answerString": "occupational-medicine"
+          "answerString": "workers-comp"
         },
         {
           "question": "payment-option-occ-med-page.payment-option-occupational",
-          "operator": "=",
-          "answerString": "Self"
+          "operator": "!=",
+          "answerString": "Employer"
         }
       ],
-      "enableBehavior": "any"
+      "enableBehavior": "all"
     },
     {
       "linkId": "responsible-party-page",

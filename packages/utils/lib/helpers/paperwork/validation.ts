@@ -292,6 +292,29 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
     schemaTemp = objSchema;
   }
+  if (item.type === 'decimal') {
+    let decimalSchema = Yup.number()
+      .transform((value, originalValue) => {
+        // Treat empty string as undefined so required() validation works properly
+        if (originalValue === '' || originalValue === undefined || originalValue === null) {
+          return undefined;
+        }
+        return value;
+      })
+      .typeError(REQUIRED_FIELD_ERROR_MESSAGE);
+    if (required) {
+      decimalSchema = decimalSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    let schema: Yup.AnySchema = Yup.object({
+      valueDecimal: decimalSchema,
+    });
+    if (required) {
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    } else {
+      schema = schema.optional();
+    }
+    schemaTemp = schema;
+  }
   if (!schemaTemp) {
     throw new Error(`no schema defined for item ${item.linkId} ${JSON.stringify(item)}`);
   }
@@ -969,9 +992,31 @@ export const filterDisabledPages = (
       return responsePage;
     }
 
-    // Check if page is enabled
-    const isPageEnabled = evalEnableWhen(questionnairePage, questionnaireItems, allValues, questionnaireResponse);
+    // there is an unfortunate amount of complexity here.
+    // What's happening is:
+    // 1. We remove any enableWhen conditions that reference the $status question.
+    // 2. We create a new questionnaire page object with these conditions removed.
+    // 3. We evaluate the enableWhen conditions on this modified page to determine if the page is enabled.
+    // This is necessary because:
+    // 1. On the visit details page we read straight from the QR to get details about who signed the consent,
+    // rather than persisting those details on the consent itself.
+    // 2. We have logic that filters out the consent page once processed.
+    // 3. We have logic here that makes sure any disabled pages have their irrelevant content
+    // removed from the QR.
+    // 4. The logic to remove disabled pages from the QR relies on the enableWhen evaluation, and therefore
+    // erases the data necessary for rendering the consent signer details.
+    const enableWhenMinusStatusConditions = questionnairePage.enableWhen?.filter(
+      (condition) => condition.question !== '$status'
+    );
+    const qrPageWithStatusConditionsRemoved = { ...questionnairePage, enableWhen: enableWhenMinusStatusConditions };
 
+    // Check if page is enabled
+    const isPageEnabled = evalEnableWhen(
+      qrPageWithStatusConditionsRemoved,
+      questionnaireItems,
+      allValues,
+      questionnaireResponse
+    );
     // If page is disabled, return only the linkId (no items)
     if (!isPageEnabled) {
       return { linkId: responsePage.linkId };

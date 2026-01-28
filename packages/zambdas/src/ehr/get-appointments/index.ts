@@ -40,6 +40,7 @@ import {
   ROOM_EXTENSION_URL,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   SMSModel,
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
@@ -696,5 +697,8 @@ const makeAppointmentInformation = (
     visitStatusHistory: getVisitStatusHistory(encounter),
     needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
+    serviceCategory: appointment.serviceCategory
+      ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+      ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
   };
 };

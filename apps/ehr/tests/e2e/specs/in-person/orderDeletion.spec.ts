@@ -180,8 +180,12 @@ test.describe('Order Deletion - Happy Path', () => {
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 
-        // Verify diagnosis was added (UI check)
-        await expect(page.getByText(DIAGNOSIS)).toBeVisible();
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
+        // Verify diagnosis was added (UI check) - use test ID to avoid strict mode violation
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toContainText(DIAGNOSIS);
 
         // Open document procedure page directly
         documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
@@ -295,8 +299,13 @@ test.describe('Order Deletion - Happy Path', () => {
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 
-        // Verify diagnosis was added (UI check)
-        await expect(page.getByText(DIAGNOSIS)).toBeVisible();
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        // This is the optimistic UI indicator that the diagnosis is ready to be used
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
+        // Verify diagnosis was added (UI check) - use test ID to avoid strict mode violation
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toContainText(DIAGNOSIS);
       });
 
       await test.step('Create a medication order', async () => {
@@ -458,8 +467,12 @@ test.describe('Order Deletion - Happy Path', () => {
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 
-        // Verify diagnosis was added (UI check)
-        await expect(page.getByText(DIAGNOSIS)).toBeVisible();
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
+        // Verify diagnosis was added (UI check) - use test ID to avoid strict mode violation
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toContainText(DIAGNOSIS);
       });
 
       await test.step('Create a radiology order', async () => {

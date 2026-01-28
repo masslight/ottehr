@@ -46,7 +46,8 @@
             "Zambda:Function:ai-interview-start",
             "Zambda:Function:ai-interview-handle-answer",
             "Zambda:Function:ai-interview-persist-consent",
-            "Zambda:Function:get-booking-questionnaire"
+            "Zambda:Function:get-booking-questionnaire",
+            "Zambda:Function:search-places"
           ],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"

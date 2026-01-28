@@ -1,0 +1,434 @@
+name: Intake Login Cache Refresh (Scheduled)
+
+# This workflow runs on a schedule to refresh the intake login cache (user.json)
+# for e2e, e2e2, and e2e3 environments. This ensures that the cached authentication
+# is always fresh and tests can run without re-authenticating each time.
+# Jobs run sequentially to avoid SMS conflicts during authentication.
+
+env:
+  NODE_VERSION: 22
+  TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
+  TEST_RESULTS_CACHE_RETENTION_DAYS: 30
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }}
+  PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
+  USER_JSON_PATH: apps/intake/playwright/user.json
+
+on:
+  schedule:
+    # Run daily at midnight UTC to refresh e2e, e2e2, and e2e3 caches
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to refresh cache for (leave empty to refresh all)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - e2e
+          - e2e2
+          - e2e3
+        default: ''
+
+jobs:
+  login-e2e:
+    # Run for e2e environment
+    if: github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Log run info
+        run: |
+          echo "========================================="
+          echo "Refreshing login cache for e2e environment"
+          echo "========================================="
+          echo "Event: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "========================================="
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node modules
+        id: npm-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Setup environment
+        run: |
+          setup_env() {
+            mkdir -p "packages/zambdas/.env"
+            cp secrets/zambdas/* "packages/zambdas/.env"
+            mkdir -p "apps/$app/env"
+            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
+            cp "secrets/$app/app/.env"* "apps/$app/env/"
+          }
+      
+          for app in ehr intake; do
+            setup_env "$app"
+          done
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Run login for e2e
+        id: login
+        run: npm run intake:e2e:e2e:login
+        env:
+          CI: true
+
+      - name: Validate user.json
+        if: steps.login.outcome == 'success'
+        id: validate
+        run: |
+          node -e '
+          const fs = require("fs");
+          const path = "${{ env.USER_JSON_PATH }}";
+          if (!fs.existsSync(path)) {
+            console.log(`File ${path} does not exist`);
+            process.exit(1);
+          }
+          
+          const data = JSON.parse(fs.readFileSync(path, "utf8"));
+          
+          const hasAuth0Token = data.origins?.some(origin => 
+            origin.localStorage && 
+            origin.localStorage.some(item => item.name?.includes?.("auth0"))
+          );
+          
+          if (!hasAuth0Token) {
+            console.log("No Auth0 token found");
+            process.exit(1);
+          }
+          
+          console.log("User.json validated successfully for e2e");
+          '
+
+      - name: Generate cache key for e2e
+        id: cache-key
+        run: |
+          ENV="e2e"
+          CACHE_KEY="intake-playwright-user-${ENV}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}"
+          echo "user-json-cache-key=$CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "[INFO] Cache key for e2e: $CACHE_KEY"
+
+      - name: Save user.json to cache for e2e
+        if: steps.validate.outcome == 'success'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.USER_JSON_PATH }}
+          key: ${{ steps.cache-key.outputs.user-json-cache-key }}
+
+      - name: Upload login test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report-intake-login-e2e-scheduled
+          path: |
+            apps/intake/playwright-report-login/
+            apps/intake/test-results-login/
+          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}
+
+  login-e2e2:
+    # Run for e2e2 environment - runs after e2e to avoid SMS conflicts
+    needs: login-e2e
+    if: |
+      always() && 
+      (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e2' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Log run info
+        run: |
+          echo "========================================="
+          echo "Refreshing login cache for e2e2 environment"
+          echo "========================================="
+          echo "Event: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "========================================="
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node modules
+        id: npm-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Setup environment
+        run: |
+          setup_env() {
+            mkdir -p "packages/zambdas/.env"
+            cp secrets/zambdas/* "packages/zambdas/.env"
+            mkdir -p "apps/$app/env"
+            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
+            cp "secrets/$app/app/.env"* "apps/$app/env/"
+          }
+      
+          for app in ehr intake; do
+            setup_env "$app"
+          done
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Run login for e2e2
+        id: login
+        run: npm run intake:e2e:e2e2:login
+        env:
+          CI: true
+
+      - name: Validate user.json
+        if: steps.login.outcome == 'success'
+        id: validate
+        run: |
+          node -e '
+          const fs = require("fs");
+          const path = "${{ env.USER_JSON_PATH }}";
+          if (!fs.existsSync(path)) {
+            console.log(`File ${path} does not exist`);
+            process.exit(1);
+          }
+          
+          const data = JSON.parse(fs.readFileSync(path, "utf8"));
+          
+          const hasAuth0Token = data.origins?.some(origin => 
+            origin.localStorage && 
+            origin.localStorage.some(item => item.name?.includes?.("auth0"))
+          );
+          
+          if (!hasAuth0Token) {
+            console.log("No Auth0 token found");
+            process.exit(1);
+          }
+          
+          console.log("User.json validated successfully for e2e2");
+          '
+
+      - name: Generate cache key for e2e2
+        id: cache-key
+        run: |
+          ENV="e2e2"
+          CACHE_KEY="intake-playwright-user-${ENV}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}"
+          echo "user-json-cache-key=$CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "[INFO] Cache key for e2e2: $CACHE_KEY"
+
+      - name: Save user.json to cache for e2e2
+        if: steps.validate.outcome == 'success'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.USER_JSON_PATH }}
+          key: ${{ steps.cache-key.outputs.user-json-cache-key }}
+
+      - name: Upload login test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report-intake-login-e2e2-scheduled
+          path: |
+            apps/intake/playwright-report-login/
+            apps/intake/test-results-login/
+          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}
+
+  login-e2e3:
+    # Run for e2e3 environment - runs after e2e2 to avoid SMS conflicts
+    needs: login-e2e2
+    if: |
+      always() && 
+      (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e3' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Log run info
+        run: |
+          echo "========================================="
+          echo "Refreshing login cache for e2e3 environment"
+          echo "========================================="
+          echo "Event: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "========================================="
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node modules
+        id: npm-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Setup environment
+        run: |
+          setup_env() {
+            mkdir -p "packages/zambdas/.env"
+            cp secrets/zambdas/* "packages/zambdas/.env"
+            mkdir -p "apps/$app/env"
+            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
+            cp "secrets/$app/app/.env"* "apps/$app/env/"
+          }
+      
+          for app in ehr intake; do
+            setup_env "$app"
+          done
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Run login for e2e3
+        id: login
+        run: npm run intake:e2e:e2e3:login
+        env:
+          CI: true
+
+      - name: Validate user.json
+        if: steps.login.outcome == 'success'
+        id: validate
+        run: |
+          node -e '
+          const fs = require("fs");
+          const path = "${{ env.USER_JSON_PATH }}";
+          if (!fs.existsSync(path)) {
+            console.log(`File ${path} does not exist`);
+            process.exit(1);
+          }
+          
+          const data = JSON.parse(fs.readFileSync(path, "utf8"));
+          
+          const hasAuth0Token = data.origins?.some(origin => 
+            origin.localStorage && 
+            origin.localStorage.some(item => item.name?.includes?.("auth0"))
+          );
+          
+          if (!hasAuth0Token) {
+            console.log("No Auth0 token found");
+            process.exit(1);
+          }
+          
+          console.log("User.json validated successfully for e2e3");
+          '
+
+      - name: Generate cache key for e2e3
+        id: cache-key
+        run: |
+          ENV="e2e3"
+          CACHE_KEY="intake-playwright-user-${ENV}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}"
+          echo "user-json-cache-key=$CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "[INFO] Cache key for e2e3: $CACHE_KEY"
+
+      - name: Save user.json to cache for e2e3
+        if: steps.validate.outcome == 'success'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.USER_JSON_PATH }}
+          key: ${{ steps.cache-key.outputs.user-json-cache-key }}
+
+      - name: Upload login test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report-intake-login-e2e3-scheduled
+          path: |
+            apps/intake/playwright-report-login/
+            apps/intake/test-results-login/
+          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}

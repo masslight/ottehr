@@ -771,6 +771,8 @@ export default function AppointmentTableRow({
   // if visit components, there is always something in this cell, hence the default to true
   const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab) ? hasAtLeastOneOrder(orders) : true;
 
+  const serviceCategory = appointment.serviceCategory ? ' | ' + makeAbbreviation(appointment.serviceCategory) : '';
+
   return (
     <TableRow
       id="appointments-table-row"
@@ -825,6 +827,7 @@ export default function AppointmentTableRow({
               ? 'Post Telemed'
               : (appointment.appointmentType || '').toString()
           )}
+          {serviceCategory}
         </Typography>
         <Typography variant="body1">
           <strong>{start}</strong>
@@ -1066,4 +1069,10 @@ export default function AppointmentTableRow({
       )}
     </TableRow>
   );
+}
+
+function makeAbbreviation(str: string): string {
+  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
+    return previousValue + currentValue.charAt(0).toUpperCase();
+  }, '');
 }

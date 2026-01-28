@@ -94,7 +94,8 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Credit card details');
   });
-  test('SNPRF-4 Skip Card selection and proceed to responsible party page', async () => {
+  test('SNPRF-4 Fill credit card and proceed to responsible party page', async () => {
+    await paperwork.fillAndAddCreditCardIfDoesntExist();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
@@ -115,7 +116,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await expect(locator.flowHeading).toHaveText('Emergency Contact');
     await paperwork.fillEmergencyContactInformation();
     await commonLocatorsHelper.clickContinue();
-    const attorneyPageVisible = QuestionnaireHelper.attorneyPageIsVisible([
+    const attorneyPageVisible = QuestionnaireHelper.inPersonAttorneyPageIsVisible([
       {
         linkId: 'contact-information-page',
         item: [
@@ -147,7 +148,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
           },
         ];
         // Check if attorney page would be visible for this reason for visit
-        return !QuestionnaireHelper.attorneyPageIsVisible(responseItems);
+        return !QuestionnaireHelper.inPersonAttorneyPageIsVisible(responseItems);
       })(),
       'Attorney page not visible for this appointment type; skipping test.'
     );

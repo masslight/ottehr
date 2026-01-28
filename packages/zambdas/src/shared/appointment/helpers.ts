@@ -220,14 +220,12 @@ export function creatingPatientUpdateRequest(
     // Do not update weight last updated date
   }
 
+  const guardianWasProvided = 'authorizedNonLegalGuardians' in patient;
   const guardianExtIndex = patientExtension.findIndex(
     (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
   );
-
-  const guardianValue =
-    patient.authorizedNonLegalGuardians ??
-    maybeFhirPatient.extension?.find((ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)
-      ?.valueString;
+  const existingGuardianValue = patientExtension[guardianExtIndex]?.valueString;
+  const guardianValue = guardianWasProvided ? patient.authorizedNonLegalGuardians : existingGuardianValue;
 
   if (guardianValue) {
     const extensionValue = {
@@ -239,7 +237,8 @@ export function creatingPatientUpdateRequest(
     } else {
       patientExtension.push(extensionValue);
     }
-  } else if (guardianExtIndex >= 0) {
+  } else if (guardianExtIndex >= 0 && guardianWasProvided) {
+    // guardianWasProvided + falsy value = explicitly cleared by user
     patientExtension = [
       ...patientExtension.slice(0, guardianExtIndex),
       ...patientExtension.slice(guardianExtIndex + 1),
@@ -279,6 +278,8 @@ export function creatingPatientUpdateRequest(
   const fhirPatientPreferredName = maybeFhirPatient?.name?.find((name) => name.use === 'nickname');
   const fhirPatientPreferredNameIndex = maybeFhirPatient.name?.findIndex((name) => name.use === 'nickname');
 
+  const chosenNameWasProvided = 'chosenName' in patient;
+
   if (patient.chosenName) {
     if (fhirPatientPreferredName) {
       if (fhirPatientPreferredName.given?.[0] !== patient.chosenName) {
@@ -298,6 +299,17 @@ export function creatingPatientUpdateRequest(
         },
       });
     }
+  } else if (
+    chosenNameWasProvided &&
+    fhirPatientPreferredName &&
+    fhirPatientPreferredNameIndex !== undefined &&
+    fhirPatientPreferredNameIndex >= 0
+  ) {
+    // chosenNameWasProvided + falsy value = explicitly cleared by user
+    patientPatchOperations.push({
+      op: 'remove',
+      path: `/name/${fhirPatientPreferredNameIndex}`,
+    });
   }
 
   if (patient.sex !== maybeFhirPatient.gender) {

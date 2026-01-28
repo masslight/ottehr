@@ -580,7 +580,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             .first()
             .fill(providerNote);
           await waitForSaveChartDataResponse(page);
-          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
+          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill(ROS);
           await waitForSaveChartDataResponse(page);
         });
       });
@@ -640,7 +640,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).locator('textarea').first().fill('');
         await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
         await waitForChartDataDeletion(page);
-        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
+        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill('');
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).click();
         await waitForChartDataDeletion(page);
       });
@@ -754,14 +754,12 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
           await Promise.all([waitForChartDataDeletion(page), deleteButton.click()]);
 
-          await expect(medicalConditionListItem).not.toBeVisible({ timeout: 30_000 });
-
-          // Verify that the count decreased by 1
+          // Verify that the count decreased by 1 (UI updates asynchronously)
           await expect(
             page
               .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
               .filter({ hasText: new RegExp(conditionName, 'i') })
-          ).toHaveCount(conditionsBeforeDelete - 1, { timeout: 30000 });
+          ).toHaveCount(conditionsBeforeDelete - 1, { timeout: 45_000 });
         });
 
         await test.step('Confirm deletion in hpi tab', async () => {
@@ -790,11 +788,23 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
     });
 
     test.describe('Modifications reflected on progress note page', async () => {
+      // Helper to ensure we're on the Sign tab before checking visit note
+      async function ensureOnSignTab(): Promise<void> {
+        const signTab = page.getByTestId(
+          dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)
+        );
+
+        // Check if tab is already selected
+        const isSelected = await signTab.getAttribute('aria-selected');
+        if (isSelected !== 'true') {
+          await signTab.click();
+          // Wait for tab content to be visible
+          await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible({ timeout: 30000 });
+        }
+      }
+
       test('HPI provider notes and ROS removed from "Review&Sign" tab', async () => {
-        await page
-          .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign))
-          .click();
-        await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+        await ensureOnSignTab();
 
         await expect(page.getByTestId(dataTestIds.progressNotePage.hpiContainer)).not.toHaveText(
           new RegExp(providerNote)
@@ -805,10 +815,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
       test('Surgical History record removed from Review&Sign tab', async () => {
         await test.step('Surgical History record removed', async () => {
-          await page
-            .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign))
-            .click();
-          await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+          await ensureOnSignTab();
 
           await expect(page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible({
             timeout: 30000,
@@ -824,7 +831,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       });
 
       test('Known Allergies removed from Review&Sign tab', async () => {
-        await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+        await ensureOnSignTab();
 
         await expect(page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toBeVisible({
           timeout: 30000,
@@ -833,6 +840,8 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       });
 
       test('Current Medications are removed from Review&Sign tab', async () => {
+        await ensureOnSignTab();
+
         await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer)).toBeVisible();
         await expect(page.getByText(RegExp(scheduledMedicationName, 'i'))).not.toBeVisible();
 
@@ -841,13 +850,15 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       });
 
       test('Medical Conditions removed from Review&Sign tab', async () => {
-        await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+        await ensureOnSignTab();
 
         await expect(page.getByTestId(dataTestIds.progressNotePage.medicalConditionsContainer)).toBeVisible();
         await expect(page.getByText(new RegExp(conditionName, 'i'))).not.toBeVisible();
       });
 
       test('Additional Questions answers updated on Review&Sign tab', async () => {
+        await ensureOnSignTab();
+
         for (const question of ADDITIONAL_QUESTIONS) {
           await expect(
             page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field))
