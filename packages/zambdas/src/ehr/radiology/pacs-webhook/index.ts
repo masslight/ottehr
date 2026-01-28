@@ -4,7 +4,21 @@ import { Operation } from 'fast-json-patch';
 import { DiagnosticReport, Encounter, FhirResource, Patient, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
-import { getFullestAvailableName, getSecret, RADIOLOGY_TASK, Secrets, SecretsKeys } from 'utils';
+import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_BASE_URL,
+  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
+  createOurDiagnosticReport,
+  getFullestAvailableName,
+  getSecret,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  ORDER_TYPE_CODE_SYSTEM,
+  RADIOLOGY_TASK,
+  Secrets,
+  SecretsKeys,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -13,16 +27,6 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
-import {
-  ACCESSION_NUMBER_CODE_SYSTEM,
-  ADVAPACS_FHIR_BASE_URL,
-  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
-  ORDER_TYPE_CODE_SYSTEM,
-  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-} from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -524,52 +528,6 @@ const getOurServiceRequestByAccessionNumber = async (
   }
 
   return srResults[0];
-};
-
-const createOurDiagnosticReport = async (
-  serviceRequest: ServiceRequest,
-  pacsDiagnosticReport: DiagnosticReport,
-  oystehr: Oystehr
-): Promise<void> => {
-  const diagnosticReportToCreate: DiagnosticReport = {
-    resourceType: 'DiagnosticReport',
-    status: pacsDiagnosticReport.status,
-    subject: serviceRequest.subject,
-    basedOn: [
-      {
-        reference: `ServiceRequest/${serviceRequest.id}`,
-      },
-    ],
-    identifier: [
-      {
-        system: ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-        value: pacsDiagnosticReport.id,
-      },
-    ],
-    code: pacsDiagnosticReport.code ?? {
-      // Advapacs does not send a code even though it is required in the FHIR spec
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '18748-4',
-          display: 'Radiology Report',
-        },
-      ],
-    },
-    presentedForm: pacsDiagnosticReport.presentedForm,
-  };
-
-  if (pacsDiagnosticReport.status === 'preliminary') {
-    diagnosticReportToCreate.extension = [
-      {
-        url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-        valueDateTime: DateTime.now().toISO(),
-      },
-    ];
-  }
-
-  const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
-  console.log('Created our DiagnosticReport: ', JSON.stringify(createResult, null, 2));
 };
 
 const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string, secrets: Secrets): Promise<void> => {

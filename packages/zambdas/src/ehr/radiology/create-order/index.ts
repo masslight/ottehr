@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
+import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, HumanName, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
@@ -6,12 +6,27 @@ import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
 import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_BASE_URL,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
+  FILLER_ORDER_NUMBER_CODE_SYSTEM,
+  getAdvaPACSLocationForAppointmentOrEncounter,
+  getCallerUserWithAccessToken,
   getSecret,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
+  ORDER_TYPE_CODE_SYSTEM,
+  PLACER_ORDER_NUMBER_CODE_SYSTEM,
   Secrets,
   SecretsKeys,
-  userMe,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -21,22 +36,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import {
-  ACCESSION_NUMBER_CODE_SYSTEM,
-  ADVAPACS_FHIR_BASE_URL,
-  FILLER_ORDER_NUMBER_CODE_SYSTEM,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
-  ORDER_TYPE_CODE_SYSTEM,
-  PLACER_ORDER_NUMBER_CODE_SYSTEM,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-} from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -98,10 +97,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   }
 });
 
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  return userMe(token, secrets);
-};
-
 const performEffect = async (
   validatedInput: ValidatedInput,
   practitionerRelativeReference: string,
@@ -116,6 +111,12 @@ const performEffect = async (
     id: practitionerRelativeReference.split('/')[1],
   });
 
+  // Grab advapacs location id from schedule owner extension if any
+  const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
+    { encounterId: body.encounter.id },
+    oystehr
+  );
+
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
   if (!ourServiceRequest.id) {
@@ -126,7 +127,7 @@ const performEffect = async (
 
   // Send the order to AdvaPACS
   try {
-    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
+    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
   } catch (error) {
     captureException(error);
     console.error('Error sending order to AdvaPACS: ', error);
@@ -326,6 +327,7 @@ const writeOurProcedure = async (
 const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
   ourPractitioner: Practitioner,
+  advaPACSLocationId: string | undefined,
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -464,6 +466,15 @@ const writeAdvaPacsTransaction = async (
         ],
         authoredOn: ourServiceRequest.authoredOn,
         occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
+        location: advaPACSLocationId
+          ? [
+              {
+                reference: {
+                  reference: `Location/${advaPACSLocationId}`,
+                },
+              },
+            ]
+          : undefined,
       },
     };
 

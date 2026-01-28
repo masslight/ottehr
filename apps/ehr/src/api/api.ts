@@ -94,7 +94,11 @@ import {
   RecentPatientsReportZambdaOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
+  SavePreliminaryReportZambdaInput,
+  SavePreliminaryReportZambdaOutput,
   ScheduleDTO,
+  SendForFinalReadZambdaInput,
+  SendForFinalReadZambdaOutput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -942,6 +946,38 @@ export const radiologyLaunchViewer = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-launch-viewer',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const savePreliminaryReport = async (
+  oystehr: Oystehr,
+  parameters: SavePreliminaryReportZambdaInput
+): Promise<SavePreliminaryReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-save-preliminary-report',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const sendForFinalRead = async (
+  oystehr: Oystehr,
+  parameters: SendForFinalReadZambdaInput
+): Promise<SendForFinalReadZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-send-for-final-read',
       ...parameters,
     });
     return chooseJson(response);

@@ -194,7 +194,7 @@ function composeDataForDischargeSummaryPdf(
   // --- Radiology ---
   const radiology = radiologyData?.orders.map((order) => ({
     name: order.studyType,
-    result: order.result,
+    result: order.finalReport ?? order.preliminaryReport,
   }));
 
   // --- In-House Medications ---

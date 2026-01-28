@@ -2,8 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_BASE_URL,
   CancelRadiologyOrderZambdaInput,
   createCancellationTagOperations,
+  fetchServiceRequestFromAdvaPACS,
   getSecret,
   Secrets,
   SecretsKeys,
@@ -15,7 +18,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_BASE_URL } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -108,43 +110,8 @@ const updateServiceRequestToRevokedInAdvaPacs = async (
       throw new Error('No accession number found in oystehr service request, cannot update AdvaPACS.');
     }
 
-    // Advapacs doesn't support PATCH or optimistic locking right now so the best we can do is GET the latest, and PUT back with the status changed.
-    // First, search up the SR in AdvaPACS by the accession number
-    const findServiceRequestResponse = await fetch(
-      `${ADVAPACS_FHIR_BASE_URL}/ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}%7C${accessionNumber}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/fhir+json',
-          Authorization: advapacsAuthString,
-        },
-      }
-    );
-
-    if (!findServiceRequestResponse.ok) {
-      throw new Error(
-        `advapacs search errored out with statusCode ${findServiceRequestResponse.status}, status text ${
-          findServiceRequestResponse.statusText
-        }, and body ${JSON.stringify(await findServiceRequestResponse.json(), null, 2)}`
-      );
-    }
-
-    const maybeAdvaPACSSr = await findServiceRequestResponse.json();
-
-    if (maybeAdvaPACSSr.resourceType !== 'Bundle') {
-      throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSr.resourceType}`);
-    }
-
-    if (maybeAdvaPACSSr.entry.length === 0) {
-      throw new Error(`No service request found in AdvaPACS for accession number ${accessionNumber}`);
-    }
-    if (maybeAdvaPACSSr.entry.length > 1) {
-      throw new Error(
-        `Found multiple service requests in AdvaPACS for accession number ${accessionNumber}, cannot update.`
-      );
-    }
-
-    const advapacsSR = maybeAdvaPACSSr.entry[0].resource as ServiceRequest;
+    // Use the shared function to fetch the ServiceRequest from AdvaPACS
+    const advapacsSR = await fetchServiceRequestFromAdvaPACS(accessionNumber, secrets);
 
     // Update the AdvaPACS SR now that we have its latest data.
     const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {

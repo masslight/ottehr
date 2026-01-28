@@ -38,6 +38,7 @@ export enum RadiologyOrderStatus {
   pending = 'pending',
   performed = 'performed',
   preliminary = 'preliminary',
+  pendingFinal = 'pending final',
   final = 'final',
   reviewed = 'reviewed',
 }
@@ -51,7 +52,8 @@ export interface GetRadiologyOrderListZambdaOrder {
   diagnosis: string;
   status: RadiologyOrderStatus;
   isStat: boolean;
-  result?: string;
+  preliminaryReport?: string;
+  finalReport?: string;
   clinicalHistory?: string;
   history?: RadiologyOrderHistoryRow[];
   task?: Task;
@@ -67,3 +69,16 @@ export interface GetRadiologyOrderListZambdaOutput {
   orders: GetRadiologyOrderListZambdaOrder[];
   pagination: Pagination;
 }
+
+export interface SavePreliminaryReportZambdaInput {
+  serviceRequestId: string;
+  preliminaryReport: string;
+}
+
+export type SavePreliminaryReportZambdaOutput = Record<string, never>;
+
+export interface SendForFinalReadZambdaInput {
+  serviceRequestId: string;
+}
+
+export type SendForFinalReadZambdaOutput = Record<string, never>;

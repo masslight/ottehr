@@ -1,6 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
-import { getSecret, RadiologyLaunchViewerZambdaOutput, Secrets, SecretsKeys } from 'utils';
+import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_VIEWER_LAUNCH_URL,
+  getSecret,
+  RadiologyLaunchViewerZambdaOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -8,7 +15,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_VIEWER_LAUNCH_URL } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

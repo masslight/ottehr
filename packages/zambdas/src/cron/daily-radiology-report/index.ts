@@ -1,11 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, SecretsKeys } from 'utils';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  getSecret,
   ORDER_TYPE_CODE_SYSTEM,
-} from '../../ehr/radiology/shared';
+  SecretsKeys,
+} from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
 interface RadiologyStudyReportItem {
