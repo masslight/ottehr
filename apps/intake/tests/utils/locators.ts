@@ -61,8 +61,6 @@ export class Locators {
   responsiblePartyFirstName: Locator;
   responsiblePartyLastName: Locator;
   responsiblePartyBirthSex: Locator;
-  hipaaAcknowledgement: Locator;
-  consentToTreat: Locator;
   signature: Locator;
   consentFullName: Locator;
   consentSignerRelationship: Locator;
@@ -453,10 +451,6 @@ export class Locators {
     this.calendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators
-    this.hipaaAcknowledgement = page.getByLabel('I have reviewed and accept HIPAA Acknowledgement *');
-    this.consentToTreat = page.getByLabel(
-      'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement *'
-    );
     this.signature = page.locator('[id="signature"]');
     this.consentFullName = page.locator('[id="full-name"]');
     this.consentSignerRelationship = page.locator('[id="consent-form-signer-relationship"]');
@@ -588,6 +582,21 @@ export class Locators {
 
   private getInputByValue(value: string): Locator {
     return this.page.locator(`input[value='${value}']`);
+  }
+
+  getConsentFormCheckbox(formId: string): Locator {
+    const form = CONSENT_FORMS_CONFIG.forms.find((f) => f.id === formId);
+    if (!form) {
+      throw new Error(`Consent form with id '${formId}' not found in configuration`);
+    }
+    return this.page.getByLabel(`I have reviewed and accept ${form.formTitle} *`);
+  }
+
+  getAllConsentFormCheckboxes(): { id: string; locator: Locator }[] {
+    return CONSENT_FORMS_CONFIG.forms.map((form) => ({
+      id: form.id,
+      locator: this.page.getByLabel(`I have reviewed and accept ${form.formTitle} *`),
+    }));
   }
 
   async waitUntilLoadingIsFinished(): Promise<void> {

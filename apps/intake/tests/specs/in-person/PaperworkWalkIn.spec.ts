@@ -94,7 +94,8 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Credit card details');
   });
-  test('SNPRF-4 Skip Card selection and proceed to responsible party page', async () => {
+  test('SNPRF-4 Fill credit card and proceed to responsible party page', async () => {
+    await paperwork.fillAndAddCreditCardIfDoesntExist();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
