@@ -1268,8 +1268,13 @@ export class Paperwork {
     const relationshipConsentForms = this.getRandomElement(this.relationshipConsentForms);
     const signature = 'Test signature';
     const consentFullName = 'Test consent full name';
-    await this.locator.hipaaAcknowledgement.check();
-    await this.locator.consentToTreat.check();
+
+    // Dynamically check all consent form checkboxes based on configuration
+    const consentFormCheckboxes = this.locator.getAllConsentFormCheckboxes();
+    for (const { locator } of consentFormCheckboxes) {
+      await locator.check();
+    }
+
     await this.locator.signature.click();
     await this.locator.signature.fill(signature);
     await this.locator.consentFullName.click();

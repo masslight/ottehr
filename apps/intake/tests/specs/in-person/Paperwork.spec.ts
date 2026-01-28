@@ -645,8 +645,10 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
     await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
       await locator.clickBackButton();
-      await expect(locator.hipaaAcknowledgement).toBeChecked();
-      await expect(locator.consentToTreat).toBeChecked();
+      // Validate all configured consent form checkboxes are checked
+      for (const { locator: checkboxLocator } of locator.getAllConsentFormCheckboxes()) {
+        await expect(checkboxLocator).toBeChecked();
+      }
       await expect(locator.signature).toHaveValue(consentFormsData.signature);
       await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
       await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
