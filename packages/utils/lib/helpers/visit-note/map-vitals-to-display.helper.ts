@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { vitalsConfig } from '../../ottehr-config';
 import {
   VitalFieldNames,
@@ -90,11 +91,10 @@ export const mapVitalsToDisplay = (
         break;
       case VitalFieldNames.VitalLastMenstrualPeriod: {
         parsed = observation as VitalsLastMenstrualPeriodObservationDTO;
-        if (parsed.isUnsure) {
-          text = 'Unsure';
-        } else if (parsed.value) {
-          const date = formatDateTimeToZone(parsed.value, timezone ?? 'America/New_York');
-          text = date ? date.split(' ')[0] : parsed.value;
+        if (parsed.value) {
+          const date = DateTime.fromISO(parsed.value);
+          const formattedDate = date.isValid ? date.toFormat('MM/dd/yyyy') : parsed.value;
+          text = `${formattedDate}${parsed.isUnsure ? ' (unsure)' : ''}`;
         }
         break;
       }

@@ -4,6 +4,7 @@ import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
+import { AutocompleteHelpers } from '../playwright-helpers';
 import { BaseTelemedFlow, FilledPaperworkInput, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class WalkInTelemedFlow extends BaseTelemedFlow {
@@ -91,14 +92,15 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
       await this.fillingInfo.selectFirstServiceCategory();
     }
 
-    await this.page.getByPlaceholder('Search or select').click();
-    const locationOption = this.page
-      .locator('[role="option"]')
-      .getByText(LOCATION_CONFIG.telemedLocations[0].name, { exact: true });
-    const location = await locationOption.textContent();
-    await locationOption.click();
+    // Select location by name from config - pagination in zambda ensures it's in the list
+    await AutocompleteHelpers.selectOptionByText(
+      this.page,
+      dataTestIds.scheduleVirtualVisitStatesSelector,
+      LOCATION_CONFIG.telemedLocations[0].name
+    );
+
     await this.continue();
 
-    return { location: location?.split('Working hours')[0] ?? null };
+    return { location: LOCATION_CONFIG.telemedLocations[0].name };
   }
 }

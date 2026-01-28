@@ -324,15 +324,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Credit card details');
-    if (requiredOnly) {
-      // test skipping credit card is fine when no insurance submitted
-      await this.locator.clickContinueButton();
-      await this.checkCorrectPageOpens('Responsible party information');
-      await this.locator.clickBackButton();
-    }
-    if (payment === 'card') {
-      await this.fillAndAddCreditCardIfDoesntExist();
-    }
+    await this.fillAndAddCreditCardIfDoesntExist();
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Responsible party information');
@@ -400,13 +392,19 @@ export class Paperwork {
         })()
       : null;
     await this.checkCorrectPageOpens('Photo ID');
-    if (QuestionnaireHelper.inPersonIsPhotoIdFrontRequired() || !requiredOnly) {
+    const uploadedFront = QuestionnaireHelper.inPersonIsPhotoIdFrontRequired() || !requiredOnly;
+    const uploadedBack = QuestionnaireHelper.inPersonIsPhotoIdBackRequired() || !requiredOnly;
+    if (uploadedFront) {
       await this.uploadPhoto.fillPhotoFrontID();
     }
-    if (QuestionnaireHelper.inPersonIsPhotoIdBackRequired() || !requiredOnly) {
+    if (uploadedBack) {
       await this.uploadPhoto.fillPhotoBackID();
-      // Wait for both files to be fully uploaded and saved before continuing
+    }
+    // Wait for all files to be fully uploaded and saved before continuing
+    if (uploadedFront && uploadedBack) {
       await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(2, { timeout: 60000 });
+    } else if (uploadedFront || uploadedBack) {
+      await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(1, { timeout: 60000 });
     }
     await this.locator.clickContinueButton();
 
@@ -655,8 +653,16 @@ export class Paperwork {
     const state = this.getRandomState();
     await this.locator.patientState.click();
     await this.locator.patientState.fill(state);
-    await this.page.getByRole('option', { name: state }).click();
+
+    // Wait for dropdown to be visible with options
+    const option = this.page.getByRole('option', { name: state });
+    await expect(option).toBeVisible({ timeout: 10000 });
+    await option.click();
+
+    // Ensure value is set and stable
     await expect(this.locator.patientState).toHaveValue(state);
+    await this.page.waitForTimeout(500); // Small delay to ensure state is stable after React updates
+    await expect(this.locator.patientState).toHaveValue(state); // Verify again after delay
     return state;
   }
   async fillPatientZip(): Promise<void> {
@@ -1270,8 +1276,13 @@ export class Paperwork {
     const relationshipConsentForms = this.getRandomElement(this.relationshipConsentForms);
     const signature = 'Test signature';
     const consentFullName = 'Test consent full name';
-    await this.locator.hipaaAcknowledgement.check();
-    await this.locator.consentToTreat.check();
+
+    // Dynamically check all consent form checkboxes based on configuration
+    const consentFormCheckboxes = this.locator.getAllConsentFormCheckboxes();
+    for (const { locator } of consentFormCheckboxes) {
+      await locator.check();
+    }
+
     await this.locator.signature.click();
     await this.locator.signature.fill(signature);
     await this.locator.consentFullName.click();
@@ -1308,5 +1319,39 @@ export class Paperwork {
         throw new Error(`Test failed: Missing ${type} option: '${option}'`);
       }
     }
+  }
+
+  /**
+   * Checks if a paperwork page chip should be 'completed' or 'uncompleted' based on questionnaire configuration.
+   * This helper automatically determines the expected status by checking if the page has required fields:
+   * - If the page has required fields → expects 'uncompleted' when not filled
+   * - If the page has only optional fields → expects 'completed' even when not filled
+   *
+   * This is useful for testing pages where field requirements may vary based on configuration,
+   * such as Photo ID which may be optional for telemed but required for in-person visits.
+   *
+   * @param chipStatusLocator - The locator for the chip status element (e.g., locator.photoIdChipStatus)
+   * @param pageLinkId - The linkId of the page in the questionnaire (e.g., 'photo-id-page')
+   * @param isTelemed - Whether this is a telemed/virtual visit (default: false for in-person)
+   *
+   * @example
+   * // For telemed visit
+   * await paperwork.expectChipStatusBasedOnConfig(locator.photoIdChipStatus, 'photo-id-page', true);
+   *
+   * @example
+   * // For in-person visit
+   * await paperwork.expectChipStatusBasedOnConfig(locator.photoIdChipStatus, 'photo-id-page', false);
+   */
+  async expectChipStatusBasedOnConfig(
+    chipStatusLocator: Locator,
+    pageLinkId: string,
+    isTelemed: boolean = false
+  ): Promise<void> {
+    const hasRequiredFields = isTelemed
+      ? QuestionnaireHelper.virtualPageHasRequiredFields(pageLinkId)
+      : QuestionnaireHelper.inPersonPageHasRequiredFields(pageLinkId);
+
+    const expectedStatus = hasRequiredFields ? 'uncompleted' : 'completed';
+    await expect(chipStatusLocator).toHaveAttribute('data-testid', expectedStatus);
   }
 }

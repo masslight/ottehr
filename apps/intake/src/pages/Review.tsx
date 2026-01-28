@@ -1,6 +1,5 @@
 import { EditOutlined } from '@mui/icons-material';
 import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
-import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +9,7 @@ import {
   APIError,
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
   mapBookingQRItemToPatientInfo,
+  normalizeFormDataToQRItems,
   PatientInfo,
   ServiceMode,
   VisitType,
@@ -69,10 +69,8 @@ const Review = (): JSX.Element => {
     const storedData = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
     if (!storedData) return undefined;
     try {
-      const storedItems = Object.entries(JSON.parse(storedData)).map(([key, value]) => ({
-        linkId: key,
-        item: Object.values(value as Record<string, unknown>),
-      })) as QuestionnaireResponseItem[];
+      const parsedData = JSON.parse(storedData) as Record<string, Record<string, unknown>>;
+      const storedItems = Object.values(parsedData).flatMap((pageData) => normalizeFormDataToQRItems(pageData));
       return mapBookingQRItemToPatientInfo(storedItems);
     } catch (error) {
       console.error('Error parsing stored patient information:', error);
