@@ -36,6 +36,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   AllChartValues,
+  APIErrorCode,
   ChartDataRequestedFields,
   GetChartDataResponse,
   isLocationVirtual,
@@ -616,13 +617,15 @@ export const useDeleteChartData = (): UseMutationResult<
       }
       throw new Error('api client not defined or encounterId not provided');
     },
-    onError: async () => {
-      // Usually this happens due to an attempt to delete an already deleted resource. Thus full state refresh is required.
-      resetExamObservationsStore();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
-        queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
-      ]);
+    onError: async (error) => {
+      if ((error as any).code === APIErrorCode.FHIR_RESOURCE_IS_GONE) {
+        // Usually this happens due to an attempt to delete an already deleted resource. Thus full state refresh is required.
+        resetExamObservationsStore();
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
+          queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+        ]);
+      }
     },
     retry: 2,
   });
