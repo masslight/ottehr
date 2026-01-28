@@ -87,6 +87,7 @@ import {
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
+import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
@@ -462,6 +463,7 @@ export function makeCPTCodeDTO(resource: Procedure): CPTCodeDTO | undefined {
       resourceId: resource.id,
       code: coding?.code,
       display: coding?.display,
+      modifier: getCptModifierCodeFromProcedure(resource),
     };
   }
   return undefined;

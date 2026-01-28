@@ -274,7 +274,8 @@ export const BillingCodesContainer: FC = () => {
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
               <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>
-                {value.code} {value.display}
+                {value.code}
+                {value.modifier ? `-${value.modifier}` : ''} {value.display}
               </Typography>
             )}
             renderActions={

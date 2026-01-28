@@ -111,7 +111,9 @@
               ],
               "text": "Flu B"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-FluB-valid-valueSet"
@@ -201,7 +203,9 @@
               ],
               "text": "Glucose"
             },
-            "permittedDataType": ["Quantity"],
+            "permittedDataType": [
+              "Quantity"
+            ],
             "quantitativeDetails": {
               "unit": {
                 "coding": [
@@ -365,7 +369,9 @@
               ],
               "text": "Flu-Vid"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Flu-Vid-valid-valueSet"
@@ -513,7 +519,9 @@
               ],
               "text": "Rapid Strep A"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidStrepA-valid-valueSet"
@@ -666,7 +674,9 @@
               ],
               "text": "Rapid Influenza B"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidInfluenzaB-valid-valueSet"
@@ -882,7 +892,9 @@
               ],
               "text": "Glucose"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Glucose-valid-valueSet"
@@ -998,7 +1010,9 @@
               ],
               "text": "Bilirubin"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Bilirubin-valid-valueSet"
@@ -1112,7 +1126,9 @@
               ],
               "text": "Ketone"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Ketone-valid-valueSet"
@@ -1154,7 +1170,9 @@
               ],
               "text": "Specific gravity"
             },
-            "permittedDataType": ["Quantity"],
+            "permittedDataType": [
+              "Quantity"
+            ],
             "quantitativeDetails": {
               "decimalPrecision": 3
             },
@@ -1272,7 +1290,9 @@
               ],
               "text": "Blood"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Blood-valid-valueSet"
@@ -1304,7 +1324,9 @@
               ],
               "text": "pH"
             },
-            "permittedDataType": ["Quantity"],
+            "permittedDataType": [
+              "Quantity"
+            ],
             "quantitativeDetails": {
               "decimalPrecision": 1
             },
@@ -1430,7 +1452,9 @@
               ],
               "text": "Protein"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Protein-valid-valueSet"
@@ -1472,7 +1496,9 @@
               ],
               "text": "Urobilinogen"
             },
-            "permittedDataType": ["Quantity"],
+            "permittedDataType": [
+              "Quantity"
+            ],
             "quantitativeDetails": {
               "decimalPrecision": 1,
               "unit": {
@@ -1574,7 +1600,9 @@
               ],
               "text": "Nitrite"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Nitrite-valid-valueSet"
@@ -1688,7 +1716,9 @@
               ],
               "text": "Leukocytes"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Leukocytes-valid-valueSet"
@@ -1835,7 +1865,9 @@
               ],
               "text": "Urine Pregnancy Test (HCG)"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-UrinePregnancyTestHCG-valid-valueSet"
@@ -1988,7 +2020,9 @@
               ],
               "text": "Rapid RSV"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidRSV-valid-valueSet"
@@ -2136,7 +2170,9 @@
               ],
               "text": "ID Now Strep"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-IDNowStrep-valid-valueSet"
@@ -2284,7 +2320,9 @@
               ],
               "text": "COVID-19 Antigen"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-COVID-19Antigen-valid-valueSet"
@@ -2432,7 +2470,9 @@
               ],
               "text": "Flu A"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-FluA-valid-valueSet"
@@ -2580,7 +2620,9 @@
               ],
               "text": "Monospot test"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Monospottest-valid-valueSet"
@@ -2733,7 +2775,9 @@
               ],
               "text": "Rapid COVID-19 Antigen"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidCOVID-19Antigen-valid-valueSet"
@@ -2881,7 +2925,9 @@
               ],
               "text": "Stool Guaiac"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-StoolGuaiac-valid-valueSet"
@@ -3039,7 +3085,9 @@
               ],
               "text": "RSV"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RSV-valid-valueSet"
@@ -3192,7 +3240,9 @@
               ],
               "text": "Rapid Influenza A"
             },
-            "permittedDataType": ["CodeableConcept"],
+            "permittedDataType": [
+              "CodeableConcept"
+            ],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidInfluenzaA-valid-valueSet"
@@ -3291,7 +3341,9 @@
               ],
               "text": "Left Eye"
             },
-            "permittedDataType": ["string"],
+            "permittedDataType": [
+              "string"
+            ],
             "extension": [
               {
                 "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
@@ -3319,7 +3371,9 @@
               ],
               "text": "Right Eye"
             },
-            "permittedDataType": ["string"],
+            "permittedDataType": [
+              "string"
+            ],
             "extension": [
               {
                 "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
@@ -3473,7 +3527,7 @@
         }
       }
     },
-    "activity-definition-alcohol-confirmation-test-1_0_0": {
+    "activity-definition-alcohol-confirmation-test-1_0_1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -3485,8 +3539,22 @@
               "code": "Alcohol Confirmation Test"
             },
             {
-              "system": "http://www.ama-assn.org/go/cpt",
-              "code": "82075C"
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "82075",
+            "extension": [
+                {
+                  "url": "https://fhir.ottehr.com/Extension/cpt-code-modifier",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "https://fhir.ottehr.com/CodeSystem/cpt-code-modifier",
+                        "code": "91",
+                        "display": "Repeat Clinical Diagnostic Laboratory Test"
+                      }
+                    ]
+                  }
+                }
+              ]
             }
           ]
         },
@@ -3567,7 +3635,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "meta": {
           "tag": [
             {
@@ -3580,4 +3648,3 @@
     }
   }
 }
-
