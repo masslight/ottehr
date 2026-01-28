@@ -64,7 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
       console.log('Stripe and candid ids retrieved');
 
-      const locationName = location.name;
+      const locationName = location?.name;
       const visitDateObj = DateTime.fromISO(appointment.start ?? '');
       const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
       const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
@@ -204,7 +204,13 @@ async function createInvoice(
 async function getFhirResources(
   oystehr: Oystehr,
   encounterId: string
-): Promise<{ patient: Patient; encounter: Encounter; account: Account; appointment: Appointment; location: Location }> {
+): Promise<{
+  patient: Patient;
+  encounter: Encounter;
+  account: Account;
+  appointment: Appointment;
+  location?: Location;
+}> {
   const response = (
     await oystehr.fhir.search({
       resourceType: 'Encounter',
@@ -255,15 +261,17 @@ async function getFhirResources(
   const locationId = appointment.participant
     ?.find((p) => p.actor?.reference?.startsWith('Location/'))
     ?.actor?.reference?.split('/')[1];
-  if (!locationId) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Appointment doesn't have location id");
-  const location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
-  if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
+  let location: Location | undefined;
+  if (locationId) {
+    location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
+    if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
+  } else console.log("Appointment doesn't have location id");
 
   console.log('Fhir encounter found: ', encounter.id);
   console.log('Fhir patient found: ', patient.id);
   console.log('Fhir account found', account?.id);
   console.log('Fhir appointment found: ', appointment.id);
-  console.log('Fhir location found: ', location.id);
+  console.log('Fhir location found: ', location?.id);
 
   return {
     encounter,
