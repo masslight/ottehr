@@ -11,6 +11,7 @@ import {
   formatDateToMDYWithTime,
   getExtension,
   getSecret,
+  LOCATION_CONFIG,
   OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
@@ -225,7 +226,7 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
 
   return {
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
-    userTimezone: getExtension(task, USER_TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York',
+    userTimezone: getExtension(task, USER_TIMEZONE_EXTENSION_URL)?.valueString ?? LOCATION_CONFIG.defaultTimezone,
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
 }

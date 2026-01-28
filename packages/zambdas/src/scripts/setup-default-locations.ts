@@ -23,16 +23,18 @@ import { createOystehrClient, getAuth0Token } from '../shared';
 
 export const virtualDefaultLocations: { state: string }[] = [...TELEMED_INITIAL_STATES.map((state) => ({ state }))];
 
-export const allPhysicalDefaultLocations: { state: string; city: string; name: string }[] = [
+export const allPhysicalDefaultLocations: { state: string; city: string; name: string; timezone?: string }[] = [
   {
     state: 'NY',
     city: 'New York',
     name: 'New York',
+    timezone: 'America/New_York',
   },
   {
     state: 'CA',
     city: 'Los Angeles',
     name: 'Los Angeles',
+    timezone: 'America/Los_Angeles',
   },
 ];
 
@@ -84,7 +86,7 @@ const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr:
       },
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: LOCATION_CONFIG.defaultTimezone,
+        valueString: locationData.timezone ?? LOCATION_CONFIG.defaultTimezone,
       },
     ],
     identifier: [
@@ -118,7 +120,7 @@ const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr:
       },
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: LOCATION_CONFIG.defaultTimezone,
+        valueString: locationData.timezone ?? LOCATION_CONFIG.defaultTimezone,
       },
     ],
     actor: [
@@ -178,7 +180,7 @@ const createPhysicalLocation = async (
     newLocation.extension = [
       {
         url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
+        valueString: locationInfo.timezone ?? LOCATION_CONFIG.defaultTimezone,
       },
       ...Array.from({ length: 11 }, (_, i) => ({
         url: ROOM_EXTENSION_URL,
@@ -208,7 +210,7 @@ const createPhysicalLocation = async (
         },
         {
           url: TIMEZONE_EXTENSION_URL,
-          valueString: 'America/New_York',
+          valueString: locationInfo.timezone ?? LOCATION_CONFIG.defaultTimezone,
         },
       ],
       actor: [

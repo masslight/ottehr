@@ -258,7 +258,7 @@ function composeDataForDischargeSummaryPdf(
     ? parseParticipantInfo(attenderPractitioner)
     : {};
   const { date: dischargedDate, time: dischargeTime } =
-    formatDateToMDYWithTime(attenderParticipant?.period?.end, timezone ?? 'America/New_York') ?? {};
+    formatDateToMDYWithTime(attenderParticipant?.period?.end, timezone ?? LOCATION_CONFIG.defaultTimezone) ?? {};
   const dischargeDateTime = dischargedDate && dischargeTime ? `${dischargedDate} at ${dischargeTime}` : undefined;
 
   return {
