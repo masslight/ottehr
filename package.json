@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.26.11",
+  "version": "1.26.12",
   "private": true,
   "engines": {
     "node": ">=22.0.0",
