@@ -68,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const visitDateObj = DateTime.fromISO(appointment.start ?? '');
       const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
       const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
-      if (!locationName || !visitDate) throw new Error('visit date or location name are missing required fields');
+      if (!visitDate) throw new Error('visit date is missing required field');
 
       console.log('Creating invoice and invoice item');
       const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
@@ -111,6 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         dueDate,
         amount: `${amountCents / 100}`,
         invoiceLink: invoiceUrl,
+        patientPortalUrl,
       });
 
       console.log('Sending sms to patient');
@@ -352,7 +353,7 @@ async function sendInvoiceSmsToPatient(
 
 interface MessagePlaceholders {
   patientFullName: string;
-  location: string;
+  location?: string;
   visitDate: string;
   dueDate: string;
   amount?: string;
