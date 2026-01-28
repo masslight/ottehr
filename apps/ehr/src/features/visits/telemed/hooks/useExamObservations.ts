@@ -203,7 +203,7 @@ export function useExamObservations(param?: string | string[]): {
       return;
     }
 
-    const { prevState, prevValues } = getPrevStateAndValues(param);
+    const { prevState } = getPrevStateAndValues(param);
 
     useExamObservationsStore.setState(() => {
       // If param is an array, convert to object
@@ -240,20 +240,13 @@ export function useExamObservations(param?: string | string[]): {
       return;
     }
 
-    deleteChartData(
-      {
-        examObservations: Array.isArray(param)
-          ? param
-          : Object.prototype.hasOwnProperty.call(param, 'field')
-          ? [param as ExamObservationDTO]
-          : objectToArray(param as ExamRecord),
-      },
-      {
-        onError: () => {
-          useExamObservationsStore.setState(prevValues);
-        },
-      }
-    );
+    deleteChartData({
+      examObservations: Array.isArray(param)
+        ? param
+        : Object.prototype.hasOwnProperty.call(param, 'field')
+        ? [param as ExamObservationDTO]
+        : objectToArray(param as ExamRecord),
+    });
   };
 
   return {
