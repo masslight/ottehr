@@ -47,7 +47,8 @@ export class CreateRadiologyOrderPage {
   }
 
   async selectDiagnosis(diagnosis: string): Promise<void> {
-    const diagnosisField = this.#page.getByLabel('Diagnosis');
+    // Use role='combobox' to specifically target the input field, avoiding strict mode violation
+    const diagnosisField = this.#page.getByRole('combobox', { name: 'Diagnosis' });
 
     // Check if diagnosis is already selected (it might be auto-filled from Assessment)
     const currentValue = await diagnosisField.inputValue();
