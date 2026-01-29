@@ -111,14 +111,10 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     async ({ page }) => {
       const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
       const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-      await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+      await primaryInsuranceCard.verifyAllFieldsAreVisible();
       await primaryInsuranceCard.verifyInsuranceType('Primary');
       await primaryInsuranceCard.verifyInsuranceCarrier(primaryInsuranceCarrier);
       await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].memberId.key, PATIENT_INSURANCE_MEMBER_ID);
-      await primaryInsuranceCard.clickShowMoreButton();
-      await primaryInsuranceCard.verifyAdditionalFieldsAreVisible();
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
       await primaryInsuranceCard.verifyTextField(
         insuranceSection.items[0].firstName.key,
         PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME
@@ -161,23 +157,15 @@ test.describe('Insurance Information Section non-mutating tests', () => {
         PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
       );
       await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].additionalInformation.key, '');
-      await primaryInsuranceCard.clickShowMoreButton();
-      await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
 
       const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-      await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await secondaryInsuranceCard.verifyAllFieldsAreVisible();
       await secondaryInsuranceCard.verifyInsuranceType('Secondary');
       await secondaryInsuranceCard.verifyInsuranceCarrier(secondaryInsuranceCarrier);
       await secondaryInsuranceCard.verifyTextField(
         insuranceSection.items[1].memberId.key,
         PATIENT_INSURANCE_MEMBER_ID_2
       );
-      await secondaryInsuranceCard.clickShowMoreButton();
-      await secondaryInsuranceCard.verifyAdditionalFieldsAreVisible();
-      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
       await secondaryInsuranceCard.verifyTextField(
         insuranceSection.items[1].firstName.key,
         PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME
@@ -223,9 +211,6 @@ test.describe('Insurance Information Section non-mutating tests', () => {
         PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
       );
       await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
-      await secondaryInsuranceCard.clickShowMoreButton();
-      await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
     }
   );
 
@@ -234,7 +219,6 @@ test.describe('Insurance Information Section non-mutating tests', () => {
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.clearField(insuranceSection.items[0].memberId.key);
     await primaryInsuranceCard.clearField(insuranceSection.items[0].firstName.key);
     await primaryInsuranceCard.clearField(insuranceSection.items[0].lastName.key);
@@ -243,7 +227,6 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await primaryInsuranceCard.clearField(insuranceSection.items[0].city.key);
     await primaryInsuranceCard.clearField(insuranceSection.items[0].zip.key);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clearField(insuranceSection.items[1].memberId.key);
     await secondaryInsuranceCard.clearField(insuranceSection.items[1].firstName.key);
     await secondaryInsuranceCard.clearField(insuranceSection.items[1].lastName.key);
@@ -294,7 +277,6 @@ test.describe('Insurance Information Section mutating tests', () => {
   test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, '11');
     await patientInformationPage.clickSaveChangesButton();
     await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
@@ -303,7 +285,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
 
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].zip.key, '11');
     await patientInformationPage.clickSaveChangesButton();
     await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
@@ -315,7 +296,6 @@ test.describe('Insurance Information Section mutating tests', () => {
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
     await primaryInsuranceCard.selectFieldOption(
       insuranceSection.items[0].insurancePlanType.key,
@@ -372,7 +352,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     );
 
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
     await secondaryInsuranceCard.selectFieldOption(
       insuranceSection.items[1].insurancePlanType.key,
@@ -435,8 +414,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
 
     await primaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
     await primaryInsuranceCard.verifyTextField(
@@ -568,9 +545,6 @@ test.describe('Insurance Information Section mutating tests', () => {
       PATIENT_INSURANCE_PLAN_TYPE_2
     );
 
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
-
     await primaryInsuranceCard.enterTextField(insuranceSection.items[0].additionalInformation.key, 'Primary test info');
     await secondaryInsuranceCard.enterTextField(
       insuranceSection.items[1].additionalInformation.key,
@@ -586,9 +560,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     await patientInformationPage.reloadPatientInformationPage();
     await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
-
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
 
     await primaryInsuranceCard.verifyTextField(
       insuranceSection.items[0].additionalInformation.key,
@@ -606,8 +577,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 
     await patientInformationPage.reloadPatientInformationPage();
-    await primaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.clickShowMoreButton();
 
     await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].additionalInformation.key, '');
     await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
@@ -619,7 +588,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyAddInsuranceButtonIsHidden();
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
     const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
@@ -631,7 +599,6 @@ test.describe('Insurance Information Section mutating tests', () => {
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
     const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
