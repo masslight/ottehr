@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DocumentReference, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, DocumentReference, Encounter, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DYMO_30334_LABEL_CONFIG,
@@ -8,6 +8,7 @@ import {
   getPatientLastName,
   getPresignedURL,
   getSecret,
+  getTimezone,
   MIME_TYPES,
   SecretsKeys,
 } from 'utils';
@@ -53,7 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // we should create the pdf. Need patient & appointment info
       console.log(`No docRefs found for Encounter/${encounterId}. Making new label`);
       const resources = (
-        await oystehr.fhir.search<Encounter | Patient | Appointment>({
+        await oystehr.fhir.search<Encounter | Patient | Appointment | Slot | Schedule>({
           resourceType: 'Encounter',
           params: [
             {
@@ -68,15 +69,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               name: '_include',
               value: 'Encounter:appointment',
             },
+            {
+              name: '_include:iterate',
+              value: 'Appointment:slot',
+            },
+            {
+              name: '_include:iterate',
+              value: 'Slot:schedule',
+            },
           ],
         })
       ).unbundle();
 
-      const patients: Patient[] = resources.filter(
-        (resource): resource is Patient => resource.resourceType === 'Patient'
-      );
-      const appointments: Appointment[] = resources.filter(
-        (resource): resource is Appointment => resource.resourceType === 'Appointment'
+      const { patients, appointments, schedules } = resources.reduce(
+        (acc, res) => {
+          if (res.resourceType === 'Patient') acc.patients.push(res);
+          if (res.resourceType === 'Appointment') acc.appointments.push(res);
+          if (res.resourceType === 'Schedule') acc.schedules.push(res);
+          return acc;
+        },
+        { patients: [], appointments: [], schedules: [] } as {
+          patients: Patient[];
+          appointments: Appointment[];
+          schedules: Schedule[];
+        }
       );
 
       if (patients.length !== 1 || appointments.length !== 1) {
@@ -95,6 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
           patientGender: patient.gender ?? '',
           visitDate: appointments[0].start ? DateTime.fromISO(appointments[0].start) : undefined,
+          visitTimeZone: schedules[0] ? getTimezone(schedules[0]) : undefined,
         },
       };
 
