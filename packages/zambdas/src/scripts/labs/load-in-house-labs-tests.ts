@@ -467,9 +467,7 @@ async function main(): Promise<void> {
             return {
               system: CODE_SYSTEM_CPT,
               code: cptCode.code,
-              ...(cptCode.modifier
-                ? { extension: [makeCptModifierExtension(cptCode.modifier.code, cptCode.modifier.display)] }
-                : {}),
+              ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
             };
           }),
         ],
@@ -654,7 +652,7 @@ interface StringComponent extends BaseComponent {
 
 type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
-type CptCode = { code: string; modifier?: { code: ProcedureModifier; display: string } };
+type CptCode = { code: string; modifier?: { code: ProcedureModifier; display: string }[] };
 export interface TestItem {
   name: string;
   methods: TestItemMethods;

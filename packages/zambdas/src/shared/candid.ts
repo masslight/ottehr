@@ -1173,9 +1173,12 @@ async function candidCreateEncounterFromAppointmentRequest(
 
     procedureCoding?.extension?.forEach((ext) => {
       if (ext.url === EXTENSION_URL_CPT_MODIFIER) {
-        const modifier = ext.valueCodeableConcept?.coding?.find((coding) => coding.system === CODE_SYSTEM_CPT_MODIFIER)
-          ?.code;
-        if (modifier && isProcedureModifier(modifier)) modifiers.push(modifier);
+        ext.valueCodeableConcept?.coding?.forEach((coding) => {
+          if (coding.system === CODE_SYSTEM_CPT_MODIFIER) {
+            const modifier = coding.code;
+            if (modifier && isProcedureModifier(modifier)) modifiers.push(modifier);
+          }
+        });
       }
     });
 
@@ -1352,28 +1355,29 @@ const isProcedureModifier = (code: unknown): code is ProcedureModifier => {
   return typeof code === 'string' && procedureModifierValues.has(code as ProcedureModifier);
 };
 
-export const makeCptModifierExtension = (code: ProcedureModifier, display: string): Extension => {
+export const makeCptModifierExtension = (input: { code: ProcedureModifier; display: string }[]): Extension => {
   return {
     url: EXTENSION_URL_CPT_MODIFIER,
     valueCodeableConcept: {
-      coding: [
-        {
-          system: CODE_SYSTEM_CPT_MODIFIER,
-          code,
-          display,
-        },
-      ],
+      coding: input.map((cptCodeInfo) => ({
+        system: CODE_SYSTEM_CPT_MODIFIER,
+        code: cptCodeInfo.code,
+        display: cptCodeInfo.display,
+      })),
     },
   };
 };
 
-export const getCptModifierCodeFromProcedure = (fhirProcedure: Procedure): string | undefined => {
+export const getCptModifierCodeFromProcedure = (fhirProcedure: Procedure): string[] | undefined => {
   const coding = fhirProcedure.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   if (!coding) return;
 
   const modifierCodableConcept = coding?.extension?.find(
     (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept
   )?.valueCodeableConcept;
-  const modifier = modifierCodableConcept?.coding?.find((c) => c.system === CODE_SYSTEM_CPT_MODIFIER)?.code;
+  const modifier = modifierCodableConcept?.coding?.flatMap((c) =>
+    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [c.code] : []
+  );
+
   return modifier;
 };

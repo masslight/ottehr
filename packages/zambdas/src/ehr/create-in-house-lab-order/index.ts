@@ -473,7 +473,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           ?.find((coding) => coding.system === CODE_SYSTEM_CPT)
           ?.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept) ?? [];
 
-      const repeatModifier = makeCptModifierExtension('91', 'Repeat Clinical Diagnostic Laboratory Test');
+      const repeatModifier = makeCptModifierExtension([
+        { code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' },
+      ]);
       procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
     }
 

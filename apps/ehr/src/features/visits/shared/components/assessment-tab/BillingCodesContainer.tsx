@@ -275,7 +275,10 @@ export const BillingCodesContainer: FC = () => {
             renderItem={(value) => (
               <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>
                 {value.code}
-                {value.modifier ? `-${value.modifier}` : ''} {value.display}
+                {value.modifier && value.modifier.length > 0
+                  ? `${value.modifier.map((mod) => `-${mod}`).join('')}`
+                  : ''}{' '}
+                {value.display}
               </Typography>
             )}
             renderActions={
