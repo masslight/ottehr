@@ -733,7 +733,7 @@ export const testItems: TestItem[] = [
     },
     method: 'breathalyzer',
     device: 'breathalyzer',
-    cptCode: [{ code: '82075', modifier: { code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' } }],
+    cptCode: [{ code: '82075', modifier: [{ code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' }] }],
     loincCode: ['5641-6'],
     repeatTest: false,
     components: [
