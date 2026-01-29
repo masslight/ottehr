@@ -29,3 +29,15 @@ export interface PaymentMethodSetupZambdaOutput {
   clientSecret: string;
   stripeAccount: string | undefined;
 }
+
+export interface GetPatientBalancesInput {
+  patientId: string;
+}
+
+export interface GetPatientBalancesOutput {
+  totalBalanceCents: number;
+  encounters: {
+    encounterId: string;
+    patientBalanceCents: number;
+  }[];
+}
