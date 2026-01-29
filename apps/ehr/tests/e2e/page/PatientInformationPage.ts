@@ -259,17 +259,10 @@ export class InsuranceCard {
     );
   }
 
-  async clickShowMoreButton(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.showMoreButton).click();
-  }
-
-  async verifyAlwaysShownFieldsAreVisible(): Promise<void> {
+  async verifyAllFieldsAreVisible(): Promise<void> {
     await this.inputByName(this.#insuranceItems.insurancePriority.key).isVisible();
     await this.selectById(this.#insuranceItems.insuranceCarrier.key).locator('input').isVisible();
     await this.inputByName(this.#insuranceItems.memberId.key).isVisible();
-  }
-
-  async verifyAdditionalFieldsAreVisible(): Promise<void> {
     await this.inputByName(this.#insuranceItems.firstName.key).isVisible();
     await this.inputByName(this.#insuranceItems.middleName.key).isVisible();
     await this.inputByName(this.#insuranceItems.lastName.key).isVisible();
@@ -282,21 +275,6 @@ export class InsuranceCard {
     await this.inputByName(this.#insuranceItems.zip.key).isVisible();
     await this.inputByName(this.#insuranceItems.relationship.key).isVisible();
     await this.inputByName(this.#insuranceItems.additionalInformation.key).isVisible();
-  }
-
-  async verifyAdditionalFieldsAreHidden(): Promise<void> {
-    await this.inputByName(this.#insuranceItems.firstName.key).isHidden();
-    await this.inputByName(this.#insuranceItems.middleName.key).isHidden();
-    await this.inputByName(this.#insuranceItems.lastName.key).isHidden();
-    await this.inputByName(this.#insuranceItems.birthDate.key).isHidden();
-    await this.inputByName(this.#insuranceItems.birthSex.key).isHidden();
-    await this.inputByName(this.#insuranceItems.streetAddress.key).isHidden();
-    await this.inputByName(this.#insuranceItems.addressLine2.key).isHidden();
-    await this.inputByName(this.#insuranceItems.city.key).isHidden();
-    await this.inputByName(this.#insuranceItems.state.key).isHidden();
-    await this.inputByName(this.#insuranceItems.zip.key).isHidden();
-    await this.inputByName(this.#insuranceItems.relationship.key).isHidden();
-    await this.inputByName(this.#insuranceItems.additionalInformation.key).isHidden();
   }
 
   // Generic field interaction methods

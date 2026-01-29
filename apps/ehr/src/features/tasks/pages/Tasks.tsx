@@ -187,8 +187,10 @@ export const Tasks: React.FC = () => {
               <SelectInput
                 name="category"
                 label="Category"
-                options={Object.keys(CATEGORIES)}
-                getOptionLabel={(option) => CATEGORIES[option]}
+                options={Object.values(CATEGORIES)}
+                getOptionLabel={(option) =>
+                  Object.entries(CATEGORIES).find(([_key, value]) => value === option)?.[0] ?? option
+                }
               />
               <EmployeeSelectInput name="assignedTo" label="Assigned to" />
               <SelectInput
