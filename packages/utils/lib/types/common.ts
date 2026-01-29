@@ -32,13 +32,15 @@ export interface FileUpload {
   };
 }
 
+export interface FileURLInfo {
+  localUrl?: string;
+  presignedUrl?: string;
+  z3Url?: string;
+  imgBase64?: string;
+  description?: string;
+}
 export interface FileURLs {
-  [key: string]: {
-    localUrl?: string;
-    presignedUrl?: string;
-    z3Url?: string;
-    imgBase64?: string;
-  };
+  [key: string]: FileURLInfo;
 }
 export interface AvailableLocationInformation {
   id: string | undefined;

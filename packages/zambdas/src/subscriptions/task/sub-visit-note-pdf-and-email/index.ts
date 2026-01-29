@@ -203,7 +203,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         locationName = getNameForOwner(location);
         address = getAddressStringForScheduleResource(location) ?? '';
       }
-      const presignedUrls = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+      const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
       const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
 
       if (isInPersonAppointment) {

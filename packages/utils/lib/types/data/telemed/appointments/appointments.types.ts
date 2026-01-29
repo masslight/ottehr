@@ -1,4 +1,4 @@
-import { FileURLs } from '../../../common';
+import { FileURLInfo, FileURLs } from '../../../common';
 import { AnswerOptionSource } from '../../paperwork';
 import { PatientInfo } from './create-appointment.types';
 export interface CancelAppointmentRequestParams {
@@ -50,6 +50,7 @@ export interface GetVisitDetailsResponse {
   medications: PrescribedMedication[];
   appointmentTime: string;
   followUps: FollowUpDetails[];
+  reviewedLabResults: FileURLInfo[];
 }
 
 export interface PaymentDataResponse {

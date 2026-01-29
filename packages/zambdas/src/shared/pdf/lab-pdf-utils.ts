@@ -2,10 +2,19 @@
 import fs from 'node:fs';
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { List, ListEntry } from 'fhir/r4b';
+import { DocumentReference, List, ListEntry, Meta } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
-import { addOperation, BUCKET_NAMES, FOLDERS_CONFIG, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  addOperation,
+  BUCKET_NAMES,
+  FOLDERS_CONFIG,
+  getSecret,
+  LAB_DOC_REF_DETAIL_TAGS,
+  LabType,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { sendErrors } from '../errors';
 import {
   HEADER_FONT_SIZE,
@@ -364,4 +373,48 @@ export const addDocsToLabList = async (
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     await sendErrors(e, ENVIRONMENT);
   }
+};
+
+/**
+ * Returns meta attribute for meant to be applied to lab pdf document references,
+ * will includes tags for the type (inhouse or external), testName and fillerLab (if applicable)
+ * @param testName
+ * @param fillerLab
+ */
+export const makeLabDocRefMeta = (labDetails: {
+  type: LabType;
+  testName: string;
+  fillerLab: string | undefined;
+}): Meta => {
+  const { type, testName, fillerLab } = labDetails;
+  const metaToReturn: Meta = {
+    tag: [
+      {
+        system: LAB_DOC_REF_DETAIL_TAGS.labType.system,
+        code: type,
+      },
+      {
+        system: LAB_DOC_REF_DETAIL_TAGS.testName.system,
+        code: testName,
+      },
+    ],
+  };
+
+  if (fillerLab) {
+    metaToReturn.tag?.push({
+      system: LAB_DOC_REF_DETAIL_TAGS.fillerLab.system,
+      code: fillerLab,
+    });
+  }
+
+  return metaToReturn;
+};
+
+export const getLabDocRefDescriptionFromMetaTags = (docRef: DocumentReference): string => {
+  const testName = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.testName.system)?.code;
+  const labName = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.fillerLab.system)?.code;
+
+  if (!testName && !labName) return 'Lab Result';
+
+  return `${testName}${labName ? ` / ${labName}` : ''}`;
 };

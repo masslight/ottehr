@@ -86,6 +86,7 @@ import {
   LAB_PDF_STYLES,
   LABS_PDF_LEFT_INDENTATION_XPOS,
   LabsPDFTextStyleConfig,
+  makeLabDocRefMeta,
 } from './lab-pdf-utils';
 import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
 import { calculateAge, PdfInfo, SEPARATED_LINE_STYLE } from './pdf-utils';
@@ -463,6 +464,7 @@ export async function createExternalLabResultPDFBasedOnDr(
     patientID: patient.id,
     encounterID: undefined,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReportID }),
+    labDetails: { type: dataConfig.type, testName: dataConfig.data.testName, fillerLab: undefined }, // todo sarah where to get fillerLab for unsolicited ??
     diagnosticReportID,
     reviewed,
   });
@@ -489,6 +491,10 @@ export async function createExternalLabResultPDF(
   } = await getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestID);
 
   const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
+  const activityDef = serviceRequest.contained?.find(
+    (resource) => resource.resourceType === 'ActivityDefinition'
+  ) as ActivityDefinition;
+  const fillerLab = activityDef?.publisher;
 
   let location: Location | undefined;
   if (locationID) {
@@ -570,6 +576,7 @@ export async function createExternalLabResultPDF(
     patientID: patient.id,
     encounterID: encounter.id,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id }),
+    labDetails: { type: dataConfig.type, testName: dataConfig.data.testName, fillerLab },
     diagnosticReportID: diagnosticReport.id,
     reviewed,
   });
@@ -654,6 +661,7 @@ export async function createInHouseLabResultPDF(
     patientID: patient.id,
     encounterID: encounter.id,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id || '' }),
+    labDetails: { type: dataConfig.type, testName: dataConfig.data.testName, fillerLab: undefined }, // no placerLab because inhouse
     diagnosticReportID: diagnosticReport.id,
     reviewed: false,
   });
@@ -1449,6 +1457,7 @@ export async function makeLabPdfDocumentReference({
   patientID,
   encounterID,
   related,
+  labDetails,
   diagnosticReportID,
   reviewed,
 }: {
@@ -1459,6 +1468,7 @@ export async function makeLabPdfDocumentReference({
   patientID: string;
   encounterID: string | undefined; // will be undefined for unsolicited results;
   related: Reference[];
+  labDetails: { type: LabType; testName: string; fillerLab: string | undefined };
   diagnosticReportID?: string;
   reviewed?: boolean;
 }): Promise<DocumentReference> {
@@ -1493,6 +1503,8 @@ export async function makeLabPdfDocumentReference({
 
   const labListResource = await getLabListResource(oystehr, patientID, secrets, pdfInfo.title);
 
+  const metaForDocRef = makeLabDocRefMeta(labDetails);
+
   const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
@@ -1511,6 +1523,7 @@ export async function makeLabPdfDocumentReference({
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
+    meta: metaForDocRef,
     searchParams,
     listResources: labListResource ? [labListResource] : [], // when passed as empty, the doc will not be added to the patient labs folder
   });

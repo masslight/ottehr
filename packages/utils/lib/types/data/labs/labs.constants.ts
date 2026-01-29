@@ -270,6 +270,15 @@ export const LAB_DOC_REF_TAG_hl7_TRANSMISSION = {
   display: 'Original HL7 Transmission',
 };
 
+export const LAB_DOC_REF_DETAIL_TAGS = {
+  testName: { system: 'test-name' }, // code will be dynamic to the test name
+  fillerLab: { system: 'filler-lab' }, // code will be dynamic to the filler lab name
+  labType: {
+    system: 'lab-type',
+    code: LabType,
+  },
+};
+
 export const PERFORMING_SITE_INFO_EXTENSION_URLS = {
   parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-site-info',
   name: 'name',

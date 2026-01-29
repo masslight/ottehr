@@ -1,7 +1,14 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { createOystehrClient, getSecret, GetVisitDetailsResponse, isFollowupEncounter, SecretsKeys } from 'utils';
+import {
+  createOystehrClient,
+  FileURLInfo,
+  getSecret,
+  GetVisitDetailsResponse,
+  isFollowupEncounter,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getMedications, getPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -61,10 +68,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     let documents = null;
+    let reviewedLabResults: FileURLInfo[] = [];
 
     try {
       console.log(`getting presigned urls for document references files at ${appointmentId}`);
-      documents = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
+      const { presignedUrls, reviewedLabResultsUrls } = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
+      documents = presignedUrls;
+      reviewedLabResults = reviewedLabResultsUrls;
     } catch (error) {
       console.log('getPresignedURLs', error);
       captureException(error);
@@ -97,7 +107,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             let followupDocuments = {};
             try {
               if (followupEncounter.id) {
-                followupDocuments = await getPresignedURLs(oystehr, oystehrToken, followupEncounter.id);
+                // todo sarah do we need to add handling of lab result urls here too?
+                const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, followupEncounter.id);
+                followupDocuments = presignedUrls;
               }
             } catch (error) {
               console.log('getPresignedURLs for follow-up', error);
@@ -124,6 +136,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       medications: medications || [],
       appointmentTime,
       followUps,
+      reviewedLabResults,
     };
 
     return {

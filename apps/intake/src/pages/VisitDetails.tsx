@@ -1,5 +1,5 @@
 import DownloadIcon from '@mui/icons-material/Download';
-import { Box, Button, CircularProgress, Divider, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Divider, Link, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { GetVisitDetailsResponse } from 'utils';
@@ -117,17 +117,35 @@ const VisitDetailsContent = ({
         <ExcuseNoteContent key={docType} data={data} docType={docType} />
       ))}
 
-      <Box>
-        <Typography variant="subtitle1" color="primary.dark">
-          Medications Prescribed
-        </Typography>
-        {data?.medications.map((medication) => (
-          <Box sx={{ mb: 3 }} key={medication.resourceId}>
-            <Typography sx={{ fontSize: 18 }}>{medication.name}</Typography>
-            <Typography sx={{ fontSize: 14 }}>{medication.instructions}</Typography>
-          </Box>
-        ))}
-      </Box>
+      {!!(data?.medications && data.medications.length > 0) && (
+        <Box>
+          <Typography variant="subtitle1" color="primary.dark">
+            Medications Prescribed
+          </Typography>
+          {data?.medications.map((medication) => (
+            <Box sx={{ mb: 3 }} key={medication.resourceId}>
+              <Typography sx={{ fontSize: 18 }}>{medication.name}</Typography>
+              <Typography sx={{ fontSize: 14 }}>{medication.instructions}</Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {!!(data?.reviewedLabResults && data?.reviewedLabResults.length > 0) && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: '8px' }}>
+          <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+            Labs
+          </Typography>
+          {data.reviewedLabResults.map((labResult, idx) => (
+            <Box key={`${idx}-lab-result`}>
+              {/* <Typography sx={{ fontSize: 18 }}>{labResult.description}</Typography> */}
+              <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(labResult.presignedUrl || '')}>
+                {labResult.description}
+              </Link>
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {data?.followUps && data.followUps.length > 0 && (
         <>
