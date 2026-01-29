@@ -1627,7 +1627,6 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
       await patientInformationPage.reloadPatientInformationPage();
       const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-      await primaryInsuranceCard.clickShowMoreButton();
       await primaryInsuranceCard.verifyInsuranceType('Primary');
       await primaryInsuranceCard.verifyInsuranceCarrier(INSURANCE_CARRIER);
       await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].insurancePlanType.key, INSURANCE_PLAN_TYPE);
@@ -1694,7 +1693,6 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
       await patientInformationPage.reloadPatientInformationPage();
       const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-      await secondaryInsuranceCard.clickShowMoreButton();
       await secondaryInsuranceCard.verifyInsuranceType('Secondary');
       await secondaryInsuranceCard.verifyInsuranceCarrier(INSURANCE_CARRIER_2);
       await secondaryInsuranceCard.verifyTextField(

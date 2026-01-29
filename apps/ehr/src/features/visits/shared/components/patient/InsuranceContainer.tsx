@@ -33,7 +33,6 @@ import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
-import ShowMoreButton from './ShowMoreButton';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -122,7 +121,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
 
-  const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [showEligibilityDetails, setShowEligibilityDetails] = useState(false);
 
   const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
@@ -138,10 +136,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   } = usePatientRecordFormSection({ formSection: insuranceSection, index: ordinal - 1 });
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
-
-  const toggleMoreInfo = (): void => {
-    setShowMoreInfo((prev) => !prev);
-  };
 
   const handleRemoveInsurance = (): void => {
     handleRemoveClick?.();
@@ -468,18 +462,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ShowMoreButton
-          onClick={toggleMoreInfo}
-          isOpen={showMoreInfo}
-          dataTestId={dataTestIds.insuranceContainer.showMoreButton}
-        />
-      </Box>
-      {/* https://linear.app/zapehr/issue/OTR-1728/ehr-save-operation-failed-error-if-insurance-with-self-option-is-added
-          Always render insurance fields (even when collapsed) to ensure dynamic population works.
-          Fields are hidden via CSS instead of conditional rendering so that useEffect with 
-          dynamicPopulation can populate insurance address from patient address for "Self" relationship. */}
-      <Box sx={{ display: showMoreInfo ? 'block' : 'none' }}>
+      {/* should be always visible to ensure dynamic population works. https://linear.app/zapehr/issue/OTR-1728/ehr-save-operation-failed-error-if-insurance-with-self-option-is-added */}
+      <Box>
         <PatientRecordFormField
           item={FormFields.firstName}
           isLoading={false}
