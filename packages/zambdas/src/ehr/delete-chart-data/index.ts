@@ -23,6 +23,7 @@ import {
   CPTCodeDTO,
   createCancellationTagOperations,
   ExamObservationDTO,
+  FHIR_RESOURCE_IS_GONE,
   getPatchBinary,
   getSecret,
   MedicalConditionDTO,
@@ -351,8 +352,12 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       }),
       statusCode: 200,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
-    return topLevelCatch('delete-chart-data', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    let errorToUse = error;
+    if (error.name === 'OystehrFHIRError' && error.code === 410) {
+      errorToUse = FHIR_RESOURCE_IS_GONE();
+    }
+    return topLevelCatch('delete-chart-data', errorToUse, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
