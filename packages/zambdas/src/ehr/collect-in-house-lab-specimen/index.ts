@@ -6,12 +6,14 @@ import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
   getAttendingPractitionerId,
+  getCoding,
   getFullestAvailableName,
   getSecret,
   IN_HOUSE_LAB_TASK,
   Secrets,
   SecretsKeys,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+  TASK_INPUT_SYSTEM,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -163,8 +165,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         : createOwnerReference(userPractitioner.id ?? '', getFullestAvailableName(userPractitioner) ?? ''),
     };
 
+    const testName = collectionTask.input?.find(
+      (input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === IN_HOUSE_LAB_TASK.input.testName
+    )?.valueString;
+    const patientName = collectionTask.input?.find(
+      (input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === IN_HOUSE_LAB_TASK.input.patientName
+    )?.valueString;
+
     const inputResultTaskConfig = createTask({
       category: IN_HOUSE_LAB_TASK.category,
+      title: `Perform test & enter results for “${testName}” for ${patientName}`,
       code: {
         system: IN_HOUSE_LAB_TASK.system,
         code: IN_HOUSE_LAB_TASK.code.inputResultsTask,

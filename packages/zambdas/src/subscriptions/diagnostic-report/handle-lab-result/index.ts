@@ -147,12 +147,45 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const showTaskOnBoard = diagnosticReport.status !== 'preliminary' || isUnsolicited;
     console.log('showTaskOnBoard', showTaskOnBoard);
 
+    const code = getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched);
+
+    // copied and adjusted from /apps/ehr/src/features/visits/in-person/hooks/useTasks.ts:fhirTaskToTask
+    let title = '';
+    const testName = taskInput.find((input) => input.type === LAB_ORDER_TASK.input.testName)?.valueString;
+    const labName = taskInput.find((input) => input.type === LAB_ORDER_TASK.input.labName)?.valueString;
+    const fullTestName = testName + (labName ? ' / ' + labName : '');
+    const patientName = taskInput.find((input) => input.type === LAB_ORDER_TASK.input.patientName)?.valueString;
+    const labTypeString = specificDrTypeFromTag || '';
+
+    if (
+      serviceRequestId &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+    ) {
+      title = `Review results for “${fullTestName}” for ${patientName}`;
+    }
+    if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
+      title = 'Match unsolicited test results';
+    }
+    if (
+      code === LAB_ORDER_TASK.code.reviewFinalResult ||
+      code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+      code === LAB_ORDER_TASK.code.reviewPreliminaryResult
+    ) {
+      if (labTypeString === LabType.unsolicited && !serviceRequestId) {
+        title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
+      }
+      if (labTypeString === LabType.reflex) {
+        title = `Review reflex results for “${fullTestName}” for ${patientName}`;
+      }
+    }
+
     const newTask = createTask(
       {
         category: LAB_ORDER_TASK.category,
+        title,
         code: {
           system: LAB_ORDER_TASK.system,
-          code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+          code,
         },
         encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
         basedOn: [
