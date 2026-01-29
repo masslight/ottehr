@@ -66,7 +66,7 @@ export const validateQuestionnaireDataType = (str: any): QuestionnaireDataType |
 };
 
 export const FormDisplayElementList = ['p', 'h3', 'h4', 'h5'] as const;
-export const FormSelectionElementList = ['Radio', 'Radio List', 'Select', 'Free Select', 'Button'] as const;
+export const FormSelectionElementList = ['Radio', 'Radio List', 'Select', 'Free Select', 'Button', 'Link'] as const;
 export type FormDisplayElement = (typeof FormDisplayElementList)[number];
 export type FormSelectionElement = (typeof FormSelectionElementList)[number];
 export type FormElement = FormDisplayElement | FormSelectionElement;
@@ -75,6 +75,7 @@ export enum QuestionnaireItemGroupType {
   ListWithForm = 'list-with-form',
   GrayContainedWidget = 'gray-contained-widget',
   CreditCardCollection = 'credit-card-collection',
+  PharmacyCollection = 'pharmacy-collection',
 }
 
 export const FhirResourceTypeSchema = z.enum([
@@ -361,6 +362,7 @@ export interface SubmitPaperworkParameters {
 export interface PatchPaperworkParameters {
   answers: QuestionnaireResponseItem;
   questionnaireResponseId: string;
+  appointmentId?: string;
 }
 
 interface ComplexValidationBaseCase {

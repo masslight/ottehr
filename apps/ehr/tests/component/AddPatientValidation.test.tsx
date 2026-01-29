@@ -1,4 +1,3 @@
-import '@testing-library/jest-dom';
 import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
@@ -132,7 +131,7 @@ describe('AddPatient - Validation Tests', () => {
       await user.click(addButton);
 
       // HTML5 validation should prevent submission - form should still be visible
-      expect(screen.getByTestId(dataTestIds.addPatientPage.locationHeader)).toBeInTheDocument();
+      expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toBeInTheDocument();
 
       // Verify location input has required attribute
       const locationInput = screen.getByTestId(dataTestIds.dashboard.locationSelect).querySelector('input');

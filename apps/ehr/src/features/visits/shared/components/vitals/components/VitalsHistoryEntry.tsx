@@ -2,6 +2,7 @@ import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import {
   celsiusToFahrenheit,
@@ -19,9 +20,14 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalHistoryElementProps<T extends VitalsObservationDTO = VitalsObservationDTO> = {
   historyEntry: T;
   onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
+  dataTestId?: string;
 };
 
-export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({ historyEntry, onDelete }): JSX.Element => {
+export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({
+  historyEntry,
+  onDelete,
+  dataTestId,
+}): JSX.Element => {
   const theme = useTheme();
 
   const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
@@ -47,7 +53,7 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({ histor
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid={dataTestId}>
         <Typography color="textPrimary" component="div">
           {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
           &nbsp;
@@ -129,13 +135,19 @@ export const getObservationValueElements = (
     case 'vital-respiration-rate':
       return [`${historyEntry.value}/min`];
     case 'vital-weight': {
-      const kgStr = formatWeightKg(historyEntry.value) + ' kg';
-      const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
-      if (vitalsConfig['vital-weight'].unit == 'kg') {
-        return [kgStr, ` = ${lbsStr}`];
-      } else {
-        return [lbsStr, ` = ${kgStr}`];
+      if (historyEntry.extraWeightOptions?.includes('patient_refused')) {
+        return ['Patient Refused'];
       }
+      if (historyEntry.value) {
+        const kgStr = formatWeightKg(historyEntry.value) + ' kg';
+        const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
+        if (vitalsConfig['vital-weight'].unit == 'kg') {
+          return [kgStr, ` = ${lbsStr}`];
+        } else {
+          return [lbsStr, ` = ${kgStr}`];
+        }
+      }
+      return [];
     }
     case 'vital-height':
       return [
@@ -155,6 +167,13 @@ export const getObservationValueElements = (
           </Typography>
         </>,
       ];
+    case 'vital-last-menstrual-period': {
+      const date = DateTime.fromISO(historyEntry.value);
+      return [
+        date.isValid ? date.toFormat('MM/dd/yyyy') : historyEntry.value,
+        historyEntry.isUnsure ? ' (unsure)' : '',
+      ];
+    }
     default:
       return [];
   }

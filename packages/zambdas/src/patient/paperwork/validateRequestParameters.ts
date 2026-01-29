@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
+  filterDisabledPages,
   getQuestionnaireItemsAndProgress,
   makeValidationSchema,
   PatchPaperworkParameters,
@@ -28,6 +29,8 @@ export interface PatchPaperworkEffectInput {
   patchIndex: number;
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
+  ipAddress: string;
+  appointmentId?: string;
 }
 
 export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>, ZambdaInput {
@@ -153,7 +156,10 @@ const complexSubmitValidation = async (
   const validationSchema = makeValidationSchema(items, undefined);
   console.log('answersToValidate', JSON.stringify(updatedAnswers));
   try {
-    await validationSchema.validate(updatedAnswers, { abortEarly: false });
+    await validationSchema.validate(updatedAnswers, {
+      abortEarly: false,
+      context: { questionnaireResponse: fullQRResource },
+    });
   } catch (e) {
     const validationErrors = (e as any).inner as ValidationError[];
     if (Array.isArray(validationErrors)) {
@@ -204,10 +210,14 @@ const complexSubmitValidation = async (
 
   console.log('validation succeeded');
 
+  // Filter out items from disabled pages before saving
+  const filteredAnswers = filterDisabledPages(items, updatedAnswers, fullQRResource);
+  console.log('filtered disabled pages', JSON.stringify(filteredAnswers));
+
   return {
     ...input,
     questionnaireResponseId,
-    updatedAnswers,
+    updatedAnswers: filteredAnswers,
     currentQRStatus: fullQRResource.status,
   };
 };
@@ -216,7 +226,7 @@ const complexPatchValidation = async (
   oystehr: Oystehr
 ): Promise<PatchPaperworkEffectInput> => {
   // we should return QR id and use it to get both appointment Id and Questionnaire
-  const { answers: itemToPatch, questionnaireResponseId } = input;
+  const { answers: itemToPatch, questionnaireResponseId, ipAddress, appointmentId } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
 
   if (!qrAndQItems) {
@@ -256,6 +266,8 @@ const complexPatchValidation = async (
     updatedAnswers: [...currentAnswersToKeep, ...submittedAnswers],
     patchIndex: updatedAnswerIndex,
     currentQRStatus: fullQRResource.status,
+    ipAddress,
+    appointmentId,
   };
 };
 

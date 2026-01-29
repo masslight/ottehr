@@ -138,7 +138,7 @@ export type CreateTestAppointmentInput = {
   telemedLocationState?: string;
   selectedLocationId?: string;
   skipPaperwork?: boolean;
-  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workmans-comp';
+  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workers-comp';
 };
 
 export class ResourceHandler {
@@ -437,9 +437,11 @@ export class ResourceHandler {
 
   async waitTillAppointmentPreprocessed(id: string): Promise<void> {
     const apiClient = await this.apiClient;
+    const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
+    const delayMs = 5_000;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < maxAttempts; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -452,16 +454,29 @@ export class ResourceHandler {
           })
         ).unbundle()[0] as Appointment;
 
+        if (!appointment) {
+          console.warn(`Attempt ${i + 1}/${maxAttempts}: Appointment ${id} not found`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+
         const tags = appointment?.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
         if (isProcessed) {
+          console.log(`Appointment ${id} preprocessed after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`);
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 10_000));
+        if (i % 5 === 0 && i > 0) {
+          console.log(`Still waiting for appointment ${id} preprocessing... (attempt ${i + 1}/${maxAttempts})`);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      throw new Error("Appointment wasn't preprocessed");
+      const errorMsg = `Appointment ${id} wasn't preprocessed after ${(maxAttempts * delayMs) / 1000} seconds`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
     } catch (e) {
       console.error('Error during waitTillAppointmentPreprocessed', e);
       throw e;
@@ -470,9 +485,11 @@ export class ResourceHandler {
 
   async waitTillHarvestingDone(appointmentId: string): Promise<void> {
     const apiClient = await this.apiClient;
+    const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
+    const delayMs = 5_000;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < maxAttempts; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -485,18 +502,35 @@ export class ResourceHandler {
           })
         ).unbundle()[0] as Appointment;
 
+        if (!appointment) {
+          console.warn(`Attempt ${i + 1}/${maxAttempts}: Appointment ${appointmentId} not found`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+
         const tags = appointment?.meta?.tag || [];
         const isHarvestingDone = tags.some(
           (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
         );
         if (isHarvestingDone) {
+          console.log(
+            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`
+          );
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 10_000));
+        if (i % 5 === 0 && i > 0) {
+          console.log(`Still waiting for appointment ${appointmentId} harvesting... (attempt ${i + 1}/${maxAttempts})`);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
+      const errorMsg = `Appointment ${appointmentId} wasn't harvested by sub-intake-harvest module after ${
+        (maxAttempts * delayMs) / 1000
+      } seconds`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
     } catch (e) {
       console.error('Error during waitTillHarvestingDone', e);
       throw e;

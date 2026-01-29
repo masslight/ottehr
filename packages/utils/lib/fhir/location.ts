@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, HealthcareService, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import locationsSpec from '../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
 import {
   AvailableLocationInformation,
   OVERRIDE_DATE_FORMAT,
@@ -12,6 +11,7 @@ import {
 } from '../types';
 import { DOW, getScheduleExtension, getTimezone } from '../utils';
 import { PUBLIC_EXTENSION_BASE_URL, SLUG_SYSTEM } from './constants';
+import { getAllFhirSearchPages } from './getAllFhirSearchPages';
 import { getFullName } from './patient';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
@@ -73,8 +73,8 @@ export async function getTelemedLocation(oystehr: Oystehr, state: string): Promi
 }
 
 export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLocation[] | undefined> {
-  const resources = (
-    await oystehr.fhir.search<Location | Schedule>({
+  const resources = await getAllFhirSearchPages<Location | Schedule>(
+    {
       resourceType: 'Location',
       params: [
         {
@@ -82,8 +82,9 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
           value: 'Schedule:actor:Location',
         },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
   const telemedLocations = resources.filter(
     (location) => location.resourceType === 'Location' && isLocationVirtual(location)
@@ -285,9 +286,3 @@ export const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['t
   }
   return undefined;
 };
-
-const DEPLOYED_LOCATIONS = Object.values(locationsSpec.fhirResources)
-  .filter((res) => 'resource' in res && res.resource.resourceType === 'Location')
-  .map((res) => (res as { resource: Location }).resource);
-
-export const DEPLOYED_TELEMED_LOCATIONS = DEPLOYED_LOCATIONS.filter((location) => isLocationVirtual(location));

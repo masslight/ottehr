@@ -37,8 +37,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: userPractitionerId,
     });
 
+    const taskBasedOn =
+      params.category === MANUAL_TASK.category.radiology && params.orderId
+        ? [`ServiceRequest/${params.orderId}`]
+        : undefined;
+
     const taskToCreate = createTask({
       category: params.category,
+      encounterId: params.encounterId,
       location: {
         id: params.location.id,
         name: params.location.name,
@@ -65,6 +71,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           valueString: params.orderId,
         },
         {
+          type: MANUAL_TASK.input.encounterId,
+          valueString: params.encounterId,
+        },
+        {
           type: MANUAL_TASK.input.patient,
           valueReference: params.patient
             ? {
@@ -74,6 +84,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             : undefined,
         },
       ],
+      basedOn: taskBasedOn,
     });
 
     if (params.assignee) {
@@ -103,7 +114,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export function validateRequestParameters(input: ZambdaInput): CreateManualTaskRequest & Pick<ZambdaInput, 'secrets'> {
-  const { category, appointmentId, orderId, taskTitle, taskDetails, assignee, location, patient } =
+  const { category, appointmentId, orderId, encounterId, taskTitle, taskDetails, assignee, location, patient } =
     validateJsonBody(input);
 
   const missingFields: string[] = [];
@@ -128,6 +139,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     category,
     appointmentId,
     orderId,
+    encounterId,
     taskTitle,
     taskDetails,
     assignee,

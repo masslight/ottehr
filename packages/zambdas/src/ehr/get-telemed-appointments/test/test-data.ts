@@ -8,7 +8,12 @@ import {
   QuestionnaireResponse,
   Resource,
 } from 'fhir/r4b';
-import { TELEMED_VIDEO_ROOM_CODE, TelemedStatusHistoryElement } from 'utils';
+import {
+  CONSENT_FORMS_CONFIG,
+  INSURANCE_PAY_OPTION,
+  TELEMED_VIDEO_ROOM_CODE,
+  TelemedStatusHistoryElement,
+} from 'utils';
 import { LocationIdToStateAbbreviationMap } from '../helpers/types';
 
 // VR - Video Room
@@ -398,7 +403,7 @@ export const questionnaireForReadyEncounter: QuestionnaireResponse = {
       linkId: 'payment-option',
       answer: [
         {
-          valueString: 'I have insurance',
+          valueString: INSURANCE_PAY_OPTION,
         },
       ],
     },
@@ -498,22 +503,10 @@ export const questionnaireForReadyEncounter: QuestionnaireResponse = {
         },
       ],
     },
-    {
-      linkId: 'hipaa-acknowledgement',
-      answer: [
-        {
-          valueBoolean: true,
-        },
-      ],
-    },
-    {
-      linkId: 'consent-to-treat',
-      answer: [
-        {
-          valueBoolean: true,
-        },
-      ],
-    },
+    ...CONSENT_FORMS_CONFIG.forms.map((form) => ({
+      linkId: form.id,
+      answer: [{ valueBoolean: true }],
+    })),
     {
       linkId: 'signature',
       answer: [
@@ -760,7 +753,7 @@ export const questionnaireForPreVideoEncounter: QuestionnaireResponse = {
       linkId: 'payment-option',
       answer: [
         {
-          valueString: 'I have insurance',
+          valueString: INSURANCE_PAY_OPTION,
         },
       ],
     },
@@ -860,22 +853,10 @@ export const questionnaireForPreVideoEncounter: QuestionnaireResponse = {
         },
       ],
     },
-    {
-      linkId: 'hipaa-acknowledgement',
-      answer: [
-        {
-          valueBoolean: true,
-        },
-      ],
-    },
-    {
-      linkId: 'consent-to-treat',
-      answer: [
-        {
-          valueBoolean: true,
-        },
-      ],
-    },
+    ...CONSENT_FORMS_CONFIG.forms.map((form) => ({
+      linkId: form.id,
+      answer: [{ valueBoolean: true }],
+    })),
     {
       linkId: 'signature',
       answer: [

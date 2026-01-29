@@ -19,7 +19,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import CancelVisitDialog from 'src/components/CancelVisitDialog';
 import { EditPatientDialog } from 'src/components/dialogs';
@@ -45,6 +45,7 @@ import {
   calculatePatientAge,
   getInsuranceNameFromCoverage,
   getQuestionnaireResponseByLinkId,
+  getSupportPhoneFor,
   getTelemedVisitStatus,
   INTERPRETER_PHONE_NUMBER,
   isInPersonAppointment,
@@ -52,7 +53,7 @@ import {
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
-import { quickTexts } from '../../utils/appointments';
+import { getQuickTexts } from '../../utils/appointments';
 import { getTelemedVisitDetailsUrl } from '../../utils/routing';
 import InviteParticipant from '../appointment/InviteParticipant';
 import { PastVisits } from './PastVisits';
@@ -138,6 +139,12 @@ export const AppointmentSidePanel: FC = () => {
   );
 
   const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
+
+  const quickTexts = useMemo(() => {
+    if (!locationVirtual) return [];
+    const locationName = locationVirtual.name;
+    return getQuickTexts(getSupportPhoneFor(locationName) || '');
+  }, [locationVirtual]);
 
   if (!patient || !locationVirtual) {
     return null;

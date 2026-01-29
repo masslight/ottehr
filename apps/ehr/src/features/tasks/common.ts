@@ -1,7 +1,6 @@
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Option } from 'src/components/input/Option';
-import { DOB_DATE_FORMAT, getFullName, IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, MANUAL_TASK } from 'utils';
+import { DOB_DATE_FORMAT, getFullName, IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, MANUAL_TASK, RADIOLOGY_TASK } from 'utils';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
@@ -12,6 +11,7 @@ import { useChartData } from '../visits/shared/stores/appointment/appointment.st
 export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [LAB_ORDER_TASK.category]: 'External Lab',
   [IN_HOUSE_LAB_TASK.category]: 'In-house Lab',
+  [RADIOLOGY_TASK.category]: 'Radiology',
   [MANUAL_TASK.category.externalLab]: 'External Lab',
   [MANUAL_TASK.category.inHouseLab]: 'In-house Lab',
   [MANUAL_TASK.category.inHouseMedications]: 'In-House Medications',
@@ -26,9 +26,14 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [MANUAL_TASK.category.other]: 'Other',
 };
 
+export interface Order {
+  id: string;
+  label: string;
+}
+
 export function useInHouseLabOrdersOptions(encounterId: string): {
   inHouseLabOrdersLoading: boolean;
-  inHouseLabOrdersOptions: Option[];
+  inHouseLabOrdersOptions: Order[];
 } {
   const { labOrders, loading } = useInHouseLabOrders({
     searchBy: {
@@ -40,8 +45,8 @@ export function useInHouseLabOrdersOptions(encounterId: string): {
     inHouseLabOrdersLoading: loading,
     inHouseLabOrdersOptions: labOrders.map((order) => {
       return {
+        id: order.serviceRequestId,
         label: order.testItemName,
-        value: order.serviceRequestId,
       };
     }),
   };
@@ -49,7 +54,7 @@ export function useInHouseLabOrdersOptions(encounterId: string): {
 
 export function useExternalLabOrdersOptions(encounterId: string): {
   externalLabOrdersLoading: boolean;
-  externalLabOrdersOptions: Option[];
+  externalLabOrdersOptions: Order[];
 } {
   const { groupedLabOrdersForChartTable, loading } = usePatientLabOrders({
     searchBy: {
@@ -66,8 +71,8 @@ export function useExternalLabOrdersOptions(encounterId: string): {
       .flatMap((orderBundle) => orderBundle.orders)
       .map((order) => {
         return {
+          id: 'drCentricResultType' in order ? order.resultsDetails?.[0].diagnosticReportId : order.serviceRequestId,
           label: order.testItem,
-          value: 'drCentricResultType' in order ? order.resultsDetails?.[0].diagnosticReportId : order.serviceRequestId,
         };
       }),
   };
@@ -75,7 +80,7 @@ export function useExternalLabOrdersOptions(encounterId: string): {
 
 export function useNursingOrdersOptions(encounterId: string): {
   nursingOrdersLoading: boolean;
-  nursingOrdersOptions: Option[];
+  nursingOrdersOptions: Order[];
 } {
   const { nursingOrders, loading } = useGetNursingOrders({
     searchBy: { field: 'encounterId', value: encounterId },
@@ -84,8 +89,8 @@ export function useNursingOrdersOptions(encounterId: string): {
     nursingOrdersLoading: loading,
     nursingOrdersOptions: nursingOrders.map((order) => {
       return {
+        id: order.serviceRequestId,
         label: order.note,
-        value: order.serviceRequestId,
       };
     }),
   };
@@ -93,7 +98,7 @@ export function useNursingOrdersOptions(encounterId: string): {
 
 export function useRadiologyOrdersOptions(encounterId: string): {
   radiologyOrdersLoading: boolean;
-  radiologyOrdersOptions: Option[];
+  radiologyOrdersOptions: Order[];
 } {
   const { orders, loading } = usePatientRadiologyOrders({
     encounterIds: encounterId,
@@ -102,8 +107,8 @@ export function useRadiologyOrdersOptions(encounterId: string): {
     radiologyOrdersLoading: loading,
     radiologyOrdersOptions: orders.map((order) => {
       return {
+        id: order.serviceRequestId,
         label: order.studyType,
-        value: order.serviceRequestId,
       };
     }),
   };
@@ -111,15 +116,15 @@ export function useRadiologyOrdersOptions(encounterId: string): {
 
 export function useProceduresOptions(encounterId: string): {
   proceduresLoading: boolean;
-  proceduresOptions: Option[];
+  proceduresOptions: Order[];
 } {
   const { chartData, isLoading } = useChartData({ encounterId });
   return {
     proceduresLoading: isLoading,
     proceduresOptions: (chartData?.procedures ?? []).map((procedure) => {
       return {
+        id: procedure.resourceId ?? '',
         label: procedure.procedureType ?? '',
-        value: procedure.resourceId ?? '',
       };
     }),
   };
@@ -127,7 +132,7 @@ export function useProceduresOptions(encounterId: string): {
 
 export function useInHouseMedicationsOptions(encounterId: string): {
   inHouseMedicationsLoading: boolean;
-  inHouseMedicationsOptions: Option[];
+  inHouseMedicationsOptions: Order[];
 } {
   const { data, isLoading } = useGetMedicationOrders({
     field: 'encounterId',
@@ -137,8 +142,8 @@ export function useInHouseMedicationsOptions(encounterId: string): {
     inHouseMedicationsLoading: isLoading,
     inHouseMedicationsOptions: (data?.orders ?? []).map((order) => {
       return {
+        id: order.id ?? '',
         label: order.medicationName,
-        value: order.id ?? '',
       };
     }),
   };

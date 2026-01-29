@@ -12,6 +12,7 @@ import {
   IconButton,
   InputBaseComponentProps,
   InputProps,
+  Link,
   Stack,
   SxProps,
   TextField,
@@ -51,11 +52,13 @@ import { ControlButtonsProps } from '../../types';
 import AIInterview from './components/AIInterview';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
+import DecimalInput from './components/DecimalInput';
 import { FieldHelperText } from './components/FieldHelperText';
 import FileInput, { AttachmentType } from './components/FileInput';
 import FreeMultiSelectInput from './components/FreeMultiSelectInput';
 import GroupContainer from './components/group/GroupContainer';
 import MultiAnswerHeader from './components/group/MultiAnswerHeader';
+import { PharmacyCollection } from './components/Pharmacy/PharmacyCollection';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
@@ -75,7 +78,7 @@ interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
   pageId: string;
   pageItem?: IntakeQuestionnaireItem;
-  patientName?: string;
+  pageSubtitle?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
   isSaving?: boolean;
@@ -184,7 +187,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
   pageId,
   pageItem,
-  patientName,
+  pageSubtitle,
   defaultValues,
   options = {},
   isSaving,
@@ -227,7 +230,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   }, [cache, defaultValues, items, reset, pageId]);
   return (
     <FormProvider {...methods}>
-      {pageItem && patientName ? <PaperworkPageTitle pageItem={pageItem} patientName={patientName} /> : null}
+      {pageItem && pageSubtitle ? <PaperworkPageTitle pageItem={pageItem} pageSubtitle={pageSubtitle} /> : null}
       <PaperworkFormRoot
         pageItem={pageItem}
         items={items}
@@ -242,10 +245,10 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 
 interface PaperworkPageTitleProps {
   pageItem: IntakeQuestionnaireItem;
-  patientName: string;
+  pageSubtitle: string;
 }
 
-const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName }) => {
+const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitle }) => {
   const theme = useTheme();
   const [styledPageItem] = useStyledItems({ formItems: [pageItem] });
   return (
@@ -260,9 +263,9 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName
       >
         {styledPageItem?.text}
       </Typography>
-      {patientName && (
+      {pageSubtitle && (
         <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
-          {patientName}
+          {pageSubtitle}
         </Typography>
       )}
     </Stack>
@@ -366,7 +369,11 @@ const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
       {styledItems.map((item, idx) => {
         if (item.type === 'display') {
           return <FormDisplayField item={item} key={`FDF-${fieldId ?? item.linkId}-${idx}`} />;
-        } else if (item.type === 'group' && item.dataType !== 'DOB') {
+        } else if (
+          item.type === 'group' &&
+          item.dataType !== 'DOB' &&
+          item.groupType !== QuestionnaireItemGroupType.PharmacyCollection
+        ) {
           return (
             <GroupContainer
               item={item}
@@ -603,7 +610,11 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               ...inputBaseProps,
               inputMode:
                 inputMode ??
-                (item.type === 'integer' || item.type === 'decimal' || item.dataType === 'ZIP' ? 'numeric' : 'text'),
+                (item.type === 'decimal'
+                  ? 'decimal'
+                  : item.type === 'integer' || item.dataType === 'ZIP'
+                  ? 'numeric'
+                  : 'text'),
               ...(item.dataType === 'ZIP' && { pattern: '[0-9]*', maxLength: 5 }),
             }}
             placeholder={item.placeholder}
@@ -744,6 +755,18 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
             onChange={smartOnChange}
           />
         );
+      case 'Decimal':
+        return (
+          <DecimalInput
+            item={item}
+            value={unwrappedValue}
+            fieldId={fieldId}
+            onChange={smartOnChange}
+            inputRef={parentItem ? ref : inputRef}
+            error={error.hasError}
+            disabled={item.displayStrategy !== 'enabled'}
+          />
+        );
       case 'Attachment':
         return (
           <FileInput
@@ -771,6 +794,8 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               />
             </>
           );
+        } else if (item.groupType == QuestionnaireItemGroupType.PharmacyCollection) {
+          return <PharmacyCollection onChange={smartOnChange} />;
         } else {
           return <RenderItems pageItem={pageItem} parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
         }
@@ -785,6 +810,29 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         );
       case 'Medical History':
         return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;
+      case 'Link':
+        return (
+          <Link
+            component="button"
+            type="button"
+            onClick={() => smartOnChange(!unwrappedValue)}
+            aria-label={`${item.linkId}-toggle`}
+            underline="hover"
+            sx={{
+              pt: item.hideControlLabel ? 0 : 1,
+              textAlign: 'left',
+              display: 'inline',
+              cursor: 'pointer',
+              color: otherColors.purple,
+              fontWeight: 500,
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            {item.text}
+          </Link>
+        );
       default:
         return <></>;
     }

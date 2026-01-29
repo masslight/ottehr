@@ -6,7 +6,6 @@ import { InHouseMedicationsPage } from 'tests/e2e/page/in-person/InHouseMedicati
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openOrderMedicationPage } from 'tests/e2e/page/OrderMedicationPage';
-import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
 import { ProceduresPage } from 'tests/e2e/page/ProceduresPage';
 import {
   CreateRadiologyOrderPage,
@@ -115,11 +114,12 @@ test.afterAll(async () => {
 // Helper function to setup practitioners
 async function setupPractitioners(page: Page): Promise<void> {
   const inPersonHeader = new InPersonHeader(page);
-  await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/review-and-sign`);
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await expectPatientInfoPage(page);
+  const sideMenu = new SideMenu(page);
+  await sideMenu.clickCcAndIntakeNotes();
 }
 
 // Helper function to add vitals (required for medication orders)
@@ -134,7 +134,7 @@ async function addVitals(page: Page, weightKg: string, heightCm: string): Promis
   await weightInput.fill(weightKg);
 
   // Click Add button using data-testid
-  const weightAddButton = page.getByTestId(dataTestIds.vitalsPage.addWeightButton);
+  const weightAddButton = page.getByTestId(dataTestIds.vitalsPage.weightAddButton);
   await weightAddButton.click();
 
   // UI CHECK: Wait for weight to be saved - button becomes disabled again and value shows in history
@@ -148,7 +148,7 @@ async function addVitals(page: Page, weightKg: string, heightCm: string): Promis
   await heightInput.fill(heightCm);
 
   // Click Add button using data-testid
-  const heightAddButton = page.getByTestId(dataTestIds.vitalsPage.addHeightButton);
+  const heightAddButton = page.getByTestId(dataTestIds.vitalsPage.heightAddButton);
   await heightAddButton.click();
 
   // UI CHECK: Wait for height to be saved - button becomes disabled again and value shows in history
@@ -180,8 +180,12 @@ test.describe('Order Deletion - Happy Path', () => {
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 
-        // Verify diagnosis was added (UI check)
-        await expect(page.getByText(DIAGNOSIS)).toBeVisible();
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
+        // Verify diagnosis was added (UI check) - use test ID to avoid strict mode violation
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toContainText(DIAGNOSIS);
 
         // Open document procedure page directly
         documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
@@ -295,8 +299,13 @@ test.describe('Order Deletion - Happy Path', () => {
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 
-        // Verify diagnosis was added (UI check)
-        await expect(page.getByText(DIAGNOSIS)).toBeVisible();
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        // This is the optimistic UI indicator that the diagnosis is ready to be used
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
+        // Verify diagnosis was added (UI check) - use test ID to avoid strict mode violation
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toContainText(DIAGNOSIS);
       });
 
       await test.step('Create a medication order', async () => {
@@ -458,8 +467,12 @@ test.describe('Order Deletion - Happy Path', () => {
         const assessmentPage = await expectAssessmentPage(page);
         await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 
-        // Verify diagnosis was added (UI check)
-        await expect(page.getByText(DIAGNOSIS)).toBeVisible();
+        // Wait for delete button to be enabled (indicates data is fully saved with resourceId)
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
+        // Verify diagnosis was added (UI check) - use test ID to avoid strict mode violation
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toContainText(DIAGNOSIS);
       });
 
       await test.step('Create a radiology order', async () => {

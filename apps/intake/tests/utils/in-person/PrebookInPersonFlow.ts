@@ -1,10 +1,12 @@
 import { expect } from '@playwright/test';
-import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { dataTestIds } from 'src/helpers/data-test-ids';
+import { BOOKING_CONFIG, LOCATION_CONFIG, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
-import { SlotAndLocation, StartVisitResponse } from '../in-person/BaseInPersonFlow';
 import { InPersonPaperworkReturn } from '../Paperwork';
+import { AutocompleteHelpers } from '../playwright-helpers';
 import { BaseInPersonFlow, FilledPaperworkInput } from './BaseInPersonFlow';
+import { SlotAndLocation, StartVisitResponse } from './BaseInPersonFlow';
 
 export class PrebookInPersonFlow extends BaseInPersonFlow {
   // flow steps:
@@ -15,6 +17,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
   // - cancel appointment
 
   async clickVisitButton(): Promise<void> {
+    await expect(this.locator.scheduleInPersonVisitButton).toBeVisible({ timeout: 60000 });
     await this.locator.scheduleInPersonVisitButton.click();
   }
 
@@ -85,11 +88,39 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
       await this.fillingInfo.selectFirstServiceCategory();
     }
 
-    await expect(this.locator.firstAvailableTime).toBeVisible();
+    if (BOOKING_CONFIG.inPersonPrebookRoutingParams.some((param) => param.key === 'bookingOn') === false) {
+      // if there is no bookingOn param, the location selector will be presented
+      return this.selectTimeLocationAndContinue();
+    }
+
+    await expect(this.locator.firstAvailableTime).toBeVisible({ timeout: 60000 });
     const title = await this.locator.pageTitle.textContent();
-    const location = title ? title.replace('Book a visit at ', '').trim() : null;
+    const locationTitle = title ? title.replace('Book a visit at ', '').trim() : null;
 
     const { slot } = await this.fillingInfo.selectRandomSlot();
+    expect(slot, { message: 'No slot was selected' }).toBeTruthy();
+    return { slot, location: locationTitle };
+  }
+
+  async selectTimeLocationAndContinue(): Promise<SlotAndLocation> {
+    // Select location by name from config - pagination in zambda ensures it's in the list
+    const locationName = LOCATION_CONFIG.inPersonLocations[0]?.name;
+    if (!locationName) {
+      throw new Error('No deployed in-person locations found');
+    }
+
+    await AutocompleteHelpers.selectOptionByText(
+      this.page,
+      dataTestIds.scheduleVirtualVisitStatesSelector,
+      locationName
+    );
+
+    await expect(this.locator.firstAvailableTime).toBeVisible({ timeout: 60000 });
+    const title = await this.locator.pageTitle.textContent();
+    const location = title ? title.replace('Book a visit at ', '').trim() : null;
+    const { slot } = await this.fillingInfo.selectRandomSlot();
+    expect(slot, { message: 'No slot was selected' }).toBeTruthy();
+    await this.continue();
     return { slot, location };
   }
 

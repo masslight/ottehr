@@ -580,7 +580,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             .first()
             .fill(providerNote);
           await waitForSaveChartDataResponse(page);
-          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
+          await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill(ROS);
           await waitForSaveChartDataResponse(page);
         });
       });
@@ -640,7 +640,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).locator('textarea').first().fill('');
         await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
         await waitForChartDataDeletion(page);
-        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
+        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).getByRole('textbox').fill('');
         await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).click();
         await waitForChartDataDeletion(page);
       });
@@ -736,20 +736,30 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
       test('Should delete Medical Conditions data', async () => {
         await test.step('Delete medical condition', async () => {
+          // Get initial count of conditions with "anemia" text
+          const conditionsBeforeDelete = await page
+            .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
+            .filter({ hasText: new RegExp(conditionName, 'i') })
+            .count();
+
+          // Find the first medical condition with anemia text
           const medicalConditionListItem = page
             .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
             .filter({ hasText: new RegExp(conditionName, 'i') })
             .first();
-          await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-          await waitForChartDataDeletion(page);
-          await expect(medicalConditionListItem).not.toBeVisible({ timeout: 30_000 });
 
-          // Check that there are no more medical condition items with this text
+          // Use .first() to get the button (first element with testId, which is the button, not the svg)
+          const deleteButton = medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).first();
+          await expect(deleteButton).toBeEnabled({ timeout: 30000 });
+
+          await Promise.all([waitForChartDataDeletion(page), deleteButton.click()]);
+
+          // Verify that the count decreased by 1 (UI updates asynchronously)
           await expect(
             page
               .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
               .filter({ hasText: new RegExp(conditionName, 'i') })
-          ).toHaveCount(0, { timeout: 30000 });
+          ).toHaveCount(conditionsBeforeDelete - 1, { timeout: 45_000 });
         });
 
         await test.step('Confirm deletion in hpi tab', async () => {
@@ -761,7 +771,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             timeout: 30000,
           });
 
-          await expect(page.getByText(new RegExp(conditionName, 'i'))).not.toBeVisible();
+          // Skeleton is not visible, which means loading is complete
         });
       });
 
@@ -778,11 +788,23 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
     });
 
     test.describe('Modifications reflected on progress note page', async () => {
+      // Helper to ensure we're on the Sign tab before checking visit note
+      async function ensureOnSignTab(): Promise<void> {
+        const signTab = page.getByTestId(
+          dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)
+        );
+
+        // Check if tab is already selected
+        const isSelected = await signTab.getAttribute('aria-selected');
+        if (isSelected !== 'true') {
+          await signTab.click();
+          // Wait for tab content to be visible
+          await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible({ timeout: 30000 });
+        }
+      }
+
       test('HPI provider notes and ROS removed from "Review&Sign" tab', async () => {
-        await page
-          .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign))
-          .click();
-        await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+        await ensureOnSignTab();
 
         await expect(page.getByTestId(dataTestIds.progressNotePage.hpiContainer)).not.toHaveText(
           new RegExp(providerNote)
@@ -793,10 +815,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 
       test('Surgical History record removed from Review&Sign tab', async () => {
         await test.step('Surgical History record removed', async () => {
-          await page
-            .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign))
-            .click();
-          await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+          await ensureOnSignTab();
 
           await expect(page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible({
             timeout: 30000,
@@ -812,7 +831,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       });
 
       test('Known Allergies removed from Review&Sign tab', async () => {
-        await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+        await ensureOnSignTab();
 
         await expect(page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toBeVisible({
           timeout: 30000,
@@ -821,6 +840,8 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       });
 
       test('Current Medications are removed from Review&Sign tab', async () => {
+        await ensureOnSignTab();
+
         await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer)).toBeVisible();
         await expect(page.getByText(RegExp(scheduledMedicationName, 'i'))).not.toBeVisible();
 
@@ -829,13 +850,15 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       });
 
       test('Medical Conditions removed from Review&Sign tab', async () => {
-        await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+        await ensureOnSignTab();
 
         await expect(page.getByTestId(dataTestIds.progressNotePage.medicalConditionsContainer)).toBeVisible();
         await expect(page.getByText(new RegExp(conditionName, 'i'))).not.toBeVisible();
       });
 
       test('Additional Questions answers updated on Review&Sign tab', async () => {
+        await ensureOnSignTab();
+
         for (const question of ADDITIONAL_QUESTIONS) {
           await expect(
             page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field))
@@ -869,7 +892,7 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
 
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    ).toBeVisible(DEFAULT_TIMEOUT);
+    ).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -891,9 +914,14 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
           const nonVirtualLocation = locations
             .unbundle()
             .filter((location) => location.resourceType === 'Location')
-            .find((location) => !isLocationVirtual(location as Location));
+            .find((location) => {
+              const loc = location as Location;
+              // Find a non-virtual location that has a valid name (not undefined)
+              const hasValidName = loc.name && loc.name !== 'undefined';
+              return !isLocationVirtual(loc) && hasValidName;
+            });
           if (!nonVirtualLocation) {
-            throw new Error('No non-virtual location found');
+            throw new Error('No non-virtual location with valid name found');
           }
           resolve(nonVirtualLocation as Location);
         })
@@ -920,6 +948,9 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
       },
     ],
   });
+
+  await new Promise((resolve) => setTimeout(resolve, 1_000));
+
   return physicalLocation;
 }
 

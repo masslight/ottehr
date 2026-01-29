@@ -1,9 +1,10 @@
 // cSpell:ignore SNPRF
 import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { Appointment } from 'fhir/r4b';
+import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
+import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
 import { ResourceHandler } from 'tests/utils/resource-handler';
 import {
   chooseJson,
@@ -14,7 +15,6 @@ import {
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 
 let page: Page;
@@ -22,9 +22,9 @@ let context: BrowserContext;
 let locator: Locators;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
+let fillingInfo: FillingInfo;
 const appointmentIds: string[] = [];
 const locationName = process.env.LOCATION;
-const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 const PROCESS_ID = `PaperworkWalkIn.spec.ts-${DateTime.now().toMillis()}`;
 let oystehr: Oystehr;
@@ -51,6 +51,7 @@ test.beforeAll(async ({ browser }) => {
   paperwork = new Paperwork(page);
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
+  fillingInfo = new FillingInfo(page);
 });
 test.afterAll(async () => {
   await page.close();
@@ -66,10 +67,10 @@ test.afterAll(async () => {
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
   test('SNPRF-1 Fill required contact information', async () => {
-    await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}`);
+    await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}/select-service-category`);
+    await fillingInfo.selectFirstServiceCategory();
     await locator.clickContinueButton();
     await locator.selectDifferentFamilyMember();
-    const fillingInfo = new FillingInfo(page);
     await fillingInfo.fillNewPatientInfo();
     await fillingInfo.fillDOBgreater18();
     await locator.clickContinueButton();
@@ -93,7 +94,8 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Credit card details');
   });
-  test('SNPRF-4 Skip Card selection and proceed to responsible party page', async () => {
+  test('SNPRF-4 Fill credit card and proceed to responsible party page', async () => {
+    await paperwork.fillAndAddCreditCardIfDoesntExist();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
@@ -101,27 +103,82 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
   test('SNPRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
-    if (employerInformationPageExists) {
-      await expect(locator.flowHeading).toHaveText('Employer information');
-    } else {
-      await expect(locator.flowHeading).toHaveText('Emergency Contact');
-    }
-  });
-  if (employerInformationPageExists) {
-    test('SNPRF-6 Fill employer information', async () => {
+    // Check which page appears (employer information is conditional)
+    await expect(locator.flowHeading).not.toHaveText('Loading...', { timeout: 60000 });
+    const currentPageTitle = await locator.flowHeading.textContent();
+    if (currentPageTitle === 'Employer information') {
       await paperwork.fillEmployerInformation();
       await commonLocatorsHelper.clickContinue();
-      await expect(locator.flowHeading).toHaveText('Emergency Contact');
-    });
-  }
+    }
+    await expect(locator.flowHeading).toHaveText('Emergency Contact');
+  });
   test('SNPRF-7 Fill emergency contact details', async () => {
     await expect(locator.flowHeading).toHaveText('Emergency Contact');
     await paperwork.fillEmergencyContactInformation();
     await commonLocatorsHelper.clickContinue();
+    const attorneyPageVisible = QuestionnaireHelper.inPersonAttorneyPageIsVisible([
+      {
+        linkId: 'contact-information-page',
+        item: [
+          {
+            linkId: 'reason-for-visit',
+            answer: [{ valueString: fillingInfo.getReasonForVisit() }],
+          },
+        ],
+      },
+    ]);
+    if (attorneyPageVisible) {
+      await expect(locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
+    } else {
+      await expect(locator.flowHeading).toHaveText('Photo ID');
+    }
+  });
+  test('SNPRF-7a Fill attorney information', async () => {
+    test.skip(
+      (() => {
+        const responseItems: QuestionnaireResponseItem[] = [
+          {
+            linkId: 'contact-information-page',
+            item: [
+              {
+                linkId: 'reason-for-visit',
+                answer: [{ valueString: fillingInfo.getReasonForVisit() }],
+              },
+            ],
+          },
+        ];
+        // Check if attorney page would be visible for this reason for visit
+        return !QuestionnaireHelper.inPersonAttorneyPageIsVisible(responseItems);
+      })(),
+      'Attorney page not visible for this appointment type; skipping test.'
+    );
+    await expect(locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
+    await paperwork.fillAttorneyInformation();
+    await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
   test('SNPRF-8 Skip photo ID and complete consent forms', async () => {
-    await paperwork.skipPhotoID();
+    const photoIdFrontRequired = QuestionnaireHelper.inPersonIsPhotoIdFrontRequired();
+    const photoIdBackRequired = QuestionnaireHelper.inPersonIsPhotoIdBackRequired();
+
+    if (!photoIdFrontRequired && !photoIdBackRequired) {
+      // Photo ID is optional, skip it
+      await paperwork.skipPhotoID();
+    } else {
+      // Photo ID is required, upload photos
+      if (photoIdFrontRequired) {
+        await paperwork.uploadPhoto.fillPhotoFrontID();
+      }
+      if (photoIdBackRequired) {
+        await paperwork.uploadPhoto.fillPhotoBackID();
+      }
+      // Wait for files to be uploaded before continuing
+      const expectedFileCount = (photoIdFrontRequired ? 1 : 0) + (photoIdBackRequired ? 1 : 0);
+      if (expectedFileCount > 0) {
+        await expect(page.getByTestId('file-card-clear-button')).toHaveCount(expectedFileCount, { timeout: 60000 });
+      }
+      await commonLocatorsHelper.clickContinue();
+    }
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
     await commonLocatorsHelper.clickContinue();

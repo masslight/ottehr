@@ -12,19 +12,24 @@ import {
   Location,
   Observation,
   Patient,
+  Questionnaire,
   QuestionnaireResponseItem,
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  CONSENT_FORMS_CONFIG,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
   flattenQuestionnaireAnswers,
+  getCanonicalQuestionnaire,
   getPatchOperationsForNewMetaTags,
   getRelatedPersonForPatient,
   getSecret,
+  INSURANCE_PAY_OPTION,
   IntakeQuestionnaireItem,
   PaymentVariant,
   SecretsKeys,
+  SELF_PAY_OPTION,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
@@ -131,6 +136,21 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   ).unbundle();
   console.timeEnd('querying for resources to support qr harvest');
 
+  // Fetch questionnaire for enableWhen filtering
+  const questionnaireForEnableWhenFiltering = await (async (): Promise<Questionnaire | undefined> => {
+    if (qr.questionnaire) {
+      const parts = qr.questionnaire.split('|');
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        try {
+          return await getCanonicalQuestionnaire({ url: parts[0], version: parts[1] }, oystehr);
+        } catch (error) {
+          console.warn(`Failed to fetch questionnaire ${qr.questionnaire}:`, error);
+        }
+      }
+    }
+    return undefined;
+  })();
+
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
   let patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
@@ -145,7 +165,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(qr.item || [], patientResource);
+  const patientPatchOps = createMasterRecordPatchOperations(
+    qr.item || [],
+    patientResource,
+    questionnaireForEnableWhenFiltering
+  );
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
@@ -187,8 +211,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     const preserveOmittedCoverages =
       qr.item
         ?.find((item) => item.linkId === 'payment-option-page')
-        ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString ===
-      'I will pay without insurance';
+        ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString === SELF_PAY_OPTION;
     await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: qr.item ?? [], preserveOmittedCoverages },
       oystehr
@@ -230,10 +253,13 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     paperwork as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
-
-  const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
-  const consentToTreat = flattenedPaperwork.find((data) => data.linkId === 'consent-to-treat')?.answer?.[0]
-    ?.valueBoolean;
+  const consentFormsSigned = CONSENT_FORMS_CONFIG.forms.every(
+    (form) =>
+      flattenedPaperwork.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
+  );
+  console.log('Flattened paperwork: ', JSON.stringify(flattenedPaperwork, null, 2));
+  console.log('Consent forms signed: ', consentFormsSigned);
+  console.log('qr.status', qr.status);
 
   if (appointmentResource === undefined || appointmentResource.id === undefined) {
     throw new Error('Appointment resource not found');
@@ -241,7 +267,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   // only create the consent resources once when qr goes to completed.
   // it seems QR is saved twice in rapid succession on submission
-  if (hipaa === true && consentToTreat === true && qr.status === 'completed') {
+  if (consentFormsSigned && qr.status === 'completed') {
     console.time('creating consent resources');
     try {
       await createConsentResources({
@@ -298,10 +324,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     try {
       console.log('updating encounter payment variant and account references');
       const paymentOption = flattenedPaperwork.find(
-        (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
+        (response: QuestionnaireResponseItem) =>
+          response.linkId === 'payment-option' || response.linkId === 'payment-option-occupational'
       )?.answer?.[0]?.valueString;
       let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
-      if (paymentOption === 'I have insurance') {
+      if (paymentOption === INSURANCE_PAY_OPTION) {
         paymentVariant = PaymentVariant.insurance;
       }
       if (paymentOption === 'Employer') {

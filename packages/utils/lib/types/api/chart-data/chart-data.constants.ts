@@ -61,6 +61,7 @@ export enum VitalFieldNames {
   VitalWeight = 'vital-weight',
   VitalHeight = 'vital-height',
   VitalVision = 'vital-vision',
+  VitalLastMenstrualPeriod = 'vital-last-menstrual-period',
 }
 
 export enum VitalVisionComponents {

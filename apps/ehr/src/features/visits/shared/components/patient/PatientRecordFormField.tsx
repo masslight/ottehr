@@ -8,10 +8,16 @@ import { BasicDatePicker, FormSelect, FormTextField } from 'src/components/form'
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { dedupeObjectsByKey, FormFieldsItem, FormFieldTrigger, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import {
+  dedupeObjectsByKey,
+  FormFieldsDisplayItem,
+  FormFieldsInputItem,
+  FormFieldTrigger,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+} from 'utils';
 
 interface PatientRecordFormFieldProps {
-  item: FormFieldsItem;
+  item: FormFieldsInputItem | FormFieldsDisplayItem;
   isLoading: boolean;
   hiddenFormFields?: string[];
   requiredFormFields?: string[];
@@ -40,7 +46,12 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 }) => {
   const { control, watch, setValue, getValues } = useFormContext();
 
-  const { triggers, enableBehavior = 'any', dynamicPopulation, disabledDisplay } = item;
+  const { triggers, enableBehavior = 'any', disabledDisplay } = item;
+
+  let dynamicPopulation: FormFieldsInputItem['dynamicPopulation'];
+  if (item.type !== 'display') {
+    dynamicPopulation = item.dynamicPopulation;
+  }
 
   const triggeredEffects = (() => {
     if (!triggers || triggers.length === 0) {
@@ -180,6 +191,9 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   const rules = (() => {
     // console.log('otherGroupKeys, adding rules for', item.key);
     const rules: any = {};
+    if (item.type === 'display') {
+      return rules;
+    }
     if (isRequired) {
       rules.required = REQUIRED_FIELD_ERROR_MESSAGE;
     }
@@ -249,11 +263,11 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
   let placeholder: string | undefined;
   let mask: string | undefined;
-  if (item.dataType === 'Phone Number') {
+  if (item.type !== 'display' && item.dataType === 'Phone Number') {
     placeholder = '(XXX) XXX-XXXX';
     mask = '(000) 000-0000';
   }
-  if (item.dataType === 'SSN') {
+  if (item.type !== 'display' && item.dataType === 'SSN') {
     placeholder = 'XXX-XX-XXXX';
     mask = '000-00-0000';
   }
@@ -387,6 +401,10 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     return InputElement;
   }
 
+  if (item.type === 'display') {
+    return <></>; // no use of display type fields in this context for now
+  }
+
   return (
     <Row label={item.type === 'boolean' ? '' : item.label} inputId={item.key} required={isRequired}>
       {InputElement}
@@ -406,7 +424,7 @@ type AnswerSourceStrategy = {
 };
 
 interface DynamicReferenceFieldProps {
-  item: Omit<FormFieldsItem, 'options'>;
+  item: Omit<FormFieldsInputItem | FormFieldsDisplayItem, 'options'>;
   optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
   id?: string;
   rules?: RegisterOptions;

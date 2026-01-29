@@ -47,12 +47,14 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
+  BOOKING_CONFIG,
   DocumentInfo,
   DocumentType,
   EHRVisitDetails,
   FHIR_EXTENSION,
   FhirAppointmentType,
   formatDateForDisplay,
+  getCoding,
   getFirstName,
   getFullName,
   getInPersonVisitStatus,
@@ -64,8 +66,11 @@ import {
   getUnconfirmedDOBForAppointment,
   isApiError,
   isInPersonAppointment,
+  isTelemedAppointment,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
+  SERVICE_CATEGORY_SYSTEM,
+  ServiceMode,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
@@ -126,8 +131,13 @@ interface EditReasonForVisitParams {
   reasonForVisit?: string;
   additionalDetails?: string;
 }
+
 interface EditNLGParams {
   guardians?: string;
+}
+
+interface ServiceCategoryParams {
+  serviceCategory?: string;
 }
 
 type EditDialogConfig =
@@ -154,7 +164,13 @@ type EditDialogConfig =
       keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
       requiredKeys: string[];
     }
-  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] };
+  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] }
+  | {
+      type: 'service-category';
+      values: ServiceCategoryParams;
+      keyTitleMap: { serviceCategory: 'Service Category' };
+      requiredKeys: string[];
+    };
 
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   switch (type) {
@@ -166,6 +182,8 @@ const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
       return "Please enter patient's reason for visit";
     case 'nlg':
       return "Please enter patient's Authorized Non-Legal Guardians";
+    case 'service-category':
+      return 'Please select Service Category';
     default:
       return '';
   }
@@ -533,6 +551,10 @@ export default function VisitDetailsPage(): ReactElement {
       bookingDetails = {
         authorizedNonLegalGuardians: editDialogConfig.values.guardians,
       };
+    } else if (editDialogConfig.type === 'service-category') {
+      bookingDetails = {
+        serviceCategory: editDialogConfig.values.serviceCategory,
+      };
     } else {
       // type === reason-for-visit
       bookingDetails = {
@@ -628,6 +650,7 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentStartTime = DateTime.fromISO(appointment?.start ?? '').setZone(locationTimeZone);
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -776,7 +799,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
-    'none';
+    '';
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
@@ -1080,11 +1103,15 @@ export default function VisitDetailsPage(): ReactElement {
                                 "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
                               }
                             : {}),
+                          'Service category':
+                            BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategory)
+                              ?.display ??
+                            serviceCategory ??
+                            '',
                           'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
-                          'Authorized non-legal guardian(s)':
-                            patient?.extension?.find(
-                              (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
-                            )?.valueString || 'none',
+                          'Authorized non-legal guardian(s)': patient?.extension?.find(
+                            (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+                          )?.valueString || <></>,
                         }}
                         icon={{
                           "Patient's date of birth (Unmatched)": (
@@ -1107,6 +1134,22 @@ export default function VisitDetailsPage(): ReactElement {
                                     dob: 'DOB',
                                   },
                                   requiredKeys: ['dob'],
+                                })
+                              }
+                              size="16px"
+                              sx={{ mr: '5px', padding: '10px' }}
+                            />
+                          ),
+                          'Service category': (
+                            <PencilIconButton
+                              onClick={() =>
+                                setEditDialogConfig({
+                                  type: 'service-category',
+                                  values: { serviceCategory },
+                                  keyTitleMap: {
+                                    serviceCategory: 'Service Category',
+                                  },
+                                  requiredKeys: [],
                                 })
                               }
                               size="16px"
@@ -1240,6 +1283,13 @@ export default function VisitDetailsPage(): ReactElement {
                 id={patientId}
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
+                appointmentContext={{
+                  appointmentServiceCategory: getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code,
+                  appointmentServiceMode: isTelemedAppointment(appointment)
+                    ? ServiceMode.virtual
+                    : ServiceMode['in-person'],
+                  reasonForVisit,
+                }}
               />
             </Grid>
           </Grid>
@@ -1364,6 +1414,35 @@ export default function VisitDetailsPage(): ReactElement {
                         {VALUE_SETS.reasonForVisitOptions.map((reason) => (
                           <MenuItem key={reason.value} value={reason.value}>
                             {reason.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </>
+                  );
+                } else if (editDialogConfig.type === 'service-category' && key === 'serviceCategory') {
+                  return (
+                    <>
+                      <Select
+                        id="service-category-select"
+                        value={value}
+                        required
+                        fullWidth
+                        onChange={(e) =>
+                          setEditDialogConfig(
+                            (prev) =>
+                              ({
+                                ...prev,
+                                values: {
+                                  ...prev.values,
+                                  [key]: e.target.value,
+                                },
+                              }) as EditDialogConfig
+                          )
+                        }
+                      >
+                        {BOOKING_CONFIG.serviceCategories.map((category) => (
+                          <MenuItem key={category.code} value={category.code}>
+                            {category.display}
                           </MenuItem>
                         ))}
                       </Select>

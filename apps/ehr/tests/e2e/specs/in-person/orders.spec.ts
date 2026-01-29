@@ -14,7 +14,6 @@ import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreateP
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
 import { expectOrderDetailsPage, OrderInHouseLabPage } from 'tests/e2e/page/OrderInHouseLabPage';
-import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
@@ -398,11 +397,12 @@ test.describe('Nursing Orders Page', () => {
 // Procedures helpers
 async function setupPractitioners(page: Page): Promise<void> {
   const inPersonHeader = new InPersonHeader(page);
-  await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/review-and-sign`);
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await expectPatientInfoPage(page);
+  const initialSideMenu = new SideMenu(page);
+  await initialSideMenu.clickCcAndIntakeNotes();
 }
 
 async function enterProcedureInfo(

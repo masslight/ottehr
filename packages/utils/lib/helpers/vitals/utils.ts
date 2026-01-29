@@ -211,6 +211,10 @@ const findRulesForVitalsKeyAndDOB = (
 ):
   | { type: 'rules'; rules: AlertRule[] }
   | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {
+  if (key === 'vital-last-menstrual-period') {
+    return { type: 'rules', rules: [] };
+  }
+
   const dateOfBirth = DateTime.fromISO(dob);
   const now = DateTime.now();
   const alertThresholds: AlertThreshold[] = VitalsDef(configOverride)[key]?.alertThresholds ?? [];
@@ -261,10 +265,13 @@ interface AlertableValuesInput {
 
 const getAlertLevels = (input: AlertableValuesInput): FHIRObservationInterpretation[] => {
   const { observation, rules, patientAgeInMonths, patientSex, componentName } = input;
-  let value: number | undefined = observation.value;
+  if (observation.field === VitalFieldNames.VitalLastMenstrualPeriod) {
+    return [];
+  }
   if (observation.field === VitalFieldNames.VitalVision) {
     return [];
   }
+  let value: number | undefined = observation.value;
   if (observation.field === VitalFieldNames.VitalBloodPressure) {
     // do a blood pressure-specific check on components
     if (componentName === 'systolic-pressure') {
@@ -330,7 +337,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
 
   const ruleCriticality = rule.criticality;
   if (rule.type === 'min') {
-    if (value < thresholdValue) {
+    if (value <= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalLow;
       }
@@ -340,7 +347,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
     }
   }
   if (rule.type === 'max') {
-    if (value > thresholdValue) {
+    if (value >= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalHigh;
       }

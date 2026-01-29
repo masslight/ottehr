@@ -3,7 +3,9 @@ import { useCallback, useMemo } from 'react';
 import { FieldValues, RefCallBack, useFormContext, useFormState } from 'react-hook-form';
 import {
   DOB_DATE_FORMAT,
+  INSURANCE_PAY_OPTION,
   IntakeQuestionnaireItem,
+  PHARMACY_COLLECTION_LINK_IDS,
   pickFirstValueFromAnswerItem,
   pickValueAsStringListFromAnswerItem,
 } from 'utils';
@@ -82,6 +84,9 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
       if (item.type === 'date') {
         return pickFirstValueFromAnswerItem(renderValue) ?? '';
       }
+      if (item.type === 'decimal') {
+        return pickFirstValueFromAnswerItem(renderValue, 'decimal') ?? '';
+      }
       return undefined;
     })();
 
@@ -96,6 +101,9 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
       if (item.type === 'attachment') {
         valueTypeString = 'valueAttachment';
       }
+      if (item.type === 'decimal') {
+        valueTypeString = 'valueDecimal';
+      }
       const fieldId = item.acceptsMultipleAnswers
         ? `${fieldIdBase}.answer`
         : `${fieldIdBase}.answer.0.${valueTypeString}`;
@@ -108,11 +116,14 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
   const onChange = useCallback(
     (e: any): void => {
       // todo: this is temporarily hardcoded. want to work this into the questionnaire schema.
-      if (item.linkId === 'payment-option' && e.target.value !== 'I have insurance') {
+      if (item.linkId === 'payment-option' && e.target.value !== INSURANCE_PAY_OPTION) {
         setValue('display-secondary-insurance.answer.0.valueBoolean', false);
       }
       const base = { linkId: item.linkId };
-      if (isStringValueTypeItem(item)) {
+      if (item.linkId === PHARMACY_COLLECTION_LINK_IDS.pharmacyCollection) {
+        const updatedPharmCollection = { ...base, item: e };
+        return renderOnChange(updatedPharmCollection);
+      } else if (isStringValueTypeItem(item)) {
         if (item.acceptsMultipleAnswers) {
           const answer = e.target.value?.map((val: string) => {
             const valueString = val?.trimStart();
@@ -156,6 +167,26 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
         if (luxonDate.isValid) {
           const dateString = luxonDate.toFormat(DOB_DATE_FORMAT);
           return renderOnChange({ ...base, answer: [{ valueString: dateString }] });
+        }
+      } else if (item.type === 'decimal') {
+        let inputValue: string = e.target.value;
+        // Only allow digits and at most one decimal point
+        inputValue = inputValue.replace(/[^0-9.]/g, '');
+        // Remove extra decimal points (keep only the first one)
+        const parts = inputValue.split('.');
+        if (parts.length > 2) {
+          inputValue = parts[0] + '.' + parts.slice(1).join('');
+        }
+        // Limit to one digit after the decimal point
+        if (parts.length === 2 && parts[1].length > 1) {
+          inputValue = parts[0] + '.' + parts[1].charAt(0);
+        }
+        if (inputValue === '' || inputValue === '.') {
+          return renderOnChange({ ...base });
+        }
+        const valueDecimal = parseFloat(inputValue);
+        if (!isNaN(valueDecimal)) {
+          return renderOnChange({ ...base, answer: [{ valueDecimal }] });
         }
       }
     },

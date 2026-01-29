@@ -6,9 +6,11 @@ import {
   diffInMinutes,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
+  getCoding,
   PAPERWORK_CONSENT_CODE_UNIQUE,
   PUBLIC_EXTENSION_BASE_URL,
   REASON_FOR_VISIT_SEPARATOR,
+  SERVICE_CATEGORY_SYSTEM,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
   TelemedStatusHistoryElement,
@@ -205,4 +207,19 @@ export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
       .map((complaint) => complaint.trim())
       .join(', '),
   };
+};
+
+export const isAppointmentWorkersComp = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === 'workers-comp';
+};
+
+export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === 'occupational-medicine';
+};
+
+export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === 'urgent-care';
 };

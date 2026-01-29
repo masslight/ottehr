@@ -1,6 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
+import { primaryIcon } from '@theme/icons';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
@@ -360,7 +360,7 @@ const ChoosePatient = (): JSX.Element => {
         visitType === VisitType.WalkIn && showCheckIn ? (
           <CardWithDescriptionAndLink
             iconHeight={50}
-            icon={ottehrLightBlue}
+            icon={primaryIcon}
             iconAlt={BRANDING_CONFIG.primaryIconAlt}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}

@@ -1,17 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
-import virtualIntakeQuestionnaire from '../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
-import { BOOKING_CONFIG, PATIENT_RECORD_QUESTIONNAIRE } from '../ottehr-config';
+import {
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  PATIENT_RECORD_QUESTIONNAIRE,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
+} from '../ottehr-config';
 import { CanonicalUrl } from '../types';
 
 // todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
 const getQuestionnaires = (): Array<Questionnaire> => [
-  ...Object.values(inPersonIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(),
   PATIENT_RECORD_QUESTIONNAIRE(),
-  ...Object.values(virtualIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE(),
   ...Object.values(virtualIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(inPersonIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
 ];
@@ -25,9 +27,12 @@ export const getCanonicalQuestionnaire = async (
 
   const maybeQuestionnaireFromFile = getQuestionnaires().find((q) => q.url === url && q.version === version);
   // if we found the Q in the local file, return it
+  console.log('looking for questionnaire locally', url, version);
   if (maybeQuestionnaireFromFile) {
+    console.log('found questionnaire locally');
     return JSON.parse(JSON.stringify(maybeQuestionnaireFromFile));
   }
+  console.log('questionnaire not found locally, fetching from FHIR server');
 
   // otherwise, fetch from the FHIR server
   const questionnaireSearch = (
@@ -51,7 +56,6 @@ export const getCanonicalQuestionnaire = async (
   } else if (questionnaireSearch.length > 1) {
     throw new Error(`Found multiple Questionnaires with same canonical url: ${url}|${version}`);
   }
-  console.log('questionnaire search', JSON.stringify(questionnaireSearch));
   const questionnaire: Questionnaire | undefined = questionnaireSearch[0];
   if (!questionnaire.id) {
     throw new Error('Questionnaire does not have ID');
@@ -75,6 +79,8 @@ export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): Qu
     if (!questionnaireUrl) {
       return false;
     }
-    return BOOKING_CONFIG.intakeQuestionnaires.some((questionnaire) => questionnaireUrl.startsWith(questionnaire.url!));
+    return [IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(), VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()].some(
+      (questionnaire: Questionnaire) => questionnaireUrl.startsWith(questionnaire.url!)
+    );
   }) as QuestionnaireResponse | undefined;
 };

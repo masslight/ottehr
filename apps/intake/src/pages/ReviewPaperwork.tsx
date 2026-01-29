@@ -6,7 +6,15 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { TermsAndConditions } from 'src/components/TermsAndConditions';
-import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
+import {
+  convertQRItemToLinkIdMap,
+  evalEnableWhen,
+  makeValidationSchema,
+  pickFirstValueFromAnswerItem,
+  ServiceMode,
+  uuidRegex,
+  VisitType,
+} from 'utils';
 import { ValidationError } from 'yup';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import api from '../api/ottehrApi';
@@ -173,6 +181,7 @@ const ReviewPaperwork = (): JSX.Element => {
     return { paperworkCompletedStatus: validationState, allComplete };
   }, [allItems, appointmentData?.serviceMode, completedPaperwork, findAnswerWithLinkId, paperworkPages]);
 
+  const paperworkValues = convertQRItemToLinkIdMap(questionnaireResponse?.item ?? []);
   const reviewItems: ReviewItem[] = [
     {
       name: 'Patient',
@@ -191,20 +200,22 @@ const ReviewPaperwork = (): JSX.Element => {
       hidden: visitType === VisitType.WalkIn,
       testId: dataTestIds.checkInTimePaperworkReviewScreen,
     },
-    ...(paperworkPages ?? []).map((paperworkPage) => {
-      let hasError = false;
-      if (validationErrors) {
-        hasError = validationErrors[paperworkPage.linkId]?.length ? true : false;
-      }
-      return {
-        name: paperworkPage.text ?? 'Review',
-        path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
-        valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
-        testId: paperworkPage.linkId + '-status',
-        rowID: paperworkPage.linkId,
-        valueTestId: paperworkPage.linkId + '-edit',
-      };
-    }),
+    ...(paperworkPages ?? [])
+      .filter((page) => evalEnableWhen(page, allItems, paperworkValues, questionnaireResponse))
+      .map((paperworkPage) => {
+        let hasError = false;
+        if (validationErrors) {
+          hasError = validationErrors[paperworkPage.linkId]?.length ? true : false;
+        }
+        return {
+          name: paperworkPage.text ?? 'Review',
+          path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
+          valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
+          testId: paperworkPage.linkId + '-status',
+          rowID: paperworkPage.linkId,
+          valueTestId: paperworkPage.linkId + '-edit',
+        };
+      }),
   ];
 
   const serviceMode = appointmentData?.serviceMode ?? ServiceMode['in-person'];

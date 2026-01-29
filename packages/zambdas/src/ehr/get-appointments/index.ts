@@ -18,6 +18,7 @@ import { DateTime } from 'luxon';
 import {
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
+  CONSENT_FORMS_CONFIG,
   flattenItems,
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
@@ -39,6 +40,7 @@ import {
   ROOM_EXTENSION_URL,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   SMSModel,
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
@@ -607,10 +609,10 @@ const makeAppointmentInformation = (
 
   const flattenedItems = flattenItems(questionnaireResponse?.item ?? []);
   const consentComplete =
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'hipaa-acknowledgement')?.answer?.[0]
-      .valueBoolean === true &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-to-treat')?.answer?.[0].valueBoolean ===
-      true &&
+    CONSENT_FORMS_CONFIG.forms.every(
+      (form) =>
+        flattenedItems.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
+    ) &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'signature') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
@@ -695,5 +697,8 @@ const makeAppointmentInformation = (
     visitStatusHistory: getVisitStatusHistory(encounter),
     needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
+    serviceCategory: appointment.serviceCategory
+      ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+      ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
   };
 };

@@ -51,7 +51,7 @@ export class EditMedicationCard {
   async selectMedication(medication: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.MEDICATION);
     await this.#page.getByTestId(dataTestId).click();
-    await this.chooseOption(medication);
+    await this.chooseOption(medication, true);
   }
 
   async clearMedication(): Promise<void> {
@@ -66,6 +66,17 @@ export class EditMedicationCard {
 
   async selectAssociatedDx(diagnosis: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
+
+    // Wait for skeleton to disappear (data is loaded)
+    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
+    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
+      // Skeleton might not appear if data loads very quickly
+    });
+
+    // Wait for select input to be visible (rendered after skeleton)
+    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
+    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
+
     await this.#page.getByTestId(dataTestId).click();
     await this.chooseOption(diagnosis);
   }
@@ -78,10 +89,15 @@ export class EditMedicationCard {
   async selectOrderedBy(orderedBy: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
 
-    // mui set tabindex 0 to enabled element
-    await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
-      timeout: 30000,
+    // Wait for skeleton to disappear (data is loaded)
+    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
+    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
+      // Skeleton might not appear if data loads very quickly
     });
+
+    // Wait for select input to be visible (rendered after skeleton)
+    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
+    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
 
     await this.#page.getByTestId(dataTestId).click();
     await this.chooseOption(orderedBy);
@@ -90,10 +106,15 @@ export class EditMedicationCard {
   async selectFirstNonEmptyOrderedBy(): Promise<string> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
 
-    // mui set tabindex 0 to enabled element
-    await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
-      timeout: 30000,
+    // Wait for skeleton to disappear (data is loaded)
+    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
+    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
+      // Skeleton might not appear if data loads very quickly
     });
+
+    // Wait for select input to be visible (rendered after skeleton)
+    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
+    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
 
     await this.#page.getByTestId(dataTestId).click();
     const options = await this.#page.getByRole('option').all();
@@ -117,16 +138,30 @@ export class EditMedicationCard {
 
   async waitForLoadOrderedBy(): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
-    await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
-      timeout: 30000,
+
+    // Wait for skeleton to disappear (data is loaded)
+    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
+    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
+      // Skeleton might not appear if data loads very quickly
     });
+
+    // Wait for select input to be visible (rendered after skeleton)
+    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
+    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
   }
 
   async waitForLoadAssociatedDx(): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
-    await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
-      timeout: 30000,
+
+    // Wait for skeleton to disappear (data is loaded)
+    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
+    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
+      // Skeleton might not appear if data loads very quickly
     });
+
+    // Wait for select input to be visible (rendered after skeleton)
+    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
+    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
   }
 
   async verifyDiagnosisNotAllowed(diagnosis: string): Promise<void> {

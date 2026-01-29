@@ -1,5 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG, CONSENT_FORMS_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';
@@ -61,8 +61,6 @@ export class Locators {
   responsiblePartyFirstName: Locator;
   responsiblePartyLastName: Locator;
   responsiblePartyBirthSex: Locator;
-  hipaaAcknowledgement: Locator;
-  consentToTreat: Locator;
   signature: Locator;
   consentFullName: Locator;
   consentSignerRelationship: Locator;
@@ -256,6 +254,13 @@ export class Locators {
   emergencyContactCity: Locator;
   emergencyContactState: Locator;
   emergencyContactZip: Locator;
+  attorneyHasAttorney: Locator;
+  attorneyFirm: Locator;
+  attorneyFirstName: Locator;
+  attorneyLastName: Locator;
+  attorneyEmail: Locator;
+  attorneyMobile: Locator;
+  attorneyFax: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -339,8 +344,8 @@ export class Locators {
     this.relayServiceYes = page.locator('[aria-labelledby="relay-phone-label"] input[type="radio"][value="Yes"]');
 
     // Payment, insurance locators
-    this.selfPayOption = page.getByLabel('I will pay without insurance');
-    this.insuranceOption = page.getByLabel('I have insurance');
+    this.selfPayOption = page.getByLabel(SELF_PAY_OPTION);
+    this.insuranceOption = page.getByLabel(INSURANCE_PAY_OPTION);
     this.insuranceHeading = page.getByText('We use this information to help determine your coverage and costs.');
     this.insuranceCarrier = page.locator("[id='insurance-carrier']");
     this.insuranceCarrierFirstOption = page.locator("[id='insurance-carrier-option-0']");
@@ -431,16 +436,21 @@ export class Locators {
     this.emergencyContactState = page.locator('[id="emergency-contact-state"]');
     this.emergencyContactZip = page.locator('[id="emergency-contact-zip"]');
 
+    // Attorney Information locators
+    this.attorneyHasAttorney = page.getByLabel('I have an attorney');
+    this.attorneyFirm = page.locator('[id="attorney-mva-firm"]');
+    this.attorneyFirstName = page.locator('[id="attorney-mva-first-name"]');
+    this.attorneyLastName = page.locator('[id="attorney-mva-last-name"]');
+    this.attorneyEmail = page.locator('[id="attorney-mva-email"]');
+    this.attorneyMobile = page.locator('[id="attorney-mva-mobile"]');
+    this.attorneyFax = page.locator('[id="attorney-mva-fax"]');
+
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');
     this.calendarButtonOK = page.locator('button:has-text("OK")');
     this.calendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators
-    this.hipaaAcknowledgement = page.getByLabel('I have reviewed and accept HIPAA Acknowledgement *');
-    this.consentToTreat = page.getByLabel(
-      'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement *'
-    );
     this.signature = page.locator('[id="signature"]');
     this.consentFullName = page.locator('[id="full-name"]');
     this.consentSignerRelationship = page.locator('[id="consent-form-signer-relationship"]');
@@ -574,6 +584,21 @@ export class Locators {
     return this.page.locator(`input[value='${value}']`);
   }
 
+  getConsentFormCheckbox(formId: string): Locator {
+    const form = CONSENT_FORMS_CONFIG.forms.find((f) => f.id === formId);
+    if (!form) {
+      throw new Error(`Consent form with id '${formId}' not found in configuration`);
+    }
+    return this.page.getByLabel(`I have reviewed and accept ${form.formTitle} *`);
+  }
+
+  getAllConsentFormCheckboxes(): { id: string; locator: Locator }[] {
+    return CONSENT_FORMS_CONFIG.forms.map((form) => ({
+      id: form.id,
+      locator: this.page.getByLabel(`I have reviewed and accept ${form.formTitle} *`),
+    }));
+  }
+
   async waitUntilLoadingIsFinished(): Promise<void> {
     await this.page.getByText('Loading...').waitFor({ state: 'hidden' });
   }
@@ -584,8 +609,8 @@ export class Locators {
 
     try {
       await Promise.race([
-        selectPatientPage.waitFor({ state: 'visible', timeout: 10_000 }),
-        patientInfoPage.waitFor({ state: 'visible', timeout: 10_000 }),
+        selectPatientPage.waitFor({ state: 'visible', timeout: 60_000 }),
+        patientInfoPage.waitFor({ state: 'visible', timeout: 60_000 }),
       ]);
 
       if (await selectPatientPage.isVisible()) {
@@ -619,3 +644,5 @@ export class Locators {
     await this.reserveButton.click();
   }
 }
+
+export const getConsentFormIdsForTests = (): string[] => CONSENT_FORMS_CONFIG.forms.map((form) => form.id);

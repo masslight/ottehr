@@ -233,9 +233,8 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
     const playwrightArgs = ['test', testFile];
     if (isUI) {
       playwrightArgs.push('--ui');
-    } else {
-      playwrightArgs.push('--headed=false');
     }
+    // Tests run headless by default. Pass --headed manually if you want to see browser windows
 
     console.log('SMOKE_TEST value:', SMOKE_TEST);
 
@@ -264,11 +263,8 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
   const baseArgs = commands[testType];
   const extraArgs: string[] = [];
 
-  // Only add --headed if we want headed mode (UI mode)
-  // By default Playwright runs headless, so we don't need to pass anything for headless
-  if (isUI) {
-    extraArgs.push('--headed');
-  }
+  // By default, tests run headless (no browser windows)
+  // If you want to see browser windows, pass --headed manually via PLAYWRIGHT_EXTRA_ARGS
 
   if (SMOKE_TEST === 'true' && testType !== 'login') {
     extraArgs.push('--grep', '@smoke');

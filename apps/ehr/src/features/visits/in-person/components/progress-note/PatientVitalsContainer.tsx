@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import VitalHistoryElement from 'src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { NoteDTO, VitalFieldNames } from 'utils';
@@ -21,9 +22,13 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
   const weight = encounterVitals?.[VitalFieldNames.VitalWeight] || [];
   const height = encounterVitals?.[VitalFieldNames.VitalHeight] || [];
   const vision = encounterVitals?.[VitalFieldNames.VitalVision] || [];
+  const lastMenstrualPeriod = encounterVitals?.[VitalFieldNames.VitalLastMenstrualPeriod] || [];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+      data-testid={dataTestIds.progressNotePage.vitalsContainer}
+    >
       <Typography variant="h5" color="primary.dark">
         Vitals
       </Typography>
@@ -89,6 +94,14 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
           <AssessmentTitle>Vision</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {vision?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
+          </Box>
+        </>
+      )}
+      {lastMenstrualPeriod && lastMenstrualPeriod.length > 0 && (
+        <>
+          <AssessmentTitle>Last Menstrual Period</AssessmentTitle>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {lastMenstrualPeriod?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}

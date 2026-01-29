@@ -98,6 +98,9 @@ test('Should fill all required fields', async () => {
   await page.keyboard.press('Enter');
   await expect(diagnosisAutocomplete.locator('input')).toBeEnabled();
 
+  // Wait for delete button to be enabled (indicates diagnosis is fully saved with resourceId)
+  await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton)).toBeEnabled();
+
   const emAutocomplete = page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown);
   await expect(emAutocomplete).toBeVisible();
   await emAutocomplete.click();
@@ -124,6 +127,10 @@ test('Should fill all required fields', async () => {
 });
 
 test('Should sign visit', async () => {
+  // Wait for the review and sign button to become enabled
+  await expect(page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton)).toBeEnabled({ timeout: 60000 });
+
   await page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton).click();
   await telemedDialogConfirm(page);
 

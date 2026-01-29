@@ -1,4 +1,4 @@
-import { CodeableConcept, Observation, ObservationComponent } from 'fhir/r4b';
+import { CodeableConcept, Observation, ObservationComponent, Practitioner } from 'fhir/r4b';
 import {
   getVitalObservationFhirComponentInterpretations,
   ObservationDTO,
@@ -9,6 +9,7 @@ import {
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsOxygenSatObservationMethod,
@@ -17,8 +18,13 @@ import {
   VitalsVisionObservationDTO,
   VitalsVisionOption,
   VitalsWeightObservationDTO,
+  VitalsWeightOption,
+  VitalsWeightPatientRefusedDTO,
   VitalTemperatureObservationMethod,
 } from 'utils';
+import { PATIENT_VITALS_META_SYSTEM } from '../types/api/chart-data/chart-data.types';
+import { PRIVATE_EXTENSION_BASE_URL } from './constants';
+import { getFullName } from './patient';
 
 export const SNOMED_SYSTEM = 'http://snomed.info/sct';
 export const LOINC_SYSTEM = 'http://loinc.org';
@@ -46,9 +52,14 @@ export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_SUPPLEMENTAL_O2 = '250591006';
 export const VITAL_LEFT_EYE_SNOMED_CODE = '8976008';
 export const VITAL_RIGHT_EYE_SNOMED_CODE = '8977004';
 
-export const VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
-export const VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
-export const VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
+export const VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
+export const VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
+export const VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
+
+export const VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE = '8675309';
+
+export const VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE = '8665-2';
+export const VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE = '261665006';
 
 export const getTempObservationMethodCodable = (
   tempDTO: VitalsTemperatureObservationDTO
@@ -403,6 +414,48 @@ export const extractOxySaturationObservationMethod = (
   return undefined;
 };
 
+export const getWeightObservationComponents = (weightDTO: VitalsWeightObservationDTO): ObservationComponent[] => {
+  let result: ObservationComponent[] = [];
+  const hasPatientRefused = (dto: VitalsWeightObservationDTO): dto is VitalsWeightPatientRefusedDTO =>
+    !!dto.extraWeightOptions?.includes('patient_refused');
+
+  const makeExtraWeightOptionComponent = (option: VitalsWeightOption, optionValue: boolean): ObservationComponent => {
+    let optionCode = '';
+    let optionLabel = '';
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+      optionLabel = 'Patient Refused';
+    }
+
+    const optionCodeable: CodeableConcept = {
+      coding: [
+        {
+          system: SNOMED_SYSTEM,
+          code: optionCode,
+          display: optionLabel,
+        },
+      ],
+    };
+    const weightOptionComponent: ObservationComponent = {
+      code: optionCodeable,
+      valueBoolean: optionValue,
+    };
+    return weightOptionComponent;
+  };
+
+  if (hasPatientRefused(weightDTO)) {
+    return [makeExtraWeightOptionComponent('patient_refused', true)];
+  }
+
+  const extraWeightOptionsComponents = (weightDTO.extraWeightOptions ?? []).map((option) =>
+    makeExtraWeightOptionComponent(option as VitalsWeightOption, true)
+  );
+
+  result = [...result, ...extraWeightOptionsComponents];
+
+  return result;
+};
+
 export const getVisionObservationComponents = (visionDTO: VitalsVisionObservationDTO): ObservationComponent[] => {
   let result: ObservationComponent[] = [];
 
@@ -445,11 +498,11 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
   const makeExtraVisionOptionComponent = (option: VitalsVisionOption, optionValue: boolean): ObservationComponent => {
     let optionCode = '';
     if (option === 'child_too_young') {
-      optionCode = VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
     } else if (option === 'with_glasses') {
-      optionCode = VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE;
     } else if (option === 'without_glasses') {
-      optionCode = VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
     }
 
     let optionLabel = '';
@@ -508,11 +561,11 @@ export const extractVisionValues = (
   const getVisionExtraOptionValue = (option: VitalsVisionOption): boolean | undefined => {
     let optionCode = '';
     if (option === 'child_too_young') {
-      optionCode = VITAL_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE;
     } else if (option === 'with_glasses') {
-      optionCode = VITAL_CHILD_WITH_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE;
     } else if (option === 'without_glasses') {
-      optionCode = VITAL_CHILD_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
+      optionCode = VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE;
     }
 
     const optionComponent = components.find((cmp) => {
@@ -540,7 +593,8 @@ export function isVitalObservation(data: ObservationDTO): data is VitalsObservat
     isBloodPressureVitalObservation(data) ||
     isOxygenSaturationVitalObservation(data) ||
     isRespirationRateVitalObservation(data) ||
-    isVisionVitalObservation(data)
+    isVisionVitalObservation(data) ||
+    isLastMenstrualPeriodVitalObservation(data)
   );
 }
 
@@ -582,6 +636,13 @@ export function isRespirationRateVitalObservation(data: ObservationDTO): data is
 export function isOxygenSaturationVitalObservation(data: ObservationDTO): data is VitalsOxygenSatObservationDTO {
   const fieldName = data.field;
   return fieldName === VitalFieldNames.VitalOxygenSaturation;
+}
+
+export function isLastMenstrualPeriodVitalObservation(
+  data: ObservationDTO
+): data is VitalsLastMenstrualPeriodObservationDTO {
+  const fieldName = data.field;
+  return fieldName === VitalFieldNames.VitalLastMenstrualPeriod;
 }
 
 export function toVitalTemperatureObservationMethod(
@@ -674,7 +735,10 @@ export function fillVitalObservationAttributes(
     return {
       ...baseResource,
       code: { coding: [{ system: LOINC_SYSTEM, code: '29463-7', display: 'Body weight' }] },
-      valueQuantity: { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' },
+      valueQuantity: weightDTO.value
+        ? { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' }
+        : undefined,
+      component: getWeightObservationComponents(weightDTO),
     };
   }
 
@@ -692,6 +756,39 @@ export function fillVitalObservationAttributes(
     return {
       ...baseResource,
       component: getVisionObservationComponents(visionDTO),
+    };
+  }
+
+  if (isLastMenstrualPeriodVitalObservation(vitalDTO)) {
+    const lmpDTO = vitalDTO as VitalsLastMenstrualPeriodObservationDTO;
+    return {
+      ...baseResource,
+      code: {
+        coding: [
+          {
+            system: LOINC_SYSTEM,
+            code: VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE,
+            display: 'Last menstrual period start date',
+          },
+        ],
+      },
+      valueDateTime: lmpDTO.value,
+      component: lmpDTO.isUnsure
+        ? [
+            {
+              code: {
+                coding: [
+                  {
+                    system: SNOMED_SYSTEM,
+                    code: VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE,
+                    display: 'Unknown',
+                  },
+                ],
+              },
+              valueBoolean: true,
+            },
+          ]
+        : undefined,
     };
   }
 
@@ -774,13 +871,26 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
   }
 
   if (fieldName === VitalFieldNames.VitalWeight) {
-    const obsNumericalValue = observation.valueQuantity?.value ?? 0;
-    const result: VitalsWeightObservationDTO = {
-      ...baseProps,
-      field: VitalFieldNames.VitalWeight,
-      value: obsNumericalValue,
-    };
-    return result;
+    const obsNumericalValue = observation.valueQuantity?.value;
+    const weightValues = extractWeightValues(observation.component ?? []);
+    const hasPatientRefused = weightValues.weightOptions?.includes('patient_refused');
+
+    if (hasPatientRefused) {
+      const result: VitalsWeightObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalWeight,
+        extraWeightOptions: ['patient_refused'],
+      };
+      return result;
+    } else {
+      const result: VitalsWeightObservationDTO = {
+        ...baseProps,
+        field: VitalFieldNames.VitalWeight,
+        value: obsNumericalValue ?? 0,
+        extraWeightOptions: weightValues.weightOptions as Omit<VitalsWeightOption, 'patient_refused'>[],
+      };
+      return result;
+    }
   }
 
   if (fieldName === VitalFieldNames.VitalHeight) {
@@ -805,5 +915,81 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
     return result;
   }
 
+  if (fieldName === VitalFieldNames.VitalLastMenstrualPeriod) {
+    const hasUnsure = observation.component?.some(
+      (cmp) =>
+        cmp.code?.coding?.some((coding) => coding.code === VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE) &&
+        cmp.valueBoolean === true
+    );
+
+    const result: VitalsLastMenstrualPeriodObservationDTO = {
+      ...baseProps,
+      field: VitalFieldNames.VitalLastMenstrualPeriod,
+      value: observation.valueDateTime ?? '',
+      isUnsure: hasUnsure,
+    };
+    return result;
+  }
+
   return undefined;
+}
+
+const extractWeightValues = (
+  components: ObservationComponent[]
+): {
+  weightOptions?: VitalsWeightOption[];
+} => {
+  const getWeightExtraOptionValue = (option: VitalsWeightOption): boolean | undefined => {
+    let optionCode = '';
+
+    if (option === 'patient_refused') {
+      optionCode = VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE;
+    }
+
+    const optionComponent = components.find((cmp) => {
+      return cmp.code?.coding?.find((coding) => coding?.code === optionCode);
+    });
+
+    return optionComponent?.valueBoolean;
+  };
+
+  const allExtraWeightOptions: VitalsWeightOption[] = ['patient_refused'];
+  const storedExtraWeightOptions = allExtraWeightOptions.filter((option) => getWeightExtraOptionValue(option) === true);
+
+  return {
+    weightOptions: storedExtraWeightOptions,
+  };
+};
+
+export function parseLastMenstrualPeriodObservation(
+  observation: Observation,
+  performer: Practitioner
+): VitalsLastMenstrualPeriodObservationDTO | undefined {
+  const fieldCode = observation?.meta?.tag?.find(
+    (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
+  )?.code;
+
+  if (fieldCode !== VitalFieldNames.VitalLastMenstrualPeriod) return undefined;
+
+  const components = observation.component || [];
+  const hasUnsure = components.some(
+    (cmp) =>
+      cmp.code?.coding?.some(
+        (coding) =>
+          coding.code === VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE && coding.system === SNOMED_SYSTEM
+      ) && cmp.valueBoolean === true
+  );
+
+  const value = observation.valueDateTime;
+  if (value === undefined) return undefined;
+
+  return {
+    resourceId: observation.id,
+    field: VitalFieldNames.VitalLastMenstrualPeriod,
+    value,
+    isUnsure: hasUnsure,
+    authorId: performer.id,
+    authorName: getFullName(performer),
+    lastUpdated: observation.effectiveDateTime || '',
+  };
 }

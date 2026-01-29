@@ -704,6 +704,7 @@ export interface DischargeSummaryData extends PdfData {
     weight?: string;
     height?: string;
     vision?: string;
+    lastMenstrualPeriod?: string;
   };
   currentMedications?: string[];
   currentMedicationsNotes?: string[];

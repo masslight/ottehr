@@ -2,9 +2,10 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG, checkFieldHidden } from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
+import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { TelemedRpInsNoReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
@@ -59,8 +60,12 @@ VirtualPrebookDependentTests('Telemed - Prefilled Paperwork, Responsible Party: 
     await test.step('VVPP-2.2. Check all fields have prefilled values', async () => {
       await expect(locator.patientEthnicity).toHaveValue(patient.patientDetailsData.randomEthnicity);
       await expect(locator.patientRace).toHaveValue(patient.patientDetailsData.randomRace);
-      await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
-      await expect(locator.patientPointOfDiscovery).toBeHidden();
+      if (patient.patientDetailsData.randomPronoun && checkFieldHidden('patient-pronouns') === false) {
+        await expect(locator.patientPronouns).toHaveValue(patient.patientDetailsData.randomPronoun);
+      }
+      if (QuestionnaireHelper.hasVirtualPointOfDiscoveryField()) {
+        await expect(locator.patientPointOfDiscovery).toBeHidden();
+      }
       await expect(locator.patientPreferredLanguage).toHaveValue(patient.patientDetailsData.randomLanguage);
     });
   });
@@ -214,8 +219,10 @@ VirtualPrebookDependentTests('Telemed - Prefilled Paperwork, Responsible Party: 
     });
 
     await test.step("VVPP-8.2. Check all fields don't have prefilled values", async () => {
-      await expect(locator.hipaaAcknowledgement).not.toBeChecked();
-      await expect(locator.consentToTreat).not.toBeChecked();
+      // Validate all configured consent form checkboxes are not checked
+      for (const { locator: checkboxLocator } of locator.getAllConsentFormCheckboxes()) {
+        await expect(checkboxLocator).not.toBeChecked();
+      }
       await expect(locator.signature).toHaveValue('');
       await expect(locator.consentFullName).toHaveValue('');
       await expect(locator.consentSignerRelationship).toHaveValue('');

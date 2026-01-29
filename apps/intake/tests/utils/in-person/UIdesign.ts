@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { expect, Page } from '@playwright/test';
 import { BRANDING_CONFIG } from 'utils';
+import { QuestionnaireHelper } from '../QuestionnaireHelper';
 export class UIDesign {
   page: Page;
   constructor(page: Page) {
@@ -30,8 +31,10 @@ export class UIDesign {
     //await expect(this.page.getByLabel('Pharmacy phone')).toBeVisible();
     await expect(this.page.locator("[id='pharmacy-phone']")).toBeVisible();
     await expect(this.page.getByRole('heading', { name: 'Additional information' })).toBeVisible();
-    await expect(this.page.getByText('How did you hear about us?')).toBeVisible();
-    await expect(this.page.locator("[id='patient-point-of-discovery']")).toBeVisible();
+    if (QuestionnaireHelper.inPersonHasPointOfDiscoveryField()) {
+      await expect(this.page.getByText('How did you hear about us?')).toBeVisible();
+      await expect(this.page.locator("[id='patient-point-of-discovery']")).toBeVisible();
+    }
     await expect(
       this.page.getByText(
         'For eligible visits, you can (optionally) be seen by a virtual provider via an iPad, partnered with our in-office nursing/support team. These visits feature all our typical office care, including: lab testing, vital signs, throat/ear exams, medications, school notes, prescriptions, injury care, and more!'

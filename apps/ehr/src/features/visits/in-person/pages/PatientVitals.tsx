@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React, { useMemo } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import VitalsNotesCard from 'src/features/visits/shared/components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from 'src/features/visits/shared/components/vitals/blood-pressure/VitalsBloodPressureCard';
@@ -8,6 +9,7 @@ import VitalsHeightCard from 'src/features/visits/shared/components/vitals/heigh
 import { useDeleteVitals } from 'src/features/visits/shared/components/vitals/hooks/useDeleteVitals';
 import { useGetHistoricalVitals, useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useSaveVitals } from 'src/features/visits/shared/components/vitals/hooks/useSaveVitals';
+import VitalsLastMenstrualPeriodCard from 'src/features/visits/shared/components/vitals/last-menstrual-period/VitalsLastMenstrualPeriodCard';
 import VitalsOxygenSatCard from 'src/features/visits/shared/components/vitals/oxygen-saturation/VitalsOxygenSatCard';
 import VitalsRespirationRateCard from 'src/features/visits/shared/components/vitals/respiration-rate/VitalsRespirationRateCard';
 import VitalsTemperaturesCard from 'src/features/visits/shared/components/vitals/temperature/VitalsTemperaturesCard';
@@ -65,7 +67,11 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Vitals" showIntakeNotesButton={interactionMode === 'main'} />
+      <PageTitle
+        label="Vitals"
+        showIntakeNotesButton={interactionMode === 'main'}
+        dataTestId={dataTestIds.vitalsPage.title}
+      />
       <VitalsTemperaturesCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
@@ -113,6 +119,12 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         handleDeleteVital={handleDeleteVital}
         currentObs={encounterVitals?.[VitalFieldNames.VitalVision] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalVision] ?? []}
+      />
+      <VitalsLastMenstrualPeriodCard
+        handleSaveVital={handleSaveVital}
+        handleDeleteVital={handleDeleteVital}
+        currentObs={encounterVitals?.[VitalFieldNames.VitalLastMenstrualPeriod] ?? []}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalLastMenstrualPeriod] ?? []}
       />
       <VitalsNotesCard />
 

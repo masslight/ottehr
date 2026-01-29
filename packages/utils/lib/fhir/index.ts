@@ -20,3 +20,4 @@ export * from './questionnaires';
 export * from './practitioners';
 export * from './insurance';
 export * from './payments';
+export * from './getAllFhirSearchPages';

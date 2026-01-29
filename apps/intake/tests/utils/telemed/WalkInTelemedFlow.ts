@@ -1,9 +1,10 @@
 import { expect } from '@playwright/test';
-import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { LOCATION_CONFIG, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
+import { AutocompleteHelpers } from '../playwright-helpers';
 import { BaseTelemedFlow, FilledPaperworkInput, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class WalkInTelemedFlow extends BaseTelemedFlow {
@@ -91,15 +92,15 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
       await this.fillingInfo.selectFirstServiceCategory();
     }
 
-    await this.page.getByPlaceholder('Search or select').click();
-    const locationOption = this.page
-      .locator('[role="option"]')
-      .filter({ hasNot: this.page.locator('[aria-disabled="true"], [disabled]') }) // Exclude disabled options
-      .first();
-    const location = await locationOption.textContent();
-    await locationOption.click();
+    // Select location by name from config - pagination in zambda ensures it's in the list
+    await AutocompleteHelpers.selectOptionByText(
+      this.page,
+      dataTestIds.scheduleVirtualVisitStatesSelector,
+      LOCATION_CONFIG.telemedLocations[0].name
+    );
+
     await this.continue();
 
-    return { location: location?.split('Working hours')[0] ?? null };
+    return { location: LOCATION_CONFIG.telemedLocations[0].name };
   }
 }

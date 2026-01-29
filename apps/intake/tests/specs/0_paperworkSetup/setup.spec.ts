@@ -59,8 +59,9 @@ test.afterAll(async () => {
 const appointmentIdsByPage = new Map<Page, string[]>();
 
 const processId = process.env.PLAYWRIGHT_SUITE_ID;
+
 if (!processId) {
-  throw new Error('Global setup has failed us.');
+  throw new Error('PLAYWRIGHT_SUITE_ID environment variable is not set');
 }
 
 function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
@@ -86,22 +87,6 @@ function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
       await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, processId));
     }
   });
-}
-
-function getLastAppointmentId(page: Page): string {
-  const pageIds = appointmentIdsByPage.get(page);
-  if (!pageIds || pageIds.length === 0) {
-    throw new Error('No appointment IDs captured for this page');
-  }
-  return pageIds[pageIds.length - 1];
-}
-
-function getSecondToLastAppointmentId(page: Page): string {
-  const pageIds = appointmentIdsByPage.get(page);
-  if (!pageIds || pageIds.length < 2) {
-    throw new Error('Not enough appointment IDs captured for this page');
-  }
-  return pageIds[pageIds.length - 2];
 }
 
 function updateSlotDetailsCurrentRef(
@@ -178,21 +163,21 @@ test.describe.parallel('In-Person: Create test patients and appointments', { tag
       return { bookingData, filledPaperwork };
     });
 
-    const slotAndLocation = await test.step('Book second appointment without filling paperwork', async () => {
+    const newBookingData = await test.step('Book second appointment without filling paperwork', async () => {
       await flowClass.selectVisitAndContinue();
       const newBookingData = await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
       await paperwork.clickProceedToPaperwork();
-      return newBookingData.slotAndLocation!;
+      return newBookingData;
     });
 
     await test.step('Save test data', async () => {
       const inPersonNoRpNoInsReqPatient: InPersonNoRpNoInsReqPatient = {
         ...bookingData.patientBasicInfo,
-        ...slotAndLocation,
-        appointmentId: getLastAppointmentId(page),
+        ...newBookingData.slotAndLocation!,
+        appointmentId: newBookingData.appointmentId,
         slotDetails: slotDetailsRef.current,
         cancelledSlotDetails: {
-          appointmentId: getSecondToLastAppointmentId(page),
+          appointmentId: bookingData.appointmentId,
           ...(bookingData.slotDetails as GetSlotDetailsResponse),
         },
         state: filledPaperwork.state,
@@ -230,21 +215,21 @@ test.describe.parallel('In-Person: Create test patients and appointments', { tag
       return { bookingData, filledPaperwork };
     });
 
-    const slotAndLocation = await test.step('Book second appointment without filling paperwork', async () => {
+    const newBookingData = await test.step('Book second appointment without filling paperwork', async () => {
       await flowClass.selectVisitAndContinue();
       const newBookingData = await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
       await paperwork.clickProceedToPaperwork();
-      return newBookingData.slotAndLocation!;
+      return newBookingData;
     });
 
     await test.step('Save test data', async () => {
       const inPersonRpInsNoReqPatient: InPersonRpInsNoReqPatient = {
         ...bookingData.patientBasicInfo,
-        ...slotAndLocation,
-        appointmentId: getLastAppointmentId(page),
+        ...newBookingData.slotAndLocation!,
+        appointmentId: newBookingData.appointmentId,
         slotDetails: slotDetailsRef.current,
         cancelledSlotDetails: {
-          appointmentId: getSecondToLastAppointmentId(page),
+          appointmentId: bookingData.appointmentId,
           ...(bookingData.slotDetails as GetSlotDetailsResponse),
         },
         state: filledPaperwork.state,
@@ -340,15 +325,15 @@ test.describe.parallel('Telemed: Create test patients and appointments', { tag: 
       return { bookingData, filledPaperwork };
     });
 
-    await test.step('Book second appointment without filling paperwork', async () => {
+    const newBookingData = await test.step('Book second appointment without filling paperwork', async () => {
       await flowClass.selectVisitAndContinue();
-      await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      return await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
     });
 
     await test.step('Write test data to file', async () => {
       const telemedRpInsNoReqPatient: TelemedRpInsNoReqPatient = {
         ...bookingData.patientBasicInfo,
-        appointmentId: getLastAppointmentId(page),
+        appointmentId: newBookingData.appointmentId,
         location: bookingData.slotAndLocation.location,
         state: filledPaperwork.state,
         // todo because i'm not great at type conditional types apparently
@@ -390,15 +375,15 @@ test.describe.parallel('Telemed: Create test patients and appointments', { tag: 
       return { bookingData, filledPaperwork };
     });
 
-    await test.step('Book second appointment without filling paperwork', async () => {
+    const newBookingData = await test.step('Book second appointment without filling paperwork', async () => {
       await flowClass.clickVisitButton();
-      await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      return await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
     });
 
     await test.step('Write test data to file', async () => {
       const telemedNoRpNoInsReqPatient: TelemedNoRpNoInsReqPatient = {
         ...bookingData.patientBasicInfo,
-        appointmentId: getLastAppointmentId(page),
+        appointmentId: newBookingData.appointmentId,
         location: bookingData.slotAndLocation.location,
         state: filledPaperwork.state,
         patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsRequiredData,
@@ -430,7 +415,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', { tag: 
     await test.step('Write test data to file', async () => {
       const telemedWaitingRoomPatient: TelemedWaitingRoomPatient = {
         ...bookingData.patientBasicInfo,
-        appointmentId: getLastAppointmentId(page),
+        appointmentId: bookingData.appointmentId,
         location: bookingData.slotAndLocation.location,
         state: filledPaperwork.state,
       };

@@ -30,6 +30,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
@@ -152,6 +153,9 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selectedInvoiceTask, setSelectedInvoiceTask] = useState<Task | undefined>(undefined);
+  const [additionalDataForInvoiceDialog, setAdditionalDataForInvoiceDialog] = useState<
+    { visitDate?: string; location?: string } | undefined
+  >();
 
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
@@ -245,6 +249,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           userTimezone: DateTime.local().zoneName,
         });
         setSelectedInvoiceTask(undefined);
+        setAdditionalDataForInvoiceDialog(undefined);
         void refetchVisitHistory();
         enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
       }
@@ -345,7 +350,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             to={
               row.serviceMode === ServiceMode.virtual
                 ? `/telemed/appointments/${row.appointmentId}?tab=sign`
-                : `/in-person/${row.appointmentId}/progress-note`
+                : `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
             }
           >
             Progress Note
@@ -392,6 +397,12 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                 disabled={buttonDisabled || patientAndRPLoading}
                 color={buttonColor}
                 onClick={() => {
+                  const visitDateTime = row.dateTime ? DateTime.fromISO(row.dateTime) : null;
+                  const visitDate = visitDateTime && visitDateTime.isValid ? visitDateTime.toFormat('MM/dd/yyyy') : '';
+                  setAdditionalDataForInvoiceDialog({
+                    visitDate,
+                    location: row.office,
+                  });
                   setSelectedInvoiceTask(lastEncounterTask);
                 }}
               >
@@ -610,11 +621,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       <SendInvoiceToPatientDialog
         title="Send invoice"
         modalOpen={selectedInvoiceTask !== undefined}
-        handleClose={() => setSelectedInvoiceTask(undefined)}
+        handleClose={() => {
+          setSelectedInvoiceTask(undefined);
+          setAdditionalDataForInvoiceDialog(undefined);
+        }}
         submitButtonName="Send Invoice"
         onSubmit={sendInvoice}
         invoiceTask={selectedInvoiceTask}
         patientAndRP={patientAndRpForInvoiceData}
+        additionalData={additionalDataForInvoiceDialog}
       />
     </Paper>
   );

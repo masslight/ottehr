@@ -44,9 +44,9 @@ import {
   DataExports,
   IncompleteEncounters,
   InvoiceablePatients,
+  PracticeKpis,
   RecentPatients,
   VisitsOverview,
-  WorkflowEfficiency,
 } from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
@@ -191,8 +191,8 @@ function App(): ReactElement {
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                  <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                   <Route path="/reports/data-exports" element={<DataExports />} />
-                  <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                   <Route path="/reports/recent-patients" element={<RecentPatients />} />
                   <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />

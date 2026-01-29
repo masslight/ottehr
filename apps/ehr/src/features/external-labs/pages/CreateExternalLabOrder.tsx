@@ -111,12 +111,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     error: resourceFetchError,
   } = useGetCreateExternalLabResources({
     patientId,
+    encounterId: mainEncounter?.id,
   });
 
   const coverageInfo = createExternalLabResources?.coverages;
   const hasInsurance = !!(coverageInfo?.length && coverageInfo.length > 0);
   const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
   const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
+  const isWorkersComp = !!createExternalLabResources?.isWorkersCompEncounter;
 
   const orderingLocationIdToLocationAndLabGUIDsMap = useMemo(
     () =>
@@ -164,7 +166,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
 
   useEffect(() => {
-    if (coverageInfo) {
+    if (isWorkersComp) {
+      setSelectedPaymentMethod(LabPaymentMethod.WorkersComp);
+    } else if (coverageInfo) {
       if (coverageInfo.length > 0) {
         setSelectedPaymentMethod(LabPaymentMethod.Insurance);
       } else {
@@ -174,7 +178,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     } else {
       console.log('coverageInfo is', coverageInfo);
     }
-  }, [coverageInfo]);
+  }, [coverageInfo, isWorkersComp]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -473,6 +477,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         {hasInsurance && (
                           <MenuItem id={'payment-method-item-insurance'} value={LabPaymentMethod.Insurance}>
                             Insurance
+                          </MenuItem>
+                        )}
+                        {isWorkersComp && (
+                          <MenuItem id={'payment-method-item-workers-comp'} value={LabPaymentMethod.WorkersComp}>
+                            Workers Comp
                           </MenuItem>
                         )}
                         <MenuItem id={'payment-method-item-self-pay'} value={LabPaymentMethod.SelfPay}>

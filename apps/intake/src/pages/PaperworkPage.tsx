@@ -29,6 +29,7 @@ import {
   evalEnableWhen,
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
+  getIntakeFormPageSubtitle,
   getSelectors,
   IntakeQuestionnaireItem,
   isApiError,
@@ -448,10 +449,12 @@ export const PaperworkPage: FC = () => {
             const updatedPaperwork = await api.patchPaperwork(zambdaClient, {
               answers: { linkId: currentPage.linkId, item },
               questionnaireResponseId,
+              appointmentId: appointmentID,
             });
             patchCompletedPaperwork(updatedPaperwork);
             saveProgress(currentPage.linkId, undefined);
             const nextPage = getNextPage(updatedPaperwork);
+
             navigate(
               `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
             );
@@ -551,9 +554,7 @@ export const PaperworkPage: FC = () => {
             onSubmit={finishPaperworkPage}
             pageId={currentPage?.linkId ?? ''}
             pageItem={currentPage}
-            patientName={
-              pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
-            }
+            pageSubtitle={getIntakeFormPageSubtitle(currentPage?.linkId ?? '', patientFullName ?? '')}
             options={{ controlButtons }}
             items={questionnaireItems}
             defaultValues={paperworkGroupDefaults}

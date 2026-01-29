@@ -168,7 +168,7 @@ export abstract class BaseProgressNotePage {
     ).toBeVisible();
   }
 
-  async verifyRemovedMedicationNoteIsNotShown(note: string): Promise<void> {
+  async verifyMedicationNoteNotShown(note: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
         hasText: note,
@@ -176,10 +176,42 @@ export abstract class BaseProgressNotePage {
     ).not.toBeVisible();
   }
 
-  async verifyRemovedMedicationIsNotShown(medication: string): Promise<void> {
+  async verifyMedicationNotShown(medication: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
         hasText: medication,
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyHospitalization(hospitalization: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: hospitalization,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyHospitalizationNotShown(hospitalization: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: hospitalization,
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyHospitalizationNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: note,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyHospitalizationNoteNotShown(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: note,
       })
     ).not.toBeVisible();
   }

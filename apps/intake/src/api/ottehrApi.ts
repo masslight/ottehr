@@ -25,6 +25,8 @@ import {
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
+  SearchPlacesInput,
+  SearchPlacesOutput,
   ServiceMode,
   StartInterviewInput,
   SubmitPaperworkParameters,
@@ -170,10 +172,11 @@ class API {
       if (PATCH_PAPERWORK_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('update appointment environment variable could not be loaded');
       }
-      const { answers, questionnaireResponseId } = parameters;
+      const { answers, questionnaireResponseId, appointmentId } = parameters;
       const response = await zambdaClient.executePublic(PATCH_PAPERWORK_ZAMBDA_ID, {
         answers,
         questionnaireResponseId,
+        appointmentId,
       });
 
       const jsonToUse = chooseJson(response);
@@ -456,6 +459,16 @@ class API {
       const response = await zambdaClient.execute('get-booking-questionnaire', input);
       const jsonToUse = chooseJson(response);
       return jsonToUse as GetBookingQuestionnaireResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async searchPlaces(input: SearchPlacesInput, zambdaClient: ZambdaClient): Promise<SearchPlacesOutput> {
+    try {
+      const response = await zambdaClient.execute('search-places', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as SearchPlacesOutput;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

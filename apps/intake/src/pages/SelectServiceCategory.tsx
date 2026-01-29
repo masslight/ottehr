@@ -13,7 +13,7 @@ import { CustomContainer } from '../telemed/features/common';
 const IconMap: Record<string, JSX.Element> = {
   'urgent-care': <HealingIcon />,
   'occupational-medicine': <BadgeIcon />,
-  'workmans-comp': <MedicalServicesIcon />,
+  'workers-comp': <MedicalServicesIcon />,
 };
 
 const SelectServiceCategoryPage = (): JSX.Element => {
