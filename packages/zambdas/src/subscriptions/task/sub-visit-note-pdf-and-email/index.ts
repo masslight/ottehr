@@ -17,10 +17,10 @@ import {
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 import { getChartData } from '../../../ehr/get-chart-data';
-import { getInHouseResources } from '../../../ehr/get-in-house-orders/helpers';
-import { getLabResources } from '../../../ehr/get-lab-orders/helpers';
 import { getMedicationOrders } from '../../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
+import { getLabResources } from '../../../ehr/lab/external/get-lab-orders/helpers';
+import { getInHouseResources } from '../../../ehr/lab/in-house/get-in-house-orders/helpers';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {

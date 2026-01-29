@@ -16,7 +16,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { configLabRequestsForGetChartData } from '../shared/labs';
+import { configLabRequestsForGetChartData } from '../lab/shared/labs';
 import {
   configProceduresRequestsForGetChartData,
   convertSearchResultsToResponse,

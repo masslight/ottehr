@@ -15,7 +15,7 @@ import {
   PaymentResources,
   Secrets,
 } from 'utils';
-import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
+import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
