@@ -53,7 +53,7 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
       options={options}
       loading={isLoading}
       required={required}
-      getOptionLabel={(option) => option.name}
+      getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
       getOptionKey={(option) => option.id}
       isOptionEqualToValue={(option, value) => option.id === value.id}
     />
