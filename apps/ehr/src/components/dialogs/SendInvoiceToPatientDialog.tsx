@@ -15,7 +15,6 @@ import {
   Typography,
 } from '@mui/material';
 import { Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -27,7 +26,6 @@ import {
   PrefilledInvoiceInfo,
   replaceTemplateVariablesArrows,
   REQUIRED_FIELD_ERROR_MESSAGE,
-  textingConfig,
 } from 'utils';
 import { BasicDatePicker } from '../form';
 import { RoundedButton } from '../RoundedButton';
@@ -47,7 +45,6 @@ interface SendInvoiceToPatientDialogProps {
   submitButtonName: string;
   invoiceTask?: Task;
   patientAndRP?: GetPatientAndResponsiblePartyInfoEndpointOutput;
-  additionalData?: { visitDate?: string; location?: string };
 }
 
 export default function SendInvoiceToPatientDialog({
@@ -58,7 +55,6 @@ export default function SendInvoiceToPatientDialog({
   submitButtonName,
   invoiceTask,
   patientAndRP,
-  additionalData,
 }: SendInvoiceToPatientDialogProps): ReactElement {
   const [disableAllFields, setDisableAllFields] = useState(true);
   const {
@@ -70,16 +66,11 @@ export default function SendInvoiceToPatientDialog({
   } = useForm<SendInvoiceFormData>({
     mode: 'onBlur',
   });
-  const { visitDate, location } = additionalData ?? {};
   const invoiceMessagesPlaceholders: InvoiceMessagesPlaceholders = {
     clinic: BRANDING_CONFIG.projectName,
     amount: watch('amount')?.toString(),
     'due-date': watch('dueDate'),
     'invoice-link': 'https://example.com/invoice-link',
-    'patient-full-name': patientAndRP?.patient.fullName ?? '',
-    'url-to-patient-portal': 'https://example.com/patient-portal',
-    'visit-date': visitDate,
-    location,
   };
   const smsMessagePrefilledPreview = replaceTemplateVariablesArrows(
     watch('smsTextMessage'),
@@ -105,15 +96,12 @@ export default function SendInvoiceToPatientDialog({
       try {
         const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
         if (invoiceTaskInput) {
-          const { amountCents } = invoiceTaskInput;
-          const dueDate = DateTime.now().plus({ days: textingConfig.invoicing.dueDateInDays }).toISODate();
-          const memo = textingConfig.invoicing.stripeMemoMessage;
-          const smsMessage = textingConfig.invoicing.smsMessage;
+          const { dueDate, memo, smsTextMessage, amountCents } = invoiceTaskInput;
           reset({
             amount: amountCents / 100,
             dueDate: dueDate,
             memo: memo,
-            smsTextMessage: smsMessage,
+            smsTextMessage: smsTextMessage,
           });
           setDisableAllFields(false);
         }
