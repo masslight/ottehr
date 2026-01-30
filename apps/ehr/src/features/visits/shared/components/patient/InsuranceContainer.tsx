@@ -33,7 +33,6 @@ import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
-import ShowMoreButton from './ShowMoreButton';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -122,7 +121,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
 
-  const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [showEligibilityDetails, setShowEligibilityDetails] = useState(false);
 
   const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
@@ -138,10 +136,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   } = usePatientRecordFormSection({ formSection: insuranceSection, index: ordinal - 1 });
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
-
-  const toggleMoreInfo = (): void => {
-    setShowMoreInfo((prev) => !prev);
-  };
 
   const handleRemoveInsurance = (): void => {
     handleRemoveClick?.();
@@ -468,128 +462,118 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ShowMoreButton
-          onClick={toggleMoreInfo}
-          isOpen={showMoreInfo}
-          dataTestId={dataTestIds.insuranceContainer.showMoreButton}
+      {/* should be always visible to ensure dynamic population works. https://linear.app/zapehr/issue/OTR-1728/ehr-save-operation-failed-error-if-insurance-with-self-option-is-added */}
+      <Box>
+        <PatientRecordFormField
+          item={FormFields.firstName}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
         />
-      </Box>
-      {showMoreInfo ? (
-        <>
-          <PatientRecordFormField
-            item={FormFields.firstName}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <PatientRecordFormField
-            item={FormFields.middleName}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <PatientRecordFormField
-            item={FormFields.lastName}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <PatientRecordFormField
-            item={FormFields.birthDate}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <PatientRecordFormField
-            item={FormFields.birthSex}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-              <PatientRecordFormField
-                item={FormFields.policyHolderAddressAsPatient}
-                isLoading={false}
-                requiredFormFields={requiredFields}
-                hiddenFormFields={hiddenFields}
-                omitRowWrapper
-              />
-            </Box>
+        <PatientRecordFormField
+          item={FormFields.middleName}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <PatientRecordFormField
+          item={FormFields.lastName}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <PatientRecordFormField
+          item={FormFields.birthDate}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <PatientRecordFormField
+          item={FormFields.birthSex}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+            <PatientRecordFormField
+              item={FormFields.policyHolderAddressAsPatient}
+              isLoading={false}
+              requiredFormFields={requiredFields}
+              hiddenFormFields={hiddenFields}
+              omitRowWrapper
+            />
           </Box>
-          <PatientRecordFormField
-            item={FormFields.streetAddress}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <PatientRecordFormField
-            item={FormFields.addressLine2}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <Row label="City, State, ZIP" required>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <PatientRecordFormField
-                item={FormFields.city}
-                isLoading={false}
-                requiredFormFields={requiredFields}
-                hiddenFormFields={hiddenFields}
-                omitRowWrapper
-              />
-              <PatientRecordFormField
-                item={FormFields.state}
-                isLoading={false}
-                requiredFormFields={requiredFields}
-                hiddenFormFields={hiddenFields}
-                omitRowWrapper
-              />
-              <PatientRecordFormField
-                item={FormFields.zip}
-                isLoading={false}
-                requiredFormFields={requiredFields}
-                hiddenFormFields={hiddenFields}
-                omitRowWrapper
-              />
-            </Box>
-          </Row>
-          <PatientRecordFormField
-            item={FormFields.relationship}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <PatientRecordFormField
-            item={FormFields.additionalInformation}
-            isLoading={false}
-            requiredFormFields={requiredFields}
-            hiddenFormFields={hiddenFields}
-          />
-          <LoadingButton
-            data-testid={dataTestIds.insuranceContainer.removeButton}
-            onClick={handleRemoveInsurance}
-            variant="text"
-            loading={removeInProgress}
-            sx={{
-              color: theme.palette.error.main,
-              textTransform: 'none',
-              fontSize: '13px',
-              fontWeight: 500,
-              display: handleRemoveClick !== undefined ? 'flex' : 'none',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              padding: '0',
-              width: 'fit-content',
-            }}
-          >
-            Remove This Insurance
-          </LoadingButton>
-        </>
-      ) : (
-        <></>
-      )}
+        </Box>
+        <PatientRecordFormField
+          item={FormFields.streetAddress}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <PatientRecordFormField
+          item={FormFields.addressLine2}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <Row label="City, State, ZIP" required>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <PatientRecordFormField
+              item={FormFields.city}
+              isLoading={false}
+              requiredFormFields={requiredFields}
+              hiddenFormFields={hiddenFields}
+              omitRowWrapper
+            />
+            <PatientRecordFormField
+              item={FormFields.state}
+              isLoading={false}
+              requiredFormFields={requiredFields}
+              hiddenFormFields={hiddenFields}
+              omitRowWrapper
+            />
+            <PatientRecordFormField
+              item={FormFields.zip}
+              isLoading={false}
+              requiredFormFields={requiredFields}
+              hiddenFormFields={hiddenFields}
+              omitRowWrapper
+            />
+          </Box>
+        </Row>
+        <PatientRecordFormField
+          item={FormFields.relationship}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <PatientRecordFormField
+          item={FormFields.additionalInformation}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <LoadingButton
+          data-testid={dataTestIds.insuranceContainer.removeButton}
+          onClick={handleRemoveInsurance}
+          variant="text"
+          loading={removeInProgress}
+          sx={{
+            color: theme.palette.error.main,
+            textTransform: 'none',
+            fontSize: '13px',
+            fontWeight: 500,
+            display: handleRemoveClick !== undefined ? 'flex' : 'none',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            padding: '0',
+            width: 'fit-content',
+          }}
+        >
+          Remove This Insurance
+        </LoadingButton>
+      </Box>
 
       <EligibilityDetailsDialog
         open={showEligibilityDetails}

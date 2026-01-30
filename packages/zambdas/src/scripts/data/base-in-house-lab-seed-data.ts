@@ -9,7 +9,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual',
     device: 'Strip Test (reagent strip)',
-    cptCode: ['87880'],
+    cptCode: [{ code: '87880' }],
     loincCode: ['78012-2'],
     repeatTest: false,
     components: [
@@ -37,7 +37,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87804'],
+    cptCode: [{ code: '87804' }],
     loincCode: ['80382-5'],
     repeatTest: false,
     components: [
@@ -65,7 +65,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87804'],
+    cptCode: [{ code: '87804' }],
     loincCode: ['80381-7'],
     repeatTest: false,
     components: [
@@ -93,7 +93,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87807'],
+    cptCode: [{ code: '87807' }],
     loincCode: ['72885-7'],
     repeatTest: false,
     components: [
@@ -121,7 +121,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87426'],
+    cptCode: [{ code: '87426' }],
     loincCode: ['94558-4'],
     repeatTest: false,
     components: [
@@ -148,7 +148,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Analyzer',
     device: 'Sofia',
-    cptCode: ['87428'],
+    cptCode: [{ code: '87428' }],
     loincCode: ['80382-5', '94558-4'],
     repeatTest: false,
     components: [
@@ -175,7 +175,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual',
     device: '',
-    cptCode: ['82270'],
+    cptCode: [{ code: '82270' }],
     loincCode: ['50196-5'],
     repeatTest: true,
     components: [
@@ -202,7 +202,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual',
     device: 'Test well / tube',
-    cptCode: ['86308'],
+    cptCode: [{ code: '86308' }],
     loincCode: ['31418-7'],
     repeatTest: false,
     components: [
@@ -229,7 +229,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual with stick & glucometer',
     device: 'Glucometer brand unknown',
-    cptCode: ['82962'],
+    cptCode: [{ code: '82962' }],
     loincCode: ['32016-8'],
     repeatTest: true,
     components: [
@@ -256,7 +256,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Clinitek/ Multitsix',
     device: 'Clinitek',
-    cptCode: ['81003'],
+    cptCode: [{ code: '81003' }],
     loincCode: ['24356-8'],
     repeatTest: true,
     components: [
@@ -492,7 +492,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual/Strip',
     device: 'Strip/stick',
-    cptCode: ['81025'],
+    cptCode: [{ code: '81025' }],
     loincCode: ['2106-3'],
     repeatTest: false,
     components: [
@@ -519,7 +519,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Abbott ID Now',
     device: 'Abbott ID Now',
-    cptCode: ['87651'],
+    cptCode: [{ code: '87651' }],
     loincCode: ['104724-0'],
     repeatTest: false,
     components: [
@@ -546,7 +546,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Abbott ID Now',
     device: 'Abbott ID Now',
-    cptCode: ['87501'],
+    cptCode: [{ code: '87501' }],
     loincCode: ['104730-7'],
     repeatTest: false,
     note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
@@ -574,7 +574,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Abbott ID Now',
     device: 'Abbott ID Now',
-    cptCode: ['87501'],
+    cptCode: [{ code: '87501' }],
     loincCode: ['106618-2'],
     repeatTest: false,
     note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
@@ -602,7 +602,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Abbott ID Now',
     device: 'Abbott ID Now',
-    cptCode: ['87634'],
+    cptCode: [{ code: '87634' }],
     loincCode: ['33045-6', '31949-1'],
     repeatTest: false,
     components: [
@@ -629,7 +629,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Abbott ID Now',
     device: 'Abbott ID Now',
-    cptCode: ['87635'],
+    cptCode: [{ code: '87635' }],
     loincCode: ['96119-3'],
     repeatTest: false,
     components: [
@@ -657,7 +657,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual',
     device: 'Snellen Chart',
-    cptCode: ['99173'],
+    cptCode: [{ code: '99173' }],
     loincCode: ['98497-1'], // Visual Acuity Panel
     repeatTest: false,
     components: [
@@ -692,7 +692,7 @@ export const testItems: TestItem[] = [
     },
     method: 'breathalyzer',
     device: 'breathalyzer',
-    cptCode: ['82075'],
+    cptCode: [{ code: '82075' }],
     loincCode: ['5641-6'],
     repeatTest: false,
     components: [
@@ -733,7 +733,7 @@ export const testItems: TestItem[] = [
     },
     method: 'breathalyzer',
     device: 'breathalyzer',
-    cptCode: ['82075C'],
+    cptCode: [{ code: '82075', modifier: [{ code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' }] }],
     loincCode: ['5641-6'],
     repeatTest: false,
     components: [

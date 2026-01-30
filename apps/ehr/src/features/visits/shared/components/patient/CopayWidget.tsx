@@ -99,7 +99,7 @@ const BenefitSection: FC<BenefitSectionProps> = ({ title, titleIcon, emptyMessag
                 color={theme.palette.text.primary}
                 textAlign="right"
               >
-                {amountStringForBenefit(benefit)}
+                {amountStringForBenefit(benefit)} / {benefit.periodDescription}
               </Typography>
             </Grid>
           </Grid>

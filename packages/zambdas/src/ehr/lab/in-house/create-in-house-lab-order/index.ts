@@ -17,7 +17,9 @@ import {
 import { DateTime } from 'luxon';
 import {
   APIError,
+  CODE_SYSTEM_CPT,
   CreateInHouseLabOrderParameters,
+  EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDC10_VALUESET_SYSTEM,
   getAttendingPractitionerId,
   getFullestAvailableName,
@@ -38,6 +40,7 @@ import {
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
+  makeCptModifierExtension,
   parseCreatedResourcesBundle,
   topLevelCatch,
   wrapHandler,
@@ -46,6 +49,7 @@ import {
 import { createTask } from '../../../../shared/tasks';
 import { accountIsPatientBill, getPrimaryInsurance } from '../../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
+
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-in-house-lab-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -463,6 +467,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     };
 
+    let procedureCodeExtension = {};
+    if (isRepeatTest) {
+      // this logic will cover if we add a test that is repeatable and has an extra modifier on it
+      // otherwise it will be spread below
+      const additionalModifierExt =
+        activityDefinition.code?.coding
+          ?.find((coding) => coding.system === CODE_SYSTEM_CPT)
+          ?.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept) ?? [];
+
+      const repeatModifier = makeCptModifierExtension([
+        { code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' },
+      ]);
+      procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
+    }
+
     const procedureConfig: Procedure = {
       resourceType: 'Procedure',
       status: 'completed',
@@ -482,8 +501,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       code: {
         coding: [
           {
-            ...activityDefinition.code?.coding?.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt'),
+            ...activityDefinition.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_CPT),
             display: activityDefinition.name,
+            ...procedureCodeExtension,
           },
         ],
       },

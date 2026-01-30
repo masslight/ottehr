@@ -57,7 +57,7 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, required, da
       loading={isLoading}
       required={required}
       dataTestId={dataTestId}
-      getOptionLabel={(option) => option.name}
+      getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
       getOptionKey={(option) => option.id}
       isOptionEqualToValue={(option, value) => option.id === value.id}
     />
