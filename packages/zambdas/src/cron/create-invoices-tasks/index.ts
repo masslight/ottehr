@@ -47,7 +47,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
     const candid = createCandidApiClient(secrets);
-    console.log('delete me');
 
     // 1. getting candid claims for the past two weeks
     // 2. we are getting encounters with pending tasks so we can update them
