@@ -10,7 +10,7 @@ import { Control, Controller, RegisterOptions } from 'react-hook-form';
 interface BasicDatePickerProps {
   name: string;
   control: Control<any>;
-  rules: RegisterOptions;
+  rules?: RegisterOptions;
   required?: boolean;
   defaultValue?: string;
   onChange?: (date: string) => void;
@@ -27,7 +27,7 @@ interface BasicDatePickerProps {
 export function BasicDatePicker({
   name,
   control,
-  rules,
+  rules = {},
   defaultValue,
   onChange,
   disabled,

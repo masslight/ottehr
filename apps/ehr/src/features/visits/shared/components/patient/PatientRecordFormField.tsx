@@ -2,13 +2,13 @@ import { Autocomplete, Checkbox, FormControlLabel, TextField } from '@mui/materi
 import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
-import { Controller, RegisterOptions, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext } from 'react-hook-form';
 import { BasicDatePicker, FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { dedupeObjectsByKey, FormFieldsDisplayItem, FormFieldsInputItem } from 'utils';
-import { evaluateFieldTriggers, generateFieldValidationRules } from './patientRecordValidation';
+import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
   item: FormFieldsInputItem | FormFieldsDisplayItem;
@@ -51,9 +51,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
   const isDisabled = disabled || isLoading || triggeredEffects.enabled === false;
   const isRequired = requiredFormFields?.includes(item.key) || triggeredEffects.required;
-
-  // Generate validation rules dynamically based on current form state
-  const rules = generateFieldValidationRules(item, formValues, requiredFormFields);
 
   // Dynamic population: when field is disabled, copy value from source field
   const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
@@ -113,7 +110,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
                       },
                     }
               }
-              rules={rules}
             />
           );
         }
@@ -122,7 +118,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
             <Controller
               name={item.key}
               control={control}
-              rules={rules}
               render={({ field, fieldState: { error } }) => {
                 const selectedOption = item.options?.find((option) => option.value === field.value) ?? {
                   label: '',
@@ -166,7 +161,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
             control={control}
             disabled={isDisabled}
             options={item.options || []}
-            rules={rules}
           />
         );
       case 'date':
@@ -176,7 +170,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
             name={item.key}
             control={control}
             disabled={isDisabled}
-            rules={rules}
             component="Field"
           />
         );
@@ -206,7 +199,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
             name={item.key}
             control={control}
             disabled={isDisabled}
-            rules={rules}
             id={omitRowWrapper ? item.key : undefined}
             key={item.key}
             inputProps={{ mask, placeholder }}
@@ -246,10 +238,9 @@ interface DynamicReferenceFieldProps {
   item: Omit<FormFieldsInputItem | FormFieldsDisplayItem, 'options'>;
   optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
   id?: string;
-  rules?: RegisterOptions;
 }
 
-const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id, rules }) => {
+const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
   const { oystehrZambda } = useApiClients();
   const { control, setValue } = useFormContext();
   const optionsInput = (() => {
@@ -299,7 +290,6 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
     <Controller
       name={item.key}
       control={control}
-      rules={rules}
       render={({ field: { value }, fieldState: { error } }) => {
         const selectedOption = answerOptions?.find((option) => option.reference === value?.reference);
         return (
