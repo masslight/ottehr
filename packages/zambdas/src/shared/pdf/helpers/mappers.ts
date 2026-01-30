@@ -1,7 +1,7 @@
 import { ActivityDefinition, Observation, ServiceRequest } from 'fhir/r4b';
 import { convertActivityDefinitionToTestItem } from 'utils';
-import { findActivityDefinitionForServiceRequest } from '../../../ehr/get-in-house-orders/helpers';
-import { parseLabInfo } from '../../../ehr/get-lab-orders/helpers';
+import { parseLabInfo } from '../../../ehr/lab/external/get-lab-orders/helpers';
+import { findActivityDefinitionForServiceRequest } from '../../../ehr/lab/in-house/get-in-house-orders/helpers';
 import { LabOrder } from '../types';
 
 export const mapResourcesToInHouseLabOrders = (

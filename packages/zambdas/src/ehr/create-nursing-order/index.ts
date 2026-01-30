@@ -31,7 +31,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getPrimaryInsurance } from '../shared/labs';
+import { getPrimaryInsurance } from '../lab/shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

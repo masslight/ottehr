@@ -14,7 +14,7 @@ import {
   SecretsKeys,
   TaskAlertCode,
 } from 'utils';
-import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/shared/labs';
+import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
 import {

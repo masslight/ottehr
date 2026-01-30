@@ -292,21 +292,21 @@
       "name": "create-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/create-lab-order/index",
+      "src": "src/ehr/lab/external/create-lab-order/index",
       "zip": ".dist/zips/create-lab-order.zip"
     },
     "GET-CREATE-LAB-ORDER-RESOURCES": {
       "name": "get-create-lab-order-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-create-lab-order-resources/index",
+      "src": "src/ehr/lab/external/get-create-lab-order-resources/index",
       "zip": ".dist/zips/get-create-lab-order-resources.zip"
     },
     "GET-UNSOLICITED-RESULTS-RESOURCES": {
       "name": "get-unsolicited-results-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-unsolicited-results-resources/index",
+      "src": "src/ehr/lab/external/get-unsolicited-results-resources/index",
       "zip": ".dist/zips/get-unsolicited-results-resources.zip"
     },
     "HANDLE-LAB-RESULT": {
@@ -831,35 +831,35 @@
       "name": "get-lab-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-lab-orders/index",
+      "src": "src/ehr/lab/external/get-lab-orders/index",
       "zip": ".dist/zips/get-lab-orders.zip"
     },
     "DELETE-LAB-ORDER": {
       "name": "delete-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/delete-lab-order/index",
+      "src": "src/ehr/lab/external/delete-lab-order/index",
       "zip": ".dist/zips/delete-lab-order.zip"
     },
     "SUBMIT-LAB-ORDER": {
       "name": "submit-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/submit-lab-order/index",
+      "src": "src/ehr/lab/external/submit-lab-order/index",
       "zip": ".dist/zips/submit-lab-order.zip"
     },
     "UPDATE-LAB-ORDER-RESOURCES": {
       "name": "update-lab-order-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/update-lab-order-resources/index",
+      "src": "src/ehr/lab/external/update-lab-order-resources/index",
       "zip": ".dist/zips/update-lab-order-resources.zip"
     },
     "GET-LABEL-PDF": {
       "name": "get-label-pdf",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-label-pdf/index",
+      "src": "src/ehr/lab/external/get-label-pdf/index",
       "zip": ".dist/zips/get-label-pdf.zip"
     },
     "GET-OR-CREATE-VISIT-LABEL-PDF": {
@@ -956,42 +956,42 @@
       "name": "get-in-house-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-in-house-orders/index",
+      "src": "src/ehr/lab/in-house/get-in-house-orders/index",
       "zip": ".dist/zips/get-in-house-orders.zip"
     },
     "CREATE-IN-HOUSE-LAB-ORDER": {
       "name": "create-in-house-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/create-in-house-lab-order/index",
+      "src": "src/ehr/lab/in-house/create-in-house-lab-order/index",
       "zip": ".dist/zips/create-in-house-lab-order.zip"
     },
     "GET-CREATE-IN-HOUSE-LAB-ORDER-RESOURCES": {
       "name": "get-create-in-house-lab-order-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-create-in-house-lab-order-resources/index",
+      "src": "src/ehr/lab/in-house/get-create-in-house-lab-order-resources/index",
       "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
     },
     "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
       "name": "collect-in-house-lab-specimen",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/collect-in-house-lab-specimen/index",
+      "src": "src/ehr/lab/in-house/collect-in-house-lab-specimen/index",
       "zip": ".dist/zips/collect-in-house-lab-specimen.zip"
     },
     "HANDLE-IN-HOUSE-LAB-RESULTS": {
       "name": "handle-in-house-lab-results",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/handle-in-house-lab-results/index",
+      "src": "src/ehr/lab/in-house/handle-in-house-lab-results/index",
       "zip": ".dist/zips/handle-in-house-lab-results.zip"
     },
     "DELETE-IN-HOUSE-LAB-ORDER": {
       "name": "delete-in-house-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/delete-in-house-lab-order/index",
+      "src": "src/ehr/lab/in-house/delete-in-house-lab-order/index",
       "zip": ".dist/zips/delete-in-house-lab-order.zip"
     },
     "GET-NURSING-ORDERS": {

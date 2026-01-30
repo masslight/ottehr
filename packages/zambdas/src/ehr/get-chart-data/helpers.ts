@@ -10,7 +10,7 @@ import {
   SearchParams,
 } from 'utils';
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
-import { makeEncounterLabResults } from '../shared/labs';
+import { makeEncounterLabResults } from '../lab/shared/labs';
 
 type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 

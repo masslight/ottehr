@@ -68,13 +68,13 @@ import {
   SupportedObsImgAttachmentTypes,
   TestItemComponent,
 } from 'utils';
-import { fetchResultResourcesForRelatedServiceRequest } from '../../ehr/shared/in-house-labs';
+import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
+import { fetchResultResourcesForRelatedServiceRequest } from '../../ehr/lab/shared/in-house-labs';
 import {
   getExternalLabOrderResourcesViaDiagnosticReport,
   getExternalLabOrderResourcesViaServiceRequest,
   isLabDrTypeTagCode,
-} from '../../ehr/shared/labs';
-import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order/helpers';
+} from '../../ehr/lab/shared/labs';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import {
