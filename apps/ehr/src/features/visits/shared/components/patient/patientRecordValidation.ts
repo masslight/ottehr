@@ -69,23 +69,39 @@ export const evaluateFieldTriggers = (
         }
         break;
       case '>':
-        if (answerDateTime !== undefined) {
-          conditionMet = DateTime.fromISO(currentValue) > DateTime.fromISO(answerDateTime);
+        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+          const currentDate = DateTime.fromISO(currentValue);
+          const answerDate = DateTime.fromISO(answerDateTime);
+          if (currentDate.isValid && answerDate.isValid) {
+            conditionMet = currentDate > answerDate;
+          }
         }
         break;
       case '<':
-        if (answerDateTime !== undefined) {
-          conditionMet = DateTime.fromISO(currentValue) < DateTime.fromISO(answerDateTime);
+        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+          const currentDate = DateTime.fromISO(currentValue);
+          const answerDate = DateTime.fromISO(answerDateTime);
+          if (currentDate.isValid && answerDate.isValid) {
+            conditionMet = currentDate < answerDate;
+          }
         }
         break;
       case '>=':
-        if (answerDateTime !== undefined) {
-          conditionMet = DateTime.fromISO(currentValue) >= DateTime.fromISO(answerDateTime);
+        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+          const currentDate = DateTime.fromISO(currentValue);
+          const answerDate = DateTime.fromISO(answerDateTime);
+          if (currentDate.isValid && answerDate.isValid) {
+            conditionMet = currentDate >= answerDate;
+          }
         }
         break;
       case '<=':
-        if (answerDateTime !== undefined) {
-          conditionMet = DateTime.fromISO(currentValue) <= DateTime.fromISO(answerDateTime);
+        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+          const currentDate = DateTime.fromISO(currentValue);
+          const answerDate = DateTime.fromISO(answerDateTime);
+          if (currentDate.isValid && answerDate.isValid) {
+            conditionMet = currentDate <= answerDate;
+          }
         }
         break;
       default:
