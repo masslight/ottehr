@@ -17,6 +17,7 @@ import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { OccupationalMedicineEmployerInformationContainer } from 'src/features/visits/shared/components/patient/OccupationalMedicineEmployerContainer';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
+import { createDynamicValidationResolver } from 'src/features/visits/shared/components/patient/patientRecordValidation';
 import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
 import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
@@ -234,6 +235,7 @@ const useFormData = (
     values: defaultFormVals,
     mode: 'onBlur',
     reValidateMode: 'onChange',
+    resolver: createDynamicValidationResolver(),
   });
 
   const { coveragesFormValues } = useMemo(() => {
