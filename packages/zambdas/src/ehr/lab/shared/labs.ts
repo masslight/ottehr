@@ -275,8 +275,6 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     })
   )?.unbundle();
 
-  console.log('>>> wtf', JSON.stringify(resourceSearch));
-
   const serviceRequests: ServiceRequest[] = [];
   const patients: Patient[] = [];
   const practitioners: Practitioner[] = [];
