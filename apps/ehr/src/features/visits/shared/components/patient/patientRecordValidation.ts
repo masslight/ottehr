@@ -271,10 +271,16 @@ export const generateValidationRulesForSection = (
 /**
  * Creates a custom resolver for React Hook Form that dynamically evaluates validation rules
  * based on the current form state and trigger conditions
+ * @param options - Configuration options for the resolver
+ * @param options.renderedSectionCounts - Map of section IDs to the number of rendered instances.
+ *   Sections not in the map are assumed to be fully rendered. Useful for array sections that are
+ *   conditionally rendered based on external data (e.g., insurance sections based on coverage data).
  */
-export const createDynamicValidationResolver = (
-  requiredFieldsMap: Record<string, string[]> = {}
-): ((values: any) => Promise<{ values: any; errors: Record<string, FieldError> }>) => {
+export const createDynamicValidationResolver = (options?: {
+  renderedSectionCounts?: Record<string, number>;
+}): ((values: any) => Promise<{ values: any; errors: Record<string, FieldError> }>) => {
+  const { renderedSectionCounts = {} } = options || {};
+
   return async (values: any) => {
     const errors: Record<string, FieldError> = {};
 
@@ -298,7 +304,7 @@ export const createDynamicValidationResolver = (
     });
 
     // Validate each field that has a value or is in the allFieldsMap
-    for (const [fieldKey, item] of allFieldsMap) {
+    fieldLoop: for (const [fieldKey, item] of allFieldsMap) {
       const value = values[fieldKey];
 
       // Skip display fields
@@ -306,19 +312,116 @@ export const createDynamicValidationResolver = (
         continue;
       }
 
+      // Check if field is enabled based on triggers
+      const triggeredEffects = evaluateFieldTriggers(item, values, item.enableBehavior);
+
+      // Skip validation only for hidden fields (not disabled fields that are still visible)
+      // Disabled fields with disabledDisplay: 'disabled' should still be validated
+      // because they're visible and auto-populated (e.g., policy holder fields when relationship is "Self")
+      if (triggeredEffects.enabled === false && item.disabledDisplay === 'hidden') {
+        continue;
+      }
+
+      // Find which section this field belongs to and check if section is active
+      let sectionHasAnyValue = false;
+      let currentSection: any = null;
+      let sectionLinkId: string | string[] | undefined;
+      let sectionItems: any[] = [];
+
+      for (const [_sectionKey, section] of Object.entries(PATIENT_RECORD_CONFIG.FormFields)) {
+        if (Array.isArray(section.items)) {
+          // For array sections (like insurance with multiple indices)
+          const itemIndex = section.items.findIndex((itemGroup: any) =>
+            Object.values(itemGroup).some((i: any) => i.key === fieldKey)
+          );
+          if (itemIndex !== -1) {
+            currentSection = section;
+            sectionLinkId = section.linkId;
+            const itemGroup = section.items[itemIndex];
+            sectionItems = Object.values(itemGroup);
+
+            // Check if this array section has a rendered count limit
+            // If a section's linkId is in the map, only validate items up to the specified count
+            // This handles sections that are conditionally rendered based on external data
+            if (sectionLinkId) {
+              const linkIds = Array.isArray(sectionLinkId) ? sectionLinkId : [sectionLinkId];
+
+              for (const linkId of linkIds) {
+                if (linkId in renderedSectionCounts) {
+                  const renderedCount = renderedSectionCounts[linkId];
+                  if (itemIndex >= renderedCount) {
+                    // Skip validation for array items that aren't actually rendered
+                    continue fieldLoop;
+                  }
+                  break; // Found a matching linkId, no need to check others
+                }
+              }
+            }
+
+            // Check if any field in this specific item group has a value
+            sectionHasAnyValue = sectionItems.some((i: any) => {
+              const fieldValue = values[i.key];
+              return fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+            });
+            break;
+          }
+        } else {
+          // For single item sections
+          if (Object.values(section.items).some((i: any) => i.key === fieldKey)) {
+            currentSection = section;
+            sectionLinkId = section.linkId;
+            sectionItems = Object.values(section.items);
+            // Check if any field in this section has a value
+            sectionHasAnyValue = sectionItems.some((i: any) => {
+              const fieldValue = values[i.key];
+              return fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+            });
+            break;
+          }
+        }
+      }
+
+      // Check if this section is in the hiddenFormSections list (always hidden)
+      const isAlwaysHidden = sectionLinkId
+        ? Array.isArray(sectionLinkId)
+          ? PATIENT_RECORD_CONFIG.hiddenFormSections.some((hiddenId) => sectionLinkId.includes(hiddenId))
+          : PATIENT_RECORD_CONFIG.hiddenFormSections.includes(sectionLinkId)
+        : false;
+
+      // Check if section is conditionally hidden (all fields are hidden based on triggers)
+      const isConditionallyHidden =
+        sectionItems.length > 0 &&
+        sectionItems.every((i: any) => {
+          if (i.type === 'display') return true; // Skip display fields
+          const effects = evaluateFieldTriggers(i, values, i.enableBehavior);
+          return effects.enabled === false && i.disabledDisplay === 'hidden';
+        });
+
+      const isSectionHidden = isAlwaysHidden || isConditionallyHidden;
+
+      // Skip validation if section is hidden AND has requiredFields but no fields have been filled out
+      // Always validate visible sections with requiredFields even if empty
+      if (isSectionHidden && currentSection && (currentSection as any).requiredFields && !sectionHasAnyValue) {
+        continue;
+      }
+
       // Find the required fields for this section
       let requiredFields: string[] | undefined;
-      for (const [sectionKey, section] of Object.entries(PATIENT_RECORD_CONFIG.FormFields)) {
+      for (const [_sectionKey, section] of Object.entries(PATIENT_RECORD_CONFIG.FormFields)) {
         if (Array.isArray(section.items)) {
-          // Check each array item
-          section.items.forEach((itemGroup: any) => {
-            if (Object.values(itemGroup).some((i: any) => i.key === fieldKey)) {
-              requiredFields = requiredFieldsMap[sectionKey];
-            }
-          });
+          // Check each array item - insurance sections have requiredFields at section level
+          const hasField = section.items.some((itemGroup: any) =>
+            Object.values(itemGroup).some((i: any) => i.key === fieldKey)
+          );
+          if (hasField) {
+            requiredFields = (section as any).requiredFields;
+            break;
+          }
         } else {
+          // Single items object
           if (Object.values(section.items).some((i: any) => i.key === fieldKey)) {
-            requiredFields = requiredFieldsMap[sectionKey] || (section as any).requiredFields;
+            requiredFields = (section as any).requiredFields;
+            break;
           }
         }
       }
@@ -326,7 +429,7 @@ export const createDynamicValidationResolver = (
       // Generate rules for this field
       const rules = generateFieldValidationRules(item, values, requiredFields);
 
-      // Apply validation rules
+      // Apply validation rules - only validate if field is enabled
       if (rules.required && (value === undefined || value === null || value === '')) {
         errors[fieldKey] = {
           type: 'required',

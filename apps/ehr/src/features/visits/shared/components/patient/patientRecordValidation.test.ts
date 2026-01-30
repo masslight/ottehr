@@ -516,5 +516,100 @@ describe('patientRecordValidation', () => {
 
       expect(result.errors).toBeDefined();
     });
+
+    it('should skip validation for sections that are not rendered based on section counts map', async () => {
+      // Create resolver with 0 rendered insurance sections (no coverages)
+      const resolver = createDynamicValidationResolver({
+        renderedSectionCounts: { 'insurance-section': 0, 'insurance-section-2': 0 },
+      });
+
+      // Try to validate with empty insurance fields - should not error since sections aren't rendered
+      const result = await resolver({
+        'insurance-priority': '',
+        'insurance-carrier': '',
+        'insurance-member-id': '',
+      });
+
+      // Should not have validation errors for insurance fields that aren't rendered
+      expect(result.errors['insurance-priority']).toBeUndefined();
+      expect(result.errors['insurance-carrier']).toBeUndefined();
+      expect(result.errors['insurance-member-id']).toBeUndefined();
+    });
+
+    it('should validate sections that are rendered according to section counts map', async () => {
+      // Create resolver with 1 rendered insurance section (primary only at index 0)
+      const resolver = createDynamicValidationResolver({
+        renderedSectionCounts: { 'insurance-section': 1, 'insurance-section-2': 1 },
+      });
+
+      // Try to validate with insurance carrier selected but other required fields empty
+      const result = await resolver({
+        'insurance-priority': 'Primary',
+        'insurance-carrier': 'Blue Cross',
+        'insurance-member-id': '', // Required but empty
+      });
+
+      // Should have validation error for required field in rendered section
+      expect(result.errors['insurance-member-id']).toBeDefined();
+    });
+
+    it('should validate secondary insurance when only secondary coverage exists', async () => {
+      // Scenario: Patient has only secondary coverage (index 1)
+      // Count = 2 to validate indices 0-1
+      const resolver = createDynamicValidationResolver({
+        renderedSectionCounts: { 'insurance-section': 2, 'insurance-section-2': 2 },
+      });
+
+      // Secondary insurance fields (with -2 suffix for index 1)
+      const result = await resolver({
+        'insurance-priority-2': 'Secondary',
+        'insurance-carrier-2': 'Blue Cross',
+        'insurance-member-id-2': '', // Required but empty
+      });
+
+      // Should have validation error for secondary insurance field
+      expect(result.errors['insurance-member-id-2']).toBeDefined();
+    });
+
+    it('should skip validation for secondary insurance when count is 1 (primary only)', async () => {
+      // Scenario: Patient has only primary coverage (index 0)
+      // Count = 1 to validate only index 0, skip index 1
+      const resolver = createDynamicValidationResolver({
+        renderedSectionCounts: { 'insurance-section': 1, 'insurance-section-2': 1 },
+      });
+
+      // Try to validate secondary insurance fields - should be skipped
+      const result = await resolver({
+        'insurance-priority-2': '',
+        'insurance-carrier-2': '',
+        'insurance-member-id-2': '',
+      });
+
+      // Should NOT have validation errors for secondary fields when not rendered
+      expect(result.errors['insurance-priority-2']).toBeUndefined();
+      expect(result.errors['insurance-carrier-2']).toBeUndefined();
+      expect(result.errors['insurance-member-id-2']).toBeUndefined();
+    });
+
+    it('should validate both primary and secondary when both coverages exist', async () => {
+      // Scenario: Patient has both primary and secondary coverage
+      // Count = 2 to validate both indices 0 and 1
+      const resolver = createDynamicValidationResolver({
+        renderedSectionCounts: { 'insurance-section': 2, 'insurance-section-2': 2 },
+      });
+
+      const result = await resolver({
+        'insurance-priority': 'Primary',
+        'insurance-carrier': 'Blue Cross',
+        'insurance-member-id': '', // Primary required but empty
+        'insurance-priority-2': 'Secondary',
+        'insurance-carrier-2': 'Aetna',
+        'insurance-member-id-2': '', // Secondary required but empty
+      });
+
+      // Should have validation errors for both primary and secondary
+      expect(result.errors['insurance-member-id']).toBeDefined();
+      expect(result.errors['insurance-member-id-2']).toBeDefined();
+    });
   });
 });

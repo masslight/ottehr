@@ -230,12 +230,33 @@ const useFormData = (
   methods: ReturnType<typeof useForm>;
   coveragesFormValues: any;
 } => {
+  // Build a map of section IDs to their rendered counts for sections with conditional rendering
+  const renderedSectionCounts: Record<string, number> = {};
+
+  // Insurance sections are only rendered based on actual coverage data
+  // The count represents the maximum index + 1 that should be validated
+  // e.g., if only secondary exists (index 1), count should be 2 to validate indices 0 and 1
+  if (insuranceData?.coverages) {
+    // Determine the highest insurance index that will be rendered
+    const maxInsuranceIndex = Math.max(
+      insuranceData.coverages.primary ? 0 : -1,
+      insuranceData.coverages.secondary ? 1 : -1
+    );
+    // Count is max index + 1 (to validate all indices from 0 to maxIndex)
+    const insuranceCount = maxInsuranceIndex + 1;
+    renderedSectionCounts['insurance-section'] = insuranceCount;
+    renderedSectionCounts['insurance-section-2'] = insuranceCount;
+  } else {
+    renderedSectionCounts['insurance-section'] = 0;
+    renderedSectionCounts['insurance-section-2'] = 0;
+  }
+
   const methods = useForm({
     defaultValues: defaultFormVals,
     values: defaultFormVals,
     mode: 'onBlur',
     reValidateMode: 'onChange',
-    resolver: createDynamicValidationResolver(),
+    resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
 
   const { coveragesFormValues } = useMemo(() => {
