@@ -336,7 +336,7 @@ export const createDynamicValidationResolver = (
     }
 
     return {
-      values: Object.keys(errors).length === 0 ? values : {},
+      values,
       errors,
     };
   };
