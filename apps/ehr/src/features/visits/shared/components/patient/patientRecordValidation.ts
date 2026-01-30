@@ -1,6 +1,5 @@
 import { DateTime } from 'luxon';
-import { useEffect } from 'react';
-import { FieldError, RegisterOptions, UseFormReturn } from 'react-hook-form';
+import { FieldError, RegisterOptions } from 'react-hook-form';
 import {
   FormFieldsDisplayItem,
   FormFieldsInputItem,
@@ -235,64 +234,6 @@ export const generateValidationRulesForSection = (
   return rules;
 };
 
-/**
- * Hook that dynamically updates field validation based on form state changes
- * This ensures that when trigger conditions change, validation rules are updated accordingly
- */
-export const useDynamicValidation = (methods: UseFormReturn<any>): void => {
-  const { watch, trigger, getValues } = methods;
-
-  // Watch all form values to detect changes that might affect triggers
-  const formValues = watch();
-
-  useEffect(() => {
-    // Get all fields from the patient record config
-    const allFields: (FormFieldsInputItem | FormFieldsDisplayItem)[] = [];
-
-    Object.values(PATIENT_RECORD_CONFIG.FormFields).forEach((section) => {
-      if (Array.isArray(section.items)) {
-        // Handle array of items (e.g., insurance sections)
-        section.items.forEach((itemGroup: any) => {
-          Object.values(itemGroup).forEach((item: any) => {
-            allFields.push(item);
-          });
-        });
-      } else {
-        // Handle single items object
-        Object.values(section.items).forEach((item: any) => {
-          allFields.push(item);
-        });
-      }
-    });
-
-    // Find fields with triggers that might be affected by current value changes
-    const fieldsToRevalidate: string[] = [];
-
-    allFields.forEach((field) => {
-      if (field.triggers && field.triggers.length > 0) {
-        // Check if any trigger depends on a field that just changed
-        const hasDependentTrigger = field.triggers.some(
-          (trigger) => formValues[trigger.targetQuestionLinkId] !== undefined
-        );
-
-        if (hasDependentTrigger) {
-          fieldsToRevalidate.push(field.key);
-        }
-      }
-    });
-
-    // Revalidate affected fields
-    if (fieldsToRevalidate.length > 0) {
-      fieldsToRevalidate.forEach((fieldKey) => {
-        const currentValue = getValues(fieldKey);
-        // Only trigger validation if the field has a value or was previously validated
-        if (currentValue !== undefined && currentValue !== null && currentValue !== '') {
-          void trigger(fieldKey);
-        }
-      });
-    }
-  }, [formValues, trigger, getValues]);
-};
 /**
  * Creates a custom resolver for React Hook Form that dynamically evaluates validation rules
  * based on the current form state and trigger conditions
