@@ -51,6 +51,8 @@ const ZAMBDA_NAME = 'radiology-order-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.log('input body, ', JSON.stringify(unsafeInput.body));
+
     const secrets = validateSecrets(unsafeInput.secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -126,7 +128,7 @@ export const getRadiologyOrders = async (
     searchParams.push({ name: 'subject', value: `Patient/${patientId}` });
   } else if (serviceRequestId) {
     searchParams.push({ name: '_id', value: serviceRequestId });
-  } else if (encounterIds?.length) {
+  } else if (encounterIds) {
     searchParams.push({
       name: 'encounter',
       value: encounterIds.map((id) => `Encounter/${id}`).join(','),

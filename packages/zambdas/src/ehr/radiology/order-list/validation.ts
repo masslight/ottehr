@@ -60,6 +60,13 @@ const validateBody = async (input: ZambdaInput): Promise<ValidatedInput['body']>
     encounterIdsArr = Array.isArray(encounterIds) ? [...encounterIds] : [encounterIds];
   }
 
+  if (encounterIdsArr) {
+    // Ensure there is at least one item in the array
+    if (encounterIdsArr.length === 0) {
+      throw new Error('if encounterIds is specified then it must have at least one valid uuid');
+    }
+  }
+
   return {
     encounterIds: encounterIdsArr,
     patientId,
