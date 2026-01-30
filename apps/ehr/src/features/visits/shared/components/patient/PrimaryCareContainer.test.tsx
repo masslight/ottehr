@@ -4,6 +4,7 @@ import React, { type InputHTMLAttributes } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
+import { createDynamicValidationResolver } from './patientRecordValidation';
 import { PrimaryCareContainer } from './PrimaryCareContainer';
 
 vi.mock('../InputMask', async () => {
@@ -26,6 +27,7 @@ interface TestWrapperProps {
 const TestWrapper = ({ children, defaultValues = {}, onFormReady }: TestWrapperProps): JSX.Element => {
   const TestForm = (): JSX.Element => {
     const methods = useForm({
+      resolver: createDynamicValidationResolver(),
       defaultValues: {
         [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.active.key]: true,
         [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.firstName.key]: '',
