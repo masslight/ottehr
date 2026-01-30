@@ -94,7 +94,8 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Credit card details');
   });
-  test('SNPRF-4 Skip Card selection and proceed to responsible party page', async () => {
+  test('SNPRF-4 Fill credit card and proceed to responsible party page', async () => {
+    await paperwork.fillAndAddCreditCardIfDoesntExist();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
@@ -157,7 +158,27 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
   test('SNPRF-8 Skip photo ID and complete consent forms', async () => {
-    await paperwork.skipPhotoID();
+    const photoIdFrontRequired = QuestionnaireHelper.inPersonIsPhotoIdFrontRequired();
+    const photoIdBackRequired = QuestionnaireHelper.inPersonIsPhotoIdBackRequired();
+
+    if (!photoIdFrontRequired && !photoIdBackRequired) {
+      // Photo ID is optional, skip it
+      await paperwork.skipPhotoID();
+    } else {
+      // Photo ID is required, upload photos
+      if (photoIdFrontRequired) {
+        await paperwork.uploadPhoto.fillPhotoFrontID();
+      }
+      if (photoIdBackRequired) {
+        await paperwork.uploadPhoto.fillPhotoBackID();
+      }
+      // Wait for files to be uploaded before continuing
+      const expectedFileCount = (photoIdFrontRequired ? 1 : 0) + (photoIdBackRequired ? 1 : 0);
+      if (expectedFileCount > 0) {
+        await expect(page.getByTestId('file-card-clear-button')).toHaveCount(expectedFileCount, { timeout: 60000 });
+      }
+      await commonLocatorsHelper.clickContinue();
+    }
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
     await commonLocatorsHelper.clickContinue();

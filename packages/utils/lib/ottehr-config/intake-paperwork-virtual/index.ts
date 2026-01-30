@@ -1436,18 +1436,10 @@ const FormFields = {
         key: 'card-payment-details-text',
         text: 'If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.',
         type: 'display',
-        triggers: [
-          {
-            targetQuestionLinkId: 'card-payment-details-text',
-            effect: ['enable'],
-            operator: '=',
-            answerString: '-',
-          },
-        ],
       },
     },
-    hiddenFields: [],
-    requiredFields: [],
+    hiddenFields: ['card-payment-details-text'],
+    requiredFields: ['valid-card-on-file'],
     triggers: [
       {
         targetQuestionLinkId: 'contact-information-page.appointment-service-category',

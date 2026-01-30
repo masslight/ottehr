@@ -168,18 +168,11 @@ export const getObservationValueElements = (
         </>,
       ];
     case 'vital-last-menstrual-period': {
-      if (historyEntry.isUnsure) {
-        return ['Unsure'];
-      }
-      if (historyEntry.value) {
-        try {
-          const date = DateTime.fromISO(historyEntry.value);
-          return [date.isValid ? date.toFormat('MM/dd/yyyy') : historyEntry.value];
-        } catch {
-          return [historyEntry.value];
-        }
-      }
-      return [];
+      const date = DateTime.fromISO(historyEntry.value);
+      return [
+        date.isValid ? date.toFormat('MM/dd/yyyy') : historyEntry.value,
+        historyEntry.isUnsure ? ' (unsure)' : '',
+      ];
     }
     default:
       return [];

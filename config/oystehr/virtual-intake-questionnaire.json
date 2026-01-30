@@ -4059,7 +4059,7 @@
               {
                 "linkId": "valid-card-on-file",
                 "type": "boolean",
-                "required": false,
+                "required": true,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -4068,18 +4068,6 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
                     "valueString": "hidden"
-                  }
-                ]
-              },
-              {
-                "linkId": "card-payment-details-text",
-                "type": "display",
-                "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
-                "enableWhen": [
-                  {
-                    "question": "card-payment-details-text",
-                    "operator": "=",
-                    "answerString": "-"
                   }
                 ]
               }

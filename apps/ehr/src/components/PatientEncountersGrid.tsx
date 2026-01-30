@@ -153,6 +153,9 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selectedInvoiceTask, setSelectedInvoiceTask] = useState<Task | undefined>(undefined);
+  const [additionalDataForInvoiceDialog, setAdditionalDataForInvoiceDialog] = useState<
+    { visitDate?: string; location?: string } | undefined
+  >();
 
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
@@ -246,6 +249,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           userTimezone: DateTime.local().zoneName,
         });
         setSelectedInvoiceTask(undefined);
+        setAdditionalDataForInvoiceDialog(undefined);
         void refetchVisitHistory();
         enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
       }
@@ -393,6 +397,12 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                 disabled={buttonDisabled || patientAndRPLoading}
                 color={buttonColor}
                 onClick={() => {
+                  const visitDateTime = row.dateTime ? DateTime.fromISO(row.dateTime) : null;
+                  const visitDate = visitDateTime && visitDateTime.isValid ? visitDateTime.toFormat('MM/dd/yyyy') : '';
+                  setAdditionalDataForInvoiceDialog({
+                    visitDate,
+                    location: row.office,
+                  });
                   setSelectedInvoiceTask(lastEncounterTask);
                 }}
               >
@@ -611,11 +621,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       <SendInvoiceToPatientDialog
         title="Send invoice"
         modalOpen={selectedInvoiceTask !== undefined}
-        handleClose={() => setSelectedInvoiceTask(undefined)}
+        handleClose={() => {
+          setSelectedInvoiceTask(undefined);
+          setAdditionalDataForInvoiceDialog(undefined);
+        }}
         submitButtonName="Send Invoice"
         onSubmit={sendInvoice}
         invoiceTask={selectedInvoiceTask}
         patientAndRP={patientAndRpForInvoiceData}
+        additionalData={additionalDataForInvoiceDialog}
       />
     </Paper>
   );

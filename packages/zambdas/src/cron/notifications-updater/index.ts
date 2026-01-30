@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
+import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner, Task } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
   allLicensesForPractitioner,
@@ -21,6 +21,7 @@ import {
   RoleType,
   Secrets,
   SecretsKeys,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -93,7 +94,12 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('Created zapToken and fhir client');
 
-    const [readyOrUnsignedVisitPackages, assignedOrInProgressVisitPackages, statePractitionerMap] = await Promise.all([
+    const [
+      readyOrUnsignedVisitPackages,
+      assignedOrInProgressVisitPackages,
+      statePractitionerMap,
+      recentlyAssignedTasksMap,
+    ] = await Promise.all([
       getResourcePackagesAppointmentsMap(
         oystehr,
         ['planned', 'finished'],
@@ -107,10 +113,12 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         DateTime.utc().minus(Duration.fromISO('PT24H'))
       ),
       getPractitionersByStatesMap(oystehr),
+      getRecentlyAssignedTasksMap(oystehr, DateTime.utc().minus({ hours: 1 })),
     ]);
     console.log('--- Ready or unsigned: ' + JSON.stringify(readyOrUnsignedVisitPackages));
     console.log('--- In progress: ' + JSON.stringify(assignedOrInProgressVisitPackages));
     console.log('--- States/practitioners map: ' + JSON.stringify(statePractitionerMap));
+    console.log('--- Recently assigned tasks map: ' + JSON.stringify(recentlyAssignedTasksMap));
 
     const allPractitionersIdMap = Object.keys(statePractitionerMap).reduce<{ [key: string]: Practitioner }>(
       (acc, val) => {
@@ -303,6 +311,70 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       }
     });
 
+    // Process recently assigned tasks to create task assignment notifications
+    const updateTaskRequests: BatchInputRequest<Task>[] = [];
+    Object.keys(recentlyAssignedTasksMap).forEach((taskId) => {
+      try {
+        const { task, practitioner } = recentlyAssignedTasksMap[taskId];
+
+        const isProcessed = task.meta?.tag?.find(
+          (tag) =>
+            tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM &&
+            tag.code === AppointmentProviderNotificationTypes.task_assigned
+        );
+
+        if (!isProcessed && practitioner) {
+          updateTaskRequests.push(
+            getPatchBinary({
+              resourceId: task.id!,
+              resourceType: 'Task',
+              patchOperations: [
+                getPatchOperationForNewMetaTag(task, {
+                  system: PROVIDER_NOTIFICATION_TAG_SYSTEM,
+                  code: AppointmentProviderNotificationTypes.task_assigned,
+                }),
+              ],
+            })
+          );
+
+          const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
+
+          if (notificationSettings?.enabled) {
+            const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+
+            const request: BatchInputPostRequest<Communication> = {
+              method: 'POST',
+              url: '/Communication',
+              resource: {
+                resourceType: 'Communication',
+                category: [
+                  {
+                    coding: [
+                      {
+                        system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+                        code: AppointmentProviderNotificationTypes.task_assigned,
+                      },
+                    ],
+                  },
+                ],
+                sent: DateTime.utc().toISO()!,
+                status: status,
+                basedOn: [{ reference: `Task/${task.id}` }],
+                recipient: [{ reference: `Practitioner/${practitioner.id}` }],
+                payload: [{ contentString: `A new task has been assigned to you: ${task.description}` }],
+              },
+            };
+
+            createCommunicationRequests.push(request);
+            addNewSMSCommunicationForPractitioner(practitioner, request.resource as Communication, status);
+          }
+        }
+      } catch (error) {
+        console.error(`Error trying to process task assignment notification for task ${taskId}`, error);
+        captureException(error);
+      }
+    });
+
     console.log(`Too long unsigned appointments: ${JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap)}`);
     Object.keys(practitionerUnsignedTooLongAppointmentPackagesMap).forEach((practitionerId) => {
       const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppointmentPackagesMap[practitionerId];
@@ -430,11 +502,17 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       if (
         updateAppointmentRequests.length > 0 ||
         createCommunicationRequests.length > 0 ||
-        updateCommunicationRequests.length > 0
+        updateCommunicationRequests.length > 0 ||
+        updateTaskRequests.length > 0
       ) {
         requests.push(
-          oystehr.fhir.transaction<Appointment | Communication>({
-            requests: [...updateAppointmentRequests, ...createCommunicationRequests, ...updateCommunicationRequests],
+          oystehr.fhir.transaction<Appointment | Communication | Task>({
+            requests: [
+              ...updateAppointmentRequests,
+              ...createCommunicationRequests,
+              ...updateCommunicationRequests,
+              ...updateTaskRequests,
+            ],
           })
         );
       }
@@ -681,6 +759,67 @@ function addPractitionerToState(
   }
 
   statesPractitionersMap[state].push(practitioner);
+}
+
+interface TaskWithPractitioner {
+  task: Task;
+  practitioner: Practitioner;
+}
+
+type RecentlyAssignedTasksMap = { [key: NonNullable<Task['id']>]: TaskWithPractitioner };
+
+async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime): Promise<RecentlyAssignedTasksMap> {
+  const bundle = (
+    await oystehr.fhir.search<Task | Practitioner>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: 'status',
+          value: 'requested|received|accepted|ready|in-progress',
+        },
+        {
+          name: '_lastUpdated',
+          value: `ge${fromDate.toISO()}`,
+        },
+        {
+          name: '_include',
+          value: 'Task:owner',
+        },
+      ],
+    })
+  ).unbundle();
+  const resultMap: RecentlyAssignedTasksMap = {};
+  const practitionerIdMap: { [key: string]: Practitioner } = {};
+  const tasks: Task[] = [];
+  bundle.forEach((res) => {
+    if (res.resourceType === 'Practitioner') {
+      const practitioner = res as Practitioner;
+      practitionerIdMap[practitioner.id!] = practitioner;
+    } else if (res.resourceType === 'Task') {
+      tasks.push(res as Task);
+    }
+  });
+  tasks.forEach((task) => {
+    if (task.owner?.reference) {
+      const assignedDateTimeExt = task.owner.extension?.find(
+        (ext) => ext.url === TASK_ASSIGNED_DATE_TIME_EXTENSION_URL
+      );
+      const assignedDateTime = assignedDateTimeExt?.valueDateTime
+        ? DateTime.fromISO(assignedDateTimeExt.valueDateTime)
+        : null;
+
+      if (assignedDateTime && assignedDateTime >= fromDate) {
+        const practitionerId = removePrefix('Practitioner/', task.owner.reference);
+        if (practitionerId && practitionerIdMap[practitionerId]) {
+          resultMap[task.id!] = {
+            task,
+            practitioner: practitionerIdMap[practitionerId],
+          };
+        }
+      }
+    }
+  });
+  return resultMap;
 }
 
 // set the status of communication:

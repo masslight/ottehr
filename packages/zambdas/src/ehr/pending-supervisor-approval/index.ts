@@ -124,7 +124,11 @@ export const index = wrapHandler(
         throw new Error('Appointment ID is not defined');
       }
 
-      const visitNoteAndEmailTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointmentId);
+      const visitNoteAndEmailTaskResource = getTaskResource(
+        TaskIndicator.visitNotePDFAndEmail,
+        'Require supervisor approval',
+        appointmentId
+      );
       const taskCreationResults = await oystehr.fhir.create(visitNoteAndEmailTaskResource);
       console.log('Task creation results ', taskCreationResults);
 

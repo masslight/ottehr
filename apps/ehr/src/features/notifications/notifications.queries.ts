@@ -46,6 +46,7 @@ export const useGetProviderNotifications = (
               value: `${PROVIDER_NOTIFICATION_TYPE_SYSTEM}|${[
                 AppointmentProviderNotificationTypes.patient_waiting,
                 AppointmentProviderNotificationTypes.unsigned_charts,
+                AppointmentProviderNotificationTypes.task_assigned,
               ].join(',')}`,
             },
             {

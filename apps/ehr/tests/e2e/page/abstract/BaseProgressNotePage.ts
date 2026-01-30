@@ -215,6 +215,20 @@ export abstract class BaseProgressNotePage {
       })
     ).not.toBeVisible();
   }
+  async verifyVitalIsShown(vitals: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer)).toContainText(vitals, {
+      ignoreCase: true,
+    });
+  }
+
+  async verifyVitalNotShown(vitals: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer).filter({
+        hasText: new RegExp(vitals, 'i'),
+      })
+    ).not.toBeVisible();
+  }
 
   abstract expectLoaded(): Promise<void>;
 }

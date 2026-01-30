@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Encounter, Resource, Task } from 'fhir/r4b';
+import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
@@ -31,7 +31,7 @@ import {
 
 let m2mToken: string;
 
-const ZAMBDA_NAME = 'sub-create-invoices-tasks';
+const ZAMBDA_NAME = 'create-invoices-tasks';
 const pendingTaskStatus: Task['status'] = 'ready';
 
 interface EncounterPackage {
@@ -107,7 +107,7 @@ async function getPrefilledInvoiceInfo(patientBalanceInCents: number): Promise<P
   }
 }
 
-async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
+export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
@@ -120,6 +120,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterP
     const task: Task = {
       resourceType: 'Task',
       status: pendingTaskStatus,
+      description: `Send invoice for $${(amountCents / 100).toFixed(2)}`,
       intent: 'order',
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
@@ -211,47 +212,55 @@ async function getEncountersWithPendingTasksFhir(
   return await populateAmountInPackagesAndFilterZeroAmount(candid, packages);
 }
 
-async function getEncountersWithoutTaskFhir(
+export async function getEncountersWithoutTaskFhir(
   oystehr: Oystehr,
   candid: CandidApiClient,
   claims: InventoryRecord[]
 ): Promise<EncounterPackage[]> {
-  const promises: Promise<Resource[]>[] = [];
-  promises.push(
-    getResourcesFromBatchInlineRequests(
-      oystehr,
-      claims.map(
-        (claim) =>
-          `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claim.encounterId}&_revinclude=Task:encounter`
-      )
+  console.log('Getting encounters with a task');
+  const fhirResources = await getResourcesFromBatchInlineRequests(
+    oystehr,
+    claims.map(
+      (claim) =>
+        `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claim.encounterId}&_has:Task:encounter:code=${RcmTaskCodings.sendInvoiceToPatient.coding?.[0].system}|${RcmTaskCodings.sendInvoiceToPatient.coding?.[0].code}`
     )
   );
-  const resourcesResponse = (await Promise.all(promises)).flat();
-  const tasks = resourcesResponse.filter(
-    (res) =>
-      res.resourceType === 'Task' &&
-      (res as Task).code?.coding?.some(
-        (coding) => coding.system === RCM_TASK_SYSTEM && coding.code === RcmTaskCode.sendInvoiceToPatient
-      )
-  ) as Task[];
+  console.log('Encounters with tasks: ', fhirResources.length);
+  const allEncountersCandidIds = claims.map((claim) => claim.encounterId);
+  const allEncountersCandidIdsWithTasks = fhirResources
+    .filter((res) => res.resourceType === 'Encounter')
+    .map((res) => getCandidEncounterIdFromEncounter(res as Encounter));
+  const candidEncountersIdsWithoutTasks = allEncountersCandidIds.filter(
+    (id) => !allEncountersCandidIdsWithTasks.includes(id)
+  );
 
-  const result: Omit<EncounterPackage, 'amountCents'>[] = [];
-  claims.forEach((claim) => {
-    const encounter = resourcesResponse.find(
-      (res) =>
-        res.resourceType === 'Encounter' && claim.encounterId === getCandidEncounterIdFromEncounter(res as Encounter)
-    ) as Encounter;
-    if (encounter?.id) {
-      const invoiceTask = tasks.find((task) => task.encounter?.reference === createReference(encounter).reference);
-      if (!invoiceTask) {
-        result.push({ encounter, claim });
-      }
+  console.log('Searching for encounters without a task');
+  const encountersWithoutTasksResponse = await getResourcesFromBatchInlineRequests(
+    oystehr,
+    candidEncountersIdsWithoutTasks.map(
+      (claimId) => `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claimId}`
+    )
+  );
+  const encountersWithoutTasks = encountersWithoutTasksResponse.filter(
+    (res) => res.resourceType === 'Encounter'
+  ) as Encounter[];
+  console.log('Encounters without a task found raw: ', encountersWithoutTasks.length);
+
+  const result: Omit<EncounterPackage, 'amountCents' | 'invoiceTask'>[] = [];
+  encountersWithoutTasks.forEach((encounter) => {
+    const claim = claims.find((claim) => claim.encounterId === getCandidEncounterIdFromEncounter(encounter));
+    if (claim) {
+      result.push({
+        encounter,
+        claim,
+      });
     }
   });
+  console.log('Getting amounts for encounters and filtering zero amounts:');
   return await populateAmountInPackagesAndFilterZeroAmount(candid, result);
 }
 
-async function populateAmountInPackagesAndFilterZeroAmount(
+export async function populateAmountInPackagesAndFilterZeroAmount(
   candid: CandidApiClient,
   packages: Omit<EncounterPackage, 'amountCents'>[]
 ): Promise<EncounterPackage[]> {

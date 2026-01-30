@@ -654,6 +654,7 @@ const formValueSets = {
     { label: 'Email', value: 'Email' },
     { label: 'Phone', value: 'Phone' },
   ],
+  externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
 };
 
 export const VALUE_SETS = mergeAndFreezeConfigObjects(formValueSets, OVERRIDES);

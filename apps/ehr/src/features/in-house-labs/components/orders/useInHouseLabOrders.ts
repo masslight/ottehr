@@ -40,7 +40,8 @@ interface UseInHouseLabOrdersResult {
 }
 
 export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
-  _searchBy: SearchBy
+  _searchBy: SearchBy,
+  refreshKey?: number
 ): UseInHouseLabOrdersResult => {
   const { oystehrZambda } = useApiClients();
   const [labOrders, setLabOrders] = useState<InHouseGetOrdersResponseDTO<SearchBy>['data']>([]);
@@ -164,7 +165,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
     } else {
       console.error('searchParams are not valid', searchParams);
     }
-  }, [fetchLabOrders, page, memoizedSearchBy]);
+  }, [fetchLabOrders, page, memoizedSearchBy, refreshKey]);
 
   const hasData = labOrders.length > 0;
 

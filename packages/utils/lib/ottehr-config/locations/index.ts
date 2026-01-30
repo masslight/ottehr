@@ -3,6 +3,7 @@ import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrid
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const overrides: any = OVERRIDES || {};
+
 const LOCATION_DEFAULTS: any = {
   inPersonLocations: [{ name: 'New York' }, { name: 'Los Angeles' }],
   telemedLocations: [{ name: 'Telemed New Jersey' }, { name: 'Telemed Ohio' }],
@@ -40,7 +41,6 @@ export function getSupportPhoneFor(locationName?: string): string | undefined {
   const { locationSupportPhoneNumberMap, supportPhoneNumber } = LOCATION_CONFIG;
 
   if (locationSupportPhoneNumberMap && locationName) {
-    // if the location exists but for some reason isn't in the map, fall back to the default support phone number
     return locationSupportPhoneNumberMap[locationName] || supportPhoneNumber;
   }
 
@@ -49,6 +49,20 @@ export function getSupportPhoneFor(locationName?: string): string | undefined {
 
 export function getSupportScheduleGroups(): Array<{ hours: string; locations: string[] }> {
   return LOCATION_CONFIG.supportScheduleGroups ?? [];
+}
+
+export function getSupportDisplayGroups(): Array<{ hours: string; locations: string[] }> {
+  const groups = getSupportScheduleGroups();
+  if (groups.length > 0) {
+    return groups;
+  }
+
+  return [
+    {
+      hours: getSupportHoursFor() ?? 'Sunday-Saturday 10am-10pm ET.',
+      locations: ALL_LOCATIONS.map((location) => location.name),
+    },
+  ];
 }
 
 export function getSupportHoursFor(locationName?: string): string | undefined {

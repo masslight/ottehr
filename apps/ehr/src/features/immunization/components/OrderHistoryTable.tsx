@@ -35,7 +35,7 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
 
   const { data: ordersResponse, isLoading: ordersLoading } = useGetImmunizationOrders(
     immunizationInput ?? {
-      encounterId: encounter.id,
+      encounterId: encounter?.id,
     }
   );
 

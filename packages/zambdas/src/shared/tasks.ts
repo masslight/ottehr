@@ -15,6 +15,7 @@ export interface TaskInput {
 export function createTask(
   data: {
     category: string;
+    title: string;
     code?:
       | {
           system: string;
@@ -47,6 +48,7 @@ export function createTask(
   return {
     resourceType: 'Task',
     status: 'ready',
+    description: data.title,
     groupIdentifier: {
       system: ottehrIdentifierSystem('task-category'),
       value: data.category,
