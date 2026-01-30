@@ -69,7 +69,12 @@ export const evaluateFieldTriggers = (
         }
         break;
       case '>':
-        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+        if (
+          answerDateTime !== undefined &&
+          currentValue !== undefined &&
+          currentValue !== null &&
+          currentValue !== ''
+        ) {
           const currentDate = DateTime.fromISO(currentValue);
           const answerDate = DateTime.fromISO(answerDateTime);
           if (currentDate.isValid && answerDate.isValid) {
@@ -78,7 +83,12 @@ export const evaluateFieldTriggers = (
         }
         break;
       case '<':
-        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+        if (
+          answerDateTime !== undefined &&
+          currentValue !== undefined &&
+          currentValue !== null &&
+          currentValue !== ''
+        ) {
           const currentDate = DateTime.fromISO(currentValue);
           const answerDate = DateTime.fromISO(answerDateTime);
           if (currentDate.isValid && answerDate.isValid) {
@@ -87,7 +97,12 @@ export const evaluateFieldTriggers = (
         }
         break;
       case '>=':
-        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+        if (
+          answerDateTime !== undefined &&
+          currentValue !== undefined &&
+          currentValue !== null &&
+          currentValue !== ''
+        ) {
           const currentDate = DateTime.fromISO(currentValue);
           const answerDate = DateTime.fromISO(answerDateTime);
           if (currentDate.isValid && answerDate.isValid) {
@@ -96,7 +111,12 @@ export const evaluateFieldTriggers = (
         }
         break;
       case '<=':
-        if (answerDateTime !== undefined && currentValue !== undefined && currentValue !== null && currentValue !== '') {
+        if (
+          answerDateTime !== undefined &&
+          currentValue !== undefined &&
+          currentValue !== null &&
+          currentValue !== ''
+        ) {
           const currentDate = DateTime.fromISO(currentValue);
           const answerDate = DateTime.fromISO(answerDateTime);
           if (currentDate.isValid && answerDate.isValid) {
