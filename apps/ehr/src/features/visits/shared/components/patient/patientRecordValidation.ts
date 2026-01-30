@@ -109,8 +109,6 @@ export const evaluateFieldTriggers = (
           acc.enabled = false;
         } else if (enableBehavior === 'all') {
           acc.enabled = false;
-        } else {
-          acc.enabled = acc.enabled || false;
         }
       }
       // only 'enable' effect supports 'all' vs 'any' behavior for now; "any" is default for all other effects
