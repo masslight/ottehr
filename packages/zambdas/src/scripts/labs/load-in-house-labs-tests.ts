@@ -1,4 +1,5 @@
 import { BatchInputRequest } from '@oystehr/sdk';
+import { ProcedureModifier } from 'candidhealth/api';
 import { Command } from 'commander';
 import {
   ActivityDefinition,
@@ -15,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import {
+  CODE_SYSTEM_CPT,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
   IN_HOUSE_RESULTS_VALUESET_SYSTEM,
@@ -34,7 +36,7 @@ import {
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   Validation,
 } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../../shared';
+import { createOystehrClient, getAuth0Token, makeCptModifierExtension } from '../../shared';
 import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
@@ -461,10 +463,11 @@ async function main(): Promise<void> {
             system: IN_HOUSE_TEST_CODE_SYSTEM,
             code: testItem.name,
           },
-          ...testItem.cptCode.map((cptCode: string) => {
+          ...testItem.cptCode.map((cptCode: CptCode) => {
             return {
-              system: 'http://www.ama-assn.org/go/cpt',
-              code: cptCode,
+              system: CODE_SYSTEM_CPT,
+              code: cptCode.code,
+              ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
             };
           }),
         ],
@@ -648,12 +651,14 @@ interface StringComponent extends BaseComponent {
 }
 
 type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
+
+type CptCode = { code: string; modifier?: { code: ProcedureModifier; display: string }[] };
 export interface TestItem {
   name: string;
   methods: TestItemMethods;
   method: string;
   device: string;
-  cptCode: string[];
+  cptCode: CptCode[];
   loincCode: string[];
   repeatTest: boolean;
   components: TestItemComponent[];

@@ -86,7 +86,13 @@ import {
   SecretsKeys,
   TIMEZONES,
 } from 'utils';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, emCodeOptions } from 'utils/lib/helpers/rcm';
+import {
+  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_CPT_MODIFIER,
+  emCodeOptions,
+  EXTENSION_URL_CPT_MODIFIER,
+} from 'utils/lib/helpers/rcm';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
@@ -1156,11 +1162,25 @@ async function candidCreateEncounterFromAppointmentRequest(
 
   const serviceLines: ServiceLineCreate[] = [];
   procedures.forEach((procedure) => {
-    const procedureCode = procedure.code?.coding?.[0].code;
-    let modifiers: ProcedureModifier[] = [];
+    const procedureCoding = procedure.code?.coding?.[0];
+    const procedureCode = procedureCoding?.code;
+
     if (procedureCode == null) {
       return;
     }
+
+    let modifiers: ProcedureModifier[] = [];
+
+    procedureCoding?.extension?.forEach((ext) => {
+      if (ext.url === EXTENSION_URL_CPT_MODIFIER) {
+        ext.valueCodeableConcept?.coding?.forEach((coding) => {
+          if (coding.system === CODE_SYSTEM_CPT_MODIFIER) {
+            const modifier = coding.code;
+            if (modifier && isProcedureModifier(modifier)) modifiers.push(modifier);
+          }
+        });
+      }
+    });
 
     const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
     if (isEAndMCode && isTelemedAppointment(appointment)) {
@@ -1328,3 +1348,36 @@ export function mapMedicationToCandidMeasurement(units: MedicationUnitOptions): 
       return MeasurementUnitCode.InternationalUnit; // todo ??? i have unhandled 'cc' and 'application' cases
   }
 }
+
+const procedureModifierValues = new Set(Object.values(ProcedureModifier));
+
+const isProcedureModifier = (code: unknown): code is ProcedureModifier => {
+  return typeof code === 'string' && procedureModifierValues.has(code as ProcedureModifier);
+};
+
+export const makeCptModifierExtension = (input: { code: ProcedureModifier; display: string }[]): Extension => {
+  return {
+    url: EXTENSION_URL_CPT_MODIFIER,
+    valueCodeableConcept: {
+      coding: input.map((cptCodeInfo) => ({
+        system: CODE_SYSTEM_CPT_MODIFIER,
+        code: cptCodeInfo.code,
+        display: cptCodeInfo.display,
+      })),
+    },
+  };
+};
+
+export const getCptModifierCodeFromProcedure = (fhirProcedure: Procedure): string[] | undefined => {
+  const coding = fhirProcedure.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
+  if (!coding) return;
+
+  const modifierCodableConcept = coding?.extension?.find(
+    (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept
+  )?.valueCodeableConcept;
+  const modifier = modifierCodableConcept?.coding?.flatMap((c) =>
+    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [c.code] : []
+  );
+
+  return modifier;
+};
