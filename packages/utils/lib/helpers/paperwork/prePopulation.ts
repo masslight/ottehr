@@ -29,7 +29,12 @@ import {
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
-import { DOES_NOT_HAVE_ATTORNEY_OPTION, HAS_ATTORNEY_OPTION, INSURANCE_PAY_OPTION } from '../../ottehr-config';
+import {
+  DOES_NOT_HAVE_ATTORNEY_OPTION,
+  HAS_ATTORNEY_OPTION,
+  INSURANCE_PAY_OPTION,
+  VALUE_SETS,
+} from '../../ottehr-config';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -39,6 +44,7 @@ import {
   PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
+  REASON_FOR_VISIT_SEPARATOR,
 } from '../../types';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
 
@@ -151,6 +157,29 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientFirstName = getFirstName(patient) ?? '';
   const patientLastName = getLastName(patient) ?? '';
 
+  // https://github.com/masslight/ottehr/issues/5984 - because the "additional info / tell us more" field gets appended
+  // to the selected reason for visit, before it is passed in here, we need to normalize it back to just the selected option
+  // or it could break any fields that depend on exact matching of the reason for visit logical field value.
+  let normalizedReasonForVisit = reasonForVisit;
+  if (reasonForVisit) {
+    const [reasonOption] = reasonForVisit.split(REASON_FOR_VISIT_SEPARATOR);
+    if (reasonOption && reasonOption !== normalizedReasonForVisit) {
+      if (
+        appointmentServiceCategory === 'occupational-medicine' &&
+        VALUE_SETS.reasonForVisitOptionsOccMed.map((opt) => opt.value).includes(reasonOption)
+      ) {
+        normalizedReasonForVisit = reasonOption;
+      } else if (
+        appointmentServiceCategory === 'workers-compensation' &&
+        VALUE_SETS.reasonForVisitOptionsWorkersComp.map((opt) => opt.value).includes(reasonOption)
+      ) {
+        normalizedReasonForVisit = reasonOption;
+      } else if (VALUE_SETS.reasonForVisitOptions.map((opt) => opt.value).includes(reasonOption)) {
+        normalizedReasonForVisit = reasonOption;
+      }
+    }
+  }
+
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -219,8 +248,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
             answer = makeAnswer(appointmentServiceCategory);
           }
-          if (linkId === 'reason-for-visit' && reasonForVisit) {
-            answer = makeAnswer(reasonForVisit);
+          if (linkId === 'reason-for-visit' && normalizedReasonForVisit) {
+            answer = makeAnswer(normalizedReasonForVisit);
           }
 
           return {

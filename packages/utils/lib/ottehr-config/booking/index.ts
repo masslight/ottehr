@@ -171,7 +171,7 @@ const FormFields = {
         key: 'reason-for-visit-om',
         label: 'Reason for visit',
         type: 'choice',
-        options: VALUE_SETS.reasonForVisitVirtualOptionsOccMed,
+        options: VALUE_SETS.reasonForVisitOptionsOccMed,
         triggers: [
           {
             targetQuestionLinkId: 'appointment-service-category',
@@ -186,7 +186,7 @@ const FormFields = {
         key: 'reason-for-visit-wc',
         label: 'Reason for visit',
         type: 'choice',
-        options: VALUE_SETS.reasonForVisitVirtualOptionsWorkersComp,
+        options: VALUE_SETS.reasonForVisitOptionsWorkersComp,
         triggers: [
           {
             targetQuestionLinkId: 'appointment-service-category',
