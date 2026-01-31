@@ -255,6 +255,8 @@ export interface StrongCoding extends Coding {
   system: string;
 }
 
+console.log('trigger tests, delete me');
+
 const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
   { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
   {
