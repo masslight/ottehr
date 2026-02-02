@@ -167,7 +167,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       }}
       autoComplete
       value={otherProps.value || null}
-      disableClearable={false}
+      disableClearable={otherProps.required}
       disabled={disabled}
       id={name}
       options={options}
