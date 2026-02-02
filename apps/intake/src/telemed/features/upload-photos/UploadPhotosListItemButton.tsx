@@ -1,5 +1,5 @@
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
-import { otherColors } from '@theme/colors';
+import { palette } from '@theme/colors';
 import { Attachment } from 'fhir/r4b';
 import { FC, useEffect, useState } from 'react';
 import { UCGetPaperworkResponse } from 'utils';
@@ -45,7 +45,7 @@ export const UploadPhotosListItemButton: FC<UploadPhotosListItemButtonProps> = (
       onClick={onClick}
       noDivider={noDivider}
     >
-      <PhotoLibraryOutlinedIcon sx={{ color: otherColors.purple }} />
+      <PhotoLibraryOutlinedIcon sx={{ color: palette.secondary.main }} />
     </StyledListItemWithButton>
   );
 };

@@ -21,6 +21,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { palette } from '@theme/colors';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
@@ -565,7 +566,6 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
     formState: { defaultValues },
   } = renderProps;
   const inputType = getInputTypeForItem(item);
-  const { otherColors } = useIntakeThemeContext();
   const theme = useTheme();
   const myInputComponent = inputBaseProps?.mask ? (InputMask as any) : 'input';
 
@@ -715,7 +715,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
                     borderRadius: '4px',
                   },
                   '&.Mui-checked': {
-                    color: otherColors.purple,
+                    color: palette.secondary.main,
                     borderRadius: '4px',
                     outline: '1px solid #295F75',
                   },
@@ -823,7 +823,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               textAlign: 'left',
               display: 'inline',
               cursor: 'pointer',
-              color: otherColors.purple,
+              color: palette.secondary.main,
               fontWeight: 500,
               '&:hover': {
                 textDecoration: 'underline',

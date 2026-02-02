@@ -1,7 +1,7 @@
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors, palette } from '../IntakeThemeProvider';
 
 interface HomepageOptionsProps {
   title: string;
@@ -63,7 +63,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
         sx={{
           display: 'flex',
           alignItems: 'center',
-          backgroundColor: otherColors.purple,
+          backgroundColor: palette.secondary.main,
           color: 'white',
           borderRadius: '50%',
           p: 1,

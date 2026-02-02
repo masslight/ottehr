@@ -1,7 +1,7 @@
 import { Skeleton } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { palette } from 'src/IntakeThemeProvider';
 import { BRANDING_CONFIG } from 'utils';
-import { otherColors } from '../IntakeThemeProvider';
 import { primaryIcon } from '../themes/ottehr/icons';
 import CardWithDescription from './CardWithDescription';
 
@@ -54,7 +54,7 @@ export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps
           </>
         )
       }
-      bgColor={otherColors.purple}
+      bgColor={palette.secondary.main}
       marginTop={0}
       marginBottom={2}
     />

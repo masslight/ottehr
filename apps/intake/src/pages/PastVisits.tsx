@@ -3,7 +3,7 @@ import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { AppointmentInformationIntake, formatVisitDate } from 'utils';
 import { intakeFlowPageRoute } from '../App';
 import { useGetPastVisits } from '../features/past-visits';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors, palette } from '../IntakeThemeProvider';
 import { useOystehrAPIClient } from '../telemed/utils';
 
 const PastVisits = (): JSX.Element => {
@@ -110,7 +110,7 @@ const PastVisits = (): JSX.Element => {
                       backgroundColor: otherColors.white,
                       color: 'primary.light',
                       border: '1px solid',
-                      borderColor: otherColors.purple,
+                      borderColor: palette.secondary.main,
                       borderRadius: '100px',
                       py: 1,
                       px: 2,
@@ -133,7 +133,7 @@ const PastVisits = (): JSX.Element => {
           backgroundColor: otherColors.white,
           color: 'primary.light',
           border: '1px solid',
-          borderColor: otherColors.purple,
+          borderColor: palette.secondary.main,
           borderRadius: '100px',
           py: 1,
           px: 2,

@@ -7,7 +7,7 @@ import { FC } from 'react';
 import { ContactSupportDialog } from '../../components/ContactSupportDialog';
 import { CustomTooltip } from '../../components/CustomTooltip';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
-import { otherColors } from '../../IntakeThemeProvider';
+import { otherColors, palette } from '../../IntakeThemeProvider';
 import { useIntakeCommonStore } from '../features/common';
 import { IconButtonContained } from './IconButtonContained';
 
@@ -57,7 +57,7 @@ export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
                     }}
                     noDivider
                   >
-                    <SettingsOutlinedIcon sx={{ color: otherColors.purple }} />
+                    <SettingsOutlinedIcon sx={{ color: palette.secondary.main }} />
                   </StyledListItemWithButton>
                 </List>
                 <IconButton onClick={handleTooltipClose} size="small" sx={{ position: 'absolute', right: 0, top: 0 }}>

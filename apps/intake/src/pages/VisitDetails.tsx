@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { GetVisitDetailsResponse } from 'utils';
 import { intakeFlowPageRoute } from '../App';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors, palette } from '../IntakeThemeProvider';
 import { useGetVisitDetails } from '../telemed/features/appointments';
 import { useIntakeCommonStore } from '../telemed/features/common';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
@@ -211,7 +211,7 @@ const VisitDetails = (): JSX.Element => {
             backgroundColor: otherColors.white,
             color: 'primary.light',
             border: '1px solid',
-            borderColor: otherColors.purple,
+            borderColor: palette.secondary.main,
             borderRadius: '100px',
             py: 1,
             px: 2,

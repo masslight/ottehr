@@ -16,7 +16,7 @@ import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PatientList from '../features/patients/components/selectable-list';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors, palette } from '../IntakeThemeProvider';
 import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 const ChoosePatient = (): JSX.Element => {
@@ -367,7 +367,7 @@ const ChoosePatient = (): JSX.Element => {
             descText={t('welcomeBack.checkIn')}
             link={intakeFlowPageRoute.Appointments.path}
             linkText={t('appointments.checkIn')}
-            bgColor={otherColors.purple}
+            bgColor={palette.secondary.main}
             marginTop={0}
             marginBottom={2}
             paddingY={6}

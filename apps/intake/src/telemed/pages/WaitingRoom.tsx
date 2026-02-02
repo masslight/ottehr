@@ -6,6 +6,7 @@ import { primaryIcon } from '@theme/icons';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { palette } from 'src/IntakeThemeProvider';
 import { AppointmentType, BRANDING_CONFIG, getSelectors } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
@@ -130,7 +131,7 @@ const WaitingRoom = (): JSX.Element => {
             secondaryText="Setup audio, video, microphone to avoid technical issues now"
             noDivider={isInvitedParticipant}
           >
-            <SettingsOutlinedIcon sx={{ color: otherColors.purple }} />
+            <SettingsOutlinedIcon sx={{ color: palette.secondary.main }} />
           </StyledListItemWithButton>
         )}
 

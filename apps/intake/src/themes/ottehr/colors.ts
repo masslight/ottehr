@@ -18,7 +18,6 @@ export const otherColors = {
   popupBackground: 'rgba(97, 97, 97, 0.9)',
   primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
-  purple: '#2169F5',
   scheduleBorder: '#8F9AA7',
   toolTipClose: '#938B7D',
   toolTipGrey: '#F9FAFB',

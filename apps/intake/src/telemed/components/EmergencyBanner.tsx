@@ -1,7 +1,7 @@
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { Box, CardContent, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { otherColors } from '../../IntakeThemeProvider';
+import { otherColors, palette } from '../../IntakeThemeProvider';
 
 export const EmergencyBanner: FC = () => {
   const theme = useTheme();
@@ -13,7 +13,7 @@ export const EmergencyBanner: FC = () => {
         alignItems: 'center',
         gap: 2.5,
         borderRadius: 2,
-        backgroundColor: otherColors.purple,
+        backgroundColor: palette.secondary.main,
         p: 2,
         mt: 3,
         [theme.breakpoints.down('md')]: { mx: 2 },
