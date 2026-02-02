@@ -2,6 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 
 export interface ContainerProps {
@@ -112,7 +113,7 @@ export const CustomContainer: FC<ContainerProps> = ({
           <Grid item>
             <Box
               component="img"
-              sx={{ margin: 1, width: 200, alignSelf: 'center', minHeight: '39px' }}
+              sx={{ margin: 1, width: BRANDING_CONFIG.appBarIconWidth, alignSelf: 'center', minHeight: '39px' }}
               alt={alt}
               src={logo}
             />

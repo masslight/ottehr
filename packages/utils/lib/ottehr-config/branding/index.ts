@@ -4,6 +4,7 @@ import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-override
 
 const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: any = {
+  appBarIconWidth: 120,
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',
   primaryIconAlt: 'Ottehr icon',
@@ -38,6 +39,7 @@ const BRANDING_DEFAULTS: any = {
 const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides });
 
 const BrandingConfigSchema = z.object({
+  appBarIconWidth: z.number().min(1, { message: 'App bar icon width must be positive' }),
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
   projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
   primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
