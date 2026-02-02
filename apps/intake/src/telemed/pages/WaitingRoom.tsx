@@ -90,7 +90,7 @@ const WaitingRoom = (): JSX.Element => {
       title="Waiting room"
       img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={80}
+      imgWidth={BRANDING_CONFIG.primaryIconSize}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
     >
       {appointmentType && appointmentType !== 'pre-booked' && (

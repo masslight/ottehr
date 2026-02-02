@@ -7,6 +7,7 @@ const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',
   primaryIconAlt: 'Ottehr icon',
+  primaryIconSize: 90,
   email: {
     logoURL: '',
     palette: {
@@ -40,6 +41,7 @@ const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
   projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
   primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
+  primaryIconSize: z.number().min(1, { message: 'Primary icon size must be positive' }),
   email: z.object({
     logoURL: z.string().optional(),
     sender: z.string().email(),
