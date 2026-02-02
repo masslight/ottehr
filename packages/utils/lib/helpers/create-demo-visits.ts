@@ -46,6 +46,7 @@ import {
   isoToDateObject,
 } from './helpers';
 import { chooseJson } from './oystehrApi';
+import { QuestionnaireHelper } from './paperwork';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -336,7 +337,6 @@ const processPaperwork = async (
 ): Promise<void> => {
   try {
     const { appointmentId, questionnaireResponseId } = appointmentData;
-
     if (!questionnaireResponseId) return;
 
     const birthDate = isoToDateObject(patientInfo.dateOfBirth || '') || undefined;
@@ -360,7 +360,6 @@ const processPaperwork = async (
       getAllergiesStepAnswers(),
       getMedicalConditionsStepAnswers(),
       getSurgicalHistoryStepAnswers(),
-      getAdditionalQuestionsAnswers({ useRandomAnswers: true }),
       getPaymentOptionSelfPayAnswers(),
       getResponsiblePartyStepAnswers({}),
       getCardPaymentStepAnswers(),
@@ -368,6 +367,10 @@ const processPaperwork = async (
       getInviteParticipantStepAnswers(),
       getConsentStepAnswers({}),
     ];
+
+    if (QuestionnaireHelper.hasVirtualAdditionalPage()) {
+      telemedWalkinAnswers.push(getAdditionalQuestionsAnswers({ useRandomAnswers: true }));
+    }
 
     paperworkPatches = paperworkAnswers
       ? await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })

@@ -2,10 +2,9 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { BOOKING_CONFIG, checkFieldHidden } from 'utils';
+import { BOOKING_CONFIG, checkFieldHidden, QuestionnaireHelper } from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
-import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { TelemedRpInsNoReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;

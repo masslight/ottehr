@@ -2,9 +2,12 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
 import { UploadDocs } from 'tests/utils/UploadDocs';
-import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLocation } from 'utils';
+import {
+  getPrivacyPolicyLinkDefForLocation,
+  getTermsAndConditionsLinkDefForLocation,
+  QuestionnaireHelper,
+} from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';

@@ -41,7 +41,7 @@ export const MOBILE_MODAL_STYLE = {
   p: 4,
 };
 
-export const TYPE_WIDTH_MIN = '160px';
+export const TYPE_WIDTH_MIN = '195px';
 export const TIME_WIDTH_MIN = '140px';
 export const PATIENT_AND_REASON_WIDTH_MIN = '300px';
 export const ROOM_WIDTH_MIN = '120px';

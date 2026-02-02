@@ -1,12 +1,18 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { AllStates, checkFieldHidden, getIntakeFormPageSubtitle, PatientEthnicity, PatientRace } from 'utils';
+import {
+  AllStates,
+  checkFieldHidden,
+  getIntakeFormPageSubtitle,
+  PatientEthnicity,
+  PatientRace,
+  QuestionnaireHelper,
+} from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
-import { QuestionnaireHelper } from './QuestionnaireHelper';
 import { PaperworkTelemed } from './telemed/Paperwork';
 import { UploadDocs } from './UploadDocs';
 
