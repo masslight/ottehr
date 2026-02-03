@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import type { Patient, Questionnaire } from 'fhir/r4b';
+import type { Account, Encounter, Patient, Questionnaire } from 'fhir/r4b';
 import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -9,6 +9,7 @@ import {
   flattenQuestionnaireAnswers,
   getSecret,
   getVersionedReferencesFromBundleResources,
+  INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   makeValidationSchema,
   mapQuestionnaireAndValueSetsToItemsList,
@@ -32,6 +33,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { mergeEncounterAccounts } from '../../../subscriptions/questionnaire-response/sub-intake-harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
@@ -77,6 +79,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     providerProfileReference,
     preserveOmittedCoverages,
     questionnaireForEnableWhenFiltering,
+    encounterId,
   } = input;
 
   let patientResource = await oystehr.fhir.get<Patient>({
@@ -132,8 +135,18 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     throw e;
   }
 
+  let updatedAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
+
   try {
-    const { account, guarantorResource } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    const {
+      account,
+      guarantorResource,
+      workersCompAccount: latestWorkersCompAccount,
+    } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    updatedAccount = account;
+    workersCompAccount = latestWorkersCompAccount;
+
     const stripeClient = getStripeClient(input.secrets);
 
     if (!account || !guarantorResource) {
@@ -163,6 +176,32 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   );
 
   console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
+
+  if (encounterId) {
+    const encounterResource = await oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    });
+    const patientAccountReference = updatedAccount?.id ? `Account/${updatedAccount.id}` : undefined;
+    const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+    const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+      encounterResource.account,
+      [patientAccountReference, workersCompAccountReference]
+    );
+    if (accountsChanged && updatedEncounterAccounts) {
+      await oystehr.fhir.patch<Encounter>({
+        id: encounterId,
+        resourceType: 'Encounter',
+        operations: [
+          {
+            op: encounterResource.account ? 'replace' : 'add',
+            path: '/account',
+            value: updatedEncounterAccounts,
+          },
+        ],
+      });
+    }
+  }
 };
 
 interface AuditEventInput {
@@ -264,6 +303,7 @@ interface BasicInput {
   userToken: string;
   patientId: string;
   questionnaireResponse: QuestionnaireResponse;
+  encounterId?: string;
   secrets: Secrets | null;
 }
 
@@ -279,7 +319,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   }
 
   const { secrets } = input;
-  const { questionnaireResponse } = JSON.parse(input.body);
+  const { questionnaireResponse, encounterId } = JSON.parse(input.body);
   if (questionnaireResponse === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['questionnaireResponse']);
   }
@@ -312,8 +352,13 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('questionnaireResponse.subject must have a valid UUID');
   }
 
+  if (encounterId && !isValidUUID(encounterId)) {
+    throw INVALID_RESOURCE_ID_ERROR(encounterId);
+  }
+
   return {
     questionnaireResponse,
+    encounterId,
     secrets,
     userToken,
     patientId,

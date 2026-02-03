@@ -1,6 +1,6 @@
 import { BundleEntry } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { Bundle, FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { Bundle, FhirResource, Organization, Patient, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -11,6 +11,7 @@ import {
   ORG_TYPE_PAYER_CODE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
+  UpdatePatientAccountInput,
   useSuccessQuery,
 } from 'utils';
 import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
@@ -195,17 +196,18 @@ export const useRemovePatientCoverage = (): UseMutationResult<void, Error, Remov
 export const useUpdatePatientAccount = (
   onSuccess?: () => void,
   successMessage: string = 'Patient information updated successfully'
-): UseMutationResult<void, Error, QuestionnaireResponse> => {
+): UseMutationResult<void, Error, UpdatePatientAccountInput> => {
   const apiClient = useOystehrAPIClient();
 
   return useMutation({
     mutationKey: ['update-patient-account'],
 
-    mutationFn: async (questionnaireResponse: QuestionnaireResponse): Promise<void> => {
+    mutationFn: async (input: UpdatePatientAccountInput): Promise<void> => {
       try {
-        if (!apiClient || !questionnaireResponse) return;
+        if (!apiClient) return;
         await apiClient.updatePatientAccount({
-          questionnaireResponse,
+          questionnaireResponse: input.questionnaireResponse,
+          encounterId: input.encounterId,
         });
       } catch (error) {
         console.error(error);

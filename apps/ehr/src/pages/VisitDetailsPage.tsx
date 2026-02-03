@@ -1289,6 +1289,7 @@ export default function VisitDetailsPage(): ReactElement {
                     ? ServiceMode.virtual
                     : ServiceMode['in-person'],
                   reasonForVisit,
+                  encounterId: encounter?.id,
                 }}
               />
             </Grid>
