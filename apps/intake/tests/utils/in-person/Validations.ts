@@ -1,5 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { QuestionnaireHelper } from '../QuestionnaireHelper';
+import { QuestionnaireHelper } from 'utils';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class Validations {

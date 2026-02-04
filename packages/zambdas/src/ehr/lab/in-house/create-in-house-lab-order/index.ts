@@ -30,6 +30,7 @@ import {
   isApiError,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   REFLEX_ARTIFACT_DISPLAY,
+  REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG,
   Secrets,
   SecretsKeys,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
@@ -480,6 +481,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         { code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' },
       ]);
       procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
+
+      serviceRequestConfig.meta = { tag: [REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG] };
     }
 
     const procedureConfig: Procedure = {

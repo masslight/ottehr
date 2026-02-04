@@ -29,6 +29,7 @@ import {
   getTelemedLocations,
   isLocationVirtual,
   isoToDateObject,
+  QuestionnaireHelper,
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
@@ -387,6 +388,9 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       // });
 
       await test.step('Should check the list of Additional Questions is the same for patient and provider', async () => {
+        if (!QuestionnaireHelper.hasVirtualAdditionalPage()) {
+          test.skip();
+        }
         for (const question of ADDITIONAL_QUESTIONS) {
           await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(question.field))).toHaveText(
             new RegExp(question.label)
@@ -398,6 +402,9 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       });
 
       await test.step('Should check provider has the same answers for Additional Questions as Patient provided.', async () => {
+        if (!QuestionnaireHelper.hasVirtualAdditionalPage()) {
+          test.skip();
+        }
         const answers = getAdditionalQuestionsAnswers().item;
         for (const question of ADDITIONAL_QUESTIONS) {
           const rawAnswer = answers?.find((item) => item.linkId === question.field)?.answer?.[0]?.valueString ?? '';

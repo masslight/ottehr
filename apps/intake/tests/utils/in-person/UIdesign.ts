@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { expect, Page } from '@playwright/test';
 import { BRANDING_CONFIG } from 'utils';
-import { QuestionnaireHelper } from '../QuestionnaireHelper';
+import { QuestionnaireHelper } from 'utils';
 export class UIDesign {
   page: Page;
   constructor(page: Page) {

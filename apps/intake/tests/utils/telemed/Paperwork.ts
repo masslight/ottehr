@@ -1,6 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { waitForResponseWithData } from 'test-utils';
-import { SELF_PAY_OPTION } from 'utils';
+import { QuestionnaireHelper, SELF_PAY_OPTION } from 'utils';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import {
   CURRENT_MEDICATIONS_ABSENT_LABEL,
@@ -15,7 +15,6 @@ import {
   SURGICAL_HISTORY_PRESENT_LABEL,
 } from '../locators';
 import { CARD_CVV, CARD_EXP_DATE, CARD_NUMBER, CARD_NUMBER_OBSCURED } from '../Paperwork';
-import { QuestionnaireHelper } from '../QuestionnaireHelper';
 import { FillingInfo } from './FillingInfo';
 import { UIDesign } from './UIdesign';
 

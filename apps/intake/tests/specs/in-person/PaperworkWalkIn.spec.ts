@@ -4,13 +4,13 @@ import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
-import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
 import { ResourceHandler } from 'tests/utils/resource-handler';
 import {
   chooseJson,
   cleanAppointmentGraph,
   CreateAppointmentResponse,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  QuestionnaireHelper,
 } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';

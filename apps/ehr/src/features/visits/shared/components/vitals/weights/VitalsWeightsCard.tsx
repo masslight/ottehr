@@ -46,32 +46,18 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSaveWeightObservation = async (): Promise<void> => {
-    if (!weightKg && !isPatientRefusedOptionSelected) {
-      return;
-    }
+    if (!weightKg) return;
 
     try {
       setIsSaving(true);
-      let vitalObs: VitalsWeightObservationDTO;
 
-      if (isPatientRefusedOptionSelected) {
-        vitalObs = {
-          field: VitalFieldNames.VitalWeight,
-          extraWeightOptions: ['patient_refused'],
-        };
-      } else {
-        if (weightKg == null) {
-          return;
-        }
+      const vitalObs: VitalsWeightObservationDTO = {
+        field: VitalFieldNames.VitalWeight,
+        value: weightKg,
+      };
 
-        vitalObs = {
-          field: VitalFieldNames.VitalWeight,
-          value: weightKg,
-        };
-      }
       await handleSaveVital(vitalObs);
       setWeightKg(undefined);
-      setOptionRefusedOptionSelected(false);
     } catch {
       enqueueSnackbar('Error saving Weight data', { variant: 'error' });
     } finally {
@@ -92,12 +78,32 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     }
   }, []);
 
-  const handleWeightOptionChanged = useCallback((isChecked: boolean, weightOption: VitalsWeightOption): void => {
-    if (weightOption === 'patient_refused') {
+  const handleWeightOptionChanged = useCallback(
+    async (isChecked: boolean, weightOption: VitalsWeightOption): Promise<void> => {
+      if (weightOption !== 'patient_refused') return;
+
       setOptionRefusedOptionSelected(isChecked);
       setWeightKg(undefined);
-    }
-  }, []);
+
+      if (!isChecked) return;
+
+      try {
+        setIsSaving(true);
+
+        const vitalObs: VitalsWeightObservationDTO = {
+          field: VitalFieldNames.VitalWeight,
+          extraWeightOptions: ['patient_refused'],
+        };
+
+        await handleSaveVital(vitalObs);
+      } catch {
+        enqueueSnackbar('Error saving Weight data', { variant: 'error' });
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [handleSaveVital]
+  );
 
   const renderRightColumn = (): JSX.Element => {
     return (
@@ -195,7 +201,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                 >
                   <RoundedButton
                     size="small"
-                    disabled={!weightKg && !isPatientRefusedOptionSelected}
+                    disabled={!weightKg}
                     loading={isSaving}
                     onClick={handleSaveWeightObservation}
                     color="primary"

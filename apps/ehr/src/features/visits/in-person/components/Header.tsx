@@ -1,11 +1,16 @@
+import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
   Chip,
   Grid,
   IconButton,
   Link,
+  ListItemIcon,
+  Menu,
   MenuItem,
   Skeleton,
   Stack,
@@ -21,6 +26,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue } from 'src/shared/utils';
 import {
@@ -253,6 +259,8 @@ export const Header = (): JSX.Element => {
   const reasonForVisit = formatLabelValue(appointmentValues?.description, 'Reason for Visit');
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -515,7 +523,57 @@ export const Header = (): JSX.Element => {
                   mt: 0.5,
                 }}
               >
-                {effectiveEncounterId ? <InternalNotes /> : null}
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  {effectiveEncounterId ? <InternalNotes /> : null}
+                  <IconButton
+                    onClick={(e) => setHeaderMenuAnchorEl(e.currentTarget)}
+                    sx={{ color: theme.palette.primary.main }}
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                </Stack>
+                <Menu
+                  anchorEl={headerMenuAnchorEl}
+                  open={!!headerMenuAnchorEl}
+                  onClose={() => setHeaderMenuAnchorEl(null)}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                >
+                  <MenuItem
+                    onClick={() => {
+                      setHeaderMenuAnchorEl(null);
+                      if (patient?.id) {
+                        navigate(`/patient/${patient.id}/followup/add`);
+                      }
+                    }}
+                    disabled={!patient?.id}
+                    sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                      <CalendarMonthOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Create Follow-Up Visit
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setHeaderMenuAnchorEl(null);
+                      setShowCreateTaskDialog(true);
+                    }}
+                    sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                      <AddOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Create Task
+                  </MenuItem>
+                </Menu>
+                <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />
               </Grid>
             </Grid>
           </Grid>

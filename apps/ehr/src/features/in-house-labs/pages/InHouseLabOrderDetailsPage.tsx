@@ -94,9 +94,8 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     );
   }
 
-  console.log('allTestDetails', JSON.stringify(allTestDetails));
   const apartOfRepeatTestSet = (() => {
-    return allTestDetails && allTestDetails.some((detail) => detail.labDetails?.repeatable);
+    return allTestDetails && allTestDetails.some((detail) => detail.labDetails.orderedAsRepeat);
   })();
 
   const pageName = `${testDetails.testItemName}${apartOfRepeatTestSet ? ' + Repeat' : ''}`;

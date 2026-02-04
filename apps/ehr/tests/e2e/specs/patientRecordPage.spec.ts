@@ -336,18 +336,28 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
   test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
     test.skip(PatientDetailsHidden, 'patient details section is hidden');
-    await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, DEMO_VISIT_PATIENT_ETHNICITY);
-    await patientInformationPage.verifySelectFieldValue(patientDetails.race.key, DEMO_VISIT_PATIENT_RACE);
-    await patientInformationPage.verifySelectFieldValue(
-      patientDetails.pointOfDiscovery.key,
-      DEMO_VISIT_POINT_OF_DISCOVERY
-    );
-    await patientInformationPage.verifyBooleanFieldHasExpectedValue(
-      patientDetails.sendMarketing.key,
-      DEMO_VISIT_MARKETING_MESSAGING
-    );
+    if (!PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.ethnicity.key)) {
+      await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, DEMO_VISIT_PATIENT_ETHNICITY);
+    }
+    if (!PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.race.key)) {
+      await patientInformationPage.verifySelectFieldValue(patientDetails.race.key, DEMO_VISIT_PATIENT_RACE);
+    }
+    if (!PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.pointOfDiscovery.key)) {
+      await patientInformationPage.verifySelectFieldValue(
+        patientDetails.pointOfDiscovery.key,
+        DEMO_VISIT_POINT_OF_DISCOVERY
+      );
+    }
+    if (!PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.sendMarketing.key)) {
+      await patientInformationPage.verifyBooleanFieldHasExpectedValue(
+        patientDetails.sendMarketing.key,
+        DEMO_VISIT_MARKETING_MESSAGING
+      );
+    }
     // no test for CommonWell consent?
-    await patientInformationPage.verifySelectFieldValue(patientDetails.language.key, DEMO_VISIT_PREFERRED_LANGUAGE);
+    if (!PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.language.key)) {
+      await patientInformationPage.verifySelectFieldValue(patientDetails.language.key, DEMO_VISIT_PREFERRED_LANGUAGE);
+    }
   });
 
   test('Verify PCP Section behavior', async () => {

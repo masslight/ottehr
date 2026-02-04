@@ -775,7 +775,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
       params: [
         {
           name: 'status',
-          value: 'requested|received|accepted|ready|in-progress',
+          value: 'requested,received,accepted,ready,in-progress',
         },
         {
           name: '_lastUpdated',
