@@ -45,7 +45,7 @@ export class PaperworkTelemed {
     await this.page.getByRole('button', { name: 'Continue', exact: true }).click();
 
     if (waitFor) {
-      await waitFor;
+      await waitFor();
     }
 
     await expect(this.page.getByRole('button', { name: 'Continue', exact: true })).toBeEnabled({ timeout: 15000 });
