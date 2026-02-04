@@ -184,9 +184,6 @@ export class VitalsPage {
   async addWeightObservationPatientRefused(): Promise<void> {
     const patientRefusedCheckbox = this.#page.getByTestId(dataTestIds.vitalsPage.weightPatientRefusedCheckbox);
     await patientRefusedCheckbox.check();
-
-    const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.weightAddButton);
-    await addButton.click();
     await waitForSaveChartDataResponse(this.#page);
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).first()).toContainText('Patient Refused');
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightHeader)).toContainText('Patient Refused');

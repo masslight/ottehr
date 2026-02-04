@@ -188,3 +188,9 @@ export const SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES = {
 };
 
 export const REFLEX_ARTIFACT_DISPLAY = 'reflex relationship'; // added to the depends-on relatedArtifact on reflex test activity definitions
+
+export const SERVICE_REQUEST_ORDER_DETAIL_TAG_SYSTEM = 'inhouse-order-detail';
+export const REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG = {
+  system: SERVICE_REQUEST_ORDER_DETAIL_TAG_SYSTEM,
+  code: 'repeat',
+};

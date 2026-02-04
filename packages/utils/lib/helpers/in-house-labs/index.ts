@@ -27,6 +27,7 @@ import {
   REFLEX_TEST_CONDITION_LANGUAGES,
   REFLEX_TEST_CONDITION_URL,
   REFLEX_TEST_LOGIC_URL,
+  REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG,
   REFLEX_TEST_TO_RUN_NAME_URL,
   REFLEX_TEST_TO_RUN_URL,
   REFLEX_TEST_TRIGGERED_URL,
@@ -336,10 +337,18 @@ export const convertActivityDefinitionToTestItem = (
     reflexAlert = checkDiagnosticReportForReflexAlert(diagnosticReport);
   }
 
+  const orderedAsRepeat = serviceRequest
+    ? !!serviceRequest.meta?.tag?.some(
+        (t) =>
+          t.system === REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG.system && t.code === REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG.code
+      )
+    : false;
+
   const testItem: TestItem = {
     name,
     methods,
     repeatable,
+    orderedAsRepeat,
     method: Object.keys(methods).join(' or '),
     device: Object.values(methods)
       .map((m) => m.device)
