@@ -34,12 +34,12 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
       </Typography>
 
       {temperature && temperature.length > 0 && (
-        <>
+        <Box data-testid={dataTestIds.progressNotePage.vitalsItem}>
           <AssessmentTitle>Temperature</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {temperature?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
-        </>
+        </Box>
       )}
       {heartbeat && heartbeat.length > 0 && (
         <>

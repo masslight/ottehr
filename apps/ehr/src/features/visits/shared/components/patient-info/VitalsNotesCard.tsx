@@ -1,3 +1,4 @@
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { IN_PERSON_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { GenericNoteList } from '../generic-notes-list/GenericNoteList';
 import { GenericNotesConfig } from '../generic-notes-list/types';
@@ -31,7 +32,11 @@ const vitalsNotesConfig: GenericNotesConfig = {
 };
 
 const VitalsNotesCard: React.FC = () => (
-  <GenericNoteList apiConfig={vitalsNotesConfig.apiConfig} locales={vitalsNotesConfig.locales} />
+  <GenericNoteList
+    apiConfig={vitalsNotesConfig.apiConfig}
+    locales={vitalsNotesConfig.locales}
+    addNoteButtonDataTestId={dataTestIds.vitalsPage.addNoteButton}
+  />
 );
 
 export default VitalsNotesCard;
