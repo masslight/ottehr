@@ -915,7 +915,7 @@
         "linkId": "insurance-plan-type",
         "type": "choice",
         "text": "Insurance type",
-        "required": true,
+        "required": false,
         "answerOption": [
           {
             "valueString": "09"
@@ -1572,7 +1572,7 @@
         "linkId": "insurance-plan-type-2",
         "type": "choice",
         "text": "Insurance type",
-        "required": true,
+        "required": false,
         "answerOption": [
           {
             "valueString": "09"
