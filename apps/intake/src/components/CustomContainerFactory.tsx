@@ -164,9 +164,6 @@ export const CustomContainer: FC<ContainerProps> = ({
                     {title && (
                       <Grid item xs={12} md={gridWidths.title}>
                         <Typography
-                          sx={{
-                            width: { xs: '100%', md: isFirstPage ? '350px' : '100%' },
-                          }}
                           variant={isFirstPage ? 'h1' : 'h2'}
                           color="primary.main"
                           data-testid={isFirstPage ? 'first-flow-page-title' : 'flow-page-title'}
