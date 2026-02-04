@@ -170,6 +170,7 @@ const performEffect = async (
   }
   const paymentTaskResource = getTaskResource(
     TaskIndicator.patientPaymentCandidSyncAndReceipt,
+    `Payment notice for $${(amountInCents / 100).toFixed(2)}`,
     paymentNotice.id,
     encounterId
   );
