@@ -3,7 +3,6 @@ import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExamCardComponent, ExamItemConfig, isDropdownComponent, isMultiSelectComponent } from 'utils';
 import { useExamObservationsStore } from '../../../stores/appointment/exam-observations.store';
-import { ExamReviewComment } from './ExamReviewComment';
 import { ExamReviewGroup } from './ExamReviewGroup';
 
 type ExaminationContainerProps = {
@@ -149,20 +148,22 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
       sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
       data-testid={dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer}
     >
-      {Object.entries(examConfig).map(([sectionKey, section]) => {
-        const { normalItems, abnormalItems } = getSectionObservations(sectionKey);
-        const allItems = [...normalItems, ...abnormalItems];
+      {Object.entries(examConfig)
+        .map(([sectionKey, section]) => {
+          const { normalItems, abnormalItems } = getSectionObservations(sectionKey);
+          const allItems = [...normalItems, ...abnormalItems];
+          const comment = Object.keys(section.components.comment)
+            .map((key) => examObservations[key]?.note)
+            .filter((note) => note !== undefined)
+            .join(' ');
 
-        return (
-          <Box key={sectionKey} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <ExamReviewGroup label={section.label} items={allItems} />
+          if (allItems.length === 0 && !comment) {
+            return null;
+          }
 
-            {Object.keys(section.components.comment).map((key) => (
-              <ExamReviewComment key={key} item={examObservations[key]} />
-            ))}
-          </Box>
-        );
-      })}
+          return <ExamReviewGroup key={sectionKey} label={section.label} items={allItems} comment={comment} />;
+        })
+        .filter(Boolean)}
     </Box>
   );
 };

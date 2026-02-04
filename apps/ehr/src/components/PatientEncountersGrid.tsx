@@ -545,7 +545,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             ) : (
               paginatedData.map((row, index) => {
                 const rowId = row.appointmentId || `row-${index}`;
-                const followupEncountersForRow = row.followUps ?? [];
+                const followupEncountersForRow = [...(row.followUps ?? [])].sort(
+                  (a, b) =>
+                    DateTime.fromISO(a.dateTime ?? '').diff(DateTime.fromISO(b.dateTime ?? ''), 'milliseconds')
+                      .milliseconds
+                );
                 const hasFollowups = followupEncountersForRow.length > 0;
 
                 return (
