@@ -9,7 +9,6 @@ import {
   flattenQuestionnaireAnswers,
   getSecret,
   getVersionedReferencesFromBundleResources,
-  INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   makeValidationSchema,
   mapQuestionnaireAndValueSetsToItemsList,
@@ -79,7 +78,6 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     providerProfileReference,
     preserveOmittedCoverages,
     questionnaireForEnableWhenFiltering,
-    encounterId,
   } = input;
 
   let patientResource = await oystehr.fhir.get<Patient>({
@@ -177,7 +175,8 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
 
-  if (encounterId) {
+  if (questionnaireResponse.encounter?.reference) {
+    const encounterId = questionnaireResponse.encounter.reference.split('/')[1];
     const encounterResource = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
       id: encounterId,
@@ -303,7 +302,6 @@ interface BasicInput {
   userToken: string;
   patientId: string;
   questionnaireResponse: QuestionnaireResponse;
-  encounterId?: string;
   secrets: Secrets | null;
 }
 
@@ -319,7 +317,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   }
 
   const { secrets } = input;
-  const { questionnaireResponse, encounterId } = JSON.parse(input.body);
+  const { questionnaireResponse } = JSON.parse(input.body);
   if (questionnaireResponse === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['questionnaireResponse']);
   }
@@ -352,13 +350,8 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('questionnaireResponse.subject must have a valid UUID');
   }
 
-  if (encounterId && !isValidUUID(encounterId)) {
-    throw INVALID_RESOURCE_ID_ERROR(encounterId);
-  }
-
   return {
     questionnaireResponse,
-    encounterId,
     secrets,
     userToken,
     patientId,

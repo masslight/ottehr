@@ -30,7 +30,6 @@ export interface PatientAccountResponse extends PatientAccountAndCoverageResourc
 
 export interface UpdatePatientAccountInput {
   questionnaireResponse: QuestionnaireResponse;
-  encounterId?: string;
 }
 
 export interface UpdatePatientAccountResponse {

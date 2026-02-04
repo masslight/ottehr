@@ -395,10 +395,12 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     }
 
     const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient.id));
-    submitQR.mutate({
-      questionnaireResponse: qr,
-      encounterId: appointmentContext?.encounterId,
-    });
+    if (appointmentContext?.encounterId) {
+      qr.encounter = {
+        reference: 'Encounter/' + appointmentContext.encounterId,
+      };
+    }
+    submitQR.mutate(qr);
   };
 
   const handleRemoveCoverage = (coverageId: string): void => {

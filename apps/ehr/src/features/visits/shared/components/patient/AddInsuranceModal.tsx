@@ -91,7 +91,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     // send the data to a zambda
 
     const questionnaireResponse = structureQuestionnaireResponse(questionnaire, data, patientId);
-    mutate({ questionnaireResponse });
+    mutate(questionnaireResponse);
   };
 
   useEffect(() => {
