@@ -2,8 +2,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
 import VolumeUpOutlinedIcon from '@mui/icons-material/VolumeUpOutlined';
 import { Box, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC, RefObject, useState } from 'react';
-import { otherColors } from '../../../IntakeThemeProvider';
 
 type SoundSettingsProps = {
   selectedOutputDevice: string;
@@ -92,7 +92,7 @@ export const SoundSettings: FC<SoundSettingsProps> = (props) => {
 
       <Card
         sx={{
-          backgroundColor: otherColors.coachingVisit,
+          backgroundColor: palette.secondary.soft,
           py: 1,
           px: 2,
           display: 'flex',

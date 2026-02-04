@@ -1,7 +1,7 @@
 import { Box, InputProps } from '@mui/material';
-import { FC, useContext } from 'react';
+import { palette } from '@theme/colors';
+import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { IntakeThemeContext } from '../../contexts';
 import DateInputFields from './DateInputFields';
 import { InputHelperText } from './InputHelperText';
 
@@ -26,7 +26,6 @@ const DateInput: FC<DateInputProps> = ({ name, label, helperText, showHelperText
     watch,
     setValue,
   } = useFormContext();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   const day = watch(fieldMap.day);
   const month = watch(fieldMap.month);
@@ -52,7 +51,7 @@ const DateInput: FC<DateInputProps> = ({ name, label, helperText, showHelperText
         key={'DateInput'}
       />
       <InputHelperText
-        textColor={otherColors.cancel}
+        textColor={palette.destructive.dark}
         name={name}
         errors={errors}
         helperText={helperText}

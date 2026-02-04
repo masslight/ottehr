@@ -11,7 +11,6 @@ import { FC, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../../App';
 import { CustomDialog } from '../../../components/CustomDialog';
-import { otherColors } from '../../../IntakeThemeProvider';
 import { CallSettings, CallSettingsTooltip, IconButtonContained, SideCardList } from '../../components';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { ConfirmEndCallDialog } from '.';
@@ -62,17 +61,21 @@ export const VideoControls: FC = () => {
       >
         <IconButtonContained onClick={toggleVideo} variant={isVideoEnabled ? undefined : 'disabled'}>
           {isVideoEnabled ? (
-            <VideocamIcon sx={{ color: otherColors.white }} />
+            <VideocamIcon sx={{ color: palette.tertiary.light }} />
           ) : (
-            <VideocamOffIcon sx={{ color: otherColors.white }} />
+            <VideocamOffIcon sx={{ color: palette.tertiary.light }} />
           )}
         </IconButtonContained>
         <IconButtonContained onClick={toggleMute} variant={!muted ? undefined : 'disabled'}>
-          {!muted ? <MicIcon sx={{ color: otherColors.white }} /> : <MicOffIcon sx={{ color: otherColors.white }} />}
+          {!muted ? (
+            <MicIcon sx={{ color: palette.tertiary.light }} />
+          ) : (
+            <MicOffIcon sx={{ color: palette.tertiary.light }} />
+          )}
         </IconButtonContained>
         {isRegularParticipant && isMobile && (
           <IconButtonContained onClick={() => setIsMoreOpen(!isMoreOpen)} variant={isMoreOpen ? 'disabled' : undefined}>
-            <MoreVertIcon sx={{ color: otherColors.white }} />
+            <MoreVertIcon sx={{ color: palette.tertiary.light }} />
           </IconButtonContained>
         )}
         <CallSettingsTooltip
@@ -82,7 +85,7 @@ export const VideoControls: FC = () => {
           openSettings={openSettings}
         />
         <IconButtonContained onClick={handleModalOpen} variant="error">
-          <CallEndIcon sx={{ color: otherColors.white }} />
+          <CallEndIcon sx={{ color: palette.tertiary.light }} />
         </IconButtonContained>
       </Box>
       {isSettingsOpen && <CallSettings onClose={closeSettings} />}

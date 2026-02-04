@@ -38,7 +38,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
             justifyContent: 'center',
             width: 48,
             height: 48,
-            backgroundColor: otherColors.lightBlue,
+            backgroundColor: palette.secondary.light,
             borderRadius: '50%',
             color: theme.palette.secondary.main,
           }}

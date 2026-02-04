@@ -3,7 +3,7 @@ import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
 import { Box, Button, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { FC, RefObject } from 'react';
-import { otherColors } from '../../../IntakeThemeProvider';
+import { palette } from '../../../IntakeThemeProvider';
 
 type CameraSettingsProps = {
   selectedVideoDevice: string;
@@ -48,7 +48,7 @@ export const CameraSettings: FC<CameraSettingsProps> = (props) => {
 
       <Card
         sx={{
-          backgroundColor: otherColors.coachingVisit,
+          backgroundColor: palette.secondary.soft,
           py: 1,
           px: 2,
           display: 'flex',

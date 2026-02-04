@@ -141,7 +141,7 @@ const Appointments = (): JSX.Element => {
                       </>
                     ) : (
                       <>
-                        <Cancel sx={{ marginRight: 0.5 }} htmlColor={otherColors.cancel} />
+                        <Cancel sx={{ marginRight: 0.5 }} htmlColor={palette.destructive.dark} />
                         <Typography color={palette.secondary.main} variant="subtitle1">
                           {t('appointments.paperworkIncomplete')}
                         </Typography>

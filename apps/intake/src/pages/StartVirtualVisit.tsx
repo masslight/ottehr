@@ -1,6 +1,7 @@
 import { InfoOutlined } from '@mui/icons-material';
 import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
+import { palette } from '@theme/colors';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
@@ -162,7 +163,7 @@ const StartVirtualVisit = (): JSX.Element => {
         <Skeleton
           sx={{
             borderRadius: 2,
-            backgroundColor: otherColors.coachingVisit,
+            backgroundColor: palette.secondary.soft,
             p: 6,
           }}
         />

@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha, styled, useTheme } from '@mui/material/styles';
+import { palette } from '@theme/colors';
 import { FC, useCallback } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -182,8 +183,8 @@ const FormInput: FC<FormInputProps> = ({
               title={infoTextSecondary}
               placement="top"
               enterTouchDelay={0}
-              backgroundColor={otherColors.toolTipGrey}
-              color={otherColors.black}
+              backgroundColor={palette.tertiary.contrast}
+              color={palette.tertiary.dark}
             >
               <Box
                 sx={{

@@ -1,6 +1,7 @@
 import { ExpandMore } from '@mui/icons-material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, FormControl, MenuItem, Select, SelectProps, Typography, useTheme } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC, useContext, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -143,8 +144,8 @@ const SelectInput: FC<SelectInputProps> = ({
                 title={infoTextSecondary}
                 placement="top"
                 enterTouchDelay={0}
-                backgroundColor={otherColors.toolTipGrey}
-                color={otherColors.black}
+                backgroundColor={palette.tertiary.contrast}
+                color={palette.tertiary.dark}
               >
                 <Box
                   sx={{

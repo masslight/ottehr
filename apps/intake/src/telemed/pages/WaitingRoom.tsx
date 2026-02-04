@@ -97,7 +97,7 @@ const WaitingRoom = (): JSX.Element => {
       {appointmentType && appointmentType !== 'pre-booked' && (
         <Box
           sx={{
-            backgroundColor: otherColors.lightBlue,
+            backgroundColor: palette.secondary.light,
             color: theme.palette.secondary.main,
             padding: 2,
             marginBottom: 3,

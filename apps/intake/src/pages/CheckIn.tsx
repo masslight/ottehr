@@ -81,7 +81,7 @@ const CheckIn = (): JSX.Element => {
       sx={{
         paddingRight: '4px',
         backgroundColor: 'transparent',
-        '.MuiChip-icon': { color: otherColors.cancel, margin: 0 },
+        '.MuiChip-icon': { color: palette.destructive.dark, margin: 0 },
         '.MuiChip-label': { display: 'none' },
       }}
     />
@@ -128,7 +128,7 @@ const CheckIn = (): JSX.Element => {
                   sx={{
                     fontWeight: 700,
                     fontSize: '16px',
-                    color: otherColors.darkPurple,
+                    color: palette.primary.main,
                   }}
                   variant="body1"
                   className="paperwork"
@@ -173,7 +173,7 @@ const CheckIn = (): JSX.Element => {
                   sx={{
                     fontWeight: 700,
                     fontSize: '16px',
-                    color: otherColors.darkPurple,
+                    color: palette.primary.main,
                   }}
                   variant="body1"
                 >

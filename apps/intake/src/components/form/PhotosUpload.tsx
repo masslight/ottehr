@@ -1,6 +1,7 @@
 import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import CloseSharpIcon from '@mui/icons-material/CloseSharp';
 import { Box, Button, IconButton, Typography } from '@mui/material';
+import { palette } from '@theme/colors';
 import { ChangeEvent, FC, useContext, useState } from 'react';
 import { FileURLs, PATIENT_PHOTOS_MAX_COUNT_TELEMED } from 'utils';
 import { IntakeThemeContext } from '../../contexts';
@@ -98,7 +99,7 @@ export const PhotosUpload: FC<PatientPhotoUploadProps> = ({ name, label, default
                   }}
                   onClick={() => handleImageRemove(name)}
                 >
-                  <CloseSharpIcon sx={{ color: otherColors.white, fontSize: '12px' }} />
+                  <CloseSharpIcon sx={{ color: palette.tertiary.light, fontSize: '12px' }} />
                 </IconButton>
               )}
             </Box>

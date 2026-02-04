@@ -1,9 +1,9 @@
 import { FormControlLabel, Grid, Icon, Radio, RadioGroup, RadioGroupProps, Typography, useTheme } from '@mui/material';
+import { palette } from '@theme/colors';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CustomRadioButtonIcon } from '../../../components/form';
-import { otherColors } from '../../../IntakeThemeProvider';
 import { RadioStyling } from '../../../types';
 import { useAnswerOptionLabelWhen } from '../useAnswerOptionLabelWhen';
 
@@ -26,7 +26,7 @@ const RadioInput: FC<RadioInputProps> = ({
   options,
   borderColor = 'divider',
   borderSelected = 'primary.main',
-  backgroundSelected = otherColors.lightBlue,
+  backgroundSelected = palette.secondary.light,
   centerImages,
   onChange,
   radioStyling: maybeRadioStyling,

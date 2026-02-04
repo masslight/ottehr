@@ -17,7 +17,7 @@ import { AddCreditCardForm, loadStripe } from 'ui-components';
 import { CreditCardInfo, IntakeQuestionnaireItem, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
-import { otherColors } from '../../../IntakeThemeProvider';
+import { otherColors, palette } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
 
@@ -107,7 +107,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
         gap: 3,
       }}
     >
-      <Card sx={{ p: 2, backgroundColor: otherColors.coachingVisit, borderRadius: 2 }} elevation={0}>
+      <Card sx={{ p: 2, backgroundColor: palette.secondary.soft, borderRadius: 2 }} elevation={0}>
         <Typography color="primary.main">
           Please select your preferred payment method for any outstanding balance not covered by your insurance
           provider. If you are self-paying, the selected card will be charged for the total amount due.
@@ -217,7 +217,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
                     borderRadius: 2,
                     backgroundColor: () => {
                       if (item.id === selectedOption) {
-                        return otherColors.lightBlue;
+                        return palette.secondary.light;
                       } else {
                         return theme.palette.background.paper;
                       }

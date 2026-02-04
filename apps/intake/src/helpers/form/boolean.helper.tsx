@@ -1,6 +1,7 @@
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircle from '@mui/icons-material/CheckCircle';
 import { Chip } from '@mui/material';
+import { palette } from '@theme/colors';
 import { ReactNode, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext } from '../../contexts';
@@ -34,9 +35,9 @@ export function getValueBoolean(value: boolean): ReactNode {
         size="small"
         sx={{
           fontSize: '14px',
-          backgroundColor: otherColors.lightCancel,
+          backgroundColor: palette.destructive.light,
           padding: '4px 5px',
-          '.MuiChip-icon, .MuiChip-label': { color: otherColors.cancel },
+          '.MuiChip-icon, .MuiChip-label': { color: palette.destructive.dark },
         }}
       />
     );

@@ -48,7 +48,6 @@ import {
 } from '../../components/form';
 import { useIntakeThemeContext } from '../../contexts';
 import { getUCInputType } from '../../helpers/paperworkUtils';
-import { otherColors } from '../../IntakeThemeProvider';
 import { ControlButtonsProps } from '../../types';
 import AIInterview from './components/AIInterview';
 import { CreditCardVerification } from './components/CreditCardVerification';
@@ -513,8 +512,8 @@ const NestedInput: FC<NestedInputProps> = (props) => {
                 title={item.secondaryInfoText}
                 placement="top"
                 enterTouchDelay={0}
-                backgroundColor={otherColors.toolTipGrey}
-                color={otherColors.black}
+                backgroundColor={palette.tertiary.contrast}
+                color={palette.tertiary.dark}
               >
                 <Box
                   sx={{
@@ -849,7 +848,7 @@ const FormDisplayField: FC<FormDisplayFieldProps> = ({ item }): ReactElement => 
     switch (displayType) {
       case 'Call Out':
         return (
-          <Card sx={{ p: 2, backgroundColor: otherColors.coachingVisit, borderRadius: 2 }} elevation={0}>
+          <Card sx={{ p: 2, backgroundColor: palette.secondary.soft, borderRadius: 2 }} elevation={0}>
             <Typography color="primary.main">{item.text}</Typography>
           </Card>
         );

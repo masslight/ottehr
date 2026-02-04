@@ -1,7 +1,7 @@
 import { Box, Card, Grid, Typography, useTheme } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
-import { otherColors } from '../IntakeThemeProvider';
 
 export interface CardWithDescriptionAndLinkProps {
   icon: string;
@@ -54,14 +54,14 @@ const CardWithDescriptionAndLink: FC<CardWithDescriptionAndLinkProps> = ({
             </Grid>
             <Grid item xs={12} md={7} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
               <Typography
-                sx={{ color: textColor ? textColor : otherColors.black, fontSize: '16px', fontWeight: '700' }}
+                sx={{ color: textColor ? textColor : palette.tertiary.dark, fontSize: '16px', fontWeight: '700' }}
                 color={theme.palette.secondary.main}
               >
                 {mainText}
               </Typography>
               {descText ? (
                 <Typography
-                  sx={{ color: textColor ? textColor : otherColors.black, fontSize: '16px' }}
+                  sx={{ color: textColor ? textColor : palette.tertiary.dark, fontSize: '16px' }}
                   color={theme.palette.secondary.main}
                 >
                   {descText}

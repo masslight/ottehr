@@ -363,7 +363,7 @@ const ChoosePatient = (): JSX.Element => {
             icon={primaryIcon}
             iconAlt={BRANDING_CONFIG.primaryIconAlt}
             mainText={t('welcomeBack.alreadyReserved')}
-            textColor={otherColors.white}
+            textColor={palette.tertiary.light}
             descText={t('welcomeBack.checkIn')}
             link={intakeFlowPageRoute.Appointments.path}
             linkText={t('appointments.checkIn')}

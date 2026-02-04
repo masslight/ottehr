@@ -1,7 +1,7 @@
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, Typography } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC } from 'react';
-import { otherColors } from 'src/IntakeThemeProvider';
 import { PlacesResult } from 'utils';
 import { clearPharmacyCollectionAnswerSet } from './helpers';
 
@@ -37,7 +37,7 @@ export const PharmacyDisplay: FC<PharmacyDisplayProps> = (props: PharmacyDisplay
             fontWeight: 'bold',
           }}
         >
-          <DeleteIcon sx={{ color: otherColors.cancel }} />
+          <DeleteIcon sx={{ color: palette.destructive.dark }} />
         </Button>
       </Box>
     </Box>
