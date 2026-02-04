@@ -5,17 +5,15 @@ import {
   examConfig,
   ExamType,
   getSecret,
+  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
+  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import {
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
-} from '../../shared/templates';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

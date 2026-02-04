@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import type { Patient, Questionnaire } from 'fhir/r4b';
+import type { Account, Encounter, Patient, Questionnaire } from 'fhir/r4b';
 import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -32,6 +32,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { mergeEncounterAccounts } from '../../../subscriptions/questionnaire-response/sub-intake-harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
@@ -132,8 +133,18 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     throw e;
   }
 
+  let updatedAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
+
   try {
-    const { account, guarantorResource } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    const {
+      account,
+      guarantorResource,
+      workersCompAccount: latestWorkersCompAccount,
+    } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    updatedAccount = account;
+    workersCompAccount = latestWorkersCompAccount;
+
     const stripeClient = getStripeClient(input.secrets);
 
     if (!account || !guarantorResource) {
@@ -163,6 +174,33 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   );
 
   console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
+
+  if (questionnaireResponse.encounter?.reference) {
+    const encounterId = questionnaireResponse.encounter.reference.split('/')[1];
+    const encounterResource = await oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    });
+    const patientAccountReference = updatedAccount?.id ? `Account/${updatedAccount.id}` : undefined;
+    const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+    const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+      encounterResource.account,
+      [patientAccountReference, workersCompAccountReference]
+    );
+    if (accountsChanged && updatedEncounterAccounts) {
+      await oystehr.fhir.patch<Encounter>({
+        id: encounterId,
+        resourceType: 'Encounter',
+        operations: [
+          {
+            op: encounterResource.account ? 'replace' : 'add',
+            path: '/account',
+            value: updatedEncounterAccounts,
+          },
+        ],
+      });
+    }
+  }
 };
 
 interface AuditEventInput {

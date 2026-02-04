@@ -991,6 +991,7 @@ export interface AppointmentContext {
   appointmentServiceCategory?: string;
   appointmentServiceMode?: ServiceMode;
   reasonForVisit?: string;
+  encounterId?: string;
 }
 
 interface PrePopulationFromPatientRecordInputWithContext extends PrePopulationFromPatientRecordInput {

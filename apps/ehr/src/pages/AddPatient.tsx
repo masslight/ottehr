@@ -27,6 +27,7 @@ import {
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
+  HomepageOptions,
   PatientInfo,
   ScheduleType,
   ServiceMode,
@@ -283,11 +284,19 @@ export default function AddPatient(): JSX.Element {
                       setVisitType(event.target.value as VisitType);
                     }}
                   >
-                    <MenuItem value={VisitType.InPersonWalkIn}>Walk-in In Person Visit</MenuItem>
-                    <MenuItem value={VisitType.InPersonPreBook}>Pre-booked In Person Visit</MenuItem>
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.StartInPersonVisit) ? (
+                      <MenuItem value={VisitType.InPersonWalkIn}>Walk-in In Person Visit</MenuItem>
+                    ) : null}
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.ScheduleInPersonVisit) ? (
+                      <MenuItem value={VisitType.InPersonPreBook}>Pre-booked In Person Visit</MenuItem>
+                    ) : null}
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.StartVirtualVisit) ? (
+                      <MenuItem value={VisitType.VirtualOnDemand}>On Demand Virtual Visit</MenuItem>
+                    ) : null}
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.ScheduleVirtualVisit) ? (
+                      <MenuItem value={VisitType.VirtualScheduled}>Scheduled Virtual Visit</MenuItem>
+                    ) : null}
                     <MenuItem value={VisitType.InPersonPostTelemed}>Post Telemed Lab Only</MenuItem>
-                    <MenuItem value={VisitType.VirtualOnDemand}>On Demand Virtual Visit</MenuItem>
-                    <MenuItem value={VisitType.VirtualScheduled}>Scheduled Virtual Visit</MenuItem>
                   </Select>
                 </FormControl>
 

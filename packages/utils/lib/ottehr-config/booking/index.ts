@@ -387,16 +387,23 @@ export interface BookingConfig {
   hiddenFormSections?: string[];
 }
 
+export enum HomepageOptions {
+  StartInPersonVisit = 'start-in-person-visit',
+  ScheduleInPersonVisit = 'schedule-in-person-visit',
+  StartVirtualVisit = 'start-virtual-visit',
+  ScheduleVirtualVisit = 'schedule-virtual-visit',
+}
+
 const BOOKING_DEFAULTS: BookingConfig = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
   },
   homepageOptions: [
-    'start-in-person-visit',
-    'schedule-in-person-visit',
-    'start-virtual-visit',
-    'schedule-virtual-visit',
+    HomepageOptions.StartInPersonVisit,
+    HomepageOptions.ScheduleInPersonVisit,
+    HomepageOptions.StartVirtualVisit,
+    HomepageOptions.ScheduleVirtualVisit,
   ],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,

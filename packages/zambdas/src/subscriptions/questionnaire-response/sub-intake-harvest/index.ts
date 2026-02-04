@@ -470,7 +470,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   return response;
 };
 
-const mergeEncounterAccounts = (
+export const mergeEncounterAccounts = (
   existingAccounts: Encounter['account'],
   references: (string | undefined)[]
 ): { accounts?: Encounter['account']; changed: boolean } => {
