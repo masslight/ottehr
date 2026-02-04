@@ -31,6 +31,8 @@ import {
   InitTelemedSessionRequestParams,
   InitTelemedSessionResponse,
   LabOrderResourcesRes,
+  MakeMedicationHistoryPdfZambdaInput,
+  MakeMedicationHistoryPdfZambdaOutput,
   NotFoundAppointmentErrorHandler,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
@@ -91,6 +93,7 @@ enum ZambdaNames {
   'update lab order resources' = 'update lab order resources',
   'search places' = 'search places',
   'inhouse lab resource search' = 'inhouse lab resource search',
+  'make medication history pdf' = 'make medication history pdf',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -125,6 +128,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'update lab order resources': false,
   'search places': false,
   'inhouse lab resource search': false,
+  'make medication history pdf': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -164,6 +168,7 @@ export const getOystehrTelemedAPI = (
   updateLabOrderResources: typeof updateLabOrderResources;
   searchPlaces: typeof searchPlaces;
   getCreateInHouseLabOrderResources: typeof getCreateInHouseLabOrderResources;
+  makeMedicationHistoryPdf: typeof makeMedicationHistoryPdf;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -197,6 +202,7 @@ export const getOystehrTelemedAPI = (
     updateLabOrderResourcesID,
     searchPlacesID,
     inhouseLabResourceSearchID,
+    makeMedicationHistoryPdfID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -231,6 +237,7 @@ export const getOystehrTelemedAPI = (
     'update lab order resources': updateLabOrderResourcesID,
     'search places': searchPlacesID,
     'inhouse lab resource search': inhouseLabResourceSearchID,
+    'make medication history pdf': makeMedicationHistoryPdfID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -406,6 +413,12 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('inhouse lab resource search', parameters);
   };
 
+  const makeMedicationHistoryPdf = async (
+    parameters: MakeMedicationHistoryPdfZambdaInput
+  ): Promise<MakeMedicationHistoryPdfZambdaOutput> => {
+    return await makeZapRequest('make medication history pdf', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -438,5 +451,6 @@ export const getOystehrTelemedAPI = (
     updateLabOrderResources,
     searchPlaces,
     getCreateInHouseLabOrderResources,
+    makeMedicationHistoryPdf,
   };
 };

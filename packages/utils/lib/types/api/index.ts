@@ -38,6 +38,7 @@ export * from './patient-payment-types';
 export * from './practitioner.types';
 export * from './create-discharge-summary';
 export * from './prebook-create-appointment';
+export * from './print-chart-data';
 export * from './procedures.types';
 export * from './procedures.constants';
 export * from './radiology';

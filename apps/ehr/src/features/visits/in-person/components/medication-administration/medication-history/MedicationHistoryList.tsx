@@ -2,6 +2,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import {
   Box,
+  Button,
   Paper,
   Skeleton,
   Table,
@@ -16,6 +17,7 @@ import React, { useMemo, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { COLLAPSED_MEDS_COUNT, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ButtonStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/ButtonStyled';
+import { usePrintChartData } from 'src/features/visits/shared/hooks/usePrintChartData';
 import { MedicationHistoryEntity } from './MedicationHistoryEntity';
 
 export const MedicationHistoryList: React.FC = () => {
@@ -23,6 +25,8 @@ export const MedicationHistoryList: React.FC = () => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
 
   const { isLoading, medicationHistory } = useMedicationHistory();
+  const { printMedicationHistory } = usePrintChartData({});
+  console.log('>>> this is medicationHistory', medicationHistory);
 
   // todo: need to update react-query and use isInitialLoading
   const showSkeletons = isLoading && medicationHistory.length === 0;
@@ -48,7 +52,24 @@ export const MedicationHistoryList: React.FC = () => {
   };
 
   return (
-    <AccordionCard label="Medication History" collapsed={isCollapsed} onSwitch={handleToggle}>
+    <AccordionCard
+      label="Medication History"
+      collapsed={isCollapsed}
+      onSwitch={handleToggle}
+      headerItem={
+        <Button
+          variant="outlined"
+          type="button"
+          sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
+          onClick={async () => {
+            console.log('clicked print meds');
+            await printMedicationHistory();
+          }}
+        >
+          Print Medications
+        </Button>
+      }
+    >
       <Box sx={{ px: 3, py: 1 }}>
         <TableContainer component={Paper} elevation={0}>
           <Table>
