@@ -518,7 +518,6 @@ const FormFields = {
     hiddenFields: [],
     requiredFields: [
       'insurance-carrier',
-      'insurance-plan-type',
       'insurance-member-id',
       'policy-holder-first-name',
       'policy-holder-last-name',
@@ -533,7 +532,6 @@ const FormFields = {
       // assuming it won't be a problem to have the fields from both insurance sections in the same array here since the two fields behave
       // identically when they're included
       'insurance-carrier-2',
-      'insurance-plan-type-2',
       'insurance-member-id-2',
       'policy-holder-first-name-2',
       'policy-holder-last-name-2',
