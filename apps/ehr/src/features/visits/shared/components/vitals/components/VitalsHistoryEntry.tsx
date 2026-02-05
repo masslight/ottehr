@@ -12,6 +12,7 @@ import {
   formatWeightKg,
   formatWeightLbs,
   getVisionExtraOptionsFormattedString,
+  roundTemperatureValue,
   vitalsConfig,
   VitalsObservationDTO,
 } from 'utils';
@@ -125,7 +126,10 @@ export const getObservationValueElements = (
   // todo: it would be cool if the units came from the Observation resource
   switch (historyEntry.field) {
     case 'vital-temperature':
-      return [`${historyEntry.value} C`, ` = ${celsiusToFahrenheit(historyEntry.value).toFixed(1)} F`];
+      return [
+        `${roundTemperatureValue(historyEntry.value)} C`,
+        ` = ${celsiusToFahrenheit(historyEntry.value).toFixed(1)} F`,
+      ];
     case 'vital-oxygen-sat':
       return [`${historyEntry.value}%`];
     case 'vital-heartbeat':

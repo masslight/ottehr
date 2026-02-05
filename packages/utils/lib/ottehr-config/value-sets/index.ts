@@ -212,7 +212,7 @@ const formValueSets = {
       value: 'Intersex',
     },
   ],
-  cancelReasonOptions: [
+  cancelReasonOptionsInPersonPatient: [
     { label: 'Patient improved', value: 'Patient improved' },
     { label: 'Wait time too long', value: 'Wait time too long' },
     { label: 'Prefer another provider', value: 'Prefer another provider' },
@@ -220,19 +220,38 @@ const formValueSets = {
     { label: 'Changing to telemedicine', value: 'Changing to telemedicine' },
     { label: 'Financial responsibility concern', value: 'Financial responsibility concern' },
     { label: 'Insurance issue', value: 'Insurance issue' },
+    { label: 'Other', value: 'Other' },
   ],
-  cancelReasonOptionsVirtual: [
+  cancelReasonOptionsInPersonProvider: [
+    { label: 'Patient improved', value: 'Patient improved' },
     { label: 'Wait time too long', value: 'Wait time too long' },
-    { label: 'Going to another company', value: 'Going to another company' },
-    { label: 'Going to an emergency department', value: 'Going to an emergency department' },
-    { label: 'Cost is too high', value: 'Cost is too high' },
+    { label: 'Prefer another provider', value: 'Prefer another provider' },
+    { label: 'Changing location', value: 'Changing location' },
+    { label: 'Changing to telemedicine', value: 'Changing to telemedicine' },
+    { label: 'Financial responsibility concern', value: 'Financial responsibility concern' },
     { label: 'Insurance issue', value: 'Insurance issue' },
+    { label: 'Service never offered', value: 'Service never offered' },
+    {
+      label: 'Duplicate visit or account error',
+      value: 'Duplicate visit or account error',
+    },
+    {
+      label: 'Provider deems acuity too high for clinic',
+      value: 'Provider deems acuity too high for clinic',
+    },
+    { label: 'Other', value: 'Other' },
+  ],
+  cancelReasonOptionsVirtualPatient: [
+    { label: 'Wait time too long', value: 'Wait time too long' },
+    { label: 'Using another telemedicine service', value: 'Using another telemedicine service' },
+    { label: 'Prefer in-person visit', value: 'Prefer in-person visit' },
+    { label: 'Financial concern/Insurance issue', value: 'Financial concern/Insurance issue' },
     { label: 'Technical issue', value: 'Technical issue' },
     { label: 'Patient improved', value: 'Patient improved' },
     { label: 'Clicked accidentally', value: 'Clicked accidentally' },
     { label: 'Other', value: 'Other' },
   ],
-  cancelReasonOptionsVirtualProviderSide: [
+  cancelReasonOptionsVirtualProvider: [
     {
       label: 'Patient did not answer after multiple attempts',
       value: 'Patient did not answer after multiple attempts',

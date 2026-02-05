@@ -1,6 +1,7 @@
 import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
+import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
@@ -27,9 +28,42 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   }),
 }));
 
-describe('AddPatient - Validation Tests', () => {
+describe('AddVisit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  const selectServiceCategory = async (
+    user: ReturnType<typeof userEvent.setup>,
+    screen: typeof import('@testing-library/react').screen,
+    category?: string
+  ): Promise<void> => {
+    if (BOOKING_CONFIG.serviceCategories.length === 1) {
+      // should be selected by default
+      return;
+    }
+    const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+    const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
+    await user.click(serviceCategoryButton!);
+    let serviceCategoryOption = BOOKING_CONFIG.serviceCategories[0].display;
+    if (category) {
+      const matchingOption = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === category);
+      expect(matchingOption).toBeDefined();
+      serviceCategoryOption = matchingOption!.display;
+    }
+    const generalOption = await screen.findByText(serviceCategoryOption);
+    await user.click(generalOption);
+  };
+
+  it('Renders with appropriate fields', () => {
+    render(
+      <BrowserRouter>
+        <AddPatient />
+      </BrowserRouter>
+    );
+
+    const pageTitle = screen.getByTestId(dataTestIds.addPatientPage.pageTitle);
+    expect(pageTitle).toBeVisible();
   });
 
   it('Cancel button navigates back to visits page', async () => {
@@ -160,7 +194,7 @@ describe('AddPatient - Validation Tests', () => {
       expect(errorMessage).toBeVisible();
     });
 
-    it('Validates all required fields are present after patient search', async () => {
+    it('Validates all required fields are present after patient search and service category selection', async () => {
       const user = userEvent.setup();
 
       render(
@@ -190,6 +224,9 @@ describe('AddPatient - Validation Tests', () => {
 
       const sexAtBirthInput = screen.getByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown).querySelector('input');
       expect(sexAtBirthInput).toHaveAttribute('required');
+
+      // Select service category
+      await selectServiceCategory(user, screen);
 
       const reasonForVisitInput = screen
         .getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown)
@@ -240,6 +277,9 @@ describe('AddPatient - Validation Tests', () => {
         await user.click(sexAtBirthButton!);
         const maleOption = await screen.findByText('Male');
         await user.click(maleOption);
+
+        // Select service category
+        await selectServiceCategory(user, screen);
 
         // Select reason for visit
         const reasonDropdown = screen.getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown);
@@ -308,6 +348,9 @@ describe('AddPatient - Validation Tests', () => {
         const maleOption = await screen.findByText('Male');
         await user.click(maleOption);
 
+        // Select service category
+        await selectServiceCategory(user, screen);
+
         // Select reason for visit
         const reasonDropdown = screen.getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown);
         const reasonButton = reasonDropdown.querySelector('[role="combobox"]');
@@ -332,5 +375,79 @@ describe('AddPatient - Validation Tests', () => {
       },
       { timeout: 10000 }
     );
+  });
+
+  describe('Service category and reason for visit validation', () => {
+    it('Should display correct reason for visit options for each service category', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <BrowserRouter>
+          <AddPatient />
+        </BrowserRouter>
+      );
+
+      // Complete phone search flow to reveal the form
+      const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+      await user.click(phoneNumberInput!);
+      await user.paste('1234567890');
+      await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
+
+      const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
+      await user.click(notFoundButton);
+      await waitForElementToBeRemoved(notFoundButton);
+
+      // Test each service category
+      for (const serviceCategory of BOOKING_CONFIG.serviceCategories) {
+        // Select the service category
+        await selectServiceCategory(user, screen, serviceCategory.code);
+
+        // Wait for reason for visit dropdown to appear
+        const reasonDropdown = await screen.findByTestId(
+          dataTestIds.addPatientPage.reasonForVisitDropdown,
+          {},
+          { timeout: 3000 }
+        );
+
+        // Open the reason for visit dropdown
+        const reasonButton = reasonDropdown.querySelector('[role="combobox"]');
+        await user.click(reasonButton!);
+
+        // Get the expected options for this service category
+        const expectedOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory.code);
+        expect(expectedOptions.length).toBeGreaterThan(0);
+
+        // Get all visible options in the dropdown
+        const optionElements = await screen.findAllByRole('option');
+
+        // Filter to only reason for visit options (exclude any other dropdowns that might be open)
+        const reasonOptions = optionElements.filter((option) => {
+          const text = option.textContent;
+          return expectedOptions.some((expected) => expected.label === text);
+        });
+
+        // Verify we have the correct number of reason for visit options
+        expect(reasonOptions.length).toBe(expectedOptions.length);
+
+        // Verify each expected option is present
+        for (const expectedOption of expectedOptions) {
+          const matchingOption = reasonOptions.find((option) => option.textContent === expectedOption.label);
+          expect(matchingOption).toBeDefined();
+        }
+
+        // Close the dropdown by clicking elsewhere
+        await user.keyboard('{Escape}');
+
+        // Select a different service category for the next iteration (unless it's the last one)
+        if (serviceCategory !== BOOKING_CONFIG.serviceCategories[BOOKING_CONFIG.serviceCategories.length - 1]) {
+          const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+          const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
+          await user.click(serviceCategoryButton!);
+
+          // Click to close the service category dropdown
+          await user.keyboard('{Escape}');
+        }
+      }
+    });
   });
 });

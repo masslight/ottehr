@@ -282,6 +282,11 @@
             "item": {
               "reference": "List/#{ref/fhirResources/BAC_SINUSITIS/id}"
             }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/ROS_TEMPLATE_GENERAL/id}"
+            }
           }
         ],
         "meta": {

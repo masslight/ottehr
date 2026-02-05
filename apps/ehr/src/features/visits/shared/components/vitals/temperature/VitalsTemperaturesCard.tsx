@@ -8,6 +8,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   celsiusToFahrenheit,
   fahrenheitToCelsius,
+  roundTemperatureValue,
   toVitalTemperatureObservationMethod,
   VitalFieldNames,
   VitalsTemperatureObservationDTO,
@@ -157,7 +158,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
-        label={`Temp (C) ${latestTemperatureValue ?? ''}`}
+        label={`Temp (C) ${latestTemperatureValue != null ? roundTemperatureValue(latestTemperatureValue) : ''}`}
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
         dataTestId={dataTestIds.vitalsPage.temperatureHeader}

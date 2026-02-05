@@ -119,6 +119,7 @@ const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
     leftSection: createPatientHeader(),
     rightSection: createVisitInfoSection(),
   },
+  headerBodySeparator: true,
   assetPaths: visitDetailsAssetPaths,
   styleFactory: createVisitDetailsStyles,
   sections: [

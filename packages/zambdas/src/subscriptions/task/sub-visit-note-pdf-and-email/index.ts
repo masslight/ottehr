@@ -32,9 +32,9 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { composeAndCreateVisitNotePdf } from '../../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
@@ -177,9 +177,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Chart data received');
   try {
-    const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData, medicationOrders, immunizationOrders, externalLabsData, inHouseOrdersData },
-      visitResources,
+    const { pdfInfo } = await createProgressNotePdf(
+      {
+        patient,
+        encounter,
+        allChartData: {
+          chartData,
+          additionalChartData,
+          medicationOrders,
+          immunizationOrders,
+          externalLabsData,
+          inHouseOrdersData,
+        },
+        appointmentPackage: visitResources,
+        questionnaireResponse: visitResources.questionnaireResponse,
+      },
       secrets,
       oystehrToken
     );

@@ -288,8 +288,9 @@ const ChoosePatient = (): JSX.Element => {
       {
         appointmentID: appointmentID,
         cancellationReason:
-          VALUE_SETS.cancelReasonOptions.find((option) => option.value === 'Duplicate visit or account error')?.value ||
-          'Other',
+          VALUE_SETS.cancelReasonOptionsInPersonPatient.find(
+            (option) => option.value === 'Duplicate visit or account error'
+          )?.value || 'Other',
         silent: true,
         language: 'en', // replace with i18n.language to enable
       },
@@ -306,8 +307,9 @@ const ChoosePatient = (): JSX.Element => {
         {
           appointmentID: bookedAppointment.id,
           cancellationReason:
-            VALUE_SETS.cancelReasonOptions.find((option) => option.value === 'Duplicate visit or account error')
-              ?.value || 'Other',
+            VALUE_SETS.cancelReasonOptionsInPersonPatient.find(
+              (option) => option.value === 'Duplicate visit or account error'
+            )?.value || 'Other',
           language: 'en', // replace with i18n.language to enable
         },
         false

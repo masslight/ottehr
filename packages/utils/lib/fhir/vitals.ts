@@ -887,7 +887,7 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
         ...baseProps,
         field: VitalFieldNames.VitalWeight,
         value: obsNumericalValue ?? 0,
-        extraWeightOptions: weightValues.weightOptions as Omit<VitalsWeightOption, 'patient_refused'>[],
+        extraWeightOptions: weightValues.weightOptions,
       };
       return result;
     }

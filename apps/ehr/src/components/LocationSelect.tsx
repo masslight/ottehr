@@ -104,7 +104,6 @@ export default function LocationSelect({
 
   const getLocationLabel = (location: LocationWithWalkinSchedule): string => {
     if (!location.name) {
-      console.log('Location name is undefined', location);
       return 'Unknown Location';
     }
     return location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name;

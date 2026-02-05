@@ -421,7 +421,7 @@ export class ResourceHandler {
       await page?.goto(`/visit/${this.appointment.id!}`);
       const visitDetails = new VisitDetailsPage(page!);
       await visitDetails.clickCancelVisitButton();
-      await visitDetails.selectCancelationReason(VALUE_SETS.cancelReasonOptions[0].label);
+      await visitDetails.selectCancelationReason(VALUE_SETS.cancelReasonOptionsInPersonProvider[0].label);
       await visitDetails.clickCancelButtonFromDialogue();
       return;
     }
@@ -621,6 +621,10 @@ export class ResourceHandler {
   }
 
   private findResourceByType<T>(resourceType: string): T {
+    if (!this.#resources) {
+      throw new Error(`Resources not initialized. Call setResources() before accessing ${resourceType}.`);
+    }
+
     const resource = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
 
     if (!resource) {

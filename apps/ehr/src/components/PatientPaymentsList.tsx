@@ -23,10 +23,10 @@ import { useMutation } from '@tanstack/react-query';
 import { Appointment, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
+import { FC, Fragment, ReactElement, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useGetEncounter } from 'src/hooks/useEncounter';
+import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
@@ -42,7 +42,6 @@ import {
   PatientPaymentDTO,
   PaymentVariant,
   PostPatientPaymentInput,
-  RECEIPT_CODE,
   SendReceiptByEmailZambdaInput,
   SERVICE_CATEGORY_SYSTEM,
   updateEncounterPaymentVariantExtension,
@@ -88,12 +87,18 @@ export default function PatientPaymentList({
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
-  const [receiptDocRefId, setReceiptDocRefId] = useState<string | undefined>();
+
   const {
     data: encounter,
     refetch: refetchEncounter,
     isRefetching: isEncounterRefetching,
   } = useGetEncounter({ encounterId });
+
+  const {
+    data: receiptDocRef,
+    refetch: refetchReceipt,
+    isFetching: isReceiptFetching,
+  } = useEncounterReceipt({ encounterId });
 
   const {
     data: paymentData,
@@ -145,30 +150,7 @@ export default function PatientPaymentList({
       ? (paymentListError as APIError).code === APIErrorCode.STRIPE_CUSTOMER_ID_DOES_NOT_EXIST
       : false;
 
-  useEffect(() => {
-    if (oystehr && encounterId) {
-      void oystehr.fhir
-        .search<DocumentReference>({
-          resourceType: 'DocumentReference',
-          params: [
-            {
-              name: 'type',
-              value: RECEIPT_CODE,
-            },
-            {
-              name: 'encounter',
-              value: 'Encounter/' + encounterId,
-            },
-          ],
-        })
-        .then((response) => {
-          const docRef = response.unbundle()[0];
-          if (docRef) {
-            setReceiptDocRefId(docRef.id);
-          }
-        });
-    }
-  }, [encounterId, oystehr, paymentData]);
+  const receiptDocRefId = receiptDocRef?.id;
 
   const sendReceipt = async (formData: SendReceiptFormData): Promise<void> => {
     if (!oystehr) return;
@@ -220,17 +202,34 @@ export default function PatientPaymentList({
 
   const createNewPayment = useMutation({
     mutationFn: async (input: PostPatientPaymentInput) => {
-      if (oystehrZambda && input) {
-        return oystehrZambda.zambda
-          .execute({
-            id: 'patient-payments-post',
-            ...input,
-          })
-          .then(async () => {
-            await refetchPaymentList();
-            setPaymentDialogOpen(false);
-          });
-      }
+      if (!oystehrZambda) return;
+
+      await oystehrZambda.zambda.execute({
+        id: 'patient-payments-post',
+        ...input,
+      });
+    },
+    onSuccess: async () => {
+      await refetchPaymentList();
+      const waitForReceipt = async (): Promise<void> => {
+        let receipt: DocumentReference | null = null;
+        const maxTries = 15;
+        let tries = 0;
+
+        while (!receipt && tries < maxTries) {
+          const result = await refetchReceipt();
+
+          receipt = result.data ?? null;
+          if (!receipt) {
+            await new Promise((res) => setTimeout(res, 2000));
+          }
+          tries += 1;
+        }
+      };
+
+      await waitForReceipt();
+
+      setPaymentDialogOpen(false);
     },
     retry: 0,
   });
@@ -500,7 +499,7 @@ export default function PatientPaymentList({
             <span>
               <Button
                 sx={{ mt: 2, ml: 2 }}
-                disabled={!receiptDocRefId}
+                disabled={!receiptDocRefId || isReceiptFetching}
                 onClick={() => setSendReceiptByEmailDialogOpen(true)}
                 variant="contained"
                 color="primary"

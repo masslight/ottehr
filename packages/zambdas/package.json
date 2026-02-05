@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.27.0",
+  "version": "1.27.9",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -21,6 +21,8 @@
     "send-invoices-to-patients-by-sms": "tsx src/scripts/send-invoices-to-patients-by-sms.ts",
     "send-past-due-invoices-to-patients-by-sms": "tsx src/scripts/send-past-due-invoices-to-patients-by-sms.ts",
     "get-invoiceable-claims": "tsx src/scripts/get-invoiceable-claims.ts staging",
+    "create-non-insurance-payers" :"tsx src/scripts/create-non-insurance-payers.ts",
+    "create-non-insurance-payer-resources" :"tsx src/scripts/create-non-insurance-payer-resources.ts",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",

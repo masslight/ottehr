@@ -28,6 +28,7 @@ import {
   getFullestAvailableName,
   IN_HOUSE_TEST_CODE_SYSTEM,
   InHouseGetOrdersResponseDTO,
+  InHouseOrderDetailPageItemDTO,
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
   isPositiveNumberOrZero,
@@ -191,7 +192,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
       (s) => s.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
 
-    const detailedPageDTO = {
+    const detailedPageDTO: InHouseOrderDetailPageItemDTO = {
       ...listPageDTO,
       labDetails: testItem,
       orderingPhysicianId: attendingPractitioner?.id || '',

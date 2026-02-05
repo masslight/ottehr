@@ -49601,6 +49601,66 @@
         ]
       }
     },
+    "ROS_TEMPLATE_GENERAL": {
+      "resource": {
+        "resourceType": "List",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/global-template-in-person",
+              "code": "default",
+              "version": "460ac1c4",
+              "display": "Global Template In-Person"
+            }
+          ]
+        },
+        "status": "current",
+        "mode": "working",
+        "title": "Review of Systems : 14 System Template",
+        "entry": [
+          {
+            "item": {
+              "reference": "#9f8379bb-44ee-4d35-99b7-a02426881dda"
+            }
+          },
+          {
+            "item": {
+              "reference": "#081aeb57-16a4-417d-b3ad-245f2365832d"
+            }
+          }
+        ],
+        "contained": [
+          {
+            "resourceType": "Patient",
+            "id": "9f8379bb-44ee-4d35-99b7-a02426881dda",
+            "name": [{
+              "family": "stub",
+              "given": ["placeholder"]
+            }]
+          }, 
+          {
+            "id": "081aeb57-16a4-417d-b3ad-245f2365832d",
+            "resourceType": "Condition",
+            "subject": {
+              "reference": "#9f8379bb-44ee-4d35-99b7-a02426881dda"
+            },
+            "note": [
+              {
+                "text": "### Constitutional\n- [ ] Reports Fever\n- [ ] Denies Fever\n- [ ] Reports Chills\n- [ ] Denies Chills\n- [ ] Reports Night sweats\n- [ ] Denies Night sweats\n- [ ] Reports Fatigue / malaise\n- [ ] Denies Fatigue / malaise\n- [ ] Reports Unintentional weight loss\n- [ ] Denies Unintentional weight loss\n- [ ] Reports Weight gain\n- [ ] Denies Weight gain\n- [ ] Reports Poor appetite\n- [ ] Denies Poor appetite\n### Eyes\n- [ ] Reports Vision changes\n- [ ] Denies Vision changes\n- [ ] Reports Blurry vision\n- [ ] Denies Blurry vision\n- [ ] Reports Double vision\n- [ ] Denies Double vision\n- [ ] Reports Eye pain\n- [ ] Denies Eye pain\n- [ ] Reports Redness\n- [ ] Denies Redness\n- [ ] Reports Discharge\n- [ ] Denies Discharge\n- [ ] Reports Itching\n- [ ] Denies Itching\n- [ ] Reports Photophobia\n- [ ] Denies Photophobia\n### ENT (Ears, Nose, Throat/Mouth)\n#### Ears\n- [ ] Reports Ear pain\n- [ ] Denies Ear pain\n- [ ] Reports Decreased hearing\n- [ ] Denies Decreased hearing\n- [ ] Reports Tinnitus\n- [ ] Denies Tinnitus\n- [ ] Reports Drainage\n- [ ] Denies Drainage\n- [ ] Reports Fullness/pressure\n- [ ] Denies Fullness/pressure\n#### Nose/Sinus\n- [ ] Reports Congestion\n- [ ] Denies Congestion\n- [ ] Reports Rhinorrhea\n- [ ] Denies Rhinorrhea\n- [ ] Reports Postnasal drip\n- [ ] Denies Postnasal drip\n- [ ] Reports Sinus pressure/pain\n- [ ] Denies Sinus pressure/pain\n- [ ] Reports Sneezing\n- [ ] Denies Sneezing\n- [ ] Reports Epistaxis\n- [ ] Denies Epistaxis\n#### Throat/Mouth\n- [ ] Reports Sore throat\n- [ ] Denies Sore throat\n- [ ] Reports Hoarseness\n- [ ] Denies Hoarseness\n- [ ] Reports Trouble swallowing\n- [ ] Denies Trouble swallowing\n- [ ] Reports Throat swelling\n- [ ] Denies Throat swelling\n- [ ] Reports Oral sores\n- [ ] Denies Oral sores\n### Cardiovascular\n- [ ] Reports Chest pain/pressure\n- [ ] Denies Chest pain/pressure\n- [ ] Reports Palpitations\n- [ ] Denies Palpitations\n- [ ] Reports Exertional dyspnea\n- [ ] Denies Exertional dyspnea\n- [ ] Reports Orthopnea\n- [ ] Denies Orthopnea\n- [ ] Reports PND\n- [ ] Denies PND\n- [ ] Reports Leg swelling\n- [ ] Denies Leg swelling\n- [ ] Reports Claudication\n- [ ] Denies Claudication\n### Respiratory\n- [ ] Reports Cough\n- [ ] Denies Cough\n- [ ] Reports Shortness of breath\n- [ ] Denies Shortness of breath\n- [ ] Reports Wheezing\n- [ ] Denies Wheezing\n- [ ] Reports Chest tightness\n- [ ] Denies Chest tightness\n- [ ] Reports Sputum production\n- [ ] Denies Sputum production\n- [ ] Reports Hemoptysis\n- [ ] Denies Hemoptysis\n- [ ] Reports Stridor\n- [ ] Denies Stridor\n### Gastrointestinal\n- [ ] Reports Nausea\n- [ ] Denies Nausea\n- [ ] Reports Vomiting\n- [ ] Denies Vomiting\n- [ ] Reports Diarrhea\n- [ ] Denies Diarrhea\n- [ ] Reports Constipation\n- [ ] Denies Constipation\n- [ ] Reports Abdominal pain\n- [ ] Denies Abdominal pain\n- [ ] Reports Bloating\n- [ ] Denies Bloating\n- [ ] Reports Heartburn/reflux\n- [ ] Denies Heartburn/reflux\n- [ ] Reports Blood in stool\n- [ ] Denies Blood in stool\n- [ ] Reports Black/tarry stools\n- [ ] Denies Black/tarry stools\n- [ ] Reports Change in bowel habits\n- [ ] Denies Change in bowel habits\n- [ ] Reports Difficulty swallowing\n- [ ] Denies Difficulty swallowing\n### Genitourinary\n#### General\n- [ ] Reports Dysuria\n- [ ] Denies Dysuria\n- [ ] Reports Frequency\n- [ ] Denies Frequency\n- [ ] Reports Urgency\n- [ ] Denies Urgency\n- [ ] Reports Hematuria\n- [ ] Denies Hematuria\n- [ ] Reports Flank pain\n- [ ] Denies Flank pain\n- [ ] Reports Incontinence\n- [ ] Denies Incontinence\n#### Male\n- [ ] Reports Penile discharge\n- [ ] Denies Penile discharge\n- [ ] Reports Penile pain\n- [ ] Denies Penile pain\n- [ ] Reports Testicular pain\n- [ ] Denies Testicular pain\n- [ ] Reports Scrotal swelling\n- [ ] Denies Scrotal swelling\n#### Female\n- [ ] Reports Pelvic pain\n- [ ] Denies Pelvic pain\n- [ ] Reports Vaginal discharge\n- [ ] Denies Vaginal discharge\n- [ ] Reports Vaginal bleeding\n- [ ] Denies Vaginal bleeding\n- [ ] Reports Pain with intercourse\n- [ ] Denies Pain with intercourse\n### Musculoskeletal\n- [ ] Reports Joint pain\n- [ ] Denies Joint pain\n- [ ] Reports Joint swelling\n- [ ] Denies Joint swelling\n- [ ] Reports Muscle aches\n- [ ] Denies Muscle aches\n- [ ] Reports Back pain\n- [ ] Denies Back pain\n- [ ] Reports Neck pain\n- [ ] Denies Neck pain\n- [ ] Reports Limited ROM\n- [ ] Denies Limited ROM\n- [ ] Reports Gait difficulty\n- [ ] Denies Gait difficulty\n### Skin/Integumentary\n- [ ] Reports Rash\n- [ ] Denies Rash\n- [ ] Reports Itching\n- [ ] Denies Itching\n- [ ] Reports Redness\n- [ ] Denies Redness\n- [ ] Reports Wounds\n- [ ] Denies Wounds\n- [ ] Reports Bruising\n- [ ] Denies Bruising\n- [ ] Reports Color change\n- [ ] Denies Color change\n- [ ] Reports Lumps/lesions\n- [ ] Denies Lumps/lesions\n- [ ] Reports Swelling\n- [ ] Denies Swelling\n### Neurologic\n- [ ] Reports Headache\n- [ ] Denies Headache\n- [ ] Reports Dizziness\n- [ ] Denies Dizziness\n- [ ] Reports Syncope\n- [ ] Denies Syncope\n- [ ] Reports Numbness\n- [ ] Denies Numbness\n- [ ] Reports Tingling\n- [ ] Denies Tingling\n- [ ] Reports Weakness\n- [ ] Denies Weakness\n- [ ] Reports Trouble speaking\n- [ ] Denies Trouble speaking\n- [ ] Reports Seizures\n- [ ] Denies Seizures\n- [ ] Reports Coordination issues\n- [ ] Denies Coordination issues\n- [ ] Reports Confusion\n- [ ] Denies Confusion\n### Psychiatric\n- [ ] Reports Anxiety\n- [ ] Denies Anxiety\n- [ ] Reports Depression\n- [ ] Denies Depression\n- [ ] Reports Agitation\n- [ ] Denies Agitation\n- [ ] Reports Sleep disturbance\n- [ ] Denies Sleep disturbance\n- [ ] Reports Suicidal thoughts\n- [ ] Denies Suicidal thoughts\n- [ ] Reports Homicidal thoughts\n- [ ] Denies Homicidal thoughts\n- [ ] Reports Hallucinations\n- [ ] Denies Hallucinations\n### Endocrine\n- [ ] Reports Heat intolerance\n- [ ] Denies Heat intolerance\n- [ ] Reports Cold intolerance\n- [ ] Denies Cold intolerance\n- [ ] Reports Excessive thirst\n- [ ] Denies Excessive thirst\n- [ ] Reports Excessive urination\n- [ ] Denies Excessive urination\n- [ ] Reports Hair/skin changes\n- [ ] Denies Hair/skin changes\n- [ ] Reports Weight change\n- [ ] Denies Weight change\n### Hematologic/Lymphatic\n- [ ] Reports Easy bruising\n- [ ] Denies Easy bruising\n- [ ] Reports Prolonged bleeding\n- [ ] Denies Prolonged bleeding\n- [ ] Reports Swollen lymph nodes\n- [ ] Denies Swollen lymph nodes\n- [ ] Reports Clotting problems\n- [ ] Denies Clotting problems\n### Allergic/Immunologic\n- [ ] Reports Seasonal allergies\n- [ ] Denies Seasonal allergies\n- [ ] Reports Food allergies\n- [ ] Denies Food allergies\n- [ ] Reports Medication allergies\n- [ ] Denies Medication allergies\n- [ ] Reports Frequent infections\n- [ ] Denies Frequent infections\n- [ ] Reports Immunocompromised state\n- [ ] Denies Immunocompromised state"
+              }
+            ],
+            "meta": {
+              "tag": [
+                {
+                  "code": "ros",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/ros"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
     "SPACER_181": {
       "resource": {
         "resourceType": "List",

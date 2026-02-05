@@ -915,7 +915,7 @@
         "linkId": "insurance-plan-type",
         "type": "choice",
         "text": "Insurance type",
-        "required": true,
+        "required": false,
         "answerOption": [
           {
             "valueString": "09"
@@ -1572,7 +1572,7 @@
         "linkId": "insurance-plan-type-2",
         "type": "choice",
         "text": "Insurance type",
-        "required": true,
+        "required": false,
         "answerOption": [
           {
             "valueString": "09"
@@ -3579,12 +3579,12 @@
     ],
     "enableWhen": [
       {
-        "question": "patient-summary.appointment-service-category",
+        "question": "appointment-service-category",
         "operator": "=",
         "answerString": "workers-comp"
       },
       {
-        "question": "patient-summary.appointment-service-category",
+        "question": "appointment-service-category",
         "operator": "exists",
         "answerBoolean": false
       }
@@ -3627,12 +3627,12 @@
     ],
     "enableWhen": [
       {
-        "question": "patient-summary.appointment-service-category",
+        "question": "appointment-service-category",
         "operator": "=",
         "answerString": "occupational-medicine"
       },
       {
-        "question": "patient-summary.appointment-service-category",
+        "question": "appointment-service-category",
         "operator": "exists",
         "answerBoolean": false
       }
@@ -3731,12 +3731,12 @@
     ],
     "enableWhen": [
       {
-        "question": "patient-summary.reason-for-visit",
+        "question": "reason-for-visit",
         "operator": "=",
         "answerString": "Auto accident"
       },
       {
-        "question": "patient-summary.reason-for-visit",
+        "question": "reason-for-visit",
         "operator": "exists",
         "answerBoolean": false
       }

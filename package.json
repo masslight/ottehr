@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.27.0",
+  "version": "1.27.9",
   "private": true,
   "engines": {
     "node": ">=22.0.0",
@@ -142,7 +142,7 @@
     "@types/inquirer": "^9.0.7",
     "browser-image-compression": "^2.0.2",
     "browserslist-to-esbuild": "^1.2.0",
-    "candidhealth": "1.17.0",
+    "candidhealth": "1.18.0",
     "fast-json-patch": "^3.1.1",
     "fhirpath": "^4.8.2",
     "i18next": "^23.10.1",

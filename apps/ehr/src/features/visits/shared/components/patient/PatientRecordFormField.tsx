@@ -119,18 +119,21 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
               name={item.key}
               control={control}
               render={({ field, fieldState: { error } }) => {
-                const selectedOption = item.options?.find((option) => option.value === field.value) ?? {
-                  label: '',
-                  value: '',
-                };
+                const emptyOption = { label: '', value: '' };
+                const selectedOption = item.options?.find((option) => option.value === field.value) ?? emptyOption;
+                const optionsWithEmpty = [emptyOption, ...(item.options ?? [])];
                 return (
                   <Autocomplete
                     {...field}
-                    options={item.options ?? []}
+                    options={optionsWithEmpty}
                     id={omitRowWrapper ? item.key : undefined}
                     value={selectedOption}
+                    getOptionLabel={(option) => option?.label || ''}
+                    isOptionEqualToValue={(option, value) => {
+                      return option.value === value.value;
+                    }}
                     onChange={(_, newValue) => {
-                      if (newValue) {
+                      if (newValue && newValue.value) {
                         setValue(item.key, newValue.value, { shouldDirty: true });
                       } else {
                         setValue(item.key, '', { shouldDirty: true });
@@ -291,20 +294,24 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
       name={item.key}
       control={control}
       render={({ field: { value }, fieldState: { error } }) => {
-        const selectedOption = answerOptions?.find((option) => option.reference === value?.reference);
+        const selectedOption = value?.reference
+          ? answerOptions?.find((option) => option.reference === value.reference)
+          : undefined;
         return (
           <Autocomplete
             options={answerOptions ?? []}
             loading={isLoading || isRefetching}
             id={id}
             loadingText={'Loading...'}
-            value={selectedOption ?? {}}
+            value={selectedOption ?? ({ display: '', reference: '' } as Reference)}
             isOptionEqualToValue={(option, value) => {
-              return option?.id === value?.id;
+              // Empty placeholder object check
+              if (!value?.reference || !option?.reference) return false;
+              return option.reference === value.reference;
             }}
-            getOptionLabel={(option) => (option.display ? option.display : '-')}
+            getOptionLabel={(option) => (option?.display ? option.display : '')}
             onChange={(_, newValue) => {
-              if (newValue) {
+              if (newValue && newValue.reference) {
                 setValue(item.key, { ...newValue }, { shouldDirty: true });
               } else {
                 setValue(item.key, null, { shouldDirty: true });

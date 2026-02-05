@@ -16,7 +16,7 @@ import Oystehr from '@oystehr/sdk';
 import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
@@ -24,14 +24,15 @@ import {
   CreateAppointmentInputParams,
   CreateSlotParams,
   getAppointmentDurationFromSlot,
+  getReasonForVisitOptionsForServiceCategory,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
+  HomepageOptions,
   PatientInfo,
   ScheduleType,
   ServiceMode,
   SLUG_SYSTEM,
-  VALUE_SETS,
 } from 'utils';
 import { createAppointment, createSlot, getLocations } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -77,6 +78,9 @@ export interface LocationWithWalkinSchedule extends Location {
   walkinSchedule: Schedule | undefined;
 }
 
+const defaultServiceCategory =
+  BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.code : '';
+
 export default function AddPatient(): JSX.Element {
   const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule>();
   const [birthDate, setBirthDate] = useState<DateTime | null>(null); // i would love to not have to handle this state but i think the date search component would have to change and i dont want to touch that right now
@@ -84,7 +88,7 @@ export default function AddPatient(): JSX.Element {
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
-  const [serviceCategory, setServiceCategory] = useState<string>();
+  const [serviceCategory, setServiceCategory] = useState<string>(defaultServiceCategory);
   const [slot, setSlot] = useState<Slot | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
@@ -100,8 +104,15 @@ export default function AddPatient(): JSX.Element {
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
   const [showFields, setShowFields] = useState<AddVisitFormState>('initialPatientSearch');
 
-  // console.log('slot', slot);
+  useEffect(() => {
+    setReasonForVisit('');
+    setReasonForVisitAdditional('');
+  }, [serviceCategory]);
 
+  const reasonForVisitOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
+  const shouldShowReasonForVisitFields = useMemo(() => {
+    return showFields !== 'initialPatientSearch' && reasonForVisitOptions.length > 0;
+  }, [showFields, reasonForVisitOptions.length]);
   // general variables
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
@@ -283,11 +294,19 @@ export default function AddPatient(): JSX.Element {
                       setVisitType(event.target.value as VisitType);
                     }}
                   >
-                    <MenuItem value={VisitType.InPersonWalkIn}>Walk-in In Person Visit</MenuItem>
-                    <MenuItem value={VisitType.InPersonPreBook}>Pre-booked In Person Visit</MenuItem>
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.StartInPersonVisit) ? (
+                      <MenuItem value={VisitType.InPersonWalkIn}>Walk-in In Person Visit</MenuItem>
+                    ) : null}
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.ScheduleInPersonVisit) ? (
+                      <MenuItem value={VisitType.InPersonPreBook}>Pre-booked In Person Visit</MenuItem>
+                    ) : null}
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.StartVirtualVisit) ? (
+                      <MenuItem value={VisitType.VirtualOnDemand}>On Demand Virtual Visit</MenuItem>
+                    ) : null}
+                    {BOOKING_CONFIG.homepageOptions.includes(HomepageOptions.ScheduleVirtualVisit) ? (
+                      <MenuItem value={VisitType.VirtualScheduled}>Scheduled Virtual Visit</MenuItem>
+                    ) : null}
                     <MenuItem value={VisitType.InPersonPostTelemed}>Post Telemed Lab Only</MenuItem>
-                    <MenuItem value={VisitType.VirtualOnDemand}>On Demand Virtual Visit</MenuItem>
-                    <MenuItem value={VisitType.VirtualScheduled}>Scheduled Virtual Visit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -300,6 +319,7 @@ export default function AddPatient(): JSX.Element {
                     value={serviceCategory || ''}
                     label="Service category *"
                     required
+                    disabled={defaultServiceCategory !== ''}
                     onChange={(event) => {
                       setServiceCategory(event.target.value);
                     }}
@@ -342,7 +362,7 @@ export default function AddPatient(): JSX.Element {
                 />
 
                 {/* Visit Information */}
-                {showFields !== 'initialPatientSearch' && (
+                {shouldShowReasonForVisitFields && (
                   <Box marginTop={4}>
                     <Typography variant="h4" color="primary.dark">
                       Visit information
@@ -359,7 +379,7 @@ export default function AddPatient(): JSX.Element {
                           required
                           onChange={(event) => setReasonForVisit(event.target.value)}
                         >
-                          {VALUE_SETS.reasonForVisitOptions.map((reason) => (
+                          {reasonForVisitOptions.map((reason) => (
                             <MenuItem key={reason.value} value={reason.value}>
                               {reason.label}
                             </MenuItem>

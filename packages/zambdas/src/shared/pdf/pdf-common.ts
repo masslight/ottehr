@@ -3,7 +3,7 @@ import { PDFImage } from 'pdf-lib';
 import { getPresignedURL, PATIENT_RECORD_CONFIG, Secrets, uploadPDF } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
-import { createPdfClient, PdfInfo } from './pdf-utils';
+import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
 import {
   AssetPaths,
   ImageReference,
@@ -22,13 +22,18 @@ export type DataComposer<TInput, TOutput extends PdfData> = (input: TInput) => T
 export type StyleFactory = (assets: PdfAssets) => PdfStyles;
 
 export interface PdfHeaderConfig<TData extends PdfData> {
-  title: string;
+  title: string | ((data: TData) => string);
+  logo?: {
+    width: number;
+    height: number;
+  };
   leftSection?: PdfHeaderSection<TData, any>;
   rightSection?: PdfHeaderSection<TData, any>;
 }
 
 export interface PdfRenderConfig<TData extends PdfData> {
   header: PdfHeaderConfig<TData>;
+  headerBodySeparator?: boolean;
   assetPaths: AssetPaths;
   styleFactory: StyleFactory;
   sections: PdfSection<TData, any>[];
@@ -127,6 +132,17 @@ const renderPdfHeader = <TData extends PdfData>(
   styles: PdfStyles,
   assets: PdfAssets
 ): void => {
+  console.log('In renderPdfHeader');
+  console.log('Header config:', {
+    title: config.title,
+    hasLogo: !!config.logo,
+    hasLeftSection: !!config.leftSection,
+    hasRightSection: !!config.rightSection,
+  });
+  console.log('Styles available:', {
+    textStyles: Object.keys(styles.textStyles),
+    hasHeaderStyle: !!styles.textStyles.header,
+  });
   const headerStartY = pdfClient.getY();
   const pageWidth = pdfClient.getRightBound() - pdfClient.getLeftBound();
   const columnWidth = pageWidth / 2;
@@ -139,14 +155,40 @@ const renderPdfHeader = <TData extends PdfData>(
   const originalLeft = pdfClient.getLeftBound();
   const originalRight = pdfClient.getRightBound();
 
+  if (config.logo && assets.logo) {
+    console.log('Rendering logo...');
+    const { width, height } = config.logo;
+    console.log('Logo config:', {
+      width,
+      height,
+    });
+    pdfClient.drawImage(assets.logo, {
+      width,
+      height,
+    });
+  }
+
   pdfClient.setLeftBound(rightX + 10);
   pdfClient.setRightBound(originalRight);
 
-  pdfClient.drawText(config.title, styles.textStyles.header);
+  console.log('Drawing header title:', config.title);
+  console.log('Header text style:', styles.textStyles.header);
+
+  const title = typeof config.title === 'function' ? config.title(data) : config.title;
+
+  try {
+    pdfClient.drawText(title, styles.textStyles.header);
+    console.log('Header title drawn successfully');
+  } catch (error) {
+    console.error('ERROR drawing header title:', error);
+    console.error('Text style was:', styles.textStyles.header);
+    throw error;
+  }
 
   if (config.rightSection) {
+    console.log('Rendering right section...');
     const rightData = config.rightSection.dataSelector(data);
-
+    console.log('Right section data:', rightData);
     if (rightData !== undefined) {
       const shouldRender = config.rightSection.shouldRender ? config.rightSection.shouldRender(rightData) : true;
 
@@ -160,8 +202,9 @@ const renderPdfHeader = <TData extends PdfData>(
   rightHeight = headerStartY - pdfClient.getY();
 
   if (config.leftSection) {
+    console.log('Rendering left section...');
     const leftData = config.leftSection.dataSelector(data);
-
+    console.log('Left section data:', leftData);
     if (leftData !== undefined) {
       const shouldRender = config.leftSection.shouldRender ? config.leftSection.shouldRender(leftData) : true;
 
@@ -170,7 +213,13 @@ const renderPdfHeader = <TData extends PdfData>(
         pdfClient.setRightBound(leftX + columnWidth - 10);
         pdfClient.setY(headerStartY);
 
-        config.leftSection.render(pdfClient, leftData, styles, assets);
+        try {
+          config.leftSection.render(pdfClient, leftData, styles, assets);
+          console.log('Left section rendered successfully');
+        } catch (error) {
+          console.error('ERROR rendering left section:', error);
+          throw error;
+        }
 
         leftHeight = headerStartY - pdfClient.getY();
       }
@@ -182,8 +231,7 @@ const renderPdfHeader = <TData extends PdfData>(
 
   const maxHeight = Math.max(leftHeight, rightHeight);
   pdfClient.setY(headerStartY - maxHeight);
-
-  pdfClient.drawSeparatedLine(styles.lineStyles.separator);
+  console.log('Header rendering complete');
 };
 
 const createRightAlignedStyles = (styles: PdfStyles): PdfStyles => {
@@ -207,15 +255,18 @@ const renderPdf = async <TData extends PdfData>(
   config: PdfRenderConfig<TData>,
   token: string
 ): Promise<Uint8Array> => {
+  console.log('=== Starting renderPdf ===');
+  console.log('Creating PDF client...');
   const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
-
+  console.log('Loading PDF assets...');
   const baseAssets = await loadPdfAssets(pdfClient, config.assetPaths);
-
+  console.log('Base assets loaded:', Object.keys(baseAssets));
   const allSections = [
     ...(config.header.leftSection ? [config.header.leftSection] : []),
     ...(config.header.rightSection ? [config.header.rightSection] : []),
     ...config.sections,
   ];
+  console.log(`Total sections (including header sections): ${allSections.length}`);
   const imageRefs = collectImageReferences(data, allSections);
 
   let images: Record<string, PDFImage> = {};
@@ -224,18 +275,47 @@ const renderPdf = async <TData extends PdfData>(
     const imageLoader = createImageLoader(token);
     images = await loadAndEmbedImages(imageRefs, pdfClient, imageLoader);
   }
-
+  console.log('Creating assets object...');
   const assets: PdfAssets = {
     ...baseAssets,
     images,
   };
-
+  console.log('Assets created:', {
+    fonts: Object.keys(assets.fonts),
+    icons: assets.icons ? Object.keys(assets.icons) : 'none',
+    logo: !!assets.logo,
+    images: Object.keys(images),
+  });
+  console.log('Creating styles from styleFactory...');
   const styles = config.styleFactory(assets);
+  console.log('Styles created:', {
+    textStyles: Object.keys(styles.textStyles),
+    lineStyles: Object.keys(styles.lineStyles),
+  });
 
-  renderPdfHeader(pdfClient, data, config.header, styles, assets);
+  console.log('\n=== Rendering PDF Header ===');
+  try {
+    renderPdfHeader(pdfClient, data, config.header, styles, assets);
+    console.log('Header rendered successfully');
+  } catch (error) {
+    console.error('ERROR rendering header:', error);
+    throw error;
+  }
 
-  renderBodySections(pdfClient, data, config.sections, styles, assets);
+  if (config.headerBodySeparator) {
+    pdfClient.drawSeparatedLine(styles.lineStyles.separator);
+  }
 
+  console.log('\n=== Rendering Body Sections ===');
+  console.log(`Number of body sections: ${config.sections.length}`);
+  try {
+    renderBodySections(pdfClient, data, config.sections, styles, assets);
+    console.log('Body sections rendered successfully');
+  } catch (error) {
+    console.error('ERROR rendering body sections:', error);
+    throw error;
+  }
+  console.log('\n=== Saving PDF ===');
   return await pdfClient.save();
 };
 
@@ -262,10 +342,10 @@ const renderBodySections = <TData extends PdfData>(
 
     if (sectionData === undefined) continue;
 
-    if (section.shouldRender && !section.shouldRender(sectionData)) {
+    if (section.shouldRender && !section.shouldRender(sectionData, data)) {
       continue;
     }
-
+    const title = typeof section.title === 'function' ? section.title(sectionData) : section.title;
     const layout = section.preferredWidth || 'full';
 
     if (layout === 'full') {
@@ -285,8 +365,8 @@ const renderBodySections = <TData extends PdfData>(
       pdfClient.setLeftBound(originalLeft);
       pdfClient.setRightBound(originalRight);
 
-      if (section.title) {
-        pdfClient.drawText(section.title, styles.textStyles.subHeader);
+      if (title) {
+        pdfClient.drawText(title, styles.textStyles.subHeader);
       }
       section.render(pdfClient, sectionData, styles, assets);
 
@@ -302,8 +382,8 @@ const renderBodySections = <TData extends PdfData>(
         pdfClient.setRightBound(originalLeft + columnWidth - 10);
         pdfClient.setY(leftColumnY);
 
-        if (section.title) {
-          pdfClient.drawText(section.title, styles.textStyles.subHeader);
+        if (title) {
+          pdfClient.drawText(title, styles.textStyles.subHeader);
         }
         section.render(pdfClient, sectionData, styles, assets);
 
@@ -324,8 +404,8 @@ const renderBodySections = <TData extends PdfData>(
         pdfClient.setRightBound(originalRight);
         pdfClient.setY(rightColumnY);
 
-        if (section.title) {
-          pdfClient.drawText(section.title, styles.textStyles.subHeader);
+        if (title) {
+          pdfClient.drawText(title, styles.textStyles.subHeader);
         }
         section.render(pdfClient, sectionData, styles, assets);
 
@@ -364,7 +444,8 @@ const renderBodySections = <TData extends PdfData>(
 
 const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<PdfAssets> => {
   const fonts: PdfAssets['fonts'] = {};
-  let icons: PdfAssets['icons'] | undefined;
+  let icons: PdfAssets['icons'];
+  let logo: PdfAssets['logo'];
 
   if (paths.fonts) {
     for (const [key, path] of Object.entries(paths.fonts)) {
@@ -379,7 +460,12 @@ const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<P
     }
   }
 
-  return { fonts, icons };
+  const logoBuffer = await getPdfLogo();
+  if (logoBuffer) {
+    logo = await pdfClient.embedImage(logoBuffer);
+  }
+
+  return { fonts, icons, logo };
 };
 
 const uploadPdfToStorage = async (
@@ -449,12 +535,15 @@ export const fieldFilter = (config: PdfSectionConfig) => {
 };
 
 export const createConfiguredSection = <TData, TSectionData>(
-  configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields,
+  configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields | null,
   sectionFactory: (shouldShow: (fieldKey: string) => boolean) => PdfSection<TData, TSectionData>
 ): PdfSection<TData, TSectionData> => {
+  if (!configKey) {
+    return sectionFactory(() => true);
+  }
+
   const config = createSectionConfig(configKey);
   const shouldShow = fieldFilter(config);
-
   const section = sectionFactory(shouldShow);
 
   return {

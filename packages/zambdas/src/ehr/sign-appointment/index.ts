@@ -101,8 +101,14 @@ export const performEffect = async (
     if (appointment.id === undefined) {
       throw new Error('Appointment ID is not defined');
     }
+    const patientName = getFullestAvailableName(patient);
 
-    const followupPDFTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id, encounterId);
+    const followupPDFTaskResource = getTaskResource(
+      TaskIndicator.visitNotePDFAndEmail,
+      `Create follow-up visit note for ${patientName}`,
+      appointment.id,
+      encounterId
+    );
     const visitNoteTaskPromise = oystehr.fhir.create(followupPDFTaskResource);
 
     const taskCreationResults = await Promise.all([visitNoteTaskPromise]);

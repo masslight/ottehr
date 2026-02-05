@@ -136,7 +136,7 @@ const CancellationReason = (): JSX.Element => {
   const appointmentNotFoundInformation = useAppointmentNotFoundInformation();
 
   const cancelReasonOptions = useMemo(() => {
-    return isVirtualAppt ? VALUE_SETS.cancelReasonOptionsVirtual : VALUE_SETS.cancelReasonOptions;
+    return isVirtualAppt ? VALUE_SETS.cancelReasonOptionsVirtualPatient : VALUE_SETS.cancelReasonOptionsInPersonPatient;
   }, [isVirtualAppt]);
 
   if (notFound) {

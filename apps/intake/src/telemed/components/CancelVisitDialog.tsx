@@ -60,7 +60,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
             name: 'cancellationReason',
             label: 'Cancelation reason',
             required: true,
-            selectOptions: VALUE_SETS.cancelReasonOptionsVirtual,
+            selectOptions: VALUE_SETS.cancelReasonOptionsVirtualPatient,
           },
         ]}
         controlButtons={{

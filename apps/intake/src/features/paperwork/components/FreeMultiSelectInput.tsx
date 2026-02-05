@@ -87,9 +87,6 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   const selectionHandler = useCallback(
     (e: any): void => {
       const targetVal = e?.selectedOption ?? e?.target?.value;
-      if (!targetVal) {
-        return;
-      }
       if (multiple) {
         const value = getValues(name)?.answer?.map((i: any) => i.valueString) ?? [];
         const newVal = [...value, targetVal];
@@ -170,7 +167,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       }}
       autoComplete
       value={otherProps.value || null}
-      disableClearable
+      disableClearable={otherProps.required}
       disabled={disabled}
       id={name}
       options={options}

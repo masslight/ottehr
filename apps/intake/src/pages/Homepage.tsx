@@ -2,12 +2,18 @@ import { useAuth0 } from '@auth0/auth0-react';
 import CloseIcon from '@mui/icons-material/Close';
 import LiveHelpOutlinedIcon from '@mui/icons-material/LiveHelpOutlined';
 import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
+import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
 import { Box, Button, Skeleton, Typography } from '@mui/material';
-import { pastVisits } from '@theme/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { BOOKING_CONFIG, BRANDING_CONFIG, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
+import {
+  BOOKING_CONFIG,
+  BRANDING_CONFIG,
+  HomepageOptions,
+  ServiceMode,
+  shouldShowServiceCategorySelectionPage,
+} from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -147,10 +153,10 @@ const Homepage = (): JSX.Element => {
   };
 
   const { homepageOptions } = BOOKING_CONFIG;
-  const showScheduleVirtualOption = homepageOptions.includes('schedule-virtual-visit');
-  const showStartVirtualOption = homepageOptions.includes('start-virtual-visit');
-  const showScheduleInPersonOption = homepageOptions.includes('schedule-in-person-visit');
-  const showStartInPersonOption = homepageOptions.includes('start-in-person-visit');
+  const showScheduleVirtualOption = homepageOptions.includes(HomepageOptions.ScheduleVirtualVisit);
+  const showStartVirtualOption = homepageOptions.includes(HomepageOptions.StartVirtualVisit);
+  const showScheduleInPersonOption = homepageOptions.includes(HomepageOptions.ScheduleInPersonVisit);
+  const showStartInPersonOption = homepageOptions.includes(HomepageOptions.StartInPersonVisit);
 
   return (
     <CustomContainer title={`Welcome to ${BRANDING_CONFIG.projectName}`} description="" isFirstPage={true}>
@@ -237,7 +243,7 @@ const Homepage = (): JSX.Element => {
             ) : null}
             <HomepageOption
               title="Past Visits"
-              icon={pastVisits}
+              icon={<MedicalInformationOutlinedIcon />}
               handleClick={handlePastVisits}
               subtitle="School/Work Notes and Prescriptions"
               dataTestId={dataTestIds.navigatePastVisitsButton}
