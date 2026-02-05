@@ -1,6 +1,6 @@
 import { Box, Button, Skeleton, useTheme } from '@mui/material';
-import { FC, useContext } from 'react';
-import { IntakeThemeContext } from '../../../../contexts';
+import { palette } from '@theme/colors';
+import { FC } from 'react';
 import { dataTestIds } from '../../../../helpers/data-test-ids';
 
 interface CardDisplayProps {
@@ -12,7 +12,6 @@ interface CardDisplayProps {
 
 const CardDisplay: FC<CardDisplayProps> = ({ name, previewUrl, isLoading, onClear }) => {
   const theme = useTheme();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -40,7 +39,7 @@ const CardDisplay: FC<CardDisplayProps> = ({ name, previewUrl, isLoading, onClea
           onClear();
         }}
         sx={{
-          color: otherColors.clearImage,
+          color: palette.destructive.main,
           justifyContent: 'start',
           px: 0,
           mt: 2,

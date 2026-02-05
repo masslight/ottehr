@@ -4,14 +4,13 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { primaryIcon } from '@theme/icons';
 import { Duration } from 'luxon';
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { palette } from 'src/IntakeThemeProvider';
 import { AppointmentType, BRANDING_CONFIG, getSelectors } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
-import { IntakeThemeContext } from '../../contexts';
 import { CallSettings, CancelVisitDialog } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
@@ -24,7 +23,6 @@ import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room'
 const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
-  const { otherColors } = useContext(IntakeThemeContext);
   const { estimatedTime, numberInLine } = getSelectors(useWaitingRoomStore, ['estimatedTime', 'numberInLine']);
   const [searchParams, _] = useSearchParams();
   const urlAppointmentID = searchParams.get('appointment_id');
@@ -151,7 +149,7 @@ const WaitingRoom = (): JSX.Element => {
               secondaryText="You will not be charged if you cancel the visit"
               noDivider
             >
-              <CancelOutlinedIcon sx={{ color: otherColors.clearImage }} />
+              <CancelOutlinedIcon sx={{ color: palette.destructive.main }} />
             </StyledListItemWithButton>
           </>
         )}

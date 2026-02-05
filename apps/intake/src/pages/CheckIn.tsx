@@ -68,7 +68,7 @@ const CheckIn = (): JSX.Element => {
       sx={{
         paddingRight: '4px',
         backgroundColor: 'transparent',
-        '.MuiChip-icon': { color: otherColors.darkGreen, margin: 0 },
+        '.MuiChip-icon': { color: palette.success.dark, margin: 0 },
         '.MuiChip-label': { display: 'none' },
       }}
     />

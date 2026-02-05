@@ -1,6 +1,5 @@
 import { alpha, IconButton, styled } from '@mui/material';
 import { palette } from '@theme/colors';
-import { otherColors } from '../../IntakeThemeProvider';
 
 export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ variant }) => {
   let colors = {};
@@ -15,8 +14,8 @@ export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ v
     }
     case 'error': {
       colors = {
-        backgroundColor: otherColors.clearImage,
-        '&:hover': { backgroundColor: alpha(otherColors.clearImage, 0.9) },
+        backgroundColor: palette.destructive.main,
+        '&:hover': { backgroundColor: alpha(palette.destructive.main, 0.9) },
       };
       break;
     }

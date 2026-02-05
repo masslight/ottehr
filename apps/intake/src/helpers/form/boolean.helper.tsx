@@ -2,13 +2,10 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircle from '@mui/icons-material/CheckCircle';
 import { Chip } from '@mui/material';
 import { palette } from '@theme/colors';
-import { ReactNode, useContext } from 'react';
+import { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from '../../contexts';
 
 export function getValueBoolean(value: boolean): ReactNode {
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const { otherColors } = useContext(IntakeThemeContext);
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { t } = useTranslation();
   if (value) {
@@ -21,7 +18,7 @@ export function getValueBoolean(value: boolean): ReactNode {
         sx={{
           fontSize: '14px',
           padding: '4px',
-          '.MuiChip-icon': { color: otherColors.darkGreen, margin: 0 },
+          '.MuiChip-icon': { color: palette.success.dark, margin: 0 },
           '.MuiChip-label': { display: 'none' },
         }}
       />

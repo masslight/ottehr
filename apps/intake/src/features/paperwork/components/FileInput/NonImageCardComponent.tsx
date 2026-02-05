@@ -1,8 +1,7 @@
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { Box, IconButton, Link } from '@mui/material';
 import { palette } from '@theme/colors';
-import { FC, useContext } from 'react';
-import { IntakeThemeContext } from '../../../../contexts';
+import { FC } from 'react';
 
 interface NonImageCardComponentProps {
   fileName?: string;
@@ -12,7 +11,6 @@ interface NonImageCardComponentProps {
 
 const NonImageCardComponent: FC<NonImageCardComponentProps> = ({ fileName, fileUrl, onClear }): JSX.Element => {
   // const { setValue } = useFormContext();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   return (
     <Box
@@ -36,7 +34,7 @@ const NonImageCardComponent: FC<NonImageCardComponentProps> = ({ fileName, fileU
           onClear();
         }}
         sx={{
-          color: otherColors.clearImage,
+          color: palette.destructive.main,
           px: 0,
           '&:hover': { backgroundColor: 'transparent' },
         }}

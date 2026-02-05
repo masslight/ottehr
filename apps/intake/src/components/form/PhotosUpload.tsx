@@ -94,7 +94,7 @@ export const PhotosUpload: FC<PatientPhotoUploadProps> = ({ name, label, default
                     position: 'absolute',
                     top: -5,
                     right: -5,
-                    backgroundColor: otherColors.clearImage,
+                    backgroundColor: palette.destructive.main,
                     padding: '5px',
                   }}
                   onClick={() => handleImageRemove(name)}

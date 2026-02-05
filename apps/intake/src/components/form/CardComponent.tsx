@@ -1,7 +1,7 @@
 import { Box, Button, useTheme } from '@mui/material';
-import { FC, useContext } from 'react';
+import { palette } from '@theme/colors';
+import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { IntakeThemeContext } from '../../contexts';
 
 interface CardComponentProps {
   name: string;
@@ -22,7 +22,6 @@ const CardComponent: FC<CardComponentProps> = ({
 }): JSX.Element => {
   const theme = useTheme();
   const { setValue } = useFormContext();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -44,7 +43,7 @@ const CardComponent: FC<CardComponentProps> = ({
           onClear();
         }}
         sx={{
-          color: otherColors.clearImage,
+          color: palette.destructive.main,
           justifyContent: 'start',
           px: 0,
           mt: 2,

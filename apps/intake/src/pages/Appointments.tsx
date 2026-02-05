@@ -134,7 +134,7 @@ const Appointments = (): JSX.Element => {
                   >
                     {appointment.paperworkComplete ? (
                       <>
-                        <CheckCircle sx={{ marginRight: 0.5 }} htmlColor={otherColors.darkGreen} />
+                        <CheckCircle sx={{ marginRight: 0.5 }} htmlColor={palette.success.dark} />
                         <Typography color={palette.secondary.main} variant="subtitle1">
                           {t('appointments.paperworkComplete')}
                         </Typography>
@@ -183,7 +183,7 @@ const Appointments = (): JSX.Element => {
                   >
                     {appointment.checkedIn ? (
                       <>
-                        <CheckCircle sx={{ marginRight: 0.5 }} htmlColor={otherColors.darkGreen} />
+                        <CheckCircle sx={{ marginRight: 0.5 }} htmlColor={palette.success.dark} />
                         <Typography color={palette.secondary.main} variant="subtitle1">
                           {t('appointments.checkedIn')}
                         </Typography>

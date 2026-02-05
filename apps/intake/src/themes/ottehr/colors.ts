@@ -3,7 +3,6 @@ export const otherColors = {
   borderLightBlue: '#4294F3',
   cardBackground: '#F7F8F9',
   clearImage: '#EB5757',
-  darkGreen: '#0F5A4C',
   lightGray: 'rgba(0, 0, 0, 0.23)',
   lightPurple: '#F5F2FF',
   placeholder: '#A9A9A9',
@@ -52,6 +51,7 @@ export const palette = {
   },
   success: {
     main: '#66BA70',
+    dark: '#0F5A4C',
   },
   warning: {
     main: '#FFCD75',
