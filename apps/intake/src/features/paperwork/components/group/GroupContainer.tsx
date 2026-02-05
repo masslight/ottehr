@@ -1,7 +1,7 @@
 import { Grid } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC, ReactNode } from 'react';
 import { IntakeQuestionnaireItem, QuestionnaireItemGroupType } from 'utils';
-import { otherColors } from '../../../../IntakeThemeProvider';
 import { RenderItemsProps } from '../../PagedQuestionnaire';
 import MultiAnswerHeader from './MultiAnswerHeader';
 
@@ -28,7 +28,7 @@ const ContentWrapper: FC<ContentWrapperProps> = ({ type, children }) => {
   const sx = (() => {
     let { backgroundColor, padding } = baseSX;
     if (type === 'gray-container-widget') {
-      backgroundColor = otherColors.cardBackground;
+      backgroundColor = palette.background.card;
       padding = '24px';
     }
     return {

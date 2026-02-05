@@ -12,7 +12,7 @@ import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors, palette } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
 
@@ -114,7 +114,7 @@ const CheckIn = (): JSX.Element => {
               sx={{
                 border: 'none',
                 borderRadius: 2,
-                backgroundColor: otherColors.primaryBackground,
+                backgroundColor: palette.secondary.soft,
                 padding: 2,
                 marginX: 0,
                 display: 'flex',
@@ -160,7 +160,7 @@ const CheckIn = (): JSX.Element => {
             <Box
               sx={{
                 borderRadius: 2,
-                backgroundColor: otherColors.primaryBackground,
+                backgroundColor: palette.secondary.soft,
                 padding: 2,
                 border: 'none',
                 marginX: 0,

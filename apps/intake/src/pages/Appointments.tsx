@@ -19,7 +19,7 @@ import { useIntakeCommonStore } from '../features/common';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors, palette } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 
 const Appointments = (): JSX.Element => {
@@ -74,7 +74,7 @@ const Appointments = (): JSX.Element => {
                 <Grid
                   key={appointment.id}
                   container
-                  sx={{ backgroundColor: otherColors.primaryBackground, borderRadius: 2, padding: 2, marginBottom: 2 }}
+                  sx={{ backgroundColor: palette.secondary.soft, borderRadius: 2, padding: 2, marginBottom: 2 }}
                   className="appointment"
                 >
                   <Grid item xs={12}>

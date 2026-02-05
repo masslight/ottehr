@@ -1,10 +1,10 @@
 import { Box, Button, Container, Typography, useTheme } from '@mui/material';
-import { ChangeEvent, FC, RefObject, useContext } from 'react';
+import { palette } from '@theme/colors';
+import { ChangeEvent, FC, RefObject } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { MIME_TYPES } from 'utils';
 import { DescriptionRenderer } from '../../../../components/form';
-import { IntakeThemeContext } from '../../../../contexts';
 import { AttachmentType } from '.';
 
 interface UploadComponentProps {
@@ -28,7 +28,6 @@ const UploadComponent: FC<UploadComponentProps> = ({
 }): JSX.Element => {
   const theme = useTheme();
   const { control } = useFormContext();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   const fileTypesAccepted = (() => {
     if (attachmentType === 'image') {
@@ -46,7 +45,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
           border: `1px dashed ${theme.palette.primary.main}`,
           borderRadius: 2,
           display: 'flex',
-          background: otherColors.cardBackground,
+          background: palette.background.card,
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',

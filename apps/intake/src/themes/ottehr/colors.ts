@@ -1,17 +1,11 @@
 export const otherColors = {
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
-  cardBackground: '#F7F8F9',
-  clearImage: '#EB5757',
   lightGray: 'rgba(0, 0, 0, 0.23)',
-  lightPurple: '#F5F2FF',
   placeholder: '#A9A9A9',
   popupBackground: 'rgba(97, 97, 97, 0.9)',
-  primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
   scheduleBorder: '#8F9AA7',
-  toolTipClose: '#938B7D',
-  toolTipGrey: '#F9FAFB',
   transparent: 'rgba(0, 0, 0, 0)',
 };
 
@@ -76,6 +70,7 @@ export const palette = {
   background: {
     default: '#15376A',
     appBar: '#0A2143',
+    card: '#F7F8F9',
     paper: '#FFFFFF',
     cancelled: '#FCBDBD',
   },
