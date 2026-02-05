@@ -3,6 +3,7 @@ export interface CancelAppointmentZambdaInput {
   cancellationReason: string;
   silent?: boolean;
   language?: string;
+  cancellationReasonAdditional?: string;
 }
 
 export type CancelAppointmentZambdaOutput = Record<string, never>;

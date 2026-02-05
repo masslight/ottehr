@@ -15,7 +15,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { composeAndCreateDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
+import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { getChartData } from '../get-chart-data';
@@ -147,16 +147,18 @@ export const performEffect = async (
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
-  const { pdfInfo, attached } = await composeAndCreateDischargeSummaryPdf(
+  const { pdfInfo, attached } = await createDischargeSummaryPdf(
     {
-      chartData,
-      additionalChartData,
-      radiologyData,
-      externalLabsData,
-      inHouseOrdersData,
-      medicationOrders,
+      allChartData: {
+        chartData,
+        additionalChartData,
+        radiologyData,
+        externalLabsData,
+        inHouseOrdersData,
+        medicationOrders,
+      },
+      appointmentPackage: visitResources,
     },
-    visitResources,
     secrets,
     m2mToken
   );

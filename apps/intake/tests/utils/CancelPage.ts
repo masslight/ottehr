@@ -36,7 +36,9 @@ export class CancelPage {
   }
   async selectCancellationReason(serviceMode: 'in-person' | 'virtual'): Promise<void> {
     const cancelOptions =
-      serviceMode === 'in-person' ? VALUE_SETS.cancelReasonOptions : VALUE_SETS.cancelReasonOptionsVirtual;
+      serviceMode === 'in-person'
+        ? VALUE_SETS.cancelReasonOptionsInPersonPatient
+        : VALUE_SETS.cancelReasonOptionsVirtualPatient;
     const randomCancelReason = this.getRandomEnumValue(cancelOptions);
     await this.locator.cancellationReasonField.click();
     await this.page.getByRole('option', { name: randomCancelReason.label }).click();

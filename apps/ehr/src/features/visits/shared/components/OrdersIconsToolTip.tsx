@@ -40,22 +40,11 @@ interface OrdersIconsToolTipProps {
   orders: OrdersForTrackingBoardRow;
 }
 
-const EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES = [
-  ExternalLabsStatus.pending,
-  ExternalLabsStatus.prelim,
-  ExternalLabsStatus.corrected,
-  ExternalLabsStatus.received,
-  ExternalLabsStatus['rejected abn'],
-  ExternalLabsStatus['cancelled by lab'],
-];
-const IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL'];
+const EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES = [ExternalLabsStatus.pending, ExternalLabsStatus.ready];
+const IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES: TestStatus[] = ['ORDERED', 'COLLECTED'];
 const NURSING_ORDERS_PENDING_BADGE_STATUSES = [NursingOrdersStatus.pending];
 const FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES = [MedicationOrderStatuses.pending];
-const RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES = [
-  RadiologyOrderStatus.pending,
-  RadiologyOrderStatus.preliminary,
-  RadiologyOrderStatus.final,
-];
+const RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES = [RadiologyOrderStatus.pending];
 
 export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointment, orders }) => {
   const ordersExistForAppointment = hasAtLeastOneOrder(orders);

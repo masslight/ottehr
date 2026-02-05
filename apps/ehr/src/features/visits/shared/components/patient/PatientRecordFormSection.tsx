@@ -1,6 +1,14 @@
 import { FC, ReactElement } from 'react';
+import { useFormContext } from 'react-hook-form';
 import { Section } from 'src/components/layout';
-import { FormFieldItemRecord, FormFieldItemRecordSchema, FormFieldSection, PATIENT_RECORD_CONFIG } from 'utils';
+import {
+  FormFieldItemRecord,
+  FormFieldItemRecordSchema,
+  FormFieldsDisplayItem,
+  FormFieldSection,
+  PATIENT_RECORD_CONFIG,
+} from 'utils';
+import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormSectionInput {
   formSection: FormFieldSection;
@@ -38,6 +46,9 @@ interface UseFormSectionParams {
   index?: number;
 }
 export const usePatientRecordFormSection = ({ formSection, index }: UseFormSectionParams): FormSectionDetails => {
+  const { watch } = useFormContext();
+  const formValues = watch();
+
   let linkId = formSection.linkId;
   if (index !== undefined && Array.isArray(formSection.linkId)) {
     linkId = formSection.linkId[index];
@@ -47,10 +58,31 @@ export const usePatientRecordFormSection = ({ formSection, index }: UseFormSecti
       'Form section linkId must be a string when used with useFormSection. Did you forget to pass index?'
     );
   }
-  const { title, items, hiddenFields, requiredFields } = formSection;
-  const isHidden = Array.isArray(linkId)
+  const { title, items, hiddenFields, requiredFields, triggers, enableBehavior } = formSection;
+
+  // Check if section is always hidden
+  const isAlwaysHidden = Array.isArray(linkId)
     ? PATIENT_RECORD_CONFIG.hiddenFormSections.some((section) => linkId.includes(section))
     : PATIENT_RECORD_CONFIG.hiddenFormSections.includes(linkId);
+
+  // Evaluate section-level triggers to determine conditional visibility
+  let isConditionallyHidden = false;
+  if (!isAlwaysHidden && triggers && triggers.length > 0) {
+    // Create a minimal display field to evaluate section-level triggers
+    const sectionAsItem: FormFieldsDisplayItem = {
+      key: linkId,
+      type: 'display',
+      text: title,
+      disabledDisplay: 'hidden',
+      triggers,
+      enableBehavior,
+    };
+    const triggeredEffects = evaluateFieldTriggers(sectionAsItem, formValues, enableBehavior);
+    isConditionallyHidden = triggeredEffects.enabled === false;
+  }
+
+  const isHidden = isAlwaysHidden || isConditionallyHidden;
+
   let itemsToUse = items;
   if (Array.isArray(items) && index !== undefined) {
     itemsToUse = items[index];

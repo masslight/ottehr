@@ -1,5 +1,6 @@
 export * from './consentFormsInfo';
 export * from './contactInfo';
+export * from './discharge-summary';
 export * from './documents';
 export * from './emergencyContactInfo';
 export * from './employerInfo';
@@ -11,3 +12,4 @@ export * from './pharmacyInfo';
 export * from './primaryCarePhysician';
 export * from './responsiblePartyInfo';
 export * from './visitInfo';
+export * from './visit-note';

@@ -1,4 +1,4 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, VALUE_SETS } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, ServiceMode, VALUE_SETS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 import { CancelAppointmentZambdaInputValidated } from '.';
 
@@ -7,7 +7,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     throw MISSING_REQUEST_BODY;
   }
 
-  const { language, appointmentID, cancellationReason, silent } = JSON.parse(input.body);
+  const { language, appointmentID, cancellationReason, silent, cancellationReasonAdditional } = JSON.parse(input.body);
 
   const missingFields = [];
   if (appointmentID === undefined) {
@@ -20,13 +20,16 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     throw MISSING_REQUIRED_PARAMETERS(missingFields);
   }
 
-  const validReasons = VALUE_SETS.cancelReasonOptions.map((option) => option.value);
-
-  if (!validReasons.includes(cancellationReason)) {
-    throw INVALID_INPUT_ERROR(
-      `"cancellationReason" must be one of the following values: ${JSON.stringify(validReasons)}`
-    );
+  if (typeof cancellationReason !== 'string') {
+    throw INVALID_INPUT_ERROR(`"cancellationReason" must be a string`);
   }
+
+  if (cancellationReasonAdditional && typeof cancellationReasonAdditional !== 'string') {
+    throw INVALID_INPUT_ERROR(`"cancellationReasonAdditional" must be a string if included`);
+  }
+
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
   return {
     appointmentID,
@@ -34,5 +37,39 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     silent,
     secrets: input.secrets,
     language,
+    cancellationReasonAdditional,
   };
 }
+
+export interface AppointmentCancellationContext {
+  cancellationReason: string;
+  requesterType: 'patient' | 'provider';
+  serviceMode: ServiceMode;
+}
+
+export const validateCancellationReasonForAppointmentContext = (context: AppointmentCancellationContext): void => {
+  const { cancellationReason, requesterType, serviceMode } = context;
+
+  const validValueSets: string[] = [];
+
+  if (requesterType === 'provider') {
+    if (serviceMode === ServiceMode.virtual) {
+      validValueSets.push(...VALUE_SETS.cancelReasonOptionsVirtualProvider.map((option) => option.value));
+    } else {
+      validValueSets.push(...VALUE_SETS.cancelReasonOptionsInPersonProvider.map((option) => option.value));
+    }
+  } else {
+    if (serviceMode === ServiceMode.virtual) {
+      validValueSets.push(...VALUE_SETS.cancelReasonOptionsVirtualPatient.map((option) => option.value));
+    } else {
+      validValueSets.push(...VALUE_SETS.cancelReasonOptionsInPersonPatient.map((option) => option.value));
+    }
+  }
+  if (!validValueSets.includes(cancellationReason)) {
+    throw INVALID_INPUT_ERROR(
+      `"cancellationReason" value "${cancellationReason}" is not valid for the appointment context (must be one of [${validValueSets.join(
+        ', '
+      )}])`
+    );
+  }
+};

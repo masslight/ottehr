@@ -262,7 +262,7 @@ const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
     code: 'occupational-medicine',
     system: SERVICE_CATEGORY_SYSTEM,
   },
-  { display: 'Workmans Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
+  { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
 ];
 
 interface BookingContext {
@@ -545,4 +545,19 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
   });
 
   return item;
+};
+
+export const getReasonForVisitOptionsForServiceCategory = (
+  serviceCategory: string
+): { value: string; label: string }[] => {
+  if (serviceCategory === 'occupational-medicine') {
+    return VALUE_SETS.reasonForVisitOptionsOccMed;
+  }
+  if (serviceCategory === 'workers-comp') {
+    return VALUE_SETS.reasonForVisitOptionsWorkersComp;
+  }
+  if (serviceCategory === 'urgent-care') {
+    return VALUE_SETS.reasonForVisitOptions;
+  }
+  return [];
 };

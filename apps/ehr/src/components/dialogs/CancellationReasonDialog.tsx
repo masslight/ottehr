@@ -16,7 +16,7 @@ import {
 import { Appointment, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
-import { CancelAppointmentZambdaInput, VALUE_SETS } from 'utils';
+import { CancelAppointmentZambdaInput, isTelemedAppointment, VALUE_SETS } from 'utils';
 import { cancelAppointment } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -58,6 +58,10 @@ export default function CancellationReasonDialog({
       },
     },
   };
+
+  const cancelOptions = isTelemedAppointment(appointment)
+    ? VALUE_SETS.cancelReasonOptionsVirtualProvider
+    : VALUE_SETS.cancelReasonOptionsInPersonProvider;
 
   const handleCancel = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -143,7 +147,7 @@ export default function CancellationReasonDialog({
                 renderValue={(selected) => selected}
                 MenuProps={MenuProps}
               >
-                {VALUE_SETS.cancelReasonOptions.map((reason) => (
+                {cancelOptions.map((reason) => (
                   <MenuItem key={reason.value} value={reason.value}>
                     <ListItemText primary={reason.label} />
                   </MenuItem>
