@@ -276,7 +276,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await progressNotePage.verifyVitalIsShown(TEMPERATURE_C);
         });
         await test.step('VIT-2.2 Verify heartbeat in progress note', async () => {
-          await progressNotePage.verifyVitalIsShown(HEARTBEAT_BPM);
+          await progressNotePage.verifyVitalIsShown(HEARTBEAT_BPM + '/min');
         });
         await test.step('VIT-2.3 Verify respiration rate in progress note', async () => {
           await progressNotePage.verifyVitalIsShown(RESPIRATION_RATE);
@@ -433,7 +433,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         await progressNotePage.verifyRemovedSurgeryIsNotShown(SURGERY);
       });
 
-      test('HSP-1.4 Verify hospitalizations changed data on Progress note', async () => {
+      test('HS-1.4 Verify hospitalizations changed data on Progress note', async () => {
         await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_1);
         await progressNotePage.verifyHospitalizationNotShown(HOSPITALIZATION_REASON_2);
         await progressNotePage.verifyHospitalizationNote(HOSPITALIZATION_NOTE_1_EDITED);
