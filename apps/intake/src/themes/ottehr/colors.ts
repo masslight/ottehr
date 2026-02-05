@@ -1,5 +1,4 @@
 export const otherColors = {
-  appBarBackground: '#0A2143',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
   cardBackground: '#F7F8F9',
