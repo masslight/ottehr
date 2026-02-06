@@ -235,7 +235,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await abnormalVitalDialog.verifyModalContent('Temperature');
           await abnormalVitalDialog.verifyModalContent(TEMPERATURE_ABNORMAL_C);
           await abnormalVitalDialog.verifyAlertIconVisible();
-          await abnormalVitalDialog.clickCancelButton();
+          await abnormalVitalDialog.clickCancelButton(); // clickCancelButton() is used because it corresponds to 'Continue' button in UI.
           await expectAllergiesPage(page);
         });
       });
@@ -399,7 +399,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await vitalsPage.removeLastMenstrualPeriodObservationFromHistory(LMP_DATE);
         });
 
-        await test.step('VIT-3.12 Delete  and edit vitals notes', async () => {
+        await test.step('VIT-3.12 Delete and edit vitals notes', async () => {
           await vitalsPage.editVitalsNote(VITALS_NOTE_1, VITALS_NOTE_1_EDITED);
           await vitalsPage.deleteVitalsNote(VITALS_NOTE_2);
         });

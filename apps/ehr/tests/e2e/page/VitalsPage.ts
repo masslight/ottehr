@@ -18,16 +18,10 @@ export class VitalsPage {
     await addButton.click();
     await waitForSaveChartDataResponse(this.#page);
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.temperatureHeader)).toContainText(temperature);
-    await expect(
-      this.#page.getByTestId(dataTestIds.vitalsPage.temperatureItem).filter({ hasText: temperature })
-    ).toBeVisible();
+    const itemLocator = this.#page.getByTestId(dataTestIds.vitalsPage.temperatureItem).filter({ hasText: temperature });
+    await expect(itemLocator).toBeVisible();
     if (abnormal) {
-      await expect(
-        this.#page
-          .getByTestId(dataTestIds.vitalsPage.temperatureItem)
-          .filter({ hasText: temperature })
-          .getByTestId(dataTestIds.vitalsPage.abnormalVitalIcon)
-      ).toBeVisible();
+      await expect(itemLocator.getByTestId(dataTestIds.vitalsPage.abnormalVitalIcon)).toBeVisible();
     }
   }
 
