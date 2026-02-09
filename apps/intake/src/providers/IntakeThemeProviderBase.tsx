@@ -28,10 +28,12 @@ declare module '@mui/material/styles' {
   interface Palette {
     tertiary: PaletteColor;
     destructive: PaletteColor;
+    custom: PaletteColor;
   }
   interface PaletteOptions {
     tertiary: PaletteColor;
     destructive: PaletteColor;
+    custom: PaletteColor;
   }
 }
 

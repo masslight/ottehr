@@ -75,4 +75,14 @@ export const palette = {
     cancelled: '#FCBDBD',
   },
   divider: '#C3C9D2',
+  custom: {
+    borderGray: '#D6D8DF',
+    borderLightBlue: '#4294F3',
+    lightGray: 'rgba(0, 0, 0, 0.23)',
+    placeholder: '#A9A9A9',
+    popupBackground: 'rgba(97, 97, 97, 0.9)',
+    primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
+    scheduleBorder: '#8F9AA7',
+    transparent: 'rgba(0, 0, 0, 0)',
+  },
 };

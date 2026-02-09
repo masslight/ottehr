@@ -12,12 +12,12 @@ import {
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
+import { palette } from '@theme/colors';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm, loadStripe } from 'ui-components';
 import { CreditCardInfo, IntakeQuestionnaireItem, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
-import { otherColors, palette } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
 
@@ -222,7 +222,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
                         return theme.palette.background.paper;
                       }
                     },
-                    borderColor: item.id === selectedOption ? 'primary.main' : otherColors.borderGray,
+                    borderColor: item.id === selectedOption ? 'primary.main' : palette.custom.borderGray,
                     paddingTop: 0,
                     paddingBottom: 0,
                     paddingRight: 2,

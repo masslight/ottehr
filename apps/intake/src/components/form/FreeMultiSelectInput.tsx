@@ -184,14 +184,14 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
                   p: 0.5,
                   backgroundColor: `${theme.palette.background.paper} !important`,
                   border: '1px solid',
-                  borderColor: otherColors.borderGray,
+                  borderColor: palette.custom.borderGray,
                   borderRadius: 2,
                   '&::before, ::after, :hover:not(.Mui-disabled, .Mui-error)::before': {
                     borderBottom: 0,
                   },
                 },
                 '& .Mui-focused': {
-                  boxShadow: `${otherColors.primaryBoxShadow} 0 0 0 0.2rem`,
+                  boxShadow: `${palette.custom.primaryBoxShadow} 0 0 0 0.2rem`,
                   borderColor: `${theme.palette.primary.main}`,
                 },
               }}

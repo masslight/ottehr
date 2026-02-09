@@ -1,16 +1,15 @@
 import LanguageIcon from '@mui/icons-material/Language';
 import { Popover, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
+import { palette } from '@theme/colors';
 import mixpanel from 'mixpanel-browser';
-import { FC, MouseEvent, useContext, useEffect, useState } from 'react';
+import { FC, MouseEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from '../contexts';
 import { languages } from '../lib/i18n';
 
 export const LanguagePicker: FC = () => {
   const theme = useTheme();
   const { i18n } = useTranslation();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   useEffect(() => {
     // Not having a unique id uses the default $distinct_id prop
@@ -87,14 +86,14 @@ export const LanguagePicker: FC = () => {
               // To stop it adding a padding-right on the main element, shifting the background image
               disableScrollLock
               // Because 'none' doesn't work for some reason
-              PaperProps={{ sx: { backgroundColor: otherColors.transparent } }}
+              PaperProps={{ sx: { backgroundColor: palette.custom.transparent } }}
               sx={{ mt: 1, pointerEvents: 'none' }}
             >
               <Typography
                 sx={{
                   px: 1,
                   py: 0.5,
-                  backgroundColor: otherColors.popupBackground,
+                  backgroundColor: palette.custom.popupBackground,
                   color: theme.palette.background.paper,
                 }}
               >
