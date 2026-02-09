@@ -9,7 +9,6 @@ import {
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getCriticalUpdateTagOp,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getSecret,
@@ -318,19 +317,13 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
       .filter((reference) => reference.reference === 'Account/' + occupationalMedicineAccount?.id)
       .filter((reference) => reference.reference === 'Account/' + workersCompAccount?.id);
 
-    if (bookingDetails.serviceCategory.code === 'workers-comp') {
-      if (!workersCompAccount) {
-        throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Workmans Comp Account missing');
-      }
+    if (bookingDetails.serviceCategory.code === 'workers-comp' && workersCompAccount) {
       newEncounterAccounts.push({
         reference: 'Account/' + workersCompAccount.id,
       });
     }
 
-    if (bookingDetails.serviceCategory.code === 'occupational-medicine') {
-      if (!occupationalMedicineAccount) {
-        throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Occupational Medicine Account missing');
-      }
+    if (bookingDetails.serviceCategory.code === 'occupational-medicine' && occupationalMedicineAccount) {
       newEncounterAccounts.push({
         reference: 'Account/' + occupationalMedicineAccount.id,
       });
