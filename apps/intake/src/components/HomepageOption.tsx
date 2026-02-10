@@ -1,7 +1,7 @@
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { otherColors } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 
 interface HomepageOptionsProps {
   title: string;
@@ -25,7 +25,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
         px: 3,
         py: 3,
         cursor: 'pointer',
-        border: `1px solid ${otherColors.borderGray}`,
+        border: `1px solid ${palette.custom.borderGray}`,
       }}
       data-testid={dataTestId}
       onClick={handleClick}
@@ -38,7 +38,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
             justifyContent: 'center',
             width: 48,
             height: 48,
-            backgroundColor: otherColors.lightBlue,
+            backgroundColor: palette.secondary.light,
             borderRadius: '50%',
             color: theme.palette.secondary.main,
           }}
@@ -63,7 +63,7 @@ const HomepageOption: FC<HomepageOptionsProps> = ({ title, icon, handleClick, su
         sx={{
           display: 'flex',
           alignItems: 'center',
-          backgroundColor: otherColors.purple,
+          backgroundColor: palette.secondary.main,
           color: 'white',
           borderRadius: '50%',
           p: 1,

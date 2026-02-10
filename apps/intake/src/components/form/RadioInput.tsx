@@ -11,6 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC, SyntheticEvent, useContext, useRef } from 'react';
 import { Controller, FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -250,8 +251,8 @@ const RadioInput: FC<RadioInputProps> = ({
                 title={infoTextSecondary}
                 placement="top"
                 enterTouchDelay={0}
-                backgroundColor={otherColors.toolTipGrey}
-                color={otherColors.black}
+                backgroundColor={palette.tertiary.contrast}
+                color={palette.tertiary.dark}
               >
                 <Box
                   sx={{

@@ -1,5 +1,6 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Autocomplete, Box, Chip, FormControl, SelectProps, TextField, Typography, useTheme } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC, ReactNode, useContext, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -183,14 +184,14 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
                   p: 0.5,
                   backgroundColor: `${theme.palette.background.paper} !important`,
                   border: '1px solid',
-                  borderColor: otherColors.borderGray,
+                  borderColor: palette.custom.borderGray,
                   borderRadius: 2,
                   '&::before, ::after, :hover:not(.Mui-disabled, .Mui-error)::before': {
                     borderBottom: 0,
                   },
                 },
                 '& .Mui-focused': {
-                  boxShadow: `${otherColors.primaryBoxShadow} 0 0 0 0.2rem`,
+                  boxShadow: `${palette.custom.primaryBoxShadow} 0 0 0 0.2rem`,
                   borderColor: `${theme.palette.primary.main}`,
                 },
               }}
@@ -200,8 +201,8 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
                 title={infoTextSecondary}
                 placement="top"
                 enterTouchDelay={0}
-                backgroundColor={otherColors.toolTipGrey}
-                color={otherColors.black}
+                backgroundColor={palette.tertiary.contrast}
+                color={palette.tertiary.dark}
               >
                 <Box
                   sx={{

@@ -31,7 +31,7 @@ import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
@@ -364,7 +364,7 @@ const ReviewPaperwork = (): JSX.Element => {
                     paddingBottom: 2,
                     paddingLeft: 0,
                     paddingRight: 0,
-                    color: otherColors.darkPurple,
+                    color: palette.primary.main,
                     WebkitBoxOrient: 'vertical',
                     WebkitLineClamp: 2,
                   }}

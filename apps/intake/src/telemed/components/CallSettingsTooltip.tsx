@@ -3,11 +3,11 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, ClickAwayListener, IconButton, List } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC } from 'react';
 import { ContactSupportDialog } from '../../components/ContactSupportDialog';
 import { CustomTooltip } from '../../components/CustomTooltip';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
-import { otherColors } from '../../IntakeThemeProvider';
 import { useIntakeCommonStore } from '../features/common';
 import { IconButtonContained } from './IconButtonContained';
 
@@ -57,17 +57,17 @@ export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
                     }}
                     noDivider
                   >
-                    <SettingsOutlinedIcon sx={{ color: otherColors.purple }} />
+                    <SettingsOutlinedIcon sx={{ color: palette.secondary.main }} />
                   </StyledListItemWithButton>
                 </List>
                 <IconButton onClick={handleTooltipClose} size="small" sx={{ position: 'absolute', right: 0, top: 0 }}>
-                  <CloseIcon fontSize="small" sx={{ color: otherColors.toolTipClose }} />
+                  <CloseIcon fontSize="small" sx={{ color: palette.tertiary.contrast }} />
                 </IconButton>
               </Box>
             }
           >
             <IconButtonContained onClick={handleTooltipOpen} variant={isTooltipOpen ? 'disabled' : undefined}>
-              <SettingsIcon sx={{ color: otherColors.white }} />
+              <SettingsIcon sx={{ color: palette.tertiary.light }} />
             </IconButtonContained>
           </CustomTooltip>
         </div>

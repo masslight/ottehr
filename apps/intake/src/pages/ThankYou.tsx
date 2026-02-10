@@ -2,6 +2,7 @@ import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
+import { palette } from '@theme/colors';
 import { primaryIcon } from '@theme/icons';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -31,7 +32,6 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { breakpoints } from '../providers';
 
@@ -142,7 +142,7 @@ const ThankYou = (): JSX.Element => {
   const { id: appointmentID } = useParams();
 
   const purpleTextBoxStyling = {
-    backgroundColor: otherColors.lightBlue,
+    backgroundColor: palette.secondary.light,
     padding: 17,
     borderRadius: 8,
     marginTop: 16,

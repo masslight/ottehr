@@ -1,8 +1,8 @@
 import { Box, Button, Container, Typography, useTheme } from '@mui/material';
-import React, { ChangeEvent, FC, useContext } from 'react';
+import { palette } from '@theme/colors';
+import React, { ChangeEvent, FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
-import { IntakeThemeContext } from '../../contexts';
 import { DescriptionRenderer } from './DescriptionRenderer';
 
 interface UploadComponentProps {
@@ -20,7 +20,6 @@ const UploadComponent: FC<UploadComponentProps> = ({
 }): JSX.Element => {
   const theme = useTheme();
   const { control } = useFormContext();
-  const { otherColors } = useContext(IntakeThemeContext);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   // HTMLDivElement is here because I used a fragment to wrap uploadAndController.
@@ -94,7 +93,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
         border: `1px dashed ${theme.palette.primary.main}`,
         borderRadius: 2,
         display: 'flex',
-        background: otherColors.cardBackground,
+        background: palette.background.card,
         flexDirection: 'column',
         alignItems: 'center',
         textAlign: 'center',

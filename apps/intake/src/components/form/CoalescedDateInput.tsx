@@ -1,9 +1,9 @@
 import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import { palette } from '@theme/colors';
 import { DateTime } from 'luxon';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { months } from 'utils';
-import { IntakeThemeContext } from '../../contexts';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 
@@ -66,8 +66,6 @@ const CoalescedDateInput = ({
   const {
     formState: { errors },
   } = useFormContext();
-
-  const { otherColors } = useContext(IntakeThemeContext);
 
   const coalescedDate = useMemo(() => {
     const isoString = `${selectedYear}-${selectedMonth}-${selectedDay}`;
@@ -144,7 +142,7 @@ const CoalescedDateInput = ({
         </FormControl>
       </div>
       <InputHelperText
-        textColor={otherColors.cancel}
+        textColor={palette.destructive.dark}
         name={name}
         errors={errors}
         helperText={helperText}

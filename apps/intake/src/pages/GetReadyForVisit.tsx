@@ -1,13 +1,13 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, List, ListItem, Typography, useTheme } from '@mui/material';
+import { palette } from '@theme/colors';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useLocation, useNavigate } from 'react-router-dom';
-import { VisitType } from 'utils';
+import { BRANDING_CONFIG, VisitType } from 'utils';
 import { PageContainer } from '../components';
 import PageForm from '../components/PageForm';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
-import { otherColors } from '../IntakeThemeProvider';
 import { useBookingContext } from './BookingHome';
 
 const GetReadyForVisit = (): JSX.Element => {
@@ -41,7 +41,7 @@ const GetReadyForVisit = (): JSX.Element => {
   return (
     <PageContainer
       title={t('getReady.title')}
-      imgWidth={150}
+      imgWidth={BRANDING_CONFIG.primaryIconSize}
       topOutsideCardComponent={
         // todo: previously this only was displayed when the office was open,
         // but it seems waiting minutes shouldn't be defined in cases where the office is closed
@@ -55,7 +55,7 @@ const GetReadyForVisit = (): JSX.Element => {
       <>
         <Box
           sx={{
-            backgroundColor: otherColors.lightBlue,
+            backgroundColor: palette.secondary.light,
             color: theme.palette.secondary.main,
             padding: 2,
             marginBottom: 3,

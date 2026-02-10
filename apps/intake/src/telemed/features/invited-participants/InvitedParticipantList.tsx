@@ -1,11 +1,11 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Alert, Box, Snackbar, Typography } from '@mui/material';
-import { FC, useContext, useMemo, useState } from 'react';
+import { palette } from '@theme/colors';
+import { FC, useMemo, useState } from 'react';
 import { InvitedParticipantInfo } from 'utils';
 import { dataTestIds } from '../../../../src/helpers/data-test-ids';
 import { ConfirmationDialog } from '../../../components/ConfirmationDialog';
 import PageForm from '../../../components/PageForm';
-import { IntakeThemeContext } from '../../../contexts';
 import { useCancelInviteMutation } from '../waiting-room';
 
 type InvitedParticipantListProps = {
@@ -15,7 +15,6 @@ type InvitedParticipantListProps = {
 };
 
 export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items, onInviteCancelled, onClose }) => {
-  const { otherColors } = useContext(IntakeThemeContext);
   const [inviteErrorSnackbarOpen, setInviteErrorSnackbarOpen] = useState<boolean>(false);
   const cancelInviteMutation = useCancelInviteMutation();
   const invite = items[0]; // for this release we take only one invite.
@@ -41,7 +40,7 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
         sx={{
           display: 'flex',
           flexDirection: { xs: 'column', md: 'row' },
-          backgroundColor: otherColors.coachingVisit,
+          backgroundColor: palette.secondary.soft,
           padding: '16px',
           borderRadius: '8px',
         }}

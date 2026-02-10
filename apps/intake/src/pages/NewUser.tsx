@@ -41,7 +41,7 @@ const NewUser = (): JSX.Element => {
       title={t('newUser.title', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
       img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={100}
+      imgWidth={BRANDING_CONFIG.primaryIconSize}
     >
       <Typography variant="body1" className="user-description">
         {t('newUser.body')}

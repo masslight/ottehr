@@ -6,8 +6,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
 import StopIcon from '@mui/icons-material/Stop';
 import { Box, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { palette } from '@theme/colors';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
-import { otherColors } from '../../../IntakeThemeProvider';
 
 type MicrophoneSettingsProps = {
   selectedAudioDevice: string;
@@ -174,7 +174,7 @@ export const MicrophoneSettings: FC<MicrophoneSettingsProps> = (props) => {
 
       <Card
         sx={{
-          backgroundColor: otherColors.coachingVisit,
+          backgroundColor: palette.secondary.soft,
           py: 1,
           px: 2,
           display: 'flex',

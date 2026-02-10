@@ -1,10 +1,10 @@
 import { Typography } from '@mui/material';
+import { palette } from '@theme/colors';
 import { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { PatientInfo, yupDateTransform } from 'utils';
 import { useGetFullName } from '../../../hooks/useGetFullName';
-import { otherColors } from '../../../IntakeThemeProvider';
 import i18n from '../../../lib/i18n';
 
 export const PatientInformationKnownPatientFieldsDisplay = ({
@@ -33,9 +33,9 @@ export const PatientInformationKnownPatientFieldsDisplay = ({
       <Typography variant="body2" sx={{ fontSize: '14px' }} color="primary.main">
         {t('aboutPatient.birthdayLabel')} {formattedBirthday}
       </Typography>
-      <Typography variant="body1" color={otherColors.wrongPatient} marginTop={2} marginBottom={4}>
+      <Typography variant="body1" color={palette.text.secondary} marginTop={2} marginBottom={4}>
         {t('aboutPatient.wrongPatient.body1')}{' '}
-        <Link style={{ color: otherColors.wrongPatient }} to={selectPatientPageUrl}>
+        <Link style={{ color: palette.text.secondary }} to={selectPatientPageUrl}>
           {t('aboutPatient.wrongPatient.body2')}
         </Link>{' '}
         {t('aboutPatient.wrongPatient.body3')}

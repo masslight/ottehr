@@ -1,8 +1,8 @@
 import { Checkbox, FormControlLabel } from '@mui/material';
-import { FC, useContext } from 'react';
+import { palette } from '@theme/colors';
+import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
-import { IntakeThemeContext } from '../../contexts';
 import { DescriptionRenderer } from './DescriptionRenderer';
 import { LinkRenderer } from './LinkRenderer';
 
@@ -15,7 +15,6 @@ interface ControlledCheckBoxProps {
 
 const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ name, label, defaultValue, required }) => {
   const { control } = useFormContext();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   return (
     <FormControlLabel
@@ -42,7 +41,7 @@ const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ name, label, defaultV
                     borderRadius: '4px',
                   },
                   '&.Mui-checked': {
-                    color: otherColors.purple,
+                    color: palette.secondary.main,
                     borderRadius: '4px',
                     outline: '1px solid #2169F5',
                   },

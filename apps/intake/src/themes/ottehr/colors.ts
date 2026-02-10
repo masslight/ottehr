@@ -1,36 +1,18 @@
 export const otherColors = {
-  appBarBackground: '#0A2143',
-  black: '#000000',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',
-  cancel: '#B22020',
-  cardBackground: '#F7F8F9',
-  checkIcon: '#7045F2',
-  clearImage: '#EB5757',
-  coachingVisit: '#aed4fc',
-  darkGreen: '#0F5A4C',
-  darkPurple: '#301367',
-  lightBlue: '#E2F0FF',
-  lightCancel: '#FFD8D8',
   lightGray: 'rgba(0, 0, 0, 0.23)',
-  lightPurple: '#F5F2FF',
   placeholder: '#A9A9A9',
   popupBackground: 'rgba(97, 97, 97, 0.9)',
-  primaryBackground: '#F5F2FF',
   primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
-  purple: '#2169F5',
   scheduleBorder: '#8F9AA7',
-  toolTipClose: '#938B7D',
-  toolTipGrey: '#F9FAFB',
   transparent: 'rgba(0, 0, 0, 0)',
-  white: '#FFFFFF',
-  wrongPatient: '#8F9AA7',
 };
 
 export const palette = {
   text: {
     primary: '#212130',
-    secondary: '#4F4F4F',
+    secondary: '#00000099',
     disabled: '#C3C9D2',
     cancelled: '#D91B1B',
   },
@@ -45,11 +27,14 @@ export const palette = {
     main: '#2169F5',
     contrast: '#FFFFFF',
     contrastText: '#FFFFFF',
+    soft: '#2169F514',
+    light: '#E2F0FF',
   },
   tertiary: {
     main: '#ECE4FB',
-    light: '#ECE4FB',
-    dark: '#ECE4FB',
+    light: '#FFFFFF',
+    dark: '#000000',
+    contrast: '#F9FAFB',
     contrastText: '#000000',
   },
   step: {
@@ -60,6 +45,7 @@ export const palette = {
   },
   success: {
     main: '#66BA70',
+    dark: '#0F5A4C',
   },
   warning: {
     main: '#FFCD75',
@@ -69,8 +55,8 @@ export const palette = {
   },
   destructive: {
     main: '#EB5757',
-    light: '#EB5757',
-    dark: '#EB5757',
+    light: '#FFD8D8',
+    dark: '#B22020',
     contrastText: '#FFFFFF',
   },
   action: {
@@ -83,8 +69,20 @@ export const palette = {
   },
   background: {
     default: '#15376A',
+    appBar: '#0A2143',
+    card: '#F7F8F9',
     paper: '#FFFFFF',
     cancelled: '#FCBDBD',
   },
   divider: '#C3C9D2',
+  custom: {
+    borderGray: '#D6D8DF',
+    borderLightBlue: '#4294F3',
+    lightGray: 'rgba(0, 0, 0, 0.23)',
+    placeholder: '#A9A9A9',
+    popupBackground: 'rgba(97, 97, 97, 0.9)',
+    primaryBoxShadow: 'rgba(77, 21, 183, 0.25)',
+    scheduleBorder: '#8F9AA7',
+    transparent: 'rgba(0, 0, 0, 0)',
+  },
 };

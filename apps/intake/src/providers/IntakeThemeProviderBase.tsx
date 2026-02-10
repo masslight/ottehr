@@ -28,10 +28,12 @@ declare module '@mui/material/styles' {
   interface Palette {
     tertiary: PaletteColor;
     destructive: PaletteColor;
+    custom: PaletteColor;
   }
   interface PaletteOptions {
     tertiary: PaletteColor;
     destructive: PaletteColor;
+    custom: PaletteColor;
   }
 }
 
@@ -43,6 +45,9 @@ declare module '@mui/material/Button' {
 
 type IntakeThemeProviderProps = PropsWithChildren & {
   palette: PaletteOptions & {
+    background: {
+      appBar: string;
+    };
     secondary: {
       main: string;
     };
@@ -85,7 +90,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
       styleOverrides: {
         root: {
           display: 'flex',
-          backgroundColor: otherColors.appBarBackground,
+          backgroundColor: palette.background.appBar,
         },
       },
     },

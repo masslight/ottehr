@@ -197,7 +197,7 @@ const Reschedule = (): JSX.Element => {
       isFirstPage
       img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={150}
+      imgWidth={BRANDING_CONFIG.primaryIconSize}
     >
       <>
         <Schedule

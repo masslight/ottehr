@@ -3,7 +3,7 @@ import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { AppointmentInformationIntake, formatVisitDate } from 'utils';
 import { intakeFlowPageRoute } from '../App';
 import { useGetPastVisits } from '../features/past-visits';
-import { otherColors } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import { useOystehrAPIClient } from '../telemed/utils';
 
 const PastVisits = (): JSX.Element => {
@@ -41,7 +41,7 @@ const PastVisits = (): JSX.Element => {
         <Skeleton
           sx={{
             borderRadius: 2,
-            backgroundColor: otherColors.coachingVisit,
+            backgroundColor: palette.secondary.soft,
             p: 8,
           }}
         />
@@ -67,14 +67,14 @@ const PastVisits = (): JSX.Element => {
                   py: 3,
                   my: 3,
                   gap: 2,
-                  backgroundColor: otherColors.lightPurple,
+                  backgroundColor: palette.secondary.soft,
                   cursor: appointment.appointmentStatus === 'cancelled' ? 'auto' : 'pointer',
                 }}
                 data-testid="past-visits-list"
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column ', alignItems: 'flex-start', gap: 1 }}>
-                    <Typography variant="subtitle1" color={otherColors.darkPurple}>
+                    <Typography variant="subtitle1" color={palette.primary.main}>
                       {formatVisitDate(appointment.start || '', 'visit', appointment.timezone)}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1.5 }}>
@@ -107,10 +107,10 @@ const PastVisits = (): JSX.Element => {
                       flex: '1 0 131px',
                       display: 'flex',
                       alignItems: 'center',
-                      backgroundColor: otherColors.white,
+                      backgroundColor: palette.tertiary.light,
                       color: 'primary.light',
                       border: '1px solid',
-                      borderColor: otherColors.purple,
+                      borderColor: palette.secondary.main,
                       borderRadius: '100px',
                       py: 1,
                       px: 2,
@@ -130,10 +130,10 @@ const PastVisits = (): JSX.Element => {
         sx={{
           display: 'flex',
           alignItems: 'center',
-          backgroundColor: otherColors.white,
+          backgroundColor: palette.tertiary.light,
           color: 'primary.light',
           border: '1px solid',
-          borderColor: otherColors.purple,
+          borderColor: palette.secondary.main,
           borderRadius: '100px',
           py: 1,
           px: 2,

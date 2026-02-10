@@ -1,6 +1,6 @@
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import { StyledListItemWithButton } from '../../../components/StyledListItemWithButton';
-import { otherColors } from '../../../IntakeThemeProvider';
+import { palette } from '../../../IntakeThemeProvider';
 import { useGetVideoChatInvites } from '../waiting-room';
 
 export function InvitedParticipantListItemButton({
@@ -31,7 +31,7 @@ export function InvitedParticipantListItemButton({
       hideText={hideText}
       onClick={onClick}
     >
-      <ManageAccountsOutlinedIcon sx={{ color: otherColors.purple }} />
+      <ManageAccountsOutlinedIcon sx={{ color: palette.secondary.main }} />
     </StyledListItemWithButton>
   );
 }

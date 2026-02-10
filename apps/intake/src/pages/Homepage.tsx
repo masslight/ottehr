@@ -17,7 +17,7 @@ import {
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
-import { otherColors } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import { CancelVisitDialog } from '../telemed/components';
 import {
   findActiveAppointment,
@@ -167,7 +167,7 @@ const Homepage = (): JSX.Element => {
             height={115}
             sx={{
               borderRadius: 2,
-              backgroundColor: otherColors.coachingVisit,
+              backgroundColor: palette.secondary.soft,
             }}
           />
         ) : (

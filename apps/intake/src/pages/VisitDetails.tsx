@@ -1,10 +1,10 @@
 import DownloadIcon from '@mui/icons-material/Download';
 import { Box, Button, CircularProgress, Divider, Typography } from '@mui/material';
+import { palette } from '@theme/colors';
 import { DateTime } from 'luxon';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { GetVisitDetailsResponse } from 'utils';
 import { intakeFlowPageRoute } from '../App';
-import { otherColors } from '../IntakeThemeProvider';
 import { useGetVisitDetails } from '../telemed/features/appointments';
 import { useIntakeCommonStore } from '../telemed/features/common';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
@@ -208,10 +208,10 @@ const VisitDetails = (): JSX.Element => {
             alignSelf: 'baseline',
             display: 'flex',
             alignItems: 'center',
-            backgroundColor: otherColors.white,
+            backgroundColor: palette.tertiary.light,
             color: 'primary.light',
             border: '1px solid',
-            borderColor: otherColors.purple,
+            borderColor: palette.secondary.main,
             borderRadius: '100px',
             py: 1,
             px: 2,

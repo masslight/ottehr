@@ -32,7 +32,7 @@ import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { BoldPurpleInputLabel } from '../components/form';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors } from '../IntakeThemeProvider';
+import { otherColors, palette } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
 import { useOystehrAPIClient } from '../telemed/utils';
 
@@ -331,7 +331,7 @@ const LoadingSkeleton: FC = () => (
   <Skeleton
     sx={{
       borderRadius: 2,
-      backgroundColor: otherColors.coachingVisit,
+      backgroundColor: palette.secondary.soft,
       p: 6,
     }}
   />

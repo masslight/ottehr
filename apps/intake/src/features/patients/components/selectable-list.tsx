@@ -1,10 +1,10 @@
 import { Box } from '@mui/system';
+import { palette } from '@theme/colors';
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { getPatientInfoFullName, PatientInfo } from 'utils';
 import PageForm from '../../../components/PageForm';
-import { otherColors } from '../../../IntakeThemeProvider';
 import { DIFFERENT_FAMILY_MEMBER_DATA } from '../../../telemed/utils/constants';
 import { FormInputType } from '../../../types';
 
@@ -57,7 +57,7 @@ const PatientList: React.FC<PatientListProps> = ({
                     'MMMM dd, yyyy'
                   )}`,
                   value: patient.id,
-                  color: otherColors.lightBlue,
+                  color: palette.secondary.light,
                 };
               })
               .concat(pastVisits ? [] : DIFFERENT_FAMILY_MEMBER_DATA),

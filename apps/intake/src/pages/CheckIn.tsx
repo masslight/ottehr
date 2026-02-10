@@ -12,7 +12,7 @@ import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors, palette } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
 
@@ -68,7 +68,7 @@ const CheckIn = (): JSX.Element => {
       sx={{
         paddingRight: '4px',
         backgroundColor: 'transparent',
-        '.MuiChip-icon': { color: otherColors.darkGreen, margin: 0 },
+        '.MuiChip-icon': { color: palette.success.dark, margin: 0 },
         '.MuiChip-label': { display: 'none' },
       }}
     />
@@ -81,7 +81,7 @@ const CheckIn = (): JSX.Element => {
       sx={{
         paddingRight: '4px',
         backgroundColor: 'transparent',
-        '.MuiChip-icon': { color: otherColors.cancel, margin: 0 },
+        '.MuiChip-icon': { color: palette.destructive.dark, margin: 0 },
         '.MuiChip-label': { display: 'none' },
       }}
     />
@@ -114,7 +114,7 @@ const CheckIn = (): JSX.Element => {
               sx={{
                 border: 'none',
                 borderRadius: 2,
-                backgroundColor: otherColors.primaryBackground,
+                backgroundColor: palette.secondary.soft,
                 padding: 2,
                 marginX: 0,
                 display: 'flex',
@@ -128,7 +128,7 @@ const CheckIn = (): JSX.Element => {
                   sx={{
                     fontWeight: 700,
                     fontSize: '16px',
-                    color: otherColors.darkPurple,
+                    color: palette.primary.main,
                   }}
                   variant="body1"
                   className="paperwork"
@@ -160,7 +160,7 @@ const CheckIn = (): JSX.Element => {
             <Box
               sx={{
                 borderRadius: 2,
-                backgroundColor: otherColors.primaryBackground,
+                backgroundColor: palette.secondary.soft,
                 padding: 2,
                 border: 'none',
                 marginX: 0,
@@ -173,7 +173,7 @@ const CheckIn = (): JSX.Element => {
                   sx={{
                     fontWeight: 700,
                     fontSize: '16px',
-                    color: otherColors.darkPurple,
+                    color: palette.primary.main,
                   }}
                   variant="body1"
                 >
