@@ -324,6 +324,9 @@ export const addDocsToLabList = async (
       .filter((elm) => elm !== undefined) ?? []
   );
 
+  // docRefReferences could contain brand new attachments from oystehr, but also pre-existing
+  // DocRefs for ottehr pdfs or pre-exsiting oystehr attachments. So we de-dupe to ensure only new
+  // docrefs are added
   const uniqueDocRefs = [...new Set(docRefReferences)];
   const docRefReferencesToAdd = uniqueDocRefs.filter((docRef) => !currentDocRefs.has(docRef));
   const now = DateTime.now().setZone('UTC').toISO() ?? '';
@@ -345,6 +348,10 @@ export const addDocsToLabList = async (
     : [addOperation('/entry', newIdsAsEntries)];
 
   console.log(`These are the patch operations`, JSON.stringify(patchOperations));
+  if (!patchOperations.length) {
+    console.log('No unique attachments to add to List, returning');
+    return;
+  }
   try {
     const listPatchResult = await oystehr.fhir.patch<List>({
       resourceType: 'List',
