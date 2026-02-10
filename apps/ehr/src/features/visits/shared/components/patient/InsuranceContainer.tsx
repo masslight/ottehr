@@ -213,6 +213,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       const result = await recheckEligibility.mutateAsync();
       if (result) {
         setEligibilityStatus(result);
+        // When an eligibility check is run update other components with the updated insurance info
         await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
         await queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
       } else {
