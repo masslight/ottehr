@@ -13,12 +13,7 @@ import {
   AppointmentType,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
-  LAB_ORDER_DOC_REF_CODING_CODE,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  OYSTEHR_ABN_DOC_REF_CODING_UNIQUE,
-  PAPERWORK_CONSENT_CODE_UNIQUE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -404,7 +399,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   {
     title: BUCKET_NAMES.CONSENT_FORMS,
     display: 'Consent Forms',
-    documentTypeCode: PAPERWORK_CONSENT_CODE_UNIQUE.code!,
+    documentTypeCode: 'patient-registration', // PAPERWORK_CONSENT_CODE_UNIQUE.code
   },
   {
     title: BUCKET_NAMES.PRIVACY_POLICY,
@@ -440,10 +435,10 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.LABS,
     display: 'Labs',
     documentTypeCode: [
-      LAB_ORDER_DOC_REF_CODING_CODE.code, // external lab ottehr generated order form and eReqs
-      LAB_RESULT_DOC_REF_CODING_CODE.code, // lab results -- includes lab-generated and ottehr generated for external, as well as internal results
-      EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
-      OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
+      '51991-8', // LAB_ORDER_DOC_REF_CODING_CODE.code - external lab ottehr generated order form and eReqs
+      '11502-2', // LAB_RESULT_DOC_REF_CODING_CODE.code - lab results -- includes lab-generated and ottehr generated for external, as well as internal results
+      'specimen-container-label', // EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
+      'external-lab-abn', // OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code
     ],
   },
   {

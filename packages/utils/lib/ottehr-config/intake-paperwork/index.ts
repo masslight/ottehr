@@ -1997,19 +1997,28 @@ const INTAKE_PAPERWORK_DEFAULTS = {
   FormFields,
 };
 
-const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, OVERRIDES);
+/**
+ * Get intake paperwork configuration with optional test overrides
+ *
+ * @param testOverrides - Optional overrides for testing purposes
+ * @returns Parsed and merged configuration
+ */
+export function getIntakePaperworkConfig(testOverrides: Partial<typeof INTAKE_PAPERWORK_DEFAULTS> = OVERRIDES): any {
+  const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
+    FormFields: FormFieldsSchema,
+  });
+  const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, testOverrides);
+  return IntakePaperworkConfigSchema.parse(mergedConfig);
+}
 
-const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
-  FormFields: FormFieldsSchema,
-});
-
-export const INTAKE_PAPERWORK_CONFIG = IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
+export const INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
+export type IntakePaperworkConfig = typeof INTAKE_PAPERWORK_CONFIG;
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG)));
 
 export const checkFieldHidden = (fieldKey: string): boolean => {
   return Object.values(INTAKE_PAPERWORK_CONFIG.FormFields)
-    .flatMap((section) => section.hiddenFields)
+    .flatMap((section: any) => section.hiddenFields || [])
     .includes(fieldKey);
 };
 

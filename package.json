@@ -21,6 +21,8 @@
     "intake:e2e:local:smoke:ui": "SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=intake --ui",
     "intake:e2e:local:login": "tsx scripts/run-e2e.ts --app=intake --login-only",
     "intake:e2e:local:specs": "tsx scripts/run-e2e.ts --app=intake --specs-only",
+    "intake:e2e:local:pilot": "tsx scripts/run-e2e.ts --app=intake -- tests/pilot/",
+    "intake:e2e:local:pilot:ui": "tsx scripts/run-e2e.ts --app=intake --ui -- tests/pilot/",
     "intake:e2e:demo": "ENV=demo tsx scripts/run-e2e.ts --app=intake",
     "intake:e2e:demo:ui": "ENV=demo tsx scripts/run-e2e.ts --app=intake --ui",
     "intake:e2e:demo:smoke": "ENV=demo SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=intake",

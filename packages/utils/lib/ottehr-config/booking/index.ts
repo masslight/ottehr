@@ -423,11 +423,20 @@ const BOOKING_DEFAULTS: BookingConfig = {
   inPersonPrebookRoutingParams,
 };
 
+/**
+ * Get booking configuration with optional test overrides
+ *
+ * @param testOverrides - Optional overrides for testing purposes
+ * @returns Merged configuration
+ */
+export function getBookingConfig(
+  testOverrides: Partial<BookingConfig> = BOOKING_OVERRIDES as Partial<BookingConfig>
+): BookingConfig {
+  return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides);
+}
+
 // todo: it would be nice to use zod to validate the merged booking config shape here
-export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(
-  BOOKING_DEFAULTS,
-  BOOKING_OVERRIDES as Partial<BookingConfig>
-);
+export const BOOKING_CONFIG = getBookingConfig();
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
