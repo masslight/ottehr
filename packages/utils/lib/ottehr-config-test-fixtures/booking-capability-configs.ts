@@ -27,7 +27,10 @@ export const BOOKING_CAPABILITY_TEST_CONFIGS: Record<string, BookingCapabilityTe
         serviceModes: ['in-person'],
         visitType: ['prebook', 'walk-in'],
       },
-      homepageOptions: ['start-in-person-visit', 'schedule-in-person-visit'],
+      homepageOptions: [
+        { id: 'start-in-person-visit', label: 'Start In-Person Visit' },
+        { id: 'schedule-in-person-visit', label: 'Schedule In-Person Visit' },
+      ],
     },
   },
 
@@ -39,7 +42,10 @@ export const BOOKING_CAPABILITY_TEST_CONFIGS: Record<string, BookingCapabilityTe
         serviceModes: ['virtual'],
         visitType: ['prebook', 'walk-in'],
       },
-      homepageOptions: ['start-virtual-visit', 'schedule-virtual-visit'],
+      homepageOptions: [
+        { id: 'start-virtual-visit', label: 'Start Virtual Visit' },
+        { id: 'schedule-virtual-visit', label: 'Schedule Virtual Visit' },
+      ],
     },
   },
 
@@ -51,7 +57,10 @@ export const BOOKING_CAPABILITY_TEST_CONFIGS: Record<string, BookingCapabilityTe
         serviceModes: ['in-person', 'virtual'],
         visitType: ['prebook'],
       },
-      homepageOptions: ['schedule-in-person-visit', 'schedule-virtual-visit'],
+      homepageOptions: [
+        { id: 'schedule-in-person-visit', label: 'Schedule In-Person Visit' },
+        { id: 'schedule-virtual-visit', label: 'Schedule Virtual Visit' },
+      ],
     },
   },
 
@@ -63,7 +72,10 @@ export const BOOKING_CAPABILITY_TEST_CONFIGS: Record<string, BookingCapabilityTe
         serviceModes: ['in-person', 'virtual'],
         visitType: ['walk-in'],
       },
-      homepageOptions: ['start-in-person-visit', 'start-virtual-visit'],
+      homepageOptions: [
+        { id: 'start-in-person-visit', label: 'Start In-Person Visit' },
+        { id: 'start-virtual-visit', label: 'Start Virtual Visit' },
+      ],
     },
   },
 

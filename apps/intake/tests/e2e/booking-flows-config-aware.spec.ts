@@ -14,7 +14,7 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { createBookingConfigForTest } from 'utils/lib/ottehr-config-test-fixtures';
+import { createBookingConfigForTest } from 'utils';
 import { BookingConfigHelper } from '../utils/config/BookingConfigHelper';
 
 // TODO: These tests are stubs showing the pattern. Actual navigation logic needs to be added.
@@ -26,15 +26,67 @@ test.describe('Config-driven booking flows', () => {
     const config = createBookingConfigForTest('baseline');
     const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
 
-    // TODO: Navigate to homepage
-    // await page.goto('/');
+    await page.goto('/home');
 
-    // TODO: Verify each enabled option is visible
-    // for (const option of homepageOptions) {
-    //   await expect(page.getByTestId(`booking-option-${option}`)).toBeVisible();
-    // }
+    // Verify each enabled option is visible by label
+    for (const option of homepageOptions) {
+      await expect(page.getByRole('button', { name: option.label })).toBeVisible();
+    }
 
+    // Verify the count matches config
     expect(homepageOptions.length).toBeGreaterThan(0);
+  });
+
+  test('inPersonOnly config shows only in-person options', async ({ page }) => {
+    const config = createBookingConfigForTest('inPersonOnly');
+    const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
+
+    await page.goto('/home');
+
+    // Should show in-person options by label
+    for (const option of homepageOptions) {
+      await expect(page.getByRole('button', { name: option.label })).toBeVisible();
+      expect(option.id).toContain('in-person');
+    }
+
+    // Should NOT show virtual options - get actual labels from baseline config
+    const baselineConfig = createBookingConfigForTest('baseline');
+    const startVirtualLabel = baselineConfig.homepageOptions.find((opt) => opt.id === 'start-virtual-visit')?.label;
+    const scheduleVirtualLabel = baselineConfig.homepageOptions.find((opt) => opt.id === 'schedule-virtual-visit')
+      ?.label;
+
+    if (startVirtualLabel) {
+      await expect(page.getByRole('button', { name: startVirtualLabel })).not.toBeVisible();
+    }
+    if (scheduleVirtualLabel) {
+      await expect(page.getByRole('button', { name: scheduleVirtualLabel })).not.toBeVisible();
+    }
+  });
+
+  test('virtualOnly config shows only virtual options', async ({ page }) => {
+    const config = createBookingConfigForTest('virtualOnly');
+    const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
+
+    await page.goto('/home');
+
+    // Should show virtual options by label
+    for (const option of homepageOptions) {
+      await expect(page.getByRole('button', { name: option.label })).toBeVisible();
+      expect(option.id).toContain('virtual');
+    }
+
+    // Should NOT show in-person options - get actual labels from baseline config
+    const baselineConfig = createBookingConfigForTest('baseline');
+    const startInPersonLabel = baselineConfig.homepageOptions.find((opt) => opt.id === 'start-in-person-visit')?.label;
+    const scheduleInPersonLabel = baselineConfig.homepageOptions.find((opt) => opt.id === 'schedule-in-person-visit')
+      ?.label;
+
+    if (startInPersonLabel) {
+      await expect(page.getByRole('button', { name: startInPersonLabel })).not.toBeVisible();
+    }
+    if (scheduleInPersonLabel) {
+      await expect(page.getByRole('button', { name: scheduleInPersonLabel })).not.toBeVisible();
+    }
   });
 
   test('in-person walk-in flow completes when enabled', async ({ page }) => {

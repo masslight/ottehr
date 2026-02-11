@@ -1,4 +1,4 @@
-import { BookingConfig, HomepageOption } from 'utils';
+import { BookingConfig, HomepageOptionConfig } from 'utils';
 
 /**
  * Configuration-aware booking test helper utilities
@@ -28,8 +28,15 @@ export class BookingConfigHelper {
   /**
    * Get available homepage options
    */
-  static getHomepageOptions(config: BookingConfig): HomepageOption[] {
+  static getHomepageOptions(config: BookingConfig): HomepageOptionConfig[] {
     return config.homepageOptions;
+  }
+
+  /**
+   * Get label for a specific homepage option by ID
+   */
+  static getHomepageOptionLabel(optionId: string, config: BookingConfig): string | undefined {
+    return config.homepageOptions.find((opt) => opt.id === optionId)?.label;
   }
 
   /**
@@ -56,8 +63,8 @@ export class BookingConfigHelper {
   /**
    * Check if a homepage option is available
    */
-  static isHomepageOptionAvailable(option: string, config: BookingConfig): boolean {
-    return config.homepageOptions.includes(option as HomepageOption);
+  static isHomepageOptionAvailable(optionId: string, config: BookingConfig): boolean {
+    return config.homepageOptions.some((opt) => opt.id === optionId);
   }
 
   /**

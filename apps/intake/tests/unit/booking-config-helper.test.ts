@@ -7,7 +7,7 @@
  * 3. Different capability configs produce expected booking flow results
  */
 
-import { createBookingConfigForTest } from 'utils/lib/ottehr-config-test-fixtures';
+import { createBookingConfigForTest } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { BookingConfigHelper } from '../utils/config/BookingConfigHelper';
 
@@ -184,18 +184,21 @@ describe('BookingConfigHelper.getHomepageOptions', () => {
     const options = BookingConfigHelper.getHomepageOptions(config);
 
     expect(options.length).toBeGreaterThan(0);
-    expect(options).toContain('start-in-person-visit');
-    expect(options).toContain('schedule-in-person-visit');
+    expect(options.some((opt) => opt.id === 'start-in-person-visit')).toBe(true);
+    expect(options.some((opt) => opt.id === 'schedule-in-person-visit')).toBe(true);
+    // Verify options have both id and label
+    expect(options[0]).toHaveProperty('id');
+    expect(options[0]).toHaveProperty('label');
   });
 
   it('returns only in-person options for inPersonOnly', () => {
     const config = createBookingConfigForTest('inPersonOnly');
     const options = BookingConfigHelper.getHomepageOptions(config);
 
-    expect(options).toContain('start-in-person-visit');
-    expect(options).toContain('schedule-in-person-visit');
-    expect(options).not.toContain('start-virtual-visit');
-    expect(options).not.toContain('schedule-virtual-visit');
+    expect(options.some((opt) => opt.id === 'start-in-person-visit')).toBe(true);
+    expect(options.some((opt) => opt.id === 'schedule-in-person-visit')).toBe(true);
+    expect(options.some((opt) => opt.id === 'start-virtual-visit')).toBe(false);
+    expect(options.some((opt) => opt.id === 'schedule-virtual-visit')).toBe(false);
   });
 });
 

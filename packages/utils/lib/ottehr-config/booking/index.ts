@@ -385,12 +385,17 @@ const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'scheduleType', value: 'group' },
 ];
 
+export interface HomepageOptionConfig {
+  id: string;
+  label: string;
+}
+
 export interface BookingConfig {
   serviceCategoriesEnabled: {
     serviceModes: string[];
     visitType: string[];
   };
-  homepageOptions: string[];
+  homepageOptions: HomepageOptionConfig[];
   serviceCategories: StrongCoding[];
   formConfig: z.infer<typeof QuestionnaireConfigSchema>;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
@@ -413,10 +418,10 @@ const BOOKING_DEFAULTS: BookingConfig = {
     visitType: ['prebook', 'walk-in'],
   },
   homepageOptions: [
-    HomepageOptions.StartInPersonVisit,
-    HomepageOptions.ScheduleInPersonVisit,
-    HomepageOptions.StartVirtualVisit,
-    HomepageOptions.ScheduleVirtualVisit,
+    { id: HomepageOptions.StartInPersonVisit, label: 'Start In-Person Visit' },
+    { id: HomepageOptions.ScheduleInPersonVisit, label: 'Schedule In-Person Visit' },
+    { id: HomepageOptions.StartVirtualVisit, label: 'Start Virtual Visit' },
+    { id: HomepageOptions.ScheduleVirtualVisit, label: 'Schedule Virtual Visit' },
   ],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,
@@ -452,11 +457,13 @@ export const ServiceCategoryCodeSchema = z.enum(
 
 export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
 
-export const HomepageOptionSchema = z.enum(BOOKING_CONFIG.homepageOptions as [string, ...string[]]);
+export const HomepageOptionSchema = z.enum(
+  BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]
+);
 
 export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
 
-export function getEnabledHomepageOptions(): HomepageOption[] {
+export function getEnabledHomepageOptions(): HomepageOptionConfig[] {
   return BOOKING_CONFIG.homepageOptions ?? [];
 }
 
@@ -465,7 +472,7 @@ export function getFirstEnabledHomepageOptionTestId(): string | undefined {
   if (enabledOptions.length === 0) {
     return undefined;
   }
-  return enabledOptions.map((option) => `${option}-button`)[0];
+  return enabledOptions.map((option) => `${option.id}-button`)[0];
 }
 
 export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
