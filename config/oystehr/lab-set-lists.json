@@ -1,0 +1,126 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "list-external-lab-set-thyroid": {
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "Example Thyroid Set",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/lab-test-item-set",
+              "code": "external-labs"
+            }
+          ]
+        },
+        "entry": [
+          {
+            "date": "2026-02-10T17:00:44.691Z",
+            "item": {
+              "identifier": {
+                "system": "https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code",
+                "value": "6e294c57-caf9-447d-bfbe-222fe13405cb|866"
+              },
+              "display": "T4, FREE / Quest (WDL)",
+              "extension": [
+                {
+                  "url": "http://example.org/fhir/StructureDefinition/orderable-item-search-fields",
+                  "extension": [
+                    { "url": "labGuid", "valueString": "6e294c57-caf9-447d-bfbe-222fe13405cb" },
+                    { "url": "itemCode", "valueString": "866" }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:44.691Z",
+            "item": {
+              "identifier": {
+                "system": "https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code",
+                "value": "47dbc4be-91e6-4005-8be8-66169ed7a82c|TSH"
+              },
+              "display": "TSH / PathGroup",
+              "extension": [
+                {
+                  "url": "http://example.org/fhir/StructureDefinition/orderable-item-search-fields",
+                  "extension": [
+                    { "url": "labGuid", "valueString": "47dbc4be-91e6-4005-8be8-66169ed7a82c" },
+                    { "url": "itemCode", "valueString": "TSH" }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:44.691Z",
+            "item": {
+              "identifier": {
+                "system": "https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code",
+                "value": "20ca27c9-dfe9-43f8-98b3-c5db896cccdd|024026"
+              },
+              "display": "T4 and TSH / LabCorp",
+              "extension": [
+                {
+                  "url": "http://example.org/fhir/StructureDefinition/orderable-item-search-fields",
+                  "extension": [
+                    { "url": "labGuid", "valueString": "20ca27c9-dfe9-43f8-98b3-c5db896cccdd" },
+                    { "url": "itemCode", "valueString": "024026" }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "list-in-house-lab-set-upper-respiratory": {
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "Example Upper Respiratory Set",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/lab-test-item-set",
+              "code": "in-house-labs"
+            }
+          ]
+        },
+        "entry": [
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-flu-vid-13/type}/#{ref/fhirResources/activity-definition-flu-vid-13/id}"
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-rapid-covid-19-antigen-13/type}/#{ref/fhirResources/activity-definition-rapid-covid-19-antigen-13/id}"
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-monospot-test-13/type}/#{ref/fhirResources/activity-definition-monospot-test-13/id}"
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-rsv-13/type}/#{ref/fhirResources/activity-definition-rsv-13/id}"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
