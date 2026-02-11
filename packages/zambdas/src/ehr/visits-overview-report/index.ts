@@ -3,9 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   AppointmentTypeCount,
+  BOOKING_CONFIG,
   DailyVisitCount,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  getCoding,
   getInPersonVisitStatus,
   getSecret,
   isInPersonAppointment,
@@ -14,6 +16,8 @@ import {
   OTTEHR_MODULE,
   PractitionerVisitCount,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
+  VisitsByTypeCount,
   VisitsOverviewReportZambdaOutput,
 } from 'utils';
 import {
@@ -173,6 +177,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         dailyVisits: [],
         locationVisits: [],
         practitionerVisits: [],
+        visitsByTypeCount: [],
         dateRange,
       };
 
@@ -419,6 +424,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       percentage: totalAppointments > 0 ? Math.round((count / totalAppointments) * 100) : 0,
     }));
 
+    const visitsByTypeCount = Array.from(
+      activeAppointments
+        .reduce<Map<string, VisitsByTypeCount>>((acc: Map<string, VisitsByTypeCount>, appointment: Appointment) => {
+          const location = findLocation(appointment, locations);
+          const serviceCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+          const serviceCategoryName =
+            BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategoryCode)?.display ??
+            serviceCategoryCode ??
+            'Unknown';
+          const key = location.id + '-' + serviceCategoryName;
+          const entry = acc.get(key) ?? {
+            locationName: location.name,
+            locationId: location.id,
+            serviceCategory: serviceCategoryName,
+            inPerson: 0,
+            telemed: 0,
+            total: 0,
+          };
+          if (isInPersonAppointment(appointment)) {
+            entry.inPerson++;
+          }
+          if (isTelemedAppointment(appointment)) {
+            entry.telemed++;
+          }
+          entry.total++;
+          acc.set(key, entry);
+          return acc;
+        }, new Map<string, VisitsByTypeCount>())
+        .values()
+    );
+
     const response: VisitsOverviewReportZambdaOutput = {
       message: `Found ${totalAppointments} appointments: ${typeCounts['In-Person']} in-person, ${typeCounts.Telemed} telemed`,
       totalAppointments,
@@ -426,6 +462,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       dailyVisits,
       locationVisits,
       practitionerVisits,
+      visitsByTypeCount,
       dateRange,
     };
 
@@ -438,3 +475,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
+
+function findLocation(appointment: Appointment, locations: Location[]): { id: string; name: string } {
+  const locationId =
+    appointment.participant
+      ?.find((p) => p.actor?.reference?.startsWith('Location/'))
+      ?.actor?.reference?.replace('Location/', '') ?? 'unknown';
+  const location = locations.find((loc) => loc.id === locationId);
+  return {
+    id: locationId,
+    name: location?.name ?? 'Unknown Location',
+  };
+}
