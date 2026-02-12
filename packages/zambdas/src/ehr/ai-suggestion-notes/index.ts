@@ -18,7 +18,7 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       const { procedureDetails } = details;
       prompt = `If the procedure material type and quantity are missing, return this message:
       
-      "Please specify the closure type and quantity" 
+      "Please specify closure type (e.g. tissue adhesive or surgical staples or sutures); if surgical staples or sutures, specify the material and quantity"
 
       Only return this message if the text describes a wound or incision but does not include any or these: material type, length and a numerical count.
       

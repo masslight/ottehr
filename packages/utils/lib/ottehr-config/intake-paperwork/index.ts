@@ -1175,9 +1175,10 @@ const FormFields = {
         key: 'card-payment-details-text',
         text: 'If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.',
         type: 'display',
+        element: 'p',
       },
     },
-    hiddenFields: ['card-payment-details-text'],
+    hiddenFields: [],
     requiredFields: [],
     triggers: [
       {
@@ -1985,7 +1986,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults: QuestionnaireBase = {
   resourceType: 'Questionnaire',
   url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.4',
+  version: '1.1.6',
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',

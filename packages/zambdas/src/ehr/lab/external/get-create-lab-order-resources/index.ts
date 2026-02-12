@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Coverage, Encounter, Location, Organization } from 'fhir/r4b';
+import { Account, Appointment, Coverage, Encounter, Location, Organization } from 'fhir/r4b';
 import {
   CODE_SYSTEM_COVERAGE_CLASS,
   CPTCodeOption,
@@ -9,6 +9,7 @@ import {
   ExternalLabOrderingLocations,
   flattenBundleResources,
   getSecret,
+  isAppointmentWorkersComp,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORG_TYPE_CODING,
   LabOrderResourcesRes,
@@ -102,7 +103,7 @@ const getResources = async (
   orderingLocationDetails: ExternalLabOrderingLocations;
   isWorkersCompEncounter: boolean;
 }> => {
-  const requests: BatchInputRequest<Coverage | Account | Organization | Location | Encounter>[] = [];
+  const requests: BatchInputRequest<Coverage | Account | Organization | Location | Encounter | Appointment>[] = [];
 
   if (patientId) {
     const coverageSearchRequest: BatchInputRequest<Coverage> = {
@@ -117,9 +118,9 @@ const getResources = async (
   }
 
   if (encounterId) {
-    const encounterRequest: BatchInputRequest<Encounter> = {
+    const encounterRequest: BatchInputRequest<Encounter | Appointment> = {
       method: 'GET',
-      url: `/Encounter?_id=${encounterId}`,
+      url: `/Encounter?_id=${encounterId}&_include=Encounter:appointment`,
     };
     requests.push(encounterRequest);
   }
@@ -140,10 +141,13 @@ const getResources = async (
   };
   requests.push(orderingLocationsRequest);
 
-  const searchResults: Bundle<Coverage | Account | Organization | Location | Encounter> = await oystehr.fhir.batch({
-    requests,
-  });
-  const resources = flattenBundleResources<Coverage | Account | Organization | Location | Encounter>(searchResults);
+  const searchResults: Bundle<Coverage | Account | Organization | Location | Encounter | Appointment> =
+    await oystehr.fhir.batch({
+      requests,
+    });
+  const resources = flattenBundleResources<Coverage | Account | Organization | Location | Encounter | Appointment>(
+    searchResults
+  );
 
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];
@@ -153,6 +157,7 @@ const getResources = async (
   const orderingLocationIds: string[] = [];
   const encounters: Encounter[] = [];
   const workersCompAccounts: Account[] = [];
+  const appointments: Appointment[] = [];
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') {
@@ -197,19 +202,22 @@ const getResources = async (
       }
     }
     if (resource.resourceType === 'Encounter') encounters.push(resource);
+    if (resource.resourceType === 'Appointment') appointments.push(resource);
   });
 
-  let isWorkersCompEncounter = false;
-  if (workersCompAccounts.length > 0) {
-    // should not happen
-    if (encounterId && encounters.length !== 1) {
-      throw new Error(`More than one or no encounter was returned ${encounterId}`);
-    }
-    const encounter = encounters[0];
+  const encounter = encounters.find((resource) => resource.id === encounterId);
+  const appointmentId = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
+  const appointment = appointments.find((resource) => resource.id === appointmentId);
+  const appointmentIsWorkersComp = appointment ? isAppointmentWorkersComp(appointment) : false;
+  console.log('appointmentIsWorkersComp', appointmentIsWorkersComp);
+  let encounterIsWorkersComp = false;
 
+  // doing some validation that the workers comp account is properly linked to the encounter
+  // oystehr labs depends on this account for submitting workers comp labs
+  if (appointmentIsWorkersComp) {
     if (workersCompAccounts.length !== 1) {
       throw new Error(
-        `More than one active workers comp account was returned for ${patientId}. Accounts found: ${workersCompAccounts.map(
+        `Unexpected number of workers comp account returned for ${patientId}. Accounts found: ${workersCompAccounts.map(
           (account) => account.id
         )}`
       );
@@ -218,10 +226,9 @@ const getResources = async (
 
     console.log('checking that workers comp account is associated with this encounter');
     console.log('workersCompAccount', workersCompAccount.id);
-    console.log('encounter.account', JSON.stringify(encounter.account));
+    console.log('encounter.account', JSON.stringify(encounter?.account));
 
-    isWorkersCompEncounter = !!encounter.account?.some((ref) => ref.reference === `Account/${workersCompAccount.id}`);
-    console.log('isWorkersCompEncounter', isWorkersCompEncounter);
+    encounterIsWorkersComp = !!encounter?.account?.some((ref) => ref.reference === `Account/${workersCompAccount.id}`);
   }
 
   return {
@@ -229,7 +236,7 @@ const getResources = async (
     accounts,
     labOrgsGUIDs,
     orderingLocationDetails: { orderingLocationIds, orderingLocations },
-    isWorkersCompEncounter,
+    isWorkersCompEncounter: appointmentIsWorkersComp && encounterIsWorkersComp,
   };
 };
 

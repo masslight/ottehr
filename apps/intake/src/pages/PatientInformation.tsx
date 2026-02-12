@@ -46,7 +46,7 @@ export const PatientInfoCollection: FC = () => {
     isRefetching,
     isSuccess,
   } = useQuery({
-    queryKey: ['get-booking-questionnaire', { zambdaClient }],
+    queryKey: ['get-booking-questionnaire', { zambdaClient, slotId }],
     queryFn: async () => {
       if (!zambdaClient) throw new Error('Zambda client not initialized');
       if (!slotId) throw new Error('slotId is required');
@@ -63,6 +63,17 @@ export const PatientInfoCollection: FC = () => {
   });
 
   const { allItems, questionnaireResponse: prepopulatedQuestionnaire } = questionnaireData || {};
+
+  // Clear sessionStorage when slotId changes to prevent stale data
+  useEffect(() => {
+    if (slotId) {
+      const storedData = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
+      if (storedData) {
+        console.log('[PATIENT_INFO] Clearing sessionStorage for new slotId:', slotId);
+        sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
+      }
+    }
+  }, [slotId]);
 
   const pages = useMemo(() => {
     return (allItems ?? []).filter((item) => {
@@ -196,8 +207,10 @@ const PatientInformation = (): JSX.Element => {
       }
       if (foundDuplicate) {
         setErrorDialog({
-          title: `${t('aboutPatient.errors.foundDuplicate.title')} ${data.firstName}`,
-          description: `${t('aboutPatient.errors.foundDuplicate.description1')} ${data.firstName} ${data.lastName}, 
+          title: `${t('aboutPatient.errors.foundDuplicate.title')} ${postedPatientInfo.firstName}`,
+          description: `${t('aboutPatient.errors.foundDuplicate.description1')} ${postedPatientInfo.firstName} ${
+            postedPatientInfo.lastName
+          }, 
            ${postedPatientInfo?.dateOfBirth ? mdyStringFromISOString(postedPatientInfo?.dateOfBirth) : ''}. ${t(
              'aboutPatient.errors.foundDuplicate.description2'
            )}`,

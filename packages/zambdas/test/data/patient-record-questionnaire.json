@@ -2417,7 +2417,7 @@
         "linkId": "responsible-party-birth-sex",
         "type": "choice",
         "text": "Birth sex",
-        "required": false,
+        "required": true,
         "answerOption": [
           {
             "valueString": "Male"
@@ -2932,7 +2932,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
+            "valueString": "protected"
           }
         ]
       },
@@ -2944,7 +2944,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
+            "valueString": "protected"
           }
         ]
       },
@@ -2956,7 +2956,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
+            "valueString": "protected"
           }
         ]
       },
@@ -3126,7 +3126,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
+            "valueString": "protected"
           }
         ]
       },
@@ -3142,7 +3142,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
+            "valueString": "protected"
           }
         ]
       }

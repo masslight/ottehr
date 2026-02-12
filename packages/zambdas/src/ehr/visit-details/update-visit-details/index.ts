@@ -9,9 +9,9 @@ import {
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getCriticalUpdateTagOp,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getReasonForVisitOptionsForServiceCategory,
   getSecret,
   getUnconfirmedDOBIdx,
   INVALID_INPUT_ERROR,
@@ -24,7 +24,6 @@ import {
   Secrets,
   SecretsKeys,
   userMe,
-  VALUE_SETS,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import {
@@ -318,19 +317,13 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
       .filter((reference) => reference.reference === 'Account/' + occupationalMedicineAccount?.id)
       .filter((reference) => reference.reference === 'Account/' + workersCompAccount?.id);
 
-    if (bookingDetails.serviceCategory.code === 'workers-comp') {
-      if (!workersCompAccount) {
-        throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Workmans Comp Account missing');
-      }
+    if (bookingDetails.serviceCategory.code === 'workers-comp' && workersCompAccount) {
       newEncounterAccounts.push({
         reference: 'Account/' + workersCompAccount.id,
       });
     }
 
-    if (bookingDetails.serviceCategory.code === 'occupational-medicine') {
-      if (!occupationalMedicineAccount) {
-        throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Occupational Medicine Account missing');
-      }
+    if (bookingDetails.serviceCategory.code === 'occupational-medicine' && occupationalMedicineAccount) {
       newEncounterAccounts.push({
         reference: 'Account/' + occupationalMedicineAccount.id,
       });
@@ -407,6 +400,25 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   }
 
+  // validate the reason for visit against the service category
+  // 1. get the service category for the appointment
+  let appointmentServiceCategory = appointment.serviceCategory?.[0]?.coding?.[0]?.code;
+  if (input.bookingDetails.serviceCategory) {
+    appointmentServiceCategory = input.bookingDetails.serviceCategory.code;
+  }
+  // 2. get the list of valid reasons for visit for that service category from the config
+  const validReasonsForVisit = getReasonForVisitOptionsForServiceCategory(appointmentServiceCategory || 'urgent-care');
+  // 3. if the reason for visit provided in the request is not in the list of valid reasons for visit, throw an error
+  const newRFV = input.bookingDetails.reasonForVisit;
+  if (newRFV) {
+    const isValidReason = validReasonsForVisit.some((reason: { value: string }) => reason.value === newRFV);
+    if (!isValidReason) {
+      throw INVALID_INPUT_ERROR(
+        `reasonForVisit "${newRFV}" is not valid for service category "${appointmentServiceCategory ?? 'urgent-care'}"`
+      );
+    }
+  }
+
   const accounts = (
     await oystehr.fhir.search<Account>({
       resourceType: 'Account',
@@ -471,11 +483,6 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
   if (bookingDetails.reasonForVisit && typeof bookingDetails.reasonForVisit !== 'string') {
     throw INVALID_INPUT_ERROR('reasonForVisit must be a string');
-  } else if (
-    bookingDetails.reasonForVisit &&
-    !VALUE_SETS.reasonForVisitOptions.map((option) => option.value).includes(bookingDetails.reasonForVisit)
-  ) {
-    throw INVALID_INPUT_ERROR(`reasonForVisit, "${bookingDetails.reasonForVisit}", is not a valid option`);
   }
 
   if (bookingDetails.additionalDetails && typeof bookingDetails.additionalDetails !== 'string') {

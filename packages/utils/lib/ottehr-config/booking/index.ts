@@ -385,17 +385,25 @@ const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'scheduleType', value: 'group' },
 ];
 
-export interface HomepageOptionConfig {
+export interface BookingOption {
   id: string;
   label: string;
 }
 
+enum VisitType {
+  InPersonWalkIn = 'in-person-walk-in',
+  InPersonPreBook = 'in-person-pre-booked',
+  InPersonPostTelemed = 'in-person-post-telemed',
+  VirtualOnDemand = 'virtual-on-demand',
+  VirtualScheduled = 'virtual-scheduled',
+}
 export interface BookingConfig {
   serviceCategoriesEnabled: {
     serviceModes: string[];
     visitType: string[];
   };
-  homepageOptions: HomepageOptionConfig[];
+  homepageOptions: BookingOption[];
+  ehrBookingOptions: BookingOption[];
   serviceCategories: StrongCoding[];
   formConfig: z.infer<typeof QuestionnaireConfigSchema>;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
@@ -422,6 +430,28 @@ const BOOKING_DEFAULTS: BookingConfig = {
     { id: HomepageOptions.ScheduleInPersonVisit, label: 'Schedule In-Person Visit' },
     { id: HomepageOptions.StartVirtualVisit, label: 'Start Virtual Visit' },
     { id: HomepageOptions.ScheduleVirtualVisit, label: 'Schedule Virtual Visit' },
+  ],
+  ehrBookingOptions: [
+    {
+      id: VisitType.InPersonWalkIn,
+      label: 'Walk-in In Person Visit',
+    },
+    {
+      id: VisitType.InPersonPreBook,
+      label: 'Pre-booked In Person Visit',
+    },
+    {
+      id: VisitType.VirtualOnDemand,
+      label: 'On Demand Virtual Visit',
+    },
+    {
+      id: VisitType.VirtualScheduled,
+      label: 'Scheduled Virtual Visit',
+    },
+    {
+      id: VisitType.InPersonPostTelemed,
+      label: 'Post Telemed Lab Only',
+    },
   ],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,
@@ -491,7 +521,7 @@ export const HomepageOptionSchema = z.enum(
 
 export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
 
-export function getEnabledHomepageOptions(): HomepageOptionConfig[] {
+export function getEnabledHomepageOptions(): BookingOption[] {
   return BOOKING_CONFIG.homepageOptions ?? [];
 }
 

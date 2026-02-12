@@ -401,20 +401,18 @@ describe('Patient Master Record Tests', () => {
             op: 'add',
             path: '/identifier',
             value: [
-              [
-                {
-                  system: 'http://hl7.org/fhir/sid/us-ssn',
-                  type: {
-                    coding: [
-                      {
-                        system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
-                        code: 'SS',
-                      },
-                    ],
-                  },
-                  value: '123-45-6789',
+              {
+                system: 'http://hl7.org/fhir/sid/us-ssn',
+                type: {
+                  coding: [
+                    {
+                      system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                      code: 'SS',
+                    },
+                  ],
                 },
-              ],
+                value: '123-45-6789',
+              },
             ],
           },
         ],

@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { getSecret, SecretsKeys } from 'utils';
+import { getSecret, getStripeAccountForAppointmentOrEncounter, SecretsKeys } from 'utils';
 import {
   createOystehrClient,
   createPatientPaymentReceiptPdf,
@@ -116,11 +116,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const stripePaymentIntentId = paymentNotice.identifier?.find(
       (identifier: { system?: string }) => identifier.system === STRIPE_PAYMENT_ID_SYSTEM
     )?.value;
+    const stripeClient = getStripeClient(secrets);
+    const stripeAccountId = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
 
     if (stripePaymentIntentId) {
-      const stripeClient = getStripeClient(secrets);
       try {
-        paymentIntent = await stripeClient.paymentIntents.retrieve(stripePaymentIntentId);
+        paymentIntent = await stripeClient.paymentIntents.retrieve(stripePaymentIntentId, {
+          stripeAccount: stripeAccountId,
+        });
       } catch (error) {
         console.error('Error fetching Stripe payment intent:', error);
         captureException(error);
@@ -153,13 +156,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Create patient payment receipt PDF
     try {
       console.time('receipt pdf creation');
-      const receiptPdfInfo = await createPatientPaymentReceiptPdf(
+      const receiptPdfInfo = await createPatientPaymentReceiptPdf({
+        oystehr,
+        stripeClient,
         encounterId,
         patientId,
         secrets,
         oystehrToken,
-        paymentIntent
-      );
+        stripeAccountId,
+        lastOperationPaymentIntent: paymentIntent,
+      });
       console.timeEnd('receipt pdf creation');
       console.log('Receipt PDF created:', receiptPdfInfo);
     } catch (error) {

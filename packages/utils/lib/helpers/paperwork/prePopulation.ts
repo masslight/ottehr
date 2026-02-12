@@ -307,6 +307,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapGuarantorToQuestionnaireResponseItems({
           items: itemItems,
           guarantorResource: accountInfo?.guarantorResource,
+          patient,
         });
       } else if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
         return mapEmergencyContactToQuestionnaireResponseItems({
@@ -480,7 +481,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
         });
       }
       if (GUARANTOR_ITEMS.includes(item.linkId)) {
-        return mapGuarantorToQuestionnaireResponseItems({ items: itemItems, guarantorResource });
+        return mapGuarantorToQuestionnaireResponseItems({ items: itemItems, guarantorResource, patient });
       }
       if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
         return mapEmergencyContactToQuestionnaireResponseItems({
@@ -1286,10 +1287,11 @@ const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
 interface MapGuarantorItemsInput {
   items: QuestionnaireItem[];
   guarantorResource?: RelatedPerson | Patient;
+  patient?: Patient;
 }
 
 const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput): QuestionnaireResponseItem[] => {
-  const { guarantorResource, items } = input;
+  const { guarantorResource, patient, items } = input;
 
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
@@ -1331,6 +1333,15 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
   const state = guarantorAddress?.state;
   const zip = guarantorAddress?.postalCode;
 
+  let addressSameAsPatient: boolean = false;
+
+  if (patient && guarantorResource) {
+    const patientAddress = patient.address?.[0];
+    if (patientAddress && guarantorAddress) {
+      addressSameAsPatient = areAddressesEqual(patientAddress, guarantorAddress);
+    }
+  }
+
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
     const { linkId } = item;
@@ -1370,6 +1381,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-zip' && zip) {
       answer = makeAnswer(zip);
+    }
+    if (linkId === 'responsible-party-address-as-patient') {
+      answer = makeAnswer(addressSameAsPatient, 'Boolean');
     }
     return {
       linkId,

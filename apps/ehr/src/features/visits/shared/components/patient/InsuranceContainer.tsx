@@ -11,7 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -206,12 +206,16 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     MP: 'MA',
     OT: 'ZZ',
   };
+  const queryClient = useQueryClient();
 
   const handleRecheckEligibility = async (): Promise<void> => {
     try {
       const result = await recheckEligibility.mutateAsync();
       if (result) {
         setEligibilityStatus(result);
+        // When an eligibility check is run update other components with the updated insurance info
+        await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+        await queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
       } else {
         console.error('Error rechecking eligibility:', 'No result returned');
       }

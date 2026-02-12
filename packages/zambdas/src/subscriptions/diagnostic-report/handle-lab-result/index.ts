@@ -254,6 +254,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (attachments && patient && (isUnsolicitedAndMatched || !isUnsolicited)) {
       console.log('adding attachments to patient lab folder');
       const attachmentDocRefReferences = attachments.map((attachment) => `DocumentReference/${attachment.id}`);
+      console.log(
+        'These are the attachment DocumentReferences we might add to Patient list:',
+        JSON.stringify(attachmentDocRefReferences)
+      );
       const labList = await getLabListResource(oystehr, patient.id!, secrets);
       if (labList) {
         await addDocsToLabList(oystehr, labList, attachmentDocRefReferences, secrets);

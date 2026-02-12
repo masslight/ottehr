@@ -801,12 +801,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         }
       case 'Credit Card':
         return (
-          <CreditCardVerification
-            value={unwrappedValue}
-            required={item.required ?? false}
-            onChange={smartOnChange}
-            pageItem={pageItem}
-          />
+          <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
         );
       case 'Medical History':
         return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;

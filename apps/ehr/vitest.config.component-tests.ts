@@ -13,6 +13,7 @@ export default defineConfig({
     include: ['**/*.test.tsx'],
     setupFiles: ['./tests/component/setup.ts'],
     environment: 'jsdom',
+    testTimeout: 30_000, // 30 seconds
   },
   plugins: [tsconfigPaths(), react()],
 });

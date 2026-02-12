@@ -55,6 +55,20 @@ export const RosField: FC = () => {
         placeholder: 'ROS (Optional) - Type [ ] for checklist items, or just type notes...',
       }),
     ],
+    editorProps: {
+      handlePaste(_, event) {
+        const text = event.clipboardData?.getData('text/plain');
+        if (!text) return false;
+
+        event.preventDefault();
+
+        editor?.commands.insertContent(text, {
+          contentType: 'markdown',
+        });
+
+        return true;
+      },
+    },
     content: chartDataFields?.ros?.text || '',
     editable: !isRosChartDataLoading,
     onUpdate: ({ editor }) => {

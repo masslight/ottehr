@@ -873,7 +873,35 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe('reasonForVisit, "gum in my hair", is not a valid option');
+      expect((error as Error).message).toBe(
+        `reasonForVisit "gum in my hair" is not valid for service category "urgent-care"`
+      );
+    }
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          reasonForVisit: 'gum in my hair',
+          serviceCategory: 'workers-comp',
+        },
+      });
+    } catch (error) {
+      expect((error as Error).message).toBe(
+        `reasonForVisit "gum in my hair" is not valid for service category "workers-comp"`
+      );
+    }
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          reasonForVisit: 'gum in my hair',
+          serviceCategory: 'occupational-medicine',
+        },
+      });
+    } catch (error) {
+      expect((error as Error).message).toBe(
+        `reasonForVisit "gum in my hair" is not valid for service category "occupational-medicine"`
+      );
     }
   });
 

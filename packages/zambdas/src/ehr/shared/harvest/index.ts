@@ -956,7 +956,7 @@ export function createMasterRecordPatchOperations(
               tempOperations.patient.push({
                 op: 'add',
                 path: '/identifier',
-                value: [ssnIdentifier],
+                value: ssnIdentifier, // normalization logic below will wrap this value in an array
               });
             } else {
               // Find existing SSN identifier index

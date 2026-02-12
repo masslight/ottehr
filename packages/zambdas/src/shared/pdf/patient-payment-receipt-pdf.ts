@@ -23,7 +23,6 @@ import {
   getPatientAddress,
   getPhoneNumberForIndividual,
   getSecret,
-  getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   PAYMENT_METHOD_EXTENSION_URL,
   removePrefix,
@@ -32,8 +31,7 @@ import {
 } from 'utils';
 import { makeReceiptPdfDocumentReference } from '../../ehr/change-telemed-appointment-status/helpers/helpers';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-import { createOystehrClient } from '../helpers';
-import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
+import { STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
@@ -79,29 +77,43 @@ interface PatientPaymentReceiptData {
   };
 }
 
+interface CreatePatientPaymentReceiptPdfInput {
+  encounterId: string;
+  patientId: string;
+  secrets: Secrets | null;
+  oystehrToken: string;
+  oystehr: Oystehr;
+  stripeClient: Stripe;
+  stripeAccountId?: string;
+  lastOperationPaymentIntent?: Stripe.PaymentIntent;
+}
+
 // lastOperationPaymentIntent is used to fill Stripe data for last (card) payment
 // by default we fetch all Stripe processed payments and last one might be not there if it's a freshly created payment
-export async function createPatientPaymentReceiptPdf(
-  encounterId: string,
-  patientId: string,
-  secrets: Secrets | null,
-  oystehrToken: string,
-  lastOperationPaymentIntent?: Stripe.PaymentIntent
-): Promise<PdfInfo> {
-  const stripeClient = getStripeClient(secrets);
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+export async function createPatientPaymentReceiptPdf(input: CreatePatientPaymentReceiptPdfInput): Promise<PdfInfo> {
+  const {
+    encounterId,
+    patientId,
+    secrets,
+    oystehrToken,
+    oystehr,
+    stripeClient,
+    stripeAccountId,
+    lastOperationPaymentIntent,
+  } = input;
   const billingOrganizationRef = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets);
   const billingOrganizationId = removePrefix('Organization/', billingOrganizationRef);
   if (!billingOrganizationId) throw new Error('No DEFAULT_BILLING_RESOURCE organization id found');
 
-  const receiptData = await getReceiptData(
+  const receiptData = await getReceiptData({
     encounterId,
     patientId,
-    billingOrganizationId,
+    organizationId: billingOrganizationId,
     oystehr,
     stripeClient,
-    lastOperationPaymentIntent
-  );
+    stripeAccountId,
+    lastOperationPaymentIntent,
+  });
   console.log('Got receipt data: ', JSON.stringify(receiptData));
   console.log('Creating receipt pdf');
   const receiptPdf = await createReceiptPdf(receiptData);
@@ -125,20 +137,21 @@ export async function createPatientPaymentReceiptPdf(
   return pdfInfo;
 }
 
-async function getReceiptData(
-  encounterId: string,
-  patientId: string,
-  organizationId: string,
-  oystehr: Oystehr,
-  stripeClient: Stripe,
-  lastOperationPaymentIntent?: Stripe.PaymentIntent
-): Promise<PatientPaymentReceiptData> {
+async function getReceiptData(input: {
+  encounterId: string;
+  patientId: string;
+  organizationId: string;
+  oystehr: Oystehr;
+  stripeClient: Stripe;
+  stripeAccountId?: string;
+  lastOperationPaymentIntent?: Stripe.PaymentIntent;
+}): Promise<PatientPaymentReceiptData> {
+  const { encounterId, patientId, organizationId, oystehr, stripeClient, lastOperationPaymentIntent, stripeAccountId } =
+    input;
   const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   const account: Account | undefined = accountResources.account;
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
-
-  const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
+  const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccountId) : undefined;
   if (!customerId) throw new Error('No stripe customer id found');
 
   const [fhirBundle, listResourcesBundle, organization, paymentIntents, customer, paymentMethods] = await Promise.all([
@@ -156,17 +169,27 @@ async function getReceiptData(
       params: [{ name: 'patient', value: `Patient/${patientId}` }],
     }),
     oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
-    stripeClient.paymentIntents.search({
-      query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-      limit: 20, // default is 10
-    }),
-    stripeClient.customers.retrieve(customerId, {
-      expand: ['invoice_settings.default_payment_method', 'sources'],
-    }),
-    stripeClient.paymentMethods.list({
-      customer: customerId,
-      type: 'card',
-    }),
+    stripeClient.paymentIntents.search(
+      {
+        query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+        limit: 20, // default is 10
+      },
+      { stripeAccount: stripeAccountId }
+    ),
+    stripeClient.customers.retrieve(
+      customerId,
+      {
+        expand: ['invoice_settings.default_payment_method', 'sources'],
+      },
+      { stripeAccount: stripeAccountId }
+    ),
+    stripeClient.paymentMethods.list(
+      {
+        customer: customerId,
+        type: 'card',
+      },
+      { stripeAccount: stripeAccountId }
+    ),
   ]);
   // find resources
   const resources = fhirBundle.unbundle();

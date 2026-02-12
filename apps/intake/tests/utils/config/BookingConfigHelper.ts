@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { BookingConfig, HomepageOptionConfig } from 'utils';
+import { BookingConfig, BookingOption } from 'utils';
 
 /**
  * Configuration-aware booking test helper utilities
@@ -45,7 +45,7 @@ export class BookingConfigHelper {
   /**
    * Get available homepage options
    */
-  static getHomepageOptions(config: BookingConfig): HomepageOptionConfig[] {
+  static getHomepageOptions(config: BookingConfig): BookingOption[] {
     return config.homepageOptions;
   }
 

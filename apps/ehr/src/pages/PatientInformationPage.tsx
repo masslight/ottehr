@@ -368,7 +368,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
         shouldTouch: false,
       });
     });
-  }, [coveragesFormValues, methods]);
+  }, [coveragesFormValues, methods, appointmentContext]);
 
   const handleDiscardChanges = (): void => {
     methods.reset();

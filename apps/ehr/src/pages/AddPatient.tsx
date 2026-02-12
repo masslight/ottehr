@@ -43,14 +43,6 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
-enum VisitType {
-  InPersonWalkIn = 'in-person-walk-in',
-  InPersonPreBook = 'in-person-pre-booked',
-  InPersonPostTelemed = 'in-person-post-telemed',
-  VirtualOnDemand = 'virtual-on-demand',
-  VirtualScheduled = 'virtual-scheduled',
-}
-
 type SlotLoadingState =
   | { status: 'initial'; input: undefined }
   | { status: 'loading'; input: undefined }
@@ -79,6 +71,15 @@ export interface LocationWithWalkinSchedule extends Location {
 
 const defaultServiceCategory =
   BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.code : '';
+
+// todo: this lives in the util folder and is redundantly declared here - should be consolidated
+enum VisitType {
+  InPersonWalkIn = 'in-person-walk-in',
+  InPersonPreBook = 'in-person-pre-booked',
+  InPersonPostTelemed = 'in-person-post-telemed',
+  VirtualOnDemand = 'virtual-on-demand',
+  VirtualScheduled = 'virtual-scheduled',
+}
 
 export default function AddPatient(): JSX.Element {
   const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule>();
@@ -293,7 +294,7 @@ export default function AddPatient(): JSX.Element {
                       setVisitType(event.target.value as VisitType);
                     }}
                   >
-                    {BOOKING_CONFIG.homepageOptions.map((option) => (
+                    {BOOKING_CONFIG.ehrBookingOptions.map((option) => (
                       <MenuItem value={option.id} key={option.id}>
                         {option.label}
                       </MenuItem>

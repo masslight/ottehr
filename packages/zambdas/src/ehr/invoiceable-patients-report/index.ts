@@ -71,9 +71,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     }
 
+    await saveReportToZ3(
+      oystehr,
+      {
+        date: DateTime.now().toFormat('MM/dd/yyyy HH:mm:ss') ?? '--',
+        claimsFound: 0,
+        failedReports: [],
+        patientsReports: [],
+      },
+      secrets
+    );
+
     return {
-      statusCode: 500,
-      body: JSON.stringify('Error'),
+      statusCode: 200,
+      body: JSON.stringify('No invoiceable patients found.'),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);

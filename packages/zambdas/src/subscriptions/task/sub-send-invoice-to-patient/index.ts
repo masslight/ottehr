@@ -52,13 +52,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
-      const { patient, encounter, account, appointment, location } = fhirResources;
+      const { patient, encounter, account, appointment, location, stripeAccountId } = fhirResources;
       console.log('Fhir resources fetched');
 
-      const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
-
       console.log('Getting stripe and candid ids');
-      const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccount);
+      const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
       if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
       const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
       if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
@@ -83,23 +81,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             patientPortalUrl,
           })
         : undefined;
-      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
+      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
         oystEncounterId: encounterId,
         oystPatientId: patientId,
         dueDate,
         filledMemo,
       });
-      await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, amountCents, filledMemo);
+      await createInvoiceItem(stripe, stripeCustomerId, stripeAccountId, invoiceResponse, amountCents, filledMemo);
       console.log('Invoice and invoice item created');
 
       console.log('Finalizing invoice');
-      const finalized = await stripe.invoices.finalizeInvoice(invoiceResponse.id);
+      const finalized = await stripe.invoices.finalizeInvoice(invoiceResponse.id, { stripeAccount: stripeAccountId });
       if (!finalized || finalized.status !== 'open')
         throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
       console.log('Invoice finalized: ', finalized.status);
 
       console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
-      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
+      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
+        stripeAccount: stripeAccountId,
+      });
       console.log('Invoice sent: ', sendInvoiceResponse.status);
 
       console.log('Filling in invoice sms messages placeholders');
@@ -144,6 +144,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function createInvoiceItem(
   stripe: Stripe,
   stripeCustomerId: string,
+  stripeAccount: string | undefined,
   invoice: Stripe.Invoice,
   amount: number,
   filledMemo?: string
@@ -156,7 +157,7 @@ async function createInvoiceItem(
       description: filledMemo,
       invoice: invoice.id, // force add current invoiceItem to previously created invoice
     };
-    const invoiceItemResponse = await stripe.invoiceItems.create(invoiceItemParams);
+    const invoiceItemResponse = await stripe.invoiceItems.create(invoiceItemParams, { stripeAccount });
     if (!invoiceItemResponse || !invoiceItemResponse.id) throw new Error('Failed to create invoiceItem');
 
     return invoiceItemResponse;
@@ -169,6 +170,7 @@ async function createInvoiceItem(
 async function createInvoice(
   stripe: Stripe,
   stripeCustomerId: string,
+  stripeAccount: string | undefined,
   params: {
     oystEncounterId: string;
     oystPatientId: string;
@@ -192,7 +194,7 @@ async function createInvoice(
       pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
       auto_advance: false, // Ensure it stays a draft
     };
-    const invoiceResponse = await stripe.invoices.create(invoiceParams);
+    const invoiceResponse = await stripe.invoices.create(invoiceParams, { stripeAccount });
     if (!invoiceResponse || !invoiceResponse.id) throw new Error('Failed to create invoice');
 
     return invoiceResponse;
@@ -210,6 +212,7 @@ async function getFhirResources(
   encounter: Encounter;
   account: Account;
   appointment: Appointment;
+  stripeAccountId?: string;
   location?: Location;
 }> {
   const response = (
@@ -267,12 +270,14 @@ async function getFhirResources(
     location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
     if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
   } else console.log("Appointment doesn't have location id");
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
 
   console.log('Fhir encounter found: ', encounter.id);
   console.log('Fhir patient found: ', patient.id);
   console.log('Fhir account found', account?.id);
   console.log('Fhir appointment found: ', appointment.id);
   console.log('Fhir location found: ', location?.id);
+  if (stripeAccount) console.log('Stripe account id (optional): ', stripeAccount);
 
   return {
     encounter,
@@ -280,6 +285,7 @@ async function getFhirResources(
     account,
     appointment,
     location,
+    stripeAccountId: stripeAccount,
   };
 }
 
