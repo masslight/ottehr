@@ -26,6 +26,7 @@ test.describe('Config-driven booking flows', () => {
     const config = createBookingConfigForTest('baseline');
     const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
 
+    await BookingConfigHelper.injectTestConfig(page, config);
     await page.goto('/home');
 
     // Verify each enabled option is visible by label
@@ -41,6 +42,7 @@ test.describe('Config-driven booking flows', () => {
     const config = createBookingConfigForTest('inPersonOnly');
     const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
 
+    await BookingConfigHelper.injectTestConfig(page, config);
     await page.goto('/home');
 
     // Should show in-person options by label
@@ -67,6 +69,7 @@ test.describe('Config-driven booking flows', () => {
     const config = createBookingConfigForTest('virtualOnly');
     const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
 
+    await BookingConfigHelper.injectTestConfig(page, config);
     await page.goto('/home');
 
     // Should show virtual options by label

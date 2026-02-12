@@ -122,16 +122,17 @@ export async function verifyServiceCategorySelection(
 
   if (categories.length > 1) {
     // Should show service category selection page
-    await expect(page.getByTestId('service-category-selection')).toBeVisible();
+    // Verify we're on the select service category page by checking URL or page title
+    await expect(page).toHaveURL(/select-service-category/);
 
-    // All categories should be visible as options
+    // All categories should be visible as buttons with their display labels
     for (const category of categories) {
-      await expect(page.getByTestId(`service-category-${category.code}`)).toBeVisible();
+      await expect(page.getByRole('button', { name: category.display })).toBeVisible();
     }
   } else {
     // Should skip directly to next step
     // Verify we're NOT on service category page
-    await expect(page.getByTestId('service-category-selection')).not.toBeVisible();
+    await expect(page).not.toHaveURL(/select-service-category/);
   }
 }
 

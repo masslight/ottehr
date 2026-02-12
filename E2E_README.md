@@ -434,6 +434,183 @@ await expect(async () => {
 }).toPass({ timeout: 30000, intervals: [2000] });
 ```
 
+## Config-Aware Testing
+
+### Overview
+
+Config-aware testing allows tests to adapt automatically to configuration changes without hardcoded expectations. Tests use the actual booking configuration to determine what options should be available, which fields should be visible, and which flows are enabled.
+
+### Architecture
+
+The system uses runtime configuration injection to replace the static `BOOKING_CONFIG` with test-specific configurations:
+
+```
+Test File                    Runtime Injection              Application Runtime
+┌─────────────────┐          ┌──────────────────┐          ┌─────────────────────┐
+│ Create config   │          │ Playwright       │          │ BOOKING_CONFIG      │
+│ for test:       │          │ addInitScript()  │          │ Proxy               │
+│                 │  ───────▶│                  │  ───────▶│                     │
+│ inPersonOnly    │          │ Sets window var  │          │ Checks window var   │
+│ virtualOnly     │          │ before page load │          │ at property access  │
+└─────────────────┘          └──────────────────┘          └─────────────────────┘
+```
+
+### How It Works
+
+**1. Test creates a config:**
+```typescript
+const config = createBookingConfigForTest('inPersonOnly');
+```
+
+**2. Test injects config before navigation:**
+```typescript
+await BookingConfigHelper.injectTestConfig(page, config);
+await page.goto('/home');
+```
+
+**3. `injectTestConfig()` uses Playwright's `addInitScript()`:**
+```typescript
+static async injectTestConfig(page: Page, config: Partial<BookingConfig>): Promise<void> {
+  await page.addInitScript((configOverrides) => {
+    (window as any).__TEST_BOOKING_CONFIG__ = configOverrides;
+  }, config);
+}
+```
+
+**4. Playwright injects script before page loads:**
+- `addInitScript()` registers a script that runs **before** any page JavaScript executes
+- The script runs on every navigation (including `page.goto()`)
+- Sets `window.__TEST_BOOKING_CONFIG__` with the test config object
+- This happens before React mounts, before any modules load
+
+**5. Application BOOKING_CONFIG Proxy checks for test override:**
+```typescript
+// In packages/utils/lib/ottehr-config/booking/index.ts
+function getRuntimeBookingConfig(): BookingConfig {
+  // Check for test config injected via window.__TEST_BOOKING_CONFIG__
+  if (typeof window !== 'undefined' && (window as any).__TEST_BOOKING_CONFIG__) {
+    return getBookingConfig((window as any).__TEST_BOOKING_CONFIG__);
+  }
+  return STATIC_BOOKING_CONFIG;
+}
+
+// BOOKING_CONFIG is a Proxy that dynamically retrieves config on each property access
+export const BOOKING_CONFIG = new Proxy({} as BookingConfig, {
+  get(_target, prop) {
+    const config = getRuntimeBookingConfig();
+    return config[prop as keyof BookingConfig];
+  }
+});
+```
+
+**6. Application uses injected config:**
+```typescript
+// In apps/intake/src/pages/Homepage.tsx
+const { homepageOptions } = BOOKING_CONFIG;  // Gets test config if injected
+const showScheduleVirtualOption = homepageOptions.some(
+  (opt) => opt.id === HomepageOptions.ScheduleVirtualVisit
+);
+```
+
+### Execution Flow Timeline
+
+```
+1. test.describe() starts
+2. await BookingConfigHelper.injectTestConfig(page, config)
+   └─▶ Registers init script with Playwright
+3. await page.goto('/home')
+   └─▶ Playwright navigation begins
+       ├─▶ Runs init script (sets window.__TEST_BOOKING_CONFIG__)
+       ├─▶ Loads page HTML
+       ├─▶ Loads JavaScript modules
+       ├─▶ React mounts
+       └─▶ Homepage component renders
+           └─▶ const { homepageOptions } = BOOKING_CONFIG
+               └─▶ Proxy.get() called
+                   └─▶ getRuntimeBookingConfig() called
+                       └─▶ Finds window.__TEST_BOOKING_CONFIG__
+                           └─▶ Returns test config
+4. Test assertions run against injected config
+```
+
+### Available Test Configurations
+
+| Config Name | Description | Service Modes | Visit Types |
+|------------|-------------|---------------|-------------|
+| `baseline` | Default config with all flows enabled | in-person, virtual | prebook, walk-in |
+| `inPersonOnly` | Only in-person visits | in-person | prebook, walk-in |
+| `virtualOnly` | Only virtual visits | virtual | prebook, walk-in |
+| `prebookOnly` | Only scheduled appointments | in-person, virtual | prebook |
+| `walkInOnly` | Only walk-in visits | in-person, virtual | walk-in |
+| `urgentCareOnly` | Single service category | in-person, virtual | prebook, walk-in |
+| `hiddenPatientFields` | Some patient fields hidden | in-person, virtual | prebook, walk-in |
+
+### Example Test Pattern
+
+```typescript
+test('inPersonOnly config shows only in-person options', async ({ page }) => {
+  // 1. Create test config
+  const config = createBookingConfigForTest('inPersonOnly');
+  const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
+
+  // 2. Inject config BEFORE navigation
+  await BookingConfigHelper.injectTestConfig(page, config);
+  
+  // 3. Navigate to page (config is now active)
+  await page.goto('/home');
+
+  // 4. Verify in-person options are visible
+  for (const option of homepageOptions) {
+    await expect(page.getByRole('button', { name: option.label })).toBeVisible();
+    expect(option.id).toContain('in-person');
+  }
+
+  // 5. Verify virtual options are NOT visible
+  const baselineConfig = createBookingConfigForTest('baseline');
+  const startVirtualLabel = baselineConfig.homepageOptions.find(
+    (opt) => opt.id === 'start-virtual-visit'
+  )?.label;
+  
+  if (startVirtualLabel) {
+    await expect(page.getByRole('button', { name: startVirtualLabel })).not.toBeVisible();
+  }
+});
+```
+
+### Key Benefits
+
+- **Automatic Adaptation**: Tests adapt to config changes without code updates
+- **Parallel Execution**: Each test gets isolated config via `addInitScript()`
+- **No Shared State**: Pure functions with config as parameter
+- **Type Safety**: Full TypeScript support for config properties
+- **Reusable Patterns**: Same test code works across all config variations
+
+### Helper Methods
+
+```typescript
+// Get enabled service modes
+BookingConfigHelper.getEnabledServiceModes(config);  // ['in-person', 'virtual']
+
+// Get enabled visit types
+BookingConfigHelper.getEnabledVisitTypes(config);    // ['prebook', 'walk-in']
+
+// Get homepage options
+BookingConfigHelper.getHomepageOptions(config);      // Array of options with labels
+
+// Check if specific flow is enabled
+BookingConfigHelper.isServiceModeEnabled('virtual', config);  // true/false
+
+// Get testable flow combinations
+BookingConfigHelper.getTestableFlows(config);        // ['in-person-prebook', 'virtual-walk-in', ...]
+```
+
+### Important Notes
+
+- **Call `injectTestConfig()` BEFORE `page.goto()`** - The init script must be registered before navigation
+- **Per-page injection** - If your test navigates to multiple pages, inject config before each navigation
+- **Config is read-only** - The Proxy pattern doesn't support config mutation at runtime
+- **Production safe** - When `window.__TEST_BOOKING_CONFIG__` is undefined, uses production config
+
 ## Environment Management
 
 ### Hybrid Configuration Strategy

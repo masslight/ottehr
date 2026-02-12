@@ -1,3 +1,4 @@
+import { Page } from '@playwright/test';
 import { BookingConfig, HomepageOptionConfig } from 'utils';
 
 /**
@@ -11,6 +12,22 @@ import { BookingConfig, HomepageOptionConfig } from 'utils';
  */
 
 export class BookingConfigHelper {
+  /**
+   * Inject a test booking config into the page's runtime environment.
+   * This must be called BEFORE navigating to the page.
+   *
+   * The config is injected via window.__TEST_BOOKING_CONFIG__ which is then
+   * picked up by the BOOKING_CONFIG Proxy in the application.
+   *
+   * @param page - Playwright page instance
+   * @param config - Booking config to inject (partial overrides)
+   */
+  static async injectTestConfig(page: Page, config: Partial<BookingConfig>): Promise<void> {
+    await page.addInitScript((configOverrides) => {
+      (window as any).__TEST_BOOKING_CONFIG__ = configOverrides;
+    }, config);
+  }
+
   /**
    * Get enabled service modes (in-person, virtual)
    */

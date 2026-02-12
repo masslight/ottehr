@@ -54,8 +54,14 @@ export class BookingFlowHelpers {
       return;
     }
 
-    // Multiple categories available, select the preferred one
-    await page.getByTestId(`service-category-${preferredCategory}`).click();
+    // Find the category by code to get its display label
+    const category = categories.find((cat) => cat.code === preferredCategory);
+    if (!category) {
+      throw new Error(`Service category '${preferredCategory}' not found in config`);
+    }
+
+    // Select by the user-visible label text
+    await page.getByRole('button', { name: category.display }).click();
   }
 
   /**

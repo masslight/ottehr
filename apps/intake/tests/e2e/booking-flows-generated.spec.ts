@@ -28,6 +28,7 @@ test.describe('Homepage option rendering', () => {
     const config = createBookingConfigForTest('baseline');
     const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
 
+    await BookingConfigHelper.injectTestConfig(page, config);
     await page.goto('/home');
 
     // Verify each enabled option is visible by its label text
@@ -43,6 +44,7 @@ test.describe('Homepage option rendering', () => {
     const config = createBookingConfigForTest('inPersonOnly');
     const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
 
+    await BookingConfigHelper.injectTestConfig(page, config);
     await page.goto('/home');
 
     // Should show in-person options by their labels
@@ -60,6 +62,7 @@ test.describe('Homepage option rendering', () => {
     const config = createBookingConfigForTest('virtualOnly');
     const homepageOptions = BookingConfigHelper.getHomepageOptions(config);
 
+    await BookingConfigHelper.injectTestConfig(page, config);
     await page.goto('/home');
 
     // Should show virtual options by their labels
