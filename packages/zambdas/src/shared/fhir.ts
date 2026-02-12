@@ -7,6 +7,7 @@ import Oystehr, {
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
+  Bundle,
   Encounter,
   HealthcareService,
   Location,
@@ -380,4 +381,38 @@ export async function searchInvitedParticipantResourcesByEncounterId(
     (r): r is RelatedPerson => r.resourceType === 'RelatedPerson'
   );
   return relatedPersons.filter((r) => r.relationship?.[0].coding?.[0].code === 'WIT');
+}
+
+export async function fetchAllPages(
+  fetchPage: (offset: number, count: number) => Promise<Bundle>,
+  initialPageSize: number
+): Promise<void> {
+  let offset = 0;
+  let pageSize = initialPageSize;
+  let hasMorePages = true;
+  do {
+    let bundle;
+    let pageFetched = false;
+    while (!pageFetched) {
+      try {
+        bundle = await fetchPage(offset, pageSize);
+        pageFetched = true;
+      } catch (error: unknown) {
+        console.log(`Error fetching page: ${error}`, JSON.stringify(error));
+        if (error instanceof Oystehr.OystehrSdkError && error.code === 4130) {
+          pageSize /= 2;
+        } else {
+          throw error;
+        }
+      }
+    }
+    hasMorePages = bundle?.link?.find((link) => link.relation === 'next') != null;
+    offset += pageSize;
+
+    // Safety check
+    if (offset > 100000) {
+      console.warn('Reached maximum pagination limit (100000 items). Stopping search.');
+      break;
+    }
+  } while (hasMorePages);
 }

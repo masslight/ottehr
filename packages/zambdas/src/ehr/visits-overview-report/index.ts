@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
@@ -21,6 +20,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fetchAllPages,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -44,92 +44,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Searching for appointments in date range:', dateRange);
 
-    const baseSearchParams = [
-      {
-        name: 'date',
-        value: `ge${dateRange.start}`,
-      },
-      {
-        name: 'date',
-        value: `le${dateRange.end}`,
-      },
-      {
-        name: '_tag',
-        value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}`,
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_include:iterate',
-        value: 'Encounter:participant:Practitioner',
-      },
-      {
-        name: '_elements',
-        value: 'id,status',
-      },
-    ];
-
     // Search for appointments within the date range
     // Fetch all appointments, locations, encounters, and practitioners with proper FHIR pagination
     let allResources: (Appointment | Location | Encounter | Practitioner)[] = [];
-    let offset = 0;
-    let pageSize = INITIAL_PAGE_SIZE;
-    let hasNextPage = true;
 
-    // Follow pagination links to get all pages
-    do {
-      console.log(`Fetching resources with _offset=${offset}, _count=${pageSize} of appointments and locations...`);
-
-      let searchBundle;
-      let resourcesFetched = false;
-
-      while (!resourcesFetched) {
-        try {
-          searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
-            resourceType: 'Appointment',
-            params: [
-              ...baseSearchParams,
-              { name: '_offset', value: offset.toString() },
-              {
-                name: '_count',
-                value: pageSize.toString(),
-              },
-            ],
-          });
-          resourcesFetched = true;
-        } catch (error: unknown) {
-          console.log(`Error fetching resources: ${error}`, JSON.stringify(error));
-          if (error instanceof Oystehr.OystehrSdkError && error.code === 4130) {
-            pageSize /= 2;
-          } else {
-            throw error;
-          }
-        }
-      }
-
-      hasNextPage = searchBundle?.link?.find((link) => link.relation === 'next') != null;
-      offset += pageSize;
-
+    await fetchAllPages(async (offset, count) => {
+      console.log(`Fetching resources with offset=${offset}, count=${count} of appointments and locations...`);
+      const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
+        resourceType: 'Appointment',
+        params: [
+          { name: 'date', value: `ge${dateRange.start}` },
+          { name: 'date', value: `le${dateRange.end}` },
+          { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+          { name: '_include', value: 'Appointment:location' },
+          { name: '_revinclude', value: 'Encounter:appointment' },
+          { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
+          { name: '_elements', value: 'id,status' },
+          { name: '_offset', value: offset.toString() },
+          { name: '_count', value: count.toString() },
+        ],
+      });
       const pageResources = searchBundle?.unbundle() ?? [];
       allResources = allResources.concat(pageResources);
       const pageAppointmentsCount = pageResources.filter(
         (resource): resource is Appointment => resource.resourceType === 'Appointment'
       ).length;
-
       console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
-
-      // Safety check to prevent infinite loops
-      if (offset > 100000) {
-        console.warn('Reached maximum pagination limit (100000 items). Stopping search.');
-        break;
-      }
-    } while (hasNextPage);
+      return searchBundle;
+    }, INITIAL_PAGE_SIZE);
 
     // Separate resources by type
     const appointments = allResources.filter(
