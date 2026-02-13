@@ -9,15 +9,22 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { Location, Schedule } from 'fhir/r4b';
 import { createBookingConfigForTest } from 'utils';
 import {
   executeBookingScenario,
   generateBookingTestScenarios,
   testScenarioStep,
 } from '../utils/booking/BookingTestFactory';
+import { TestLocationManager } from '../utils/booking/TestLocationManager';
 import { BookingConfigHelper } from '../utils/config/BookingConfigHelper';
 
 test.describe.configure({ mode: 'parallel' });
+
+// Shared test location with 24/7 availability
+let testLocationManager: TestLocationManager;
+let testLocation: Location;
+let _testSchedule: Schedule;
 
 // Generate test scenarios from baseline config
 const BASE_CONFIG = 'baseline';
@@ -78,15 +85,42 @@ test.describe('Homepage option rendering', () => {
 });
 
 test.describe('Complete booking flows - all permutations', () => {
+  // Setup: Create a 24/7 test location for walk-in tests
+  test.beforeAll(async () => {
+    testLocationManager = new TestLocationManager();
+    await testLocationManager.init();
+    const result = await testLocationManager.ensureAlwaysOpenLocation();
+    testLocation = result.location;
+    _testSchedule = result.schedule;
+    console.log(`✓ Created 24/7 test location: ${testLocation.name} (ID: ${testLocation.id})`);
+  });
+
+  // Cleanup: Remove test location after all tests
+  test.afterAll(async () => {
+    if (testLocationManager) {
+      await testLocationManager.cleanup();
+      console.log('✓ Cleaned up test location and schedule');
+    }
+  });
+
   // Generate a test for each scenario
   for (const scenario of scenarios) {
     test(`${scenario.description} - complete flow`, async ({ page }) => {
       const config = createBookingConfigForTest(scenario.configName);
 
-      await executeBookingScenario(page, scenario, config);
+      // Pass test location name for walk-in flows to ensure location is always open
+      const locationName = scenario.visitType === 'walk-in' ? testLocation.name : undefined;
+      const appointmentResponse = await executeBookingScenario(page, scenario, config, locationName);
 
-      // Verify we reached confirmation
-      await expect(page.getByTestId('booking-confirmation')).toBeVisible();
+      // Verify we reached confirmation and have appointment data
+      expect(appointmentResponse.appointmentId).toBeTruthy();
+      expect(appointmentResponse.fhirPatientId).toBeTruthy();
+      expect(appointmentResponse.resources.appointment).toBeTruthy();
+      expect(appointmentResponse.resources.patient).toBeTruthy();
+
+      console.log(
+        `✓ Created appointment ${appointmentResponse.appointmentId} for patient ${appointmentResponse.fhirPatientId}`
+      );
     });
   }
 });

@@ -407,12 +407,12 @@ export interface BookingConfig {
   serviceCategories: StrongCoding[];
   formConfig: z.infer<typeof QuestionnaireConfigSchema>;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
+  defaultWalkinLocationName?: string;
   // Questionnaire-related fields used for building the form
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;
   hiddenFormSections?: string[];
 }
-
 export enum HomepageOptions {
   StartInPersonVisit = 'start-in-person-visit',
   ScheduleInPersonVisit = 'schedule-in-person-visit',
@@ -426,11 +426,12 @@ const BOOKING_DEFAULTS: BookingConfig = {
     visitType: ['prebook', 'walk-in'],
   },
   homepageOptions: [
-    { id: HomepageOptions.StartInPersonVisit, label: 'Start In-Person Visit' },
+    { id: HomepageOptions.StartInPersonVisit, label: 'In-Person Check-In' },
     { id: HomepageOptions.ScheduleInPersonVisit, label: 'Schedule In-Person Visit' },
     { id: HomepageOptions.StartVirtualVisit, label: 'Start Virtual Visit' },
     { id: HomepageOptions.ScheduleVirtualVisit, label: 'Schedule Virtual Visit' },
   ],
+  defaultWalkinLocationName: 'New_York',
   ehrBookingOptions: [
     {
       id: VisitType.InPersonWalkIn,

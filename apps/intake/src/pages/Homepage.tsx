@@ -28,8 +28,6 @@ import {
 import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
 import { useOystehrAPIClient } from '../telemed/utils';
 
-const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
-
 const Homepage = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
   const apiClient = useOystehrAPIClient();
@@ -80,12 +78,12 @@ const Homepage = (): JSX.Element => {
 
     if (shouldSelectServiceCategory) {
       const basePath = generatePath(intakeFlowPageRoute.SelectServiceCategoryWalkin.path, {
-        name: DEFAULT_WALKIN_LOCATION_NAME,
+        name: BOOKING_CONFIG.defaultWalkinLocationName!,
       });
       navigate(basePath);
     } else {
       const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
-        name: DEFAULT_WALKIN_LOCATION_NAME,
+        name: BOOKING_CONFIG.defaultWalkinLocationName!,
       });
 
       navigate(basePath);

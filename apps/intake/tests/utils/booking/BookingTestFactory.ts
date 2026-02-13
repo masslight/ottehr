@@ -11,7 +11,12 @@
  */
 
 import { expect, Page } from '@playwright/test';
-import { BookingConfig, createBookingConfigForTest } from 'utils';
+import {
+  BookingConfig,
+  CreateAppointmentResponse,
+  createBookingConfigForTest,
+  getBookingCapabilityConfig,
+} from 'utils';
 import { BookingConfigHelper } from '../config/BookingConfigHelper';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
 
@@ -75,13 +80,31 @@ export function generateBookingTestScenarios(configName: string): BookingTestSce
 
 /**
  * Execute a complete booking flow for a scenario
+ * @param page - Playwright page
+ * @param scenario - The booking scenario to execute
+ * @param config - The booking configuration
+ * @param testLocationName - Optional 24/7 test location name for walk-in flows
+ * @returns The appointment creation response with appointment ID and resources
  */
 export async function executeBookingScenario(
   page: Page,
   scenario: BookingTestScenario,
-  config: BookingConfig
-): Promise<void> {
-  // 1. Start from homepage with selected option (using label)
+  config: BookingConfig,
+  testLocationName?: string
+): Promise<CreateAppointmentResponse> {
+  // Get the original capability config overrides for this scenario
+  const capability = getBookingCapabilityConfig(scenario.configName);
+
+  // For walk-in flows, add test location to the overrides
+  const overrides: Partial<BookingConfig> = {
+    ...capability.overrides,
+    ...(testLocationName && { defaultWalkinLocationName: testLocationName }),
+  };
+
+  // Inject only the overrides (not the full merged config) before navigation
+  await BookingConfigHelper.injectTestConfig(page, overrides);
+
+  // 1. Start from homepage with selected option
   await BookingFlowHelpers.startBookingFlow(page, scenario.homepageOptionLabel);
 
   // 2. Select service category if needed
@@ -90,8 +113,11 @@ export async function executeBookingScenario(
   }
 
   // 3. Fill patient info based on visible fields
-  const patientData = BookingFlowHelpers.getSamplePatientData();
-  await BookingFlowHelpers.completePatientInfoStep(page, config, patientData);
+  const patientData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory);
+  await BookingFlowHelpers.completePatientInfoStep(page, config, patientData, {
+    serviceMode: scenario.serviceMode,
+    serviceCategory: scenario.serviceCategory!,
+  });
 
   // 4. Location selection (walk-in) or time selection (prebook)
   if (scenario.visitType === 'walk-in') {
@@ -101,11 +127,13 @@ export async function executeBookingScenario(
     await BookingFlowHelpers.selectFirstAvailableTimeSlot(page);
   }
 
-  // 5. Complete paperwork if required
+  // 5. Confirm booking
+  const appointmentResponse = await BookingFlowHelpers.confirmBooking(page, scenario.visitType);
+
+  // 6. Complete paperwork if required
   // TODO: Add paperwork filling based on config
 
-  // 6. Confirm booking
-  await BookingFlowHelpers.confirmBooking(page);
+  return appointmentResponse;
 }
 
 /**
@@ -186,8 +214,11 @@ export async function testScenarioStep(
       if (scenario.serviceCategory) {
         await BookingFlowHelpers.selectServiceCategoryIfNeeded(page, config, scenario.serviceCategory);
       }
-      const patientData = BookingFlowHelpers.getSamplePatientData();
-      await BookingFlowHelpers.completePatientInfoStep(page, config, patientData);
+      const patientData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory);
+      await BookingFlowHelpers.completePatientInfoStep(page, config, patientData, {
+        serviceMode: scenario.serviceMode,
+        serviceCategory: scenario.serviceCategory!,
+      });
 
       // Verify location selection page
       await expect(page.getByTestId('location-selection')).toBeVisible();
@@ -202,22 +233,34 @@ export async function testScenarioStep(
       if (scenario.serviceCategory) {
         await BookingFlowHelpers.selectServiceCategoryIfNeeded(page, config, scenario.serviceCategory);
       }
-      await BookingFlowHelpers.completePatientInfoStep(page, config, BookingFlowHelpers.getSamplePatientData());
+      await BookingFlowHelpers.completePatientInfoStep(
+        page,
+        config,
+        BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory),
+        {
+          serviceMode: scenario.serviceMode,
+          serviceCategory: scenario.serviceCategory!,
+        }
+      );
       await BookingFlowHelpers.selectFirstAvailableLocation(page);
 
       // Verify time slot selection page
       await expect(page.getByTestId('time-slot-selection')).toBeVisible();
       break;
 
-    case 'paperwork':
+    case 'paperwork': {
       // Navigate through entire flow to paperwork
-      await executeBookingScenario(page, scenario, config);
+      const _paperworkResponse = await executeBookingScenario(page, scenario, config);
       // TODO: Verify paperwork fields based on config
+      // Appointment response available as: _paperworkResponse
       break;
+    }
 
-    case 'confirmation':
-      await executeBookingScenario(page, scenario, config);
-      await expect(page.getByTestId('booking-confirmation')).toBeVisible();
+    case 'confirmation': {
+      const _confirmationResponse = await executeBookingScenario(page, scenario, config);
+      // Confirmation is verified in BookingFlowHelpers.confirmBooking() via "Proceed to paperwork" button
+      // Appointment response available as: _confirmationResponse
       break;
+    }
   }
 }
