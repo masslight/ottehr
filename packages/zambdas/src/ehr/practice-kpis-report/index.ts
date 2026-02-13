@@ -484,7 +484,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Build location metrics array with all locations
     const locationMetrics: LocationKpiMetrics[] = allLocations
-      .map((location) => {
+      .flatMap((location) => {
         const locationName = location.name || 'Unknown Location';
         const locationId = location.id || 'unknown';
         const metricsData = locationMetricsMap.get(locationName);
@@ -579,32 +579,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           };
         } else {
           // Location has no discharged visits
-          return {
-            locationName,
-            locationId,
-            arrivedToReadyAverage: null,
-            arrivedToReadyMedian: null,
-            arrivedToDischargedAverage: null,
-            arrivedToDischargedMedian: null,
-            arrivedToIntakeAverage: null,
-            arrivedToIntakeMedian: null,
-            readyToIntakeAverage: null,
-            readyToIntakeMedian: null,
-            intakeToProviderAverage: null,
-            intakeToProviderMedian: null,
-            arrivedToProviderAverage: null,
-            arrivedToProviderMedian: null,
-            arrivedToProviderUnder15Percent: null,
-            arrivedToProviderUnder45Percent: null,
-            providerToDischargedAverage: null,
-            providerToDischargedMedian: null,
-            onTimePercent: null,
-            bookAheadPercent: null,
-            walkInPercent: null,
-            visitCount: 0,
-          };
+          return [];
         }
       })
+      .filter((metrics) => metrics.visitCount > 0)
       .sort((a, b) => a.locationName.localeCompare(b.locationName));
 
     const response: PracticeKpisReportZambdaOutput = {
