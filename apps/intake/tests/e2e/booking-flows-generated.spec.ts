@@ -21,10 +21,14 @@ import { BookingConfigHelper } from '../utils/config/BookingConfigHelper';
 
 test.describe.configure({ mode: 'parallel' });
 
-// Shared test location with 24/7 availability
+// Shared test locations with 24/7 availability
 let testLocationManager: TestLocationManager;
-let testLocation: Location;
-let _testSchedule: Schedule;
+let walkinLocation: Location;
+let _walkinSchedule: Schedule;
+let prebookInPersonLocation: Location;
+let _prebookInPersonSchedule: Schedule;
+let prebookVirtualLocation: Location;
+let _prebookVirtualSchedule: Schedule;
 
 // Generate test scenarios from baseline config
 const BASE_CONFIG = 'baseline';
@@ -85,17 +89,35 @@ test.describe('Homepage option rendering', () => {
 });
 
 test.describe('Complete booking flows - all permutations', () => {
-  // Setup: Create a 24/7 test location for walk-in tests
+  // Setup: Create test locations for walk-in and prebook tests
   test.beforeAll(async () => {
     testLocationManager = new TestLocationManager();
     await testLocationManager.init();
-    const result = await testLocationManager.ensureAlwaysOpenLocation();
-    testLocation = result.location;
-    _testSchedule = result.schedule;
-    console.log(`✓ Created 24/7 test location: ${testLocation.name} (ID: ${testLocation.id})`);
+
+    // Create walk-in in-person test location (24/7, high capacity for walk-ins)
+    const walkinResult = await testLocationManager.ensureAlwaysOpenLocation();
+    walkinLocation = walkinResult.location;
+    _walkinSchedule = walkinResult.schedule;
+    console.log(`✓ Created 24/7 walk-in location: ${walkinLocation.name} (ID: ${walkinLocation.id})`);
+
+    // Create prebook in-person test location (24/7, 8 slots per hour)
+    const prebookInPersonResult = await testLocationManager.ensurePrebookInPersonLocationWithSlots();
+    prebookInPersonLocation = prebookInPersonResult.location;
+    _prebookInPersonSchedule = prebookInPersonResult.schedule;
+    console.log(
+      `✓ Created 24/7 prebook in-person location: ${prebookInPersonLocation.name} (ID: ${prebookInPersonLocation.id})`
+    );
+
+    // Create prebook virtual test location (24/7, 8 slots per hour)
+    const prebookVirtualResult = await testLocationManager.ensurePrebookVirtualLocationWithSlots();
+    prebookVirtualLocation = prebookVirtualResult.location;
+    _prebookVirtualSchedule = prebookVirtualResult.schedule;
+    console.log(
+      `✓ Created 24/7 prebook virtual location: ${prebookVirtualLocation.name} (ID: ${prebookVirtualLocation.id})`
+    );
   });
 
-  // Cleanup: Remove test location after all tests
+  // Cleanup: Remove test locations after all tests
   test.afterAll(async () => {
     if (testLocationManager) {
       await testLocationManager.cleanup();
@@ -108,8 +130,17 @@ test.describe('Complete booking flows - all permutations', () => {
     test(`${scenario.description} - complete flow`, async ({ page }) => {
       const config = createBookingConfigForTest(scenario.configName);
 
-      // Pass test location name for walk-in flows to ensure location is always open
-      const locationName = scenario.visitType === 'walk-in' ? testLocation.name : undefined;
+      // Choose the appropriate test location based on visitType and serviceMode
+      let locationName: string;
+      if (scenario.visitType === 'walk-in') {
+        // Walk-in uses different locations for in-person vs virtual
+        locationName = scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : walkinLocation.name!;
+      } else {
+        // Prebook uses different locations for in-person vs virtual
+        locationName =
+          scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : prebookInPersonLocation.name!;
+      }
+
       const appointmentResponse = await executeBookingScenario(page, scenario, config, locationName);
 
       // Verify we reached confirmation and have appointment data

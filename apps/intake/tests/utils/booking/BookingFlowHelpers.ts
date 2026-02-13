@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { dataTestIds } from 'src/helpers/data-test-ids';
 import {
   BookingConfig,
   chooseJson,
@@ -242,7 +243,9 @@ export class BookingFlowHelpers {
   static async selectServiceCategoryIfNeeded(
     page: Page,
     config: BookingConfig,
-    preferredCategory: string
+    preferredCategory: string,
+    visitType: 'walk-in' | 'prebook',
+    serviceMode?: 'in-person' | 'virtual'
   ): Promise<void> {
     const categories = config.serviceCategories;
 
@@ -260,8 +263,12 @@ export class BookingFlowHelpers {
     // Select by the user-visible label text
     await page.getByRole('button', { name: category.display }).click();
 
-    // For walk-in flows, handle the Continue button on the walk-in landing page
-    await this.clickContinueButtonIfPresent(page, 'on walk-in landing page');
+    // For in-person walk-in flows only, handle the Continue button on the walk-in landing page
+    // Virtual walk-in flows proceed to location selection
+    // Prebook flows load the time slot page immediately after category selection
+    if (visitType === 'walk-in' && serviceMode === 'in-person') {
+      await this.clickContinueButtonIfPresent(page, 'on walk-in landing page');
+    }
   }
 
   /**
@@ -337,26 +344,239 @@ export class BookingFlowHelpers {
 
   /**
    * Select the first available location
+   * For prebook flows with bookingOn param (location-specific booking), this step is skipped
+   * Handles both in-person (location buttons) and virtual (autocomplete dropdown) flows
+   /**
+   * Selects a location from the location selection page.
+   * Handles three UI patterns:
+   * 1. Location-specific booking (bookingOn param) - skips selection
+   * 2. Autocomplete dropdown (virtual visits)
+   * 3. Location buttons (in-person visits)
+   * 
+   * @param page - The Playwright page object
+   * @param testLocationName - Optional specific location name to select (for test reliability)
+   * @param serviceMode - 'virtual' or 'in-person' to determine which UI pattern to expect
    */
-  static async selectFirstAvailableLocation(page: Page): Promise<void> {
-    // Wait for locations to load
-    await page.waitForSelector('[data-testid^="location-"]');
+  static async selectFirstAvailableLocation(
+    page: Page,
+    testLocationName?: string,
+    serviceMode?: 'virtual' | 'in-person'
+  ): Promise<void> {
+    // Check if we're on a location-specific booking flow (bookingOn param present)
+    // In this case, location selection is skipped and we go straight to time slots
+    const currentUrl = page.url();
+    if (currentUrl.includes('bookingOn=')) {
+      console.log('Skipping location selection (bookingOn param present - location-specific booking)');
+      // TODO: Verify this matches config expectation (inPersonPrebookRoutingParams should include bookingOn)
+      return;
+    }
 
-    // Click first location
-    const firstLocation = page.locator('[data-testid^="location-"]').first();
-    await firstLocation.click();
+    console.log(
+      `Waiting for location selection UI (${serviceMode || 'auto-detect'}, target: ${
+        testLocationName || 'first available'
+      })...`
+    );
+
+    try {
+      // If serviceMode is specified, wait directly for the expected element type
+      // Otherwise fall back to racing between autocomplete and buttons
+      let uiType: 'autocomplete' | 'buttons';
+
+      if (serviceMode === 'virtual') {
+        await page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector).waitFor({
+          state: 'visible',
+          timeout: 10000,
+        });
+        uiType = 'autocomplete';
+      } else if (serviceMode === 'in-person') {
+        await page.locator('[data-testid^="location-"]').first().waitFor({
+          state: 'visible',
+          timeout: 10000,
+        });
+        uiType = 'buttons';
+      } else {
+        // Auto-detect: race between autocomplete and location buttons
+        const result = await Promise.race([
+          page
+            .getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector)
+            .waitFor({
+              state: 'visible',
+              timeout: 10000,
+            })
+            .then(() => 'autocomplete' as const),
+          page
+            .locator('[data-testid^="location-"]')
+            .first()
+            .waitFor({
+              state: 'visible',
+              timeout: 10000,
+            })
+            .then(() => 'buttons' as const),
+        ]);
+        uiType = result;
+      }
+
+      if (uiType === 'autocomplete') {
+        // Virtual visit flow - use autocomplete to select location
+        console.log('Detected autocomplete selector (virtual visit)');
+        const autocomplete = page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
+
+        // Wait for locations to load (autocomplete is disabled while loading)
+        console.log('Waiting for autocomplete to be enabled (locations loading)...');
+        await page.waitForFunction(
+          (selector) => {
+            const element = document.querySelector(`[data-testid="${selector}"] input`);
+            return element && !(element as HTMLInputElement).disabled;
+          },
+          dataTestIds.scheduleVirtualVisitStatesSelector,
+          { timeout: 30000 }
+        );
+        console.log('Autocomplete enabled, locations loaded');
+
+        // Click the input field to open the dropdown
+        const input = autocomplete.locator('input');
+        console.log('Clicking input to open dropdown...');
+        await input.click();
+
+        // Wait for the listbox to appear
+        await page.locator('[role="listbox"]').waitFor({ state: 'visible', timeout: 10000 });
+        console.log('Dropdown opened');
+
+        // Debug: Log all available options
+        const allOptions = await page.getByRole('option').all();
+        const optionTexts = await Promise.all(allOptions.map((opt) => opt.textContent()));
+        console.log(`Available location options (${allOptions.length}):`, optionTexts);
+
+        if (testLocationName) {
+          // Select specific location by name - use startsWith to handle cases where
+          // the option text includes additional info like working hours
+          console.log(`Searching for location starting with: "${testLocationName}"`);
+
+          let foundOption = null;
+          for (let i = 0; i < allOptions.length; i++) {
+            const option = allOptions[i];
+            const optionText = await option.textContent();
+            const trimmedText = optionText?.trim();
+            const matches = trimmedText?.startsWith(testLocationName);
+            console.log(
+              `  Option ${i}: "${trimmedText?.substring(0, 50)}${
+                trimmedText && trimmedText.length > 50 ? '...' : ''
+              }" - matches? ${matches}`
+            );
+            if (matches) {
+              foundOption = option;
+              console.log(`✓ Found matching option at index ${i}`);
+              break;
+            }
+          }
+
+          if (!foundOption) {
+            throw new Error(
+              `Could not find location option starting with: "${testLocationName}". Available options: ${optionTexts
+                .map((t) => t?.substring(0, 60))
+                .join(', ')}`
+            );
+          }
+
+          console.log('Clicking the matching option...');
+          await foundOption.click();
+          console.log(`✓ Selected location: ${testLocationName}`);
+        } else {
+          // Wait for options and select first
+          const firstOption = page.getByRole('option').first();
+          await firstOption.waitFor({ state: 'visible', timeout: 10000 });
+          const optionText = await firstOption.textContent();
+          console.log(`Selecting first option: ${optionText}`);
+          await firstOption.click();
+        }
+      } else {
+        // In-person flow - click location button
+        console.log('Detected location buttons (in-person visit)');
+
+        if (testLocationName) {
+          // Find button with location name (use startsWith to handle additional info like hours)
+          console.log(`Looking for location button starting with: ${testLocationName}`);
+
+          // Get all location buttons and check their text
+          const locationButtons = page.locator('button[data-testid^="location-"]');
+          const buttonCount = await locationButtons.count();
+          console.log(`Found ${buttonCount} location buttons`);
+
+          let foundButton = null;
+          for (let i = 0; i < buttonCount; i++) {
+            const button = locationButtons.nth(i);
+            const buttonText = await button.textContent();
+            const trimmedText = buttonText?.trim();
+            const matches = trimmedText?.startsWith(testLocationName);
+            console.log(
+              `  Button ${i}: "${trimmedText?.substring(0, 50)}${
+                trimmedText && trimmedText.length > 50 ? '...' : ''
+              }" - matches? ${matches}`
+            );
+            if (matches) {
+              foundButton = button;
+              console.log(`✓ Found matching button at index ${i}`);
+              break;
+            }
+          }
+
+          if (!foundButton) {
+            // Log all button texts for debugging
+            const allButtonTexts = [];
+            for (let i = 0; i < buttonCount; i++) {
+              const button = locationButtons.nth(i);
+              const text = await button.textContent();
+              allButtonTexts.push(text?.trim());
+            }
+            throw new Error(
+              `Could not find location button starting with: "${testLocationName}". Available buttons: ${allButtonTexts.join(
+                ', '
+              )}`
+            );
+          }
+
+          await foundButton.click();
+          console.log(`✓ Selected location button: ${testLocationName}`);
+        } else {
+          // Click first available location button
+          const firstLocation = page.locator('[data-testid^="location-"]').first();
+          await firstLocation.click();
+        }
+      }
+    } catch (error) {
+      console.error('Failed during location selection:', error);
+      // Re-throw the original error to preserve the specific error message
+      throw error;
+    }
   }
 
   /**
    * Select the first available time slot (for prebook flows)
    */
   static async selectFirstAvailableTimeSlot(page: Page): Promise<void> {
-    // Wait for time slots to load
-    await page.waitForSelector('[data-testid^="time-slot-"]');
+    // Wait for "First available time" text to appear
+    await page.getByText('First available time').waitFor({ state: 'visible', timeout: 10000 });
 
-    // Click first available slot
-    const firstSlot = page.locator('[data-testid^="time-slot-"]').first();
-    await firstSlot.click();
+    // Find all time slot buttons (format: "2:00 PM", "3:30 AM", etc.)
+    const timeButtons = page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
+    const buttonCount = await timeButtons.count();
+
+    if (buttonCount === 0) {
+      throw new Error('No time slots available');
+    }
+
+    // Click the first available time slot
+    const firstTimeButton = timeButtons.first();
+    const timeText = await firstTimeButton.textContent();
+    console.log(`Selecting time slot: ${timeText}`);
+    await firstTimeButton.click();
+
+    // After clicking a time, a "Select" button appears - click it to confirm
+    const selectButton = page.getByRole('button', { name: /^Select/ });
+    await selectButton.waitFor({ state: 'visible', timeout: 5000 });
+    const selectButtonText = await selectButton.textContent();
+    console.log(`Clicking: ${selectButtonText}`);
+    await selectButton.click();
   }
 
   /**
@@ -365,34 +585,67 @@ export class BookingFlowHelpers {
    * Verifies confirmation page loads successfully
    * Captures and returns the appointment creation response
    */
-  static async confirmBooking(page: Page, visitType: 'walk-in' | 'prebook'): Promise<CreateAppointmentResponse> {
+  static async confirmBooking(
+    page: Page,
+    visitType: 'walk-in' | 'prebook',
+    serviceMode?: 'in-person' | 'virtual'
+  ): Promise<CreateAppointmentResponse> {
     // Button text differs between walk-in and prebook flows
     const buttonText = visitType === 'walk-in' ? 'Confirm this walk-in time' : 'Reserve this check-in time';
 
     const confirmButton = page.getByRole('button', { name: buttonText });
-    await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
 
-    // Set up response capture before clicking the confirm button
+    // Set up both request and response capture before clicking
+    // Monitor if request is even made (for debugging timeout issues)
+    void page
+      .waitForRequest((request) => request.url().includes('/create-appointment/execute'), { timeout: 60000 })
+      .then(() => {
+        console.log('Create appointment request sent');
+      })
+      .catch(() => {
+        console.log('Warning: No create-appointment request detected');
+      });
+
     const responsePromise = page.waitForResponse(
       (response) => response.url().includes('/create-appointment/execute') && response.status() === 200,
-      { timeout: 30000 }
+      { timeout: 60000 }
     );
 
+    // Playwright automatically waits for button to be visible, enabled, and stable
+    console.log(`Clicking "${buttonText}" button...`);
     await confirmButton.click();
+    console.log('Button clicked, waiting for API response...');
 
-    // Wait for and capture the appointment creation response
+    // Wait for the response
     const response = await responsePromise;
     const appointmentResponse = chooseJson(await response.json()) as CreateAppointmentResponse;
     console.log('Captured appointment creation response:', appointmentResponse.appointmentId);
 
-    // Wait for and verify the confirmation page elements
-    console.log('Waiting for confirmation page to load...');
+    // Virtual walk-in flows go directly to paperwork after confirmation
+    // In-person walk-in and prebook flows have an intermediate confirmation page
+    const goesDirectlyToPaperwork = visitType === 'walk-in' && serviceMode === 'virtual';
 
-    // Check for either "You are checked in!" (walk-in) or thank you heading (prebook)
-    // Both should have "Proceed to paperwork" button
-    const proceedButton = page.getByRole('button', { name: 'Proceed to paperwork' });
-    await proceedButton.waitFor({ state: 'visible', timeout: 10000 });
-    console.log('Successfully reached confirmation page with "Proceed to paperwork" button');
+    if (!goesDirectlyToPaperwork) {
+      // Wait for and verify the confirmation page elements
+      console.log('Waiting for confirmation page to load...');
+
+      // Check for either "You are checked in!" (walk-in) or thank you heading (prebook)
+      // Both should have "Proceed to paperwork" button
+      const proceedButton = page.getByRole('button', { name: 'Proceed to paperwork' });
+
+      try {
+        await proceedButton.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('Successfully reached confirmation page with "Proceed to paperwork" button');
+      } catch (error) {
+        // Log current page state for debugging
+        console.log('Failed to find "Proceed to paperwork" button');
+        console.log('Current URL:', page.url());
+        console.log('Page content sample:', await page.textContent('body').then((text) => text?.substring(0, 200)));
+        throw error;
+      }
+    } else {
+      console.log('Virtual walk-in flow - skipping confirmation page (goes directly to paperwork)');
+    }
 
     // Log final URL for debugging
     console.log('Final URL:', page.url());
@@ -427,6 +680,7 @@ export class BookingFlowHelpers {
       'patient-birth-sex': this.getValidValueFromConfig('patient-birth-sex'),
       'patient-email': `test.patient.${timestamp}@example.com`,
       'patient-weight': '180', // Only shown for virtual visits
+      'patient-ssn': '123-45-6789', // Required for workers-comp flows
       'return-patient-check': this.getValidValueFromConfig('return-patient-check'),
       'reason-for-visit': this.getValidValueFromConfig('reason-for-visit', serviceCategory),
       'reason-for-visit-om': this.getValidValueFromConfig('reason-for-visit-om', 'occupational-medicine'),

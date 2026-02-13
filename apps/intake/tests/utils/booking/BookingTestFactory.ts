@@ -83,7 +83,7 @@ export function generateBookingTestScenarios(configName: string): BookingTestSce
  * @param page - Playwright page
  * @param scenario - The booking scenario to execute
  * @param config - The booking configuration
- * @param testLocationName - Optional 24/7 test location name for walk-in flows
+ * @param testLocationName - Optional 24/7 test location name (used for both walk-in and prebook flows)
  * @returns The appointment creation response with appointment ID and resources
  */
 export async function executeBookingScenario(
@@ -109,28 +109,46 @@ export async function executeBookingScenario(
 
   // 2. Select service category if needed
   if (scenario.serviceCategory) {
-    await BookingFlowHelpers.selectServiceCategoryIfNeeded(page, config, scenario.serviceCategory);
+    await BookingFlowHelpers.selectServiceCategoryIfNeeded(
+      page,
+      config,
+      scenario.serviceCategory,
+      scenario.visitType,
+      scenario.serviceMode
+    );
   }
 
-  // 3. Fill patient info based on visible fields
+  // 3. Location/time selection order varies by flow type:
+  // - Prebook (both in-person and virtual): location → time → patient info
+  // - Walk-in virtual: location → patient info
+  // - Walk-in in-person: patient info → location
+  if (scenario.visitType === 'prebook') {
+    await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
+    await BookingFlowHelpers.selectFirstAvailableTimeSlot(page);
+    await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after time slot selection');
+  } else if (scenario.visitType === 'walk-in' && scenario.serviceMode === 'virtual') {
+    // Virtual walk-in (start virtual visit): select location before patient info
+    await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
+    await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after location selection');
+  }
+
+  // 4. Fill patient info based on visible fields
   const patientData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory);
   await BookingFlowHelpers.completePatientInfoStep(page, config, patientData, {
     serviceMode: scenario.serviceMode,
     serviceCategory: scenario.serviceCategory!,
   });
 
-  // 4. Location selection (walk-in) or time selection (prebook)
-  if (scenario.visitType === 'walk-in') {
-    await BookingFlowHelpers.selectFirstAvailableLocation(page);
-  } else {
-    await BookingFlowHelpers.selectFirstAvailableLocation(page);
-    await BookingFlowHelpers.selectFirstAvailableTimeSlot(page);
+  // 5. For in-person walk-in flows WITHOUT a default location, select location AFTER patient info
+  // When defaultWalkinLocationName is set, the app navigates to a location-specific route that skips location selection
+  if (scenario.visitType === 'walk-in' && scenario.serviceMode === 'in-person' && !testLocationName) {
+    await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
   }
 
-  // 5. Confirm booking
-  const appointmentResponse = await BookingFlowHelpers.confirmBooking(page, scenario.visitType);
+  // 6. Confirm booking
+  const appointmentResponse = await BookingFlowHelpers.confirmBooking(page, scenario.visitType, scenario.serviceMode);
 
-  // 6. Complete paperwork if required
+  // 7. Complete paperwork if required
   // TODO: Add paperwork filling based on config
 
   return appointmentResponse;
@@ -205,14 +223,24 @@ export async function testScenarioStep(
 
     case 'patient-info':
       if (scenario.serviceCategory) {
-        await BookingFlowHelpers.selectServiceCategoryIfNeeded(page, config, scenario.serviceCategory);
+        await BookingFlowHelpers.selectServiceCategoryIfNeeded(
+          page,
+          config,
+          scenario.serviceCategory,
+          scenario.visitType
+        );
       }
       await verifyPatientFormFields(page, config);
       break;
 
     case 'location': {
       if (scenario.serviceCategory) {
-        await BookingFlowHelpers.selectServiceCategoryIfNeeded(page, config, scenario.serviceCategory);
+        await BookingFlowHelpers.selectServiceCategoryIfNeeded(
+          page,
+          config,
+          scenario.serviceCategory,
+          scenario.visitType
+        );
       }
       const patientData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory);
       await BookingFlowHelpers.completePatientInfoStep(page, config, patientData, {
@@ -225,13 +253,18 @@ export async function testScenarioStep(
       break;
     }
 
-    case 'time-slot':
+    case 'time-slot': {
       if (scenario.visitType !== 'prebook') {
         throw new Error('Time slot selection only applies to prebook flows');
       }
 
       if (scenario.serviceCategory) {
-        await BookingFlowHelpers.selectServiceCategoryIfNeeded(page, config, scenario.serviceCategory);
+        await BookingFlowHelpers.selectServiceCategoryIfNeeded(
+          page,
+          config,
+          scenario.serviceCategory,
+          scenario.visitType
+        );
       }
       await BookingFlowHelpers.completePatientInfoStep(
         page,
@@ -247,6 +280,7 @@ export async function testScenarioStep(
       // Verify time slot selection page
       await expect(page.getByTestId('time-slot-selection')).toBeVisible();
       break;
+    }
 
     case 'paperwork': {
       // Navigate through entire flow to paperwork
