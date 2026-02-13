@@ -6,6 +6,7 @@ import {
   getInPersonVisitStatus,
   getSecret,
   getVisitStatusHistory,
+  isFollowupEncounter,
   isInPersonAppointment,
   LocationKpiMetrics,
   OTTEHR_MODULE,
@@ -329,7 +330,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const appointments = allResources.filter(
       (resource): resource is Appointment => resource.resourceType === 'Appointment'
     );
-    const encounters = allResources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');
+    const encounters = allResources.filter(
+      (resource): resource is Encounter => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource)
+    );
 
     console.log(
       `Total resources found: ${allResources.length} (${appointments.length} appointments, ${encounters.length} encounters)`
