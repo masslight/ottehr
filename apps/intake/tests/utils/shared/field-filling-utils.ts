@@ -107,39 +107,102 @@ export async function fillCheckbox(page: Page, linkId: string, checked: boolean)
 }
 
 /**
- * Collect validation error messages from the page
- * Returns array of error message strings
+ * Structured validation error result
  */
-export async function collectValidationErrors(page: Page): Promise<string[]> {
-  const errorMessages: string[] = [];
+export interface ValidationErrorResult {
+  /** All error messages found on the page */
+  allErrors: string[];
+  /** Map of field linkId to its specific error message */
+  fieldErrors: Map<string, string>;
+  /** The aggregate error message shown at the bottom of the page (e.g., "Please fix the errors in...") */
+  aggregateError: string | null;
+}
 
-  // MUI error text elements have class containing 'Mui-error'
-  const errorElements = page.locator('.Mui-error');
-  const errorCount = await errorElements.count();
+/**
+ * Get the validation error message for a specific field by its linkId
+ * Fields render errors with id="${linkId}-helper-text"
+ */
+export async function getFieldValidationError(page: Page, linkId: string): Promise<string | null> {
+  const helperTextId = `${linkId}-helper-text`;
+  const helperElement = page.locator(`#${helperTextId}`);
 
-  for (let i = 0; i < errorCount; i++) {
-    const text = await errorElements.nth(i).textContent();
-    if (text && text.trim()) {
-      errorMessages.push(text.trim());
-    }
+  const isVisible = await helperElement.isVisible({ timeout: 1000 }).catch(() => false);
+  if (!isVisible) {
+    return null;
   }
 
-  // Also check for FormHelperText error messages (these appear below fields)
-  const helperTexts = page.locator('.MuiFormHelperText-root');
+  const text = await helperElement.textContent();
+  return text?.trim() || null;
+}
+
+/**
+ * Get the aggregate validation error message shown at the bottom of the page
+ * This is rendered with id="form-error-helper-text"
+ */
+export async function getAggregateValidationError(page: Page): Promise<string | null> {
+  const aggregateElement = page.locator('#form-error-helper-text');
+
+  const isVisible = await aggregateElement.isVisible({ timeout: 1000 }).catch(() => false);
+  if (!isVisible) {
+    return null;
+  }
+
+  const text = await aggregateElement.textContent();
+  return text?.trim() || null;
+}
+
+/**
+ * Collect validation error messages from the page
+ * Returns array of error message strings (for backward compatibility)
+ */
+export async function collectValidationErrors(page: Page): Promise<string[]> {
+  const result = await collectValidationErrorsDetailed(page);
+  return result.allErrors;
+}
+
+/**
+ * Collect detailed validation error information from the page
+ * Returns structured object with field-specific errors, aggregate error, and all errors
+ */
+export async function collectValidationErrorsDetailed(page: Page): Promise<ValidationErrorResult> {
+  const allErrors: string[] = [];
+  const fieldErrors = new Map<string, string>();
+
+  // Get the aggregate error message at the bottom of the page
+  const aggregateError = await getAggregateValidationError(page);
+  if (aggregateError) {
+    allErrors.push(aggregateError);
+  }
+
+  // Collect field-specific errors from helper text elements
+  // These have id="${linkId}-helper-text"
+  const helperTexts = page.locator('[id$="-helper-text"]');
   const helperCount = await helperTexts.count();
 
   for (let i = 0; i < helperCount; i++) {
     const helperElement = helperTexts.nth(i);
-    const isError = (await helperElement.getAttribute('class'))?.includes('error');
-    if (isError) {
-      const text = await helperElement.textContent();
-      if (text && text.trim() && !errorMessages.includes(text.trim())) {
-        errorMessages.push(text.trim());
+    const id = await helperElement.getAttribute('id');
+    if (!id || id === 'form-error-helper-text') {
+      continue; // Skip the aggregate error, already captured
+    }
+
+    const text = await helperElement.textContent();
+    if (text && text.trim()) {
+      const errorText = text.trim();
+      // Extract linkId from the helper text id (remove "-helper-text" suffix)
+      const linkId = id.replace(/-helper-text$/, '');
+      fieldErrors.set(linkId, errorText);
+      if (!allErrors.includes(errorText)) {
+        allErrors.push(errorText);
       }
     }
   }
 
-  return errorMessages;
+  return {
+    allErrors,
+    fieldErrors,
+    aggregateError,
+  };
 }
 
 /**

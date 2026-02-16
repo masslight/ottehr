@@ -325,12 +325,7 @@ export class BookingFlowHelpers {
     // Look for "Different family member" button by its test ID
     const addNewPatientButton = page.getByTestId('Different family member');
     try {
-      await addNewPatientButton.waitFor({ timeout: 2000 });
-      console.log('Patient selection screen detected, clicking "Different family member"...');
-
-      // Click and wait for the selection to be registered (button should become selected/checked)
       await addNewPatientButton.click();
-
       // Wait for the selection to be visually confirmed - the radio button should be checked
       // The button contains a radio input that gets checked when selected
       await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 5000 });

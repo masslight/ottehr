@@ -15,12 +15,13 @@ import {
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../locators';
 import {
-  collectValidationErrors,
+  collectValidationErrorsDetailed,
   fillChoiceDropdown,
   fillDateField,
   fillNumericField,
   fillRadioChoice,
   fillStringField,
+  ValidationErrorResult,
 } from '../shared/field-filling-utils';
 import { UploadDocs } from '../UploadDocs';
 
@@ -107,6 +108,36 @@ export class PagedQuestionnaireFlowHelper {
    */
   private isFieldHidden(linkId: string): boolean {
     return checkFieldHidden(linkId);
+  }
+
+  /**
+   * Clear a field's value. Returns true if the field was cleared, false if it can't be cleared.
+   * Some field types (like radio buttons) cannot be cleared once selected.
+   */
+  private async clearField(linkId: string, fieldType?: string): Promise<boolean> {
+    // Radio buttons and certain choice types cannot be cleared
+    if (fieldType === 'choice') {
+      // Check if this is a radio button by looking for the radio input
+      const radioInput = this.page.locator(`input[type="radio"][name="${linkId}"]`);
+      const isRadio = (await radioInput.count()) > 0;
+      if (isRadio) {
+        return false; // Radio buttons can't be unselected
+      }
+    }
+
+    console.log(`Clearing field ${linkId}`);
+
+    const locator = this.getFieldLocator(linkId);
+    try {
+      const isVisible = await locator.isVisible({ timeout: 1000 }).catch(() => false);
+      if (!isVisible) {
+        return false;
+      }
+      await locator.clear();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -722,24 +753,66 @@ export class PagedQuestionnaireFlowHelper {
       }
 
       await this.fillPage(phase1Data);
-      await this.clickContinue();
-      await this.page.waitForTimeout(500);
 
-      // Verify we stayed on the page (validation blocked navigation)
-      if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
-        const errors = await collectValidationErrors(this.page);
-        console.log(`[Phase 1] Found ${errors.length} errors: ${errors.join(', ') || 'none'}`);
-        allValidationErrors.push(...errors);
-
-        // Now fill the always-required fields to proceed to next phase
-        for (const field of testableAlwaysRequired) {
-          const value = validData[field.linkId];
-          if (value !== undefined) {
-            await this.fillFieldWithSpecialHandling(field.linkId, value);
-          }
+      // Clear the always-required fields to ensure they show validation errors
+      // Track which fields couldn't be cleared (e.g., radio buttons can't be unselected)
+      const clearedFields: IntakeQuestionnaireItem[] = [];
+      for (const field of testableAlwaysRequired) {
+        const cleared = await this.clearField(field.linkId, field.type);
+        if (cleared) {
+          clearedFields.push(field);
+        } else {
+          console.log(`[Phase 1] Skipping ${field.linkId} - field type '${field.type}' cannot be cleared`);
         }
+      }
+
+      // Update testable list to only include fields that were successfully cleared
+      const effectiveTestableFields = clearedFields;
+      if (effectiveTestableFields.length === 0) {
+        console.log(`[Phase 1] No clearable always-required fields to test`);
       } else {
-        console.warn(`[Phase 1] Unexpected navigation - always-required fields may not be validated correctly`);
+        await this.clickContinue();
+        await this.page.waitForTimeout(500);
+
+        // Verify we stayed on the page (validation blocked navigation)
+        if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
+          const errorResult = await collectValidationErrorsDetailed(this.page);
+          console.log(`[Phase 1] Found ${errorResult.allErrors.length} errors`);
+
+          // Verify field-specific errors exist for the expected fields (only those we cleared)
+          const missingErrors: string[] = [];
+          for (const field of effectiveTestableFields) {
+            const fieldError = errorResult.fieldErrors.get(field.linkId);
+            if (fieldError) {
+              console.log(`  ✓ ${field.linkId}: "${fieldError}"`);
+            } else {
+              missingErrors.push(field.linkId);
+            }
+          }
+
+          // Fail if expected field errors were not found
+          if (missingErrors.length > 0) {
+            throw new Error(
+              `[Phase 1] Expected validation errors for always-required fields but none found: ${missingErrors.join(
+                ', '
+              )}`
+            );
+          }
+
+          this.validateErrorMessages(errorResult, true);
+
+          allValidationErrors.push(...errorResult.allErrors);
+
+          // Now fill the always-required fields to proceed to next phase
+          for (const field of effectiveTestableFields) {
+            const value = validData[field.linkId];
+            if (value !== undefined) {
+              await this.fillFieldWithSpecialHandling(field.linkId, value);
+            }
+          }
+        } else {
+          console.warn(`[Phase 1] Unexpected navigation - always-required fields may not be validated correctly`);
+        }
       }
     }
 
@@ -809,9 +882,32 @@ export class PagedQuestionnaireFlowHelper {
 
         // Verify we stayed on the page (validation blocked navigation)
         if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
-          const errors = await collectValidationErrors(this.page);
-          console.log(`[Phase 2] Found ${errors.length} errors: ${errors.join(', ') || 'none'}`);
-          allValidationErrors.push(...errors);
+          const errorResult = await collectValidationErrorsDetailed(this.page);
+          console.log(`[Phase 2] Found ${errorResult.allErrors.length} errors`);
+
+          // Verify field-specific errors exist for the expected conditionally-required fields
+          const missingErrors: string[] = [];
+          for (const fieldLinkId of fieldsNowRequired) {
+            const fieldError = errorResult.fieldErrors.get(fieldLinkId);
+            if (fieldError) {
+              console.log(`  ✓ ${fieldLinkId}: "${fieldError}"`);
+            } else {
+              missingErrors.push(fieldLinkId);
+            }
+          }
+
+          // Fail if expected field errors were not found
+          if (missingErrors.length > 0) {
+            throw new Error(
+              `[Phase 2] Expected validation errors for conditionally-required fields but none found: ${missingErrors.join(
+                ', '
+              )}`
+            );
+          }
+
+          this.validateErrorMessages(errorResult, true);
+
+          allValidationErrors.push(...errorResult.allErrors);
 
           // Fill the conditionally-required fields to proceed
           for (const fieldLinkId of fieldsNowRequired) {
@@ -835,29 +931,63 @@ export class PagedQuestionnaireFlowHelper {
     if (invalidFieldIds.length > 0) {
       console.log(`[Phase 3] Testing ${invalidFieldIds.length} invalid field values`);
 
-      // Fill fields with invalid values
+      // Clear and fill fields with invalid values
+      // We need to clear first in case the field is pre-populated with valid data
+      const effectiveInvalidFields: string[] = [];
       for (const [linkId, value] of Object.entries(invalidData)) {
-        await this.fillFieldWithSpecialHandling(linkId, value);
+        const item = this.findItem(linkId);
+        const cleared = await this.clearField(linkId, item?.type);
+        if (cleared) {
+          await this.fillFieldWithSpecialHandling(linkId, value);
+          effectiveInvalidFields.push(linkId);
+        } else {
+          console.log(`[Phase 3] Skipping ${linkId} - field cannot be cleared`);
+        }
       }
 
-      await this.clickContinue();
-      await this.page.waitForTimeout(500);
-
-      // Verify we stayed on the page (validation blocked navigation)
-      if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
-        const errors = await collectValidationErrors(this.page);
-        console.log(`[Phase 3] Found ${errors.length} errors: ${errors.join(', ') || 'none'}`);
-        allValidationErrors.push(...errors);
-
-        // Correct the invalid fields with valid values
-        for (const linkId of invalidFieldIds) {
-          const validValue = validData[linkId];
-          if (validValue !== undefined) {
-            await this.fillFieldWithSpecialHandling(linkId, validValue);
-          }
-        }
+      if (effectiveInvalidFields.length === 0) {
+        console.log(`[Phase 3] No clearable invalid fields to test`);
       } else {
-        console.warn(`[Phase 3] Unexpected navigation - invalid values may not be validated correctly`);
+        await this.clickContinue();
+        await this.page.waitForTimeout(500);
+
+        // Verify we stayed on the page (validation blocked navigation)
+        if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
+          const errorResult = await collectValidationErrorsDetailed(this.page);
+          console.log(`[Phase 3] Found ${errorResult.allErrors.length} errors`);
+
+          // Verify field-specific errors exist for the expected invalid fields (only those we cleared)
+          const missingErrors: string[] = [];
+          for (const fieldLinkId of effectiveInvalidFields) {
+            const fieldError = errorResult.fieldErrors.get(fieldLinkId);
+            if (fieldError) {
+              console.log(`  ✓ ${fieldLinkId}: "${fieldError}"`);
+            } else {
+              missingErrors.push(fieldLinkId);
+            }
+          }
+
+          // Fail if expected field errors were not found
+          if (missingErrors.length > 0) {
+            throw new Error(
+              `[Phase 3] Expected validation errors for invalid fields but none found: ${missingErrors.join(', ')}`
+            );
+          }
+
+          this.validateErrorMessages(errorResult, false);
+
+          allValidationErrors.push(...errorResult.allErrors);
+
+          // Correct the invalid fields with valid values
+          for (const linkId of effectiveInvalidFields) {
+            const validValue = validData[linkId];
+            if (validValue !== undefined) {
+              await this.fillFieldWithSpecialHandling(linkId, validValue);
+            }
+          }
+        } else {
+          console.warn(`[Phase 3] Unexpected navigation - invalid values may not be validated correctly`);
+        }
       }
     }
 
@@ -1037,5 +1167,62 @@ export class PagedQuestionnaireFlowHelper {
     }
 
     return undefined;
+  }
+
+  validateErrorMessages(errorResult: ValidationErrorResult, isRequiredCheck: boolean): void {
+    errorResult.fieldErrors.forEach((msg, linkId) => {
+      const standardMessage = isRequiredCheck ? 'This field is required' : null;
+      let fieldSpecificMessage = 'This field is required';
+      // get the item matching the linkId to check for custom required message
+      const item = this.findItem(linkId);
+      if (item?.dataType === 'Phone Number') {
+        // todo: reference a constant or utility function for phone number validation message
+        fieldSpecificMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+      }
+      if (item?.dataType === 'DOB') {
+        fieldSpecificMessage = 'Please enter a valid date';
+      }
+      if (item?.dataType === 'Email') {
+        fieldSpecificMessage = 'Email is not valid';
+      }
+      if (!msg.includes(fieldSpecificMessage) && (standardMessage === null || !msg.includes(standardMessage))) {
+        throw new Error(
+          `[Phase 1] Unexpected error message for ${linkId}: expected to include "${fieldSpecificMessage} or "${standardMessage}", got "${msg}"`
+        );
+      }
+    });
+
+    if (errorResult.aggregateError) {
+      const aggMsg = errorResult.aggregateError;
+
+      const prefix = `Please fix the errors in the following fields to proceed:`;
+      const errorKeys = Array.from(errorResult.fieldErrors.keys());
+      if (errorKeys.length === 0) {
+        throw new Error(`[Phase 1] Aggregate error present but no field errors found`);
+      }
+      if (errorKeys.length === 1) {
+        // Single field - message may be slightly different
+        const item = this.findItem(errorKeys[0]);
+        const label = item?.text || errorKeys[0];
+        const expectedMessage = `Please fix the error in the "${label}" field to proceed`;
+        if (aggMsg !== expectedMessage) {
+          throw new Error(
+            `[Phase 1] Unexpected aggregate error message for single field: expected "${expectedMessage}", got "${aggMsg}"`
+          );
+        }
+        return;
+      }
+      const body = errorKeys
+        .map((linkId) => {
+          const item = this.findItem(linkId);
+          const label = item?.text || linkId;
+          return `"${label}"`;
+        })
+        .join(',');
+      const foundMessage = `${prefix} ${body}`;
+      if (aggMsg !== foundMessage) {
+        throw new Error(`[Phase 1] Unexpected aggregate error message: expected "${foundMessage}", got "${aggMsg}"`);
+      }
+    }
   }
 }
