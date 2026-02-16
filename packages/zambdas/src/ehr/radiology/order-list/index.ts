@@ -260,6 +260,8 @@ const parseResultsToOrder = (
     status = RadiologyOrderStatus.performed;
   } else if (preliminaryDiagnosticReport && !(hasNeedsFinalReadExtension || hasBeenSentExtension) && !bestFinalReport) {
     status = RadiologyOrderStatus.preliminary;
+  } else if (preliminaryDiagnosticReport && hasNeedsFinalReadExtension && !hasBeenSentExtension && !bestFinalReport) {
+    status = RadiologyOrderStatus.pendingFinal;
   } else if (bestFinalReport?.status === 'final') {
     if (finalReviewTask?.status === 'completed') {
       status = RadiologyOrderStatus.reviewed;
