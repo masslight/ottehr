@@ -279,7 +279,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await progressNotePage.verifyVitalIsShown(HEARTBEAT_BPM + '/min');
         });
         await test.step('VIT-2.3 Verify respiration rate in progress note', async () => {
-          await progressNotePage.verifyVitalIsShown(RESPIRATION_RATE);
+          await progressNotePage.verifyVitalIsShown(RESPIRATION_RATE + '/min');
         });
         await test.step('VIT-2.4 Verify blood pressure in progress note', async () => {
           await progressNotePage.verifyVitalIsShown(`${BLOOD_PRESSURE_SYSTOLIC}/${BLOOD_PRESSURE_DIASTOLIC}`);
