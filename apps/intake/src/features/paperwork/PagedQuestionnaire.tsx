@@ -46,7 +46,6 @@ import {
   LightToolTip,
   LinkRenderer,
 } from '../../components/form';
-import { useIntakeThemeContext } from '../../contexts';
 import { getUCInputType } from '../../helpers/paperworkUtils';
 import { ControlButtonsProps } from '../../types';
 import AIInterview from './components/AIInterview';
@@ -429,7 +428,6 @@ const NestedInput: FC<NestedInputProps> = (props) => {
   const { helperText, showHelperTextIcon } = inputProps || {};
   const { formValues } = useQRState();
   const dependency = item.requireWhen ? formValues[item.requireWhen.question] : undefined;
-  const { otherColors } = useIntakeThemeContext();
   const { trigger } = useFormContext();
   const [isFocused, setIsFocused] = useState(false);
 
@@ -517,7 +515,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
               >
                 <Box
                   sx={{
-                    color: otherColors.scheduleBorder,
+                    color: palette.custom.scheduleBorder,
                     width: 'fit-content',
                     display: 'flex',
                     marginTop: 0.5,

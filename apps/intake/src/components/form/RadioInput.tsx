@@ -15,7 +15,6 @@ import { palette } from '@theme/colors';
 import { FC, SyntheticEvent, useContext, useRef } from 'react';
 import { Controller, FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from '../../contexts';
 import { useLabelDimensions } from '../../hooks/useLabelDimensions';
 import { RadioOption, RadioStyling } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
@@ -63,7 +62,6 @@ const RadioInput: FC<RadioInputProps> = ({
   } = useFormContext();
 
   const theme = useTheme();
-  const { otherColors } = useContext(IntakeThemeContext);
   const { t } = useTranslation();
 
   const selected = getSelected();
@@ -256,7 +254,7 @@ const RadioInput: FC<RadioInputProps> = ({
               >
                 <Box
                   sx={{
-                    color: otherColors.scheduleBorder,
+                    color: palette.custom.scheduleBorder,
                     width: 'fit-content',
                     display: 'flex',
                     marginTop: 0.5,

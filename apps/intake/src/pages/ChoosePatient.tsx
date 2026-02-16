@@ -16,7 +16,7 @@ import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PatientList from '../features/patients/components/selectable-list';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors, palette } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 const ChoosePatient = (): JSX.Element => {
@@ -418,7 +418,7 @@ const ChoosePatient = (): JSX.Element => {
                 position: 'absolute',
                 right: 8,
                 top: 8,
-                color: otherColors.scheduleBorder,
+                color: palette.custom.scheduleBorder,
               }}
             >
               <CloseIcon />

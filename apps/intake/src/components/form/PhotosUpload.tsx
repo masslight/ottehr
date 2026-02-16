@@ -4,7 +4,6 @@ import { Box, Button, IconButton, Typography } from '@mui/material';
 import { palette } from '@theme/colors';
 import { ChangeEvent, FC, useContext, useState } from 'react';
 import { FileURLs, PATIENT_PHOTOS_MAX_COUNT_TELEMED } from 'utils';
-import { IntakeThemeContext } from '../../contexts';
 import { findMissingNumber } from '../../helpers/form';
 import { filterObject } from '../../helpers/objects.helper';
 import { MultipleFileUploadOptions } from '../../types';
@@ -19,8 +18,6 @@ interface PatientPhotoUploadProps {
 }
 
 export const PhotosUpload: FC<PatientPhotoUploadProps> = ({ name, label, defaultValue = {}, options }) => {
-  const { otherColors } = useContext(IntakeThemeContext);
-
   const maxPhotos = PATIENT_PHOTOS_MAX_COUNT_TELEMED;
   const [images, setImages] = useState(() => {
     return Object.keys(defaultValue).reduce(
@@ -106,7 +103,7 @@ export const PhotosUpload: FC<PatientPhotoUploadProps> = ({ name, label, default
           ))}
         </Box>
       ) : (
-        <Typography color={otherColors.scheduleBorder}>No files attached</Typography>
+        <Typography color={palette.custom.scheduleBorder}>No files attached</Typography>
       )}
 
       {Object.keys(images).length < maxPhotos && (

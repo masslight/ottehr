@@ -14,12 +14,12 @@ import {
 } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { breakpoints } from '../providers';
 import { SelectSlot } from '.';
 import { ErrorDialog, ErrorDialogConfig } from './ErrorDialog';
 import { ControlButtons } from './form';
+import { palette } from '@theme/colors';
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -303,7 +303,7 @@ const Schedule = ({
                 onChange={handleChange}
                 TabIndicatorProps={{
                   style: {
-                    background: otherColors.borderLightBlue,
+                    background: palette.custom.borderLightBlue,
                     height: '5px',
                     borderRadius: '2.5px',
                   },

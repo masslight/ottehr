@@ -23,17 +23,28 @@ export const breakpoints: BreakpointsOptions = {
   },
 };
 
+type CustomPalette = {
+  borderGray: string;
+  borderLightBlue: string;
+  lightGray: string;
+  placeholder: string;
+  popupBackground: string;
+  primaryBoxShadow: string;
+  scheduleBorder: string;
+  transparent: string;
+};
+
 // https://stackoverflow.com/questions/50069724/how-to-add-custom-mui-palette-colors
 declare module '@mui/material/styles' {
   interface Palette {
     tertiary: PaletteColor;
     destructive: PaletteColor;
-    custom: PaletteColor;
+    custom: CustomPalette;
   }
   interface PaletteOptions {
-    tertiary: PaletteColor;
-    destructive: PaletteColor;
-    custom: PaletteColor;
+    tertiary?: PaletteColor;
+    destructive?: PaletteColor;
+    custom?: CustomPalette;
   }
 }
 

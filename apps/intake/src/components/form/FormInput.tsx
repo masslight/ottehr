@@ -16,7 +16,6 @@ import { FC, useCallback } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { getInputTypes } from 'utils';
-import { useIntakeThemeContext } from '../../contexts';
 import { InputHelperText } from './InputHelperText';
 import InputMask from './InputMask';
 import { LightToolTip } from './LightToolTip';
@@ -57,7 +56,6 @@ const FormInput: FC<FormInputProps> = ({
   } = useFormContext();
   const theme = useTheme();
   const { t } = useTranslation();
-  const { otherColors } = useIntakeThemeContext();
   const myInputComponent = mask ? (InputMask as any) : 'input';
   const signatureFont = 'Dancing Script, Tangerine, Bradley Hand, Brush Script MT, sans-serif';
   const styles = {
@@ -65,7 +63,7 @@ const FormInput: FC<FormInputProps> = ({
       '.MuiInput-input': {
         borderRadius: '8px',
         border: '1px solid',
-        borderColor: otherColors.lightGray,
+        borderColor: palette.custom.lightGray,
         padding: '10px 12px',
         transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
         '&:focus': {
@@ -188,7 +186,7 @@ const FormInput: FC<FormInputProps> = ({
             >
               <Box
                 sx={{
-                  color: otherColors.scheduleBorder,
+                  color: palette.custom.scheduleBorder,
                   width: 'fit-content',
                   display: 'flex',
                   marginTop: 0.5,

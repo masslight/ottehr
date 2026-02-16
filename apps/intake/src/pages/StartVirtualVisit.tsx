@@ -25,7 +25,6 @@ import { BoldPurpleInputLabel } from '../components/form';
 import PageForm from '../components/PageForm';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedLocations } from '../telemed/features/appointments';
 import { useOystehrAPIClient } from '../telemed/utils';
 
@@ -219,12 +218,12 @@ const StartVirtualVisit = (): JSX.Element => {
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '8px',
                       backgroundColor: theme.palette.background.paper,
-                      borderColor: otherColors.lightGray,
+                      borderColor: palette.custom.lightGray,
                       '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: otherColors.lightGray,
+                        borderColor: palette.custom.lightGray,
                       },
                       '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: otherColors.lightGray,
+                        borderColor: palette.custom.lightGray,
                       },
                     },
                   }}

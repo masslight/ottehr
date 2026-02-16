@@ -32,7 +32,7 @@ import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { BoldPurpleInputLabel } from '../components/form';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import { otherColors, palette } from '../IntakeThemeProvider';
+import { palette } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
 import { useOystehrAPIClient } from '../telemed/utils';
 
@@ -349,12 +349,12 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
     backgroundColor: theme.palette.background.paper,
-    borderColor: otherColors.lightGray,
+    borderColor: palette.custom.lightGray,
     '&:hover .MuiOutlinedInput-notchedOutline': {
-      borderColor: otherColors.lightGray,
+      borderColor: palette.custom.lightGray,
     },
     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-      borderColor: otherColors.lightGray,
+      borderColor: palette.custom.lightGray,
     },
   },
 }));

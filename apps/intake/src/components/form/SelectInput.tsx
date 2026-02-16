@@ -5,7 +5,6 @@ import { palette } from '@theme/colors';
 import { FC, useContext, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from '../../contexts';
 import { findLabelFromOptions } from '../../helpers';
 import { useLabelDimensions } from '../../hooks/useLabelDimensions';
 import { SelectInputOption } from '../../types';
@@ -42,7 +41,6 @@ const SelectInput: FC<SelectInputProps> = ({
     formState: { errors },
   } = useFormContext();
   const theme = useTheme();
-  const { otherColors } = useContext(IntakeThemeContext);
 
   const labelRef = useRef<HTMLLabelElement>(null);
   const { labelHeight, lineHeight } = useLabelDimensions(labelRef);
@@ -101,7 +99,7 @@ const SelectInput: FC<SelectInputProps> = ({
                   borderRadius: '8px',
                   backgroundColor: theme.palette.background.paper,
                   border: '1px solid',
-                  borderColor: otherColors.lightGray,
+                  borderColor: palette.custom.lightGray,
                   padding: '10px 26px 10px 12px',
                   '&:focus': {
                     borderRadius: '8px',
@@ -125,7 +123,7 @@ const SelectInput: FC<SelectInputProps> = ({
                   !options.find((option) => option.label === selectedValue || option.value === selectedValue)
                 ) {
                   return (
-                    <RenderLabelFromSelect styles={{ color: otherColors.placeholder }}>
+                    <RenderLabelFromSelect styles={{ color: palette.custom.placeholder }}>
                       {placeholder || t('general.select')}
                     </RenderLabelFromSelect>
                   );
@@ -149,7 +147,7 @@ const SelectInput: FC<SelectInputProps> = ({
               >
                 <Box
                   sx={{
-                    color: otherColors.scheduleBorder,
+                    color: palette.custom.scheduleBorder,
                     width: 'fit-content',
                     display: 'flex',
                     marginTop: 0.5,

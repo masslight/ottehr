@@ -4,7 +4,7 @@ import { palette } from '@theme/colors';
 import { FC, ReactNode, useContext, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext, usePageFormContext } from '../../contexts';
+import { usePageFormContext } from '../../contexts';
 import { SelectInputOption } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
@@ -50,7 +50,6 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
     formState: { errors },
   } = useFormContext();
   const theme = useTheme();
-  const { otherColors } = useContext(IntakeThemeContext);
   const [inputValue, setInputValue] = useState<string>('');
   const { t } = useTranslation();
 
@@ -206,7 +205,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               >
                 <Box
                   sx={{
-                    color: otherColors.scheduleBorder,
+                    color: palette.custom.scheduleBorder,
                     width: 'fit-content',
                     display: 'flex',
                     marginTop: 0.5,

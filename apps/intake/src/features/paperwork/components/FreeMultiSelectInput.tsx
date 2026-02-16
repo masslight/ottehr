@@ -6,6 +6,7 @@ import { AnswerLoadingOptions, GetAnswerOptionsRequest } from 'utils';
 import { IntakeThemeContext } from '../../../contexts';
 import { useAnswerOptionsQuery } from '../../../telemed/features/paperwork';
 import { VirtualizedListbox } from './VirtualizedListbox';
+import { palette } from '@theme/colors';
 
 type PrunedSelectProps = Omit<
   SelectProps<HTMLTextAreaElement>,
@@ -38,7 +39,6 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   ...otherProps
 }) => {
   const theme = useTheme();
-  const { otherColors } = useContext(IntakeThemeContext);
   const [inputValue, setInputValue] = useState<string>('');
 
   const fetchOptionsInput: GetAnswerOptionsRequest | undefined = (() => {
@@ -155,13 +155,13 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
           backgroundColor: `${theme.palette.background.paper}`,
           borderRadius: '8px',
           border: '1px solid',
-          borderColor: otherColors.lightGray,
+          borderColor: palette.custom.lightGray,
           '&::before, ::after, :hover:not(.Mui-disabled, .Mui-error)::before': {
             borderBottom: 0,
           },
         },
         '& .Mui-focused': {
-          boxShadow: `${otherColors.primaryBoxShadow} 0 0 0 0.2rem`,
+          boxShadow: `${palette.custom.primaryBoxShadow} 0 0 0 0.2rem`,
           borderColor: `${theme.palette.primary.main}`,
         },
         '& .Mui-disabled': {
