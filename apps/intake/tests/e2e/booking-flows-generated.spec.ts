@@ -127,7 +127,7 @@ test.describe('Complete booking flows - all permutations', () => {
 
   // Generate a test for each scenario
   for (const scenario of scenarios) {
-    test(`${scenario.description} - complete flow`, async ({ page }) => {
+    test(`${scenario.description} - complete flow with paperwork`, async ({ page }) => {
       const config = createBookingConfigForTest(scenario.configName);
 
       // Choose the appropriate test location based on visitType and serviceMode
@@ -141,6 +141,7 @@ test.describe('Complete booking flows - all permutations', () => {
           scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : prebookInPersonLocation.name!;
       }
 
+      // Execute booking AND paperwork (paperworkConfig is assigned in scenario)
       const appointmentResponse = await executeBookingScenario(page, scenario, config, locationName);
 
       // Verify we reached confirmation and have appointment data
@@ -149,9 +150,23 @@ test.describe('Complete booking flows - all permutations', () => {
       expect(appointmentResponse.resources.appointment).toBeTruthy();
       expect(appointmentResponse.resources.patient).toBeTruthy();
 
+      // Verify we completed paperwork and reached final confirmation
+      // In-person walk-in goes to /check-in, prebook (any) goes to /visit/{id}, virtual walk-in goes to /waiting-room
+      let completionPathMatches: boolean;
+      if (scenario.serviceMode === 'in-person' && scenario.visitType === 'walk-in') {
+        completionPathMatches = page.url().includes('/check-in');
+      } else if (scenario.visitType === 'prebook') {
+        completionPathMatches = /\/visit\/[a-f0-9-]+$/.test(page.url());
+      } else {
+        // Virtual walk-in
+        completionPathMatches = page.url().includes('/waiting-room');
+      }
+      expect(completionPathMatches).toBe(true);
+
       console.log(
         `✓ Created appointment ${appointmentResponse.appointmentId} for patient ${appointmentResponse.fhirPatientId}`
       );
+      console.log(`✓ Completed paperwork with config: ${scenario.paperworkConfig}`);
     });
   }
 });

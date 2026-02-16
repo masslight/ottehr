@@ -676,4 +676,43 @@ const formValueSets = {
   externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
 };
 
-export const VALUE_SETS = mergeAndFreezeConfigObjects(formValueSets, OVERRIDES);
+/**
+ * Get value sets configuration with optional test overrides
+ *
+ * @param testOverrides - Optional overrides for testing purposes
+ * @returns Merged configuration
+ */
+export function getValueSets(testOverrides: Partial<typeof formValueSets> = OVERRIDES): typeof formValueSets {
+  return mergeAndFreezeConfigObjects(formValueSets, testOverrides);
+}
+
+// Static config instance (used in production)
+const STATIC_VALUE_SETS = getValueSets();
+
+/**
+ * Get runtime value sets configuration, checking for test overrides injected via window object.
+ * In test environments, this allows Playwright tests to inject custom configs dynamically.
+ */
+function getRuntimeValueSets(): typeof formValueSets {
+  // Check for test config injected via window.__TEST_VALUE_SETS__
+  if (typeof window !== 'undefined' && (window as any).__TEST_VALUE_SETS__) {
+    return getValueSets((window as any).__TEST_VALUE_SETS__);
+  }
+  return STATIC_VALUE_SETS;
+}
+
+// Export as a Proxy to allow runtime config injection in tests
+export const VALUE_SETS = new Proxy({} as typeof formValueSets, {
+  get(_target, prop) {
+    const config = getRuntimeValueSets();
+    return config[prop as keyof typeof config];
+  },
+  ownKeys(_target) {
+    const config = getRuntimeValueSets();
+    return Reflect.ownKeys(config);
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const config = getRuntimeValueSets();
+    return Reflect.getOwnPropertyDescriptor(config, prop);
+  },
+});

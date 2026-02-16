@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/helpers/data-test-ids';
 import {
   BookingConfig,
@@ -329,8 +329,14 @@ export class BookingFlowHelpers {
     try {
       await addNewPatientButton.waitFor({ timeout: 2000 });
       console.log('Patient selection screen detected, clicking "Different family member"...');
+
+      // Click and wait for the selection to be registered (button should become selected/checked)
       await addNewPatientButton.click();
-      await page.waitForTimeout(500);
+
+      // Wait for the selection to be visually confirmed - the radio button should be checked
+      // The button contains a radio input that gets checked when selected
+      await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 5000 });
+      console.log('"Different family member" option selected and confirmed');
 
       // After selecting "Different family member", click the Continue button to proceed
       await this.clickContinueButtonIfPresent(page, 'after patient selection');

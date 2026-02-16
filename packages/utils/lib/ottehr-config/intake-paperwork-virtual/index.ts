@@ -2425,14 +2425,14 @@ const questionnaireBaseDefaults: QuestionnaireBase = {
   status: 'active',
 };
 
-function getIntakePaperworkVirtualConfig(): any {
+function getIntakePaperworkVirtualConfig(testOverrides: any = OVERRIDES): any {
   const INTAKE_PAPERWORK_DEFAULTS = {
     questionnaireBase: questionnaireBaseDefaults,
     hiddenFormSections,
     FormFields: getFormFields(),
   };
 
-  const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, OVERRIDES);
+  const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, testOverrides);
 
   const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
     FormFields: FormFieldsSchema,
@@ -2441,16 +2441,40 @@ function getIntakePaperworkVirtualConfig(): any {
   return IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
 }
 
-// Singleton instance - lazily initialized on first access
-let _virtualIntakePaperworkConfig: any;
+// Static config instance (used in production)
+const STATIC_VIRTUAL_INTAKE_PAPERWORK_CONFIG = getIntakePaperworkVirtualConfig();
 
-export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = (): any => {
-  if (!_virtualIntakePaperworkConfig) {
-    _virtualIntakePaperworkConfig = getIntakePaperworkVirtualConfig();
+/**
+ * Get runtime virtual intake paperwork configuration, checking for test overrides injected via window object.
+ * In test environments, this allows Playwright tests to inject custom configs dynamically.
+ */
+function getRuntimeVirtualIntakePaperworkConfig(): any {
+  // Check for test config injected via window.__TEST_VIRTUAL_PAPERWORK_CONFIG__
+  if (typeof window !== 'undefined' && (window as any).__TEST_VIRTUAL_PAPERWORK_CONFIG__) {
+    return getIntakePaperworkVirtualConfig((window as any).__TEST_VIRTUAL_PAPERWORK_CONFIG__);
   }
-  return _virtualIntakePaperworkConfig;
-};
+  return STATIC_VIRTUAL_INTAKE_PAPERWORK_CONFIG;
+}
 
-export type VirtualIntakePaperworkConfig = ReturnType<typeof VIRTUAL_INTAKE_PAPERWORK_CONFIG>;
+// Export as a Proxy to allow runtime config injection in tests
+export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = new Proxy({} as any, {
+  get(_target, prop) {
+    const config = getRuntimeVirtualIntakePaperworkConfig();
+    return config[prop as keyof typeof config];
+  },
+  ownKeys(_target) {
+    const config = getRuntimeVirtualIntakePaperworkConfig();
+    return Reflect.ownKeys(config);
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const config = getRuntimeVirtualIntakePaperworkConfig();
+    return Reflect.getOwnPropertyDescriptor(config, prop);
+  },
+});
+
+export type VirtualIntakePaperworkConfig = typeof STATIC_VIRTUAL_INTAKE_PAPERWORK_CONFIG;
 export const VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(VIRTUAL_INTAKE_PAPERWORK_CONFIG())));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(getRuntimeVirtualIntakePaperworkConfig())));
+
+// Export the config factory function for test use
+export { getIntakePaperworkVirtualConfig };
