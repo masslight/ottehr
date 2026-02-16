@@ -40,6 +40,33 @@ export interface BookingTestScenario {
   visitType: 'walk-in' | 'prebook';
   serviceMode: 'in-person' | 'virtual';
   paperworkConfig?: PaperworkConfigName;
+  fillingStrategy: FillingStrategy;
+}
+export interface FillingStrategy {
+  checkValidation: boolean;
+  fillAllFields: boolean;
+}
+
+/**
+ * Determine the filling strategy for a booking scenario
+ * Enables validation checking for specific scenario types to test form validation
+ */
+function getFillingStrategyForScenario(
+  serviceCategory: string,
+  visitType: 'walk-in' | 'prebook',
+  serviceMode: 'in-person' | 'virtual'
+): FillingStrategy {
+  // Enable validation checking for:
+  // - In-person walk-in urgent-care
+  // - Prebook virtual urgent-care
+  const shouldCheckValidation =
+    (serviceCategory === 'urgent-care' && visitType === 'walk-in' && serviceMode === 'in-person') ||
+    (serviceCategory === 'urgent-care' && visitType === 'prebook' && serviceMode === 'virtual');
+
+  return {
+    checkValidation: shouldCheckValidation,
+    fillAllFields: true,
+  };
 }
 
 /**
@@ -89,21 +116,23 @@ export function generateBookingTestScenarios(configName: string): BookingTestSce
 
     if (serviceCategories.length === 1) {
       // Single service category - no selection needed
-      const scenario = {
+      const categoryCode = serviceCategories[0].code;
+      const scenario: BookingTestScenario = {
         configName,
         homepageOptionId: option.id,
         homepageOptionLabel: option.label,
-        serviceCategory: serviceCategories[0].code,
+        serviceCategory: categoryCode,
         visitType,
         serviceMode,
-        description: `${option.label} → ${serviceCategories[0].code}`,
-        paperworkConfig: getPaperworkConfigForScenario(serviceCategories[0].code, visitType, serviceMode),
+        description: `${option.label} → ${categoryCode}`,
+        paperworkConfig: getPaperworkConfigForScenario(categoryCode, visitType, serviceMode),
+        fillingStrategy: getFillingStrategyForScenario(categoryCode, visitType, serviceMode),
       };
       scenarios.push(scenario);
     } else {
       // Multiple service categories - generate scenario for each
       for (const category of serviceCategories) {
-        const scenario = {
+        const scenario: BookingTestScenario = {
           configName,
           homepageOptionId: option.id,
           homepageOptionLabel: option.label,
@@ -112,6 +141,7 @@ export function generateBookingTestScenarios(configName: string): BookingTestSce
           serviceMode,
           description: `${option.label} → ${category.code}`,
           paperworkConfig: getPaperworkConfigForScenario(category.code, visitType, serviceMode),
+          fillingStrategy: getFillingStrategyForScenario(category.code, visitType, serviceMode),
         };
         scenarios.push(scenario);
       }
@@ -178,11 +208,17 @@ export async function executeBookingScenario(
   }
 
   // 4. Fill patient info based on visible fields
-  const patientData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory);
-  await BookingFlowHelpers.completePatientInfoStep(page, config, patientData, {
-    serviceMode: scenario.serviceMode,
-    serviceCategory: scenario.serviceCategory!,
-  });
+  const patientTestData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory);
+  await BookingFlowHelpers.completePatientInfoStep(
+    page,
+    config,
+    patientTestData,
+    {
+      serviceMode: scenario.serviceMode,
+      serviceCategory: scenario.serviceCategory!,
+    },
+    scenario.fillingStrategy
+  );
 
   // 5. For in-person walk-in flows WITHOUT a default location, select location AFTER patient info
   // When defaultWalkinLocationName is set, the app navigates to a location-specific route that skips location selection
@@ -196,7 +232,13 @@ export async function executeBookingScenario(
   // 7. Complete paperwork if required
   const paperworkConfigToUse = paperworkConfig || scenario.paperworkConfig;
   if (paperworkConfigToUse) {
-    await completePaperwork(page, paperworkConfigToUse, scenario.serviceMode, scenario.visitType);
+    await completePaperwork(
+      page,
+      paperworkConfigToUse,
+      scenario.serviceMode,
+      scenario.visitType,
+      scenario.fillingStrategy
+    );
   }
 
   return appointmentResponse;
@@ -354,7 +396,8 @@ async function completePaperwork(
   page: Page,
   paperworkConfigName: PaperworkConfigName,
   serviceMode: 'in-person' | 'virtual',
-  visitType: 'walk-in' | 'prebook'
+  visitType: 'walk-in' | 'prebook',
+  fillingStrategy: FillingStrategy
 ): Promise<void> {
   const paperworkCapability = createPaperworkCapabilityConfig(paperworkConfigName);
 
@@ -385,7 +428,7 @@ async function completePaperwork(
   await helper.waitForPage();
 
   // Generate and fill data based on config
-  await fillPaperworkPages(page, helper, paperworkCapability, visitType);
+  await fillPaperworkPages(page, helper, paperworkCapability, visitType, fillingStrategy);
 }
 
 /**
@@ -398,7 +441,8 @@ async function fillPaperworkPages(
   page: Page,
   helper: PagedQuestionnaireFlowHelper,
   config: PaperworkCapabilityConfig,
-  visitType: 'walk-in' | 'prebook'
+  visitType: 'walk-in' | 'prebook',
+  fillingStrategy: FillingStrategy
 ): Promise<void> {
   // Get first visible page
   let currentPage = helper.getFirstVisiblePage();
@@ -425,8 +469,21 @@ async function fillPaperworkPages(
     };
     const testData = getTestDataForPage(pageLinkId, dataRequestContext) ?? { valid: {} };
 
-    // Fill page and capture the response (updates internal response tracking)
-    await helper.fillPageAndContinue(testData.valid, pageLinkId);
+    // Check if validation testing is enabled and page has invalid data
+    const { checkValidation } = fillingStrategy;
+    if (checkValidation && testData.invalid && Object.keys(testData.invalid).length > 0) {
+      // Fill invalid values first, verify validation errors, then correct and submit
+      console.log(`Validation check enabled for page: ${pageLinkId}`);
+      const { validationErrors } = await helper.fillPageWithValidationCheck(
+        testData.valid,
+        testData.invalid,
+        pageLinkId
+      );
+      console.log(`Validation errors found: ${validationErrors.length} - ${validationErrors.join(', ')}`);
+    } else {
+      // Standard flow: fill page with valid values and continue
+      await helper.fillPageAndContinue(testData.valid, pageLinkId);
+    }
     console.log(`Filled and submitted page: ${pageLinkId}`);
 
     // Check if we reached review page

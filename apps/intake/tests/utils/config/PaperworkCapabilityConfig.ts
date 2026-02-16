@@ -5,6 +5,8 @@
  * comprehensive test coverage without exploding test count.
  */
 
+import { FillingStrategy } from '../booking/BookingTestFactory';
+
 export type PaperworkConfigName =
   | 'baseline-in-person'
   | 'required-only-in-person'
@@ -26,7 +28,7 @@ export interface PaperworkCapabilityConfig {
 
   // Data generation hints
   dataOptions: {
-    fillAllFields: boolean; // true = all fields, false = required only
+    // fillAllFields: boolean; // true = all fields, false = required only
     paymentMethod: 'insurance' | 'self-pay' | 'workers-comp';
     responsibleParty: 'self' | 'not-self';
     hasSecondaryInsurance: boolean;
@@ -48,6 +50,11 @@ export interface PaperworkCapabilityConfig {
     needsWorkNote?: boolean;
   };
 
+  fillingStrategy: {
+    checkValidation: boolean; // when true, when filling any page that has invalid fields included in the data template, the invalid values will be input first, validation errors checked, then corrected values input
+    fillAllFields: boolean; // true = all fields, false = required only
+  };
+
   // Config injection (if needed)
   configOverrides?: {
     hiddenFields?: string[];
@@ -58,14 +65,16 @@ export interface PaperworkCapabilityConfig {
 /**
  * Create a paperwork capability config by name
  */
-export function createPaperworkCapabilityConfig(name: PaperworkConfigName): PaperworkCapabilityConfig {
+export function createPaperworkCapabilityConfig(
+  name: PaperworkConfigName,
+  fillingStrategy: FillingStrategy = { checkValidation: false, fillAllFields: true }
+): PaperworkCapabilityConfig {
   const configs: Record<PaperworkConfigName, PaperworkCapabilityConfig> = {
     'baseline-in-person': {
       name: 'baseline-in-person',
       description: 'Complete happy path with all fields visible and filled',
       serviceMode: 'in-person',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance',
         responsibleParty: 'not-self',
         hasSecondaryInsurance: false,
@@ -76,6 +85,7 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: false,
       },
+      fillingStrategy,
     },
 
     'required-only-in-person': {
@@ -83,7 +93,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Minimal required fields, self-pay',
       serviceMode: 'in-person',
       dataOptions: {
-        fillAllFields: false,
         paymentMethod: 'self-pay',
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -94,6 +103,7 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: false,
       },
+      fillingStrategy,
     },
 
     'workers-comp-in-person': {
@@ -101,7 +111,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Workers compensation flow with employer info',
       serviceMode: 'in-person',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'workers-comp',
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -112,6 +121,7 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false, // Can be toggled for conditional testing
         needsWorkNote: false,
       },
+      fillingStrategy,
     },
 
     'workers-comp-virtual': {
@@ -119,7 +129,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Workers compensation virtual flow with employer info',
       serviceMode: 'virtual',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'workers-comp',
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -134,6 +143,7 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: false,
       },
+      fillingStrategy,
     },
 
     'occ-med-in-person': {
@@ -141,7 +151,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Occupational medicine with employer requirements',
       serviceMode: 'in-person',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance', // Or employer-paid
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -152,6 +161,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: true,
       },
+      fillingStrategy: {
+        checkValidation: false,
+        fillAllFields: true,
+      },
     },
 
     'occ-med-virtual': {
@@ -159,7 +172,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Occupational medicine virtual flow with employer requirements',
       serviceMode: 'virtual',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance',
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -174,6 +186,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: true,
       },
+      fillingStrategy: {
+        checkValidation: false,
+        fillAllFields: true,
+      },
     },
 
     'photo-id-in-person': {
@@ -181,7 +197,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Test attachment upload with photo ID',
       serviceMode: 'in-person',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance',
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -192,6 +207,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: false,
       },
+      fillingStrategy: {
+        checkValidation: false,
+        fillAllFields: true,
+      },
     },
 
     'baseline-virtual': {
@@ -199,7 +218,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Virtual visit happy path with medical history',
       serviceMode: 'virtual',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance',
         responsibleParty: 'not-self',
         hasSecondaryInsurance: false,
@@ -214,6 +232,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: false,
       },
+      fillingStrategy: {
+        checkValidation: true,
+        fillAllFields: true,
+      },
     },
 
     'minimal-virtual': {
@@ -221,7 +243,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Virtual visit with no medical history',
       serviceMode: 'virtual',
       dataOptions: {
-        fillAllFields: false,
         paymentMethod: 'self-pay',
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -236,6 +257,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: false,
       },
+      fillingStrategy: {
+        checkValidation: true,
+        fillAllFields: true,
+      },
     },
 
     'virtual-with-secondary-insurance': {
@@ -243,7 +268,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Complex insurance scenario (virtual)',
       serviceMode: 'virtual',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance',
         responsibleParty: 'self',
         hasSecondaryInsurance: true,
@@ -258,6 +282,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasAttorney: false,
         needsWorkNote: false,
       },
+      fillingStrategy: {
+        checkValidation: true,
+        fillAllFields: true,
+      },
     },
 
     'hidden-fields-test': {
@@ -265,7 +293,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Test config-based field hiding',
       serviceMode: 'in-person',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance',
         responsibleParty: 'self',
         hasSecondaryInsurance: false,
@@ -275,6 +302,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasEmployerInfo: false,
         hasAttorney: false,
         needsWorkNote: false,
+      },
+      fillingStrategy: {
+        checkValidation: false,
+        fillAllFields: true,
       },
       configOverrides: {
         // Example: Hide specific fields to test conditional rendering
@@ -287,7 +318,6 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
       description: 'Test field validation with invalid data',
       serviceMode: 'in-person',
       dataOptions: {
-        fillAllFields: true,
         paymentMethod: 'insurance',
         responsibleParty: 'not-self',
         hasSecondaryInsurance: false,
@@ -297,6 +327,10 @@ export function createPaperworkCapabilityConfig(name: PaperworkConfigName): Pape
         hasEmployerInfo: false,
         hasAttorney: false,
         needsWorkNote: false,
+      },
+      fillingStrategy: {
+        checkValidation: false,
+        fillAllFields: true,
       },
     },
   };

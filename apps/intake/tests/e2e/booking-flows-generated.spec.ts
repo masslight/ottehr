@@ -91,7 +91,13 @@ test.describe('Homepage option rendering', () => {
 test.describe('Complete booking flows - all permutations', () => {
   // Setup: Create test locations for walk-in and prebook tests
   test.beforeAll(async () => {
-    testLocationManager = new TestLocationManager();
+    // Generate a unique ID for this worker to isolate test resources
+    // This prevents race conditions when multiple workers run in parallel
+    const suiteId = process.env.PLAYWRIGHT_SUITE_ID || 'unknown';
+    const workerUniqueId = `${suiteId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    console.log(`Worker unique ID: ${workerUniqueId}`);
+
+    testLocationManager = new TestLocationManager(workerUniqueId);
     await testLocationManager.init();
 
     // Create walk-in in-person test location (24/7, high capacity for walk-ins)

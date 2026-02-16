@@ -40,23 +40,27 @@ const createContactInformationData = (overrides?: {
   state?: string;
   zip?: string;
   preferredCommunication?: string;
-}): FieldTestData => ({
-  valid: {
-    'patient-email': overrides?.email || 'test@example.com',
-    'patient-number': overrides?.phoneNumber || '1234567890',
-    'patient-street-address': overrides?.address || '123 Test Street',
-    'patient-street-address-2': overrides?.addressLine2 || '',
-    'patient-city': overrides?.city || 'TestCity',
-    'patient-state': overrides?.state || 'CA',
-    'patient-zip': overrides?.zip || '12345',
-    'patient-preferred-communication-method': overrides?.preferredCommunication || 'Email',
-  },
-  invalid: {
-    'patient-email': 'not-an-email',
-    'patient-number': '123', // Too short
-    'patient-zip': 'ABCDE', // Non-numeric
-  },
-});
+}): FieldTestData => {
+  const valueSets = getValueSets();
+  return {
+    valid: {
+      'patient-email': overrides?.email || 'test@example.com',
+      'patient-number': overrides?.phoneNumber || '1234567890',
+      'patient-street-address': overrides?.address || '123 Test Street',
+      'patient-street-address-2': overrides?.addressLine2 || '',
+      'patient-city': overrides?.city || 'TestCity',
+      'patient-state': overrides?.state || 'CA',
+      'patient-zip': overrides?.zip || '12345',
+      'patient-preferred-communication-method':
+        overrides?.preferredCommunication || valueSets.preferredCommunicationMethodOptions[1].value, // 'Email'
+    },
+    invalid: {
+      'patient-email': 'not-an-email',
+      'patient-number': '123', // Too short
+      'patient-zip': 'ABCDE', // Non-numeric
+    },
+  };
+};
 
 /**
  * Create patient details data
@@ -99,10 +103,10 @@ const createPrimaryCarePhysicianData = (overrides?: {
     'pcp-last-name': overrides?.lastName || 'LastName',
     'pcp-practice-name': overrides?.practiceName || 'PCP Practice',
     'pcp-practice-address': overrides?.address || '123 PCP Street',
-    'pcp-phone-number': overrides?.phoneNumber || '(123) 456-7890',
+    'pcp-number': overrides?.phoneNumber || '(123) 456-7890',
   },
   invalid: {
-    'pcp-phone-number': '123', // Too short
+    'pcp-number': '123', // Too short
   },
 });
 
@@ -187,6 +191,7 @@ const createInsuranceData = (overrides?: {
       'policy-holder-date-of-birth': overrides?.policyHolderDOB || '01/01/1990',
       'policy-holder-birth-sex': overrides?.policyHolderBirthSex || valueSets.birthSexOptions[0].value,
       'patient-relationship-to-insured': overrides?.relationship || valueSets.relationshipOptions[1].value,
+      'policy-holder-address-as-patient': false, // Uncheck to enable address fields
       'policy-holder-address': overrides?.address || '123 Insurance St',
       'policy-holder-address-additional-line': overrides?.addressLine2 || 'Apt 11',
       'policy-holder-city': overrides?.city || 'InsuranceCity',
@@ -230,17 +235,20 @@ const createResponsiblePartyData = (
     };
   }
 
+  // Use index 1 (Spouse) to get a non-Self relationship that keeps name fields enabled
+  // Set address-as-patient to false so address fields are enabled (they have enableWhen on this)
   return {
     valid: {
-      'responsible-party-relationship': overrides?.relationshipValue || valueSets.relationshipOptions[0].value,
+      'responsible-party-relationship': overrides?.relationshipValue || valueSets.relationshipOptions[1].value,
       'responsible-party-first-name': overrides?.firstName || 'Responsible',
       'responsible-party-last-name': overrides?.lastName || 'Party',
       'responsible-party-date-of-birth': overrides?.dob || '01/01/1980',
       'responsible-party-birth-sex': overrides?.birthSex || valueSets.birthSexOptions[0].value,
       'responsible-party-number': overrides?.phone || '1234567890',
       'responsible-party-email': overrides?.email || 'responsible@example.com',
-      'responsible-party-street-address': overrides?.address || '123 RP Street',
-      ...(overrides?.addressLine2 && { 'responsible-party-street-address-2': overrides.addressLine2 }),
+      'responsible-party-address-as-patient': false, // Uncheck to enable address fields
+      'responsible-party-address': overrides?.address || '123 RP Street',
+      ...(overrides?.addressLine2 && { 'responsible-party-address-2': overrides.addressLine2 }),
       'responsible-party-city': overrides?.city || 'RPCity',
       'responsible-party-state': overrides?.state || 'CA',
       'responsible-party-zip': overrides?.zip || '12345',
@@ -276,6 +284,7 @@ const createEmergencyContactData = (overrides?: {
       'emergency-contact-first-name': overrides?.firstName || 'Emergency',
       'emergency-contact-last-name': overrides?.lastName || 'Contact',
       'emergency-contact-number': overrides?.phone || '1234567890',
+      'emergency-contact-address-as-patient': false, // Uncheck to enable address fields
       'emergency-contact-address': overrides?.address || '123 EC Street',
       ...(overrides?.addressLine2 && { 'emergency-contact-address-2': overrides.addressLine2 }),
       'emergency-contact-city': overrides?.city || 'ECCity',
@@ -546,13 +555,7 @@ const createCreditCardData = (overrides?: { number?: string; expiry?: string; cv
       cvc: overrides?.cvc || '123',
     },
   },
-  invalid: {
-    'valid-card-on-file': {
-      number: '4000000000000002', // Stripe card declined
-      expiry: '12/20', // Expired date
-      cvc: '12', // Invalid CVC length
-    },
-  },
+  // No invalid values - Stripe iframe handles validation
 });
 
 /**

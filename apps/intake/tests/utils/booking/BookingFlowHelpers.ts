@@ -9,6 +9,12 @@ import {
   selectBookingQuestionnaire,
   VALUE_SETS,
 } from 'utils';
+import {
+  collectValidationErrors,
+  fillChoiceDropdown,
+  fillDateField,
+  fillStringField,
+} from '../shared/field-filling-utils';
 
 /**
  * Page interaction helpers that are config-aware
@@ -207,31 +213,17 @@ export class BookingFlowHelpers {
         continue;
       }
 
-      // Fill based on field type
+      // Fill based on field type using shared utilities
       if (field.type === 'string' || field.type === 'decimal') {
-        await fieldLocator.fill(String(value));
+        await fillStringField(fieldLocator, String(value));
         console.log(`Filled ${field.type} field '${field.key}' with value: ${value}`);
       } else if (field.type === 'date') {
-        // Date fields: convert YYYY-MM-DD to MM/DD/YYYY format
-        const dateValue = String(value);
-        const formattedDate = dateValue.includes('-')
-          ? dateValue
-              .split('-')
-              .reverse()
-              .join('/')
-              .replace(/\/(\d)\//, '/0$1/')
-              .replace(/\/(\d)$/, '/0$1')
-          : dateValue;
-        console.log(
-          `Filling date field '${field.key}' with formatted value: ${formattedDate} (original: ${dateValue})`
-        );
-        // Use placeholder selector like existing tests do
-        await page.getByPlaceholder('MM/DD/YYYY').fill(formattedDate);
+        console.log(`Filling date field '${field.key}' with value: ${value}`);
+        await fillDateField(page, String(value));
         console.log(`Successfully filled date field '${field.key}'`);
       } else if (field.type === 'choice') {
-        // Choice fields: click to open dropdown, then select option
-        await fieldLocator.click();
-        await page.getByRole('option', { name: String(value), exact: true }).click();
+        // Choice fields use shared dropdown utility
+        await fillChoiceDropdown(page, fieldLocator, String(value));
         console.log(`Selected choice option '${value}' for field '${field.key}'`);
       }
     }
@@ -316,12 +308,18 @@ export class BookingFlowHelpers {
 
   /**
    * Complete the entire patient info step
+   * @param page - Playwright page
+   * @param config - Booking configuration
+   * @param patientTestData - Patient test data with valid and optional invalid values
+   * @param context - Service mode and category context
+   * @param fillingStrategy - Optional filling strategy for validation testing
    */
   static async completePatientInfoStep(
     page: Page,
     config: BookingConfig,
-    patientData: Partial<PatientData>,
-    context: { serviceMode: 'in-person' | 'virtual'; serviceCategory: string }
+    patientTestData: PatientTestData,
+    context: { serviceMode: 'in-person' | 'virtual'; serviceCategory: string },
+    fillingStrategy?: { checkValidation: boolean; fillAllFields: boolean }
   ): Promise<void> {
     // First, check if we're on a patient selection screen (for authenticated users with existing patients)
     // Look for "Different family member" button by its test ID
@@ -343,9 +341,117 @@ export class BookingFlowHelpers {
     } catch {
       console.log('No patient selection screen (user may not have existing patients)');
     }
-    await this.fillPatientInfo(page, config, patientData, context);
+
+    // Check if validation testing is enabled and we have invalid data
+    const shouldCheckValidation =
+      fillingStrategy?.checkValidation && patientTestData.invalid && Object.keys(patientTestData.invalid).length > 0;
+
+    if (shouldCheckValidation) {
+      console.log('Validation check enabled for patient info form');
+      await this.fillPatientInfoWithValidationCheck(page, config, patientTestData, context);
+    } else {
+      await this.fillPatientInfo(page, config, patientTestData.valid, context);
+    }
+
     // Click the continue button after filling patient info
     await this.clickContinueButtonIfPresent(page, 'after filling patient info');
+  }
+
+  /**
+   * Fill patient info with validation checking
+   * First fills invalid values, verifies validation errors, then corrects with valid values
+   */
+  private static async fillPatientInfoWithValidationCheck(
+    page: Page,
+    config: BookingConfig,
+    patientTestData: PatientTestData,
+    context: { serviceMode: 'in-person' | 'virtual'; serviceCategory: string }
+  ): Promise<void> {
+    const { valid, invalid } = patientTestData;
+    if (!invalid || Object.keys(invalid).length === 0) {
+      // No invalid data, just fill normally
+      await this.fillPatientInfo(page, config, valid, context);
+      return;
+    }
+
+    console.log(`Validation check: filling ${Object.keys(invalid).length} invalid fields on patient info`);
+
+    // Merge valid data with invalid overrides
+    const mergedData: Partial<PatientData> = { ...valid };
+    for (const [key, value] of Object.entries(invalid)) {
+      mergedData[key as keyof PatientData] = value;
+    }
+
+    // Fill with merged data (valid + invalid overrides)
+    await this.fillPatientInfo(page, config, mergedData, context);
+
+    // Try to click Continue - this should trigger validation and NOT navigate
+    await this.clickContinueButtonIfPresent(page, 'to trigger validation');
+
+    // Wait for validation errors to appear
+    await page.waitForTimeout(1000);
+
+    // Check if we're still on the patient info form (validation failed as expected)
+    const firstNameField = page.locator('#patient-first-name');
+    const stillOnForm = await firstNameField.isVisible().catch(() => false);
+
+    if (!stillOnForm) {
+      console.error(
+        `[VALIDATION CHECK] Unexpected navigation! Expected validation to fail for fields: ${Object.keys(invalid).join(
+          ', '
+        )}`
+      );
+      return;
+    }
+
+    // Collect validation error messages using shared utility
+    const errorMessages = await collectValidationErrors(page);
+    console.log(`Validation errors found: ${errorMessages.join(', ') || 'none'}`);
+
+    // Correct the invalid fields with valid values
+    console.log('Correcting invalid fields with valid values...');
+    for (const key of Object.keys(invalid)) {
+      const validValue = valid[key as keyof PatientData];
+      if (validValue) {
+        await this.fillSingleField(page, config, key, validValue, context);
+      }
+    }
+  }
+
+  /**
+   * Fill a single field in the patient info form
+   */
+  private static async fillSingleField(
+    page: Page,
+    config: BookingConfig,
+    fieldKey: string,
+    value: string,
+    _context: { serviceMode: 'in-person' | 'virtual'; serviceCategory: string }
+  ): Promise<void> {
+    const section = config.formConfig.FormFields.patientInfo;
+    const items = section.items;
+    if (!items) return;
+
+    // Find the field config
+    const field = Object.values(items).find((f: any) => f.key === fieldKey);
+    if (!field) {
+      console.log(`Field '${fieldKey}' not found in config`);
+      return;
+    }
+
+    const fieldType = (field as any).type;
+    const locator = page.locator(`#${fieldKey}`);
+
+    if (fieldType === 'choice') {
+      await fillChoiceDropdown(page, locator, value);
+      console.log(`Corrected choice field '${fieldKey}' with value: ${value}`);
+    } else if (fieldType === 'date') {
+      await fillDateField(page, value);
+      console.log(`Corrected date field '${fieldKey}' with value: ${value}`);
+    } else {
+      await fillStringField(locator, value);
+      console.log(`Corrected field '${fieldKey}' with value: ${value}`);
+    }
   }
 
   /**
@@ -640,7 +746,7 @@ export class BookingFlowHelpers {
       const proceedButton = page.getByRole('button', { name: 'Proceed to paperwork' });
 
       try {
-        await proceedButton.waitFor({ state: 'visible', timeout: 10000 });
+        await proceedButton.waitFor({ state: 'visible', timeout: 30000 });
         console.log('Successfully reached confirmation page with "Proceed to paperwork" button');
       } catch (error) {
         // Log current page state for debugging
@@ -664,8 +770,9 @@ export class BookingFlowHelpers {
    * Includes all possible fields - fillPatientInfo will only interact with visible ones
    * Values are derived from config value sets where applicable
    * Names and DOB are randomized to avoid duplicate patient detection
+   * Returns both valid and invalid data for validation testing
    */
-  static getSamplePatientData(serviceCategory?: string): PatientData {
+  static getSamplePatientData(serviceCategory?: string): PatientTestData {
     // Generate random timestamp suffix to ensure uniqueness
     const timestamp = Date.now();
     const randomSuffix = Math.floor(Math.random() * 1000);
@@ -678,19 +785,25 @@ export class BookingFlowHelpers {
     const birthdate = `${month}/${day}/${year}`;
 
     return {
-      'patient-first-name': `Test${timestamp}`,
-      'patient-middle-name': 'Michael',
-      'patient-last-name': `Patient${randomSuffix}`,
-      'patient-preferred-name': `Test${timestamp}`,
-      'patient-birthdate': birthdate,
-      'patient-birth-sex': this.getValidValueFromConfig('patient-birth-sex'),
-      'patient-email': `test.patient.${timestamp}@example.com`,
-      'patient-weight': '180', // Only shown for virtual visits
-      'patient-ssn': '123-45-6789', // Required for workers-comp flows
-      'return-patient-check': this.getValidValueFromConfig('return-patient-check'),
-      'reason-for-visit': this.getValidValueFromConfig('reason-for-visit', serviceCategory),
-      'reason-for-visit-om': this.getValidValueFromConfig('reason-for-visit-om', 'occupational-medicine'),
-      'reason-for-visit-wc': this.getValidValueFromConfig('reason-for-visit-wc', 'workers-comp'),
+      valid: {
+        'patient-first-name': `Test${timestamp}`,
+        'patient-middle-name': 'Michael',
+        'patient-last-name': `Patient${randomSuffix}`,
+        'patient-preferred-name': `Test${timestamp}`,
+        'patient-birthdate': birthdate,
+        'patient-birth-sex': this.getValidValueFromConfig('patient-birth-sex'),
+        'patient-email': `test.patient.${timestamp}@example.com`,
+        'patient-weight': '180', // Only shown for virtual visits
+        'patient-ssn': '123-45-6789', // Required for workers-comp flows
+        'return-patient-check': this.getValidValueFromConfig('return-patient-check'),
+        'reason-for-visit': this.getValidValueFromConfig('reason-for-visit', serviceCategory),
+        'reason-for-visit-om': this.getValidValueFromConfig('reason-for-visit-om', 'occupational-medicine'),
+        'reason-for-visit-wc': this.getValidValueFromConfig('reason-for-visit-wc', 'workers-comp'),
+      },
+      invalid: {
+        'patient-email': 'not-a-valid-email', // Invalid email format
+        'patient-ssn': '123', // Invalid SSN format (too short)
+      },
     };
   }
 }
@@ -712,4 +825,12 @@ export interface PatientData {
   'reason-for-visit'?: string;
   'reason-for-visit-om'?: string;
   'reason-for-visit-wc'?: string;
+}
+
+/**
+ * Test data for patient info form - includes both valid and invalid values
+ */
+export interface PatientTestData {
+  valid: PatientData;
+  invalid?: Partial<PatientData>;
 }

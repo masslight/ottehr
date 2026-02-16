@@ -5,10 +5,12 @@ import { ResourceHandler } from '../resource-handler';
 /**
  * Manages test locations and schedules for e2e booking tests
  *
- * Creates 24/7 locations with schedules for both walk-in and prebook tests
+ * Creates 24/7 locations with schedules for both walk-in and prebook tests.
+ * Each instance uses a unique worker ID to ensure test isolation when running in parallel.
  */
 export class TestLocationManager {
   private resourceHandler: ResourceHandler;
+  private workerUniqueId: string;
   private walkinLocation?: Location;
   private walkinSchedule?: Schedule;
   private prebookInPersonLocation?: Location;
@@ -16,8 +18,12 @@ export class TestLocationManager {
   private prebookVirtualLocation?: Location;
   private prebookVirtualSchedule?: Schedule;
 
-  constructor() {
+  /**
+   * @param workerUniqueId - Unique identifier for this worker to isolate test resources
+   */
+  constructor(workerUniqueId: string) {
     this.resourceHandler = new ResourceHandler();
+    this.workerUniqueId = workerUniqueId;
   }
 
   /**
@@ -33,11 +39,7 @@ export class TestLocationManager {
    */
   async ensureAlwaysOpenLocation(): Promise<{ location: Location; schedule: Schedule }> {
     const oystehr = this.resourceHandler.apiClient;
-    const processId = process.env.PLAYWRIGHT_SUITE_ID;
-
-    if (!processId) {
-      throw new Error('PLAYWRIGHT_SUITE_ID environment variable is not set');
-    }
+    const processId = this.workerUniqueId;
 
     // Search for existing test location tagged with our process ID
     const existingLocations = await oystehr.fhir.search<Location>({
@@ -217,11 +219,7 @@ export class TestLocationManager {
    */
   async ensurePrebookInPersonLocationWithSlots(): Promise<{ location: Location; schedule: Schedule }> {
     const oystehr = this.resourceHandler.apiClient;
-    const processId = process.env.PLAYWRIGHT_SUITE_ID;
-
-    if (!processId) {
-      throw new Error('PLAYWRIGHT_SUITE_ID environment variable is not set');
-    }
+    const processId = this.workerUniqueId;
 
     // Search for existing prebook in-person test location
     const existingLocations = await oystehr.fhir.search<Location>({
@@ -386,11 +384,7 @@ export class TestLocationManager {
    */
   async ensurePrebookVirtualLocationWithSlots(): Promise<{ location: Location; schedule: Schedule }> {
     const oystehr = this.resourceHandler.apiClient;
-    const processId = process.env.PLAYWRIGHT_SUITE_ID;
-
-    if (!processId) {
-      throw new Error('PLAYWRIGHT_SUITE_ID environment variable is not set');
-    }
+    const processId = this.workerUniqueId;
 
     // Search for existing prebook virtual test location
     const existingLocations = await oystehr.fhir.search<Location>({

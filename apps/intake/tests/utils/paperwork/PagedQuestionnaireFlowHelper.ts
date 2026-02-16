@@ -1,10 +1,11 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   buildEnableWhenContext,
   checkFieldHidden,
   evalEnableWhen,
+  evalRequired,
   getValueSets,
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   IntakeQuestionnaireItem,
@@ -13,6 +14,14 @@ import {
 } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../locators';
+import {
+  collectValidationErrors,
+  fillChoiceDropdown,
+  fillDateField,
+  fillNumericField,
+  fillRadioChoice,
+  fillStringField,
+} from '../shared/field-filling-utils';
 import { UploadDocs } from '../UploadDocs';
 
 // Test credit card constants
@@ -158,20 +167,20 @@ export class PagedQuestionnaireFlowHelper {
     switch (type) {
       case 'string':
       case 'text':
-        await this.fillStringField(locator, value, item);
+        await fillStringField(locator, String(value));
         break;
 
       case 'integer':
       case 'decimal':
-        await this.fillNumericField(locator, value, item);
+        await fillNumericField(locator, value);
         break;
 
       case 'date':
-        await this.fillDateField(value, item);
+        await fillDateField(this.page, value);
         break;
 
       case 'choice':
-        await this.fillChoiceField(locator, value, item);
+        await this.fillChoiceFieldLocal(locator, value, item);
         break;
 
       case 'reference':
@@ -198,66 +207,30 @@ export class PagedQuestionnaireFlowHelper {
 
       default:
         console.log(`Unknown field type ${type} for ${item.linkId}, attempting text fill`);
-        await locator.fill(String(value));
+        await fillStringField(locator, String(value));
     }
 
     console.log(`Filled field ${item.linkId} with value:`, value);
   }
 
   /**
-   * Fill a string/text field
-   */
-  private async fillStringField(locator: Locator, value: string, _item: IntakeQuestionnaireItem): Promise<void> {
-    await locator.fill(String(value));
-  }
-
-  /**
-   * Fill a numeric field (integer or decimal)
-   */
-  private async fillNumericField(
-    locator: Locator,
-    value: number | string,
-    _item: IntakeQuestionnaireItem
-  ): Promise<void> {
-    await locator.fill(String(value));
-  }
-
-  /**
-   * Fill a date field
-   */
-  private async fillDateField(value: string, _item: IntakeQuestionnaireItem): Promise<void> {
-    // Date fields use a common placeholder
-    const dateInput = this.page.getByPlaceholder('MM/DD/YYYY');
-
-    // Format date if needed (convert YYYY-MM-DD to MM/DD/YYYY)
-    let formattedDate = value;
-    if (value.includes('-') && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = value.split('-');
-      formattedDate = `${month}/${day}/${year}`;
-    }
-
-    await dateInput.fill(formattedDate);
-  }
-
-  /**
    * Fill a choice field (dropdown/radio)
+   * Handles special cases like dynamic answer sources that can't use shared utilities
    */
-  private async fillChoiceField(locator: Locator, value: string, item: IntakeQuestionnaireItem): Promise<void> {
+  private async fillChoiceFieldLocal(locator: Locator, value: string, item: IntakeQuestionnaireItem): Promise<void> {
     const isRadio = item.preferredElement === 'Radio' || item.preferredElement === 'Radio List';
     if (isRadio) {
-      // For radio buttons, scope to the specific radio group using aria-labelledby, then select by value
-      const radioGroup = this.page.locator(`[aria-labelledby="${item.linkId}-label"]`);
-      await radioGroup.locator(`input[value="${value}"]`).check();
+      await fillRadioChoice(this.page, value, `${item.linkId}-label`);
     } else if (item.answerLoadingOptions?.answerSource) {
-      // select the first option
+      // Dynamic answer sources need special handling - select first option
       await locator.click();
       console.log('filling choice field with answer source, selecting first option');
       const firstOption = this.page.locator(`[id='${item.linkId}-option-0']`);
       await firstOption.click();
     } else {
-      // For dropdowns, click to open then select option
-      await locator.click();
-      await this.page.getByRole('option', { name: value, exact: true }).click();
+      // Standard MUI Autocomplete dropdown
+      console.log(`[DEBUG] fillChoiceFieldLocal: ${item.linkId} with value "${value}"`);
+      await fillChoiceDropdown(this.page, locator, value);
     }
   }
 
@@ -343,7 +316,7 @@ export class PagedQuestionnaireFlowHelper {
    * @param cardData - Credit card information (defaults to test card if not provided)
    */
   async fillCreditCard(cardData?: { number?: string; expiry?: string; cvc?: string }): Promise<void> {
-    // Check if card is already added by looking for saved card in radio group
+    // Check if card is already added
     const savedCard = this.page.getByTestId(dataTestIds.cardNumber).first();
     const isCardAlreadyAdded = await savedCard.isVisible({ timeout: 1000 }).catch(() => false);
 
@@ -351,21 +324,39 @@ export class PagedQuestionnaireFlowHelper {
       return;
     }
 
-    // Use defaults if not provided
     const number = cardData?.number || CARD_NUMBER;
     const expiry = cardData?.expiry || CARD_EXP_DATE;
     const cvc = cardData?.cvc || CARD_CVV;
 
-    // Card doesn't exist, fill form and add it
-    // Fields are inside Stripe iframe
+    // Wait for Stripe iframe and card number field to be visible
     const stripeIframe = this.page.frameLocator('iframe[title="Secure card payment input frame"]');
-    await stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]').fill(number);
+    const cardNumberField = stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]');
+    await cardNumberField.waitFor({ state: 'visible', timeout: 30000 });
+
+    // Stripe Elements need time after DOM visibility to emit "ready" event
+    await this.page.waitForTimeout(500);
+
+    // Fill card fields
+    await cardNumberField.fill(number);
     await stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]').fill(expiry);
     await stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]').fill(cvc);
 
-    // Click add card button and wait for Stripe processing + backend save + UI update
+    // Click add card and wait for it to be saved
     await this.page.getByRole('button', { name: 'Add card' }).click();
-    await expect(this.page.getByTestId(dataTestIds.cardNumber).first()).toBeVisible({ timeout: 60000 });
+
+    // Race: either the card appears (success) or an error message appears (failure)
+    const cardSaved = this.page.getByTestId(dataTestIds.cardNumber).first();
+    const errorAlert = this.page.getByRole('alert');
+
+    const result = await Promise.race([
+      cardSaved.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'success' as const),
+      errorAlert.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'error' as const),
+    ]);
+
+    if (result === 'error') {
+      const errorText = await errorAlert.textContent();
+      throw new Error(`Failed to save credit card: ${errorText}`);
+    }
   }
 
   /**
@@ -433,6 +424,92 @@ export class PagedQuestionnaireFlowHelper {
     }
 
     return triggerIds;
+  }
+
+  /**
+   * Get items from a page that are always required (required: true, no requireWhen).
+   * These fields should always show validation errors when left empty.
+   */
+  private getAlwaysRequiredFields(pageItems: IntakeQuestionnaireItem[]): IntakeQuestionnaireItem[] {
+    return pageItems.filter((item) => {
+      // Skip display/group items and hidden items
+      if (item.type === 'display' || item.type === 'group' || this.isFieldHidden(item.linkId)) {
+        return false;
+      }
+      // Always required: required=true and no requireWhen condition
+      return item.required === true && !item.requireWhen;
+    });
+  }
+
+  /**
+   * Get items from a page that are conditionally required (have requireWhen).
+   * These fields show validation errors only when their requireWhen condition is met.
+   */
+  private getConditionallyRequiredFields(pageItems: IntakeQuestionnaireItem[]): IntakeQuestionnaireItem[] {
+    return pageItems.filter((item) => {
+      // Skip display/group items and hidden items
+      if (item.type === 'display' || item.type === 'group' || this.isFieldHidden(item.linkId)) {
+        return false;
+      }
+      // Conditionally required: has requireWhen condition
+      return item.requireWhen !== undefined;
+    });
+  }
+
+  /**
+   * Get the trigger field and value needed to activate a requireWhen condition.
+   * Returns the linkId and the value that makes the condition true.
+   */
+  private getRequireWhenTrigger(item: IntakeQuestionnaireItem): { linkId: string; value: any } | null {
+    const requireWhen = item.requireWhen;
+    if (!requireWhen) {
+      return null;
+    }
+
+    const { question, operator, answerString, answerBoolean } = requireWhen;
+
+    // For '=' operator, the trigger value is the expected answer
+    if (operator === '=') {
+      if (answerString !== undefined) {
+        return { linkId: question, value: answerString };
+      }
+      if (answerBoolean !== undefined) {
+        return { linkId: question, value: answerBoolean };
+      }
+    }
+
+    // For 'exists' with answerBoolean=true, we need to set any value
+    if (operator === 'exists' && answerBoolean === true) {
+      return { linkId: question, value: 'trigger-value' };
+    }
+
+    // For other operators, return the question but with a placeholder
+    // The test data should include appropriate values
+    return { linkId: question, value: answerString ?? answerBoolean ?? 'trigger-value' };
+  }
+
+  /**
+   * Get all unique triggers needed to activate requireWhen conditions for a list of items.
+   * Groups by trigger field to avoid setting conflicting values.
+   */
+  private getRequireWhenTriggers(
+    items: IntakeQuestionnaireItem[]
+  ): Map<string, { triggerValue: any; dependentFields: string[] }> {
+    const triggers = new Map<string, { triggerValue: any; dependentFields: string[] }>();
+
+    for (const item of items) {
+      const trigger = this.getRequireWhenTrigger(item);
+      if (trigger) {
+        const existing = triggers.get(trigger.linkId);
+        if (existing) {
+          existing.dependentFields.push(item.linkId);
+        } else {
+          triggers.set(trigger.linkId, { triggerValue: trigger.value, dependentFields: [item.linkId] });
+        }
+      }
+    }
+
+    return triggers;
   }
 
   /**
@@ -567,6 +644,268 @@ export class PagedQuestionnaireFlowHelper {
   }
 
   /**
+   * Fill a page with comprehensive validation testing, then submit with valid values.
+   * Used when checkValidation is enabled in the paperwork capability config.
+   *
+   * Multi-phase validation flow:
+   * 1. Phase 1 (Always-Required): Leave always-required fields empty, fill others, verify errors
+   * 2. Phase 2 (Conditionally-Required): Fill triggers to activate requireWhen, leave dependent fields empty, verify errors
+   * 3. Phase 3 (Invalid Values): Fill all fields with invalid values where defined, verify format errors
+   * 4. Phase 4 (Submit): Correct all fields with valid values and submit
+   *
+   * @param validData - Valid field values that should pass validation
+   * @param invalidData - Invalid field values that should trigger validation errors
+   * @param pageLinkId - The page linkId for logging and special handling
+   * @returns Object with all validation errors found across phases and the QuestionnaireResponse from successful submit
+   */
+  async fillPageWithValidationCheck(
+    validData: Record<string, any>,
+    invalidData: Record<string, any>,
+    pageLinkId: string
+  ): Promise<{ validationErrors: string[]; response: QuestionnaireResponse }> {
+    const allValidationErrors: string[] = [];
+    const page = this.questionnairePages.find((p) => p.linkId === pageLinkId);
+    const pageItems = page?.item ?? [];
+
+    // Get required field categories
+    const alwaysRequiredFields = this.getAlwaysRequiredFields(pageItems);
+    const conditionallyRequiredFields = this.getConditionallyRequiredFields(pageItems);
+
+    console.log(`[Validation Check] Page: ${pageLinkId}`);
+    console.log(`  Always-required fields: ${alwaysRequiredFields.map((f) => f.linkId).join(', ') || 'none'}`);
+    console.log(
+      `  Conditionally-required fields: ${conditionallyRequiredFields.map((f) => f.linkId).join(', ') || 'none'}`
+    );
+    console.log(`  Invalid data fields: ${Object.keys(invalidData).join(', ') || 'none'}`);
+
+    // ============================================
+    // PHASE 1: Test always-required fields (empty)
+    // ============================================
+    // First, determine which always-required fields will be enabled after filling the other fields
+    // Build context from non-required fields to check enableWhen conditions
+    const phase1Context: Record<string, QuestionnaireResponseItem> = {};
+    for (const [linkId, value] of Object.entries(validData)) {
+      const isAlwaysRequired = alwaysRequiredFields.some((f) => f.linkId === linkId);
+      if (!isAlwaysRequired) {
+        phase1Context[linkId] = this.buildResponseItem(linkId, value);
+      }
+    }
+
+    // Filter to only always-required fields that will be ENABLED after filling other fields
+    const testableAlwaysRequired = alwaysRequiredFields.filter((f) => {
+      // Must have valid data defined
+      if (validData[f.linkId] === undefined) {
+        return false;
+      }
+      // Must be enabled based on the values we're about to fill
+      const willBeEnabled = evalEnableWhen(f, this.questionnaireItems, phase1Context);
+      if (!willBeEnabled) {
+        console.log(`[Phase 1] Skipping ${f.linkId} - will be disabled by enableWhen after filling other fields`);
+      }
+      return willBeEnabled;
+    });
+
+    if (testableAlwaysRequired.length > 0) {
+      console.log(
+        `[Phase 1] Testing ${testableAlwaysRequired.length} always-required fields: ${testableAlwaysRequired
+          .map((f) => f.linkId)
+          .join(', ')}`
+      );
+
+      // Fill all fields EXCEPT always-required ones (to isolate their errors)
+      const phase1Data: Record<string, any> = {};
+      for (const [linkId, value] of Object.entries(validData)) {
+        const isAlwaysRequired = testableAlwaysRequired.some((f) => f.linkId === linkId);
+        if (!isAlwaysRequired) {
+          phase1Data[linkId] = value;
+        }
+      }
+
+      await this.fillPage(phase1Data);
+      await this.clickContinue();
+      await this.page.waitForTimeout(500);
+
+      // Verify we stayed on the page (validation blocked navigation)
+      if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
+        const errors = await collectValidationErrors(this.page);
+        console.log(`[Phase 1] Found ${errors.length} errors: ${errors.join(', ') || 'none'}`);
+        allValidationErrors.push(...errors);
+
+        // Now fill the always-required fields to proceed to next phase
+        for (const field of testableAlwaysRequired) {
+          const value = validData[field.linkId];
+          if (value !== undefined) {
+            await this.fillFieldWithSpecialHandling(field.linkId, value);
+          }
+        }
+      } else {
+        console.warn(`[Phase 1] Unexpected navigation - always-required fields may not be validated correctly`);
+      }
+    }
+
+    // ============================================
+    // PHASE 2: Test conditionally-required fields
+    // ============================================
+    const testableConditionallyRequired = conditionallyRequiredFields.filter((f) => validData[f.linkId] !== undefined);
+    if (testableConditionallyRequired.length > 0) {
+      console.log(`[Phase 2] Testing ${testableConditionallyRequired.length} conditionally-required fields`);
+
+      // Get the triggers needed to activate these fields
+      const triggers = this.getRequireWhenTriggers(testableConditionallyRequired);
+
+      // Build form values context for requireWhen evaluation
+      const currentValues: Record<string, QuestionnaireResponseItem> = {};
+      for (const [linkId, value] of Object.entries(validData)) {
+        currentValues[linkId] = this.buildResponseItem(linkId, value);
+      }
+
+      // For each trigger, fill the trigger value but leave dependent fields empty
+      for (const [triggerLinkId, { dependentFields }] of Array.from(triggers.entries())) {
+        // Check if we have a valid value for this trigger in our test data
+        const triggerValidValue = validData[triggerLinkId];
+        if (triggerValidValue === undefined) {
+          console.log(`[Phase 2] Skipping trigger ${triggerLinkId} - no valid value in test data`);
+          continue;
+        }
+
+        // Check if filling the trigger would actually make the dependent fields required
+        const testContext = { ...currentValues };
+        testContext[triggerLinkId] = this.buildResponseItem(triggerLinkId, triggerValidValue);
+
+        const fieldsNowRequired = dependentFields.filter((linkId) => {
+          const item = this.findItem(linkId);
+          if (!item) return false;
+          // Must be required AND enabled with the trigger value
+          const isRequired = evalRequired(item, testContext);
+          const isEnabled = evalEnableWhen(item, this.questionnaireItems, testContext);
+          if (isRequired && !isEnabled) {
+            console.log(`[Phase 2] Field ${linkId} would be required but disabled - skipping`);
+          }
+          return isRequired && isEnabled;
+        });
+
+        if (fieldsNowRequired.length === 0) {
+          console.log(
+            `[Phase 2] Trigger ${triggerLinkId} doesn't make any enabled fields required with current values`
+          );
+          continue;
+        }
+
+        console.log(
+          `[Phase 2] Trigger ${triggerLinkId} makes ${
+            fieldsNowRequired.length
+          } enabled fields required: ${fieldsNowRequired.join(', ')}`
+        );
+
+        // Fill the trigger field with valid value (should activate requireWhen)
+        await this.fillFieldWithSpecialHandling(triggerLinkId, triggerValidValue);
+
+        // Clear the dependent fields to test they show required errors
+        // Note: Fields may already be empty, but we try to clear them to ensure the test is valid
+        // For this to work properly, the app must show the fields after the trigger is set
+
+        await this.clickContinue();
+        await this.page.waitForTimeout(500);
+
+        // Verify we stayed on the page (validation blocked navigation)
+        if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
+          const errors = await collectValidationErrors(this.page);
+          console.log(`[Phase 2] Found ${errors.length} errors: ${errors.join(', ') || 'none'}`);
+          allValidationErrors.push(...errors);
+
+          // Fill the conditionally-required fields to proceed
+          for (const fieldLinkId of fieldsNowRequired) {
+            const value = validData[fieldLinkId];
+            if (value !== undefined) {
+              await this.fillFieldWithSpecialHandling(fieldLinkId, value);
+            }
+          }
+        } else {
+          console.warn(
+            `[Phase 2] Unexpected navigation - conditionally-required fields may not be validated correctly`
+          );
+        }
+      }
+    }
+
+    // ============================================
+    // PHASE 3: Test invalid values (format errors)
+    // ============================================
+    const invalidFieldIds = Object.keys(invalidData);
+    if (invalidFieldIds.length > 0) {
+      console.log(`[Phase 3] Testing ${invalidFieldIds.length} invalid field values`);
+
+      // Fill fields with invalid values
+      for (const [linkId, value] of Object.entries(invalidData)) {
+        await this.fillFieldWithSpecialHandling(linkId, value);
+      }
+
+      await this.clickContinue();
+      await this.page.waitForTimeout(500);
+
+      // Verify we stayed on the page (validation blocked navigation)
+      if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
+        const errors = await collectValidationErrors(this.page);
+        console.log(`[Phase 3] Found ${errors.length} errors: ${errors.join(', ') || 'none'}`);
+        allValidationErrors.push(...errors);
+
+        // Correct the invalid fields with valid values
+        for (const linkId of invalidFieldIds) {
+          const validValue = validData[linkId];
+          if (validValue !== undefined) {
+            await this.fillFieldWithSpecialHandling(linkId, validValue);
+          }
+        }
+      } else {
+        console.warn(`[Phase 3] Unexpected navigation - invalid values may not be validated correctly`);
+      }
+    }
+
+    // ============================================
+    // PHASE 4: Submit with all valid values
+    // ============================================
+    console.log(`[Phase 4] Submitting page with all valid values`);
+
+    // Ensure all fields have valid values before final submit
+    await this.fillPage(validData);
+
+    // Check if this page skips patch-paperwork
+    if (this.skipsPatchPaperwork(pageLinkId)) {
+      console.log(`Page ${pageLinkId} skips patch-paperwork - clicking continue without waiting for PATCH response`);
+      await this.clickContinue();
+      return {
+        validationErrors: allValidationErrors,
+        response: { resourceType: 'QuestionnaireResponse', status: 'in-progress', item: this.collectedResponses },
+      };
+    }
+
+    // Set up response listener before clicking continue
+    const responsePromise = this.page.waitForResponse(
+      (response) => response.url().includes('/patch-paperwork/execute'),
+      { timeout: 60000 }
+    );
+
+    await this.clickContinue();
+
+    // Wait for and capture the PATCH response
+    const response = await responsePromise;
+    if (response.status() !== 200) {
+      const errorBody = await response.text().catch(() => 'Unable to read response body');
+      throw new Error(`patch-paperwork failed with status ${response.status()}: ${errorBody}`);
+    }
+    const responseBody = await response.json();
+
+    // The API returns { status, output: QuestionnaireResponse } wrapper
+    const questionnaireResponse = (responseBody.output ?? responseBody) as QuestionnaireResponse;
+
+    // Update our tracked responses for enableWhen evaluation
+    this.collectedResponses = questionnaireResponse.item ?? [];
+
+    console.log(`[Validation Check Complete] Total errors found across all phases: ${allValidationErrors.length}`);
+    return { validationErrors: allValidationErrors, response: questionnaireResponse };
+  }
+
+  /**
    * Fill a page and click Continue, capturing the PATCH response
    * @param valueMap - Field values to fill
    * @param pageLinkId - Optional page linkId to check for special handling
@@ -585,7 +924,7 @@ export class PagedQuestionnaireFlowHelper {
 
     // Set up response listener before clicking continue
     const responsePromise = this.page.waitForResponse(
-      (response) => response.url().includes('/patch-paperwork/execute') && response.status() === 200,
+      (response) => response.url().includes('/patch-paperwork/execute'),
       { timeout: 60000 }
     );
 
@@ -593,6 +932,10 @@ export class PagedQuestionnaireFlowHelper {
 
     // Wait for and capture the PATCH response
     const response = await responsePromise;
+    if (response.status() !== 200) {
+      const errorBody = await response.text().catch(() => 'Unable to read response body');
+      throw new Error(`patch-paperwork failed with status ${response.status()}: ${errorBody}`);
+    }
     const responseBody = await response.json();
 
     // The API returns { status, output: QuestionnaireResponse } wrapper
