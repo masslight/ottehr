@@ -1,3 +1,4 @@
+console.error('=== booking-flows-generated.spec.ts loaded ===');
 /**
  * Generated booking flow tests using test factory
  *
@@ -10,19 +11,31 @@
 
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
-import { createBookingConfigForTest } from 'utils';
+import { CanonicalUrl, createBookingConfigForTest, ServiceMode } from 'utils';
 import {
   executeBookingScenario,
   generateBookingTestScenarios,
   testScenarioStep,
 } from '../utils/booking/BookingTestFactory';
 import { TestLocationManager } from '../utils/booking/TestLocationManager';
+import { TestQuestionnaireManager } from '../utils/booking/TestQuestionnaireManager';
+import { CONCRETE_TEST_CONFIGS, ConcreteTestConfig } from '../utils/booking-flow-concrete-smoke-configs';
 import { BookingConfigHelper } from '../utils/config/BookingConfigHelper';
+import { LocationsConfigHelper } from '../utils/config/LocationsConfigHelper';
+
+// Helper to extract concrete config ID from scenario configName
+function getConcreteConfigId(configName: string): string | undefined {
+  if (configName.startsWith('concrete:')) {
+    return configName.slice('concrete:'.length);
+  }
+  return undefined;
+}
 
 test.describe.configure({ mode: 'parallel' });
 
 // Shared test locations with 24/7 availability
 let testLocationManager: TestLocationManager;
+let testQuestionnaireManager: TestQuestionnaireManager;
 let walkinLocation: Location;
 let _walkinSchedule: Schedule;
 let prebookInPersonLocation: Location;
@@ -30,9 +43,21 @@ let _prebookInPersonSchedule: Schedule;
 let prebookVirtualLocation: Location;
 let _prebookVirtualSchedule: Schedule;
 
+// Map of concrete config ID + service mode to test questionnaire canonical
+const testQuestionnaireCanonicals: Map<string, CanonicalUrl> = new Map();
+
 // Generate test scenarios from baseline config
 const BASE_CONFIG = 'baseline';
-const scenarios = generateBookingTestScenarios(BASE_CONFIG);
+const scenarios = await generateBookingTestScenarios(BASE_CONFIG);
+console.error('\n=== Scenario Generation Debug ===');
+console.error('BASE_CONFIG:', BASE_CONFIG);
+console.error('Generated scenarios:', scenarios.length);
+for (const scenario of scenarios) {
+  console.error(`Scenario: ${scenario.description}`);
+  console.error(`  Mode: ${scenario.serviceMode}, Type: ${scenario.visitType}, Category: ${scenario.serviceCategory}`);
+  console.error(`  Homepage option: ${scenario.homepageOptionLabel}`);
+  console.error(`  Filling strategy: ${JSON.stringify(scenario.fillingStrategy)}`);
+}
 
 test.describe('Homepage option rendering', () => {
   test('baseline - homepage shows only enabled booking options', async ({ page }) => {
@@ -88,8 +113,11 @@ test.describe('Homepage option rendering', () => {
   });
 });
 
+// Store loaded concrete configs for location lookup
+let loadedConcreteConfigs: ConcreteTestConfig[] = [];
+
 test.describe('Complete booking flows - all permutations', () => {
-  // Setup: Create test locations for walk-in and prebook tests
+  // Setup: Create test locations and questionnaires for walk-in and prebook tests
   test.beforeAll(async () => {
     // Generate a unique ID for this worker to isolate test resources
     // This prevents race conditions when multiple workers run in parallel
@@ -98,7 +126,9 @@ test.describe('Complete booking flows - all permutations', () => {
     console.log(`Worker unique ID: ${workerUniqueId}`);
 
     testLocationManager = new TestLocationManager(workerUniqueId);
+    testQuestionnaireManager = new TestQuestionnaireManager(workerUniqueId);
     await testLocationManager.init();
+    await testQuestionnaireManager.init();
 
     // Create walk-in in-person test location (24/7, high capacity for walk-ins)
     const walkinResult = await testLocationManager.ensureAlwaysOpenLocation();
@@ -121,34 +151,118 @@ test.describe('Complete booking flows - all permutations', () => {
     console.log(
       `✓ Created 24/7 prebook virtual location: ${prebookVirtualLocation.name} (ID: ${prebookVirtualLocation.id})`
     );
+
+    // Create locations for each concrete config
+    loadedConcreteConfigs = await CONCRETE_TEST_CONFIGS;
+    for (const concreteConfig of loadedConcreteConfigs) {
+      const createdLocations = await testLocationManager.ensureConcreteConfigLocations(
+        concreteConfig.id,
+        concreteConfig.locationsOverrides
+      );
+      console.log(
+        `✓ Created ${createdLocations.length} locations for concrete config: ${concreteConfig.name} (${concreteConfig.id})`
+      );
+      for (const loc of createdLocations) {
+        console.log(`  - ${loc.originalName} → ${loc.suffixedName} (${loc.isVirtual ? 'virtual' : 'in-person'})`);
+      }
+    }
+
+    // Deploy test questionnaires for each concrete config
+    // This ensures the questionnaire in FHIR has the hidden fields and other customizations
+    for (const concreteConfig of loadedConcreteConfigs) {
+      if (concreteConfig.paperworkConfigInPerson) {
+        const inPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+          concreteConfig.id,
+          concreteConfig.paperworkConfigInPerson,
+          ServiceMode['in-person']
+        );
+        testQuestionnaireCanonicals.set(`${concreteConfig.id}-in-person`, inPersonResult.canonical);
+        console.log(
+          `✓ Deployed in-person test questionnaire for ${concreteConfig.name}: ${inPersonResult.canonical.url}|${inPersonResult.canonical.version}`
+        );
+      }
+
+      if (concreteConfig.paperworkConfigVirtual) {
+        const virtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+          concreteConfig.id,
+          concreteConfig.paperworkConfigVirtual,
+          ServiceMode['virtual']
+        );
+        testQuestionnaireCanonicals.set(`${concreteConfig.id}-virtual`, virtualResult.canonical);
+        console.log(
+          `✓ Deployed virtual test questionnaire for ${concreteConfig.name}: ${virtualResult.canonical.url}|${virtualResult.canonical.version}`
+        );
+      }
+    }
   });
 
-  // Cleanup: Remove test locations after all tests
+  // Cleanup: Remove test resources after all tests
   test.afterAll(async () => {
     if (testLocationManager) {
       await testLocationManager.cleanup();
-      console.log('✓ Cleaned up test location and schedule');
+      console.log('✓ Cleaned up test locations and schedules');
+    }
+    if (testQuestionnaireManager) {
+      await testQuestionnaireManager.cleanup();
+      console.log('✓ Cleaned up test questionnaires');
     }
   });
 
   // Generate a test for each scenario
   for (const scenario of scenarios) {
     test(`${scenario.description} - complete flow with paperwork`, async ({ page }) => {
-      const config = createBookingConfigForTest(scenario.configName);
-
-      // Choose the appropriate test location based on visitType and serviceMode
+      // Choose the appropriate test location based on scenario type
       let locationName: string;
-      if (scenario.visitType === 'walk-in') {
-        // Walk-in uses different locations for in-person vs virtual
-        locationName = scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : walkinLocation.name!;
+
+      const concreteConfigId = getConcreteConfigId(scenario.configName);
+      if (concreteConfigId) {
+        // Concrete config scenario: use locations from the concrete config
+        const concreteConfig = loadedConcreteConfigs.find((c) => c.id === concreteConfigId);
+        if (!concreteConfig) {
+          throw new Error(`Concrete config not found: ${concreteConfigId}`);
+        }
+
+        const concreteLocations = testLocationManager.getConcreteConfigLocations(concreteConfigId);
+        const isVirtual = scenario.serviceMode === 'virtual';
+
+        // Transform and inject the locations config with suffixed names
+        const transformedLocations = LocationsConfigHelper.transformLocationsForInjection(
+          concreteConfig.locationsOverrides,
+          concreteLocations
+        );
+        await LocationsConfigHelper.injectLocationsConfig(page, transformedLocations);
+
+        // Pick the first location of the appropriate type
+        const matchingLocation = concreteLocations.find((loc) => loc.isVirtual === isVirtual);
+        if (!matchingLocation) {
+          throw new Error(
+            `No ${isVirtual ? 'virtual' : 'in-person'} location found for concrete config: ${concreteConfigId}`
+          );
+        }
+        locationName = matchingLocation.suffixedName;
+
+        // Get the test questionnaire canonical for this concrete config
+        const canonicalKey = `${concreteConfigId}-${scenario.serviceMode}`;
+        const testCanonical = testQuestionnaireCanonicals.get(canonicalKey);
+        if (testCanonical) {
+          // Inject the test questionnaire canonical into the scenario
+          scenario.testQuestionnaireCanonical = testCanonical;
+          console.log(`Using test questionnaire for ${canonicalKey}: ${testCanonical.url}|${testCanonical.version}`);
+        }
       } else {
-        // Prebook uses different locations for in-person vs virtual
-        locationName =
-          scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : prebookInPersonLocation.name!;
+        // Capability config scenario: use default synthetic locations
+        if (scenario.visitType === 'walk-in') {
+          // Walk-in uses different locations for in-person vs virtual
+          locationName = scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : walkinLocation.name!;
+        } else {
+          // Prebook uses different locations for in-person vs virtual
+          locationName =
+            scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : prebookInPersonLocation.name!;
+        }
       }
 
-      // Execute booking AND paperwork (paperworkConfig is assigned in scenario)
-      const appointmentResponse = await executeBookingScenario(page, scenario, config, locationName);
+      // Execute booking AND paperwork (scenario contains all resolved config)
+      const appointmentResponse = await executeBookingScenario(page, scenario, locationName);
 
       // Verify we reached confirmation and have appointment data
       expect(appointmentResponse.appointmentId).toBeTruthy();
@@ -172,8 +286,11 @@ test.describe('Complete booking flows - all permutations', () => {
       console.log(
         `✓ Created appointment ${appointmentResponse.appointmentId} for patient ${appointmentResponse.fhirPatientId}`
       );
-      console.log(`✓ Completed paperwork with config: ${scenario.paperworkConfig}`);
+      console.log(`✓ Completed paperwork for scenario: ${scenario.description}`);
     });
+
+    // todo: add ability to create 24/7 locations from TestLocationManager that reads from the location
+    // config. we then need to tie the various generated flows from the concrete overrides to their test locations.
   }
 });
 
@@ -195,9 +312,7 @@ test.describe('Patient info form - per scenario', () => {
   // Test patient info for each unique combination of homepage option + service category
   for (const scenario of scenarios) {
     test(`${scenario.description} - patient info fields`, async ({ page }) => {
-      const config = createBookingConfigForTest(scenario.configName);
-
-      await testScenarioStep(page, scenario, config, 'patient-info');
+      await testScenarioStep(page, scenario, scenario.resolvedConfig, 'patient-info');
     });
   }
 });
@@ -205,9 +320,7 @@ test.describe('Patient info form - per scenario', () => {
 test.describe('Location selection - per scenario', () => {
   for (const scenario of scenarios) {
     test(`${scenario.description} - location selection`, async ({ page }) => {
-      const config = createBookingConfigForTest(scenario.configName);
-
-      await testScenarioStep(page, scenario, config, 'location');
+      await testScenarioStep(page, scenario, scenario.resolvedConfig, 'location');
     });
   }
 });
@@ -217,47 +330,45 @@ test.describe('Time slot selection - prebook scenarios only', () => {
 
   for (const scenario of prebookScenarios) {
     test(`${scenario.description} - time slot selection`, async ({ page }) => {
-      const config = createBookingConfigForTest(scenario.configName);
-
-      await testScenarioStep(page, scenario, config, 'time-slot');
+      await testScenarioStep(page, scenario, scenario.resolvedConfig, 'time-slot');
     });
   }
 });
 
 test.describe('Cross-config validation', () => {
-  test('inPersonOnly config generates only in-person scenarios', () => {
-    const inPersonScenarios = generateBookingTestScenarios('inPersonOnly');
+  test('inPersonOnly config generates only in-person scenarios', async () => {
+    const inPersonScenarios = await generateBookingTestScenarios('inPersonOnly');
 
     expect(inPersonScenarios.length).toBeGreaterThan(0);
     expect(inPersonScenarios.every((s) => s.serviceMode === 'in-person')).toBe(true);
     expect(inPersonScenarios.some((s) => s.serviceMode === 'virtual')).toBe(false);
   });
 
-  test('virtualOnly config generates only virtual scenarios', () => {
-    const virtualScenarios = generateBookingTestScenarios('virtualOnly');
+  test('virtualOnly config generates only virtual scenarios', async () => {
+    const virtualScenarios = await generateBookingTestScenarios('virtualOnly');
 
     expect(virtualScenarios.length).toBeGreaterThan(0);
     expect(virtualScenarios.every((s) => s.serviceMode === 'virtual')).toBe(true);
     expect(virtualScenarios.some((s) => s.serviceMode === 'in-person')).toBe(false);
   });
 
-  test('prebookOnly config generates only prebook scenarios', () => {
-    const prebookScenarios = generateBookingTestScenarios('prebookOnly');
+  test('prebookOnly config generates only prebook scenarios', async () => {
+    const prebookScenarios = await generateBookingTestScenarios('prebookOnly');
 
     expect(prebookScenarios.length).toBeGreaterThan(0);
     expect(prebookScenarios.every((s) => s.visitType === 'prebook')).toBe(true);
     expect(prebookScenarios.some((s) => s.visitType === 'walk-in')).toBe(false);
   });
 
-  test('urgentCareOnly config generates scenarios with single service category', () => {
-    const urgentCareScenarios = generateBookingTestScenarios('urgentCareOnly');
+  test('urgentCareOnly config generates scenarios with single service category', async () => {
+    const urgentCareScenarios = await generateBookingTestScenarios('urgentCareOnly');
 
     expect(urgentCareScenarios.length).toBeGreaterThan(0);
     expect(urgentCareScenarios.every((s) => s.serviceCategory === 'urgent-care')).toBe(true);
   });
 
-  test('baseline config generates full matrix of scenarios', () => {
-    const baselineScenarios = generateBookingTestScenarios('baseline');
+  test('baseline config generates full matrix of scenarios', async () => {
+    const baselineScenarios = await generateBookingTestScenarios('baseline');
 
     // Should have scenarios for both service modes
     expect(baselineScenarios.some((s) => s.serviceMode === 'in-person')).toBe(true);
@@ -274,8 +385,8 @@ test.describe('Cross-config validation', () => {
 });
 
 test.describe('Scenario matrix info', () => {
-  test('log all generated scenarios for baseline', () => {
-    const baselineScenarios = generateBookingTestScenarios('baseline');
+  test('log all generated scenarios for baseline', async () => {
+    const baselineScenarios = await generateBookingTestScenarios('baseline');
 
     console.log('\n=== Generated Test Scenarios ===');
     console.log(`Total scenarios: ${baselineScenarios.length}\n`);

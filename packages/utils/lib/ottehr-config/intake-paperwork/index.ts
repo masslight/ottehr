@@ -5,7 +5,7 @@ import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-ove
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
   FormSectionSimpleSchema,
@@ -15,6 +15,7 @@ import {
   OCC_MED_SELF_PAY_OPTION,
   QuestionnaireBase,
   QuestionnaireConfigSchema,
+  QuestionnaireConfigType,
   SELF_PAY_OPTION,
 } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
@@ -2001,54 +2002,30 @@ const INTAKE_PAPERWORK_DEFAULTS = {
 /**
  * Get intake paperwork configuration with optional test overrides
  *
- * @param testOverrides - Optional overrides for testing purposes
+ * @param overrides - Optional overrides (the overrides can be overridden to facilitate testing)
  * @returns Parsed and merged configuration
  */
-export function getIntakePaperworkConfig(testOverrides: Partial<typeof INTAKE_PAPERWORK_DEFAULTS> = OVERRIDES): any {
+export function getIntakePaperworkConfig(
+  overrides: Partial<QuestionnaireConfigType> = OVERRIDES
+): QuestionnaireConfigType {
   const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
     FormFields: FormFieldsSchema,
   });
-  const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, testOverrides);
+  const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, overrides);
   return IntakePaperworkConfigSchema.parse(mergedConfig);
 }
 
-// Static config instance (used in production)
-const STATIC_INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
-
-/**
- * Get runtime intake paperwork configuration, checking for test overrides injected via window object.
- * In test environments, this allows Playwright tests to inject custom configs dynamically.
- */
-function getRuntimeIntakePaperworkConfig(): any {
-  // Check for test config injected via window.__TEST_PAPERWORK_CONFIG__
-  if (typeof window !== 'undefined' && (window as any).__TEST_PAPERWORK_CONFIG__) {
-    return getIntakePaperworkConfig((window as any).__TEST_PAPERWORK_CONFIG__);
-  }
-  return STATIC_INTAKE_PAPERWORK_CONFIG;
-}
-
 // Export as a Proxy to allow runtime config injection in tests
-export const INTAKE_PAPERWORK_CONFIG = new Proxy({} as typeof STATIC_INTAKE_PAPERWORK_CONFIG, {
-  get(_target, prop) {
-    const config = getRuntimeIntakePaperworkConfig();
-    return config[prop as keyof typeof config];
-  },
-  ownKeys(_target) {
-    const config = getRuntimeIntakePaperworkConfig();
-    return Reflect.ownKeys(config);
-  },
-  getOwnPropertyDescriptor(_target, prop) {
-    const config = getRuntimeIntakePaperworkConfig();
-    return Reflect.getOwnPropertyDescriptor(config, prop);
-  },
-});
+export const INTAKE_PAPERWORK_CONFIG = createProxyConfigObject(
+  getIntakePaperworkConfig,
+  CONFIG_INJECTION_KEYS.INTAKE_PAPERWORK
+);
 
-export type IntakePaperworkConfig = typeof STATIC_INTAKE_PAPERWORK_CONFIG;
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(getRuntimeIntakePaperworkConfig())));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG)));
 
 export const checkFieldHidden = (fieldKey: string): boolean => {
-  const config = getRuntimeIntakePaperworkConfig();
+  const config = INTAKE_PAPERWORK_CONFIG;
   return Object.values(config.FormFields)
     .flatMap((section: any) => section.hiddenFields || [])
     .includes(fieldKey);

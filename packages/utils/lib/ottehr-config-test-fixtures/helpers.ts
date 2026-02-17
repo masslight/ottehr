@@ -1,4 +1,5 @@
-import { getIntakePaperworkConfig, type IntakePaperworkConfig } from '../ottehr-config/intake-paperwork';
+import { QuestionnaireConfigType } from '../ottehr-config';
+import { getIntakePaperworkConfig } from '../ottehr-config/intake-paperwork';
 import { CAPABILITY_TEST_CONFIGS, CapabilityTestConfig } from './capability-configs';
 
 /**
@@ -26,7 +27,7 @@ export function getCapabilityConfig(name: string): CapabilityTestConfig {
  * const visibleFields = ConfigHelper.getVisibleFields(config.contactInformation);
  * ```
  */
-export function createConfigForTest(configName: string): IntakePaperworkConfig {
+export function createConfigForTest(configName: string): QuestionnaireConfigType {
   const capability = getCapabilityConfig(configName);
   return getIntakePaperworkConfig(capability.overrides);
 }

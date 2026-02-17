@@ -2,6 +2,7 @@ export * from './booking';
 export * from './branding';
 export * from './examination';
 export * from './forms';
+export * from './helpers';
 export * from './intake-paperwork';
 export * from './intake-paperwork-virtual';
 export * from './legal';

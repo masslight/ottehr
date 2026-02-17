@@ -8,6 +8,7 @@ import {
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
@@ -22,6 +23,7 @@ import {
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   ServiceMode,
   VisitType,
 } from 'utils';
@@ -34,6 +36,8 @@ export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   isEHRUser: boolean;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
+  /** Optional questionnaire canonical override for e2e tests (only works for test users) */
+  testQuestionnaireCanonical?: CanonicalUrl;
 };
 
 export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
@@ -43,7 +47,15 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata } = bodyJSON;
+  const {
+    slotId,
+    language,
+    patient,
+    unconfirmedDateOfBirth,
+    locationState,
+    appointmentMetadata,
+    testQuestionnaireCanonical,
+  } = bodyJSON;
   console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
@@ -132,6 +144,19 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('if specified, "patient.authorizedNonLegalGuardians" must be a string');
   }
 
+  // Validate testQuestionnaireCanonical if provided (for e2e tests)
+  if (testQuestionnaireCanonical) {
+    if (typeof testQuestionnaireCanonical !== 'object') {
+      throw INVALID_INPUT_ERROR('"testQuestionnaireCanonical" must be an object with url and version');
+    }
+    if (!testQuestionnaireCanonical.url || typeof testQuestionnaireCanonical.url !== 'string') {
+      throw INVALID_INPUT_ERROR('"testQuestionnaireCanonical.url" must be a non-empty string');
+    }
+    if (!testQuestionnaireCanonical.version || typeof testQuestionnaireCanonical.version !== 'string') {
+      throw INVALID_INPUT_ERROR('"testQuestionnaireCanonical.version" must be a non-empty string');
+    }
+  }
+
   return {
     slotId,
     user,
@@ -142,6 +167,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     unconfirmedDateOfBirth,
     locationState,
     appointmentMetadata,
+    testQuestionnaireCanonical,
   };
 }
 
@@ -161,7 +187,7 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
+  const { slotId, isEHRUser, user, patient, appointmentMetadata, testQuestionnaireCanonical } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
@@ -228,7 +254,17 @@ export const createAppointmentComplexValidation = async (
     throw new Error('Service mode not found');
   }
 
-  const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
+  // Use test questionnaire canonical if provided and environment is not production
+  // This allows e2e tests to use custom questionnaires with specific config overrides
+  let questionnaireCanonical: CanonicalUrl;
+  const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+  const isProduction = environment === 'production';
+  if (testQuestionnaireCanonical && !isProduction) {
+    console.log('Using test questionnaire canonical:', testQuestionnaireCanonical);
+    questionnaireCanonical = testQuestionnaireCanonical;
+  } else {
+    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
+  }
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
   if (getSlotIsWalkin(slot)) {

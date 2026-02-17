@@ -452,17 +452,19 @@ export class BookingFlowHelpers {
   /**
    * Select the first available location
    * For prebook flows with bookingOn param (location-specific booking), this step is skipped
-   * Handles both in-person (location buttons) and virtual (autocomplete dropdown) flows
-   /**
+  /**
    * Selects a location from the location selection page.
-   * Handles three UI patterns:
+   * Handles two scenarios:
    * 1. Location-specific booking (bookingOn param) - skips selection
-   * 2. Autocomplete dropdown (virtual visits)
-   * 3. Location buttons (in-person visits)
-   * 
+   * 2. Autocomplete dropdown (for both in-person and virtual prebook visits in PrebookVisit.tsx)
+   *
+   * Note: Both in-person and virtual prebook visits use the same Autocomplete component
+   * with data-testid="schedule-virtual-visit-states-selector". The serviceMode parameter
+   * is kept for logging purposes but both modes use the same UI.
+   *
    * @param page - The Playwright page object
    * @param testLocationName - Optional specific location name to select (for test reliability)
-   * @param serviceMode - 'virtual' or 'in-person' to determine which UI pattern to expect
+   * @param serviceMode - 'virtual' or 'in-person' for logging purposes (both use same UI)
    */
   static async selectFirstAvailableLocation(
     page: Page,
@@ -485,170 +487,84 @@ export class BookingFlowHelpers {
     );
 
     try {
-      // If serviceMode is specified, wait directly for the expected element type
-      // Otherwise fall back to racing between autocomplete and buttons
-      let uiType: 'autocomplete' | 'buttons';
+      // Both in-person and virtual prebook visits use the same Autocomplete component
+      // in PrebookVisit.tsx with data-testid="schedule-virtual-visit-states-selector"
+      await page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector).waitFor({
+        state: 'visible',
+        timeout: 10000,
+      });
 
-      if (serviceMode === 'virtual') {
-        await page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector).waitFor({
-          state: 'visible',
-          timeout: 10000,
-        });
-        uiType = 'autocomplete';
-      } else if (serviceMode === 'in-person') {
-        await page.locator('[data-testid^="location-"]').first().waitFor({
-          state: 'visible',
-          timeout: 10000,
-        });
-        uiType = 'buttons';
-      } else {
-        // Auto-detect: race between autocomplete and location buttons
-        const result = await Promise.race([
-          page
-            .getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector)
-            .waitFor({
-              state: 'visible',
-              timeout: 10000,
-            })
-            .then(() => 'autocomplete' as const),
-          page
-            .locator('[data-testid^="location-"]')
-            .first()
-            .waitFor({
-              state: 'visible',
-              timeout: 10000,
-            })
-            .then(() => 'buttons' as const),
-        ]);
-        uiType = result;
-      }
+      // Use autocomplete to select location
+      console.log(`Detected autocomplete selector (${serviceMode || 'prebook'} visit)`);
+      const autocomplete = page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
 
-      if (uiType === 'autocomplete') {
-        // Virtual visit flow - use autocomplete to select location
-        console.log('Detected autocomplete selector (virtual visit)');
-        const autocomplete = page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
+      // Wait for locations to load (autocomplete is disabled while loading)
+      console.log('Waiting for autocomplete to be enabled (locations loading)...');
+      await page.waitForFunction(
+        (selector) => {
+          const element = document.querySelector(`[data-testid="${selector}"] input`);
+          return element && !(element as HTMLInputElement).disabled;
+        },
+        dataTestIds.scheduleVirtualVisitStatesSelector,
+        { timeout: 30000 }
+      );
+      console.log('Autocomplete enabled, locations loaded');
 
-        // Wait for locations to load (autocomplete is disabled while loading)
-        console.log('Waiting for autocomplete to be enabled (locations loading)...');
-        await page.waitForFunction(
-          (selector) => {
-            const element = document.querySelector(`[data-testid="${selector}"] input`);
-            return element && !(element as HTMLInputElement).disabled;
-          },
-          dataTestIds.scheduleVirtualVisitStatesSelector,
-          { timeout: 30000 }
-        );
-        console.log('Autocomplete enabled, locations loaded');
+      // Click the input field to open the dropdown
+      const input = autocomplete.locator('input');
+      console.log('Clicking input to open dropdown...');
+      await input.click();
 
-        // Click the input field to open the dropdown
-        const input = autocomplete.locator('input');
-        console.log('Clicking input to open dropdown...');
-        await input.click();
+      // Wait for the listbox to appear
+      await page.locator('[role="listbox"]').waitFor({ state: 'visible', timeout: 10000 });
+      console.log('Dropdown opened');
 
-        // Wait for the listbox to appear
-        await page.locator('[role="listbox"]').waitFor({ state: 'visible', timeout: 10000 });
-        console.log('Dropdown opened');
+      // Debug: Log all available options
+      const allOptions = await page.getByRole('option').all();
+      const optionTexts = await Promise.all(allOptions.map((opt) => opt.textContent()));
+      console.log(`Available location options (${allOptions.length}):`, optionTexts);
 
-        // Debug: Log all available options
-        const allOptions = await page.getByRole('option').all();
-        const optionTexts = await Promise.all(allOptions.map((opt) => opt.textContent()));
-        console.log(`Available location options (${allOptions.length}):`, optionTexts);
+      if (testLocationName) {
+        // Select specific location by name - use startsWith to handle cases where
+        // the option text includes additional info like working hours
+        console.log(`Searching for location starting with: "${testLocationName}"`);
 
-        if (testLocationName) {
-          // Select specific location by name - use startsWith to handle cases where
-          // the option text includes additional info like working hours
-          console.log(`Searching for location starting with: "${testLocationName}"`);
-
-          let foundOption = null;
-          for (let i = 0; i < allOptions.length; i++) {
-            const option = allOptions[i];
-            const optionText = await option.textContent();
-            const trimmedText = optionText?.trim();
-            const matches = trimmedText?.startsWith(testLocationName);
-            console.log(
-              `  Option ${i}: "${trimmedText?.substring(0, 50)}${
-                trimmedText && trimmedText.length > 50 ? '...' : ''
-              }" - matches? ${matches}`
-            );
-            if (matches) {
-              foundOption = option;
-              console.log(`✓ Found matching option at index ${i}`);
-              break;
-            }
+        let foundOption = null;
+        for (let i = 0; i < allOptions.length; i++) {
+          const option = allOptions[i];
+          const optionText = await option.textContent();
+          const trimmedText = optionText?.trim();
+          const matches = trimmedText?.startsWith(testLocationName);
+          console.log(
+            `  Option ${i}: "${trimmedText?.substring(0, 50)}${
+              trimmedText && trimmedText.length > 50 ? '...' : ''
+            }" - matches? ${matches}`
+          );
+          if (matches) {
+            foundOption = option;
+            console.log(`✓ Found matching option at index ${i}`);
+            break;
           }
-
-          if (!foundOption) {
-            throw new Error(
-              `Could not find location option starting with: "${testLocationName}". Available options: ${optionTexts
-                .map((t) => t?.substring(0, 60))
-                .join(', ')}`
-            );
-          }
-
-          console.log('Clicking the matching option...');
-          await foundOption.click();
-          console.log(`✓ Selected location: ${testLocationName}`);
-        } else {
-          // Wait for options and select first
-          const firstOption = page.getByRole('option').first();
-          await firstOption.waitFor({ state: 'visible', timeout: 10000 });
-          const optionText = await firstOption.textContent();
-          console.log(`Selecting first option: ${optionText}`);
-          await firstOption.click();
         }
-      } else {
-        // In-person flow - click location button
-        console.log('Detected location buttons (in-person visit)');
 
-        if (testLocationName) {
-          // Find button with location name (use startsWith to handle additional info like hours)
-          console.log(`Looking for location button starting with: ${testLocationName}`);
-
-          // Get all location buttons and check their text
-          const locationButtons = page.locator('button[data-testid^="location-"]');
-          const buttonCount = await locationButtons.count();
-          console.log(`Found ${buttonCount} location buttons`);
-
-          let foundButton = null;
-          for (let i = 0; i < buttonCount; i++) {
-            const button = locationButtons.nth(i);
-            const buttonText = await button.textContent();
-            const trimmedText = buttonText?.trim();
-            const matches = trimmedText?.startsWith(testLocationName);
-            console.log(
-              `  Button ${i}: "${trimmedText?.substring(0, 50)}${
-                trimmedText && trimmedText.length > 50 ? '...' : ''
-              }" - matches? ${matches}`
-            );
-            if (matches) {
-              foundButton = button;
-              console.log(`✓ Found matching button at index ${i}`);
-              break;
-            }
-          }
-
-          if (!foundButton) {
-            // Log all button texts for debugging
-            const allButtonTexts = [];
-            for (let i = 0; i < buttonCount; i++) {
-              const button = locationButtons.nth(i);
-              const text = await button.textContent();
-              allButtonTexts.push(text?.trim());
-            }
-            throw new Error(
-              `Could not find location button starting with: "${testLocationName}". Available buttons: ${allButtonTexts.join(
-                ', '
-              )}`
-            );
-          }
-
-          await foundButton.click();
-          console.log(`✓ Selected location button: ${testLocationName}`);
-        } else {
-          // Click first available location button
-          const firstLocation = page.locator('[data-testid^="location-"]').first();
-          await firstLocation.click();
+        if (!foundOption) {
+          throw new Error(
+            `Could not find location option starting with: "${testLocationName}". Available options: ${optionTexts
+              .map((t) => t?.substring(0, 60))
+              .join(', ')}`
+          );
         }
+
+        console.log('Clicking the matching option...');
+        await foundOption.click();
+        console.log(`✓ Selected location: ${testLocationName}`);
+      } else {
+        // Wait for options and select first
+        const firstOption = page.getByRole('option').first();
+        await firstOption.waitFor({ state: 'visible', timeout: 10000 });
+        const optionText = await firstOption.textContent();
+        console.log(`Selecting first option: ${optionText}`);
+        await firstOption.click();
       }
     } catch (error) {
       console.error('Failed during location selection:', error);

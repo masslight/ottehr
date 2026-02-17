@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import type { IntakePaperworkConfig, VirtualIntakePaperworkConfig } from 'utils';
+import { CONFIG_INJECTION_KEYS, type QuestionnaireConfigType } from 'utils';
 
 /**
  * Configuration-aware paperwork test helper utilities
@@ -22,10 +22,13 @@ export class PaperworkConfigHelper {
    * @param page - Playwright page instance
    * @param config - Intake paperwork config to inject (partial overrides)
    */
-  static async injectIntakePaperworkConfig(page: Page, config: Partial<IntakePaperworkConfig>): Promise<void> {
-    await page.addInitScript((configOverrides) => {
-      (window as any).__TEST_PAPERWORK_CONFIG__ = configOverrides;
-    }, config);
+  static async injectIntakePaperworkConfig(page: Page, config: Partial<QuestionnaireConfigType>): Promise<void> {
+    await page.addInitScript(
+      ({ key, overrides }) => {
+        (window as any)[key] = overrides;
+      },
+      { key: CONFIG_INJECTION_KEYS.INTAKE_PAPERWORK, overrides: config }
+    );
   }
 
   /**
@@ -38,10 +41,13 @@ export class PaperworkConfigHelper {
    * @param page - Playwright page instance
    * @param config - Virtual intake paperwork config to inject (partial overrides)
    */
-  static async injectVirtualPaperworkConfig(page: Page, config: Partial<VirtualIntakePaperworkConfig>): Promise<void> {
-    await page.addInitScript((configOverrides) => {
-      (window as any).__TEST_VIRTUAL_PAPERWORK_CONFIG__ = configOverrides;
-    }, config);
+  static async injectVirtualPaperworkConfig(page: Page, config: Partial<QuestionnaireConfigType>): Promise<void> {
+    await page.addInitScript(
+      ({ key, overrides }) => {
+        (window as any)[key] = overrides;
+      },
+      { key: CONFIG_INJECTION_KEYS.VIRTUAL_INTAKE_PAPERWORK, overrides: config }
+    );
   }
 
   /**
@@ -55,9 +61,12 @@ export class PaperworkConfigHelper {
    * @param valueSets - Value sets to inject (partial overrides)
    */
   static async injectValueSets(page: Page, valueSets: Partial<any>): Promise<void> {
-    await page.addInitScript((valueSetOverrides) => {
-      (window as any).__TEST_VALUE_SETS__ = valueSetOverrides;
-    }, valueSets);
+    await page.addInitScript(
+      ({ key, overrides }) => {
+        (window as any)[key] = overrides;
+      },
+      { key: CONFIG_INJECTION_KEYS.VALUE_SETS, overrides: valueSets }
+    );
   }
 
   /**
@@ -89,7 +98,7 @@ export class PaperworkConfigHelper {
    * @param fieldKey - The field key to check (e.g., 'patient-previous-name')
    * @returns True if the field is hidden
    */
-  static isFieldHidden(config: IntakePaperworkConfig, fieldKey: string): boolean {
+  static isFieldHidden(config: QuestionnaireConfigType, fieldKey: string): boolean {
     return Object.values(config.FormFields)
       .flatMap((section: any) => section.hiddenFields || [])
       .includes(fieldKey);

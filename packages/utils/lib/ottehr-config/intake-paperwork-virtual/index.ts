@@ -5,7 +5,7 @@ import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-ove
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
   ALLERGIES_YES_OPTION,
@@ -2441,40 +2441,14 @@ function getIntakePaperworkVirtualConfig(testOverrides: any = OVERRIDES): any {
   return IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
 }
 
-// Static config instance (used in production)
-const STATIC_VIRTUAL_INTAKE_PAPERWORK_CONFIG = getIntakePaperworkVirtualConfig();
-
-/**
- * Get runtime virtual intake paperwork configuration, checking for test overrides injected via window object.
- * In test environments, this allows Playwright tests to inject custom configs dynamically.
- */
-function getRuntimeVirtualIntakePaperworkConfig(): any {
-  // Check for test config injected via window.__TEST_VIRTUAL_PAPERWORK_CONFIG__
-  if (typeof window !== 'undefined' && (window as any).__TEST_VIRTUAL_PAPERWORK_CONFIG__) {
-    return getIntakePaperworkVirtualConfig((window as any).__TEST_VIRTUAL_PAPERWORK_CONFIG__);
-  }
-  return STATIC_VIRTUAL_INTAKE_PAPERWORK_CONFIG;
-}
-
 // Export as a Proxy to allow runtime config injection in tests
-export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = new Proxy({} as any, {
-  get(_target, prop) {
-    const config = getRuntimeVirtualIntakePaperworkConfig();
-    return config[prop as keyof typeof config];
-  },
-  ownKeys(_target) {
-    const config = getRuntimeVirtualIntakePaperworkConfig();
-    return Reflect.ownKeys(config);
-  },
-  getOwnPropertyDescriptor(_target, prop) {
-    const config = getRuntimeVirtualIntakePaperworkConfig();
-    return Reflect.getOwnPropertyDescriptor(config, prop);
-  },
-});
+export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = createProxyConfigObject(
+  getIntakePaperworkVirtualConfig,
+  CONFIG_INJECTION_KEYS.VIRTUAL_INTAKE_PAPERWORK
+);
 
-export type VirtualIntakePaperworkConfig = typeof STATIC_VIRTUAL_INTAKE_PAPERWORK_CONFIG;
 export const VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(getRuntimeVirtualIntakePaperworkConfig())));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(VIRTUAL_INTAKE_PAPERWORK_CONFIG)));
 
 // Export the config factory function for test use
 export { getIntakePaperworkVirtualConfig };

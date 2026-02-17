@@ -912,7 +912,7 @@ export const QuestionnaireConfigSchema = z.object({
   hiddenFormSections: z.array(z.string()),
   FormFields: z.record(z.string(), z.union([FormSectionSimpleSchema, FormSectionArraySchema])),
 });
-type QuestionnaireConfigType = z.infer<typeof QuestionnaireConfigSchema>;
+export type QuestionnaireConfigType = z.infer<typeof QuestionnaireConfigSchema>;
 
 const applyGroupLevelProperties = (
   groupItem: QuestionnaireItem,

@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 
 const overrides: any = OVERRIDES || {};
 
@@ -11,7 +11,11 @@ const LOCATION_DEFAULTS: any = {
   supportScheduleGroups: [],
 };
 
-const mergedLocationConfig = mergeAndFreezeConfigObjects(LOCATION_DEFAULTS, overrides);
+function getLocationConfig(testOverrides: any = overrides): any {
+  const mergedLocationConfig = mergeAndFreezeConfigObjects(LOCATION_DEFAULTS, testOverrides);
+
+  return LocationConfigSchema.parse(mergedLocationConfig);
+}
 
 const locationArraySchema = z.array(
   z.object({
@@ -33,7 +37,12 @@ const LocationConfigSchema = z.object({
     .optional(),
 });
 
-export const LOCATION_CONFIG = Object.freeze(LocationConfigSchema.parse(mergedLocationConfig));
+export type LocationConfig = z.infer<typeof LocationConfigSchema>;
+
+export const LOCATION_CONFIG = createProxyConfigObject<LocationConfig>(
+  getLocationConfig,
+  CONFIG_INJECTION_KEYS.LOCATIONS
+);
 
 export const ALL_LOCATIONS = [...LOCATION_CONFIG.inPersonLocations, ...LOCATION_CONFIG.telemedLocations] as const;
 

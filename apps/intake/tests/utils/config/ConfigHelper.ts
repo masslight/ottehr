@@ -1,4 +1,4 @@
-import { FormFieldSection, FormFieldsInputItem, IntakePaperworkConfig, VALUE_SETS } from 'utils';
+import { FormFieldSection, FormFieldsInputItem, QuestionnaireConfigType, VALUE_SETS } from 'utils';
 
 /**
  * Configuration-aware test helper utilities
@@ -14,7 +14,7 @@ export class ConfigHelper {
   /**
    * Get the title of a page/section from config
    */
-  static getPageTitle(pageKey: string, config: IntakePaperworkConfig): string {
+  static getPageTitle(pageKey: string, config: QuestionnaireConfigType): string {
     const section = config.FormFields[pageKey] as FormFieldSection;
     return section.title;
   }
@@ -72,8 +72,8 @@ export class ConfigHelper {
    * @param _formValues - Current form values (for trigger evaluation)
    */
   static isPageEnabled(
-    _pageKey: keyof IntakePaperworkConfig,
-    _config: IntakePaperworkConfig,
+    _pageKey: keyof QuestionnaireConfigType,
+    _config: QuestionnaireConfigType,
     _formValues?: Record<string, any>
   ): boolean {
     // TODO: Add section-level trigger evaluation when needed

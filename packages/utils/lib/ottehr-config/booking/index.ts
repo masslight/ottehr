@@ -14,7 +14,7 @@ import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEG
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
   FormFieldTrigger,
@@ -471,36 +471,9 @@ export function getBookingConfig(
   return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides);
 }
 
-// Static config instance (used in production)
-const STATIC_BOOKING_CONFIG = getBookingConfig();
-
-/**
- * Get runtime booking configuration, checking for test overrides injected via window object.
- * In test environments, this allows Playwright tests to inject custom configs dynamically.
- */
-function getRuntimeBookingConfig(): BookingConfig {
-  // Check for test config injected via window.__TEST_BOOKING_CONFIG__
-  if (typeof window !== 'undefined' && (window as any).__TEST_BOOKING_CONFIG__) {
-    return getBookingConfig((window as any).__TEST_BOOKING_CONFIG__);
-  }
-  return STATIC_BOOKING_CONFIG;
-}
-
 // todo: it would be nice to use zod to validate the merged booking config shape here
 // Export as a getter property to allow runtime config injection in tests
-export const BOOKING_CONFIG = new Proxy({} as BookingConfig, {
-  get(_target, prop) {
-    const config = getRuntimeBookingConfig();
-    return config[prop as keyof BookingConfig];
-  },
-  ownKeys(_target) {
-    return Reflect.ownKeys(getRuntimeBookingConfig());
-  },
-  getOwnPropertyDescriptor(_target, prop) {
-    const config = getRuntimeBookingConfig();
-    return Object.getOwnPropertyDescriptor(config, prop);
-  },
-});
+export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
