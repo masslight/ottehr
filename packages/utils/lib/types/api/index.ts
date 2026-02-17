@@ -61,3 +61,4 @@ export * from './visit-details';
 export * from './get-patient-and-responsible-party-info.types';
 export * from './get-booking-questionnaire.types';
 export * from './erx.types';
+export * from './patient-login-phone-numbers.types';

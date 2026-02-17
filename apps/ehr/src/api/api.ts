@@ -63,6 +63,8 @@ import {
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,
+  GetPatientLoginPhoneNumbersInput,
+  GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -112,6 +114,7 @@ import {
   UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
+  UpdatePatientLoginPhoneNumbersInput,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
@@ -1535,6 +1538,38 @@ export const getPatientBalances = async (
 
     const response = await oystehr.zambda.execute({
       id: GET_PATIENT_BALANCES_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPatientLoginPhoneNumbers = async (
+  oystehr: Oystehr,
+  parameters: GetPatientLoginPhoneNumbersInput
+): Promise<GetPatientLoginPhoneNumbersOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-login-phone-numbers',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updatePatientLoginPhoneNumbers = async (
+  oystehr: Oystehr,
+  parameters: UpdatePatientLoginPhoneNumbersInput
+): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'update-login-phone-numbers',
       ...parameters,
     });
     return chooseJson(response);

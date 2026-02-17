@@ -1,27 +1,49 @@
+import { TextField } from '@mui/material';
 import { Stack } from '@mui/system';
-import { useEffect } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { enqueueSnackbar } from 'notistack';
+import { useEffect, useState } from 'react';
+import { getPatientLoginPhoneNumbers, updatePatientLoginPhoneNumbers } from 'src/api/api';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
-import { TextInput } from '../input/TextInput';
+import { useApiClients } from 'src/hooks/useAppClients';
 
 interface Props {
   open: boolean;
+  patientId: string;
   handleClose: () => void;
 }
 
-export const AccountSettingsDialog: React.FC<Props> = ({ open, handleClose }) => {
-  const methods = useForm();
-  //const formValue = methods.watch();
+export const AccountSettingsDialog: React.FC<Props> = ({ open, patientId, handleClose }) => {
+  const [phoneNumbers, setPhoneNumbers] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!open) {
-      methods.reset();
-    }
-  }, [open, methods]);
+  const { oystehrZambda } = useApiClients();
 
   const handleConfirm = async (): Promise<void> => {
-    console.log('Confirmed!');
+    try {
+      if (oystehrZambda) {
+        await updatePatientLoginPhoneNumbers(oystehrZambda, {
+          patientId,
+          phoneNumbers,
+        });
+        enqueueSnackbar('Login phone numbers successfully updated', { variant: 'success' });
+      }
+    } catch {
+      enqueueSnackbar('Error occurred', { variant: 'error' });
+    }
   };
+
+  useEffect(() => {
+    async function fetchPhoneNumbers(): Promise<void> {
+      if (oystehrZambda) {
+        const response = await getPatientLoginPhoneNumbers(oystehrZambda, {
+          patientId,
+        });
+        setPhoneNumbers(response.phoneNumbers);
+      }
+    }
+    if (open) {
+      void fetchPhoneNumbers();
+    }
+  }, [open, oystehrZambda, patientId, setPhoneNumbers]);
 
   return (
     <InPersonModal
@@ -36,11 +58,24 @@ export const AccountSettingsDialog: React.FC<Props> = ({ open, handleClose }) =>
       confirmText="Save"
       closeButtonText="Cancel"
       ContentComponent={
-        <FormProvider {...methods}>
-          <Stack minWidth="500px" spacing={1} paddingTop="8px">
-            <TextInput name="phone" label="Phone" />
-          </Stack>
-        </FormProvider>
+        <Stack minWidth="500px" spacing={1} paddingTop="8px">
+          {phoneNumbers.map((phone, index) => {
+            return (
+              <TextField
+                key={index}
+                autoComplete="off"
+                variant="outlined"
+                size="small"
+                label="Phone"
+                value={phone}
+                onChange={(e) => {
+                  phoneNumbers[index] = e.target.value;
+                  setPhoneNumbers([...phoneNumbers]);
+                }}
+              />
+            );
+          })}
+        </Stack>
       }
     />
   );
