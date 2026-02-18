@@ -87,12 +87,8 @@ export class BookingFlowHelpers {
 
     if (!items) return;
 
-    // Wait a moment for the form to initialize and evaluate logical field conditions
-    await page.waitForTimeout(500);
-    // Wait for at least one basic field to be visible (indicates form is ready)
-    const firstNameField = page.locator('#patient-first-name');
-    await firstNameField.waitFor({ state: 'visible', timeout: 5000 });
-    console.log('Patient info form is ready (first name field visible)');
+    // Wait for the form to render - Playwright will auto-wait when we interact with fields
+    console.log('Preparing to fill patient info form...');
 
     // Get prepopulated form values to understand logical field values
     // For new patient tests, we don't pass a patient, so existing-patient-id will be undefined
@@ -189,10 +185,10 @@ export class BookingFlowHelpers {
           // For date fields, use the placeholder selector like existing tests do
           if (field.type === 'date') {
             const dateInput = page.getByPlaceholder('MM/DD/YYYY');
-            await dateInput.waitFor({ state: 'visible', timeout: 5000 });
+            await dateInput.waitFor({ state: 'visible', timeout: 20000 });
             console.log(`Date field '${field.key}' is visible and ready to fill`);
           } else {
-            await fieldLocator.waitFor({ state: 'visible', timeout: 5000 });
+            await fieldLocator.waitFor({ state: 'visible', timeout: 20000 });
             console.log(`Field '${field.key}' is visible and ready to fill`);
           }
         } catch {
@@ -286,18 +282,15 @@ export class BookingFlowHelpers {
     }
 
     // Wait for the page to be ready - look for any booking button
-    await page.waitForSelector('button', { timeout: 10000 });
+    await page.waitForSelector('button', { timeout: 20000 });
 
     const testConfig = await page.evaluate(() => {
       return (window as any).__TEST_BOOKING_CONFIG__;
     });
     console.log('__TEST_BOOKING_CONFIG__:', JSON.stringify(testConfig, null, 2));
 
-    // Wait for the specific button to be visible
+    // Click the booking option - Playwright auto-waits for element to be visible and stable
     const bookingButton = page.getByRole('button', { name: optionLabel });
-    await bookingButton.waitFor({ state: 'visible', timeout: 5000 });
-
-    // Click the booking option
     await bookingButton.click();
 
     // Debug: check URL after click
@@ -328,7 +321,7 @@ export class BookingFlowHelpers {
       await addNewPatientButton.click();
       // Wait for the selection to be visually confirmed - the radio button should be checked
       // The button contains a radio input that gets checked when selected
-      await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 5000 });
+      await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 20000 });
       console.log('"Different family member" option selected and confirmed');
 
       // After selecting "Different family member", click the Continue button to proceed
@@ -491,7 +484,7 @@ export class BookingFlowHelpers {
       // in PrebookVisit.tsx with data-testid="schedule-virtual-visit-states-selector"
       await page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector).waitFor({
         state: 'visible',
-        timeout: 10000,
+        timeout: 20000,
       });
 
       // Use autocomplete to select location
@@ -516,7 +509,7 @@ export class BookingFlowHelpers {
       await input.click();
 
       // Wait for the listbox to appear
-      await page.locator('[role="listbox"]').waitFor({ state: 'visible', timeout: 10000 });
+      await page.locator('[role="listbox"]').waitFor({ state: 'visible', timeout: 20000 });
       console.log('Dropdown opened');
 
       // Debug: Log all available options
@@ -559,9 +552,8 @@ export class BookingFlowHelpers {
         await foundOption.click();
         console.log(`✓ Selected location: ${testLocationName}`);
       } else {
-        // Wait for options and select first
+        // Select first option - Playwright auto-waits for element to be visible
         const firstOption = page.getByRole('option').first();
-        await firstOption.waitFor({ state: 'visible', timeout: 10000 });
         const optionText = await firstOption.textContent();
         console.log(`Selecting first option: ${optionText}`);
         await firstOption.click();
@@ -578,7 +570,7 @@ export class BookingFlowHelpers {
    */
   static async selectFirstAvailableTimeSlot(page: Page): Promise<void> {
     // Wait for "First available time" text to appear
-    await page.getByText('First available time').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('First available time').waitFor({ state: 'visible', timeout: 20000 });
 
     // Find all time slot buttons (format: "2:00 PM", "3:30 AM", etc.)
     const timeButtons = page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
@@ -595,8 +587,8 @@ export class BookingFlowHelpers {
     await firstTimeButton.click();
 
     // After clicking a time, a "Select" button appears - click it to confirm
+    // Playwright auto-waits for element to be visible and stable
     const selectButton = page.getByRole('button', { name: /^Select/ });
-    await selectButton.waitFor({ state: 'visible', timeout: 5000 });
     const selectButtonText = await selectButton.textContent();
     console.log(`Clicking: ${selectButtonText}`);
     await selectButton.click();

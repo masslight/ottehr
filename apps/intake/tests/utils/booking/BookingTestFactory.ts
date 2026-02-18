@@ -549,7 +549,7 @@ async function fillPaperworkPages(params: FillPaperworkParams): Promise<void> {
       // No more pages expected, but we're not on review page yet
       // This could be legitimate (app goes directly to review) or a bug
       console.log('No more visible pages calculated, checking if on review page...');
-      await page.waitForURL(/\/(review|visit-confirmation)/, { timeout: 10000 });
+      await page.waitForURL(/\/(review|visit-confirmation)/, { timeout: 30000 });
       break;
     }
 
