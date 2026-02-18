@@ -16,6 +16,7 @@ type InPersonModalProps<Entity = undefined> = {
   ContentComponent?: ReactElement;
   description?: React.ReactNode;
   disabled?: boolean;
+  closeOnConfirm?: boolean;
 };
 
 export function InPersonModal<T = undefined>({
@@ -37,6 +38,7 @@ export function InPersonModal<T = undefined>({
   ContentComponent,
   disabled,
   dataTestId,
+  closeOnConfirm,
 }: InPersonModalProps<T> & Omit<CustomDialogProps, 'handleConfirm' | 'confirmLoading'>): React.ReactElement {
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [errorFromAction, setError] = useState<string | undefined>(undefined);
@@ -46,7 +48,9 @@ export function InPersonModal<T = undefined>({
     setError(undefined);
     try {
       await _handleConfirm(entity as T);
-      handleClose();
+      if (closeOnConfirm || closeOnConfirm === undefined) {
+        handleClose();
+      }
     } catch {
       setError(errorMessage);
       enqueueSnackbar(errorMessage, { variant: 'error' });
