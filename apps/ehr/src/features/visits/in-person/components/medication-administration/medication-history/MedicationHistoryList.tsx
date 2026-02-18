@@ -54,7 +54,7 @@ export const MedicationHistoryList: React.FC = () => {
   const handlePrintMedicationHistoryClick = React.useCallback(async (): Promise<void> => {
     setPrintLoading(true);
     try {
-      const medPdfUrl = await generateMedicationHistoryPdf();
+      const medPdfUrl = await generateMedicationHistoryPdf(medicationHistory);
       console.log('medPdfUrl is', medPdfUrl);
       if (medPdfUrl) await openPdf(medPdfUrl);
     } catch (e) {
@@ -62,7 +62,7 @@ export const MedicationHistoryList: React.FC = () => {
     } finally {
       setPrintLoading(false);
     }
-  }, [setPrintLoading, generateMedicationHistoryPdf, openPdf]);
+  }, [generateMedicationHistoryPdf, openPdf, medicationHistory]);
 
   return (
     <AccordionCard
@@ -76,6 +76,7 @@ export const MedicationHistoryList: React.FC = () => {
           type="button"
           sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
           onClick={handlePrintMedicationHistoryClick}
+          disabled={!medicationHistory.length}
         >
           Print Medications
         </LoadingButton>

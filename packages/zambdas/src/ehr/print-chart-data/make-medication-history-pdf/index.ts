@@ -134,13 +134,14 @@ const makeMedicationHistoryPDF = async (
   if (!patientId) throw new Error('No patient id. cannot make medication history pdf');
   console.log(`Creating pdfBytes for patient ${patientId}. Content is ${JSON.stringify(contentInfo)}`);
   const pdfBytes = await createMedicationHistoryPdfBytes(contentInfo, m2mToken).catch((error) => {
-    throw new Error(`failed to create medication histroy pdf bytes: ${error.message}`);
+    throw new Error(`failed to create medication history pdf bytes: ${error.message}`);
   });
 
   // Upload to z3
   // maybe these should go elsewhere?
   const bucketName = BUCKET_NAMES.VISIT_NOTES;
-  const fileName = `MedicationHistory.pdf`;
+  const nowTimestamp = DateTime.now().setZone('UTC').toSeconds();
+  const fileName = `MedicationHistory-${nowTimestamp}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID: patientId, fileName });
   console.log('Uploading file to bucket');
@@ -200,7 +201,7 @@ const createMedicationHistoryPdfBytes = async (
 ): Promise<Uint8Array> => {
   console.log('Making medication history bytes');
 
-  const bytes = renderPdf(contentInfo, medicationHistoryRenderConfig, token);
+  const bytes = await renderPdf(contentInfo, medicationHistoryRenderConfig, token);
   console.log('Successfully made bytes!');
   return bytes;
 };
