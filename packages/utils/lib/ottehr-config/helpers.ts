@@ -24,14 +24,60 @@ export enum CONFIG_INJECTION_KEYS {
   VALUE_SETS = '__TEST_VALUE_SETS__',
 }
 
+/**
+ * Check if an environment value indicates a production environment.
+ * Uses case-insensitive check for 'prod' to catch variations like
+ * 'production', 'Production', 'PRODUCTION', 'prod', 'production-us', etc.
+ */
+const isProductionEnv = (envValue: string | undefined): boolean => {
+  return envValue?.toLowerCase().includes('prod') ?? false;
+};
+
+/**
+ * Check if the current environment allows test config injection.
+ * Test config injection is only allowed in non-production environments.
+ *
+ * This is a security measure to prevent test overrides from being used in production.
+ */
+const isTestInjectionAllowed = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  // Check window-level env that apps might expose
+  const windowEnv = (window as unknown as Record<string, unknown>).__VITE_APP_ENV__ as string | undefined;
+  if (isProductionEnv(windowEnv)) {
+    return false;
+  }
+
+  // Check if import.meta.env is available (Vite transforms this at build time)
+  // Cast to any because import.meta.env only exists in Vite contexts
+  try {
+    const meta = import.meta as { env?: { VITE_APP_ENV?: string } };
+    if (isProductionEnv(meta.env?.VITE_APP_ENV)) {
+      return false;
+    }
+  } catch {
+    // import.meta.env not available in this context
+  }
+
+  return true;
+};
+
 export const createProxyConfigObject = <T extends object>(
   getConfigWithOverrides: (overrides?: Partial<T>) => T,
   injectionKey: CONFIG_INJECTION_KEYS
 ): T => {
   // Helper to get injected overrides at ACCESS time (not module load time)
   // This allows tests to inject config after the module has loaded
+  //
+  // SECURITY: Test config injection is only allowed in non-production environments
   const getInjectedOverrides = (): Partial<T> | undefined => {
-    if (typeof window !== 'undefined' && (window as any)[injectionKey]) {
+    if (!isTestInjectionAllowed()) {
+      return undefined;
+    }
+
+    if ((window as any)[injectionKey]) {
       return (window as any)[injectionKey];
     }
     return undefined;
