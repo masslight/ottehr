@@ -32,6 +32,13 @@ import { BookingFlowHelpers } from './BookingFlowHelpers';
 /**
  * A test scenario representing one path through the booking system
  */
+/**
+ * The type of bookable entity used for location selection in tests.
+ * - 'Location': Direct Location resource (most downstream instances)
+ * - 'Group': HealthcareService with Location and Practitioner members (core environment pattern)
+ */
+export type BookableEntityType = 'Location' | 'Group';
+
 export interface BookingTestScenario {
   configName: string;
   homepageOptionId: string;
@@ -52,6 +59,10 @@ export interface BookingTestScenario {
   resolvedValueSetConfig?: any;
   /** Test questionnaire canonical URL (used to override the default questionnaire for e2e tests) */
   testQuestionnaireCanonical?: CanonicalUrl;
+  /** Type of bookable entity for location selection. Defaults to 'Location'. */
+  bookableEntityType?: BookableEntityType;
+  /** Slug for Group booking (HealthcareService). Used to construct bookingOn URL param. */
+  groupBookingSlug?: string;
 }
 
 export interface QuestionnaireFieldAddress {
@@ -350,7 +361,16 @@ export async function executeBookingScenario(
   // - Walk-in virtual: location → patient info
   // - Walk-in in-person: patient info → location
   if (scenario.visitType === 'prebook') {
-    await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
+    if (scenario.bookableEntityType === 'Group' && scenario.groupBookingSlug) {
+      // Group booking: navigate directly to prebook URL with bookingOn and scheduleType params
+      // This bypasses the location dropdown since the HealthcareService is specified in the URL
+      const groupBookingUrl = `/prebook/${scenario.serviceMode}?bookingOn=${scenario.groupBookingSlug}&scheduleType=group`;
+      console.log(`Navigating to Group booking URL: ${groupBookingUrl}`);
+      await page.goto(groupBookingUrl, { waitUntil: 'networkidle' });
+    } else {
+      // Standard Location booking: select from dropdown
+      await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
+    }
     await BookingFlowHelpers.selectFirstAvailableTimeSlot(page);
     await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after time slot selection');
   } else if (scenario.visitType === 'walk-in' && scenario.serviceMode === 'virtual') {

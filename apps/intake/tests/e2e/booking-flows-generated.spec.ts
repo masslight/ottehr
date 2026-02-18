@@ -30,7 +30,7 @@ import {
   shouldExtendWithReviewPageVerification,
   shouldExtendWithWaitingRoomParticipants,
 } from '../utils/booking/ExtendedScenarioHelpers';
-import { TestLocationManager } from '../utils/booking/TestLocationManager';
+import { CreatedGroupBookingResources, TestLocationManager } from '../utils/booking/TestLocationManager';
 import { TestQuestionnaireManager } from '../utils/booking/TestQuestionnaireManager';
 import { CONCRETE_TEST_CONFIGS, ConcreteTestConfig } from '../utils/booking-flow-concrete-smoke-configs';
 import { LocationsConfigHelper } from '../utils/config/LocationsConfigHelper';
@@ -54,6 +54,7 @@ let prebookInPersonLocation: Location;
 let _prebookInPersonSchedule: Schedule;
 let prebookVirtualLocation: Location;
 let _prebookVirtualSchedule: Schedule;
+let prebookInPersonGroup: CreatedGroupBookingResources;
 let loadedConcreteConfigs: ConcreteTestConfig[] = [];
 const testQuestionnaireCanonicals: Map<string, CanonicalUrl> = new Map();
 
@@ -91,6 +92,28 @@ test.describe('Complete booking flows', () => {
     _prebookVirtualSchedule = prebookVirtualResult.schedule;
     console.log(`✓ Created prebook virtual location: ${prebookVirtualLocation.name}`);
 
+    // Create prebook in-person group (HealthcareService with Location + Practitioner members)
+    // This tests the "group booking" pattern used by the core environment
+    prebookInPersonGroup = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
+    console.log(`✓ Created prebook in-person group: ${prebookInPersonGroup.name}`);
+
+    // Configure urgent care prebook in-person scenario to use Group booking
+    // This tests the "group booking" pattern used by the core environment
+    const urgentCarePrebookInPerson = scenarios.find(
+      (s) =>
+        s.visitType === 'prebook' &&
+        s.serviceMode === 'in-person' &&
+        s.serviceCategory === 'urgent-care' &&
+        !s.configName.startsWith('concrete:')
+    );
+    if (urgentCarePrebookInPerson) {
+      urgentCarePrebookInPerson.bookableEntityType = 'Group';
+      urgentCarePrebookInPerson.groupBookingSlug = prebookInPersonGroup.slug;
+      console.log(
+        `✓ Configured scenario "${urgentCarePrebookInPerson.description}" to use Group booking (slug: ${prebookInPersonGroup.slug})`
+      );
+    }
+
     // Create locations for each concrete config
     loadedConcreteConfigs = await CONCRETE_TEST_CONFIGS;
     for (const concreteConfig of loadedConcreteConfigs) {
@@ -123,6 +146,24 @@ test.describe('Complete booking flows', () => {
         console.log(`✓ Deployed virtual questionnaire for ${concreteConfig.name}`);
       }
     }
+
+    // Deploy isolated test questionnaires for baseline/synthetic scenarios
+    // This ensures parallel CI runs don't interfere with each other
+    const baselineInPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+      'baseline',
+      {}, // No overrides - use default config
+      ServiceMode['in-person']
+    );
+    testQuestionnaireCanonicals.set('baseline-in-person', baselineInPersonResult.canonical);
+    console.log('✓ Deployed baseline in-person questionnaire');
+
+    const baselineVirtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+      'baseline',
+      {}, // No overrides - use default config
+      ServiceMode['virtual']
+    );
+    testQuestionnaireCanonicals.set('baseline-virtual', baselineVirtualResult.canonical);
+    console.log('✓ Deployed baseline virtual questionnaire');
   });
 
   // Cleanup: Remove test resources after all tests
@@ -180,9 +221,19 @@ test.describe('Complete booking flows', () => {
         // Capability config scenario: use default synthetic locations
         if (scenario.visitType === 'walk-in') {
           locationName = scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : walkinLocation.name!;
+        } else if (scenario.bookableEntityType === 'Group') {
+          // Use Group booking (HealthcareService) for this scenario
+          locationName = prebookInPersonGroup.name;
         } else {
           locationName =
             scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : prebookInPersonLocation.name!;
+        }
+
+        // Get the baseline test questionnaire canonical for CI isolation
+        const baselineCanonicalKey = `baseline-${scenario.serviceMode}`;
+        const baselineCanonical = testQuestionnaireCanonicals.get(baselineCanonicalKey);
+        if (baselineCanonical) {
+          scenario.testQuestionnaireCanonical = baselineCanonical;
         }
       }
 
