@@ -73,6 +73,7 @@ export default defineConfig({
     },
     {
       // E2E project for new booking flow tests - no legacy dependencies
+      // These tests run full booking + paperwork + extended scenarios, so they need more time
       name: 'e2e',
       use: {
         ...devices['Desktop Chrome'],
@@ -80,6 +81,7 @@ export default defineConfig({
       },
       testDir: './tests/e2e',
       testMatch: /.*\.spec\.ts/,
+      timeout: 360_000, // 6 minutes - extended scenarios need more time than default 4 min
     },
     {
       // Legacy: paperwork-setup for tests/specs only
