@@ -16,8 +16,9 @@
     "apply-testing": "./apply.sh testing",
     "apply-staging": "./apply.sh staging",
     "apply-demo": "./apply.sh demo",
+    "apply-production": "./apply.sh production",
     "terraform-init": "terraform init --backend-config=./backend.config",
-    "terraform-setup": "npm run terraform-init && terraform workspace new e2e && terraform workspace new e2e2 && terraform workspace new e2e3 && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace select local",
+    "terraform-setup": "npm run terraform-init && terraform workspace new e2e && terraform workspace new e2e2 && terraform workspace new e2e3 && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace new production && terraform workspace select local",
     "test": "vitest run",
     "test:watch": "vitest"
   },
