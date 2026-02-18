@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -416,9 +416,9 @@ export class PagedQuestionnaireFlowHelper {
    * @param cardData - Credit card information (defaults to test card if not provided)
    */
   async fillCreditCard(cardData?: { number?: string; expiry?: string; cvc?: string }): Promise<void> {
-    // Check if card is already added
+    // Check if card is already added (matches legacy pattern)
     const savedCard = this.page.getByTestId(dataTestIds.cardNumber).first();
-    const isCardAlreadyAdded = await savedCard.isVisible({ timeout: 1000 }).catch(() => false);
+    const isCardAlreadyAdded = await savedCard.isVisible().catch(() => false);
 
     if (isCardAlreadyAdded) {
       return;
@@ -428,35 +428,19 @@ export class PagedQuestionnaireFlowHelper {
     const expiry = cardData?.expiry || CARD_EXP_DATE;
     const cvc = cardData?.cvc || CARD_CVV;
 
-    // Wait for Stripe iframe and card number field to be visible
+    // Fill card fields - Playwright's fill() auto-waits for elements to be actionable
+    // No explicit waitFor or timeout needed (matches legacy pattern)
     const stripeIframe = this.page.frameLocator('iframe[title="Secure card payment input frame"]');
-    const cardNumberField = stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]');
-    await cardNumberField.waitFor({ state: 'visible', timeout: 30000 });
-
-    // Stripe Elements need time after DOM visibility to emit "ready" event
-    await this.page.waitForTimeout(500);
-
-    // Fill card fields
-    await cardNumberField.fill(number);
+    await stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]').fill(number);
     await stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]').fill(expiry);
     await stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]').fill(cvc);
 
-    // Click add card and wait for it to be saved
+    // Click add card
     await this.page.getByRole('button', { name: 'Add card' }).click();
 
-    // Race: either the card appears (success) or an error message appears (failure)
-    const cardSaved = this.page.getByTestId(dataTestIds.cardNumber).first();
-    const errorAlert = this.page.getByRole('alert');
-
-    const result = await Promise.race([
-      cardSaved.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'success' as const),
-      errorAlert.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'error' as const),
-    ]);
-
-    if (result === 'error') {
-      const errorText = await errorAlert.textContent();
-      throw new Error(`Failed to save credit card: ${errorText}`);
-    }
+    // Wait for saved card to appear (Stripe processing + backend save + UI update)
+    // Using expect().toBeVisible() matches the legacy pattern
+    await expect(this.page.getByTestId(dataTestIds.cardNumber).first()).toBeVisible({ timeout: 60000 });
   }
 
   /**
