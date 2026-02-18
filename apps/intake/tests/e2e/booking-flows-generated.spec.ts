@@ -14,6 +14,14 @@ import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
 import { CanonicalUrl, ServiceMode } from 'utils';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
+import {
+  executeCancellationFlow,
+  executeModificationFlow,
+  executeReturningPatientFlow,
+  shouldExtendWithCancellation,
+  shouldExtendWithModification,
+  shouldExtendWithReturningPatient,
+} from '../utils/booking/ExtendedScenarioHelpers';
 import { TestLocationManager } from '../utils/booking/TestLocationManager';
 import { TestQuestionnaireManager } from '../utils/booking/TestQuestionnaireManager';
 import { CONCRETE_TEST_CONFIGS, ConcreteTestConfig } from '../utils/booking-flow-concrete-smoke-configs';
@@ -192,6 +200,21 @@ test.describe('Complete booking flows', () => {
       expect(completionPathMatches).toBe(true);
 
       console.log(`✓ ${scenario.description}: appointment ${appointmentResponse.appointmentId}`);
+
+      // Extended P1 coverage: returning patient, modification, and cancellation flows
+      // These are distributed across different scenarios to maintain parallelization
+
+      if (shouldExtendWithReturningPatient(scenario, scenarios)) {
+        await executeReturningPatientFlow(page, scenario, appointmentResponse);
+      }
+
+      if (shouldExtendWithModification(scenario, scenarios)) {
+        await executeModificationFlow(page, appointmentResponse);
+      }
+
+      if (shouldExtendWithCancellation(scenario, scenarios)) {
+        await executeCancellationFlow(page, appointmentResponse, scenario.serviceMode);
+      }
     });
   }
 });

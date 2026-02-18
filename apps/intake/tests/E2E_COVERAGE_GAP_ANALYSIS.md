@@ -1,0 +1,252 @@
+# E2E Test Coverage Gap Analysis
+
+This document analyzes the coverage delta between the legacy e2e tests (`tests/specs/`) and the new generated booking flow tests (`tests/e2e/booking-flows-generated.spec.ts`). It identifies gaps and proposes a prioritized plan for addressing them.
+
+## Current Coverage Summary
+
+### New Tests (`booking-flows-generated.spec.ts`)
+
+The new tests provide comprehensive coverage of **new patient booking flows**:
+
+| Dimension | Coverage |
+|-----------|----------|
+| Visit Types | Walk-in, Prebook |
+| Service Modes | In-person, Virtual |
+| Service Categories | Urgent Care, Occupational Medicine, Workers Comp |
+| Patient Type | **New patients only** |
+| Paperwork | Full flow through all enabled pages |
+| Completion | Verified arrival at correct completion page |
+
+**Strengths:**
+- Config-aware: automatically adapts to different questionnaire configurations
+- Parallelized: runs all scenarios concurrently with isolated test resources
+- Self-contained: creates its own test locations and questionnaires
+- Validates end-to-end flow from homepage through paperwork submission
+
+### Legacy Tests (`tests/specs/`)
+
+The legacy tests cover additional scenarios not yet in the new tests:
+
+#### In-Person Tests
+| Test File | Coverage |
+|-----------|----------|
+| `PaperworkExistingPatient.spec.ts` | Returning patient with prefilled data (RP: not self, Payment: Insurance) |
+| `PaperworkExisitingPatientSelf.spec.ts` | Returning patient (RP: Self, Payment: Card) |
+| `PaperworkReviewScreen.spec.ts` | Review page chips, edit button navigation |
+| `PastVisits.spec.ts` | Past visits empty state, appointment list |
+| `ReservationModification.spec.ts` | Modify time slot, cancel visit, book again |
+| `ReservationScreen.spec.ts` | Booking confirmation screen data verification |
+
+#### Telemed Tests
+| Test File | Coverage |
+|-----------|----------|
+| `PaperworkTelemedExistingPatient.spec.ts` | Returning patient prefilled data |
+| `PaperworkTelemedExistingPatientSelf.spec.ts` | Returning patient (RP: Self) |
+| `PaperworkTelemedReviewScreen.spec.ts` | Review page verification |
+| `WaitingRoom.spec.ts` | Invite/cancel participant (phone/email) |
+| `homepage.spec.ts` | Homepage navigation, Support dialog |
+
+---
+
+## Coverage Gaps
+
+### Priority 1: Critical User Journeys
+
+#### 1.1 Returning/Existing Patient Flow
+**Gap:** New tests only cover new patient registration. Returning patients have prefilled data and different UI paths.
+
+**What's missing:**
+- Prefilled contact information verification
+- Prefilled patient details (ethnicity, race, language)
+- Prefilled PCP information
+- Prefilled insurance cards and data
+- Prefilled responsible party (when not self)
+- Photo ID persistence verification
+- Patient selection screen ("Different family member" selection)
+
+**Recommendation:** Add to e2e tests. This is a high-value user journey that exercises data persistence and prepopulation logic.
+
+**Effort:** Medium - requires authenticated session and existing patient data
+
+#### 1.2 Reservation Modification & Cancellation
+**Gap:** No coverage for modifying or canceling existing appointments.
+
+**What's missing:**
+- Click Modify → select new time slot → verify update
+- Click Cancel → select reason → verify cancellation
+- Book Again flow after cancellation
+
+**Recommendation:** Add to e2e tests. This is a critical user journey for appointment management.
+
+**Effort:** Medium - requires existing appointment, tests post-booking interactions
+
+### Priority 2: Important Features
+
+#### 2.1 Past Visits Page
+**Gap:** No coverage for viewing appointment history.
+
+**What's missing:**
+- Empty state (no past visits)
+- Non-empty state (list of past appointments)
+- Appointment details display (date, time, status, visit ID)
+- Navigation back to homepage
+
+**Recommendation:** Add to e2e tests. Important for patient experience.
+
+**Effort:** Low-Medium - requires authenticated session with appointment history
+
+#### 2.2 Waiting Room Participant Management (Virtual)
+**Gap:** No coverage for inviting/managing participants in virtual waiting room.
+
+**What's missing:**
+- Manage participant modal
+- Invite by phone (with validation)
+- Invite by email (with validation)
+- Cancel invite flow
+- Invitee list verification
+
+**Recommendation:** Add to e2e tests. Core telemed functionality.
+
+**Effort:** Medium - requires virtual appointment, tests post-booking interactions
+
+#### 2.3 Review Page Detailed Verification
+**Gap:** New tests verify arrival at review page but don't deeply test its functionality.
+
+**What's missing:**
+- Complete/Incomplete chip status for each section
+- Edit button navigation (each section opens correct page)
+- Back button navigation from edit pages
+- Privacy Policy and Terms links
+
+**Recommendation:** Consider component tests for review page UI logic, e2e for critical paths.
+
+**Effort:** Low - mostly UI verification on existing flows
+
+### Priority 3: Edge Cases & Variations
+
+#### 3.1 Payment Option Variations
+**Gap:** New tests use a single payment path per flow.
+
+**What's missing:**
+- Switching between payment options (Insurance ↔ Self-pay)
+- Secondary insurance flow
+- Saved card selection vs new card entry
+- Policy holder relationship variations
+
+**Recommendation:** Component tests for payment option switching logic. E2e for one happy path per payment type.
+
+**Effort:** Low-Medium
+
+#### 3.2 Responsible Party Variations
+**Gap:** New tests default to "Self" responsible party.
+
+**What's missing:**
+- Non-self responsible party (prefilled from existing data)
+- Responsible party form when relationship ≠ Self
+
+**Recommendation:** Cover in returning patient e2e tests (see 1.1).
+
+**Effort:** Included in 1.1
+
+#### 3.3 Support Dialog
+**Gap:** No coverage for support functionality.
+
+**What's missing:**
+- Support button opens dialog
+- Dialog content verification
+- Contact information display
+
+**Recommendation:** Component test - isolated UI feature.
+
+**Effort:** Low
+
+---
+
+## Proposed Plan
+
+### Phase 1: Critical Path Coverage (Priority 1)
+
+1. **Returning Patient Flow** (1.1)
+   - Extend existing e2e infrastructure to support authenticated sessions
+   - Create test that uses existing patient from login session
+   - Verify prefilled data on each paperwork page
+   - Verify patient selection screen works correctly
+
+2. **Reservation Modification/Cancellation** (1.2)
+   - Add post-booking test scenarios
+   - Test modify → new time slot → confirmation
+   - Test cancel → reason selection → cancellation confirmation → book again
+
+### Phase 2: Important Feature Coverage (Priority 2)
+
+3. **Past Visits** (2.1)
+   - Extend authenticated session tests
+   - Verify empty and non-empty states
+   - Verify appointment details display
+
+4. **Waiting Room Participant Management** (2.2)
+   - Extend virtual walk-in tests
+   - Test invite flow (phone and email)
+   - Test cancel invite flow
+
+5. **Review Page Deep Testing** (2.3)
+   - Add assertions to existing e2e flows for chip status
+   - Consider component tests for edit button navigation
+
+### Phase 3: Component Test Migration (Priority 3)
+
+These features are better suited for component/integration tests:
+
+| Feature | Reason |
+|---------|--------|
+| Payment option switching | UI logic, doesn't need full flow |
+| Support dialog | Isolated component |
+| Form field validation messages | Input validation logic |
+| Link opening (PDF, external) | Browser behavior |
+
+---
+
+## Implementation Notes
+
+### For Returning Patient Flow
+
+The new e2e infrastructure already supports:
+- Authenticated sessions (via `storageState: './playwright/user.json'`)
+- Login flow (via `tests/login/login.spec.ts`)
+
+To add returning patient coverage:
+1. Use the same authenticated session from login
+2. Navigate to homepage and select an existing patient
+3. Start a booking flow
+4. Verify prefilled data on each paperwork page
+
+### For Post-Booking Flows
+
+The new tests already capture `appointmentResponse.appointmentId`. This can be used to:
+1. Navigate to `/visit/{appointmentId}` after booking
+2. Test modification and cancellation flows
+3. Test past visits page with known appointment data
+
+### Test Data Strategy
+
+Legacy tests used a "setup" phase that created test patients with specific configurations. The new approach should:
+1. Use dynamically created test data where possible
+2. Leverage the existing login user's patient data for returning patient tests
+3. Clean up test data after runs to avoid pollution
+
+---
+
+## Summary
+
+| Gap | Priority | Approach | Effort |
+|-----|----------|----------|--------|
+| Returning patient flow | P1 | E2E | Medium |
+| Reservation modification/cancel | P1 | E2E | Medium |
+| Past visits page | P2 | E2E | Low-Medium |
+| Waiting room participants | P2 | E2E | Medium |
+| Review page deep testing | P2 | E2E + Component | Low |
+| Payment option variations | P3 | Component | Low |
+| Support dialog | P3 | Component | Low |
+
+**Total new e2e test scenarios needed:** ~5-7 new test files/scenarios
+**Component tests to create:** ~3-4 focused test suites

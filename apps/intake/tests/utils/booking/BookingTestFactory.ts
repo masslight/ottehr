@@ -584,7 +584,7 @@ async function fillPaperworkPages(params: FillPaperworkParams): Promise<void> {
   if (serviceMode === 'in-person' && visitType === 'walk-in') {
     expectedCompletionUrl = /\/check-in/;
   } else if (visitType === 'prebook') {
-    expectedCompletionUrl = /\/visit\/[a-f0-9-]+$/;
+    expectedCompletionUrl = /\/visit\/[a-f0-9-]+/;
   } else {
     // Virtual walk-in
     expectedCompletionUrl = /\/waiting-room/;
