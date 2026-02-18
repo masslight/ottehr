@@ -566,12 +566,40 @@ export class BookingFlowHelpers {
   }
 
   /**
-   * Select the first available time slot (for prebook flows)
+   * Select an available time slot (for prebook flows)
+   *
+   * To avoid timing flakes in CI, this method selects a slot that is at least
+   * `minMinutesInFuture` minutes from now. This prevents the appointment from
+   * becoming "in the past" before paperwork is completed or modification is attempted.
+   *
+   * @param page - Playwright page
+   * @param minMinutesInFuture - Minimum minutes in the future the slot should be (default: 30)
    */
-  static async selectFirstAvailableTimeSlot(page: Page): Promise<void> {
+  static async selectFirstAvailableTimeSlot(page: Page, minMinutesInFuture = 30): Promise<void> {
     // Wait for "First available time" text to appear
     await page.getByText('First available time').waitFor({ state: 'visible', timeout: 20000 });
 
+    // Find and click a suitable time slot
+    const { timeText } = await this.findAndClickSuitableTimeSlot(page, minMinutesInFuture);
+    console.log(`Selected time slot: ${timeText}`);
+
+    // After clicking a time, a "Select" button appears - click it to confirm
+    // Playwright auto-waits for element to be visible and stable
+    const selectButton = page.getByRole('button', { name: /^Select/ });
+    const selectButtonText = await selectButton.textContent();
+    console.log(`Clicking: ${selectButtonText}`);
+    await selectButton.click();
+  }
+
+  /**
+   * Find and click a time slot that is at least `minMinutesInFuture` minutes from now.
+   * This is a shared utility used by both initial booking and modification flows.
+   *
+   * @param page - Playwright page
+   * @param minMinutesInFuture - Minimum minutes in the future the slot should be
+   * @returns The selected time text and the button locator
+   */
+  static async findAndClickSuitableTimeSlot(page: Page, minMinutesInFuture = 30): Promise<{ timeText: string }> {
     // Find all time slot buttons (format: "2:00 PM", "3:30 AM", etc.)
     const timeButtons = page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
     const buttonCount = await timeButtons.count();
@@ -580,18 +608,81 @@ export class BookingFlowHelpers {
       throw new Error('No time slots available');
     }
 
-    // Click the first available time slot
-    const firstTimeButton = timeButtons.first();
-    const timeText = await firstTimeButton.textContent();
-    console.log(`Selecting time slot: ${timeText}`);
-    await firstTimeButton.click();
+    // Calculate the minimum acceptable time
+    const now = new Date();
+    const minAcceptableTime = new Date(now.getTime() + minMinutesInFuture * 60 * 1000);
+    console.log(
+      `Looking for time slot at least ${minMinutesInFuture} minutes from now (after ${minAcceptableTime.toLocaleTimeString()})`
+    );
 
-    // After clicking a time, a "Select" button appears - click it to confirm
-    // Playwright auto-waits for element to be visible and stable
-    const selectButton = page.getByRole('button', { name: /^Select/ });
-    const selectButtonText = await selectButton.textContent();
-    console.log(`Clicking: ${selectButtonText}`);
-    await selectButton.click();
+    // Find a slot that's sufficiently in the future
+    let selectedButton = null;
+    let selectedTimeText = '';
+
+    for (let i = 0; i < buttonCount; i++) {
+      const button = timeButtons.nth(i);
+      const timeText = await button.textContent();
+      if (!timeText) continue;
+
+      // Parse time from button text (e.g., "2:00 PM" or "10:30 AM")
+      const slotTime = this.parseTimeSlotToDate(timeText.trim(), now);
+      if (!slotTime) continue;
+
+      if (slotTime >= minAcceptableTime) {
+        selectedButton = button;
+        selectedTimeText = timeText;
+        console.log(`Found suitable slot: ${timeText} (${slotTime.toLocaleTimeString()})`);
+        break;
+      } else {
+        console.log(`Skipping slot ${timeText} - too soon (${slotTime.toLocaleTimeString()})`);
+      }
+    }
+
+    // Fallback to last slot if none are far enough in the future
+    // (This handles edge cases like late night testing where tomorrow's slots may not be shown)
+    if (!selectedButton) {
+      console.log('No slot found far enough in future, selecting last available slot as fallback');
+      selectedButton = timeButtons.last();
+      selectedTimeText = (await selectedButton.textContent()) || 'unknown';
+    }
+
+    console.log(`Clicking time slot: ${selectedTimeText}`);
+    await selectedButton.click();
+
+    return { timeText: selectedTimeText };
+  }
+
+  /**
+   * Parse a time slot string (e.g., "2:00 PM") to a Date object for today.
+   * Returns null if parsing fails.
+   *
+   * Exported as public static for use by other helpers (e.g., ExtendedScenarioHelpers).
+   */
+  static parseTimeSlotToDate(timeText: string, referenceDate: Date): Date | null {
+    const match = timeText.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const period = match[3].toUpperCase();
+
+    // Convert to 24-hour format
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    const slotDate = new Date(referenceDate);
+    slotDate.setHours(hours, minutes, 0, 0);
+
+    // If the parsed time is before the reference time, it might be for tomorrow
+    // (e.g., if it's 11 PM and we see a "1:00 AM" slot)
+    if (slotDate < referenceDate) {
+      slotDate.setDate(slotDate.getDate() + 1);
+    }
+
+    return slotDate;
   }
 
   /**

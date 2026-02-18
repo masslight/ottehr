@@ -100,6 +100,7 @@ export async function executeReturningPatientFlow(
  * Execute reservation modification flow after a prebook appointment
  *
  * Navigates to the appointment confirmation page and modifies the time slot.
+ * Selects a slot at least 30 minutes in the future to avoid timing flakes.
  */
 export async function executeModificationFlow(
   page: Page,
@@ -125,20 +126,8 @@ export async function executeModificationFlow(
   await expect(page.getByText('First available time')).toBeVisible({ timeout: 20000 });
   console.log('Time slot selection is visible');
 
-  // Find all time slot buttons and select a different one (not the first)
-  const timeButtons = page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
-  const buttonCount = await timeButtons.count();
-
-  if (buttonCount < 2) {
-    console.log('Only one time slot available, selecting it');
-  }
-
-  // Select a time slot (prefer second one if available, else first)
-  const slotIndex = buttonCount > 1 ? 1 : 0;
-  const selectedButton = timeButtons.nth(slotIndex);
-  const newTimeText = await selectedButton.textContent();
-  console.log(`Selecting new time slot: ${newTimeText}`);
-  await selectedButton.click();
+  // Use shared utility to find and click a suitable time slot (at least 30 min in future)
+  const { timeText: newTimeText } = await BookingFlowHelpers.findAndClickSuitableTimeSlot(page, 30);
 
   // Click the "Modify to [date/time]" button to confirm the new time
   const submitButton = page.getByRole('button', { name: /^Modify to /i });
