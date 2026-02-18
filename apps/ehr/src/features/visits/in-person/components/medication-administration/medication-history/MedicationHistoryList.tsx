@@ -1,8 +1,8 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
-  Button,
   Paper,
   Skeleton,
   Table,
@@ -23,10 +23,10 @@ import { MedicationHistoryEntity } from './MedicationHistoryEntity';
 export const MedicationHistoryList: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
 
   const { isLoading, medicationHistory } = useMedicationHistory();
-  const { printMedicationHistory } = usePrintChartData({});
-  console.log('>>> this is medicationHistory', medicationHistory);
+  const { generateMedicationHistoryPdf, openPdf } = usePrintChartData({});
 
   // todo: need to update react-query and use isInitialLoading
   const showSkeletons = isLoading && medicationHistory.length === 0;
@@ -51,23 +51,34 @@ export const MedicationHistoryList: React.FC = () => {
     return seeMoreOpen ? 'See less' : 'See more';
   };
 
+  const handlePrintMedicationHistoryClick = React.useCallback(async (): Promise<void> => {
+    setPrintLoading(true);
+    try {
+      const medPdfUrl = await generateMedicationHistoryPdf();
+      console.log('medPdfUrl is', medPdfUrl);
+      if (medPdfUrl) await openPdf(medPdfUrl);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPrintLoading(false);
+    }
+  }, [setPrintLoading, generateMedicationHistoryPdf, openPdf]);
+
   return (
     <AccordionCard
       label="Medication History"
       collapsed={isCollapsed}
       onSwitch={handleToggle}
       headerItem={
-        <Button
+        <LoadingButton
+          loading={printLoading}
           variant="outlined"
           type="button"
           sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
-          onClick={async () => {
-            console.log('clicked print meds');
-            await printMedicationHistory();
-          }}
+          onClick={handlePrintMedicationHistoryClick}
         >
           Print Medications
-        </Button>
+        </LoadingButton>
       }
     >
       <Box sx={{ px: 3, py: 1 }}>

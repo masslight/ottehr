@@ -1244,6 +1244,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-balances/index",
       "zip": ".dist/zips/get-patient-balances.zip"
+    },
+    "MAKE_MEDICATION_HISTORY_PDF": {
+      "name": "make-medication-history-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
+      "zip": ".dist/zips/make-medication-history-pdf.zip"
     }
   },
   "fhirResources": {

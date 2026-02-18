@@ -1,4 +1,4 @@
-import { Appointment, Encounter, MedicationStatement, Patient, Practitioner, Reference } from 'fhir/r4b';
+import { Appointment, Encounter, Location, MedicationStatement, Patient, Practitioner, Reference } from 'fhir/r4b';
 
 export type MedicationInfoForPrinting = {
   name: string;
@@ -13,10 +13,12 @@ export type MakeMedicationHistoryPdfZambdaInput = {
   medicationHistory: MedicationInfoForPrinting[];
   appointment: Appointment;
   encounter: Encounter;
+  location?: Location;
 };
 
 export type MakeMedicationHistoryPdfZambdaOutput = {
-  medicationHistoryPdfUrl: string;
+  presignedURL: string;
+  title: string;
 };
 
 export const MEDICATION_HISTORY_DOC_REF_CODING = {
