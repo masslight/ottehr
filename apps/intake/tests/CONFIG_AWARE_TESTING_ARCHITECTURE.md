@@ -127,12 +127,8 @@ Example for baseline config:
 
 **Key Functions:**
 ```typescript
-executeBookingScenario(page, scenario, config)
-  → Runs complete flow: homepage → category → patient info → location → confirm
-
-testScenarioStep(page, scenario, config, step)
-  → Tests one step in isolation within scenario context
-  → Steps: 'service-category' | 'patient-info' | 'location' | 'time-slot' | 'paperwork'
+executeBookingScenario(page, scenario, locationName)
+  → Runs complete flow: homepage → category → patient info → location → time slot → paperwork → confirm
 ```
 
 ## Test Organization
@@ -152,31 +148,13 @@ Validate that helpers correctly derive expectations from config without browser 
 
 **Test Structure:**
 ```typescript
-1. Homepage Option Rendering (3 tests)
-   - Baseline: all options visible
-   - InPersonOnly: only in-person options
-   - VirtualOnly: only virtual options
-
-2. Complete Booking Flows (12 tests for baseline)
-   - One test per scenario permutation
-   - All run in parallel
-
-3. Service Category Selection (4 tests)
-   - One per homepage option
-   - Tests multi-category vs single-category behavior
-
-4. Patient Info Form (12 tests)
-   - One per scenario
-   - Validates visible/hidden fields per config
-
-5. Location Selection (12 tests)
-   - One per scenario
-   
-6. Time Slot Selection (6 tests)
-   - Only for prebook scenarios
-
-7. Cross-Config Validation (5 tests)
-   - Validates scenario generation correctness
+Complete Booking Flows (dynamically generated)
+- One comprehensive test per scenario permutation
+- Covers full flow: homepage → service category → patient info → location → time slot → paperwork → confirmation
+- All tests run in parallel with isolated test resources
+- Scenarios include:
+  - Capability configs: baseline flows (walk-in/prebook × in-person/virtual)
+  - Concrete configs: instance-specific paperwork variations (occ-med, workers-comp)
 ```
 
 ## How It Works: Flow Example
@@ -257,23 +235,9 @@ test('start-virtual-visit → urgent-care - complete flow', async ({ page }) => 
    ```
 
 ### To add a new test step:
-1. Add step logic to `BookingTestFactory.ts`:
-   ```typescript
-   case 'new-step':
-     // Navigate to step and validate
-     break;
-   ```
-
-2. Generate tests for the step:
-   ```typescript
-   test.describe('New step - per scenario', () => {
-     for (const scenario of scenarios) {
-       test(`${scenario.description} - new step`, async ({ page }) => {
-         await testScenarioStep(page, scenario, config, 'new-step');
-       });
-     }
-   });
-   ```
+1. Add step logic to `executeBookingScenario` in `BookingTestFactory.ts`
+2. Update the scenario flow to include the new step
+3. If needed, add helper functions to `BookingFlowHelpers.ts`
 
 ### To add a new page helper:
 1. Add to `BookingFlowHelpers.ts`:
@@ -362,17 +326,16 @@ CAPABILITY_TEST_CONFIGS = {
 
 ## Next Steps
 
-### Immediate
+### Completed
 1. ✅ Add navigation logic to existing test stubs
 2. ✅ Verify all generated tests pass with actual app
 3. ✅ Add paperwork step to flow execution
+4. ✅ Add concrete config support (instance-specific paperwork variations)
+5. ✅ Test questionnaire deployment for concrete configs
+6. ✅ Parallel test execution with isolated test resources
 
 ### Future Enhancements
-1. Add paperwork capability configs (different field sets)
-2. Generate negative test scenarios (validation errors)
-3. Add location-specific variations
-4. Cross-browser test matrix
-5. Performance benchmarking per scenario
+1. Connect test flow output to EHR-side tests to validate the handoff between intake and EHR
 
 ## Evolution Log
 

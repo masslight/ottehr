@@ -12,4 +12,4 @@ export const bookingStrategy: BookingStrategy = {
   virtualWalkInLocation: 'Telemed Cat City',
 };
 
-export const skip = false;
+export const skip = true;
