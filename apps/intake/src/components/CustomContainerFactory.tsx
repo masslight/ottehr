@@ -3,7 +3,7 @@ import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from
 import { otherColors } from '@theme/colors';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { home } from 'src/themes/ottehr';
 import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -83,6 +83,7 @@ export const CustomContainer: FC<ContainerProps> = ({
   const { isAuthenticated, logout } = useAuth0();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = useCallback(() => {
     if (logoutHandler !== undefined) {
@@ -135,23 +136,25 @@ export const CustomContainer: FC<ContainerProps> = ({
 
           {/* Right section: home icon, chat and logout button  */}
           <Grid item xs={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, pr: 2 }}>
-            <Button
-              sx={{
-                backgroundColor: theme.palette.secondary.main,
-                borderRadius: '50%',
-                minWidth: '40px',
-                minHeight: '40px',
-                padding: 0,
-                '&:hover': {
-                  backgroundColor: '#2c535f',
-                },
-              }}
-              onClick={() => {
-                navigate('/home');
-              }}
-            >
-              <img src={home} alt="home" />
-            </Button>
+            {!['/welcome', '/home'].includes(location.pathname) && (
+              <Button
+                sx={{
+                  backgroundColor: theme.palette.secondary.main,
+                  borderRadius: '50%',
+                  minWidth: '40px',
+                  minHeight: '40px',
+                  padding: 0,
+                  '&:hover': {
+                    backgroundColor: '#2c535f',
+                  },
+                }}
+                onClick={() => {
+                  navigate('/home');
+                }}
+              >
+                <img src={home} alt="home" />
+              </Button>
+            )}
             {isAuthenticated && (
               <Button
                 variant="text"
