@@ -61,6 +61,24 @@ const testQuestionnaireCanonicals: Map<string, CanonicalUrl> = new Map();
 // Generate test scenarios from baseline config
 const scenarios = await generateBookingTestScenarios('baseline');
 
+// Load concrete configs at top level for grouping
+const concreteConfigs = await CONCRETE_TEST_CONFIGS;
+
+// Group scenarios by config type for organized test output
+const syntheticScenarios = scenarios.filter((s) => !s.configName.startsWith('concrete:'));
+const concreteScenarioGroups = new Map<string, { name: string; scenarios: typeof scenarios }>();
+for (const scenario of scenarios.filter((s) => s.configName.startsWith('concrete:'))) {
+  const configId = getConcreteConfigId(scenario.configName)!;
+  if (!concreteScenarioGroups.has(configId)) {
+    const config = concreteConfigs.find((c) => c.id === configId);
+    concreteScenarioGroups.set(configId, {
+      name: config?.name || configId,
+      scenarios: [],
+    });
+  }
+  concreteScenarioGroups.get(configId)!.scenarios.push(scenario);
+}
+
 test.describe('Complete booking flows', () => {
   // Setup: Create test locations and questionnaires
   test.beforeAll(async () => {
@@ -178,47 +196,15 @@ test.describe('Complete booking flows', () => {
     }
   });
 
-  // Generate a test for each scenario
-  for (const scenario of scenarios) {
-    test(`${scenario.description}`, async ({ page }) => {
-      // Choose the appropriate test location based on scenario type
-      let locationName: string;
-
-      const concreteConfigId = getConcreteConfigId(scenario.configName);
-      if (concreteConfigId) {
-        // Concrete config scenario: use locations from the concrete config
-        const concreteConfig = loadedConcreteConfigs.find((c) => c.id === concreteConfigId);
-        if (!concreteConfig) {
-          throw new Error(`Concrete config not found: ${concreteConfigId}`);
-        }
-
-        const concreteLocations = testLocationManager.getConcreteConfigLocations(concreteConfigId);
-        const isVirtual = scenario.serviceMode === 'virtual';
-
-        // Transform and inject the locations config with suffixed names
-        const transformedLocations = LocationsConfigHelper.transformLocationsForInjection(
-          concreteConfig.locationsOverrides,
-          concreteLocations
-        );
-        await LocationsConfigHelper.injectLocationsConfig(page, transformedLocations);
-
-        // Pick the first location of the appropriate type
-        const matchingLocation = concreteLocations.find((loc) => loc.isVirtual === isVirtual);
-        if (!matchingLocation) {
-          throw new Error(
-            `No ${isVirtual ? 'virtual' : 'in-person'} location found for concrete config: ${concreteConfigId}`
-          );
-        }
-        locationName = matchingLocation.suffixedName;
-
-        // Get the test questionnaire canonical for this concrete config
-        const canonicalKey = `${concreteConfigId}-${scenario.serviceMode}`;
-        const testCanonical = testQuestionnaireCanonicals.get(canonicalKey);
-        if (testCanonical) {
-          scenario.testQuestionnaireCanonical = testCanonical;
-        }
-      } else {
+  // ===========================================================================
+  // SYNTHETIC TESTS (baseline config)
+  // Run with: npx playwright test --grep "Synthetic"
+  // ===========================================================================
+  test.describe('Synthetic (baseline)', () => {
+    for (const scenario of syntheticScenarios) {
+      test(`${scenario.description}`, async ({ page }) => {
         // Capability config scenario: use default synthetic locations
+        let locationName: string;
         if (scenario.visitType === 'walk-in') {
           locationName = scenario.serviceMode === 'virtual' ? prebookVirtualLocation.name! : walkinLocation.name!;
         } else if (scenario.bookableEntityType === 'Group') {
@@ -235,64 +221,138 @@ test.describe('Complete booking flows', () => {
         if (baselineCanonical) {
           scenario.testQuestionnaireCanonical = baselineCanonical;
         }
-      }
 
-      // Execute complete booking flow with paperwork
-      const appointmentResponse = await executeBookingScenario(page, scenario, locationName);
+        // Execute complete booking flow with paperwork
+        const appointmentResponse = await executeBookingScenario(page, scenario, locationName);
 
-      // Verify appointment was created
-      expect(appointmentResponse.appointmentId).toBeTruthy();
-      expect(appointmentResponse.fhirPatientId).toBeTruthy();
-      expect(appointmentResponse.resources.appointment).toBeTruthy();
-      expect(appointmentResponse.resources.patient).toBeTruthy();
+        // Verify appointment was created
+        expect(appointmentResponse.appointmentId).toBeTruthy();
+        expect(appointmentResponse.fhirPatientId).toBeTruthy();
+        expect(appointmentResponse.resources.appointment).toBeTruthy();
+        expect(appointmentResponse.resources.patient).toBeTruthy();
 
-      // Verify we reached the correct completion page
-      let completionPathMatches: boolean;
-      if (scenario.serviceMode === 'in-person' && scenario.visitType === 'walk-in') {
-        completionPathMatches = page.url().includes('/check-in');
-      } else if (scenario.visitType === 'prebook') {
-        // Remove $ anchor to handle potential query params
-        completionPathMatches = /\/visit\/[a-f0-9-]+/.test(page.url());
-      } else {
-        // Virtual walk-in
-        completionPathMatches = page.url().includes('/waiting-room');
-      }
-      expect(completionPathMatches).toBe(true);
+        // Verify we reached the correct completion page
+        let completionPathMatches: boolean;
+        if (scenario.serviceMode === 'in-person' && scenario.visitType === 'walk-in') {
+          completionPathMatches = page.url().includes('/check-in');
+        } else if (scenario.visitType === 'prebook') {
+          completionPathMatches = /\/visit\/[a-f0-9-]+/.test(page.url());
+        } else {
+          completionPathMatches = page.url().includes('/waiting-room');
+        }
+        expect(completionPathMatches).toBe(true);
 
-      console.log(`✓ ${scenario.description}: appointment ${appointmentResponse.appointmentId}`);
+        console.log(`✓ ${scenario.description}: appointment ${appointmentResponse.appointmentId}`);
 
-      // =======================================================================
-      // Extended P1 coverage: returning patient, modification, and cancellation
-      // These are distributed across different scenarios to maintain parallelization
-      // =======================================================================
+        // Extended P1 coverage
+        if (shouldExtendWithReturningPatient(scenario, syntheticScenarios)) {
+          await executeReturningPatientFlow(page, scenario, appointmentResponse);
+        }
+        if (shouldExtendWithModification(scenario, syntheticScenarios)) {
+          await executeModificationFlow(page, appointmentResponse);
+        }
+        if (shouldExtendWithCancellation(scenario, syntheticScenarios)) {
+          await executeCancellationFlow(page, appointmentResponse, scenario.serviceMode);
+        }
 
-      if (shouldExtendWithReturningPatient(scenario, scenarios)) {
-        await executeReturningPatientFlow(page, scenario, appointmentResponse);
-      }
+        // Extended P2 coverage
+        if (shouldExtendWithWaitingRoomParticipants(scenario, syntheticScenarios)) {
+          await executeWaitingRoomParticipantsFlow(page);
+        }
+        if (shouldExtendWithPastVisits(scenario, syntheticScenarios)) {
+          await executePastVisitsFlow(page, appointmentResponse);
+        }
+        if (shouldExtendWithReviewPageVerification(scenario, syntheticScenarios)) {
+          await executeReviewPageVerification(page, appointmentResponse.appointmentId, scenario.serviceMode);
+        }
+      });
+    }
+  });
 
-      if (shouldExtendWithModification(scenario, scenarios)) {
-        await executeModificationFlow(page, appointmentResponse);
-      }
+  // ===========================================================================
+  // CONCRETE CONFIG TESTS (instance-specific configurations)
+  // Run with: npx playwright test --grep "Concrete: <config-name>"
+  // ===========================================================================
+  for (const [configId, { name: configName, scenarios: configScenarios }] of concreteScenarioGroups) {
+    test.describe(`Concrete: ${configName}`, () => {
+      for (const scenario of configScenarios) {
+        test(`${scenario.description}`, async ({ page }) => {
+          // Concrete config scenario: use locations from the concrete config
+          const concreteConfig = loadedConcreteConfigs.find((c) => c.id === configId);
+          if (!concreteConfig) {
+            throw new Error(`Concrete config not found: ${configId}`);
+          }
 
-      if (shouldExtendWithCancellation(scenario, scenarios)) {
-        await executeCancellationFlow(page, appointmentResponse, scenario.serviceMode);
-      }
+          const concreteLocations = testLocationManager.getConcreteConfigLocations(configId);
+          const isVirtual = scenario.serviceMode === 'virtual';
 
-      // =======================================================================
-      // Extended P2 coverage: waiting room, past visits, review page
-      // =======================================================================
+          // Transform and inject the locations config with suffixed names
+          const transformedLocations = LocationsConfigHelper.transformLocationsForInjection(
+            concreteConfig.locationsOverrides,
+            concreteLocations
+          );
+          await LocationsConfigHelper.injectLocationsConfig(page, transformedLocations);
 
-      if (shouldExtendWithWaitingRoomParticipants(scenario, scenarios)) {
-        // Virtual walk-in only - already on waiting room page
-        await executeWaitingRoomParticipantsFlow(page);
-      }
+          // Pick the first location of the appropriate type
+          const matchingLocation = concreteLocations.find((loc) => loc.isVirtual === isVirtual);
+          if (!matchingLocation) {
+            throw new Error(
+              `No ${isVirtual ? 'virtual' : 'in-person'} location found for concrete config: ${configId}`
+            );
+          }
+          const locationName = matchingLocation.suffixedName;
 
-      if (shouldExtendWithPastVisits(scenario, scenarios)) {
-        await executePastVisitsFlow(page, appointmentResponse);
-      }
+          // Get the test questionnaire canonical for this concrete config
+          const canonicalKey = `${configId}-${scenario.serviceMode}`;
+          const testCanonical = testQuestionnaireCanonicals.get(canonicalKey);
+          if (testCanonical) {
+            scenario.testQuestionnaireCanonical = testCanonical;
+          }
 
-      if (shouldExtendWithReviewPageVerification(scenario, scenarios)) {
-        await executeReviewPageVerification(page, appointmentResponse.appointmentId, scenario.serviceMode);
+          // Execute complete booking flow with paperwork
+          const appointmentResponse = await executeBookingScenario(page, scenario, locationName);
+
+          // Verify appointment was created
+          expect(appointmentResponse.appointmentId).toBeTruthy();
+          expect(appointmentResponse.fhirPatientId).toBeTruthy();
+          expect(appointmentResponse.resources.appointment).toBeTruthy();
+          expect(appointmentResponse.resources.patient).toBeTruthy();
+
+          // Verify we reached the correct completion page
+          let completionPathMatches: boolean;
+          if (scenario.serviceMode === 'in-person' && scenario.visitType === 'walk-in') {
+            completionPathMatches = page.url().includes('/check-in');
+          } else if (scenario.visitType === 'prebook') {
+            completionPathMatches = /\/visit\/[a-f0-9-]+/.test(page.url());
+          } else {
+            completionPathMatches = page.url().includes('/waiting-room');
+          }
+          expect(completionPathMatches).toBe(true);
+
+          console.log(`✓ ${scenario.description}: appointment ${appointmentResponse.appointmentId}`);
+
+          // Extended P1 coverage
+          if (shouldExtendWithReturningPatient(scenario, configScenarios)) {
+            await executeReturningPatientFlow(page, scenario, appointmentResponse);
+          }
+          if (shouldExtendWithModification(scenario, configScenarios)) {
+            await executeModificationFlow(page, appointmentResponse);
+          }
+          if (shouldExtendWithCancellation(scenario, configScenarios)) {
+            await executeCancellationFlow(page, appointmentResponse, scenario.serviceMode);
+          }
+
+          // Extended P2 coverage
+          if (shouldExtendWithWaitingRoomParticipants(scenario, configScenarios)) {
+            await executeWaitingRoomParticipantsFlow(page);
+          }
+          if (shouldExtendWithPastVisits(scenario, configScenarios)) {
+            await executePastVisitsFlow(page, appointmentResponse);
+          }
+          if (shouldExtendWithReviewPageVerification(scenario, configScenarios)) {
+            await executeReviewPageVerification(page, appointmentResponse.appointmentId, scenario.serviceMode);
+          }
+        });
       }
     });
   }
