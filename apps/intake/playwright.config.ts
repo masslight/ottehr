@@ -72,11 +72,23 @@ export default defineConfig({
       testMatch: /.*login\/login\.spec\.ts/,
     },
     {
+      // E2E project for new booking flow tests - no legacy dependencies
+      name: 'e2e',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testDir: './tests/e2e',
+      testMatch: /.*\.spec\.ts/,
+    },
+    {
+      // Legacy: paperwork-setup for tests/specs only
       name: 'paperwork-setup',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
+      testDir: './tests/specs',
       // In UI mode, chromium project handles all tests including setup
       // In non-UI mode, this project handles setup tests with dependency chain
       testMatch: isUIMode ? /this-pattern-matches-nothing/ : /.*setup\.spec\.ts/,
@@ -84,23 +96,26 @@ export default defineConfig({
       timeout: 240000,
     },
     {
-      // Validates that ALL paperwork-setup tests passed (checks marker file)
+      // Legacy: Validates that ALL paperwork-setup tests passed (checks marker file)
       name: 'setup-validation',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
+      testDir: './tests/specs',
       // In UI mode, chromium project handles all tests including setup-validation
       // In non-UI mode, this project validates setup completion
       testMatch: isUIMode ? /this-pattern-matches-nothing/ : /.*setup-validation\.spec\.ts/,
       ...(isUIMode ? {} : { dependencies: ['paperwork-setup'] }),
     },
     {
+      // Legacy: chromium for tests/specs - depends on setup-validation
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
+      testDir: './tests/specs',
       // chromium runs ONLY if setup-validation passes (which means ALL setup tests passed)
       // In UI mode, dependencies are disabled to allow manual test selection
       ...(isUIMode ? {} : { dependencies: ['setup-validation'] }),
