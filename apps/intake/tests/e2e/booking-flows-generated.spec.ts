@@ -15,12 +15,20 @@ import { Location, Schedule } from 'fhir/r4b';
 import { CanonicalUrl, ServiceMode } from 'utils';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
+  // P1: Critical User Journeys
   executeCancellationFlow,
   executeModificationFlow,
+  // P2: Important Features
+  executePastVisitsFlow,
   executeReturningPatientFlow,
+  executeReviewPageVerification,
+  executeWaitingRoomParticipantsFlow,
   shouldExtendWithCancellation,
   shouldExtendWithModification,
+  shouldExtendWithPastVisits,
   shouldExtendWithReturningPatient,
+  shouldExtendWithReviewPageVerification,
+  shouldExtendWithWaitingRoomParticipants,
 } from '../utils/booking/ExtendedScenarioHelpers';
 import { TestLocationManager } from '../utils/booking/TestLocationManager';
 import { TestQuestionnaireManager } from '../utils/booking/TestQuestionnaireManager';
@@ -192,7 +200,8 @@ test.describe('Complete booking flows', () => {
       if (scenario.serviceMode === 'in-person' && scenario.visitType === 'walk-in') {
         completionPathMatches = page.url().includes('/check-in');
       } else if (scenario.visitType === 'prebook') {
-        completionPathMatches = /\/visit\/[a-f0-9-]+$/.test(page.url());
+        // Remove $ anchor to handle potential query params
+        completionPathMatches = /\/visit\/[a-f0-9-]+/.test(page.url());
       } else {
         // Virtual walk-in
         completionPathMatches = page.url().includes('/waiting-room');
@@ -201,8 +210,10 @@ test.describe('Complete booking flows', () => {
 
       console.log(`✓ ${scenario.description}: appointment ${appointmentResponse.appointmentId}`);
 
-      // Extended P1 coverage: returning patient, modification, and cancellation flows
+      // =======================================================================
+      // Extended P1 coverage: returning patient, modification, and cancellation
       // These are distributed across different scenarios to maintain parallelization
+      // =======================================================================
 
       if (shouldExtendWithReturningPatient(scenario, scenarios)) {
         await executeReturningPatientFlow(page, scenario, appointmentResponse);
@@ -214,6 +225,23 @@ test.describe('Complete booking flows', () => {
 
       if (shouldExtendWithCancellation(scenario, scenarios)) {
         await executeCancellationFlow(page, appointmentResponse, scenario.serviceMode);
+      }
+
+      // =======================================================================
+      // Extended P2 coverage: waiting room, past visits, review page
+      // =======================================================================
+
+      if (shouldExtendWithWaitingRoomParticipants(scenario, scenarios)) {
+        // Virtual walk-in only - already on waiting room page
+        await executeWaitingRoomParticipantsFlow(page);
+      }
+
+      if (shouldExtendWithPastVisits(scenario, scenarios)) {
+        await executePastVisitsFlow(page, appointmentResponse);
+      }
+
+      if (shouldExtendWithReviewPageVerification(scenario, scenarios)) {
+        await executeReviewPageVerification(page, appointmentResponse.appointmentId, scenario.serviceMode);
       }
     });
   }

@@ -50,35 +50,46 @@ The legacy tests cover additional scenarios not yet in the new tests:
 
 ## Coverage Gaps
 
-### Priority 1: Critical User Journeys
+### Priority 1: Critical User Journeys ✅ COMPLETED
 
-#### 1.1 Returning/Existing Patient Flow
-**Gap:** New tests only cover new patient registration. Returning patients have prefilled data and different UI paths.
+#### 1.1 Returning/Existing Patient Flow ✅
+**Status:** Implemented in `ExtendedScenarioHelpers.ts` → `executeReturningPatientFlow()`
 
-**What's missing:**
-- Prefilled contact information verification
-- Prefilled patient details (ethnicity, race, language)
-- Prefilled PCP information
-- Prefilled insurance cards and data
-- Prefilled responsible party (when not self)
-- Photo ID persistence verification
-- Patient selection screen ("Different family member" selection)
+**Coverage added:**
+- Patient selection screen detection
+- Selection of existing patient from list
+- Navigation to paperwork with prefilled data
+- Basic verification of prefilled email field
 
-**Recommendation:** Add to e2e tests. This is a high-value user journey that exercises data persistence and prepopulation logic.
+**Implementation notes:**
+- Attached to first in-person walk-in scenario per config
+- Starts a NEW booking flow after initial appointment creation
+- Verifies patient selection UI appears and works
 
-**Effort:** Medium - requires authenticated session and existing patient data
+#### 1.2 Reservation Modification & Cancellation ✅
+**Status:** Implemented in `ExtendedScenarioHelpers.ts`
 
-#### 1.2 Reservation Modification & Cancellation
-**Gap:** No coverage for modifying or canceling existing appointments.
+**Modification flow** (`executeModificationFlow()`):
+- Navigate to `/visit/{appointmentId}`
+- Click Modify button → reschedule page
+- Select different time slot
+- Click "Modify to [date/time]" button
+- Verify thank you page with new time
 
-**What's missing:**
-- Click Modify → select new time slot → verify update
-- Click Cancel → select reason → verify cancellation
-- Book Again flow after cancellation
+**Cancellation flow** (`executeCancellationFlow()`):
+- Navigate to `/visit/{appointmentId}`
+- Click Cancel button → cancel page
+- Select cancellation reason from dropdown
+- Click "Cancel Visit" button
+- Verify cancellation confirmation page
+- Click "Book Again" → verify return to homepage
 
-**Recommendation:** Add to e2e tests. This is a critical user journey for appointment management.
+**Implementation notes:**
+- Modification attached to first prebook scenario per config
+- Cancellation attached to second prebook scenario per config
+- Distributed across scenarios to maintain parallelization
 
-**Effort:** Medium - requires existing appointment, tests post-booking interactions
+---
 
 ### Priority 2: Important Features
 
@@ -164,20 +175,19 @@ The legacy tests cover additional scenarios not yet in the new tests:
 
 ## Proposed Plan
 
-### Phase 1: Critical Path Coverage (Priority 1)
+### Phase 1: Critical Path Coverage (Priority 1) ✅ COMPLETED
 
-1. **Returning Patient Flow** (1.1)
-   - Extend existing e2e infrastructure to support authenticated sessions
-   - Create test that uses existing patient from login session
-   - Verify prefilled data on each paperwork page
-   - Verify patient selection screen works correctly
+1. **Returning Patient Flow** (1.1) ✅
+   - Implemented via `executeReturningPatientFlow()` in `ExtendedScenarioHelpers.ts`
+   - Uses newly created patient from initial booking
+   - Verifies patient selection screen and prefilled data
 
-2. **Reservation Modification/Cancellation** (1.2)
-   - Add post-booking test scenarios
-   - Test modify → new time slot → confirmation
-   - Test cancel → reason selection → cancellation confirmation → book again
+2. **Reservation Modification/Cancellation** (1.2) ✅
+   - Implemented via `executeModificationFlow()` and `executeCancellationFlow()`
+   - Tests modify → new time slot → confirmation
+   - Tests cancel → reason selection → cancellation confirmation → book again
 
-### Phase 2: Important Feature Coverage (Priority 2)
+### Phase 2: Important Feature Coverage (Priority 2) ← CURRENT
 
 3. **Past Visits** (2.1)
    - Extend authenticated session tests
@@ -238,15 +248,16 @@ Legacy tests used a "setup" phase that created test patients with specific confi
 
 ## Summary
 
-| Gap | Priority | Approach | Effort |
+| Gap | Priority | Approach | Status |
 |-----|----------|----------|--------|
-| Returning patient flow | P1 | E2E | Medium |
-| Reservation modification/cancel | P1 | E2E | Medium |
-| Past visits page | P2 | E2E | Low-Medium |
-| Waiting room participants | P2 | E2E | Medium |
-| Review page deep testing | P2 | E2E + Component | Low |
-| Payment option variations | P3 | Component | Low |
-| Support dialog | P3 | Component | Low |
+| Returning patient flow | P1 | E2E | ✅ Done |
+| Reservation modification/cancel | P1 | E2E | ✅ Done |
+| Past visits page | P2 | E2E | Pending |
+| Waiting room participants | P2 | E2E | Pending |
+| Review page deep testing | P2 | E2E + Component | Pending |
+| Payment option variations | P3 | Component | Pending |
+| Support dialog | P3 | Component | Pending |
 
-**Total new e2e test scenarios needed:** ~5-7 new test files/scenarios
-**Component tests to create:** ~3-4 focused test suites
+**Remaining work:**
+- P2 items: 3 features (Past visits, Waiting room, Review page)
+- P3 items: 2 features (Payment variations, Support dialog) - better as component tests
