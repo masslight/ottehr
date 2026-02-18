@@ -1,12 +1,21 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  Communication,
+  Encounter,
+  EncounterStatusHistory,
+  Location,
+  Patient,
+  Practitioner,
+  Task,
+} from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
-  allLicensesForPractitioner,
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
+  getFullestAvailableName,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
@@ -97,7 +106,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     const [
       readyOrUnsignedVisitPackages,
       assignedOrInProgressVisitPackages,
-      statePractitionerMap,
+      activeProvidersMap,
       recentlyAssignedTasksMap,
     ] = await Promise.all([
       getResourcePackagesAppointmentsMap(
@@ -112,24 +121,13 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         ['arrived', 'in-progress'],
         DateTime.utc().minus(Duration.fromISO('PT24H'))
       ),
-      getPractitionersByStatesMap(oystehr),
+      getAllActiveProviders(oystehr),
       getRecentlyAssignedTasksMap(oystehr, DateTime.utc().minus({ hours: 1 })),
     ]);
     console.log('--- Ready or unsigned: ' + JSON.stringify(readyOrUnsignedVisitPackages));
     console.log('--- In progress: ' + JSON.stringify(assignedOrInProgressVisitPackages));
-    console.log('--- States/practitioners map: ' + JSON.stringify(statePractitionerMap));
+    console.log('--- Active providers map: ' + JSON.stringify(activeProvidersMap));
     console.log('--- Recently assigned tasks map: ' + JSON.stringify(recentlyAssignedTasksMap));
-
-    const allPractitionersIdMap = Object.keys(statePractitionerMap).reduce<{ [key: string]: Practitioner }>(
-      (acc, val) => {
-        const practitioners = statePractitionerMap[val].map((practitioner) => practitioner);
-        practitioners.forEach((currentPractitioner) => {
-          acc[currentPractitioner.id!] = currentPractitioner;
-        });
-        return acc;
-      },
-      {}
-    );
 
     // Going through arrived or in-progress visits to determine busy practitioners that should not receive a notification
     Object.keys(assignedOrInProgressVisitPackages).forEach((appointmentId) => {
@@ -143,7 +141,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     // Going through ready or unsigned visits to create notifications and other update logic
     Object.keys(readyOrUnsignedVisitPackages).forEach((appointmentId) => {
       try {
-        const { appointment, encounter, practitioner, location, communications } =
+        const { appointment, encounter, practitioner, location, communications, patient } =
           readyOrUnsignedVisitPackages[appointmentId];
         if (encounter && appointment) {
           const status: TelemedAppointmentStatus | undefined = getTelemedVisitStatus(
@@ -162,7 +160,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             );
             postponedCommunications.forEach((communication) => {
               const communicationPractitionerUri = communication.recipient![0].reference!;
-              const practitioner = allPractitionersIdMap[communicationPractitionerUri];
+              const practitioner = activeProvidersMap[communicationPractitionerUri];
               const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
               if (notificationSettings && notificationSettings.enabled) {
                 const newStatus = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
@@ -204,41 +202,52 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                   ],
                 })
               );
-              const providersToSendNotificationTo = statePractitionerMap[location.address?.state];
-              if (providersToSendNotificationTo) {
-                for (const provider of providersToSendNotificationTo) {
-                  const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
+              for (const provider of Object.values(activeProvidersMap)) {
+                const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
 
-                  // - if practitioner has notifications disabled - we don't create notification at all
-                  if (notificationSettings?.enabled) {
-                    const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
-                    const request: BatchInputPostRequest<Communication> = {
-                      method: 'POST',
-                      url: '/Communication',
-                      resource: {
-                        resourceType: 'Communication',
-                        category: [
-                          {
-                            coding: [
-                              {
-                                system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                                code: AppointmentProviderNotificationTypes.patient_waiting,
-                              },
-                            ],
-                          },
-                        ],
-                        sent: DateTime.utc().toISO()!,
-                        // set status to "preparation" for practitioners that should not receive notifications right now
-                        // and "in-progress" to those who should receive it right away
-                        status: status,
-                        encounter: { reference: `Encounter/${encounter.id}` },
-                        recipient: [{ reference: `Practitioner/${provider.id}` }],
-                        payload: [{ contentString: `New patient in ${location.address.state} is waiting` }],
-                      },
-                    };
-                    createCommunicationRequests.push(request);
-                    addNewSMSCommunicationForPractitioner(provider, request.resource as Communication, status);
+                // - if practitioner has notifications disabled - we don't create notification at all
+                if (notificationSettings?.enabled) {
+                  const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
+
+                  let patientName: string | undefined = 'patient';
+                  if (patient) {
+                    patientName = getFullestAvailableName(patient);
                   }
+                  let appointmentTime: string | undefined;
+                  if (appointment.start) {
+                    appointmentTime = DateTime.fromISO(appointment.start).toFormat('h:mm a');
+                  }
+                  const message =
+                    patientName && appointmentTime
+                      ? `Virtual visit with ${patientName} at ${appointmentTime}`
+                      : 'Virtual visit with patient soon'; // this should never happen
+
+                  const request: BatchInputPostRequest<Communication> = {
+                    method: 'POST',
+                    url: '/Communication',
+                    resource: {
+                      resourceType: 'Communication',
+                      category: [
+                        {
+                          coding: [
+                            {
+                              system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+                              code: AppointmentProviderNotificationTypes.patient_waiting,
+                            },
+                          ],
+                        },
+                      ],
+                      sent: DateTime.utc().toISO()!,
+                      // set status to "preparation" for practitioners that should not receive notifications right now
+                      // and "in-progress" to those who should receive it right away
+                      status: status,
+                      encounter: { reference: `Encounter/${encounter.id}` },
+                      recipient: [{ reference: `Practitioner/${provider.id}` }],
+                      payload: [{ contentString: message }],
+                    },
+                  };
+                  createCommunicationRequests.push(request);
+                  addNewSMSCommunicationForPractitioner(provider, request.resource as Communication, status);
                 }
               }
             }
@@ -549,6 +558,7 @@ interface ResourcePackage {
   communications: Communication[];
   practitioner?: Practitioner;
   location?: Location;
+  patient?: Patient;
 }
 
 type ResourcePackagesMap = { [key: NonNullable<Appointment['id']>]: ResourcePackage };
@@ -563,7 +573,7 @@ async function getResourcePackagesAppointmentsMap(
   fromDate: DateTime
 ): Promise<ResourcePackagesMap> {
   const results = (
-    await oystehr.fhir.search<Appointment | Communication | Encounter | Location | Practitioner>({
+    await oystehr.fhir.search<Appointment | Communication | Encounter | Location | Patient | Practitioner>({
       resourceType: 'Appointment',
       params: [
         { name: '_tag', value: OTTEHR_MODULE.TM },
@@ -586,6 +596,10 @@ async function getResourcePackagesAppointmentsMap(
         {
           name: '_include',
           value: 'Appointment:location',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:patient',
         },
         {
           name: '_revinclude:iterate',
@@ -612,6 +626,7 @@ async function getResourcePackagesAppointmentsMap(
   const resourcePackagesMap: ResourcePackagesMap = {};
   const practitionerIdMap: { [key: NonNullable<Practitioner['id']>]: Practitioner } = {};
   const locationIdMap: { [key: NonNullable<Location['id']>]: Location } = {};
+  const patientIdMap: { [key: NonNullable<Patient['id']>]: Patient } = {};
   // first fill maps with Appointments and Encounters
   results.forEach((res) => {
     if (res.resourceType === 'Encounter') {
@@ -636,6 +651,10 @@ async function getResourcePackagesAppointmentsMap(
       // create locations id map for later optimized mapping
       const location = res as Location;
       locationIdMap[location.id!] = location;
+    } else if (res.resourceType === 'Patient') {
+      // create patients id map for later optimized mapping
+      const patient = res as Patient;
+      patientIdMap[patient.id!] = patient;
     }
   });
 
@@ -652,9 +671,10 @@ async function getResourcePackagesAppointmentsMap(
     }
   });
 
-  // fill in practitioners and locations
+  // fill in practitioners, locations, and patients
   Object.keys(resourcePackagesMap).forEach((appointmentId) => {
     const encounter = resourcePackagesMap[appointmentId].encounter;
+    const appointment = resourcePackagesMap[appointmentId].appointment;
     const practitionerReference = encounter?.participant?.find(
       (participant) => participant.individual?.reference?.startsWith('Practitioner')
     )?.individual?.reference;
@@ -675,12 +695,23 @@ async function getResourcePackagesAppointmentsMap(
         resourcePackagesMap[appointmentId] = pack;
       }
     }
+    const patientReference = appointment?.participant?.find(
+      (participant) => participant.actor?.reference?.startsWith('Patient')
+    )?.actor?.reference;
+    if (patientReference) {
+      const patientId = removePrefix('Patient/', patientReference);
+      if (patientId) {
+        const pack = getOrCreateAppointmentResourcePackage(appointmentId);
+        pack.patient = patientIdMap[patientId];
+        resourcePackagesMap[appointmentId] = pack;
+      }
+    }
   });
 
   return resourcePackagesMap;
 }
 
-const getPractitionersByStatesMap = async (oystehr: Oystehr): Promise<StatePractitionerMap> => {
+const getAllActiveProviders = async (oystehr: Oystehr): Promise<ProvidersMap> => {
   const [employees, roles] = await Promise.all([await getEmployees(oystehr), await getRoles(oystehr)]);
 
   const inactiveRoleId = roles.find((role: any) => role.name === RoleType.Inactive)?.id;
@@ -729,7 +760,7 @@ const getPractitionersByStatesMap = async (oystehr: Oystehr): Promise<StatePract
     }
   }
   // map for getting active practitioners that can operate in each state
-  const statePractitionerMap: StatePractitionerMap = {};
+  const activeProvidersMap: ProvidersMap = {};
 
   employees.forEach((employee) => {
     const isActive = !inactiveUsersMap.has(employee.id);
@@ -738,28 +769,14 @@ const getPractitionersByStatesMap = async (oystehr: Oystehr): Promise<StatePract
       return;
     }
     const practitioner = userIdPractitionerMap[employee.id];
-
-    const licenses = allLicensesForPractitioner(practitioner);
-    licenses.forEach((license) => {
-      addPractitionerToState(statePractitionerMap, license.state, practitioner);
-    });
+    if (practitioner) {
+      activeProvidersMap[practitioner.id!] = practitioner;
+    }
   });
-  return statePractitionerMap;
+  return activeProvidersMap;
 };
 
-type StatePractitionerMap = { [key: string]: Practitioner[] };
-
-function addPractitionerToState(
-  statesPractitionersMap: StatePractitionerMap,
-  state: string,
-  practitioner: Practitioner
-): void {
-  if (!statesPractitionersMap[state]) {
-    statesPractitionersMap[state] = [];
-  }
-
-  statesPractitionersMap[state].push(practitioner);
-}
+type ProvidersMap = { [key: string]: Practitioner };
 
 interface TaskWithPractitioner {
   task: Task;

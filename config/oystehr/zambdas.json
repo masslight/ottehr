@@ -495,6 +495,13 @@
       "src": "src/patient/video-chat-invites/list-invites/index",
       "zip": ".dist/zips/video-chat-invites-list.zip"
     },
+    "VIDEO-CHAT-WAITING-ROOM-NOTIFICATION": {
+      "name": "video-chat-waiting-room-notification",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/video-chat-invites/create-waiting-room-notification-task/index",
+      "zip": ".dist/zips/video-chat-waiting-room-notification.zip"
+    },
     "GET-VISIT-DETAILS": {
       "name": "get-visit-details",
       "type": "http_auth",

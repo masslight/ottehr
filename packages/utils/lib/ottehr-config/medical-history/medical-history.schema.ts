@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 const MedicalConditionFavoriteSchema = z.object({
-  code: z.string().min(1, 'Code is required'),
+  code: z.string().optional(),
   display: z.string().min(1, 'Display is required'),
 });
 
 const AllergyFavoriteSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  id: z.number(),
+  id: z.number().optional(),
 });
 
 const MedicationFavoriteSchema = z.object({

@@ -13,7 +13,7 @@ import {
   replaceTemplateVariablesArrows,
   SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
-  textingConfig,
+  TEXTING_CONFIG,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
 } from 'utils';
@@ -147,7 +147,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (rawPhone) {
         rawPhone = rawPhone.replace(/[()\s-]/g, '');
         const phone = formatPhoneNumber(rawPhone);
-        const message = replaceTemplateVariablesArrows(textingConfig.telemed.inviteSms, {
+        const message = replaceTemplateVariablesArrows(TEXTING_CONFIG.telemed.inviteSms, {
           patientName: patientChosenName,
           inviteUrl: inviteUrl,
         });

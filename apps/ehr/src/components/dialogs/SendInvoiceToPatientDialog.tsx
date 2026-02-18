@@ -27,7 +27,7 @@ import {
   PrefilledInvoiceInfo,
   replaceTemplateVariablesArrows,
   REQUIRED_FIELD_ERROR_MESSAGE,
-  textingConfig,
+  TEXTING_CONFIG,
 } from 'utils';
 import { BasicDatePicker } from '../form';
 import { RoundedButton } from '../RoundedButton';
@@ -106,9 +106,9 @@ export default function SendInvoiceToPatientDialog({
         const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
         if (invoiceTaskInput) {
           const { amountCents } = invoiceTaskInput;
-          const dueDate = DateTime.now().plus({ days: textingConfig.invoicing.dueDateInDays }).toISODate();
-          const memo = textingConfig.invoicing.stripeMemoMessage;
-          const smsMessage = textingConfig.invoicing.smsMessage;
+          const dueDate = DateTime.now().plus({ days: TEXTING_CONFIG.invoicing.dueDateInDays }).toISODate();
+          const memo = TEXTING_CONFIG.invoicing.stripeMemoMessage;
+          const smsMessage = TEXTING_CONFIG.invoicing.smsMessage;
           reset({
             amount: amountCents / 100,
             dueDate: dueDate,

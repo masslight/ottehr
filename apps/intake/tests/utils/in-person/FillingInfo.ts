@@ -78,7 +78,7 @@ export class FillingInfo extends BaseFillingInfo {
     await this.page.locator('#patient-email').fill(email);
     await this.page.getByLabel('Reason for visit *', { exact: true }).click();
     await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click();
-    await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
+    await this.page.getByRole('textbox', { name: 'Tell us more' }).fill(enteredReason);
     return { firstName, lastName, birthSex, email, reasonForVisit, enteredReason };
   }
 
@@ -100,7 +100,7 @@ export class FillingInfo extends BaseFillingInfo {
     await this.page.locator('#patient-email').fill(email);
     await this.page.getByLabel('Reason for visit *', { exact: true }).click();
     await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click();
-    await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
+    await this.page.getByRole('textbox', { name: 'Tell us more' }).fill(enteredReason);
     return { firstName, lastName, birthSex, email, reasonForVisit, enteredReason };
   }
 
@@ -139,7 +139,7 @@ export class FillingInfo extends BaseFillingInfo {
     const enteredReason = this.getRandomString();
     await this.page.getByLabel('Reason for visit *', { exact: true }).click();
     await this.page.getByRole('option', { name: reason, exact: true }).click();
-    await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
+    await this.page.getByRole('textbox', { name: 'Tell us more' }).fill(enteredReason);
     return { reason, enteredReason };
   }
 

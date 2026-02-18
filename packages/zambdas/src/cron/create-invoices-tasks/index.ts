@@ -16,7 +16,7 @@ import {
   RcmTaskCode,
   RcmTaskCodings,
   SecretsKeys,
-  textingConfig,
+  TEXTING_CONFIG,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
@@ -90,9 +90,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function getPrefilledInvoiceInfo(patientBalanceInCents: number): Promise<PrefilledInvoiceInfo> {
   try {
-    const smsMessageFromSecret = textingConfig.invoicing.smsMessage;
-    const memoFromSecret = textingConfig.invoicing.stripeMemoMessage;
-    const dueDateFromSecret = textingConfig.invoicing.dueDateInDays;
+    const smsMessageFromSecret = TEXTING_CONFIG.invoicing.smsMessage;
+    const memoFromSecret = TEXTING_CONFIG.invoicing.stripeMemoMessage;
+    const dueDateFromSecret = TEXTING_CONFIG.invoicing.dueDateInDays;
     const dueDate = DateTime.now().plus({ days: dueDateFromSecret }).toISODate();
 
     return {

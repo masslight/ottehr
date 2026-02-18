@@ -1652,6 +1652,7 @@ export function replaceTemplateVariablesArrows(template: string, variables: Temp
   try {
     if (!template) return '';
     return template.replace(/<([\w-]+)>/g, (match, key) => {
+      if (key === 'phone') return match;
       return variables[key]?.toString() || match;
     });
   } catch {

@@ -441,6 +441,8 @@ export const makeAppointmentTask = (input: AppointmentTaskInput): Task => {
   return {
     resourceType: 'Task',
     status: 'requested',
+    // todo add title here
+    // description: `Task for appointment ${appointmentID}`,
     intent: 'plan',
     focus: {
       type: 'Appointment',
