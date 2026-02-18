@@ -194,13 +194,14 @@ export default function PatientPage(): JSX.Element {
               </TabPanel>
             )}
           </TabContext>
-          <AccountSettingsDialog
-            open={showAccountSettingsDialog}
-            patientId={id ?? ''}
-            handleClose={(): void => {
-              setShowAccountSettingsDialog(false);
-            }}
-          />
+          {showAccountSettingsDialog ? (
+            <AccountSettingsDialog
+              patientId={id ?? ''}
+              handleClose={(): void => {
+                setShowAccountSettingsDialog(false);
+              }}
+            />
+          ) : null}
         </Stack>
       </PageContainer>
     </>
