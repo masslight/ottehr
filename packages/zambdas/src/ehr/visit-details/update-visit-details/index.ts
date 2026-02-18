@@ -9,6 +9,7 @@ import {
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
+  getCoding,
   getCriticalUpdateTagOp,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
@@ -23,6 +24,7 @@ import {
   REASON_ADDITIONAL_MAX_CHAR,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   userMe,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
@@ -402,7 +404,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
 
   // validate the reason for visit against the service category
   // 1. get the service category for the appointment
-  let appointmentServiceCategory = appointment.serviceCategory?.[0]?.coding?.[0]?.code;
+  let appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   if (input.bookingDetails.serviceCategory) {
     appointmentServiceCategory = input.bookingDetails.serviceCategory.code;
   }

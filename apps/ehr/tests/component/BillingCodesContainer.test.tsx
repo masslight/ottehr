@@ -41,13 +41,13 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
 }));
 
 let mockCptSearchOptions: Array<{ code: string; display: string }> = [];
-let mockIcdSearchError: { code?: string } | null = null;
+const mockCptSearchError: { code?: string } | null = null;
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
-  useGetIcd10Search: vi.fn(() => ({
+  useGetCPTHCPCSSearch: vi.fn(() => ({
     isFetching: false,
     data: { codes: mockCptSearchOptions },
-    error: mockIcdSearchError,
+    error: mockCptSearchError,
   })),
 }));
 
@@ -171,7 +171,6 @@ describe('BillingCodesContainer', () => {
     vi.clearAllMocks();
     mockChartData = {};
     mockCptSearchOptions = [];
-    mockIcdSearchError = null;
     capturedEMSaveCallbacks = {};
     capturedCPTSaveCallbacks = {};
     capturedCPTDeleteCallbacks = {};
@@ -253,14 +252,6 @@ describe('BillingCodesContainer', () => {
       expect(screen.getAllByText('Additional CPT codes')[0]).toBeInTheDocument();
       expect(screen.getByText(/90471/)).toBeInTheDocument();
       expect(screen.getByText(/90472/)).toBeInTheDocument();
-    });
-
-    it('should show configuration prompt when NLM API key missing', () => {
-      mockIcdSearchError = { code: 'MISSING_NLM_API_KEY' };
-
-      render(<BillingCodesContainer />, { wrapper: createWrapper() });
-
-      expect(screen.getByTestId('complete-config')).toBeInTheDocument();
     });
   });
 
@@ -580,22 +571,6 @@ describe('BillingCodesContainer', () => {
       render(<BillingCodesContainer />, { wrapper: createWrapper() });
 
       expect(screen.getByLabelText(/E&M code/i)).toBeDisabled();
-    });
-  });
-
-  describe('configuration setup', () => {
-    it('should open documentation when setup clicked', async () => {
-      const user = userEvent.setup();
-      const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-      mockIcdSearchError = { code: 'MISSING_NLM_API_KEY' };
-
-      render(<BillingCodesContainer />, { wrapper: createWrapper() });
-
-      await user.click(screen.getByText('Setup'));
-
-      expect(windowOpenSpy).toHaveBeenCalledWith('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
-
-      windowOpenSpy.mockRestore();
     });
   });
 });

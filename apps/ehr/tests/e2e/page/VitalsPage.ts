@@ -1,6 +1,8 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import { EditNoteDialog, expectEditNoteDialog } from './in-person/EditNoteDialog';
+import { Dialog, expectDialog } from './patient-information/Dialog';
 
 export class VitalsPage {
   #page: Page;
@@ -9,14 +11,18 @@ export class VitalsPage {
     this.#page = page;
   }
 
-  async addTemperatureObservation(temperature: string): Promise<void> {
+  async addTemperatureObservation(temperature: string, abnormal = false): Promise<void> {
     const input = this.#page.getByTestId(dataTestIds.vitalsPage.temperatureInput).locator('input');
     await input.fill(temperature);
     const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.temperatureAddButton);
     await addButton.click();
     await waitForSaveChartDataResponse(this.#page);
-    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.temperatureItem)).toContainText(temperature);
     await expect(this.#page.getByTestId(dataTestIds.vitalsPage.temperatureHeader)).toContainText(temperature);
+    const itemLocator = this.#page.getByTestId(dataTestIds.vitalsPage.temperatureItem).filter({ hasText: temperature });
+    await expect(itemLocator).toBeVisible();
+    if (abnormal) {
+      await expect(itemLocator.getByTestId(dataTestIds.vitalsPage.abnormalVitalIcon)).toBeVisible();
+    }
   }
 
   async removeTemperatureObservationFromHistory(temperature: string): Promise<void> {
@@ -301,6 +307,60 @@ export class VitalsPage {
     await expect(
       this.#page.getByTestId(dataTestIds.vitalsPage.lastMenstrualPeriodItem).first().getByText('Unsure')
     ).not.toBeVisible();
+  }
+
+  async addVitalsNote(note: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteField)
+      .locator('input')
+      .locator('visible=true')
+      .fill(note);
+    await this.#page.getByTestId(dataTestIds.vitalsPage.addNoteButton).click();
+    await this.#verifyVitalsNote(note);
+  }
+
+  async editVitalsNote(originalNote: string, editedNote: string): Promise<void> {
+    const editDialog = await this.#clickEditNoteButton(originalNote);
+    await editDialog.verifyTitle('Edit Vitals Note');
+    await editDialog.clearNote();
+    await editDialog.enterNote(editedNote);
+    await editDialog.clickProceedButton();
+    await this.#verifyVitalsNote(editedNote);
+  }
+
+  async deleteVitalsNote(originalNote: string): Promise<void> {
+    const deleteDialog = await this.#clickDeleteNoteButton(originalNote);
+    await deleteDialog.verifyTitle('Delete vitals note');
+    await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this vitals note?');
+    await deleteDialog.verifyModalContent(originalNote);
+    await deleteDialog.clickProceedButton();
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: originalNote })
+    ).toHaveCount(0);
+  }
+
+  async #clickEditNoteButton(note: string): Promise<EditNoteDialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.vitalsPage.pencilIconButton)
+      .click();
+    return expectEditNoteDialog(this.#page);
+  }
+
+  async #verifyVitalsNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: note })
+    ).toBeVisible();
+  }
+
+  async #clickDeleteNoteButton(note: string): Promise<Dialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.vitalsPage.deleteIcon)
+      .click();
+    return expectDialog(this.#page);
   }
 }
 

@@ -44,8 +44,8 @@ export interface Item {
 }
 
 export enum ImageType {
-  JPG,
-  PNG,
+  JPG = 'JPG',
+  PNG = 'PNG',
 }
 
 export interface ImageItem {
@@ -219,7 +219,7 @@ function collectImageItems(
       if (attachment.contentType === 'image/jpeg') imageType = ImageType.JPG;
       if (attachment.contentType === 'image/png') imageType = ImageType.PNG;
 
-      if (imageType) {
+      if (imageType !== undefined) {
         collected.push({
           title: title ?? attachment.title ?? item.linkId,
           imageType,

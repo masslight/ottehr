@@ -249,10 +249,6 @@ const makeConsentDetails = (
     (question) => question.linkId === 'consent-form-signer-relationship'
   )?.answer?.[0]?.valueString;
 
-  const ipAddress = questionnaireResponse?.extension?.find(
-    (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
-  )?.valueString;
-
   // todo: check if consent has contained signer data  https://github.com/masslight/ottehr/issues/4376
 
   const dateISO = consent.dateTime;
@@ -268,7 +264,6 @@ const makeConsentDetails = (
       fullName,
       relationshipToPatient,
       date,
-      ipAddress,
     };
   }
 

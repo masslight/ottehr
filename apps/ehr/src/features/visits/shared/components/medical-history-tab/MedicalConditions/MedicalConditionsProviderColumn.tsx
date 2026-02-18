@@ -32,6 +32,8 @@ import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { SelectFromFavoritesButton } from '../SelectFromFavoritesButton';
 
+type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'display'> & { code: string | undefined };
+
 export const MedicalConditionsProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
@@ -275,7 +277,7 @@ const AddMedicalConditionField: FC = () => {
     []
   );
 
-  const handleSelectOption = async (data: IcdSearchResponse['codes'][number] | null): Promise<void> => {
+  const handleSelectOption = async (data: IcdSearchResponseOptionalCode | null): Promise<void> => {
     if (data) {
       const newValue = {
         code: data.code,
@@ -302,7 +304,7 @@ const AddMedicalConditionField: FC = () => {
   const handleFavoriteSelect = async (
     favorite: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.favorites)[number]
   ): Promise<void> => {
-    const favoriteAsIcdCode: IcdSearchResponse['codes'][number] = {
+    const favoriteAsIcdCode: IcdSearchResponseOptionalCode = {
       code: favorite.code,
       display: favorite.display,
     };
@@ -327,7 +329,7 @@ const AddMedicalConditionField: FC = () => {
     >
       <SelectFromFavoritesButton
         favorites={MEDICAL_HISTORY_CONFIG.medicalConditions.favorites}
-        getLabel={(favorite) => `${favorite.code} ${favorite.display}`}
+        getLabel={(favorite) => `${favorite.code ? `${favorite.code} ` : ''}${favorite.display}`}
         onSelect={handleFavoriteSelect}
         disabled={isChartDataLoading || isLoading}
       />

@@ -31,7 +31,7 @@ import {
   TelemedAppointmentInformation,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { getQuickTexts } from '../../utils/appointments';
+import { getTelemedQuickTexts } from '../../utils/appointments';
 import { getTelemedAppointmentUrl, getTelemedVisitDetailsUrl } from '../../utils/routing';
 import { StatusHistory } from '../tracking-board/StatusHistory';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
@@ -126,7 +126,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
 
   const quickTexts = useMemo(() => {
     const locationName = appointment.locationVirtual.name;
-    return getQuickTexts(getSupportPhoneFor(locationName) || '');
+    return getTelemedQuickTexts(getSupportPhoneFor(locationName) || '');
   }, [appointment.locationVirtual.name]);
 
   return (

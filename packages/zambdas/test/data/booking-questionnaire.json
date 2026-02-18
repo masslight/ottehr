@@ -464,12 +464,29 @@
         {
           "linkId": "tell-us-more",
           "type": "string",
-          "text": "Tell us more (optional)",
+          "text": "Tell us more",
           "required": false,
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
               "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "reason-for-visit"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "Other"
+                }
+              ]
             }
           ]
         },

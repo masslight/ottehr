@@ -5,17 +5,20 @@ import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
 import { Box, CircularProgress, Grid, Paper, Typography, useTheme } from '@mui/material';
 import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';
+import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   makeMedicationOrderUpdateRequestInput,
+  MEDICAL_HISTORY_CONFIG,
   MedicationData,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { Loader } from '../../../../shared/components/Loader';
+import { SelectFromFavoritesButton } from '../../../../shared/components/medical-history-tab/SelectFromFavoritesButton';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ButtonRounded } from '../../RoundedButton';
@@ -62,6 +65,7 @@ type MedicationCardViewProps = {
   onInteractionsMessageClick: () => void;
   onDelete?: () => void;
   isReadOnly?: boolean;
+  onFavoriteSelect?: (favorite: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.favorites)[number]) => void;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -86,10 +90,19 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   onInteractionsMessageClick,
   onDelete,
   isReadOnly,
+  onFavoriteSelect,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const theme = useTheme();
+
+  const favoritesInHouseMedicationsList = useMemo(() => {
+    const medispanCodeSet = selectsOptions.medicationId.medispanCodeSet ?? new Set<string>();
+    return MEDICAL_HISTORY_CONFIG.inHouseMedications.favorites.filter((f) => medispanCodeSet.has(String(f.dosespotId)));
+  }, [selectsOptions.medicationId.medispanCodeSet]);
+
+  const showAddFromFavorites =
+    (type === 'order-new' || type === 'order-edit') && onFavoriteSelect && favoritesInHouseMedicationsList.length > 0;
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -216,6 +229,29 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <Grid container spacing={2}>
+        {showAddFromFavorites && (
+          <Grid item xs={12}>
+            <SelectFromFavoritesButton
+              favorites={favoritesInHouseMedicationsList}
+              getLabel={(favorite) => {
+                const parts = [favorite.name];
+                if (favorite.dose != null && favorite.units != null) {
+                  parts.push(`${favorite.dose} ${favorite.units}`);
+                } else if (favorite.dose != null) {
+                  parts.push(String(favorite.dose));
+                }
+                if (favorite.route != null) {
+                  const routeLabel =
+                    selectsOptions.route.options.find((o) => o.value === favorite.route)?.label ?? favorite.route;
+                  parts.push(routeLabel);
+                }
+                return parts.join(', ');
+              }}
+              onSelect={onFavoriteSelect}
+              disabled={isUpdating}
+            />
+          </Grid>
+        )}
         <Grid
           item
           xs={12}

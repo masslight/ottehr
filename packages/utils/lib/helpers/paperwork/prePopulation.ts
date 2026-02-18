@@ -1508,10 +1508,10 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
     const { linkId } = item;
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
 
-    if (linkId === 'pharmacy-name' && pharmacyName && pharmacyName != '-') {
+    if (linkId === 'pharmacy-name' && pharmacyName && pharmacyName != '-' && pharmacyWasManuallyEntered) {
       answer = makeAnswer(pharmacyName);
     }
-    if (linkId === 'pharmacy-address' && pharmacyAddress) {
+    if (linkId === 'pharmacy-address' && pharmacyAddress && pharmacyWasManuallyEntered) {
       answer = makeAnswer(pharmacyAddress);
     }
 

@@ -208,8 +208,17 @@ const FormFields = {
       },
       tellUsMore: {
         key: 'tell-us-more',
-        label: 'Tell us more (optional)',
+        label: 'Tell us more',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'reason-for-visit',
+            effect: ['require'],
+            operator: '=',
+            answerString: 'Other',
+          },
+        ],
+        enableBehavior: 'any',
       },
       authorizedNonLegalGuardians: {
         key: 'authorized-non-legal-guardian',

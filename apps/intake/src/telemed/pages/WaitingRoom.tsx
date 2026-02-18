@@ -6,6 +6,8 @@ import { primaryIcon } from '@theme/icons';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ottehrApi } from 'src/api';
+import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import { AppointmentType, BRANDING_CONFIG, getSelectors } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
@@ -23,6 +25,7 @@ import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room'
 const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const zambdaClient = useUCZambdaClient({ tokenless: true });
   const { otherColors } = useContext(IntakeThemeContext);
   const { estimatedTime, numberInLine } = getSelectors(useWaitingRoomStore, ['estimatedTime', 'numberInLine']);
   const [searchParams, _] = useSearchParams();
@@ -45,6 +48,22 @@ const WaitingRoom = (): JSX.Element => {
   }, [urlAppointmentID, persistedAppointmentId]);
 
   const currentAppointmentId = urlAppointmentID || persistedAppointmentId || '';
+
+  useEffect(() => {
+    if (!currentAppointmentId || !zambdaClient) return;
+
+    ottehrApi
+      .createWaitingRoomNotification(
+        {
+          appointmentId: currentAppointmentId,
+        },
+        zambdaClient
+      )
+      .catch((error) => {
+        console.error('Failed to create notification', error);
+        safelyCaptureException(error);
+      });
+  }, [currentAppointmentId, zambdaClient]);
 
   useGetWaitStatus(
     (data) => {

@@ -1,14 +1,19 @@
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { PHARMACY_COLLECTION_LINK_IDS } from 'utils';
 
-type PharmacyCollectionAnswerSetInput = {
+export type PharmacyCollectionAnswerSetInput = {
   placesId: string;
   placesName: string;
   placesAddress: string;
   erxPharmacyId: string | undefined;
 };
 
-export const makePharmacyCollectionAnswerSet = ({
+/**
+ * configures pharmacy collection data (places search results) to the appropriate shape for intake paperwork
+ * @param input: PharmacyCollectionAnswerSetInput
+ * @returns QuestionnaireResponseItem[]
+ */
+export const makePharmacyCollectionAnswerSetForQR = ({
   placesId,
   placesName,
   placesAddress,
@@ -43,6 +48,10 @@ export const makePharmacyCollectionAnswerSet = ({
   return answerSet;
 };
 
+/**
+ * configures an array to clear out pharmacy collection data (places search results) from intake paperwork
+ * @returns QuestionnaireResponseItem[]
+ */
 export const clearPharmacyCollectionAnswerSet = (): QuestionnaireResponseItem[] => {
   return [
     {

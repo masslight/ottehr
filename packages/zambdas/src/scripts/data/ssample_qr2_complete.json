@@ -262,12 +262,6 @@
       ]
     }
   ],
-  "extension": [
-    {
-      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
-      "valueString": "109.227.88.246"
-    }
-  ],
   "id": "5ad39d09-78fc-4416-9256-918e5ef5559a",
   "meta": {
     "versionId": "e2a8703a-5e84-489a-bc0a-fce333429821",

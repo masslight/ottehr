@@ -33,11 +33,6 @@ export const composeConsentFormsData: DataComposer<ConsentsDataInput, consentFor
     flattenedPaperwork.find((question) => question.linkId === 'consent-form-signer-relationship')?.answer?.[0]
       ?.valueString ?? '';
 
-  const ip =
-    questionnaireResponse?.extension?.find(
-      (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
-    )?.valueString ?? '';
-
   const consentIsAttested = getAttestedConsentFromEncounter(encounter) ? true : false;
 
   return {
@@ -46,7 +41,6 @@ export const composeConsentFormsData: DataComposer<ConsentsDataInput, consentFor
     fullName,
     relationship,
     date,
-    ip,
     consentIsAttested,
   };
 };
@@ -88,10 +82,6 @@ export const createConsentFormsSection = <TData extends { consentForms?: consent
         }
       );
       client.drawLabelValueRow(`Date`, data.date, styles.textStyles.regular, styles.textStyles.regular, {
-        drawDivider: true,
-        dividerMargin: 8,
-      });
-      client.drawLabelValueRow(`IP`, data.ip, styles.textStyles.regular, styles.textStyles.regular, {
         drawDivider: true,
         dividerMargin: 8,
       });

@@ -5,6 +5,8 @@ export const PHARMACY_COLLECTION_LINK_IDS = {
   placesAddress: 'pharmacy-places-address',
   placesDataSaved: 'pharmacy-places-saved',
   erxPharmacyId: 'erx-pharmacy-id',
+  manualPharmacyName: 'pharmacy-name',
+  manualPharmacyAddress: 'pharmacy-address',
 };
 
 export type PlacesResult = {

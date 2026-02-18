@@ -226,6 +226,17 @@ export class PatientInformationPage {
   async verifyFieldError(fieldKey: string, errorMessage: string): Promise<void> {
     await expect(this.errorForField(fieldKey, errorMessage)).toBeVisible();
   }
+
+  async verifyPharmacySearchIsPresent(): Promise<void> {
+    // if no pharmacy data is saved for the patient, the search should show
+    const searchField = this.#page.getByTestId(dataTestIds.patientInformationPage.pharmacySearch);
+    await expect(searchField).toBeVisible();
+  }
+
+  async clickToAddPharmacyManually(fieldKey: string): Promise<void> {
+    const addManuallyLink = this.#page.getByLabel(fieldKey);
+    await addManuallyLink.click();
+  }
 }
 
 export class InsuranceCard {

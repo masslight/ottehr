@@ -6,7 +6,6 @@ export interface CreatePaperworkInput {
   paperwork: PaperworkResponse[];
   files: FileURLs;
   paperworkComplete?: boolean;
-  ipAddress: string;
   timezone: string;
   patientId: string;
 }

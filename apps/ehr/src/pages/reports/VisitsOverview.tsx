@@ -387,6 +387,58 @@ export default function VisitsOverview(): React.ReactElement {
     }));
   }, [reportData]);
 
+  const visitsByTypeColumns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'location',
+        headerName: 'Location',
+        width: 200,
+        sortable: true,
+      },
+      {
+        field: 'serviceCategory',
+        headerName: 'Service Category',
+        width: 150,
+        sortable: true,
+      },
+      {
+        field: 'inPerson',
+        headerName: 'In-Person',
+        width: 120,
+        sortable: true,
+        type: 'number',
+      },
+      {
+        field: 'telemed',
+        headerName: 'Telemed',
+        width: 120,
+        sortable: true,
+        type: 'number',
+      },
+      {
+        field: 'total',
+        headerName: 'Total',
+        width: 100,
+        sortable: true,
+        type: 'number',
+      },
+    ],
+    []
+  );
+
+  const visitsByTypeRows = useMemo(() => {
+    if (!reportData?.visitsByTypeCount) return [];
+
+    return reportData.visitsByTypeCount.map((row) => ({
+      id: `${row.locationId}-${row.serviceCategory}`,
+      location: row.locationName,
+      serviceCategory: row.serviceCategory,
+      inPerson: row.inPerson,
+      telemed: row.telemed,
+      total: row.total,
+    }));
+  }, [reportData]);
+
   return (
     <PageContainer>
       <Box>
@@ -557,6 +609,44 @@ export default function VisitsOverview(): React.ReactElement {
                     <DataGrid
                       rows={practitionerRows}
                       columns={practitionerColumns}
+                      initialState={{
+                        pagination: {
+                          paginationModel: { pageSize: 10 },
+                        },
+                        sorting: {
+                          sortModel: [{ field: 'total', sort: 'desc' }],
+                        },
+                      }}
+                      pageSizeOptions={[5, 10, 25]}
+                      slots={{
+                        toolbar: CustomToolbar,
+                      }}
+                      disableRowSelectionOnClick
+                      sx={{
+                        '& .MuiDataGrid-cell': {
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        },
+                        '& .MuiDataGrid-columnHeaderTitle': {
+                          fontWeight: 600,
+                        },
+                      }}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+
+            {visitsByTypeRows.length > 0 && (
+              <Card sx={{ mb: 4 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 3 }}>
+                    Visits by Type
+                  </Typography>
+                  <Box sx={{ height: 400, width: '100%' }}>
+                    <DataGrid
+                      rows={visitsByTypeRows}
+                      columns={visitsByTypeColumns}
                       initialState={{
                         pagination: {
                           paginationModel: { pageSize: 10 },

@@ -34,4 +34,8 @@ export const dataTestIds = {
     authenticated: 'header-for-authenticated-user',
     unauthenticated: 'header-for-unauthenticated-user',
   },
+  preferredPharmacy: {
+    pharmacySearch: 'pharmacy-search',
+    pharmacySearchDisplay: { text: 'pharmacy-search-display', button: 'pharmacy-search-display-reset-btn' },
+  },
 };

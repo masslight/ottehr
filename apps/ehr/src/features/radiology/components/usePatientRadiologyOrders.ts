@@ -1,3 +1,4 @@
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CancelRadiologyOrderZambdaInput,
@@ -5,7 +6,7 @@ import {
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
 } from 'utils';
-import { cancelRadiologyOrder, getRadiologyOrders } from '../../../api/api';
+import { cancelRadiologyOrder, getRadiologyOrders, savePreliminaryReport, sendForFinalRead } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useDeleteRadiologyOrderDialog } from './useDeleteRadiologyOrderDialog';
 
@@ -28,6 +29,10 @@ interface UsePatientRadiologyOrdersResult {
     studyType: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
+  handleSavePreliminaryReport: (serviceRequestId: string, preliminaryReport: string) => Promise<void>;
+  handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
+  isSavingPreliminaryReport: boolean;
+  isSendingForFinalRead: boolean;
 }
 
 export const usePatientRadiologyOrders = (options: {
@@ -48,6 +53,8 @@ export const usePatientRadiologyOrders = (options: {
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [showPagination, setShowPagination] = useState(false);
+  const [isSavingPreliminaryReport, setIsSavingPreliminaryReport] = useState(false);
+  const [isSendingForFinalRead, setIsSendingForFinalRead] = useState(false);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetRadiologyOrderListZambdaInput => {
     const params: GetRadiologyOrderListZambdaInput = {} as GetRadiologyOrderListZambdaInput;
@@ -199,6 +206,69 @@ export const usePatientRadiologyOrders = (options: {
     [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
+  const handleSavePreliminaryReport = useCallback(
+    async (serviceRequestId: string, preliminaryReport: string): Promise<void> => {
+      if (!preliminaryReport) {
+        enqueueSnackbar('Please enter a preliminary report before saving.', { variant: 'error' });
+        return;
+      }
+
+      if (!oystehrZambda) {
+        console.error('Cannot save preliminary report: API client is not available');
+        setError(new Error('API client is not available'));
+        return;
+      }
+
+      setIsSavingPreliminaryReport(true);
+      setError(null);
+
+      try {
+        await savePreliminaryReport(oystehrZambda, { serviceRequestId, preliminaryReport });
+
+        // Refetch the orders to get the updated data
+        const searchParams = getCurrentSearchParamsForPage(page);
+        await fetchOrders(searchParams);
+      } catch (err) {
+        console.error('Error saving preliminary report:', err);
+        enqueueSnackbar('An error occurred while saving preliminary report', { variant: 'error' });
+        const errorObj = err instanceof Error ? err : new Error('Failed to save preliminary report');
+        setError(errorObj);
+      } finally {
+        setIsSavingPreliminaryReport(false);
+      }
+    },
+    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
+  );
+
+  const handleSendForFinalRead = useCallback(
+    async (serviceRequestId: string): Promise<void> => {
+      if (!oystehrZambda) {
+        console.error('Cannot send for final read: API client is not available');
+        setError(new Error('API client is not available'));
+        return;
+      }
+
+      setIsSendingForFinalRead(true);
+      setError(null);
+
+      try {
+        await sendForFinalRead(oystehrZambda, { serviceRequestId });
+
+        // Refetch the orders to get the updated data
+        const searchParams = getCurrentSearchParamsForPage(page);
+        await fetchOrders(searchParams);
+      } catch (err) {
+        console.error('Error sending for final read:', err);
+        enqueueSnackbar('An error occurred while sending for final read', { variant: 'error' });
+        const errorObj = err instanceof Error ? err : new Error('Failed to send for final read');
+        setError(errorObj);
+      } finally {
+        setIsSendingForFinalRead(false);
+      }
+    },
+    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
+  );
+
   // handle delete dialog
   const { showDeleteRadiologyOrderDialog, DeleteOrderDialog } = useDeleteRadiologyOrderDialog({
     deleteOrder: handleDeleteOrder,
@@ -217,5 +287,9 @@ export const usePatientRadiologyOrders = (options: {
     showDeleteRadiologyOrderDialog,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
+    handleSavePreliminaryReport,
+    handleSendForFinalRead,
+    isSavingPreliminaryReport,
+    isSendingForFinalRead,
   };
 };

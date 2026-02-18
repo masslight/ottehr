@@ -44,15 +44,24 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
   if (!patient) throw new Error('No patient found for this encounter');
   const patientName = getPatientLastFirstName(patient);
   if (isFollowup && encounter) {
-    const followupDetails = formatFhirEncounterToPatientFollowupDetails(encounter, patientName ?? '');
+    const followupDetails = formatFhirEncounterToPatientFollowupDetails(encounter, patientName ?? '', location);
+
+    const provider =
+      followupDetails.provider ??
+      (practitioners?.[0]
+        ? {
+            practitionerId: practitioners[0].id ?? '',
+            name: getProviderNameWithProfession(practitioners[0]),
+          }
+        : undefined);
 
     return {
       visitType: 'followup',
       reason: followupDetails.reason,
       otherReason: followupDetails.reason === 'Other' ? followupDetails.otherReason : undefined,
       message: followupDetails.message,
-      location: followupDetails.location,
-      provider: followupDetails.provider,
+      location: followupDetails.location ?? location,
+      provider,
     };
   } else {
     const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);

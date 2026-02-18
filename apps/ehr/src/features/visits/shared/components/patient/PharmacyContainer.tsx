@@ -20,6 +20,7 @@ export const PharmacyContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => 
           isLoading={isLoading}
           hiddenFormFields={hiddenFields}
           requiredFormFields={requiredFields}
+          omitRowWrapper={item.type === 'group' || item.type === 'boolean'}
         />
       ))}
     </PatientRecordFormSection>

@@ -369,10 +369,6 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
         (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
       )?.value;
 
-  const ipAddress = questionnaireResponse.extension?.find((ext) => {
-    return ext.url === FHIR_EXTENSION.Paperwork.submitterIP.url;
-  })?.valueString;
-
   const timezone = questionnaireResponse.item?.find((item) => {
     return item.linkId === 'signature-timezone';
   })?.answer?.[0]?.valueString;
@@ -387,7 +383,6 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       patientResource,
       consentSigner,
       nowIso.trim(),
-      ipAddress?.trim() ?? '',
       pdfInfo,
       secrets,
       timezone?.trim(),

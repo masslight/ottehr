@@ -21,5 +21,4 @@ export interface ConsentDetails {
   fullName: string;
   relationshipToPatient: string;
   date: string;
-  ipAddress?: string;
 }

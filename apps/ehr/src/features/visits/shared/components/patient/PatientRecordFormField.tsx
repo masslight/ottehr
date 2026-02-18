@@ -1,17 +1,23 @@
-import { Autocomplete, Checkbox, FormControlLabel, TextField } from '@mui/material';
+import { Autocomplete, Checkbox, FormControlLabel, Link, TextField, useTheme } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { BasicDatePicker, FormSelect, FormTextField } from 'src/components/form';
+import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { dedupeObjectsByKey, FormFieldsDisplayItem, FormFieldsInputItem } from 'utils';
+import {
+  dedupeObjectsByKey,
+  FormFieldsDisplayItem,
+  FormFieldsGroupItem,
+  FormFieldsInputItem,
+  QuestionnaireItemGroupType,
+} from 'utils';
 import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
-  item: FormFieldsInputItem | FormFieldsDisplayItem;
+  item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
   isLoading: boolean;
   hiddenFormFields?: string[];
   requiredFormFields?: string[];
@@ -35,11 +41,12 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   disabled = false,
 }) => {
   const { control, watch, setValue, getValues } = useFormContext();
+  const theme = useTheme();
 
   const { enableBehavior = 'any', disabledDisplay } = item;
 
   let dynamicPopulation: FormFieldsInputItem['dynamicPopulation'];
-  if (item.type !== 'display') {
+  if (item.type !== 'display' && item.type !== 'group') {
     dynamicPopulation = item.dynamicPopulation;
   }
 
@@ -51,6 +58,14 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
   const isDisabled = disabled || triggeredEffects.enabled === false;
   const isRequired = requiredFormFields?.includes(item.key) || triggeredEffects.required;
+
+  if (triggeredEffects.substituteText) {
+    if (item.type === 'display' || item.type === 'group') {
+      item.text = triggeredEffects.substituteText;
+    } else {
+      item.label = triggeredEffects.substituteText;
+    }
+  }
 
   // Dynamic population: when field is disabled, copy value from source field
   const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
@@ -79,16 +94,28 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
   let placeholder: string | undefined;
   let mask: string | undefined;
-  if (item.type !== 'display' && item.dataType === 'Phone Number') {
+  if (item.type !== 'display' && item.type !== 'group' && item.dataType === 'Phone Number') {
     placeholder = '(XXX) XXX-XXXX';
     mask = '(000) 000-0000';
   }
-  if (item.type !== 'display' && item.dataType === 'SSN') {
+  if (item.type !== 'display' && item.type !== 'group' && item.dataType === 'SSN') {
     placeholder = 'XXX-XX-XXXX';
     mask = '000-00-0000';
   }
 
   const InputElement = (() => {
+    const defaultField = (): JSX.Element => (
+      <FormTextField
+        name={item.key}
+        control={control}
+        disabled={isDisabled || isLoading}
+        id={omitRowWrapper ? item.key : undefined}
+        key={item.key}
+        inputProps={{ mask, placeholder }}
+        InputProps={mask ? { inputComponent: InputMask as any } : undefined}
+      />
+    );
+
     switch (item.type) {
       case 'choice':
       case 'reference':
@@ -177,6 +204,38 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
           />
         );
       case 'boolean':
+        if (item.element === 'Link') {
+          return (
+            <Controller
+              name={item.key}
+              control={control}
+              render={({ field: { value, onChange } }) => {
+                return (
+                  <Link
+                    component="button"
+                    type="button"
+                    onClick={() => onChange(!value)}
+                    aria-label={item.key}
+                    underline="hover"
+                    sx={{
+                      pt: 1,
+                      textAlign: 'left',
+                      display: 'inline',
+                      cursor: 'pointer',
+                      color: theme.palette.primary.main,
+                      fontWeight: 500,
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              }}
+            />
+          );
+        }
         return (
           <Controller
             name={item.key}
@@ -196,18 +255,13 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
             )}
           />
         );
+      case 'group':
+        if (item.groupType === QuestionnaireItemGroupType.PharmacyCollection) {
+          return <FormGroupPharmacyCollection />;
+        }
+        return defaultField();
       default:
-        return (
-          <FormTextField
-            name={item.key}
-            control={control}
-            disabled={isDisabled || isLoading}
-            id={omitRowWrapper ? item.key : undefined}
-            key={item.key}
-            inputProps={{ mask, placeholder }}
-            InputProps={mask ? { inputComponent: InputMask as any } : undefined}
-          />
-        );
+        return defaultField();
     }
   })();
 
@@ -219,8 +273,19 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     return <></>; // no use of display type fields in this context for now
   }
 
+  const rowLabel = (() => {
+    switch (item.type) {
+      case 'group':
+        return item.text ?? '';
+      case 'boolean':
+        return '';
+      default:
+        return item.label ?? '';
+    }
+  })();
+
   return (
-    <Row label={item.type === 'boolean' ? '' : item.label} inputId={item.key} required={isRequired}>
+    <Row label={rowLabel} inputId={item.key} required={isRequired}>
       {InputElement}
     </Row>
   );

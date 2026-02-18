@@ -532,12 +532,6 @@ export const questionnaireForReadyEncounter: QuestionnaireResponse = {
       ],
     },
   ],
-  extension: [
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address',
-      valueString: '::1',
-    },
-  ],
   meta: {
     versionId: '42eb544f-22f7-47e0-9d0f-7645549280e7',
     lastUpdated: '2023-12-22T22:06:11.361Z',
@@ -880,12 +874,6 @@ export const questionnaireForPreVideoEncounter: QuestionnaireResponse = {
           valueString: 'Parent',
         },
       ],
-    },
-  ],
-  extension: [
-    {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address',
-      valueString: '::1',
     },
   ],
   meta: {

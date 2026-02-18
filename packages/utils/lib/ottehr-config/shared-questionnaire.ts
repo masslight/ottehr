@@ -187,6 +187,7 @@ const FormFieldsGroupFieldSchema = z.lazy(() =>
     categoryTag: z.string().optional(),
     acceptsMultipleAnswers: z.boolean().optional(),
     groupType: z.enum(['list-with-form', 'pharmacy-collection']).optional(),
+    disabledDisplay: z.literal('hidden').optional().default('hidden'),
   })
 ) as z.ZodType<any>;
 
@@ -205,6 +206,7 @@ export type FormFieldsGroupItem = {
   categoryTag?: string;
   acceptsMultipleAnswers?: boolean;
   groupType?: string;
+  disabledDisplay?: string;
 };
 
 export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
@@ -593,6 +595,14 @@ const convertAttachmentFieldToQuestionnaireItem = (
       if (enableTriggers.length > 1 && field.enableBehavior) {
         item.enableBehavior = field.enableBehavior;
       }
+    }
+
+    // Add require-when extension
+    const requireTriggers = field.triggers.filter((t) => t.effect.includes('require'));
+    if (requireTriggers.length > 0) {
+      requireTriggers.forEach((trigger) => {
+        extensions.push(createRequireWhenExtension(trigger));
+      });
     }
 
     // Add filter-when extension

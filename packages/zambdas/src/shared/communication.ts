@@ -6,6 +6,7 @@ import {
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
+  getPatientContactEmail,
   getSecret,
   getSupportPhoneFor,
   InPersonCancelationTemplateData,
@@ -13,6 +14,7 @@ import {
   InPersonConfirmationTemplateData,
   InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
+  OrderResultAlertTemplateData,
   Secrets,
   SecretsKeys,
   SENDGRID_CONFIG,
@@ -236,6 +238,10 @@ class EmailClient {
   ): Promise<void> {
     await this.sendEmail(email, this.config.templates.inPersonReceipt, templateData, attachments);
   }
+
+  async sendOrderResultAlert(to: string | string[], templateData: OrderResultAlertTemplateData): Promise<void> {
+    await this.sendEmail(to, this.config.templates.orderResultAlert, templateData);
+  }
 }
 
 export const getEmailClient = (secrets: Secrets | null): EmailClient => {
@@ -279,6 +285,49 @@ export async function sendSmsForPatient(
   await sendSms(message, recipient, oystehr, ENVIRONMENT);
 }
 
+/**
+ * Sends email alert to patient - your [lab | radiology] order results are ready
+ * emailDetails will be passed into the email template order-result-alert.html
+ */
+export const sendOrderResultEmailToPatient = async ({
+  fhirPatient,
+  emailDetails,
+  secrets,
+}: {
+  fhirPatient: Patient;
+  emailDetails: {
+    orderType: 'lab' | 'radiology';
+    testName: string;
+    visitDate: string;
+    appointmentId: string;
+  };
+  secrets: Secrets | null;
+}): Promise<void> => {
+  console.log('email details: ', JSON.stringify(emailDetails));
+  const emailClient = getEmailClient(secrets);
+  const patientEmail = getPatientContactEmail(fhirPatient);
+
+  if (emailClient.getFeatureFlag()) {
+    if (patientEmail) {
+      console.log(`sending order result alert to Patient/${fhirPatient.id} via email ${patientEmail}`);
+
+      const { orderType, testName, visitDate, appointmentId } = emailDetails;
+
+      const templateData: OrderResultAlertTemplateData = {
+        'order-type': orderType,
+        'test-name': testName,
+        'visit-date': visitDate,
+        'result-url': makePastVisitDetailUrl(fhirPatient.id || '', appointmentId, secrets),
+      };
+      await emailClient.sendOrderResultAlert(patientEmail, templateData);
+    } else {
+      console.log(`patient email is missing for Patient/${fhirPatient.id} so skipping order result alert`);
+    }
+  } else {
+    console.log(`email client feature flag is false, will not send order result alert to Patient/${fhirPatient.id}`);
+  }
+};
+
 export const makeCancelVisitUrl = (appointmentId: string, secrets: Secrets | null): string => {
   const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   return `${baseUrl}/visit/${appointmentId}/cancel`;
@@ -311,4 +360,9 @@ export const makeVisitLandingUrl = (appointmentId: string, secrets: Secrets | nu
 
 export const makeAddressUrl = (address: string): string => {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURI(address)}`;
+};
+
+export const makePastVisitDetailUrl = (patientId: string, visitId: string, secrets: Secrets | null): string => {
+  const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  return `${baseUrl}/my-patients/${patientId}/past-visits/${visitId}`;
 };

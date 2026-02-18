@@ -82,8 +82,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           })
         : undefined;
       const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
-        oystEncounterId: encounterId,
-        oystPatientId: patientId,
+        oystehrEncounterId: encounterId,
+        oystehrPatientId: patientId,
         dueDate,
         filledMemo,
       });
@@ -172,22 +172,22 @@ async function createInvoice(
   stripeCustomerId: string,
   stripeAccount: string | undefined,
   params: {
-    oystEncounterId: string;
-    oystPatientId: string;
+    oystehrEncounterId: string;
+    oystehrPatientId: string;
     filledMemo?: string;
     dueDate: string;
   }
 ): Promise<Stripe.Invoice> {
   try {
-    const { oystEncounterId, oystPatientId, filledMemo, dueDate } = params;
+    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate } = params;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
       description: filledMemo,
       metadata: {
-        oystehr_patient_id: oystPatientId,
-        oystehr_encounter_id: oystEncounterId,
+        oystehr_patient_id: oystehrPatientId,
+        oystehr_encounter_id: oystehrEncounterId,
       },
       currency: 'USD',
       due_date: DateTime.fromISO(dueDate).toUnixInteger(),

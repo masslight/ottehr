@@ -1099,13 +1099,6 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         );
       });
 
-      await test.step('Verify Pharmacy section fields can be filled', async () => {
-        test.skip(PharmacyHidden, 'pharmacy section is hidden');
-        // Pharmacy has no required fields, so we just verify we can enter data
-        await patientInformationPage.enterTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
-        await patientInformationPage.enterTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
-      });
-
       await test.step('Check validation errors for Employer Information block with invalid email and phone', async () => {
         test.skip(EmployerHidden, 'employer section is hidden');
         // Test invalid email validation
@@ -1329,6 +1322,14 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
       await test.step('Updating values from Pharmacy block', async () => {
         test.skip(PharmacyHidden, 'pharmacy section is hidden');
+        // Pharmacy has no required fields, so we just verify we can enter data
+
+        // first confirm the search field is present on the screen
+        await patientInformationPage.verifyPharmacySearchIsPresent();
+        // switch to manual entry
+        await patientInformationPage.clickToAddPharmacyManually(preferredPharmacy.manualEntry.key);
+
+        // enter manual pharmacy info
         await patientInformationPage.enterTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
         await patientInformationPage.enterTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
       });

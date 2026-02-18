@@ -785,7 +785,6 @@ export interface consentFormsInfo extends PdfData {
   fullName: string;
   relationship: string;
   date: string;
-  ip: string;
   consentIsAttested: boolean;
 }
 

@@ -1,28 +1,24 @@
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, Typography } from '@mui/material';
 import { FC } from 'react';
-import { otherColors } from 'src/IntakeThemeProvider';
 import { PlacesResult } from 'utils';
-import { clearPharmacyCollectionAnswerSet } from './helpers';
 
 export interface PharmacyDisplayProps {
   selectedPlace: PlacesResult;
-  setSelectedPlace: (place: PlacesResult | null) => void;
-  onChange: (e: any) => void;
+  clearPharmacyData: () => void;
+  dataTestIds: { text: string; button: string };
 }
 
 export const PharmacyDisplay: FC<PharmacyDisplayProps> = (props: PharmacyDisplayProps) => {
-  const { selectedPlace, setSelectedPlace, onChange } = props;
+  const { selectedPlace, clearPharmacyData, dataTestIds } = props;
 
   const handleResetPharmacySelection = (): void => {
-    const answerSet = clearPharmacyCollectionAnswerSet();
-    onChange(answerSet);
-    setSelectedPlace(null);
+    clearPharmacyData();
   };
 
   return (
     <Box display="flex" justifyContent="space-between" alignItems="center">
-      <Box>
+      <Box data-testid={dataTestIds.text}>
         <Typography>{selectedPlace.name}</Typography>
         <Typography variant="body2" color="text.secondary">
           {selectedPlace.address}
@@ -30,6 +26,7 @@ export const PharmacyDisplay: FC<PharmacyDisplayProps> = (props: PharmacyDisplay
       </Box>
       <Box>
         <Button
+          data-testid={dataTestIds.button}
           onClick={handleResetPharmacySelection}
           sx={{
             textTransform: 'none',
@@ -37,7 +34,7 @@ export const PharmacyDisplay: FC<PharmacyDisplayProps> = (props: PharmacyDisplay
             fontWeight: 'bold',
           }}
         >
-          <DeleteIcon sx={{ color: otherColors.cancel }} />
+          <DeleteIcon sx={{ color: '#B22020' }} />
         </Button>
       </Box>
     </Box>

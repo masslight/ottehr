@@ -29,6 +29,7 @@ export type GetOystehrTelemedAPIParams = {
   externalLabResourceSearchID?: string;
   getUnsolicitedResultsResourcesID?: string;
   updateLabOrderResourcesID?: string;
+  searchPlacesID?: string;
 };
 
 export type { PromiseReturnType } from 'utils';

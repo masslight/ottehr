@@ -11,6 +11,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   ExtendedMedicationDataForResponse,
   getMedicationName,
+  MEDICAL_HISTORY_CONFIG,
   MedicationData,
   medicationExtendedToMedicationData,
   MedicationInteractions,
@@ -148,6 +149,22 @@ export const EditableMedicationCard: React.FC<{
       setErxEnabled(true);
     }
   };
+
+  const handleFavoriteSelect = useCallback(
+    (favorite: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.favorites)[number]): void => {
+      const medicationId = selectsOptions.medicationId.medispanCodeToMedicationId?.[String(favorite.dosespotId)];
+      setLocalValues((prev) => ({
+        ...prev,
+        medicationId,
+        ...(favorite.dose != null && { dose: favorite.dose }),
+        ...(favorite.units != null && { units: favorite.units }),
+        ...(favorite.route != null && { route: favorite.route }),
+        ...(favorite.instructions != null && { instructions: favorite.instructions }),
+      }));
+      setErxEnabled(true);
+    },
+    [selectsOptions.medicationId.medispanCodeToMedicationId]
+  );
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
     // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
@@ -496,6 +513,9 @@ export const EditableMedicationCard: React.FC<{
         }}
         onDelete={medication?.id && medication?.status !== 'cancelled' ? handleDeleteClick : undefined}
         isReadOnly={isReadOnly}
+        onFavoriteSelect={
+          typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleFavoriteSelect : undefined
+        }
       />
       <InPersonModal
         icon={null}

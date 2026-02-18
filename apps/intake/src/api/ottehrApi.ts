@@ -33,6 +33,8 @@ import {
   UCGetPaperworkResponse,
   UpdateAppointmentParameters,
   UpdateAppointmentZambdaOutput,
+  VideoChatNotificationInput,
+  VideoChatNotificationResponse,
   WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
 } from 'utils';
@@ -473,8 +475,20 @@ class API {
       throw apiErrorToThrow(error);
     }
   }
-}
 
+  async createWaitingRoomNotification(
+    input: VideoChatNotificationInput,
+    zambdaClient: ZambdaClient
+  ): Promise<VideoChatNotificationResponse> {
+    try {
+      const response = await zambdaClient.execute('video-chat-waiting-room-notification', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as VideoChatNotificationResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+}
 const api = new API();
 
 export default api;

@@ -110,7 +110,7 @@ const performEffect = async (
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
 ): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
-  const { encounterId, paymentDetails, organizationId, userProfile, stripeAccount } = input;
+  const { encounterId, patientId, paymentDetails, organizationId, userProfile, stripeAccount } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
@@ -136,6 +136,8 @@ const performEffect = async (
       confirm: true,
       metadata: {
         oystehr_encounter_id: encounterId,
+        // added later. if it's undefined, add conditional check to get patient id from fhir
+        oystehr_patient_id: patientId,
       },
       automatic_payment_methods: {
         enabled: true,

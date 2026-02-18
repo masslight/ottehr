@@ -139,6 +139,14 @@ export function makeConditionResource(
             },
           ],
         }
+      : fieldName === 'medical-condition'
+      ? {
+          coding: [
+            {
+              display: dto.display,
+            },
+          ],
+        }
       : undefined,
     note: (data as FreeTextNoteDTO).text
       ? [{ text: (data as FreeTextNoteDTO).text || '' }]

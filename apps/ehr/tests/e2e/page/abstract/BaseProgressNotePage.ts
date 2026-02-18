@@ -215,17 +215,34 @@ export abstract class BaseProgressNotePage {
       })
     ).not.toBeVisible();
   }
-  async verifyVitalIsShown(vitals: string): Promise<void> {
+
+  async verifyVitalIsShown(vitals: string, abnormal = false): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer)).toBeVisible();
-    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer)).toContainText(vitals, {
-      ignoreCase: true,
-    });
+    const itemLocator = this.#page.getByTestId(dataTestIds.progressNotePage.vitalsItem).filter({ hasText: vitals });
+    await expect(itemLocator).toBeVisible();
+    await expect(itemLocator.getByTestId(dataTestIds.progressNotePage.alertIcon)).toBeVisible({ visible: abnormal });
   }
 
   async verifyVitalNotShown(vitals: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer).filter({
         hasText: new RegExp(vitals, 'i'),
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyVitalsNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer).filter({
+        hasText: note,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyVitalsNoteNotShown(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer).filter({
+        hasText: note,
       })
     ).not.toBeVisible();
   }

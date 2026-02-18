@@ -6,6 +6,7 @@ import {
   getInPersonVisitStatus,
   getSecret,
   getVisitStatusHistory,
+  isFollowupEncounter,
   isInPersonAppointment,
   LocationKpiMetrics,
   OTTEHR_MODULE,
@@ -16,6 +17,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fetchAllPages,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -280,121 +282,57 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // First, fetch all locations
     console.log('Fetching all locations...');
     let allLocations: Location[] = [];
-    let locationOffset = 0;
-    const locationPageSize = 100;
-
-    let locationSearchBundle = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        { name: '_count', value: locationPageSize.toString() },
-        { name: '_offset', value: locationOffset.toString() },
-      ],
-    });
-
-    let locationResources = locationSearchBundle.unbundle();
-    allLocations = allLocations.concat(locationResources);
-    console.log(`Fetched ${locationResources.length} locations`);
-
-    // Follow pagination for locations
-    while (locationSearchBundle.link?.find((link) => link.relation === 'next')) {
-      locationOffset += locationPageSize;
-      locationSearchBundle = await oystehr.fhir.search<Location>({
+    await fetchAllPages(async (offset, count) => {
+      console.log(`Fetching locations offset=${offset}, count=${count}`);
+      const locationSearchBundle = await oystehr.fhir.search<Location>({
         resourceType: 'Location',
         params: [
-          { name: '_count', value: locationPageSize.toString() },
-          { name: '_offset', value: locationOffset.toString() },
+          { name: '_count', value: count.toString() },
+          { name: '_offset', value: offset.toString() },
         ],
       });
-
-      locationResources = locationSearchBundle.unbundle();
+      const locationResources = locationSearchBundle.unbundle();
       allLocations = allLocations.concat(locationResources);
       console.log(`Fetched ${locationResources.length} more locations (total: ${allLocations.length})`);
-    }
+      return locationSearchBundle;
+    }, 1000);
 
     console.log(`Total locations found: ${allLocations.length}`);
 
     // Now fetch appointments with encounters and locations
     let allResources: (Appointment | Location | Encounter)[] = [];
-    let offset = 0;
-    const pageSize = 1000;
 
-    const baseSearchParams = [
-      {
-        name: 'date',
-        value: `ge${dateRange.start}`,
-      },
-      {
-        name: 'date',
-        value: `le${dateRange.end}`,
-      },
-      {
-        name: '_tag',
-        value: OTTEHR_MODULE.IP, // Only in-person appointments
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_count',
-        value: pageSize.toString(),
-      },
-    ];
-
-    let searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-
-    let pageCount = 1;
-    console.log(`Fetching page ${pageCount} of appointments and encounters...`);
-
-    let pageResources = searchBundle.unbundle();
-    allResources = allResources.concat(pageResources);
-    const pageAppointments = pageResources.filter(
-      (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    );
-    console.log(
-      `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointments.length} appointments)`
-    );
-
-    // Follow pagination
-    while (searchBundle.link?.find((link) => link.relation === 'next')) {
-      offset += pageSize;
-      pageCount++;
-      console.log(`Fetching page ${pageCount} of appointments and encounters...`);
-
-      searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter>({
+    await fetchAllPages(async (offset, count) => {
+      console.log(`Fetching appointments offset = ${offset}, count = ${count}`);
+      const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter>({
         resourceType: 'Appointment',
-        params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+        params: [
+          { name: 'date', value: `ge${dateRange.start}` },
+          { name: 'date', value: `le${dateRange.end}` },
+          { name: '_tag', value: OTTEHR_MODULE.IP }, // Only in-person appointments
+          { name: '_include', value: 'Appointment:location' },
+          { name: '_revinclude', value: 'Encounter:appointment' },
+          { name: '_elements', value: 'id,status,participant,appointmentType,start' },
+          { name: '_count', value: count.toString() },
+          { name: '_offset', value: offset.toString() },
+        ],
       });
-
-      pageResources = searchBundle.unbundle();
+      const pageResources = searchBundle.unbundle();
       allResources = allResources.concat(pageResources);
       const pageAppointmentsCount = pageResources.filter(
         (resource): resource is Appointment => resource.resourceType === 'Appointment'
       ).length;
-
-      console.log(
-        `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`
-      );
-
-      // Safety check
-      if (pageCount > 100) {
-        console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-        break;
-      }
-    }
+      console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
+      return searchBundle;
+    }, 1000);
 
     // Separate resources by type
     const appointments = allResources.filter(
       (resource): resource is Appointment => resource.resourceType === 'Appointment'
     );
-    const encounters = allResources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');
+    const encounters = allResources.filter(
+      (resource): resource is Encounter => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource)
+    );
 
     console.log(
       `Total resources found: ${allResources.length} (${appointments.length} appointments, ${encounters.length} encounters)`
@@ -549,7 +487,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Build location metrics array with all locations
     const locationMetrics: LocationKpiMetrics[] = allLocations
-      .map((location) => {
+      .flatMap((location) => {
         const locationName = location.name || 'Unknown Location';
         const locationId = location.id || 'unknown';
         const metricsData = locationMetricsMap.get(locationName);
@@ -644,32 +582,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           };
         } else {
           // Location has no discharged visits
-          return {
-            locationName,
-            locationId,
-            arrivedToReadyAverage: null,
-            arrivedToReadyMedian: null,
-            arrivedToDischargedAverage: null,
-            arrivedToDischargedMedian: null,
-            arrivedToIntakeAverage: null,
-            arrivedToIntakeMedian: null,
-            readyToIntakeAverage: null,
-            readyToIntakeMedian: null,
-            intakeToProviderAverage: null,
-            intakeToProviderMedian: null,
-            arrivedToProviderAverage: null,
-            arrivedToProviderMedian: null,
-            arrivedToProviderUnder15Percent: null,
-            arrivedToProviderUnder45Percent: null,
-            providerToDischargedAverage: null,
-            providerToDischargedMedian: null,
-            onTimePercent: null,
-            bookAheadPercent: null,
-            walkInPercent: null,
-            visitCount: 0,
-          };
+          return [];
         }
       })
+      .filter((metrics) => metrics.visitCount > 0)
       .sort((a, b) => a.locationName.localeCompare(b.locationName));
 
     const response: PracticeKpisReportZambdaOutput = {

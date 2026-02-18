@@ -62,6 +62,7 @@ const ZAMBDA_NAME = 'create-update-medication-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
+    console.log('Validated parameters: ', JSON.stringify(validatedParameters));
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
@@ -369,6 +370,7 @@ async function changeOrderStatus(
 }
 
 async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage | undefined> {
+  console.log(`Getting order resources for orderId: ${orderId}`);
   const bundle = await oystehr.fhir.search({
     resourceType: 'MedicationAdministration',
     params: [
@@ -405,6 +407,10 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
   const medicationRequest = resources.find(
     (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
   ) as MedicationRequest;
+
+  console.log('MedicationAdministration id: ', medicationAdministration.id);
+  console.log('MedicationStatement id: ', medicationStatement?.id);
+  console.log('MedicationRequest id: ', medicationRequest?.id);
 
   return {
     medicationAdministration,
