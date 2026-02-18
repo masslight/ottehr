@@ -262,7 +262,7 @@ export const performEffect = async (
     const patientEmail = getPatientContactEmail(patient);
     if (emailEnabled && location && patientEmail) {
       const locationName = getNameForOwner(location) ?? '';
-      const presignedUrls = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
+      const { presignedUrls } = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
       const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
 
       const templateData: TelemedCompletionTemplateData = {

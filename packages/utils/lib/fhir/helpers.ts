@@ -27,12 +27,13 @@ import {
   Organization,
   Patient,
   Practitioner,
-  QuestionnaireResponse,
   Reference,
   RelatedPerson,
   Resource,
+  Schedule,
   ServiceRequest,
   Signature,
+  Slot,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -56,6 +57,7 @@ import {
   VisitStatusWithoutUnknown,
 } from 'utils';
 import {
+  APPOINTMENT_NOT_FOUND_ERROR,
   BookableResource,
   CPTCodeDTO,
   EncounterVirtualServiceExtension,
@@ -63,6 +65,7 @@ import {
   PractitionerLicense,
   PractitionerQualificationCode,
   PROJECT_WEBSITE,
+  SCHEDULE_NOT_FOUND_ERROR,
   ScheduleOwnerFhirResource,
   ServiceMode,
   VisitType,
@@ -830,13 +833,6 @@ export const getUnconfirmedDOBIdx = (appointment?: Appointment): number | undefi
   });
 };
 
-export const getIpAddress = (questionnaireResponse?: QuestionnaireResponse): string | undefined => {
-  if (!questionnaireResponse) return;
-  return questionnaireResponse.extension?.find((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.QuestionnaireResponse.ipAddress.url;
-  })?.valueString;
-};
-
 export function filterResources(allResources: Resource[], resourceType: string): Resource[] {
   return allResources.filter((res) => res.resourceType === resourceType && res.id);
 }
@@ -1420,6 +1416,77 @@ export function getResponsiblePartyFromAccount(
   if (!responsiblePartyRef) return undefined;
   return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
 }
+
+export const getScheduleOwnerFromAppointmentOrEncounter = async (
+  input: { appointmentId?: string; encounterId?: string },
+  oystehr: Oystehr
+): Promise<Location | HealthcareService | Practitioner> => {
+  const { appointmentId, encounterId } = input;
+  const appointmentSearchParams: SearchParam[] = [
+    {
+      name: '_include',
+      value: 'Appointment:actor',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Schedule:actor:Location',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Schedule:actor:Practitioner',
+    },
+  ];
+
+  if (appointmentId) {
+    appointmentSearchParams.push({
+      name: '_id',
+      value: appointmentId,
+    });
+  } else if (encounterId) {
+    appointmentSearchParams.push({ name: '_has:Encounter:appointment:_id', value: encounterId });
+  } else {
+    throw new Error('Either appointmentId or encounterId must be provided');
+  }
+
+  const allResources = (
+    await oystehr.fhir.search<Appointment | Slot | Schedule | Location | HealthcareService | Practitioner>({
+      resourceType: 'Appointment',
+      params: appointmentSearchParams,
+    })
+  ).unbundle();
+  console.log(`successfully retrieved ${allResources.length} appointment resources`);
+  const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
+  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
+  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
+  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
+
+  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
+  if (fhirLocation) {
+    scheduleOwner = fhirLocation as Location;
+  } else if (fhirHS) {
+    scheduleOwner = fhirHS as HealthcareService;
+  } else if (fhirPractitioner) {
+    scheduleOwner = fhirPractitioner as Practitioner;
+  }
+
+  if (!fhirAppointment) {
+    throw APPOINTMENT_NOT_FOUND_ERROR;
+  }
+
+  if (!scheduleOwner) {
+    throw SCHEDULE_NOT_FOUND_ERROR;
+  }
+
+  return scheduleOwner;
+};
 
 export function makeCptCodeDisplay(cptCode: CPTCodeDTO): string {
   const modifiersString =

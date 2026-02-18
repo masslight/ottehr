@@ -108,6 +108,7 @@ export const dataTestIds = {
     title: 'dialog-title',
     message: 'dialog-message',
     inPersonModalContent: 'in-person-modal-content',
+    alertIcon: 'WarningAmberOutlinedIcon',
   },
   virtualLocationsPage: {
     locationsSearch: 'locations-search',
@@ -294,7 +295,9 @@ export const dataTestIds = {
     supervisorApprovalCheckbox: 'supervisor-approval-checkbox',
     hpiContainer: 'hpi-container',
     vitalsContainer: 'vitals-container',
+    vitalsItem: 'vitals-item',
     hospitalizationContainer: 'hospitalization-container',
+    alertIcon: 'WarningAmberOutlinedIcon',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
@@ -401,6 +404,10 @@ export const dataTestIds = {
     lastMenstrualPeriodUnsureCheckbox: 'last-menstrual-period-unsure-checkbox',
     lastMenstrualPeriodAddButton: 'last-menstrual-period-add-button',
     lastMenstrualPeriodItem: 'last-menstrual-period-item',
+    deleteIcon: 'DeleteOutlinedIcon',
+    addNoteButton: 'add-vitals-note-button',
+    pencilIconButton: 'EditOutlinedIcon',
+    abnormalVitalIcon: 'WarningAmberOutlinedIcon',
   },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',

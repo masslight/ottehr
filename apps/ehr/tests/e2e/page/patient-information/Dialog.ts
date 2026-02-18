@@ -31,6 +31,12 @@ export class Dialog {
   async clickCloseButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
   }
+
+  async verifyAlertIconVisible(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.dialog.inPersonModalContent).getByTestId(dataTestIds.dialog.alertIcon)
+    ).toBeVisible();
+  }
 }
 
 export async function expectDialog(page: Page): Promise<Dialog> {

@@ -783,7 +783,6 @@ export default function VisitDetailsPage(): ReactElement {
             'Full name': consentDetails.fullName,
             'Relationship to patient': consentDetails.relationshipToPatient,
             Date: consentDetails.date,
-            IP: consentDetails.ipAddress,
           };
         } else {
           return { [consentToTreatPatientDetailsKey]: 'Not signed' };

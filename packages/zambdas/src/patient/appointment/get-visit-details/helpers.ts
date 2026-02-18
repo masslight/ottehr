@@ -1,6 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, MedicationRequest } from 'fhir/r4b';
-import { FileURLs, getPresignedURL, MEDICATION_DISPENSABLE_DRUG_ID, PrescribedMedication } from 'utils';
+import {
+  FileURLInfo,
+  FileURLs,
+  getPresignedURL,
+  LAB_DOC_REF_DETAIL_TAGS,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  MEDICATION_DISPENSABLE_DRUG_ID,
+  PrescribedMedication,
+} from 'utils';
+import { getLabDocRefDescriptionFromMetaTags } from '../../../shared/pdf/lab-pdf-utils';
 
 async function makePresignedURLFromDocumentReference(
   resource: DocumentReference,
@@ -19,21 +28,30 @@ const PdfDocumentReferencePublishedStatuses: { [key: string]: 'final' | 'prelimi
   unpublished: 'preliminary',
 };
 
-const loincCodeToDocumentTypeMap: { [code: string]: string } = {
-  '34105-7': 'receipt',
-  '75498-6': 'visit-note',
-  '47420-5': 'school-work-note',
-  'statement-code': 'statement',
+enum docMapTypes {
+  receipt = 'receipt',
+  visitNote = 'visit-note',
+  shoolWorkNote = 'school-work-note',
+  statement = 'statement',
+  labResult = 'lab-result',
+}
+
+const loincCodeToDocumentTypeMap: { [code: string]: docMapTypes } = {
+  '34105-7': docMapTypes.receipt,
+  '75498-6': docMapTypes.visitNote,
+  '47420-5': docMapTypes.shoolWorkNote,
+  'statement-code': docMapTypes.statement,
+  [LAB_RESULT_DOC_REF_CODING_CODE.code]: docMapTypes.labResult,
 };
 
-function getDocumentTypeFromLoincCode(code: string | undefined): string | null {
+function getDocumentTypeFromLoincCode(code: string | undefined): docMapTypes | null {
   if (!code) {
     return null;
   }
   return loincCodeToDocumentTypeMap[code] || null;
 }
 
-export function getDocumentType(resource: DocumentReference): string | null {
+export function getDocumentType(resource: DocumentReference): docMapTypes | null {
   if (resource.resourceType !== 'DocumentReference') {
     return null;
   }
@@ -90,7 +108,7 @@ export async function getPresignedURLs(
   oystehr: Oystehr,
   oystehrToken: string,
   encounterId?: string
-): Promise<FileURLs> {
+): Promise<{ presignedUrls: FileURLs; reviewedLabResultsUrls: FileURLInfo[] }> {
   if (encounterId === undefined) {
     throw new Error('Encounter ID must be specified for payments.');
   }
@@ -108,13 +126,31 @@ export async function getPresignedURLs(
   ).unbundle();
 
   const presignedUrlObj: FileURLs = {};
+  const reviewedLabResultsUrls: FileURLInfo[] = [];
 
   // Group documents by type (excluding school-work-note) and find latest version
   const documentsByType: { [type: string]: DocumentReference[] } = {};
 
+  // There can be more than one lab result displayed so we don't want the latest version
+  // We can use the status to confirm its current and the docStatus to confirm its reviewed (for external)
+  const reviewedLabResults: DocumentReference[] = [];
+
   documentReferenceResources.forEach((resource) => {
     const type = getDocumentType(resource);
-    if (!type || type === 'school-work-note') return;
+    if (!type || type === docMapTypes.shoolWorkNote) return;
+
+    if (type === docMapTypes.labResult) {
+      if (resource.status !== 'current') return;
+      const labType = resource.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.labType.system)?.code;
+      if (labType === LAB_DOC_REF_DETAIL_TAGS.labType.code.inHouse) {
+        // no formal review for inhouse atm, if the doc exists, results have been entered and its "reviewed"
+        reviewedLabResults.push(resource);
+      } else if (labType === LAB_DOC_REF_DETAIL_TAGS.labType.code.external) {
+        // docStatus is updated from preliminary to final after review
+        if (resource.docStatus === 'final') reviewedLabResults.push(resource);
+      }
+      return;
+    }
 
     if (!documentsByType[type]) {
       documentsByType[type] = [];
@@ -135,13 +171,19 @@ export async function getPresignedURLs(
   });
 
   // Generate presigned URLs for latest documents (excluding school-work-note)
-  await Promise.all(
-    Object.entries(latestDocumentsByType).map(async ([type, resource]) => {
+  await Promise.all([
+    ...Object.entries(latestDocumentsByType).map(async ([type, resource]) => {
       presignedUrlObj[type] = {
         presignedUrl: await makePresignedURLFromDocumentReference(resource, oystehrToken),
       };
-    })
-  );
+    }),
+    ...reviewedLabResults.map(async (docRef) => {
+      reviewedLabResultsUrls.push({
+        presignedUrl: await makePresignedURLFromDocumentReference(docRef, oystehrToken),
+        description: getLabDocRefDescriptionFromMetaTags(docRef),
+      });
+    }),
+  ]);
 
   // Handle school-work-note documents separately (keep existing logic)
   await Promise.all(
@@ -159,5 +201,5 @@ export async function getPresignedURLs(
     })
   );
 
-  return presignedUrlObj;
+  return { presignedUrls: presignedUrlObj, reviewedLabResultsUrls };
 }

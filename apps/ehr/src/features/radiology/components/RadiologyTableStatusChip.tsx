@@ -28,8 +28,10 @@ const getStatusColor = (status: RadiologyOrderStatus): string => {
       return '#90CAF9';
     case 'preliminary':
       return '#A5D6A7';
-    case 'final':
+    case 'pending final':
       return '#CE93D8';
+    case 'final':
+      return '#81C784';
     case 'reviewed':
       return '#81C784';
     default:

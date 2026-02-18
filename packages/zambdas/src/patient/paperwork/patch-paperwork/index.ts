@@ -4,7 +4,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
+import { getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
@@ -48,7 +48,7 @@ export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): 
 });
 
 const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
-  const { updatedAnswers, questionnaireResponseId, currentQRStatus, patchIndex, ipAddress, appointmentId } = input;
+  const { updatedAnswers, questionnaireResponseId, currentQRStatus, patchIndex, appointmentId } = input;
   console.log('patchIndex:', patchIndex);
   console.log('updatedAnswers', JSON.stringify(updatedAnswers));
   const operations: Operation[] = [
@@ -79,16 +79,6 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
         op: 'add',
         path: '/authored',
         value: DateTime.now().toISO(),
-      },
-      {
-        op: 'add',
-        path: '/extension',
-        value: [
-          {
-            ...FHIR_EXTENSION.Paperwork.submitterIP,
-            valueString: ipAddress,
-          },
-        ],
       }
     );
   }

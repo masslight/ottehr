@@ -123,6 +123,16 @@ const SENDGRID_DEFAULTS = Object.freeze({
       dynamicTemplateData: ['patient-name', 'join-visit-url', 'location'],
       supportsAttachments: false,
     },
+    orderResultAlert: {
+      templateName: 'Order Result Alert',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/order-result-alert.html`,
+      subject: '{{env}}New {{{order-type}}} results are ready for your review',
+      templateIdSecretName: 'SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID',
+      dynamicTemplateData: ['order-type', 'test-name', 'visit-date', 'result-url'],
+      supportsAttachments: false,
+    },
   },
   featureFlag: false as boolean,
 } as const);
@@ -204,6 +214,11 @@ const TelemedInvitationSchema = TemplateVersionSchema.extend({
   disabled: z.boolean().default(false),
   dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.telemedInvitation.dynamicTemplateData)),
 });
+const OrderResultAlertSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.orderResultAlert.dynamicTemplateData)),
+});
 
 const DefaultTemplates = z.object({
   errorReport: ErrorReportSchema,
@@ -216,6 +231,7 @@ const DefaultTemplates = z.object({
   telemedConfirmation: TelemedConfirmationSchema,
   telemedCompletion: TelemedCompletionSchema,
   telemedInvitation: TelemedInvitationSchema,
+  orderResultAlert: OrderResultAlertSchema,
 });
 
 const SENDGRID_CONFIG_SCHEMA = z.object({
@@ -250,3 +266,4 @@ export type TelemedConfirmationTemplateData = DynamicTemplateDataRecord<
 >;
 export type TelemedCompletionTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedCompletion']>;
 export type TelemedInvitationTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedInvitation']>;
+export type OrderResultAlertTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['orderResultAlert']>;

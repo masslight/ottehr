@@ -595,6 +595,14 @@ const convertAttachmentFieldToQuestionnaireItem = (
       }
     }
 
+    // Add require-when extension
+    const requireTriggers = field.triggers.filter((t) => t.effect.includes('require'));
+    if (requireTriggers.length > 0) {
+      requireTriggers.forEach((trigger) => {
+        extensions.push(createRequireWhenExtension(trigger));
+      });
+    }
+
     // Add filter-when extension
     const filterTriggers = field.triggers.filter((t) => t.effect.includes('filter'));
     if (filterTriggers.length > 0) {

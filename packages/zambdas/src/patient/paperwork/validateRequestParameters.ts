@@ -12,7 +12,6 @@ import { ValidationError } from 'yup';
 import { ZambdaInput } from '../../shared';
 
 interface BasicInput extends PatchPaperworkParameters {
-  ipAddress: string;
   appointmentId?: string;
 }
 interface PatchPaperworkZambdaInput extends Omit<BasicInput, 'answers'> {
@@ -29,7 +28,6 @@ export interface PatchPaperworkEffectInput {
   patchIndex: number;
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
-  ipAddress: string;
   appointmentId?: string;
 }
 
@@ -61,24 +59,7 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
     throw new Error(`"appointmentId" must be a string`);
   }
 
-  let ipAddress = '';
-  const environment = process.env.ENVIRONMENT || input.secrets?.ENVIRONMENT;
-  console.log('Environment: ', environment);
-  switch (environment) {
-    case 'local':
-      ipAddress = 'Unknown';
-      break;
-    case 'dev':
-    case 'testing':
-    case 'staging':
-    case 'production':
-      ipAddress = input?.headers?.['cf-connecting-ip'] ? input.headers['cf-connecting-ip'] : 'Unknown';
-      break;
-    default:
-      ipAddress = 'Unknown';
-  }
-
-  return { answers, questionnaireResponseId, ipAddress, appointmentId };
+  return { answers, questionnaireResponseId, appointmentId };
 };
 
 const itemAnswerHasValue = (item: QuestionnaireResponseItem): boolean => {
@@ -226,7 +207,7 @@ const complexPatchValidation = async (
   oystehr: Oystehr
 ): Promise<PatchPaperworkEffectInput> => {
   // we should return QR id and use it to get both appointment Id and Questionnaire
-  const { answers: itemToPatch, questionnaireResponseId, ipAddress, appointmentId } = input;
+  const { answers: itemToPatch, questionnaireResponseId, appointmentId } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
 
   if (!qrAndQItems) {
@@ -266,7 +247,6 @@ const complexPatchValidation = async (
     updatedAnswers: [...currentAnswersToKeep, ...submittedAnswers],
     patchIndex: updatedAnswerIndex,
     currentQRStatus: fullQRResource.status,
-    ipAddress,
     appointmentId,
   };
 };
@@ -299,5 +279,5 @@ export const validateSubmitInputs = async (
   });
   const submitInput = { ...basic, ...input, answers: answers };
   const complex = await complexSubmitValidation(submitInput, oystehr);
-  return { ...complex, ...input, ipAddress: basic.ipAddress };
+  return { ...complex, ...input };
 };

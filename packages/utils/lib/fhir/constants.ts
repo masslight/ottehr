@@ -111,9 +111,6 @@ export const FHIR_EXTENSION = {
     legalTimezone: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/legal-timezone`,
     },
-    submitterIP: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/ip-address`,
-    },
   },
   ContactPoint: {
     erxTelecom: {
@@ -126,11 +123,6 @@ export const FHIR_EXTENSION = {
     },
     notes: {
       url: ottehrExtensionUrl('notes'),
-    },
-  },
-  QuestionnaireResponse: {
-    ipAddress: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/ip-address`,
     },
   },
   Coverage: {
@@ -586,6 +578,7 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
 export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
+export const SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/advapacs-location-id';
 
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {

@@ -2,11 +2,13 @@ import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk'
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
+  Appointment,
   Bundle,
   DiagnosticReport,
   Encounter,
   FhirResource,
   Observation,
+  Patient,
   Practitioner,
   Provenance,
   QuestionnaireResponse,
@@ -25,6 +27,7 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getSecret,
+  getTestNameFromDr,
   isPSCOrder,
   LAB_ORDER_UPDATE_RESOURCES_EVENTS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -37,6 +40,8 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
+  sendErrors,
+  sendOrderResultEmailToPatient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -236,38 +241,57 @@ const handleReviewedEvent = async ({
   secrets: Secrets | null;
 }): Promise<Bundle<FhirResource>> => {
   const resources = (
-    await oystehr.fhir.search<Task | Encounter | DiagnosticReport | Observation | Provenance | ServiceRequest>({
+    await oystehr.fhir.search<
+      | Task
+      | Encounter
+      | DiagnosticReport
+      | Observation
+      | Provenance
+      | ServiceRequest
+      | Patient
+      | Encounter
+      | Appointment
+    >({
       resourceType: 'DiagnosticReport',
       params: [
         { name: '_id', value: diagnosticReportId }, // diagnostic report
         { name: '_include', value: 'DiagnosticReport:based-on' }, // service request
         { name: '_revinclude', value: 'Task:based-on' }, // tasks
         { name: '_include', value: 'DiagnosticReport:result' }, // observation
+        { name: '_include', value: 'DiagnosticReport:subject' }, // patient
+        { name: '_include', value: 'DiagnosticReport:encounter' },
+        { name: '_include:iterate', value: 'Encounter:appointment' }, // needed for details within alert to patient
       ],
     })
   ).unbundle();
 
-  let serviceRequest: ServiceRequest | undefined;
-  const maybeServiceRequest = resources.find(
-    (r: any) => r.resourceType === 'ServiceRequest' && r.id === serviceRequestId
+  const { serviceRequest, diagnosticReport, task, patient, appointment } = resources.reduce(
+    (
+      acc: {
+        serviceRequest: ServiceRequest | undefined;
+        diagnosticReport: DiagnosticReport | undefined;
+        task: Task | undefined;
+        patient: Patient | undefined;
+        appointment: Appointment | undefined;
+      },
+      resource
+    ) => {
+      if (resource.resourceType === 'ServiceRequest' && resource.id === serviceRequestId) acc.serviceRequest = resource;
+      if (resource.resourceType === 'DiagnosticReport' && resource.id === diagnosticReportId)
+        acc.diagnosticReport = resource;
+      if (resource.resourceType === 'Task' && resource.id === taskId) acc.task = resource;
+      if (resource.resourceType === 'Patient') acc.patient = resource;
+      if (resource.resourceType === 'Appointment') acc.appointment = resource;
+      return acc;
+    },
+    {
+      serviceRequest: undefined,
+      diagnosticReport: undefined,
+      task: undefined,
+      patient: undefined,
+      appointment: undefined,
+    }
   );
-  if (maybeServiceRequest) {
-    serviceRequest = maybeServiceRequest as ServiceRequest;
-  }
-
-  const diagnosticReport = resources.find(
-    (r: any) => r.resourceType === 'DiagnosticReport' && r.id === diagnosticReportId
-  ) as DiagnosticReport;
-  const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
-  const resultIsDrDriven = !!specificDrTypeFromTag;
-  console.log('handleReviewedEvent specificDrTypeFromTag', specificDrTypeFromTag);
-  console.log('resultIsDrDriven', resultIsDrDriven);
-
-  const task = resources.find((r: any) => r.resourceType === 'Task' && r.id === taskId) as Task;
-
-  if (!serviceRequest && !resultIsDrDriven) {
-    throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
-  }
 
   if (!diagnosticReport) {
     throw new Error(`DiagnosticReport/${diagnosticReportId} not found`);
@@ -275,6 +299,15 @@ const handleReviewedEvent = async ({
 
   if (!task) {
     throw new Error(`Task/${taskId} not found`);
+  }
+
+  const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
+  const resultIsDrDriven = !!specificDrTypeFromTag;
+  console.log('handleReviewedEvent specificDrTypeFromTag', specificDrTypeFromTag);
+  console.log('resultIsDrDriven', resultIsDrDriven);
+
+  if (!serviceRequest && !resultIsDrDriven) {
+    throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
   const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
@@ -382,6 +415,27 @@ const handleReviewedEvent = async ({
     await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);
   } else {
     console.log('skipping review pdf re-generation');
+  }
+
+  if (patient) {
+    const visitDate = appointment?.start ? DateTime.fromISO(appointment?.start).toFormat('MM/DD/YYYY') : '';
+    const testName = getTestNameFromDr(diagnosticReport) || '';
+    try {
+      await sendOrderResultEmailToPatient({
+        fhirPatient: patient,
+        emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '' },
+        secrets,
+      });
+    } catch (e) {
+      const errorMessage = `Error sending the patient alert to review lab results, ${e}`;
+      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+      console.log(errorMessage);
+      await sendErrors(errorMessage, ENVIRONMENT);
+    }
+  } else {
+    console.log(
+      `could not find patient for DiagnosticReport/${diagnosticReport.id} so skipping alert to review results`
+    );
   }
 
   return updateTransactionRequest;

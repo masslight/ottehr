@@ -1,4 +1,5 @@
-import { Button, Chip, CircularProgress, Typography } from '@mui/material';
+import { LoadingButton } from '@mui/lab';
+import { Button, Chip, CircularProgress, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -22,8 +23,17 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
   const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
   const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
+  const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
 
-  const { orders, loading, fetchOrders } = usePatientRadiologyOrders({
+  const {
+    orders,
+    loading,
+    handleSavePreliminaryReport,
+    handleSendForFinalRead,
+    isSavingPreliminaryReport,
+    isSendingForFinalRead,
+    fetchOrders,
+  } = usePatientRadiologyOrders({
     serviceRequestId,
   });
 
@@ -160,13 +170,42 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
-              {order.result != null ? (
+              {order.status === 'performed' && !order.preliminaryReport && (
+                <Box sx={{ mt: 2 }}>
+                  <TextField
+                    id="preliminary-report-field"
+                    label="Preliminary Report"
+                    placeholder="Enter preliminary report for the radiology order"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    size="small"
+                    value={preliminaryReport}
+                    onChange={(e) => setPreliminaryReport(e.target.value)}
+                  />
+                </Box>
+              )}
+
+              {order.preliminaryReport != null ? (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                    Report
+                    Preliminary Report
                   </Typography>
                   <Typography variant="body2">
-                    <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />
+                    <div dangerouslySetInnerHTML={{ __html: atob(order.preliminaryReport) }} />
+                  </Typography>
+                </Box>
+              ) : (
+                <div />
+              )}
+
+              {order.finalReport != null ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Final Report
+                  </Typography>
+                  <Typography variant="body2">
+                    <div dangerouslySetInnerHTML={{ __html: atob(order.finalReport) }} />
                   </Typography>
                 </Box>
               ) : (
@@ -177,20 +216,52 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
           <RadiologyOrderHistoryCard orderHistory={order.history} />
 
-          <Button
-            variant="outlined"
-            color="primary"
-            sx={{
-              borderRadius: 28,
-              padding: '8px 22px',
-              alignSelf: 'flex-start',
-              marginTop: 2,
-              textTransform: 'none',
-            }}
-            onClick={handleBack}
-          >
-            Back
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 2 }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              sx={{
+                borderRadius: 28,
+                padding: '8px 22px',
+                textTransform: 'none',
+              }}
+              onClick={handleBack}
+            >
+              Back
+            </Button>
+
+            {order.status === 'performed' && !order.preliminaryReport && (
+              <LoadingButton
+                loading={isSavingPreliminaryReport}
+                variant="contained"
+                color="primary"
+                sx={{
+                  borderRadius: 28,
+                  padding: '8px 22px',
+                  textTransform: 'none',
+                }}
+                onClick={() => handleSavePreliminaryReport(serviceRequestId, preliminaryReport || '')}
+              >
+                Save Preliminary Report
+              </LoadingButton>
+            )}
+
+            {order.status === 'preliminary' && (
+              <LoadingButton
+                loading={isSendingForFinalRead}
+                variant="contained"
+                color="primary"
+                sx={{
+                  borderRadius: 28,
+                  padding: '8px 22px',
+                  textTransform: 'none',
+                }}
+                onClick={() => handleSendForFinalRead(serviceRequestId)}
+              >
+                Send for Final Read
+              </LoadingButton>
+            )}
+          </Box>
         </Stack>
       </div>
     </WithRadiologyBreadcrumbs>

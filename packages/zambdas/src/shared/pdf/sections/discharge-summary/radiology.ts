@@ -7,7 +7,7 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
 
   const radiology = radiologyData?.orders.map((order) => ({
     name: order.studyType,
-    result: order.result,
+    result: order.finalReport,
   }));
   return { radiology };
 };

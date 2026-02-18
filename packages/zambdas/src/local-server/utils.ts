@@ -140,6 +140,7 @@ async function populateSecrets({ pathToEnvFile, useIac }: { pathToEnvFile: strin
     'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
     'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
     'SENDGRID_SEND_EMAIL_API_KEY',
+    'SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID',
   ]);
   Object.entries(envFileContents).forEach(([key, value]) => {
     if (!takenFromSpec.has(key) && sgSecretKeys.has(key) && typeof value === 'string') {

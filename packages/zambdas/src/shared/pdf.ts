@@ -24,7 +24,6 @@ interface DrawFirstPageParams {
   patient: Patient;
   consentSigner: ConsentSigner;
   dateTime: string;
-  ipAddress: string;
   pdfDoc: PDFDocument;
   pdfInfo: PdfInfo;
   numPages: number;
@@ -58,7 +57,6 @@ async function drawFirstPage({
   patient,
   consentSigner,
   dateTime,
-  ipAddress,
   pdfDoc,
   pdfInfo,
   numPages,
@@ -229,7 +227,6 @@ async function drawFirstPage({
   if (facilityName) {
     additionalDetails.push({ label: 'Facility name', value: facilityName });
   }
-  additionalDetails.push({ label: 'IP address', value: ipAddress });
 
   const sections: Section[] = [
     { header: 'Patient Details', body: patientDetails },
@@ -300,7 +297,6 @@ export async function createPdfBytes(
   patient: Patient,
   consentSigner: ConsentSigner,
   dateTime: string,
-  ipAddress: string,
   pdfInfo: PdfInfo,
   secrets: Secrets | null,
   timezone?: string,
@@ -317,14 +313,12 @@ export async function createPdfBytes(
     patient.id,
     JSON.stringify(consentSigner),
     dateTime,
-    ipAddress,
     facilityName
   );
   await drawFirstPage({
     patient,
     consentSigner,
     dateTime,
-    ipAddress,
     pdfDoc: newPdf,
     pdfInfo,
     numPages: document.getPageCount(),
