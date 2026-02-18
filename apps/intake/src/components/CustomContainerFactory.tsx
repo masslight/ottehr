@@ -3,6 +3,8 @@ import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from
 import { otherColors } from '@theme/colors';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { home } from 'src/themes/ottehr';
 import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 
@@ -80,6 +82,7 @@ export const CustomContainer: FC<ContainerProps> = ({
   const theme = useTheme();
   const { isAuthenticated, logout } = useAuth0();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const handleLogout = useCallback(() => {
     if (logoutHandler !== undefined) {
@@ -110,7 +113,11 @@ export const CustomContainer: FC<ContainerProps> = ({
         position="static"
         sx={{ backgroundColor: otherColors.appBarBackground }}
       >
-        <Grid container justifyContent="center" alignItems="center" sx={{ position: 'relative' }}>
+        <Grid container justifyContent="space-between" alignItems="center">
+          {/* Left section - for now is empty but we will have language select here  */}
+          <Grid item xs={3}></Grid>
+
+          {/* Logo section  */}
           <Grid item>
             <Box
               component="img"
@@ -125,18 +132,27 @@ export const CustomContainer: FC<ContainerProps> = ({
               src={logo}
             />
           </Grid>
-          {isAuthenticated && (
-            <Grid
-              item
+
+          {/* Right section: home icon, chat and logout button  */}
+          <Grid item xs={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, pr: 2 }}>
+            <Button
               sx={{
-                position: 'absolute',
-                right: 0,
-                display: 'flex',
-                alignItems: 'center',
-                mx: { xs: 'auto', md: 2 },
-                maxWidth: { xs: '20%', md: 'unset' },
+                backgroundColor: theme.palette.secondary.main,
+                borderRadius: '50%',
+                minWidth: '40px',
+                minHeight: '40px',
+                padding: 0,
+                '&:hover': {
+                  backgroundColor: '#2c535f',
+                },
+              }}
+              onClick={() => {
+                navigate('/home');
               }}
             >
+              <img src={home} alt="home" />
+            </Button>
+            {isAuthenticated && (
               <Button
                 variant="text"
                 onClick={handleLogout}
@@ -147,8 +163,8 @@ export const CustomContainer: FC<ContainerProps> = ({
               >
                 {t('general.button.logout')}
               </Button>
-            </Grid>
-          )}
+            )}
+          </Grid>
         </Grid>
       </AppBar>
       <Box
