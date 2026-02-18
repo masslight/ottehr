@@ -5,18 +5,30 @@ This document provides an overview of the intake end-to-end testing architecture
 ## Quick Start
 
 ```bash
-# Run all e2e tests
+# Run all e2e tests (synthetic only by default)
 npx playwright test --project=e2e
 
 # Run only synthetic (baseline) tests
 npx playwright test --project=e2e --grep "Synthetic"
 
+# Run with concrete config tests (upstream ottehr repo only)
+RUN_CONCRETE_TESTS=true npx playwright test --project=e2e
+
 # Run only a specific concrete config
-npx playwright test --project=e2e --grep "Concrete: Instance 2"
+RUN_CONCRETE_TESTS=true npx playwright test --project=e2e --grep "Concrete: Instance 2"
 
 # Run with UI mode for debugging
 npx playwright test --project=e2e --ui
 ```
+
+### Upstream vs Downstream Repos
+
+| Repo | Concrete Tests | Environment Variable |
+|------|----------------|---------------------|
+| **ottehr** (upstream) | ✅ Enabled | `RUN_CONCRETE_TESTS=true` in CI |
+| **Downstream instances** | ❌ Disabled | Not set (default) |
+
+Concrete config tests represent instance-specific configurations and are only relevant in the upstream ottehr repo. Downstream repos inherit synthetic tests which validate the baseline booking flows work with their config overrides.
 
 ## Architecture Overview
 

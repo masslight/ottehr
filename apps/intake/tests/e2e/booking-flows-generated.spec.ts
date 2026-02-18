@@ -59,10 +59,14 @@ let loadedConcreteConfigs: ConcreteTestConfig[] = [];
 const testQuestionnaireCanonicals: Map<string, CanonicalUrl> = new Map();
 
 // Generate test scenarios from baseline config
+// NOTE: Concrete scenarios are only generated when RUN_CONCRETE_TESTS=true (upstream ottehr repo only)
 const scenarios = await generateBookingTestScenarios('baseline');
 
-// Load concrete configs at top level for grouping
-const concreteConfigs = await CONCRETE_TEST_CONFIGS;
+// Check if concrete tests are enabled (upstream ottehr repo only)
+const runConcreteTests = process.env.RUN_CONCRETE_TESTS === 'true';
+
+// Load concrete configs at top level for grouping (only if enabled)
+const concreteConfigs = runConcreteTests ? await CONCRETE_TEST_CONFIGS : [];
 
 // Group scenarios by config type for organized test output
 const syntheticScenarios = scenarios.filter((s) => !s.configName.startsWith('concrete:'));
@@ -132,37 +136,41 @@ test.describe('Complete booking flows', () => {
       );
     }
 
-    // Create locations for each concrete config
-    loadedConcreteConfigs = await CONCRETE_TEST_CONFIGS;
-    for (const concreteConfig of loadedConcreteConfigs) {
-      const createdLocations = await testLocationManager.ensureConcreteConfigLocations(
-        concreteConfig.id,
-        concreteConfig.locationsOverrides
-      );
-      console.log(`✓ Created ${createdLocations.length} locations for ${concreteConfig.name}`);
-    }
-
-    // Deploy test questionnaires for each concrete config
-    for (const concreteConfig of loadedConcreteConfigs) {
-      if (concreteConfig.paperworkConfigInPerson) {
-        const inPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+    // Create locations and questionnaires for each concrete config (upstream ottehr repo only)
+    if (runConcreteTests) {
+      loadedConcreteConfigs = await CONCRETE_TEST_CONFIGS;
+      for (const concreteConfig of loadedConcreteConfigs) {
+        const createdLocations = await testLocationManager.ensureConcreteConfigLocations(
           concreteConfig.id,
-          concreteConfig.paperworkConfigInPerson,
-          ServiceMode['in-person']
+          concreteConfig.locationsOverrides
         );
-        testQuestionnaireCanonicals.set(`${concreteConfig.id}-in-person`, inPersonResult.canonical);
-        console.log(`✓ Deployed in-person questionnaire for ${concreteConfig.name}`);
+        console.log(`✓ Created ${createdLocations.length} locations for ${concreteConfig.name}`);
       }
 
-      if (concreteConfig.paperworkConfigVirtual) {
-        const virtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
-          concreteConfig.id,
-          concreteConfig.paperworkConfigVirtual,
-          ServiceMode['virtual']
-        );
-        testQuestionnaireCanonicals.set(`${concreteConfig.id}-virtual`, virtualResult.canonical);
-        console.log(`✓ Deployed virtual questionnaire for ${concreteConfig.name}`);
+      // Deploy test questionnaires for each concrete config
+      for (const concreteConfig of loadedConcreteConfigs) {
+        if (concreteConfig.paperworkConfigInPerson) {
+          const inPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+            concreteConfig.id,
+            concreteConfig.paperworkConfigInPerson,
+            ServiceMode['in-person']
+          );
+          testQuestionnaireCanonicals.set(`${concreteConfig.id}-in-person`, inPersonResult.canonical);
+          console.log(`✓ Deployed in-person questionnaire for ${concreteConfig.name}`);
+        }
+
+        if (concreteConfig.paperworkConfigVirtual) {
+          const virtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+            concreteConfig.id,
+            concreteConfig.paperworkConfigVirtual,
+            ServiceMode['virtual']
+          );
+          testQuestionnaireCanonicals.set(`${concreteConfig.id}-virtual`, virtualResult.canonical);
+          console.log(`✓ Deployed virtual questionnaire for ${concreteConfig.name}`);
+        }
       }
+    } else {
+      console.log('Skipping concrete config resource creation (RUN_CONCRETE_TESTS != true)');
     }
 
     // Deploy isolated test questionnaires for baseline/synthetic scenarios
@@ -271,6 +279,8 @@ test.describe('Complete booking flows', () => {
 
   // ===========================================================================
   // CONCRETE CONFIG TESTS (instance-specific configurations)
+  // These tests only run in the upstream ottehr repo (RUN_CONCRETE_TESTS=true)
+  // When disabled, concreteScenarioGroups is empty and no tests are generated
   // Run with: npx playwright test --grep "Concrete: <config-name>"
   // ===========================================================================
   for (const [configId, { name: configName, scenarios: configScenarios }] of concreteScenarioGroups) {

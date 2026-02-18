@@ -56,6 +56,9 @@ instance-name/
 
 Concrete configs are **auto-discovered** at runtime - add a new folder and it's automatically included in the test matrix.
 
+**Upstream vs Downstream:**
+Concrete tests only run in the upstream ottehr repo. Set `RUN_CONCRETE_TESTS=true` in CI to enable them. Downstream instances skip concrete tests entirely - no scenarios are generated, no resources are created.
+
 ### 3. Config Helper Utilities
 **Location:** `apps/intake/tests/utils/config/`
 

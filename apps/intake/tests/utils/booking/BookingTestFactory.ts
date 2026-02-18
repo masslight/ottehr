@@ -208,6 +208,15 @@ export async function generateBookingTestScenarios(configName: string): Promise<
   // Generate scenarios from concrete smoke test configs
   // Each concrete config represents a specific instance configuration
   // We pass the overrides through the same config resolution as the app
+  //
+  // NOTE: Concrete tests only run in the upstream ottehr repo.
+  // Downstream instances set RUN_CONCRETE_TESTS=false (or don't set it) to skip these.
+  const runConcreteTests = process.env.RUN_CONCRETE_TESTS === 'true';
+  if (!runConcreteTests) {
+    console.log('[BookingTestFactory] Skipping concrete config scenarios (RUN_CONCRETE_TESTS != true)');
+    return scenarios;
+  }
+
   const concreteTestConfigs = await CONCRETE_TEST_CONFIGS;
   console.error('[BookingTestFactory] CONCRETE_TEST_CONFIGS:', concreteTestConfigs);
   for (const concreteConfig of concreteTestConfigs) {
