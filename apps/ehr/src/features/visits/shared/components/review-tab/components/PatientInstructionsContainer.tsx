@@ -36,9 +36,12 @@ export const PatientInstructionsContainer: FC = () => {
         <AssessmentTitle>Patient instructions</AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {instructions?.map((instruction) => (
-            <Typography key={instruction.resourceId} style={{ whiteSpace: 'pre-line' }}>
-              {instruction.text}
-            </Typography>
+            <>
+              <Typography color="primary.dark">{instruction.title}</Typography>
+              <Typography key={instruction.resourceId} style={{ whiteSpace: 'pre-line' }}>
+                {instruction.text}
+              </Typography>
+            </>
           ))}
         </Box>
       </>

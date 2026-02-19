@@ -454,6 +454,31 @@ describe('patientRecordValidation', () => {
       const result = validateFn('Primary', { 'insurance-priority-2': 'Primary' });
       expect(result).toContain('may not have two primary insurance plans');
     });
+
+    it.each([
+      ['employer-address-2', 'employer-address'],
+      ['emergency-contact-address-2', 'emergency-contact-address'],
+      ['responsible-party-address-2', 'responsible-party-address'],
+      ['patient-street-address-2', 'patient-street-address'],
+      ['policy-holder-address-additional-line', 'policy-holder-address'],
+      ['policy-holder-address-additional-line-2', 'policy-holder-address-2'],
+    ])('should require line 1 when %s has a value', (addressLine2Key, addressLine1Key) => {
+      const item: FormFieldsInputItem = {
+        key: addressLine2Key,
+        type: 'string',
+        label: 'Address line 2',
+        disabledDisplay: 'hidden',
+      };
+
+      const rules = generateFieldValidationRules(item, {});
+      expect(rules.validate).toBeDefined();
+
+      const validateFn = rules.validate as (value: string, context: any) => boolean | string;
+      expect(validateFn('Suite 200', { [addressLine1Key]: '' })).toBe(
+        'Address line 2 cannot be filled without address line 1'
+      );
+      expect(validateFn('Suite 200', { [addressLine1Key]: '100 Main St' })).toBe(true);
+    });
   });
 
   describe('generateValidationRulesForSection', () => {

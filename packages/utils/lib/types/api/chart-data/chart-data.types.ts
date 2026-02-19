@@ -311,6 +311,7 @@ export type ClinicalImpressionDTO = z.infer<typeof clinicalImpressionDTOSchema>;
 
 export interface CommunicationDTO extends SaveableDTO {
   text?: string;
+  title?: string;
 }
 
 export enum NOTE_TYPE {

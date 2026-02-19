@@ -565,17 +565,26 @@ export function makeCommunicationResource(
   data: CommunicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Communication {
+  const { resourceId, text, title } = data;
   return {
     resourceType: 'Communication',
-    id: data.resourceId,
+    id: resourceId,
     status: 'completed',
     subject: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
-    payload: [
-      {
-        contentString: data.text,
+    ...(title && {
+      topic: {
+        text: title,
       },
-    ],
+    }),
+
+    ...(text && {
+      payload: [
+        {
+          contentString: text,
+        },
+      ],
+    }),
     meta: getMetaWFieldName(fieldName),
   };
 }
@@ -583,7 +592,8 @@ export function makeCommunicationResource(
 export function makeCommunicationDTO(resource: Communication): CommunicationDTO {
   return {
     resourceId: resource.id,
-    text: resource.payload?.[0].contentString,
+    text: resource.payload?.[0]?.contentString,
+    title: resource.topic?.text,
   };
 }
 

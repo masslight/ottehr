@@ -1,13 +1,11 @@
-import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
   Account,
   ActivityDefinition,
-  Coding,
   Communication,
   Coverage,
-  Encounter,
   FhirResource,
   Location,
   Organization,
@@ -23,23 +21,18 @@ import {
 import { DateTime } from 'luxon';
 import {
   CreateLabOrderZambdaOutput,
-  CreateLabPaymentMethod,
   createOrderNumber,
   EXTERNAL_LAB_ERROR,
-  FHIR_IDC10_VALUESET_SYSTEM,
+  EXTERNAL_LAB_ERROR_MISSING_WC_INFO,
   flattenBundleResources,
   getAttendingPractitionerId,
-  getFullestAvailableName,
   getOrderNumber,
   getSecret,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
-  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
-  LAB_ORDER_TASK,
   LAB_ORG_TYPE_CODING,
   LabPaymentMethod,
-  ModifiedOrderingLocation,
   ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
   OrderableItemSpecimen,
@@ -48,7 +41,6 @@ import {
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   paymentMethodFromCoverage,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   SecretsKeys,
   serviceRequestPaymentMethod,
@@ -57,10 +49,19 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
-import { createTask } from '../../../../shared/tasks';
 import { ZambdaInput } from '../../../../shared/types';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
+import {
+  CreateLabCoverageDetails,
+  formatClinicalInfoNoteCommunication,
+  formatPreSubmissionTaskConfig,
+  formatServiceRequestConfig,
+  GetCreateOrderResourcesInput,
+  GetCreateOrderResourcesReturn,
+  groupTestsByLabGuid,
+  ResourcesForRequestFormatting,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -71,8 +72,8 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     const validatedParameters = validateRequestParameters(input);
     const {
       dx,
-      encounter,
-      orderableItem,
+      encounter, // why do we send the whole encounter? can probably just do the id and grab the resource later
+      orderableItems,
       psc,
       secrets,
       orderingLocation: modifiedOrderingLocation,
@@ -110,318 +111,55 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       );
     }
 
-    const orgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+    const clientOrgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-    const { labOrganization, coverageDetails, patient, existingOrderNumber, orderingLocation, orderLevelNote } =
-      await getAdditionalResources(
-        orderableItem,
-        encounter,
-        psc,
-        selectedPaymentMethod,
-        oystehr,
-        modifiedOrderingLocation,
-        orgId
-      );
+    const testsGroupedByLabGuid = groupTestsByLabGuid(orderableItems);
 
-    validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
-
-    const requests: BatchInputRequest<FhirResource>[] = [];
-    const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
-
-    const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
-    const serviceRequestContained: FhirResource[] = [];
-
-    const createSpecimenResources = !psc;
-    console.log('is psc:', psc);
-    console.log('createSpecimenResources:', createSpecimenResources);
-    console.log('orderableItem.item.specimens.length:', orderableItem.item.specimens.length);
-    const specimenFullUrlArr: string[] = [];
-    if (createSpecimenResources) {
-      const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
-        orderableItem,
-        patient.id ?? '',
-        serviceRequestFullUrl
-      );
-      activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
-        reference: `#${sd.id}`,
-      }));
-      serviceRequestContained.push(activityDefinitionToContain, ...specimenDefinitionConfigs);
-      specimenConfigs.forEach((specimenResource) => {
-        const specimenFullUrl = `urn:uuid:${randomUUID()}`;
-        specimenFullUrlArr?.push(specimenFullUrl);
-        requests.push({
-          method: 'POST',
-          url: '/Specimen',
-          resource: specimenResource,
-          fullUrl: specimenFullUrl,
-        });
-      });
-    } else {
-      serviceRequestContained.push(activityDefinitionToContain);
-    }
-
-    const serviceRequestCode = formatSrCode(orderableItem);
-    const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
-      return {
-        coding: [
-          {
-            system: FHIR_IDC10_VALUESET_SYSTEM,
-            code: diagnosis?.code,
-            display: diagnosis?.display,
-          },
-        ],
-        text: diagnosis?.display,
-      };
-    });
-    const requisitionNumber = existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
-    const serviceRequestConfig: ServiceRequest = {
-      resourceType: 'ServiceRequest',
-      status: 'draft',
-      intent: 'order',
-      subject: {
-        reference: `Patient/${patient.id}`,
-      },
-      encounter: {
-        reference: `Encounter/${encounter.id}`,
-      },
-      requester: {
-        reference: `Practitioner/${attendingPractitionerId}`,
-      },
-      performer: [
-        {
-          reference: `Organization/${labOrganization.id}`,
-          identifier: {
-            system: OYSTEHR_LAB_GUID_SYSTEM,
-            value: labOrganization.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value,
-          },
-        },
-      ],
-      authoredOn: DateTime.now().toISO() || undefined,
-      priority: 'stat',
-      code: serviceRequestCode,
-      reasonCode: serviceRequestReasonCode,
-      instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
-      contained: serviceRequestContained,
-      identifier: [
-        {
-          system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-          value: requisitionNumber,
-        },
-      ],
+    // create lab order requests will come in for the same patient, encounter, psc flag, location
+    // the only potential difference is the lab that will perform the test
+    const commonResources = {
+      encounter,
+      psc,
+      selectedPaymentMethod,
+      oystehr,
+      modifiedOrderingLocation,
+      clientOrgId,
     };
-    serviceRequestConfig.locationReference = [
-      {
-        type: 'Location',
-        reference: `Location/${orderingLocation.id}`,
-      },
-    ];
-    const serviceRequestSupportingInfo: Reference[] = [];
 
-    console.log('selected payment method', selectedPaymentMethod);
-    if (coverageDetails.type === LabPaymentMethod.Insurance) {
-      console.log('assigning serviceRequestConfig.insurance');
-      const coverageRefs: Reference[] = coverageDetails.insuranceCoverages.map((coverage) => {
-        return {
-          reference: `Coverage/${coverage.id}`,
-        };
+    const resourceRequestPromises = Object.entries(testsGroupedByLabGuid).map(async ([labGuid, testData]) => {
+      // get the fhir resources for this requsition which are grouped by lab
+      // (there are some other factors that go into requisition grouping like payment type and psc status but those are will never differ at this point)
+      const resources = await getCreateOrderResources({ ...commonResources, labName: testData.labName, labGuid });
+
+      const requisitionNumber = resources.existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
+
+      validateLabOrgAndOrderingLocationAndGetAccountNumber(resources.labOrganization, resources.orderingLocation);
+
+      const orderableItems = testData.tests;
+
+      const requestsForRequsition = orderableItems.map((orderableItem) => {
+        const requestsForThisTest = formatAllResourceRequests(orderableItem, {
+          ...resources,
+          requisitionNumber,
+          encounter,
+          dx,
+          psc,
+          attendingPractitionerId,
+          clinicalInfoNoteByUser,
+          selectedPaymentMethod,
+          currentUserPractitioner,
+        });
+        return requestsForThisTest;
       });
-      serviceRequestConfig.insurance = coverageRefs;
-    } else if (coverageDetails.type === LabPaymentMethod.ClientBill) {
-      const { clientBillCoverage, clientOrg } = coverageDetails;
-      if (clientBillCoverage) {
-        console.log(`assigning existing client bill coverage to service request config ${clientBillCoverage.id}`);
-        serviceRequestConfig.insurance = [{ reference: `Coverage/${clientBillCoverage.id}` }];
-      } else if (!clientBillCoverage) {
-        console.log('getting config for to create a new client bill coverage');
-        const clientBillCoverageConfig = getClientBillCoverageConfig(patient, clientOrg, labOrganization);
-        const clientBillCoverageFullUrl = `urn:uuid:${randomUUID()}`;
-        const postClientBillCoverageRequest: BatchInputRequest<Coverage> = {
-          method: 'POST',
-          url: '/Coverage',
-          resource: clientBillCoverageConfig,
-          fullUrl: clientBillCoverageFullUrl,
-        };
-        requests.push(postClientBillCoverageRequest);
-        serviceRequestConfig.insurance = [{ reference: clientBillCoverageFullUrl }];
-      }
-    } else if (coverageDetails.type === LabPaymentMethod.WorkersComp) {
-      console.log('adding workers comp insurance and category to ServiceRequest');
-      serviceRequestConfig.insurance = [{ reference: `Coverage/${coverageDetails.workersCompInsurance.id}` }];
-      if (serviceRequestConfig.category) {
-        serviceRequestConfig.category.push({ coding: [WORKERS_COMP_SERVICE_REQUEST_CATEGORY] });
-      } else {
-        serviceRequestConfig.category = [{ coding: [WORKERS_COMP_SERVICE_REQUEST_CATEGORY] }];
-      }
-    }
 
-    if (psc) {
-      serviceRequestConfig.orderDetail = [
-        {
-          coding: [
-            {
-              system: PSC_HOLD_CONFIG.system,
-              code: PSC_HOLD_CONFIG.code,
-              display: PSC_HOLD_CONFIG.display,
-            },
-          ],
-          text: PSC_HOLD_CONFIG.display,
-        },
-      ];
-    }
-
-    if (specimenFullUrlArr.length > 0) {
-      serviceRequestConfig.specimen = specimenFullUrlArr.map((url) => ({
-        type: 'Specimen',
-        reference: url,
-      }));
-    }
-
-    const patientName = getFullestAvailableName(patient);
-    const testName = activityDefinitionToContain.name;
-    const labName = labOrganization.name;
-    const fullTestName = testName + (labName ? ' / ' + labName : '');
-
-    const preSubmissionTaskConfig = createTask({
-      category: LAB_ORDER_TASK.category,
-      title: `Collect sample for “${fullTestName}” for ${patientName}`,
-      code: {
-        system: LAB_ORDER_TASK.system,
-        code: LAB_ORDER_TASK.code.preSubmission,
-      },
-      encounterId: encounter.id ?? '',
-      location: orderingLocation.id
-        ? {
-            id: orderingLocation.id,
-          }
-        : undefined,
-      basedOn: [serviceRequestFullUrl],
-      input: [
-        {
-          type: LAB_ORDER_TASK.input.testName,
-          valueString: activityDefinitionToContain.name,
-        },
-        {
-          type: LAB_ORDER_TASK.input.labName,
-          valueString: labOrganization.name,
-        },
-        {
-          type: LAB_ORDER_TASK.input.patientName,
-          valueString: patientName,
-        },
-        {
-          type: LAB_ORDER_TASK.input.providerName,
-          valueString: getFullestAvailableName(currentUserPractitioner),
-        },
-        {
-          type: LAB_ORDER_TASK.input.orderDate,
-          valueString: serviceRequestConfig.authoredOn,
-        },
-        {
-          type: LAB_ORDER_TASK.input.appointmentId,
-          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
-        },
-      ],
+      return requestsForRequsition.flat();
     });
 
-    const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
-    if (aoeQRConfig) {
-      const aoeQRFullUrl = `urn:uuid:${randomUUID()}`;
-      const postQrRequest: BatchInputRequest<QuestionnaireResponse> = {
-        method: 'POST',
-        url: '/QuestionnaireResponse',
-        resource: aoeQRConfig,
-        fullUrl: aoeQRFullUrl,
-      };
-      requests.push(postQrRequest);
+    const resourceRequests = await Promise.all(resourceRequestPromises);
 
-      serviceRequestSupportingInfo.push({
-        type: 'QuestionnaireResponse',
-        reference: aoeQRFullUrl,
-      });
-    }
+    const requests = resourceRequests.flat();
 
-    const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
-    const provenanceConfig = getProvenanceConfig(
-      serviceRequestFullUrl,
-      orderingLocation.id,
-      curUserPractitionerId,
-      attendingPractitionerId
-    );
-    serviceRequestConfig.relevantHistory = [
-      {
-        reference: provenanceFullUrl,
-      },
-    ];
-
-    if (clinicalInfoNoteByUser) {
-      console.log('adding request to create a communication resources for clinical info notes');
-      const communicationConfig: Communication = {
-        resourceType: 'Communication',
-        status: 'completed',
-        identifier: [
-          {
-            system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-            value: requisitionNumber,
-          },
-        ],
-        basedOn: [{ reference: serviceRequestFullUrl }],
-        category: [
-          {
-            coding: [LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY],
-          },
-        ],
-        payload: [{ contentString: clinicalInfoNoteByUser }],
-      };
-      const communicationFullUrl = `urn:uuid:${randomUUID()}`;
-
-      requests.push({
-        method: 'POST',
-        url: '/Communication',
-        resource: communicationConfig,
-        fullUrl: communicationFullUrl,
-      });
-
-      serviceRequestSupportingInfo.push({
-        type: 'Communication',
-        reference: communicationFullUrl,
-      });
-    }
-
-    if (serviceRequestSupportingInfo.length > 0) {
-      serviceRequestConfig.supportingInfo = serviceRequestSupportingInfo;
-    }
-
-    requests.push({
-      method: 'POST',
-      url: '/Provenance',
-      resource: provenanceConfig,
-      fullUrl: provenanceFullUrl,
-    });
-    requests.push({
-      method: 'POST',
-      url: '/Task',
-      resource: preSubmissionTaskConfig,
-    });
-    requests.push({
-      method: 'POST',
-      url: '/ServiceRequest',
-      resource: serviceRequestConfig,
-      fullUrl: serviceRequestFullUrl,
-    });
-
-    if (orderLevelNote) {
-      console.log(
-        'since an order level note exists for this order, we must add the new service request to its based-on'
-      );
-      requests.push({
-        method: 'PATCH',
-        url: `Communication/${orderLevelNote.id}`,
-        operations: [{ op: 'add', path: `/basedOn/-`, value: { reference: serviceRequestFullUrl } }],
-        ifMatch: orderLevelNote.meta?.versionId ? `W/"${orderLevelNote.meta.versionId}"` : undefined,
-      });
-    }
-
-    console.log('making transaction request');
+    console.log('making transaction request', JSON.stringify(requests));
     await oystehr.fhir.transaction({ requests });
 
     const response: CreateLabOrderZambdaOutput = {};
@@ -435,6 +173,196 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     return topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
   }
 });
+
+const formatAllResourceRequests = (
+  orderableItem: OrderableItemSearchResult,
+  resources: ResourcesForRequestFormatting
+): BatchInputRequest<FhirResource>[] => {
+  const {
+    labOrganization,
+    patient,
+    coverageDetails,
+    orderingLocation,
+    orderLevelNote,
+    requisitionNumber,
+    encounter,
+    selectedPaymentMethod,
+    psc,
+    attendingPractitionerId,
+    currentUserPractitioner,
+    clinicalInfoNoteByUser,
+  } = resources;
+  console.log(
+    `Formatting fhir batch input requests. Requisition: ${requisitionNumber} Test: ${orderableItem.item.itemName} ${orderableItem.item.itemCode} LabGuid: ${orderableItem.lab.labGuid}`
+  );
+
+  const requests: BatchInputRequest<FhirResource>[] = [];
+  const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
+
+  const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
+  const serviceRequestContained: FhirResource[] = [];
+  const serviceRequestSupportingInfo: Reference[] = [];
+  const specimenFullUrlArr: string[] = [];
+
+  const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
+  const provenanceConfig = getProvenanceConfig(
+    serviceRequestFullUrl,
+    orderingLocation.id,
+    currentUserPractitioner.id || '',
+    attendingPractitionerId
+  );
+  requests.push({
+    method: 'POST',
+    url: '/Provenance',
+    resource: provenanceConfig,
+    fullUrl: provenanceFullUrl,
+  });
+
+  const createSpecimenResources = !psc;
+  console.log('is psc:', psc);
+  console.log('orderableItem.item.specimens.length:', orderableItem.item.specimens.length);
+  if (createSpecimenResources) {
+    const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
+      orderableItem,
+      patient.id ?? '',
+      serviceRequestFullUrl
+    );
+    activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
+      reference: `#${sd.id}`,
+    }));
+    serviceRequestContained.push(activityDefinitionToContain, ...specimenDefinitionConfigs);
+    specimenConfigs.forEach((specimenResource) => {
+      const specimenFullUrl = `urn:uuid:${randomUUID()}`;
+      specimenFullUrlArr.push(specimenFullUrl);
+      requests.push({
+        method: 'POST',
+        url: '/Specimen',
+        resource: specimenResource,
+        fullUrl: specimenFullUrl,
+      });
+    });
+  } else {
+    serviceRequestContained.push(activityDefinitionToContain);
+  }
+
+  const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
+  if (aoeQRConfig) {
+    const aoeQRFullUrl = `urn:uuid:${randomUUID()}`;
+    const postQrRequest: BatchInputRequest<QuestionnaireResponse> = {
+      method: 'POST',
+      url: '/QuestionnaireResponse',
+      resource: aoeQRConfig,
+      fullUrl: aoeQRFullUrl,
+    };
+    requests.push(postQrRequest);
+
+    serviceRequestSupportingInfo.push({
+      type: 'QuestionnaireResponse',
+      reference: aoeQRFullUrl,
+    });
+  }
+
+  if (clinicalInfoNoteByUser) {
+    const communicationFullUrl = `urn:uuid:${randomUUID()}`;
+    const communicationConfig = formatClinicalInfoNoteCommunication(
+      requisitionNumber,
+      serviceRequestFullUrl,
+      clinicalInfoNoteByUser
+    );
+    requests.push({
+      method: 'POST',
+      url: '/Communication',
+      resource: communicationConfig,
+      fullUrl: communicationFullUrl,
+    });
+
+    serviceRequestSupportingInfo.push({
+      type: 'Communication',
+      reference: communicationFullUrl,
+    });
+  }
+
+  if (orderLevelNote) {
+    console.log('since an order level note exists for this order, we must add the new service request to its based-on');
+    requests.push({
+      method: 'PATCH',
+      url: `Communication/${orderLevelNote.id}`,
+      operations: [{ op: 'add', path: `/basedOn/-`, value: { reference: serviceRequestFullUrl } }],
+      ifMatch: orderLevelNote.meta?.versionId ? `W/"${orderLevelNote.meta.versionId}"` : undefined,
+    });
+  }
+
+  const serviceRequestConfig = formatServiceRequestConfig(
+    orderableItem,
+    resources,
+    serviceRequestContained,
+    activityDefinitionToContain.id || '',
+    specimenFullUrlArr,
+    provenanceFullUrl
+  );
+
+  console.log('selected payment method', selectedPaymentMethod);
+  if (coverageDetails.type === LabPaymentMethod.Insurance) {
+    console.log('assigning serviceRequestConfig.insurance');
+    const coverageRefs: Reference[] = coverageDetails.insuranceCoverages.map((coverage) => {
+      return {
+        reference: `Coverage/${coverage.id}`,
+      };
+    });
+    serviceRequestConfig.insurance = coverageRefs;
+  } else if (coverageDetails.type === LabPaymentMethod.ClientBill) {
+    const { clientBillCoverage, clientOrg } = coverageDetails;
+    if (clientBillCoverage) {
+      console.log(`assigning existing client bill coverage to service request config ${clientBillCoverage.id}`);
+      serviceRequestConfig.insurance = [{ reference: `Coverage/${clientBillCoverage.id}` }];
+    } else if (!clientBillCoverage) {
+      console.log('getting config for to create a new client bill coverage');
+      const clientBillCoverageConfig = getClientBillCoverageConfig(patient, clientOrg, labOrganization);
+      const clientBillCoverageFullUrl = `urn:uuid:${randomUUID()}`;
+      const postClientBillCoverageRequest: BatchInputRequest<Coverage> = {
+        method: 'POST',
+        url: '/Coverage',
+        resource: clientBillCoverageConfig,
+        fullUrl: clientBillCoverageFullUrl,
+      };
+      requests.push(postClientBillCoverageRequest);
+      serviceRequestConfig.insurance = [{ reference: clientBillCoverageFullUrl }];
+    }
+  } else if (coverageDetails.type === LabPaymentMethod.WorkersComp) {
+    console.log('adding workers comp insurance and category to ServiceRequest');
+    serviceRequestConfig.insurance = [{ reference: `Coverage/${coverageDetails.workersCompInsurance.id}` }];
+    if (serviceRequestConfig.category) {
+      serviceRequestConfig.category.push({ coding: [WORKERS_COMP_SERVICE_REQUEST_CATEGORY] });
+    } else {
+      serviceRequestConfig.category = [{ coding: [WORKERS_COMP_SERVICE_REQUEST_CATEGORY] }];
+    }
+  }
+
+  const preSubmissionTaskConfig = formatPreSubmissionTaskConfig(
+    resources,
+    activityDefinitionToContain,
+    serviceRequestFullUrl,
+    serviceRequestConfig
+  );
+  requests.push({
+    method: 'POST',
+    url: '/Task',
+    resource: preSubmissionTaskConfig,
+  });
+
+  if (serviceRequestSupportingInfo.length > 0) {
+    serviceRequestConfig.supportingInfo = serviceRequestSupportingInfo;
+  }
+
+  requests.push({
+    method: 'POST',
+    url: '/ServiceRequest',
+    resource: serviceRequestConfig,
+    fullUrl: serviceRequestFullUrl,
+  });
+
+  return requests;
+};
 
 const formatAoeQR = (
   serviceRequestFullUrl: string,
@@ -455,26 +383,6 @@ const formatAoeQR = (
       },
     ],
     status: 'in-progress',
-  };
-};
-
-const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
-  const coding: Coding[] = [
-    {
-      system: OYSTEHR_LAB_OI_CODE_SYSTEM,
-      code: orderableItem.item.itemCode,
-      display: orderableItem.item.itemName,
-    },
-  ];
-  if (orderableItem.item.itemLoinc) {
-    coding.push({
-      system: 'http://loinc.org',
-      code: orderableItem.item.itemLoinc,
-    });
-  }
-  return {
-    coding,
-    text: orderableItem.item.itemName,
   };
 };
 
@@ -566,29 +474,10 @@ const getProvenanceConfig = (
   return provenanceConfig;
 };
 
-type CreateLabCoverageDetails =
-  | { type: LabPaymentMethod.Insurance; insuranceCoverages: Coverage[] }
-  | { type: LabPaymentMethod.ClientBill; clientBillCoverage: Coverage | undefined; clientOrg: Organization }
-  | { type: LabPaymentMethod.SelfPay }
-  | { type: LabPaymentMethod.WorkersComp; workersCompInsurance: Coverage };
-const getAdditionalResources = async (
-  orderableItem: OrderableItemSearchResult,
-  encounter: Encounter,
-  psc: boolean,
-  selectedPaymentMethod: CreateLabPaymentMethod,
-  oystehr: Oystehr,
-  modifiedOrderingLocation: ModifiedOrderingLocation,
-  clientOrgId: string
-): Promise<{
-  labOrganization: Organization;
-  patient: Patient;
-  coverageDetails: CreateLabCoverageDetails;
-  existingOrderNumber: string | undefined;
-  orderingLocation: Location;
-  orderLevelNote: Communication | undefined;
-}> => {
-  const labName = orderableItem.lab.labName;
-  const labGuid = orderableItem.lab.labGuid;
+const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Promise<GetCreateOrderResourcesReturn> => {
+  const { encounter, psc, selectedPaymentMethod, oystehr, modifiedOrderingLocation, clientOrgId, labName, labGuid } =
+    input;
+
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
     method: 'GET',
     url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}&identifier=${OYSTEHR_LAB_GUID_SYSTEM}|${labGuid}`,
@@ -763,15 +652,38 @@ const getAdditionalResources = async (
 
   if (selectedPaymentMethod === LabPaymentMethod.WorkersComp) {
     if (workersCompAccounts.length !== 1) {
-      throw new Error(`Incorrect number of workers comp accounts found: ${workersCompAccounts.length}`);
+      console.log(`Incorrect number of workers comp accounts found: ${workersCompAccounts.length}`);
+      throw EXTERNAL_LAB_ERROR_MISSING_WC_INFO(
+        `Information necessary to submit labs is missing. Please navigate to visit details and complete all Worker's Compensation Information.`
+      );
     }
 
     if (!workersCompInsurance) {
       console.log(`workersCompInsurance not found for encounter: ${encounter.id}`);
-      throw EXTERNAL_LAB_ERROR(`No coverage is found for this workers comp account`);
+      throw EXTERNAL_LAB_ERROR_MISSING_WC_INFO(
+        `Information necessary to submit labs is missing. Please navigate to visit details and complete all Worker's Compensation Information.`
+      );
     }
 
     const workersCompAccount = workersCompAccounts[0];
+
+    console.log('checking that workers comp account is associated with this encounter');
+    console.log('workersCompAccount', workersCompAccount.id);
+    console.log('encounter.account', JSON.stringify(encounter?.account));
+
+    const encounterHasWorkersCompAccount = !!encounter?.account?.some(
+      (ref) => ref.reference === `Account/${workersCompAccount.id}`
+    );
+
+    if (!encounterHasWorkersCompAccount) {
+      throw new Error(
+        `There is a config issue with this encounter. The appointment is tagged as workers comp and the lab payment method selected is workers comp but the wc account is not linked to Encounter/${encounter?.id}.`
+      );
+    }
+
+    // todo labs oystehr submit lab will throw an error if there is no address under Account.guarantor.party, it would be good to validate that here too
+    // we'll need to grab the workersCompAccount organization and check
+
     const workersCompInsuranceId = (workersCompInsurance as Coverage | undefined)?.id;
     const insuranceMatchesAccount = workersCompAccount.coverage?.some(
       (cov) => cov.coverage.reference === `Coverage/${workersCompInsuranceId}`

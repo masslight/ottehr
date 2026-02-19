@@ -183,6 +183,44 @@ const MEDICAL_HISTORY_DEFAULTS: MedicalHistoryConfig = {
       },
     ],
   },
+  inHouseMedications: {
+    favorites: [
+      {
+        name: 'Acetaminophen - Adult',
+        dose: 650,
+        units: 'mg',
+        route: '26643006',
+        instructions: 'Take 2 tablets (325 mg each) by mouth every 6 hours as needed for pain or fever.',
+        dosespotId: 23170,
+      },
+      {
+        name: 'Albuterol - Adult',
+        dose: 2.5,
+        units: 'mg',
+        route: '447694001',
+        instructions:
+          'Inhale 1 vial (2.5 mg/3 mL) via nebulizer every 4–6 hours as needed for shortness of breath or wheezing.',
+        dosespotId: 29518,
+      },
+      {
+        name: 'Albuterol - Pediatric',
+        dose: 1.25,
+        units: 'mg',
+        route: '447694001',
+        instructions:
+          'Inhale 1 vial (1.25 mg/3 mL) via nebulizer every 4–6 hours as needed for shortness of breath or wheezing.',
+        dosespotId: 29518,
+      },
+      {
+        name: 'Amoxicillin - Adult',
+        dose: 500,
+        units: 'mg',
+        route: '26643006',
+        instructions: 'Take 1 capsule by mouth every 12 hours for 10 days until finished.',
+        dosespotId: 34220,
+      },
+    ],
+  },
 };
 
 const mergedMedicalHistoryConfig = mergeAndFreezeConfigObjects(

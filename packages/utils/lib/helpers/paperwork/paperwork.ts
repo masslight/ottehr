@@ -37,6 +37,7 @@ import {
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
 } from '../../types';
+import { filterQuestionnaireResponseByEnableWhen } from '../../types/data/paperwork';
 import { DOB_DATE_FORMAT } from '../../utils';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
@@ -641,8 +642,67 @@ export const makeQRResponseItem = (
   return base;
 };
 
+/**
+ * List of field linkIds that support explicit clearing (deletion) when set to null by user.
+ * These fields will send empty answer array [] to backend to trigger DELETE operations.
+ */
+const REMOVABLE_FIELDS = ['occupational-medicine-employer'];
+
+/**
+ * Checks if a field supports explicit clearing (deletion).
+ *
+ * This function should be used everywhere there is an intent to delete/clear a field.
+ * It can be extended in the future to:
+ * - Support additional fields by adding them to REMOVABLE_FIELDS
+ * - Enable deletion for all optional fields by checking field requirements
+ * - Implement more complex deletion logic based on field type or context
+ *
+ * @param linkId - Field linkId to check
+ * @returns true if the field can be explicitly cleared
+ */
+export const isRemovableField = (linkId: string): boolean => {
+  return REMOVABLE_FIELDS.includes(linkId);
+};
+
+/**
+ * Checks if a field was explicitly cleared by the user.
+ * A field is considered explicitly cleared if it has an empty answer array.
+ * @param item - QuestionnaireResponseItem to check
+ * @returns true if the field was explicitly cleared
+ */
+export const isFieldExplicitlyCleared = (item: QuestionnaireResponseItem): boolean => {
+  return isRemovableField(item.linkId) && Array.isArray(item.answer) && item.answer.length === 0;
+};
+
+/**
+ * Filters out hidden removable fields from QuestionnaireResponse items.
+ * This prevents accidental deletion when a removable field is just hidden (not explicitly cleared).
+ *
+ * @param items - QuestionnaireResponse items to filter
+ * @param questionnaire - Questionnaire with enableWhen conditions
+ * @returns Filtered items with hidden removable fields removed
+ */
+export const filterHiddenRemovableFields = (
+  items: QuestionnaireResponseItem[],
+  questionnaire: Questionnaire
+): QuestionnaireResponseItem[] => {
+  const visibleRemovableFields = filterQuestionnaireResponseByEnableWhen(
+    items.filter((item: QuestionnaireResponseItem) => isRemovableField(item.linkId)),
+    questionnaire
+  );
+  const visibleRemovableLinkIds = new Set(visibleRemovableFields.map((item: QuestionnaireResponseItem) => item.linkId));
+
+  return items.filter(
+    (item: QuestionnaireResponseItem) => !isRemovableField(item.linkId) || visibleRemovableLinkIds.has(item.linkId)
+  );
+};
+
 export const itemContainsAnyAnswer = (item: QuestionnaireResponseItem): boolean => {
-  if (item.answer) {
+  if (item.answer !== undefined) {
+    // Empty answer array [] is a valid answer (explicit clear) for occupational-medicine-employer
+    if (isFieldExplicitlyCleared(item)) {
+      return true;
+    }
     return item.answer.some((answer) => {
       return Object.values(answer).some((val) => {
         return val !== undefined;

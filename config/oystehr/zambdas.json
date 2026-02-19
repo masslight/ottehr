@@ -1258,6 +1258,12 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/update-login-phone-numbers/index",
       "zip": ".dist/zips/update-login-phone-numbers.zip"
+    "MAKE_MEDICATION_HISTORY_PDF": {
+      "name": "make-medication-history-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
+      "zip": ".dist/zips/make-medication-history-pdf.zip"
     }
   },
   "fhirResources": {

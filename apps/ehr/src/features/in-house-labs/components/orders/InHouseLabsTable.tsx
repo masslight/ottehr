@@ -22,13 +22,12 @@ import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCreateInHouseLabOrderResources } from 'src/api/api';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy, TestItem } from 'utils';
+import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy } from 'utils';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
@@ -78,32 +77,9 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   const [testTypeQuery, setTestTypeQuery] = useState<string>('');
   const [tempDateFilter, setTempDateFilter] = useState<DateTime | null>(visitDateFilter);
 
-  const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
-  const [loadingTests, setLoadingTests] = useState(false);
+  const { isFetching: loadingTests, data: createInHouseLabResources } = useGetCreateInHouseLabResources({});
 
-  const { oystehrZambda } = useApiClients();
-
-  // set data for filters
-  useEffect(() => {
-    if (!oystehrZambda || !showFilters) {
-      return;
-    }
-
-    const fetchTests = async (): Promise<void> => {
-      try {
-        setLoadingTests(true);
-        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {});
-        const testItems = response.labs || [];
-        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
-      } catch (error) {
-        console.error('Error fetching tests:', error);
-      } finally {
-        setLoadingTests(false);
-      }
-    };
-
-    void fetchTests();
-  }, [oystehrZambda, showFilters]);
+  const availableTests = Object.values(createInHouseLabResources?.labs || {});
 
   const submitFilterByDate = (date?: DateTime | null): void => {
     const dateToSet = date || tempDateFilter;

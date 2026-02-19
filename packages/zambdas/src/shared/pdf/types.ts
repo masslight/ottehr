@@ -627,7 +627,7 @@ export interface CptCodes extends PdfData {
 }
 
 export interface PlanData extends PdfData {
-  patientInstructions?: string[];
+  patientInstructions?: { text?: string; title?: string }[];
   disposition: {
     header: string;
     text: string;
@@ -1040,4 +1040,29 @@ export interface ProgressNoteData extends PdfData {
 export interface DischargeSummaryInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
+}
+
+export interface DischargeSummaryData extends PdfData {
+  patient: PatientInfoForDischargeSummary;
+  visit: VisitInfo;
+  vitals: VitalsDataInDischargeSummary;
+  medications: MedicationsData;
+  allergies: AllergiesData;
+  inHouseLabs?: InHouseLabs;
+  externalLabs?: ExternalLabs;
+  radiology: RadiologyData;
+  inHouseMedications: InHouseMedicationsDataForDischargeSummary;
+  erxMedications?: ErxMedicationsData;
+  diagnoses?: DiagnosesData;
+  patientInstructions?: PatientInstructionsData;
+  educationDocuments?: EducationDocumentsData;
+  disposition: DispositionData;
+  physician: PhysicianData;
+  workSchoolExcuse?: WorkSchoolExcuseData;
+  documentsAttached?: boolean;
+}
+export interface MedicationHistoryInput extends PdfData {
+  patient: PatientInfoForDischargeSummary; // all this is pretty generic actually
+  visit: VisitInfo;
+  medications: MedicationsData;
 }

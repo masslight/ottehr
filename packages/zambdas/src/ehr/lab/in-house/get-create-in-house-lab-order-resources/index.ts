@@ -1,13 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Location, Practitioner } from 'fhir/r4b';
+import { ActivityDefinition, Encounter, List, Practitioner } from 'fhir/r4b';
 import {
   convertActivityDefinitionToTestItem,
   getAttendingPractitionerId,
-  GetCreateInHouseLabOrderResourcesParameters,
-  GetCreateInHouseLabOrderResourcesResponse,
+  GetCreateInHouseLabOrderResourcesInput,
+  GetCreateInHouseLabOrderResourcesOutput,
   getFullestAvailableName,
   getSecret,
-  getTimezone,
+  LAB_LIST_CODE_CODING,
+  LabListsDTO,
   Secrets,
   SecretsKeys,
   TestItem,
@@ -15,11 +16,12 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  getMyPractitionerId,
+  sendErrors,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
+import { formatLabListDTOs } from '../../shared/helpers';
 import { fetchActiveInHouseLabActivityDefinitions } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -28,7 +30,7 @@ const ZAMBDA_NAME = 'get-create-in-house-lab-order-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let secrets = input.secrets;
-  let validatedParameters: GetCreateInHouseLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: GetCreateInHouseLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
 
   try {
     validatedParameters = validateRequestParameters(input);
@@ -49,102 +51,93 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const {
-      attendingPractitionerName,
-      // not sure if we need these
-      // currentPractitionerName,
-      // attendingPractitionerId,
-      // currentPractitionerId,
-      // timezone,
-    } = await (async () => {
-      const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+    const testItems: TestItem[] = [];
+    let providerName: string | undefined;
+    let labSets: LabListsDTO[] | undefined;
 
-      const [myPractitionerId, { encounter, timezone }] = await Promise.all([
-        getMyPractitionerId(oystehrCurrentUser),
-        validatedParameters.encounterId
-          ? oystehr.fhir
-              .search<Encounter | Location>({
-                resourceType: 'Encounter',
-                params: [
-                  { name: '_id', value: validatedParameters.encounterId },
-                  { name: '_include', value: 'Encounter:location' },
-                ],
-              })
-              .then((bundle) => {
-                const resources = bundle.unbundle();
-                const encounter = resources.find((r): r is Encounter => r.resourceType === 'Encounter');
-                const location = resources.find((r): r is Location => r.resourceType === 'Location');
-                const timezone = location && getTimezone(location);
-                return { encounter, timezone };
-              })
-          : Promise.resolve({ encounter: null, timezone: undefined }),
-      ]);
+    if (validatedParameters.encounterId) {
+      const [attendingPractitionerName, activeActivityDefinitions, labLists] = await Promise.all([
+        (async () => {
+          if (!validatedParameters.encounterId) return '';
 
-      if (!encounter) {
-        // todo: we don't have encounter in patient page, this zambda should return the test items only,
-        // the rest of data should be fetched from the get-orders zambda
-        return {
-          attendingPractitionerName: '',
-          currentPractitionerName: '',
-          attendingPractitionerId: '',
-          currentPractitionerId: '',
-          timezone: undefined,
-        };
-      }
+          const encounter = await oystehr.fhir.get<Encounter>({
+            resourceType: 'Encounter',
+            id: validatedParameters.encounterId,
+          });
 
-      const practitionerId = getAttendingPractitionerId(encounter);
+          if (!encounter) return '';
 
-      const attendingPractitionerPromise = practitionerId
-        ? oystehr.fhir.get<Practitioner>({
+          const practitionerId = getAttendingPractitionerId(encounter);
+
+          if (!practitionerId) return '';
+
+          const practitioner = await oystehr.fhir.get<Practitioner>({
             resourceType: 'Practitioner',
             id: practitionerId,
-          })
-        : Promise.resolve(null);
+          });
 
-      const currentPractitionerPromise = myPractitionerId
-        ? oystehr.fhir.get<Practitioner>({
-            resourceType: 'Practitioner',
-            id: myPractitionerId,
-          })
-        : Promise.resolve(null);
-
-      const [attendingPractitioner, currentPractitioner] = await Promise.all([
-        attendingPractitionerPromise,
-        currentPractitionerPromise,
+          return getFullestAvailableName(practitioner) || '';
+        })(),
+        fetchActiveInHouseLabActivityDefinitions(oystehr),
+        (async () => {
+          return (
+            await oystehr.fhir.search<List>({
+              resourceType: 'List',
+              params: [
+                { name: 'code', value: `${LAB_LIST_CODE_CODING.inHouse.system}|${LAB_LIST_CODE_CODING.inHouse.code}` },
+              ],
+            })
+          ).unbundle();
+        })(),
       ]);
 
-      const attendingPractitionerName = attendingPractitioner
-        ? getFullestAvailableName(attendingPractitioner) || ''
-        : '';
+      console.log(`Found ${activeActivityDefinitions.length} active ActivityDefinition resources`);
 
-      const currentPractitionerName = currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '';
+      for (const activeDefinition of activeActivityDefinitions) {
+        const testItem = convertActivityDefinitionToTestItem(activeDefinition);
+        testItems.push(testItem);
+      }
 
-      const attendingPractitionerId = attendingPractitioner?.id || '';
-      const currentPractitionerId = currentPractitioner?.id || '';
+      labSets = formatLabListDTOs(labLists);
 
-      return {
-        attendingPractitionerName,
-        currentPractitionerName,
-        attendingPractitionerId,
-        currentPractitionerId,
-        timezone,
-      };
-    })();
+      providerName = attendingPractitionerName;
+    } else if (validatedParameters.selectedLabSet) {
+      const { selectedLabSet } = validatedParameters;
+      const activityDefinitionIds = selectedLabSet.labs.map((lab) => lab.activityDefinitionId);
+      const labSetActivityDefinitions = (
+        await oystehr.fhir.search<ActivityDefinition>({
+          resourceType: 'ActivityDefinition',
+          params: [
+            {
+              name: '_id',
+              value: activityDefinitionIds.join(','),
+            },
+          ],
+        })
+      ).unbundle();
 
-    const activeActivityDefinitions = await fetchActiveInHouseLabActivityDefinitions(oystehr);
+      console.log(
+        `Found ${labSetActivityDefinitions.length} active ActivityDefinition resources for the labSet List/${selectedLabSet.listId}`
+      );
 
-    console.log(`Found ${activeActivityDefinitions.length} active ActivityDefinition resources`);
+      for (const activityDefinition of labSetActivityDefinitions) {
+        const testItem = convertActivityDefinitionToTestItem(activityDefinition);
+        testItems.push(testItem);
 
-    const testItems: TestItem[] = [];
-
-    for (const activeDefinition of activeActivityDefinitions) {
-      const testItem = convertActivityDefinitionToTestItem(activeDefinition);
-      testItems.push(testItem);
+        // notify the dev team that something is misconfigured
+        if (activityDefinition.status !== 'active') {
+          const errorMessage = `There is an INACTIVE Activity Definition (ActivityDefinition/${activityDefinition.id}) linked to the current working Lab Set List/${selectedLabSet.listId}`;
+          const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+          console.log(errorMessage);
+          await sendErrors(errorMessage, ENVIRONMENT);
+        }
+      }
     }
 
-    const response: GetCreateInHouseLabOrderResourcesResponse = {
-      labs: testItems,
-      providerName: attendingPractitionerName,
+    const response: GetCreateInHouseLabOrderResourcesOutput = {
+      labs: testItems.sort((a, b) => a.name.localeCompare(b.name)),
+      providerName,
+      labSets,
     };
 
     return {

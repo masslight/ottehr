@@ -62,7 +62,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
       return patientInstructions;
     }
     const lowerSearchTerm = searchTerm.toLowerCase();
-    return patientInstructions.filter((instruction) => instruction.text?.toLowerCase().includes(lowerSearchTerm));
+    return patientInstructions.filter((instruction) => instruction.title?.toLowerCase().includes(lowerSearchTerm));
   }, [patientInstructions, searchTerm]);
 
   return (
@@ -124,7 +124,12 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
           <ActionsList
             data={filteredInstructions}
             getKey={(value, index) => value.resourceId || index}
-            renderItem={(value) => <Typography>{value.text}</Typography>}
+            renderItem={(value) => (
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {value.title && <Typography fontWeight={600}>{value.title}</Typography>}
+                {value.text && <Typography style={{ whiteSpace: 'pre-line' }}>{value.text}</Typography>}
+              </Box>
+            )}
             renderActions={(value) => (
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 {isMyTemplates && (

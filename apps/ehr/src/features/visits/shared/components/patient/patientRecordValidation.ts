@@ -21,6 +21,15 @@ interface TriggeredEffects {
 
 type ValidationResolver = (values: any) => Promise<{ values: any; errors: Record<string, FieldError> }>;
 
+const ADDRESS_LINE_2_FIELD_DEPENDENCIES: Record<string, string> = {
+  'patient-street-address-2': 'patient-street-address',
+  'policy-holder-address-additional-line': 'policy-holder-address',
+  'policy-holder-address-additional-line-2': 'policy-holder-address-2',
+  'responsible-party-address-2': 'responsible-party-address',
+  'emergency-contact-address-2': 'emergency-contact-address',
+  'employer-address-2': 'employer-address',
+};
+
 /**
  * Evaluates triggers for a field based on current form values
  */
@@ -259,6 +268,16 @@ export const generateFieldValidationRules = (
       }
       if (otherGroupValue === value) {
         return `Account may not have two ${value.toLowerCase()} insurance plans`;
+      }
+      return true;
+    };
+  }
+
+  const requiredAddressLine1Field = ADDRESS_LINE_2_FIELD_DEPENDENCIES[item.key];
+  if (requiredAddressLine1Field) {
+    rules.validate = (value: string, context: any) => {
+      if (value && !context[requiredAddressLine1Field]) {
+        return 'Address line 2 cannot be filled without address line 1';
       }
       return true;
     };

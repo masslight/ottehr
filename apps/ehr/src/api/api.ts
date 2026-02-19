@@ -53,8 +53,6 @@ import {
   GetAppointmentsZambdaOutput,
   GetConversationInput,
   GetConversationZambdaOutput,
-  GetCreateInHouseLabOrderResourcesParameters,
-  GetCreateInHouseLabOrderResourcesResponse,
   GetEmployeesResponse,
   GetInHouseOrdersParameters,
   GetLabelPdfParameters,
@@ -171,7 +169,6 @@ const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID = 'create-in-house-lab-order';
 const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = 'get-in-house-orders';
-const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = 'get-create-in-house-lab-order-resources';
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = 'collect-in-house-lab-specimen';
 const HANDLE_IN_HOUSE_LAB_RESULTS = 'handle-in-house-lab-results';
 const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
@@ -1087,25 +1084,6 @@ export const getInHouseOrders = async <RequestParameters extends GetInHouseOrder
     }
     const response = await oystehr.zambda.execute({
       id: GET_IN_HOUSE_ORDERS_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const getCreateInHouseLabOrderResources = async (
-  oystehr: Oystehr,
-  parameters: GetCreateInHouseLabOrderResourcesParameters
-): Promise<GetCreateInHouseLabOrderResourcesResponse> => {
-  try {
-    if (GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES == null) {
-      throw new Error('get create in house lab order resources zambda environment variable could not be loaded');
-    }
-    const response = await oystehr.zambda.execute({
-      id: GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES,
       ...parameters,
     });
     return chooseJson(response);

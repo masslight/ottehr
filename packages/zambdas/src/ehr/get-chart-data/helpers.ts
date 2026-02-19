@@ -288,9 +288,12 @@ export const configProceduresRequestsForGetChartData = (encounterId: string): Ba
   };
 };
 
-export const defaultChartDataFieldsSearchParams: Partial<Record<keyof GetChartDataResponse, { _tag: string }>> = {
+export const defaultChartDataFieldsSearchParams: Partial<
+  Record<keyof GetChartDataResponse, { _tag?: string; _sort?: string }>
+> = {
   medications: { _tag: 'current-medication' },
   inhouseMedications: { _tag: 'in-house-medication' },
   schoolWorkNotes: { _tag: SCHOOL_WORK_NOTE },
   aiPotentialDiagnosis: { _tag: 'ai-potential-diagnosis' },
+  instructions: { _sort: '-sent' },
 };
