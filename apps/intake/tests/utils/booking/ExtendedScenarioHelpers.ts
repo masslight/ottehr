@@ -244,10 +244,13 @@ export function shouldExtendWithModification(
   scenario: BookingTestScenario,
   allScenarios: BookingTestScenario[]
 ): boolean {
-  // Extend the first prebook scenario (in-person or virtual)
-  const prebooks = allScenarios.filter((s) => s.visitType === 'prebook' && s.configName === scenario.configName);
+  // Extend the first in-person prebook scenario
+  // Only in-person prebooks reliably show Modify button on visit confirmation page
+  const inPersonPrebooks = allScenarios.filter(
+    (s) => s.visitType === 'prebook' && s.serviceMode === 'in-person' && s.configName === scenario.configName
+  );
 
-  return prebooks.length > 0 && prebooks[0] === scenario;
+  return inPersonPrebooks.length > 0 && inPersonPrebooks[0] === scenario;
 }
 
 /**
@@ -257,10 +260,13 @@ export function shouldExtendWithCancellation(
   scenario: BookingTestScenario,
   allScenarios: BookingTestScenario[]
 ): boolean {
-  // Extend the second prebook scenario (if exists)
-  const prebooks = allScenarios.filter((s) => s.visitType === 'prebook' && s.configName === scenario.configName);
+  // Extend the second in-person prebook scenario (if exists)
+  // Only in-person prebooks reliably show Cancel button on visit confirmation page
+  const inPersonPrebooks = allScenarios.filter(
+    (s) => s.visitType === 'prebook' && s.serviceMode === 'in-person' && s.configName === scenario.configName
+  );
 
-  return prebooks.length > 1 && prebooks[1] === scenario;
+  return inPersonPrebooks.length > 1 && inPersonPrebooks[1] === scenario;
 }
 
 // =============================================================================

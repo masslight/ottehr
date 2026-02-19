@@ -4,21 +4,30 @@ This document provides an overview of the intake end-to-end testing architecture
 
 ## Quick Start
 
+### Local Development
+
+Run all e2e tests locally with Playwright UI mode:
+
 ```bash
-# Run all e2e tests (synthetic only by default)
-npx playwright test --project=e2e
+# From the repo root - starts servers and opens Playwright UI
+npm run intake:e2e:local:ui
+```
 
-# Run only synthetic (baseline) tests
-npx playwright test --project=e2e --grep "Synthetic"
+This starts local servers, runs login, then opens Playwright's interactive UI with all tests (synthetic + concrete configs). Use the UI to select which test groups to run.
 
-# Run with concrete config tests (upstream ottehr repo only)
-RUN_CONCRETE_TESTS=true npx playwright test --project=e2e
+### Other Commands
 
-# Run only a specific concrete config
-RUN_CONCRETE_TESTS=true npx playwright test --project=e2e --grep "Concrete: Instance 2"
+```bash
+# Run tests headlessly (no UI)
+npm run intake:e2e:local
 
-# Run with UI mode for debugging
-npx playwright test --project=e2e --ui
+# Run against other environments
+npm run intake:e2e:demo:ui
+npm run intake:e2e:staging:ui
+
+# From apps/intake directory (skips server startup)
+npm run e2e:specs        # Run synthetic tests headlessly
+npm run e2e:specs:ui     # Run synthetic tests in Playwright UI
 ```
 
 ### Upstream vs Downstream Repos

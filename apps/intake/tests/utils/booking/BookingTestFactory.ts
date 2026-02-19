@@ -266,6 +266,16 @@ export async function generateBookingTestScenarios(configName: string): Promise<
           resolvedValueSetConfig,
         };
         scenarios.push(scenario);
+
+        // For in-person prebook with single category, add a duplicate scenario
+        // This ensures we have at least 2 in-person prebooks for extended flow coverage
+        // (modification uses first, cancellation uses second)
+        if (visitType === 'prebook' && serviceMode === 'in-person') {
+          const duplicateScenario: BookingTestScenario = {
+            ...scenario,
+          };
+          scenarios.push(duplicateScenario);
+        }
       } else {
         for (const category of concreteServiceCategories) {
           // Resolve paperwork config using the appropriate function based on service mode
@@ -294,7 +304,66 @@ export async function generateBookingTestScenarios(configName: string): Promise<
     }
   }
 
+  // Annotate scenario descriptions with their extended flow coverage
+  annotateScenarioDescriptions(scenarios);
+
   return scenarios;
+}
+
+/**
+ * Annotate scenario descriptions with extended flow indicators
+ * This makes it easy to see which tests include extended coverage in Playwright UI
+ */
+function annotateScenarioDescriptions(scenarios: BookingTestScenario[]): void {
+  // Group scenarios by configName to evaluate extensions within each config
+  const configGroups = new Map<string, BookingTestScenario[]>();
+  for (const scenario of scenarios) {
+    const group = configGroups.get(scenario.configName) || [];
+    group.push(scenario);
+    configGroups.set(scenario.configName, group);
+  }
+
+  for (const [, configScenarios] of configGroups) {
+    // Find scenarios that will receive each extension type
+    const inPersonWalkins = configScenarios.filter((s) => s.visitType === 'walk-in' && s.serviceMode === 'in-person');
+    const virtualWalkins = configScenarios.filter((s) => s.visitType === 'walk-in' && s.serviceMode === 'virtual');
+    const inPersonPrebooks = configScenarios.filter((s) => s.visitType === 'prebook' && s.serviceMode === 'in-person');
+    const allPrebooks = configScenarios.filter((s) => s.visitType === 'prebook');
+
+    // Returning patient: first in-person walk-in
+    if (inPersonWalkins[0]) {
+      inPersonWalkins[0].description += ' [+ returning patient]';
+    }
+
+    // Modification: first in-person prebook
+    if (inPersonPrebooks[0]) {
+      inPersonPrebooks[0].description += ' [+ modify]';
+    }
+
+    // Cancellation: second in-person prebook
+    if (inPersonPrebooks[1]) {
+      inPersonPrebooks[1].description += ' [+ cancel]';
+    }
+
+    // Waiting room participants: first virtual walk-in
+    if (virtualWalkins[0]) {
+      virtualWalkins[0].description += ' [+ participants]';
+    }
+
+    // Past visits: third prebook OR second in-person walk-in
+    if (allPrebooks[2]) {
+      allPrebooks[2].description += ' [+ past visits]';
+    } else if (inPersonWalkins[1]) {
+      inPersonWalkins[1].description += ' [+ past visits]';
+    }
+
+    // Review page: fourth prebook OR second virtual walk-in
+    if (allPrebooks[3]) {
+      allPrebooks[3].description += ' [+ review page]';
+    } else if (virtualWalkins[1]) {
+      virtualWalkins[1].description += ' [+ review page]';
+    }
+  }
 }
 
 /**
