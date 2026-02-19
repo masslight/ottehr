@@ -13,6 +13,10 @@
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
 import { CanonicalUrl, getConsentFormsConfig, resolveConsentFormsPaths, ServiceMode } from 'utils';
+// Import the instance-specific overrides from ottehr-config-overrides
+// These will be empty `{}` in the upstream repo, but downstream repos will have their actual overrides
+import { INTAKE_PAPERWORK_CONFIG as INTAKE_PAPERWORK_OVERRIDES } from 'utils/ottehr-config-overrides/intake-paperwork';
+import { INTAKE_PAPERWORK_CONFIG as INTAKE_PAPERWORK_VIRTUAL_OVERRIDES } from 'utils/ottehr-config-overrides/intake-paperwork-virtual';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
   // P1: Critical User Journeys
@@ -181,9 +185,10 @@ test.describe('Complete booking flows', () => {
 
     // Deploy isolated test questionnaires for baseline/synthetic scenarios
     // This ensures parallel CI runs don't interfere with each other
+    // Use overrides from ottehr-config-overrides so downstream repos get their instance-specific config
     const baselineInPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
       'baseline',
-      {}, // No overrides - use default config
+      INTAKE_PAPERWORK_OVERRIDES, // Use instance-specific overrides (empty in upstream, configured in downstream)
       ServiceMode['in-person']
     );
     testQuestionnaireCanonicals.set('baseline-in-person', baselineInPersonResult.canonical);
@@ -191,7 +196,7 @@ test.describe('Complete booking flows', () => {
 
     const baselineVirtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
       'baseline',
-      {}, // No overrides - use default config
+      INTAKE_PAPERWORK_VIRTUAL_OVERRIDES, // Use instance-specific overrides (empty in upstream, configured in downstream)
       ServiceMode['virtual']
     );
     testQuestionnaireCanonicals.set('baseline-virtual', baselineVirtualResult.canonical);
