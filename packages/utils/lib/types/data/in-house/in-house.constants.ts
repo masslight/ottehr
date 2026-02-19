@@ -1,3 +1,4 @@
+import { ProcedureModifier } from 'candidhealth/api';
 import { CodeableConcept } from 'fhir/r4b';
 import { TestStatus } from './in-house.types';
 
@@ -193,4 +194,9 @@ export const SERVICE_REQUEST_ORDER_DETAIL_TAG_SYSTEM = 'inhouse-order-detail';
 export const REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG = {
   system: SERVICE_REQUEST_ORDER_DETAIL_TAG_SYSTEM,
   code: 'repeat',
+};
+
+export const REPEAT_TEST_CPT_CODE_MODIFIER = {
+  code: ProcedureModifier.NinetyOne,
+  display: 'Repeat Clinical Diagnostic Laboratory Test',
 };

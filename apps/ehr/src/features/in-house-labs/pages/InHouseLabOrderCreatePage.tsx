@@ -40,8 +40,15 @@ import {
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { getAttendingPractitionerId, isApiError, LabListsDTO, LabType, TestItem } from 'utils';
-import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
+import {
+  getAttendingPractitionerId,
+  isApiError,
+  LabListsDTO,
+  LabType,
+  REPEAT_TEST_CPT_CODE_MODIFIER,
+  TestItem,
+} from 'utils';
+import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
@@ -126,7 +133,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         const found = availableTests.find((test) => test.name === testItemName);
         if (found) {
           if (prefillData.type === 'repeat') {
-            found.orderedAsRepeat = true;
+            found.orderMode = 'repeat';
           }
           setSelectedTests([found]);
         }
@@ -142,6 +149,23 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   };
 
   const canBeSubmitted = !!(encounter?.id && selectedTests.length > 0);
+
+  const formatCptCodesForCell = (cptCodes: CPTCodeDTO[], orderMode: TestItem['orderMode']): string => {
+    const cptCodesFormatted = cptCodes.map((c) => {
+      // these modifiers are pulled from the activity definition are specific to the test (ex: alcohol confirmation test)
+      let modifier = c.modifier ? c.modifier.map((m) => `-${m}`) : '';
+
+      // we handle 91 for repeat tests on the fly since a test getting this modifier is dependant on the user selecting run as repeat
+      if (orderMode === 'repeat' && !modifier.includes(REPEAT_TEST_CPT_CODE_MODIFIER.code)) {
+        modifier += `-${REPEAT_TEST_CPT_CODE_MODIFIER.code}`;
+      }
+
+      const isStandard = orderMode === 'standard';
+
+      return `${c.code}${modifier}${!isStandard ? ' (QW)' : ''}`;
+    });
+    return cptCodesFormatted.join(',');
+  };
 
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
@@ -353,9 +377,9 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                           {selectedTests.map((test) => (
                             <TableRow key={test.name}>
                               <TableCell>{test.name}</TableCell>
-                              <TableCell data-testid={dataTestIds.orderInHouseLabPage.CPTCodeField}>{`${test.cptCode}${
-                                test.orderedAsRepeat ? `-91 (QW)` : ''
-                              }`}</TableCell>
+                              <TableCell data-testid={dataTestIds.orderInHouseLabPage.CPTCodeField}>
+                                {formatCptCodesForCell(test.cptCode, test.orderMode)}
+                              </TableCell>
                               <TableCell align="center">
                                 {test.repeatable && (
                                   <Checkbox
@@ -363,14 +387,14 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                                     sx={{
                                       p: 0.5,
                                     }}
-                                    checked={test.orderedAsRepeat}
+                                    checked={test.orderMode === 'repeat'}
                                     onChange={(e) => {
                                       const checked = e.target.checked;
 
+                                      const orderMode = checked ? 'repeat' : 'standard';
+
                                       setSelectedTests((prev) =>
-                                        prev.map((item) =>
-                                          item.name === test.name ? { ...item, orderedAsRepeat: checked } : item
-                                        )
+                                        prev.map((item) => (item.name === test.name ? { ...item, orderMode } : item))
                                       );
                                     }}
                                   />
