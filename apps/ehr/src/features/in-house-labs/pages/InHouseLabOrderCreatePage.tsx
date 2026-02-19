@@ -153,7 +153,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const formatCptCodesForCell = (cptCodes: CPTCodeDTO[], orderMode: TestItem['orderMode']): string => {
     const cptCodesFormatted = cptCodes.map((c) => {
       // these modifiers are pulled from the activity definition are specific to the test (ex: alcohol confirmation test)
-      let modifier = c.modifier ? c.modifier.map((m) => `-${m}`) : '';
+      let modifier = c.modifier ? c.modifier.map((m) => `-${m}`).join(',') : '';
 
       // we handle 91 for repeat tests on the fly since a test getting this modifier is dependant on the user selecting run as repeat
       if (orderMode === 'repeat' && !modifier.includes(REPEAT_TEST_CPT_CODE_MODIFIER.code)) {
