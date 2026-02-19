@@ -164,8 +164,9 @@ export async function executeModificationFlow(
 export async function executeCancellationFlow(
   page: Page,
   appointmentResponse: CreateAppointmentResponse,
-  serviceMode: 'in-person' | 'virtual'
+  scenario: BookingTestScenario
 ): Promise<void> {
+  const { serviceMode, resolvedConfig } = scenario;
   console.log('\n=== EXTENDED: Reservation Cancellation Flow ===');
   console.log(`Canceling appointment: ${appointmentResponse.appointmentId}`);
 
@@ -220,7 +221,9 @@ export async function executeCancellationFlow(
 
   // Verify we're back on the homepage
   await page.waitForURL(/\/home/, { timeout: 20000 });
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20000 });
+  // Verify a booking button from the config is visible
+  const firstHomepageOption = resolvedConfig.homepageOptions[0];
+  await expect(page.getByRole('button', { name: firstHomepageOption.label })).toBeVisible({ timeout: 20000 });
   console.log('✓ Returned to homepage via Book Again');
 
   console.log('✓ Reservation cancellation flow completed successfully');

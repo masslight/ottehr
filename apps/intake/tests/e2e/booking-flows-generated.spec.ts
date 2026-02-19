@@ -274,7 +274,7 @@ test.describe('Complete booking flows', () => {
           await executeModificationFlow(page, appointmentResponse);
         }
         if (shouldExtendWithCancellation(scenario, syntheticScenarios)) {
-          await executeCancellationFlow(page, appointmentResponse, scenario.serviceMode);
+          await executeCancellationFlow(page, appointmentResponse, scenario);
         }
 
         // Extended P2 coverage
@@ -363,7 +363,7 @@ test.describe('Complete booking flows', () => {
             await executeModificationFlow(page, appointmentResponse);
           }
           if (shouldExtendWithCancellation(scenario, configScenarios)) {
-            await executeCancellationFlow(page, appointmentResponse, scenario.serviceMode);
+            await executeCancellationFlow(page, appointmentResponse, scenario);
           }
 
           // Extended P2 coverage
