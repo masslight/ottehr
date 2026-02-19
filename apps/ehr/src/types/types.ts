@@ -1,5 +1,5 @@
 import { Slot } from 'fhir/r4b';
-import { FhirAppointmentType, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
+import { FhirAppointmentType, PatientFollowupDetails, ReasonForVisit, ScheduleType, ServiceMode } from 'utils';
 
 // this likely will be consolidated to utils package. doughty conflict resolver, take heed:
 // the important change to include here is that slot is of type "Slot" rather than string
@@ -27,7 +27,7 @@ export type PatientInfo = {
   phoneNumber: string | undefined;
   email: string | undefined;
   emailUser: EmailUserValue | undefined;
-  reasonForVisit: string | undefined;
+  reasonForVisit: ReasonForVisit | undefined;
   reasonAdditional?: string;
 };
 

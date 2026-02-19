@@ -1,1 +1,1 @@
-export const FORMS_CONFIG_OVERRIDE = {};
+export const FORMS_CONFIG_OVERRIDE = {} as const;

@@ -394,7 +394,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       return;
     }
 
-    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient.id));
+    // Pass dirtyFields to track explicitly cleared fields
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient.id, dirtyFields));
     if (appointmentContext?.encounterId) {
       qr.encounter = {
         reference: 'Encounter/' + appointmentContext.encounterId,

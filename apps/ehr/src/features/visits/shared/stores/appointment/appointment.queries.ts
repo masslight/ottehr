@@ -28,13 +28,14 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   AISuggestionNotesInput,
   APIError,
+  BillingSuggestionInput,
   CancelMatchUnsolicitedResultTask,
-  CPTCodeDTO,
   CPTSearchRequestParams,
   createSmsModel,
-  DiagnosisDTO,
   filterResources,
   FinalizeUnsolicitedResultMatch,
+  GetCreateInHouseLabOrderResourcesInput,
+  GetCreateInHouseLabOrderResourcesOutput,
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
@@ -340,6 +341,28 @@ export const useGetCreateExternalLabResources = ({
   });
 };
 
+export const useGetCreateInHouseLabResources = ({
+  encounterId,
+}: GetCreateInHouseLabOrderResourcesInput): UseQueryResult<GetCreateInHouseLabOrderResourcesOutput | null, Error> => {
+  const apiClient = useOystehrAPIClient();
+  return useQuery({
+    queryKey: ['inhouse lab resource search', encounterId],
+
+    queryFn: async () => {
+      const res = await apiClient?.getCreateInHouseLabOrderResources({ encounterId });
+      if (res) {
+        return res;
+      } else {
+        return null;
+      }
+    },
+
+    enabled: Boolean(apiClient),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+};
+
 export function useDisplayUnsolicitedResultsIcon(
   input: GetUnsolicitedResultsIconStatusInput
 ): UseQueryResult<GetUnsolicitedResultsIconStatusOutput | null, Error> {
@@ -604,13 +627,13 @@ export const useAiSuggestionNotes = () => {
 export const useRecommendBillingSuggestions = () => {
   const apiClient = useOystehrAPIClient();
   return useMutation({
-    mutationFn: (props: { diagnoses: DiagnosisDTO[] | undefined; billing: CPTCodeDTO[] | undefined }) => {
+    mutationFn: (props: BillingSuggestionInput) => {
       if (!apiClient) {
         throw new Error('api client is not defined');
       }
       return apiClient.recommendBillingSuggestions(props);
     },
-    retry: 2,
+    retry: 0,
   });
 };
 
@@ -718,7 +741,7 @@ export const useSavePatientInstruction = () => {
   const apiClient = useOystehrAPIClient();
 
   return useMutation({
-    mutationFn: (instruction: { text: string }) => {
+    mutationFn: (instruction: { text?: string; title?: string }) => {
       if (apiClient) {
         return apiClient.savePatientInstruction(instruction);
       }

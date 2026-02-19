@@ -1976,15 +1976,14 @@ function buildFormFields(valueSets: ValueSetsConfig) {
 
 const hiddenFormSections: string[] = [];
 
-const questionnaireBaseDefaults: QuestionnaireBase = {
+const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
   version: '1.1.6',
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',
-};
-
+} as const satisfies QuestionnaireBase;
 // note: the order of the fields on this object are what determines the order they appear in the form
 // i try to make the template above match this order for easier reading, but that's a convention, and the order
 // declared here is what will determine the order of the items on the form.
@@ -2076,8 +2075,9 @@ export const checkFieldHidden = (fieldKey: string): boolean => {
 const GetPageSubtitleSchema = z.function().args(z.string(), z.string()).returns(z.string());
 
 let parsedGetPageSubtitle: z.infer<typeof GetPageSubtitleSchema> | undefined;
-if (OVERRIDES.getIntakeFormPageSubtitle != undefined) {
-  parsedGetPageSubtitle = GetPageSubtitleSchema.parse(OVERRIDES.getIntakeFormPageSubtitle);
+
+if ((OVERRIDES as any).getIntakeFormPageSubtitle != undefined) {
+  parsedGetPageSubtitle = GetPageSubtitleSchema.parse((OVERRIDES as any).getIntakeFormPageSubtitle);
 }
 
 export const getIntakeFormPageSubtitle =

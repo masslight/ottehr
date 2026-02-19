@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Appointment, Coverage, Encounter, Location, Organization } from 'fhir/r4b';
+import { Account, Appointment, Coverage, Encounter, List, Location, Organization } from 'fhir/r4b';
 import {
   CODE_SYSTEM_COVERAGE_CLASS,
   CPTCodeOption,
@@ -11,6 +11,7 @@ import {
   getSecret,
   isAppointmentWorkersComp,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LAB_LIST_CODE_CODING,
   LAB_ORG_TYPE_CODING,
   LabOrderResourcesRes,
   ModifiedOrderingLocation,
@@ -23,6 +24,7 @@ import {
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
+import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -33,7 +35,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { patientId, encounterId, search: testItemSearch, secrets, labOrgIdsString } = validatedParameters;
+    const {
+      patientId,
+      encounterId,
+      search: testItemSearch,
+      secrets,
+      labOrgIdsString,
+      selectedLabSet,
+    } = validatedParameters;
     console.log('search passed', testItemSearch);
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -41,13 +50,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { accounts, coverages, labOrgsGUIDs, orderingLocationDetails, isWorkersCompEncounter } = await getResources(
-      oystehr,
-      patientId,
-      encounterId,
-      testItemSearch,
-      labOrgIdsString
-    );
+    const { accounts, coverages, labOrgsGUIDs, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
+      await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
 
     let coverageInfo: CreateLabCoverageInfo[] | undefined;
     if (patientId) {
@@ -56,7 +60,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     let labs: OrderableItemSearchResult[] = [];
     if (testItemSearch) {
-      labs = await getLabs(labOrgsGUIDs, testItemSearch, m2mToken);
+      labs = await getLabs(labOrgsGUIDs, { textSearch: testItemSearch }, m2mToken);
+    }
+
+    if (selectedLabSet) {
+      console.log('searching orderable items for the lab set', selectedLabSet.listName);
+      const labRequests = selectedLabSet.labs.map((lab) => {
+        return getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+      });
+      const allLabsResults = await Promise.all(labRequests);
+      labs = allLabsResults.flat();
     }
 
     // not every instance will have values for this
@@ -76,8 +89,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       coverages: coverageInfo,
       labs,
       additionalCptCodes,
-      isWorkersCompEncounter,
+      appointmentIsWorkersComp,
       ...orderingLocationDetails,
+      labSets: formatLabListDTOs(labLists),
     };
 
     return {
@@ -101,9 +115,11 @@ const getResources = async (
   coverages: Coverage[];
   labOrgsGUIDs: string[];
   orderingLocationDetails: ExternalLabOrderingLocations;
-  isWorkersCompEncounter: boolean;
+  appointmentIsWorkersComp: boolean;
+  labLists: List[];
 }> => {
-  const requests: BatchInputRequest<Coverage | Account | Organization | Location | Encounter | Appointment>[] = [];
+  const requests: BatchInputRequest<Coverage | Account | Organization | Location | Encounter | Appointment | List>[] =
+    [];
 
   if (patientId) {
     const coverageSearchRequest: BatchInputRequest<Coverage> = {
@@ -114,7 +130,11 @@ const getResources = async (
       method: 'GET',
       url: `/Account?subject=Patient/${patientId}&status=active`,
     };
-    requests.push(coverageSearchRequest, accountSearchRequest);
+    const labListRequest: BatchInputRequest<List> = {
+      method: 'GET',
+      url: `/List?code=${LAB_LIST_CODE_CODING.external.system}|${LAB_LIST_CODE_CODING.external.code}&status=current`,
+    };
+    requests.push(coverageSearchRequest, accountSearchRequest, labListRequest);
   }
 
   if (encounterId) {
@@ -141,13 +161,13 @@ const getResources = async (
   };
   requests.push(orderingLocationsRequest);
 
-  const searchResults: Bundle<Coverage | Account | Organization | Location | Encounter | Appointment> =
+  const searchResults: Bundle<Coverage | Account | Organization | Location | Encounter | Appointment | List> =
     await oystehr.fhir.batch({
       requests,
     });
-  const resources = flattenBundleResources<Coverage | Account | Organization | Location | Encounter | Appointment>(
-    searchResults
-  );
+  const resources = flattenBundleResources<
+    Coverage | Account | Organization | Location | Encounter | Appointment | List
+  >(searchResults);
 
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];
@@ -157,6 +177,7 @@ const getResources = async (
   const orderingLocationIds: string[] = [];
   const encounters: Encounter[] = [];
   const workersCompAccounts: Account[] = [];
+  const labLists: List[] = [];
   const appointments: Appointment[] = [];
 
   resources.forEach((resource) => {
@@ -203,6 +224,7 @@ const getResources = async (
     }
     if (resource.resourceType === 'Encounter') encounters.push(resource);
     if (resource.resourceType === 'Appointment') appointments.push(resource);
+    if (resource.resourceType === 'List') labLists.push(resource);
   });
 
   const encounter = encounters.find((resource) => resource.id === encounterId);
@@ -210,25 +232,17 @@ const getResources = async (
   const appointment = appointments.find((resource) => resource.id === appointmentId);
   const appointmentIsWorkersComp = appointment ? isAppointmentWorkersComp(appointment) : false;
   console.log('appointmentIsWorkersComp', appointmentIsWorkersComp);
-  let encounterIsWorkersComp = false;
 
   // doing some validation that the workers comp account is properly linked to the encounter
   // oystehr labs depends on this account for submitting workers comp labs
   if (appointmentIsWorkersComp) {
     if (workersCompAccounts.length !== 1) {
-      throw new Error(
-        `Unexpected number of workers comp account returned for ${patientId}. Accounts found: ${workersCompAccounts.map(
+      console.log(
+        `Unexpected number of workers comp account returned for Patient/${patientId}. Accounts found: ${workersCompAccounts.map(
           (account) => account.id
         )}`
       );
     }
-    const workersCompAccount = workersCompAccounts[0];
-
-    console.log('checking that workers comp account is associated with this encounter');
-    console.log('workersCompAccount', workersCompAccount.id);
-    console.log('encounter.account', JSON.stringify(encounter?.account));
-
-    encounterIsWorkersComp = !!encounter?.account?.some((ref) => ref.reference === `Account/${workersCompAccount.id}`);
   }
 
   return {
@@ -236,13 +250,15 @@ const getResources = async (
     accounts,
     labOrgsGUIDs,
     orderingLocationDetails: { orderingLocationIds, orderingLocations },
-    isWorkersCompEncounter: appointmentIsWorkersComp && encounterIsWorkersComp,
+    appointmentIsWorkersComp,
+    labLists,
   };
 };
 
+type LabSearch = { textSearch: string } | { itemCodes: string[] } | { textSearch: string; itemCodes: string[] };
 const getLabs = async (
   labOrgsGUIDs: string[],
-  search: string,
+  search: LabSearch,
   m2mToken: string
 ): Promise<OrderableItemSearchResult[]> => {
   const labIds = labOrgsGUIDs.join(',');
@@ -250,8 +266,16 @@ const getLabs = async (
   let totalReturn = 0;
   const items: OrderableItemSearchResult[] = [];
 
+  const searchParams = [`labIds=${labIds}`];
+
+  if ('textSearch' in search) searchParams.push(`itemNames=${search.textSearch}`);
+  if ('itemCodes' in search) searchParams.push(`itemCodes=${search.itemCodes.join(',')}`);
+
+  console.log('searchParams before join', searchParams);
+
   do {
-    const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?labIds=${labIds}&itemNames=${search}&limit=100&cursor=${cursor}`;
+    const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?${searchParams.join('&')}&limit=100&cursor=${cursor}`;
+    console.log('check me!', url);
     const orderableItemsSearch = await fetch(url, {
       method: 'GET',
       headers: {

@@ -674,7 +674,7 @@ const formValueSets = {
     { label: 'Phone', value: 'Phone' },
   ],
   externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
-};
+} as const;
 
 export type ValueSetsConfig = typeof formValueSets;
 
@@ -692,3 +692,11 @@ export function getValueSets(
 
 // Export as a Proxy to allow runtime config injection in tests
 export const VALUE_SETS = createProxyConfigObject<ValueSetsConfig>(getValueSets, CONFIG_INJECTION_KEYS.VALUE_SETS);
+
+type ExtractValues<T extends readonly { readonly value: string }[]> = T[number]['value'];
+
+export type ReasonForVisitUrgentCare = ExtractValues<typeof VALUE_SETS.reasonForVisitOptions>;
+export type ReasonForVisitOccMed = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsOccMed>;
+export type ReasonForVisitWorkersComp = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsWorkersComp>;
+
+export type ReasonForVisit = ReasonForVisitUrgentCare | ReasonForVisitOccMed | ReasonForVisitWorkersComp;

@@ -18,3 +18,4 @@ export * from './types';
 export * from './value-sets';
 export * from './vitals';
 export * from './consent-forms';
+export * from './procedures';

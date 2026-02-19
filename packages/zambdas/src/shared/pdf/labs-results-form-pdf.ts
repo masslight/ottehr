@@ -71,6 +71,7 @@ import {
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { fetchResultResourcesForRelatedServiceRequest } from '../../ehr/lab/shared/in-house-labs';
 import {
+  extractResultSpecimensFromDr,
   getExternalLabOrderResourcesViaDiagnosticReport,
   getExternalLabOrderResourcesViaServiceRequest,
   isLabDrTypeTagCode,
@@ -195,7 +196,7 @@ const getResultDataConfigForDrResources = (
     resultStatus: diagnosticReport.status.toUpperCase(),
     isPscOrder: false,
     accountNumber: getAccountNumberFromDr(diagnosticReport) || '',
-    resultSpecimenInfo: getResultSpecimenFromDr(diagnosticReport),
+    resultSpecimenInfo: getResultSpecimenInfoFromDr(diagnosticReport),
     patientVisitNote: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL)
       ?.valueString,
     clinicalInfo: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_CLINICAL_INFO_EXT_URL)
@@ -282,7 +283,7 @@ const getResultDataConfig = (
     resultStatus: diagnosticReport.status.toUpperCase(),
     isPscOrder: isPSCOrder(serviceRequest),
     accountNumber: getAccountNumberFromDr(diagnosticReport) || '',
-    resultSpecimenInfo: getResultSpecimenFromDr(diagnosticReport),
+    resultSpecimenInfo: getResultSpecimenInfoFromDr(diagnosticReport),
     patientVisitNote: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL)
       ?.valueString,
     clinicalInfo: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_CLINICAL_INFO_EXT_URL)
@@ -429,7 +430,7 @@ export async function createExternalLabResultPDFBasedOnDr(
     timezone = getTimezone(schedule);
   }
 
-  const collectionTimeFromDr = getResultSpecimenFromDr(diagnosticReport)?.collectedDateTime;
+  const collectionTimeFromDr = getResultSpecimenInfoFromDr(diagnosticReport)?.collectedDateTime;
   const collectionDate = collectionTimeFromDr
     ? DateTime.fromISO(collectionTimeFromDr).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : '';
@@ -2058,29 +2059,13 @@ const getAccountNumberFromDr = (diagnosticReport: DiagnosticReport): string | un
   return accountNumber;
 };
 
-const getResultSpecimenFromDr = (diagnosticReport: DiagnosticReport): ResultSpecimenInfo | undefined => {
-  console.log('Extracting results specimen from DR');
-  if (!diagnosticReport.specimen || !diagnosticReport.specimen.length) {
-    console.log('No specimen found on DiagnosticReport');
-    return undefined;
-  }
+const getResultSpecimenInfoFromDr = (diagnosticReport: DiagnosticReport): ResultSpecimenInfo | undefined => {
+  const specimens = extractResultSpecimensFromDr(diagnosticReport);
+  if (!specimens.length) return undefined;
 
-  // We'll assume for now that all of these specimens will be contained because that is what Oystehr is doing
-  const specimenRef = diagnosticReport.specimen.find((sp) => sp.reference !== undefined)?.reference;
-
-  // this could happen if no specimen info is sent in the hl7
-  if (!specimenRef) return undefined;
-
-  const specimen = diagnosticReport.contained?.find(
-    (res): res is Specimen => res.id === specimenRef.replace('#', '') && res.resourceType === 'Specimen'
-  );
-
-  if (!specimen) {
-    console.warn(
-      `DiagnosticReport/${diagnosticReport.id} has a specimen reference ${specimenRef} but not matching contained resource`
-    );
-    return undefined;
-  }
+  // Assumption: if there are multiple specimens on the DR, we are assuming they will have the same site and collection info
+  // this may change in the future. But Ottehr does not currently handle multi-specimen setups
+  const specimen = specimens[0];
 
   if (!specimen.collection) {
     console.warn('No specimen collection info found');

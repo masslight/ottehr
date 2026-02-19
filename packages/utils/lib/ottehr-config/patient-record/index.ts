@@ -1019,14 +1019,14 @@ const FormFieldsSchema = z.object({
 
 const hiddenFormSections: string[] = [];
 
-const questionnaireBaseDefaults: QuestionnaireBase = {
+const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'http://example.org/fhir/Questionnaire/patient-record',
   version: '1.0.0',
   name: 'PatientRecordQuestionnaire',
   title: 'Patient Record Questionnaire',
   status: 'active',
-};
+} as const satisfies QuestionnaireBase;
 
 const PATIENT_RECORD_DEFAULTS = {
   questionnaireBase: questionnaireBaseDefaults,
@@ -1041,6 +1041,7 @@ const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
 });
 
 export const PATIENT_RECORD_CONFIG = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
+
 const prepopulateLogicalFields = (
   questionnaire: Questionnaire,
   appointmentContext?: AppointmentContext

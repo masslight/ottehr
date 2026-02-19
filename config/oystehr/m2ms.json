@@ -85,6 +85,11 @@
           "action": ["eRx:SearchPharmacy"],
           "effect": "Allow",
           "resource": ["eRx:Pharmacy"]
+        },
+        {
+          "action": ["Terminology:SearchCodes"],
+          "effect": "Allow",
+          "resource": ["Terminology:Code:*"]
         }
       ]
     },

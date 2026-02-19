@@ -75,7 +75,9 @@ import {
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PatientAccountResponse,
+  ReasonForVisit,
   SERVICE_CATEGORY_SYSTEM,
+  ServiceCategoryCode,
   ServiceMode,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
@@ -133,7 +135,7 @@ interface EditDOBParams {
 }
 
 interface EditReasonForVisitParams {
-  reasonForVisit?: string;
+  reasonForVisit?: ReasonForVisit;
   additionalDetails?: string;
 }
 
@@ -142,7 +144,7 @@ interface EditNLGParams {
 }
 
 interface ServiceCategoryParams {
-  serviceCategory?: string;
+  serviceCategory?: ServiceCategoryCode;
 }
 
 type EditDialogConfig =

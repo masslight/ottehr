@@ -253,9 +253,9 @@ const FORM_DEFAULTS = {
 };
 
 const mergedBookingQConfig = mergeAndFreezeConfigObjects(FORM_DEFAULTS, {
-  FormFields: BOOKING_OVERRIDES.FormFields ?? {},
-  questionnaireBase: BOOKING_OVERRIDES.questionnaireBase ?? {},
-  hiddenFormSections: BOOKING_OVERRIDES.hiddenFormSections ?? [],
+  FormFields: (BOOKING_OVERRIDES as any)?.FormFields ?? {},
+  questionnaireBase: (BOOKING_OVERRIDES as any).questionnaireBase ?? {},
+  hiddenFormSections: (BOOKING_OVERRIDES as any).hiddenFormSections ?? [],
 });
 
 const BookingPaperworkConfigSchema = QuestionnaireConfigSchema.extend({
@@ -429,7 +429,7 @@ export enum HomepageOptions {
   ScheduleVirtualVisit = 'schedule-virtual-visit',
 }
 
-const BOOKING_DEFAULTS: BookingConfig = {
+const BOOKING_DEFAULTS = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
@@ -466,7 +466,7 @@ const BOOKING_DEFAULTS: BookingConfig = {
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,
   inPersonPrebookRoutingParams,
-};
+} as const satisfies BookingConfig;
 
 /**
  * Get booking configuration with optional test overrides
@@ -485,11 +485,11 @@ export function getBookingConfig(
 export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
-  return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
-    BOOKING_CONFIG.serviceCategoriesEnabled.visitType.includes(params.visitType) &&
+  return (
+    (BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes as string[]).includes(params.serviceMode) &&
+    (BOOKING_CONFIG.serviceCategoriesEnabled.visitType as string[]).includes(params.visitType) &&
     BOOKING_CONFIG.serviceCategories.length > 1
-    ? true
-    : false;
+  );
 };
 
 export const ServiceCategoryCodeSchema = z.enum(
@@ -621,13 +621,13 @@ export const getReasonForVisitOptionsForServiceCategory = (
   serviceCategory: string
 ): { value: string; label: string }[] => {
   if (serviceCategory === 'occupational-medicine') {
-    return VALUE_SETS.reasonForVisitOptionsOccMed;
+    return [...VALUE_SETS.reasonForVisitOptionsOccMed];
   }
   if (serviceCategory === 'workers-comp') {
-    return VALUE_SETS.reasonForVisitOptionsWorkersComp;
+    return [...VALUE_SETS.reasonForVisitOptionsWorkersComp];
   }
   if (serviceCategory === 'urgent-care') {
-    return VALUE_SETS.reasonForVisitOptions;
+    return [...VALUE_SETS.reasonForVisitOptions];
   }
   return [];
 };

@@ -16,32 +16,22 @@ import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { DiagnosesField } from './DiagnosesField';
 
-export const DiagnosesContainer: FC = () => {
+const getUpdatedDiagnoses = (
+  oldDiagnoses: DiagnosisDTO[],
+  updatedDiagnoses: DiagnosisDTO[] | undefined,
+  filterOn: 'resourceId' | 'code' = 'resourceId'
+): DiagnosisDTO[] =>
+  oldDiagnoses.map((prevDiagnosis) => {
+    const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD[filterOn] === prevDiagnosis[filterOn]);
+    return updatedDiagnosis || prevDiagnosis;
+  });
+
+export const useAddDiagnosis = (): { onAdd: (value: IcdSearchResponse['codes'][number]) => void } => {
   const { chartData, setPartialChartData } = useChartData();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
-  const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { error: icdSearchError, isLoading: isNlmLoading } = useICD10SearchNew({ search: 'E11' });
-
-  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
-
-  const isLoading = isSaveLoading || isDeleteLoading;
+  const { mutate: saveChartData } = useSaveChartData();
 
   const diagnoses = chartData?.diagnosis || [];
   const primaryDiagnosis = diagnoses.find((item) => item.isPrimary);
-  const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary);
-
-  const { isInPerson } = useAppFlags();
-
-  const getUpdatedDiagnoses = (
-    oldDiagnoses: DiagnosisDTO[],
-    updatedDiagnoses: DiagnosisDTO[] | undefined,
-    filterOn: 'resourceId' | 'code' = 'resourceId'
-  ): DiagnosisDTO[] =>
-    oldDiagnoses.map((prevDiagnosis) => {
-      const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD[filterOn] === prevDiagnosis[filterOn]);
-      return updatedDiagnosis || prevDiagnosis;
-    });
 
   const onAdd = (value: IcdSearchResponse['codes'][number]): void => {
     const preparedValue = { ...value, isPrimary: !primaryDiagnosis };
@@ -71,6 +61,27 @@ export const DiagnosesContainer: FC = () => {
       }
     );
   };
+
+  return { onAdd };
+};
+
+export const DiagnosesContainer: FC = () => {
+  const { chartData, setPartialChartData } = useChartData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const { error: icdSearchError, isLoading: isNlmLoading } = useICD10SearchNew({ search: 'E11' });
+
+  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
+
+  const isLoading = isSaveLoading || isDeleteLoading;
+
+  const diagnoses = chartData?.diagnosis || [];
+  const primaryDiagnosis = diagnoses.find((item) => item.isPrimary);
+  const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary);
+
+  const { onAdd } = useAddDiagnosis();
+  const { isInPerson } = useAppFlags();
 
   const onDelete = async (resourceId: string): Promise<void> => {
     const preparedValue = diagnoses.find((item) => item.resourceId === resourceId)!;

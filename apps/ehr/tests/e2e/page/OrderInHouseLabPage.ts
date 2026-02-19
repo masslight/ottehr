@@ -55,9 +55,7 @@ export class OrderInHouseLabPage {
     return firstRadioEntryTestName;
   }
   async verifyCPTCode(CPTCode: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.CPTCodeField).locator('input')).toHaveValue(
-      CPTCode
-    );
+    await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.CPTCodeField)).toHaveText(CPTCode);
   }
 }
 

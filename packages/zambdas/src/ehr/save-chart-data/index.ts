@@ -20,7 +20,6 @@ import {
   ExamObservationDTO,
   getPatchBinary,
   isInPersonAppointment,
-  OttehrTaskSystem,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
@@ -38,7 +37,6 @@ import {
   makeCommunicationResource,
   makeConditionResource,
   makeDiagnosisConditionResource,
-  makeEncounterTaskResource,
   makeExamObservationResource,
   makeHospitalizationResource,
   makeMedicationResource,
@@ -296,19 +294,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
           makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
-        )
-      );
-    }
-
-    // 9.1 Generate AI ICD codes when HPI or MDM is updated
-    const hpiText = chiefComplaint?.text;
-    const mdmText = medicalDecision?.text;
-
-    // If either HPI or MDM is being updated and has meaningful content, generate AI suggestions
-    if (hpiText || mdmText) {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeEncounterTaskResource(encounterId, { system: OttehrTaskSystem, code: 'recommend-diagnosis-codes' })
         )
       );
     }

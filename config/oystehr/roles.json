@@ -92,7 +92,6 @@
             "FHIR:Organization",
             "FHIR:QuestionnaireResponse",
             "FHIR:Questionnaire",
-            "FHIR:DocumentReference",
             "FHIR:Person",
             "FHIR:Medication",
             "FHIR:List",
@@ -115,7 +114,8 @@
             "FHIR:HealthcareService",
             "FHIR:Communication",
             "FHIR:Flag",
-            "FHIR:QuestionnaireResponse"
+            "FHIR:QuestionnaireResponse",
+            "FHIR:DocumentReference"
           ]
         },
         {
@@ -359,7 +359,6 @@
             "FHIR:Questionnaire",
             "FHIR:Organization",
             "FHIR:QuestionnaireResponse",
-            "FHIR:DocumentReference",
             "FHIR:Person",
             "FHIR:Medication",
             "FHIR:List",
@@ -392,7 +391,8 @@
             "FHIR:HealthcareService",
             "FHIR:Questionnaire",
             "FHIR:QuestionnaireResponse",
-            "FHIR:Flag"
+            "FHIR:Flag",
+            "FHIR:DocumentReference"
           ]
         },
         {
@@ -475,7 +475,6 @@
             "FHIR:HealthcareService",
             "FHIR:Questionnaire",
             "FHIR:QuestionnaireResponse",
-            "FHIR:DocumentReference",
             "FHIR:Person",
             "FHIR:Schedule",
             "FHIR:ValueSet",
@@ -485,7 +484,7 @@
           "effect": "Allow"
         },
         {
-          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag", "FHIR:Task"],
+          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag", "FHIR:Task", "FHIR:DocumentReference"],
           "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow"
         },
@@ -550,7 +549,6 @@
             "FHIR:PractitionerRole",
             "FHIR:Questionnaire",
             "FHIR:QuestionnaireResponse",
-            "FHIR:DocumentReference",
             "FHIR:Person",
             "FHIR:Task",
             "FHIR:List",
@@ -569,7 +567,8 @@
             "FHIR:Patient",
             "FHIR:Flag",
             "FHIR:QuestionnaireResponse",
-            "FHIR:Task"
+            "FHIR:Task",
+            "FHIR:DocumentReference"
           ],
           "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow"

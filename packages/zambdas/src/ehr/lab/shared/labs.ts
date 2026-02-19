@@ -50,6 +50,7 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
+  isPSCOrder,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
@@ -374,6 +375,14 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     return orderingLocation[0];
   };
 
+  // if it was a PSC order, we need to check the DR for specimens
+  if (isPSCOrder(serviceRequest) && !specimens.length) {
+    const specimensFromDr = diagnosticReports.flatMap((diagnosticReport) =>
+      extractResultSpecimensFromDr(diagnosticReport)
+    );
+    specimens.push(...specimensFromDr);
+  }
+
   return {
     serviceRequest,
     patient,
@@ -390,6 +399,44 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     account,
   };
 }
+
+/**
+ * Looks for contained specimens in DiagnosticReports and returns a list of them.
+ * LabCorp sends specimen info in OBR, whereas Quest sends specimen info in SPM.
+ * Oystehr processes OBR specimen info first, so this will find OBR specimen info first if it exists. Or it will find SPM info
+ */
+export const extractResultSpecimensFromDr = (diagnosticReport: DiagnosticReport): Specimen[] => {
+  console.log('Extracting results specimens from DR');
+  if (!diagnosticReport.specimen || !diagnosticReport.specimen.length) {
+    console.log('No specimen found on DiagnosticReport');
+    return [];
+  }
+
+  const specimenRefs = new Set(
+    diagnosticReport.specimen.map((sp) => sp.reference?.replace('#', '')).filter((ref) => ref !== undefined)
+  );
+
+  // this could happen if no specimen info is sent in the hl7
+  if (!specimenRefs.size) return [];
+
+  const specimens = diagnosticReport.contained?.filter(
+    (res): res is Specimen => !!res.id && specimenRefs.has(res.id) && res.resourceType === 'Specimen'
+  );
+
+  if (!specimens || !specimens.length) {
+    console.warn(
+      `DiagnosticReport/${diagnosticReport.id} has a specimen reference ${JSON.stringify([
+        ...specimenRefs,
+      ])} but no matching contained resource`
+    );
+    return [];
+  }
+
+  console.log(
+    `These are the specimens extracted from DiagnosticReport/${diagnosticReport.id}: ${JSON.stringify(specimens)}`
+  );
+  return specimens;
+};
 
 export const sortCoveragesByPriority = (account: Account, coverages: Coverage[]): Coverage[] | undefined => {
   if (coverages.length === 0) return;

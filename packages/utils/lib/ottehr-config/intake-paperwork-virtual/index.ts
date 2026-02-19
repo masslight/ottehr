@@ -2417,14 +2417,14 @@ const FormFieldsSchema = z.object({
 
 const hiddenFormSections: string[] = [];
 
-const questionnaireBaseDefaults: QuestionnaireBase = {
+const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual',
   version: '1.0.22',
   name: 'virtual_pre-visit_paperwork',
   title: 'virtual pre-visit paperwork',
   status: 'active',
-};
+} as const satisfies QuestionnaireBase;
 
 function getIntakePaperworkVirtualConfig(
   testOverrides: any = OVERRIDES,

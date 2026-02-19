@@ -2,14 +2,15 @@ import * as z from 'zod';
 import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 
-const overrides: any = OVERRIDES || {};
+const overrides = OVERRIDES || {};
 
-const LOCATION_DEFAULTS: any = {
+const LOCATION_DEFAULTS = {
   inPersonLocations: [{ name: 'New York' }, { name: 'Los Angeles' }],
   telemedLocations: [{ name: 'Telemed New Jersey' }, { name: 'Telemed Ohio' }],
   supportPhoneNumber: '(202) 555-1212',
+  locationSupportPhoneNumberMap: {} as Record<string, string>,
   supportScheduleGroups: [],
-};
+} as const;
 
 function getLocationConfig(testOverrides: any = overrides): any {
   const mergedLocationConfig = mergeAndFreezeConfigObjects(LOCATION_DEFAULTS, testOverrides);
@@ -22,6 +23,7 @@ const locationArraySchema = z.array(
     name: z.string().min(1, { message: 'Location name cannot be empty' }),
   })
 );
+
 const LocationConfigSchema = z.object({
   inPersonLocations: locationArraySchema,
   telemedLocations: locationArraySchema,
@@ -49,11 +51,13 @@ export const ALL_LOCATIONS = [...LOCATION_CONFIG.inPersonLocations, ...LOCATION_
 export function getSupportPhoneFor(locationName?: string): string | undefined {
   const { locationSupportPhoneNumberMap, supportPhoneNumber } = LOCATION_CONFIG;
 
-  if (locationSupportPhoneNumberMap && locationName) {
-    return locationSupportPhoneNumberMap[locationName] || supportPhoneNumber;
+  if (!locationName) {
+    return supportPhoneNumber;
   }
 
-  return supportPhoneNumber;
+  const phoneFromMap = locationSupportPhoneNumberMap?.[locationName];
+
+  return phoneFromMap || supportPhoneNumber;
 }
 
 export function getSupportScheduleGroups(): Array<{ hours: string; locations: string[] }> {

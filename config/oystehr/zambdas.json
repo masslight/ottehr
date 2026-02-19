@@ -747,18 +747,6 @@
         "event": "create"
       }
     },
-    "SUB-RECOMMEND-DIAGNOSIS-CODES": {
-      "name": "sub-recommend-diagnosis-codes",
-      "type": "subscription",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/task/sub-recommend-diagnosis-codes/index",
-      "zip": ".dist/zips/sub-recommend-diagnosis-codes.zip",
-      "subscription": {
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|recommend-diagnosis-codes&status=requested",
-        "reason": "recommend diagnosis codes for encounter",
-        "event": "create"
-      }
-    },
     "SUB-PATIENT-PAYMENT-CANDID-SYNC-AND-RECEIPT": {
       "name": "sub-patient-payment-candid-sync-and-receipt",
       "type": "subscription",
@@ -1244,6 +1232,27 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-balances/index",
       "zip": ".dist/zips/get-patient-balances.zip"
+    },
+    "GET_LOGIN_PHONE_NUMBERS": {
+      "name": "get-login-phone-numbers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-account/get-login-phone-numbers/index",
+      "zip": ".dist/zips/get-login-phone-numbers.zip"
+    },
+    "UPDATE_LOGIN_PHONE_NUMBERS": {
+      "name": "update-login-phone-numbers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-account/update-login-phone-numbers/index",
+      "zip": ".dist/zips/update-login-phone-numbers.zip"
+    },
+    "MAKE_MEDICATION_HISTORY_PDF": {
+      "name": "make-medication-history-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
+      "zip": ".dist/zips/make-medication-history-pdf.zip"
     }
   },
   "fhirResources": {
@@ -1509,24 +1518,6 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "update"
-          }
-        ]
-      }
-    },
-    "SUB_RECOMMEND_DIAGNOSIS_CODES_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Recommend diagnosis codes",
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|recommend-diagnosis-codes&status=requested",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RECOMMEND-DIAGNOSIS-CODES/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
           }
         ]
       }

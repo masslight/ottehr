@@ -117,6 +117,7 @@ export const useBookingContext = (): BookAppointmentContext => {
 };
 
 export const PROGRESS_STORAGE_KEY = 'patient-information-progress';
+export const ACTIVE_SLOT_ID_KEY = 'active-slot-id';
 
 // cSpell:ignore prepatient
 const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): boolean => {

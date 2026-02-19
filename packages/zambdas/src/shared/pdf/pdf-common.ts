@@ -250,7 +250,7 @@ const createRightAlignedStyles = (styles: PdfStyles): PdfStyles => {
   };
 };
 
-const renderPdf = async <TData extends PdfData>(
+export const renderPdf = async <TData extends PdfData>(
   data: TData,
   config: PdfRenderConfig<TData>,
   token: string

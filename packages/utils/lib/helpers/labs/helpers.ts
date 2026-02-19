@@ -169,7 +169,7 @@ export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
   const testName =
     dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
     dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
-    dr.code.coding?.find((temp) => temp.system === DEFAULT_OYSTEHR_LABS_HL7_SYSTEM)?.display;
+    dr.code.coding?.find((temp) => temp.system?.endsWith(DEFAULT_OYSTEHR_LABS_HL7_SYSTEM))?.display; // Oystehr postfixes any system it doesn't recognize with this HL7 system string, so this ensures we still pull the value
   return testName;
 };
 
@@ -177,7 +177,7 @@ export const getTestItemCodeFromDr = (diagnosticReport: DiagnosticReport): strin
   const testItemCode =
     diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
     diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
-    diagnosticReport.code.coding?.find((temp) => temp.system === DEFAULT_OYSTEHR_LABS_HL7_SYSTEM)?.code;
+    diagnosticReport.code.coding?.find((temp) => temp.system?.endsWith(DEFAULT_OYSTEHR_LABS_HL7_SYSTEM))?.code; // Oystehr postfixes any system it doesn't recognize with this HL7 system string, so this ensures we still pull the value
   return testItemCode;
 };
 

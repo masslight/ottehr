@@ -88,7 +88,7 @@ const TEXTING_DEFAULTS_BASE = Object.freeze({
       },
     ],
   },
-});
+} as const);
 
 const mergedTextingConfig = mergeAndFreezeConfigObjects(TEXTING_DEFAULTS_BASE, TEXTING_OVERRIDES);
 

@@ -361,6 +361,7 @@ export const convertActivityDefinitionToTestItem = (
     reflexAlert,
     adUrl: activityDef.url,
     adVersion: activityDef.version,
+    adId: activityDef.id ?? 'unknown',
   };
 
   console.log('successfully converted activity ActivityDefinition to testItem format for', testItem.name);
