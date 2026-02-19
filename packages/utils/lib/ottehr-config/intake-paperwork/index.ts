@@ -2021,6 +2021,12 @@ export function getIntakePaperworkConfig(
     FormFields: FormFieldsSchema,
   });
 
+  // Debug logging to trace config merge issues
+  console.log('[getIntakePaperworkConfig] Called with overrides:');
+  console.log('  Has FormFields:', !!(overrides as any)?.FormFields);
+  console.log('  Has primaryCarePhysician:', !!(overrides as any)?.FormFields?.primaryCarePhysician);
+  console.log('  PCP triggers:', JSON.stringify((overrides as any)?.FormFields?.primaryCarePhysician?.triggers));
+
   // Get value sets and consent forms at call time
   // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
   const valueSets = getValueSets();
@@ -2053,6 +2059,10 @@ export function getIntakePaperworkConfig(
   // Merge: defaults -> consent forms -> user overrides
   const withConsentForms = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
   const mergedConfig = mergeAndFreezeConfigObjects(withConsentForms, overrides);
+
+  // Debug logging to verify merge result
+  console.log('[getIntakePaperworkConfig] After merge:');
+  console.log('  PCP triggers:', JSON.stringify((mergedConfig as any)?.FormFields?.primaryCarePhysician?.triggers));
 
   return IntakePaperworkConfigSchema.parse(mergedConfig);
 }
