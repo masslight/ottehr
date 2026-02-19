@@ -374,7 +374,7 @@ export default function VisitDetailsPage(): ReactElement {
 
     try {
       setDeletingFile(id);
-      await deleteVisitFiles(oystehrZambda!, { documentId: id });
+      await deleteVisitFiles(oystehrZambda, { documentId: id });
       setDeletingFile(null);
       enqueueSnackbar('File deleted successfully', { variant: 'success' });
       await refetchFileData();
