@@ -52,3 +52,7 @@ export interface UpdateVisitFilesInput {
   fileType: EHRImageUploadType;
   attachment: Attachment;
 }
+
+export interface DeleteVisitFilesInput {
+  documentId: string;
+}

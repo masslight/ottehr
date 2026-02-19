@@ -47,6 +47,7 @@ import {
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
+  DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   GetAppointmentsZambdaInput,
@@ -1391,6 +1392,18 @@ export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisit
   try {
     await oystehr.zambda.execute({
       id: 'update-visit-files',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteVisitFiles = async (oystehr: Oystehr, parameters: DeleteVisitFilesInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'delete-visit-files',
       ...parameters,
     });
   } catch (error: unknown) {
