@@ -10,3 +10,4 @@ export * from './utils';
 export * from './validation';
 export * from './ottehr-config';
 export * from './ottehr-config-test-fixtures';
+export * from '../ottehr-config-overrides';

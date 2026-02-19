@@ -12,11 +12,14 @@
 
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
-import { CanonicalUrl, getConsentFormsConfig, resolveConsentFormsPaths, ServiceMode } from 'utils';
-// Import the instance-specific overrides from ottehr-config-overrides
-// These will be empty `{}` in the upstream repo, but downstream repos will have their actual overrides
-import { INTAKE_PAPERWORK_CONFIG as INTAKE_PAPERWORK_OVERRIDES } from 'utils/ottehr-config-overrides/intake-paperwork';
-import { INTAKE_PAPERWORK_CONFIG as INTAKE_PAPERWORK_VIRTUAL_OVERRIDES } from 'utils/ottehr-config-overrides/intake-paperwork-virtual';
+import {
+  CanonicalUrl,
+  getConsentFormsConfig,
+  INTAKE_PAPERWORK_OVERRIDES,
+  INTAKE_PAPERWORK_VIRTUAL_OVERRIDES,
+  resolveConsentFormsPaths,
+  ServiceMode,
+} from 'utils';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
   // P1: Critical User Journeys
