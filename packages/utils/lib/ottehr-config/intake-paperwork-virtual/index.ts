@@ -4,7 +4,7 @@ import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
-import { getConsentFormsForLocation } from '../consent-forms';
+import { getConsentFormsForLocation, ResolvedConsentFormConfig } from '../consent-forms';
 import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
@@ -20,10 +20,11 @@ import {
   SELF_PAY_OPTION,
   SURGICAL_HISTORY_YES_OPTION,
 } from '../shared-questionnaire';
-import { VALUE_SETS as formValueSets } from '../value-sets';
+import { getValueSets, type ValueSetsConfig } from '../value-sets';
 
-function getFormFields(): typeof FormFields {
-  const resolvedConsentForms = getConsentFormsForLocation();
+function getFormFields(valueSets: ValueSetsConfig, consentForms?: ResolvedConsentFormConfig[]): typeof FormFields {
+  // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
+  const resolvedConsentForms = consentForms ?? getConsentFormsForLocation();
 
   const FormFields = {
     contactInformation: {
@@ -54,7 +55,7 @@ function getFormFields(): typeof FormFields {
         patientBirthSex: {
           key: 'patient-birth-sex',
           type: 'choice',
-          options: formValueSets.birthSexOptions,
+          options: valueSets.birthSexOptions,
         },
         patientBirthSexMissing: {
           key: 'patient-birth-sex-missing',
@@ -68,7 +69,7 @@ function getFormFields(): typeof FormFields {
         reasonForVisit: {
           key: 'reason-for-visit',
           type: 'choice',
-          options: formValueSets.reasonForVisitOptions,
+          options: valueSets.reasonForVisitOptions,
         },
       },
       items: {
@@ -101,7 +102,7 @@ function getFormFields(): typeof FormFields {
           key: 'patient-state',
           label: 'State',
           type: 'choice',
-          options: formValueSets.stateOptions,
+          options: valueSets.stateOptions,
           inputWidth: 's',
         },
         zip: {
@@ -136,7 +137,7 @@ function getFormFields(): typeof FormFields {
           key: 'patient-preferred-communication-method',
           label: 'Preferred Communication Method',
           type: 'choice',
-          options: formValueSets.preferredCommunicationMethodOptions,
+          options: valueSets.preferredCommunicationMethodOptions,
         },
         mobileOptIn: {
           key: 'mobile-opt-in',
@@ -163,19 +164,19 @@ function getFormFields(): typeof FormFields {
           key: 'patient-ethnicity',
           label: 'Ethnicity',
           type: 'choice',
-          options: formValueSets.ethnicityOptions,
+          options: valueSets.ethnicityOptions,
         },
         race: {
           key: 'patient-race',
           label: 'Race',
           type: 'choice',
-          options: formValueSets.raceOptions,
+          options: valueSets.raceOptions,
         },
         pronouns: {
           key: 'patient-pronouns',
           label: 'Preferred pronouns',
           type: 'choice',
-          options: formValueSets.pronounOptions,
+          options: valueSets.pronounOptions,
           infoTextSecondary:
             'Pronoun responses are kept confidential in our system and are used to help us best respect how our patients wish to be addressed.',
         },
@@ -202,7 +203,7 @@ function getFormFields(): typeof FormFields {
           key: 'patient-point-of-discovery',
           label: 'How did you hear about us?',
           type: 'choice',
-          options: formValueSets.pointOfDiscoveryOptions,
+          options: valueSets.pointOfDiscoveryOptions,
           triggers: [
             {
               targetQuestionLinkId: 'is-new-qrs-patient',
@@ -217,7 +218,7 @@ function getFormFields(): typeof FormFields {
           key: 'preferred-language',
           label: 'Preferred language',
           type: 'choice',
-          options: formValueSets.languageOptions,
+          options: valueSets.languageOptions,
         },
         otherPreferredLanguage: {
           key: 'other-preferred-language',
@@ -236,7 +237,7 @@ function getFormFields(): typeof FormFields {
           key: 'relay-phone',
           label: 'Do you require a Hearing Impaired Relay Service? (711)',
           type: 'choice',
-          options: formValueSets.yesNoOptions,
+          options: valueSets.yesNoOptions,
           element: 'Radio List',
         },
       },
@@ -407,7 +408,7 @@ function getFormFields(): typeof FormFields {
           label: 'Select option',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.currentMedicationsYesNoOptions,
+          options: valueSets.currentMedicationsYesNoOptions,
         },
         medications: {
           key: 'current-medications',
@@ -440,7 +441,7 @@ function getFormFields(): typeof FormFields {
               key: 'current-medications-form-medication',
               label: 'Medication',
               type: 'open-choice',
-              options: formValueSets.currentMedicationsOptions,
+              options: valueSets.currentMedicationsOptions,
               acceptsMultipleAnswers: true,
             },
           },
@@ -458,7 +459,7 @@ function getFormFields(): typeof FormFields {
           label: 'Select option',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.allergiesYesNoOptions,
+          options: valueSets.allergiesYesNoOptions,
         },
         allergiesList: {
           key: 'allergies',
@@ -492,14 +493,14 @@ function getFormFields(): typeof FormFields {
               label: 'Type',
               type: 'choice',
               element: 'Radio List',
-              options: formValueSets.allergyTypeOptions,
+              options: valueSets.allergyTypeOptions,
               alwaysFilter: true,
             },
             agentSubstanceMedications: {
               key: 'allergies-form-agent-substance-medications',
               label: 'Agent/Substance',
               type: 'open-choice',
-              options: formValueSets.allergyMedicationOptions,
+              options: valueSets.allergyMedicationOptions,
               customLinkId: 'allergies-form-agent-substance',
               acceptsMultipleAnswers: true,
               categoryTag: 'Medication',
@@ -517,7 +518,7 @@ function getFormFields(): typeof FormFields {
               key: 'allergies-form-agent-substance-other',
               label: 'Agent/Substance',
               type: 'open-choice',
-              options: formValueSets.allergyOtherOptions,
+              options: valueSets.allergyOtherOptions,
               customLinkId: 'allergies-form-agent-substance',
               acceptsMultipleAnswers: true,
               categoryTag: 'Other',
@@ -546,7 +547,7 @@ function getFormFields(): typeof FormFields {
           label: 'Select option',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.medicalHistoryYesNoOptions,
+          options: valueSets.medicalHistoryYesNoOptions,
         },
         medicalConditions: {
           key: 'medical-history',
@@ -579,7 +580,7 @@ function getFormFields(): typeof FormFields {
               key: 'medical-history-form-medical-condition',
               label: 'Medical condition',
               type: 'open-choice',
-              options: formValueSets.medicalConditionOptions,
+              options: valueSets.medicalConditionOptions,
               acceptsMultipleAnswers: true,
             },
           },
@@ -597,7 +598,7 @@ function getFormFields(): typeof FormFields {
           label: 'Select option',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.surgicalHistoryYesNoOptions,
+          options: valueSets.surgicalHistoryYesNoOptions,
         },
         surgeries: {
           key: 'surgical-history',
@@ -630,7 +631,7 @@ function getFormFields(): typeof FormFields {
               key: 'surgical-history-form-type',
               label: 'Type of surgery',
               type: 'open-choice',
-              options: formValueSets.surgeryTypeOptions,
+              options: valueSets.surgeryTypeOptions,
               acceptsMultipleAnswers: true,
             },
           },
@@ -681,7 +682,7 @@ function getFormFields(): typeof FormFields {
           label: 'Select payment option',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.patientPaymentPageOptions,
+          options: valueSets.patientPaymentPageOptions,
         },
         selfPayAlert: {
           key: 'self-pay-alert-text',
@@ -877,7 +878,7 @@ function getFormFields(): typeof FormFields {
           key: 'policy-holder-birth-sex',
           label: "Policy holder's birth sex",
           type: 'choice',
-          options: formValueSets.birthSexOptions,
+          options: valueSets.birthSexOptions,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1001,7 +1002,7 @@ function getFormFields(): typeof FormFields {
           key: 'policy-holder-state',
           label: 'State',
           type: 'choice',
-          options: formValueSets.stateOptions,
+          options: valueSets.stateOptions,
           inputWidth: 's',
           disabledDisplay: 'hidden',
           dynamicPopulation: { sourceLinkId: 'patient-state' },
@@ -1061,7 +1062,7 @@ function getFormFields(): typeof FormFields {
           key: 'patient-relationship-to-insured',
           label: "Patient's relationship to insured",
           type: 'choice',
-          options: formValueSets.relationshipToInsuredOptions,
+          options: valueSets.relationshipToInsuredOptions,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1207,7 +1208,7 @@ function getFormFields(): typeof FormFields {
               key: 'policy-holder-birth-sex-2',
               label: "Policy holder's birth sex",
               type: 'choice',
-              options: formValueSets.birthSexOptions,
+              options: valueSets.birthSexOptions,
             },
             policyHolderAddressAsPatient: {
               key: 'policy-holder-address-as-patient-2',
@@ -1264,7 +1265,7 @@ function getFormFields(): typeof FormFields {
               key: 'policy-holder-state-2',
               label: 'State',
               type: 'choice',
-              options: formValueSets.stateOptions,
+              options: valueSets.stateOptions,
               inputWidth: 's',
               disabledDisplay: 'hidden',
               dynamicPopulation: { sourceLinkId: 'patient-state' },
@@ -1299,7 +1300,7 @@ function getFormFields(): typeof FormFields {
               key: 'patient-relationship-to-insured-2',
               label: "Patient's relationship to insured",
               type: 'choice',
-              options: formValueSets.relationshipToInsuredOptions,
+              options: valueSets.relationshipToInsuredOptions,
             },
             insuranceCardFront: {
               key: 'insurance-card-front-2',
@@ -1375,7 +1376,7 @@ function getFormFields(): typeof FormFields {
           label: 'Select payment option',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.patientOccMedPaymentPageOptions,
+          options: valueSets.patientOccMedPaymentPageOptions,
         },
         selfPayAlert: {
           key: 'self-pay-alert-text-occupational',
@@ -1472,7 +1473,7 @@ function getFormFields(): typeof FormFields {
           key: 'responsible-party-relationship',
           label: 'Relationship to the patient',
           type: 'choice',
-          options: formValueSets.relationshipOptions,
+          options: valueSets.relationshipOptions,
         },
         firstName: {
           key: 'responsible-party-first-name',
@@ -1526,7 +1527,7 @@ function getFormFields(): typeof FormFields {
           key: 'responsible-party-birth-sex',
           label: 'Birth sex',
           type: 'choice',
-          options: formValueSets.birthSexOptions,
+          options: valueSets.birthSexOptions,
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
@@ -1622,7 +1623,7 @@ function getFormFields(): typeof FormFields {
           key: 'responsible-party-state',
           label: 'State',
           type: 'choice',
-          options: formValueSets.stateOptions,
+          options: valueSets.stateOptions,
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
@@ -1742,7 +1743,7 @@ function getFormFields(): typeof FormFields {
           key: 'employer-state',
           label: 'State',
           type: 'choice',
-          options: formValueSets.stateOptions,
+          options: valueSets.stateOptions,
           inputWidth: 's',
         },
         zip: {
@@ -1821,7 +1822,7 @@ function getFormFields(): typeof FormFields {
           key: 'emergency-contact-relationship',
           label: 'Relationship to the patient',
           type: 'choice',
-          options: formValueSets.emergencyContactRelationshipOptions,
+          options: valueSets.emergencyContactRelationshipOptions,
         },
         firstName: {
           key: 'emergency-contact-first-name',
@@ -1903,7 +1904,7 @@ function getFormFields(): typeof FormFields {
           key: 'emergency-contact-state',
           label: 'State',
           type: 'choice',
-          options: formValueSets.stateOptions,
+          options: valueSets.stateOptions,
           triggers: [
             {
               targetQuestionLinkId: 'emergency-contact-address-as-patient',
@@ -1965,7 +1966,7 @@ function getFormFields(): typeof FormFields {
           label: 'Do you have an attorney?',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.attorneyOptions,
+          options: valueSets.attorneyOptions,
         },
         firm: {
           key: 'attorney-mva-firm',
@@ -2106,7 +2107,7 @@ function getFormFields(): typeof FormFields {
           label: 'Select option:',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.schoolWorkNoteOptions,
+          options: valueSets.schoolWorkNoteOptions,
         },
         templateUploadGroup: {
           key: 'school-work-note-template-upload-group',
@@ -2263,7 +2264,7 @@ function getFormFields(): typeof FormFields {
             },
           ],
           enableBehavior: 'all',
-          options: formValueSets.relationshipOptions,
+          options: valueSets.relationshipOptions,
         },
       },
       hiddenFields: [],
@@ -2284,7 +2285,7 @@ function getFormFields(): typeof FormFields {
           label: 'Is anyone joining this visit from another device?',
           type: 'choice',
           element: 'Radio',
-          options: formValueSets.inviteFromAnotherDeviceOptions,
+          options: valueSets.inviteFromAnotherDeviceOptions,
         },
         firstName: {
           key: 'invite-first',
@@ -2323,7 +2324,7 @@ function getFormFields(): typeof FormFields {
           label: 'Preferable contact',
           type: 'choice',
           element: 'Radio List',
-          options: formValueSets.inviteContactOptions,
+          options: valueSets.inviteContactOptions,
           triggers: [
             {
               targetQuestionLinkId: 'invite-from-another-device',
@@ -2425,11 +2426,19 @@ const questionnaireBaseDefaults: QuestionnaireBase = {
   status: 'active',
 };
 
-function getIntakePaperworkVirtualConfig(testOverrides: any = OVERRIDES): any {
+function getIntakePaperworkVirtualConfig(
+  testOverrides: any = OVERRIDES,
+  consentFormsConfig?: ResolvedConsentFormConfig[]
+): any {
+  // Get value sets at call time (reads from proxy, picks up test overrides)
+  const valueSets = getValueSets();
+  // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
+  const consentForms = consentFormsConfig ?? getConsentFormsForLocation();
+
   const INTAKE_PAPERWORK_DEFAULTS = {
     questionnaireBase: questionnaireBaseDefaults,
     hiddenFormSections,
-    FormFields: getFormFields(),
+    FormFields: getFormFields(valueSets, consentForms),
   };
 
   const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, testOverrides);

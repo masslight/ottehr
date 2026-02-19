@@ -596,16 +596,41 @@ export class BookingFlowHelpers {
    * This is a shared utility used by both initial booking and modification flows.
    *
    * @param page - Playwright page
-   * @param minMinutesInFuture - Minimum minutes in the future the slot should be
+   * @param minMinutesInFuture - Minimum minutes in the future the slot should be (used for initial booking)
+   * @param options - Additional options
+   * @param options.skipFirstN - Number of initial slots to skip (useful for modification flows
+   *   where the first slot may be the current appointment's slot which could be in the past)
    * @returns The selected time text and the button locator
    */
-  static async findAndClickSuitableTimeSlot(page: Page, minMinutesInFuture = 30): Promise<{ timeText: string }> {
-    // Find all time slot buttons (format: "2:00 PM", "3:30 AM", etc.)
-    const timeButtons = page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
+  static async findAndClickSuitableTimeSlot(
+    page: Page,
+    minMinutesInFuture = 30,
+    options: { skipFirstN?: number } = {}
+  ): Promise<{ timeText: string }> {
+    const { skipFirstN = 0 } = options;
+
+    // Find all time slot buttons using the CSS class assigned in SelectSlot.tsx
+    // This is more reliable than regex matching on accessible name
+    const timeButtons = page.locator('button.time-button');
     const buttonCount = await timeButtons.count();
+    console.log(`Found ${buttonCount} time slot buttons`);
 
     if (buttonCount === 0) {
       throw new Error('No time slots available');
+    }
+
+    // Log all available slot times for debugging
+    const allSlotTexts: string[] = [];
+    for (let i = 0; i < buttonCount; i++) {
+      const text = await timeButtons.nth(i).textContent();
+      allSlotTexts.push(text || 'unknown');
+    }
+    console.log(`Available slots: ${allSlotTexts.join(', ')}`);
+
+    // Determine starting index (skip first N slots if requested)
+    const startIndex = Math.min(skipFirstN, buttonCount - 1);
+    if (skipFirstN > 0) {
+      console.log(`Skipping first ${skipFirstN} slots (starting from index ${startIndex})`);
     }
 
     // Calculate the minimum acceptable time
@@ -619,30 +644,42 @@ export class BookingFlowHelpers {
     let selectedButton = null;
     let selectedTimeText = '';
 
-    for (let i = 0; i < buttonCount; i++) {
+    for (let i = startIndex; i < buttonCount; i++) {
       const button = timeButtons.nth(i);
       const timeText = await button.textContent();
       if (!timeText) continue;
 
       // Parse time from button text (e.g., "2:00 PM" or "10:30 AM")
+      // Note: Due to timezone differences between test server and location,
+      // this parsing may not be 100% accurate. Use skipFirstN to avoid
+      // selecting slots that may be in the past.
       const slotTime = this.parseTimeSlotToDate(timeText.trim(), now);
-      if (!slotTime) continue;
+      if (!slotTime) {
+        console.log(`Could not parse time from button text: "${timeText}"`);
+        continue;
+      }
 
       if (slotTime >= minAcceptableTime) {
         selectedButton = button;
         selectedTimeText = timeText;
-        console.log(`Found suitable slot: ${timeText} (${slotTime.toLocaleTimeString()})`);
+        console.log(`Found suitable slot at index ${i}: ${timeText} (parsed as ${slotTime.toLocaleTimeString()})`);
         break;
       } else {
-        console.log(`Skipping slot ${timeText} - too soon (${slotTime.toLocaleTimeString()})`);
+        console.log(
+          `Skipping slot ${timeText} at index ${i} - parsed time ${slotTime.toLocaleTimeString()} is before ${minAcceptableTime.toLocaleTimeString()}`
+        );
       }
     }
 
-    // Fallback to last slot if none are far enough in the future
-    // (This handles edge cases like late night testing where tomorrow's slots may not be shown)
+    // Fallback: if no slot found via time parsing, select a slot from the middle/end
+    // This handles timezone mismatch scenarios where time parsing is inaccurate
     if (!selectedButton) {
-      console.log('No slot found far enough in future, selecting last available slot as fallback');
-      selectedButton = timeButtons.last();
+      // Select slot at 2/3 through the list (biased toward later times which are more likely to be in the future)
+      const fallbackIndex = Math.max(startIndex, Math.floor((buttonCount * 2) / 3));
+      console.log(
+        `No slot found via time parsing, using fallback slot at index ${fallbackIndex} (2/3 through the list)`
+      );
+      selectedButton = timeButtons.nth(fallbackIndex);
       selectedTimeText = (await selectedButton.textContent()) || 'unknown';
     }
 

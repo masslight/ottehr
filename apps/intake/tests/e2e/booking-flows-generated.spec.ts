@@ -12,7 +12,7 @@
 
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
-import { CanonicalUrl, ServiceMode } from 'utils';
+import { CanonicalUrl, getConsentFormsConfig, resolveConsentFormsPaths, ServiceMode } from 'utils';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
   // P1: Critical User Journeys
@@ -149,11 +149,16 @@ test.describe('Complete booking flows', () => {
 
       // Deploy test questionnaires for each concrete config
       for (const concreteConfig of loadedConcreteConfigs) {
+        // Resolve consent forms for this config (needed for questionnaire generation)
+        const resolvedConsentFormsConfig = getConsentFormsConfig(concreteConfig.consentFormsOverrides || {});
+        const resolvedConsentForms = resolveConsentFormsPaths(resolvedConsentFormsConfig.forms);
+
         if (concreteConfig.paperworkConfigInPerson) {
           const inPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
             concreteConfig.id,
             concreteConfig.paperworkConfigInPerson,
-            ServiceMode['in-person']
+            ServiceMode['in-person'],
+            resolvedConsentForms
           );
           testQuestionnaireCanonicals.set(`${concreteConfig.id}-in-person`, inPersonResult.canonical);
           console.log(`✓ Deployed in-person questionnaire for ${concreteConfig.name}`);
@@ -163,7 +168,8 @@ test.describe('Complete booking flows', () => {
           const virtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
             concreteConfig.id,
             concreteConfig.paperworkConfigVirtual,
-            ServiceMode['virtual']
+            ServiceMode['virtual'],
+            resolvedConsentForms
           );
           testQuestionnaireCanonicals.set(`${concreteConfig.id}-virtual`, virtualResult.canonical);
           console.log(`✓ Deployed virtual questionnaire for ${concreteConfig.name}`);

@@ -380,6 +380,31 @@ export class PagedQuestionnaireFlowHelper {
   }
 
   /**
+   * Check all consent form checkboxes on the current page.
+   * This is used instead of hardcoded consent form IDs since they vary by instance.
+   * Finds all checkboxes within the consent forms section and checks them.
+   */
+  async checkAllConsentCheckboxes(): Promise<void> {
+    // Find all checkboxes on the page (MUI uses input[type="checkbox"] inside spans)
+    // We get ALL checkboxes and check them - .check() is idempotent so safe to call on already-checked ones
+    const checkboxes = this.page.locator('input[type="checkbox"]');
+
+    const count = await checkboxes.count();
+    console.log(`Found ${count} consent checkboxes to check`);
+
+    // Check each checkbox by index - important to not re-query the locator
+    // since DOM changes would shift indices
+    for (let i = 0; i < count; i++) {
+      const checkbox = checkboxes.nth(i);
+      // Only check if visible
+      if (await checkbox.isVisible()) {
+        await checkbox.check();
+        console.log(`Checked consent checkbox ${i + 1}/${count}`);
+      }
+    }
+  }
+
+  /**
    * Fill an attachment field (file upload)
    */
   private async fillAttachmentField(value: string, _item: IntakeQuestionnaireItem): Promise<void> {
@@ -680,7 +705,13 @@ export class PagedQuestionnaireFlowHelper {
    * })
    * ```
    */
-  async fillPage(valueMap: Record<string, any>): Promise<void> {
+  async fillPage(valueMap: Record<string, any>, pageLinkId?: string): Promise<void> {
+    // Special handling for consent forms page: check all consent checkboxes automatically
+    // This avoids needing to know the specific consent form IDs which vary by instance
+    if (pageLinkId === 'consent-forms-page') {
+      await this.checkAllConsentCheckboxes();
+    }
+
     const fieldsToFill = Object.entries(valueMap);
     const triggerFieldIds = this.getTriggerFieldIds(Object.keys(valueMap));
 
@@ -1083,7 +1114,7 @@ export class PagedQuestionnaireFlowHelper {
    * @returns The updated QuestionnaireResponse from the server (or current responses if page skips patch)
    */
   async fillPageAndContinue(valueMap: Record<string, any>, pageLinkId?: string): Promise<QuestionnaireResponse> {
-    await this.fillPage(valueMap);
+    await this.fillPage(valueMap, pageLinkId);
 
     // Some pages (like Medical History) use different endpoints and skip patch-paperwork
     if (pageLinkId && this.skipsPatchPaperwork(pageLinkId)) {

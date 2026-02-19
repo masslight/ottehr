@@ -51,7 +51,8 @@ instance-name/
 ├── intake-paperwork/index.ts     # In-person paperwork config
 ├── intake-paperwork-virtual/index.ts  # Virtual paperwork config
 ├── locations/index.ts            # LOCATIONS_OVERRIDES
-└── value-sets/index.ts           # VALUE_SETS_OVERRIDES
+├── value-sets/index.ts           # VALUE_SETS_OVERRIDES
+└── consent-forms/index.ts        # CONSENT_FORMS_OVERRIDE
 ```
 
 Concrete configs are **auto-discovered** at runtime - add a new folder and it's automatically included in the test matrix.
@@ -95,7 +96,8 @@ Derive test expectations from config:
 - selectFirstAvailableLocation(page, locationName, serviceMode) → pick location
 - selectFirstAvailableTimeSlot(page, minMinutesInFuture) → pick time slot with buffer
 - confirmBooking(page, visitType, serviceMode) → confirm and capture response
-- findAndClickSuitableTimeSlot(page, minMinutes) → shared time selection logic
+- findAndClickSuitableTimeSlot(page, minMinutes, options?) → shared time selection logic
+  // options.skipFirstN: Skip first N slots (for modification flows to avoid current slot)
 ```
 
 ### 5. Test Factory
@@ -154,7 +156,8 @@ executeBookingScenario(page, scenario, locationName)
 
 **TestQuestionnaireManager.ts** - Deploys test questionnaires:
 ```typescript
-- ensureTestQuestionnaire(configId, overrides, serviceMode) → deploy questionnaire with overrides
+- ensureTestQuestionnaire(configId, overrides, serviceMode, consentForms?) → deploy questionnaire with overrides
+  // consentForms: Optional resolved consent forms for instance-specific consent form items
 - cleanup() → delete test questionnaires
 ```
 
@@ -195,8 +198,10 @@ Dynamic questionnaire page filling:
 - getFirstVisiblePage() → first page based on enableWhen evaluation
 - getNextVisiblePage(currentPageId) → next page after responses collected
 - fillPageAndContinue(valueMap, pageLinkId) → fill fields and submit
+  // Auto-checks all consent form checkboxes when pageLinkId is 'consent-forms-page'
 - fillPageWithValidationCheck(valid, invalid, pageLinkId) → test validation errors
 - verifyFieldsNotShown(fieldLinkIds) → assert hidden fields are hidden
+- checkAllConsentCheckboxes() → check all consent checkboxes on current page
 ```
 
 ## Test Organization
@@ -333,10 +338,15 @@ await page.route('**/create-appointment/execute', async (route, request) => {
 ### 4. Time Slot Selection with Buffer
 ```typescript
 // Avoid "appointment in the past" flakes by selecting future slots
-static async selectFirstAvailableTimeSlot(page: Page, minMinutesInFuture = 30) {
+static async findAndClickSuitableTimeSlot(
+  page: Page,
+  minMinutesInFuture = 30,
+  options?: { skipFirstN?: number }  // Skip first N slots (useful for modification flows)
+) {
   const now = new Date();
   const minAcceptableTime = new Date(now.getTime() + minMinutesInFuture * 60 * 1000);
-  // Find and click slot >= minAcceptableTime
+  // Find and click slot >= minAcceptableTime, skipping first N if specified
+  // Handles timezone mismatches with fallback to slots at 2/3 through the list
 }
 ```
 

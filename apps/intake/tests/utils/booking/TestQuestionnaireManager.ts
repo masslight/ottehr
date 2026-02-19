@@ -5,6 +5,7 @@ import {
   getIntakePaperworkConfig,
   getIntakePaperworkVirtualConfig,
   QuestionnaireConfigType,
+  ResolvedConsentFormConfig,
   ServiceMode,
 } from 'utils';
 import { ResourceHandler } from '../resource-handler';
@@ -99,16 +100,21 @@ export class TestQuestionnaireManager {
    * @param configOverrides - Config overrides to apply
    * @param serviceMode - The service mode ('in-person' or 'virtual')
    * @param configId - Identifier for this config (used in URL)
+   * @param consentForms - Optional resolved consent forms to use (for instance-specific forms)
    * @returns The generated Questionnaire resource (not yet saved to FHIR)
    */
   private generateQuestionnaire(
     configOverrides: Partial<QuestionnaireConfigType>,
     serviceMode: ServiceMode,
-    configId: string
+    configId: string,
+    consentForms?: ResolvedConsentFormConfig[]
   ): Questionnaire {
     // Get the base config with overrides applied
-    const baseConfigFn = serviceMode === 'in-person' ? getIntakePaperworkConfig : getIntakePaperworkVirtualConfig;
-    const config = baseConfigFn(configOverrides);
+    // Pass consent forms so checkbox items are built from instance-specific forms
+    const config =
+      serviceMode === 'in-person'
+        ? getIntakePaperworkConfig(configOverrides, consentForms)
+        : getIntakePaperworkVirtualConfig(configOverrides, consentForms);
 
     // Override the questionnaire base URL and version for test isolation
     const testUrl = this.generateTestQuestionnaireUrl(configId, serviceMode);
@@ -139,12 +145,14 @@ export class TestQuestionnaireManager {
    * @param configId - Unique identifier for this config (e.g., 'instance-2')
    * @param configOverrides - Config overrides (e.g., hiddenFields)
    * @param serviceMode - The service mode ('in-person' or 'virtual')
+   * @param consentForms - Optional resolved consent forms to use (for instance-specific forms)
    * @returns Information about the created questionnaire including its canonical URL
    */
   async ensureTestQuestionnaire(
     configId: string,
     configOverrides: Partial<QuestionnaireConfigType>,
-    serviceMode: ServiceMode
+    serviceMode: ServiceMode,
+    consentForms?: ResolvedConsentFormConfig[]
   ): Promise<CreatedTestQuestionnaire> {
     const cacheKey = this.getCacheKey(configId, serviceMode);
 
@@ -158,8 +166,8 @@ export class TestQuestionnaireManager {
     const oystehr = this.resourceHandler.apiClient;
     const processId = this.workerUniqueId;
 
-    // Generate the questionnaire
-    const questionnaire = this.generateQuestionnaire(configOverrides, serviceMode, configId);
+    // Generate the questionnaire with instance-specific consent forms if provided
+    const questionnaire = this.generateQuestionnaire(configOverrides, serviceMode, configId, consentForms);
 
     // Add test tags for identification and cleanup
     questionnaire.meta = {

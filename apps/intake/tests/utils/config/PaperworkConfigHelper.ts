@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { CONFIG_INJECTION_KEYS, type QuestionnaireConfigType } from 'utils';
+import { CONFIG_INJECTION_KEYS, type ConsentFormsConfig, type QuestionnaireConfigType } from 'utils';
 
 /**
  * Configuration-aware paperwork test helper utilities
@@ -66,6 +66,25 @@ export class PaperworkConfigHelper {
         (window as any)[key] = overrides;
       },
       { key: CONFIG_INJECTION_KEYS.VALUE_SETS, overrides: valueSets }
+    );
+  }
+
+  /**
+   * Inject test consent forms config into the page's runtime environment.
+   * This must be called BEFORE navigating to the page.
+   *
+   * The config is injected via window.__TEST_CONSENT_FORMS_CONFIG__ which is then
+   * picked up by the CONSENT_FORMS_CONFIG Proxy in the application.
+   *
+   * @param page - Playwright page instance
+   * @param config - Consent forms config to inject (partial overrides)
+   */
+  static async injectConsentFormsConfig(page: Page, config: Partial<ConsentFormsConfig>): Promise<void> {
+    await page.addInitScript(
+      ({ key, overrides }) => {
+        (window as any)[key] = overrides;
+      },
+      { key: CONFIG_INJECTION_KEYS.CONSENT_FORMS, overrides: config }
     );
   }
 

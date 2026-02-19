@@ -17,9 +17,11 @@ import {
   CreateAppointmentResponse,
   getBookingCapabilityConfig,
   getBookingConfig,
+  getConsentFormsConfig,
   getIntakePaperworkConfig,
   getIntakePaperworkVirtualConfig,
   getValueSets,
+  resolveConsentFormsPaths,
 } from 'utils';
 import { CONCRETE_TEST_CONFIGS } from '../booking-flow-concrete-smoke-configs';
 import { BookingConfigHelper } from '../config/BookingConfigHelper';
@@ -57,6 +59,8 @@ export interface BookingTestScenario {
   resolvedPaperworkConfig?: any;
   /** Fully resolved value sets config */
   resolvedValueSetConfig?: any;
+  /** Fully resolved consent forms config */
+  resolvedConsentFormsConfig?: any;
   /** Test questionnaire canonical URL (used to override the default questionnaire for e2e tests) */
   testQuestionnaireCanonical?: CanonicalUrl;
   /** Type of bookable entity for location selection. Defaults to 'Location'. */
@@ -220,8 +224,14 @@ export async function generateBookingTestScenarios(configName: string): Promise<
   const concreteTestConfigs = await CONCRETE_TEST_CONFIGS;
   console.error('[BookingTestFactory] CONCRETE_TEST_CONFIGS:', concreteTestConfigs);
   for (const concreteConfig of concreteTestConfigs) {
-    const { bookingOverrides, fillingStrategy, paperworkConfigInPerson, paperworkConfigVirtual, valueSetsOverrides } =
-      concreteConfig;
+    const {
+      bookingOverrides,
+      fillingStrategy,
+      paperworkConfigInPerson,
+      paperworkConfigVirtual,
+      valueSetsOverrides,
+      consentFormsOverrides,
+    } = concreteConfig;
 
     // Create a properly merged config using the same resolution as the app
     const concreteResolvedConfig = getBookingConfig(bookingOverrides);
@@ -245,12 +255,17 @@ export async function generateBookingTestScenarios(configName: string): Promise<
 
       if (concreteServiceCategories.length === 1) {
         const categoryCode = concreteServiceCategories[0].code;
+        // Resolve consent forms and value sets first (needed for paperwork config)
+        const resolvedConsentFormsConfig = getConsentFormsConfig(consentFormsOverrides || {});
+        // Resolve state-conditional paths in consent forms (needed for paperwork checkbox items)
+        const resolvedConsentForms = resolveConsentFormsPaths(resolvedConsentFormsConfig.forms);
+        const resolvedValueSetConfig = getValueSets(valueSetsOverrides || {});
         // Resolve paperwork config using the appropriate function based on service mode
+        // Pass resolved consent forms so checkbox items are built from instance-specific forms
         const resolvedPaperworkConfig =
           serviceMode === 'virtual'
-            ? getIntakePaperworkVirtualConfig(paperworkOverrides)
-            : getIntakePaperworkConfig(paperworkOverrides);
-        const resolvedValueSetConfig = getValueSets(valueSetsOverrides || {});
+            ? getIntakePaperworkVirtualConfig(paperworkOverrides, resolvedConsentForms)
+            : getIntakePaperworkConfig(paperworkOverrides, resolvedConsentForms);
         const scenario: BookingTestScenario = {
           configName: `concrete:${concreteConfig.id}`,
           homepageOptionId: option.id,
@@ -264,6 +279,7 @@ export async function generateBookingTestScenarios(configName: string): Promise<
           bookingOverrides: bookingOverrides || {},
           resolvedPaperworkConfig,
           resolvedValueSetConfig,
+          resolvedConsentFormsConfig,
         };
         scenarios.push(scenario);
 
@@ -277,13 +293,17 @@ export async function generateBookingTestScenarios(configName: string): Promise<
           scenarios.push(duplicateScenario);
         }
       } else {
+        // Resolve consent forms and value sets once (same for all categories)
+        const resolvedConsentFormsConfig = getConsentFormsConfig(consentFormsOverrides || {});
+        // Resolve state-conditional paths in consent forms (needed for paperwork checkbox items)
+        const resolvedConsentForms = resolveConsentFormsPaths(resolvedConsentFormsConfig.forms);
+        const resolvedValueSetConfig = getValueSets(valueSetsOverrides || {});
+        // Resolve paperwork config once (same for all categories within this serviceMode)
+        const resolvedPaperworkConfig =
+          serviceMode === 'virtual'
+            ? getIntakePaperworkVirtualConfig(paperworkOverrides, resolvedConsentForms)
+            : getIntakePaperworkConfig(paperworkOverrides, resolvedConsentForms);
         for (const category of concreteServiceCategories) {
-          // Resolve paperwork config using the appropriate function based on service mode
-          const resolvedPaperworkConfig =
-            serviceMode === 'virtual'
-              ? getIntakePaperworkVirtualConfig(paperworkOverrides)
-              : getIntakePaperworkConfig(paperworkOverrides);
-          const resolvedValueSetConfig = getValueSets(valueSetsOverrides || {});
           const scenario: BookingTestScenario = {
             configName: `concrete:${concreteConfig.id}`,
             homepageOptionId: option.id,
@@ -297,6 +317,7 @@ export async function generateBookingTestScenarios(configName: string): Promise<
             bookingOverrides: bookingOverrides || {},
             resolvedPaperworkConfig,
             resolvedValueSetConfig,
+            resolvedConsentFormsConfig,
           };
           scenarios.push(scenario);
         }
@@ -391,6 +412,11 @@ export async function executeBookingScenario(
   };
 
   await PaperworkConfigHelper.injectValueSets(page, resolvedValueSetConfig || {});
+
+  // Inject consent forms config before navigation (must happen before app loads)
+  if (scenario.resolvedConsentFormsConfig) {
+    await PaperworkConfigHelper.injectConsentFormsConfig(page, scenario.resolvedConsentFormsConfig);
+  }
 
   // Inject only the overrides (not the full merged config) before navigation
   await BookingConfigHelper.injectTestConfig(page, overrides);

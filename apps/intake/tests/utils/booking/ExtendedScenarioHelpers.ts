@@ -126,8 +126,12 @@ export async function executeModificationFlow(
   await expect(page.getByText('First available time')).toBeVisible({ timeout: 20000 });
   console.log('Time slot selection is visible');
 
-  // Use shared utility to find and click a suitable time slot (at least 30 min in future)
-  const { timeText: newTimeText } = await BookingFlowHelpers.findAndClickSuitableTimeSlot(page, 30);
+  // Use shared utility to find and click a suitable time slot
+  // Skip the first 2 slots to avoid selecting the current appointment's slot
+  // (which may be in the past or very soon) or slots affected by timezone mismatches
+  const { timeText: newTimeText } = await BookingFlowHelpers.findAndClickSuitableTimeSlot(page, 30, {
+    skipFirstN: 2,
+  });
 
   // Click the "Modify to [date/time]" button to confirm the new time
   const submitButton = page.getByRole('button', { name: /^Modify to /i });

@@ -575,20 +575,20 @@ const createPharmacySearchData = (pharmacyName?: string | null): FieldTestData =
  * Create consent forms data
  *
  * Consent forms page has:
- * - Dynamic checkboxes for each consent form (boolean, must be true)
+ * - Dynamic checkboxes for each consent form (checked automatically by PagedQuestionnaireFlowHelper)
  * - Signature field
  * - Full name field
  * - Relationship to patient field
  *
- * The checkbox IDs come from consent-forms config (hipaa-acknowledgement, consent-to-treat by default)
+ * Note: Consent form checkboxes are NOT included here because they vary by instance.
+ * The PagedQuestionnaireFlowHelper.fillPage method automatically checks all consent
+ * checkboxes when it detects we're on the consent-forms-page.
  */
 const createConsentFormsData = (overrides?: { signerName?: string; relationship?: string }): FieldTestData => {
   const valueSets = getValueSets();
   return {
     valid: {
-      // Default consent form checkboxes (must be true)
-      'hipaa-acknowledgement': true,
-      'consent-to-treat': true,
+      // Consent form checkboxes are checked automatically by PagedQuestionnaireFlowHelper
       // Signer information
       signature: overrides?.signerName || 'Test Signer',
       'full-name': overrides?.signerName || 'Test Signer',

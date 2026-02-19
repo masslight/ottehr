@@ -54,6 +54,8 @@ export interface ConcreteTestConfig {
   locationsOverrides: ConcreteLocationsOverrides;
   /** Value sets overrides */
   valueSetsOverrides: any;
+  /** Consent forms overrides */
+  consentFormsOverrides: any;
 }
 
 /**
@@ -79,6 +81,7 @@ export async function loadConcreteTestConfigs(): Promise<ConcreteTestConfig[]> {
       const paperworkVirtualPath = path.join(subdirPath, 'intake-paperwork-virtual', 'index.ts');
       const locationsPath = path.join(subdirPath, 'locations', 'index.ts');
       const valueSetsPath = path.join(subdirPath, 'value-sets', 'index.ts');
+      const consentFormsPath = path.join(subdirPath, 'consent-forms', 'index.ts');
 
       if (
         !fs.existsSync(indexPath) ||
@@ -86,7 +89,8 @@ export async function loadConcreteTestConfigs(): Promise<ConcreteTestConfig[]> {
         !fs.existsSync(paperworkPath) ||
         !fs.existsSync(paperworkVirtualPath) ||
         !fs.existsSync(locationsPath) ||
-        !fs.existsSync(valueSetsPath)
+        !fs.existsSync(valueSetsPath) ||
+        !fs.existsSync(consentFormsPath)
       ) {
         console.log(`Skipping ${subdir} - missing required config files`);
         continue;
@@ -99,6 +103,7 @@ export async function loadConcreteTestConfigs(): Promise<ConcreteTestConfig[]> {
       const paperworkVirtualModule = await import(paperworkVirtualPath);
       const locationsModule = await import(locationsPath);
       const valueSetsModule = await import(valueSetsPath);
+      const consentFormsModule = await import(consentFormsPath);
 
       if (indexModule.skip) {
         console.log(`Skipping ${subdir} as marked by skip flag`);
@@ -118,6 +123,7 @@ export async function loadConcreteTestConfigs(): Promise<ConcreteTestConfig[]> {
         paperworkConfigVirtual: paperworkVirtualModule.INTAKE_PAPERWORK_CONFIG,
         locationsOverrides: locationsModule.LOCATIONS_OVERRIDES,
         valueSetsOverrides: valueSetsModule.VALUE_SETS_OVERRIDES,
+        consentFormsOverrides: consentFormsModule.CONSENT_FORMS_OVERRIDE,
       };
 
       configs.push(config);
