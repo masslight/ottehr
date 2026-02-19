@@ -406,9 +406,15 @@ export async function executeBookingScenario(
   const { resolvedConfig, bookingOverrides, resolvedValueSetConfig } = scenario;
 
   // For walk-in flows, add test location to the overrides
+  // For prebook in-person flows NOT using Group booking, clear inPersonPrebookRoutingParams
+  // so the test can select its own location instead of using the default routing
+  const shouldClearPrebookRouting =
+    scenario.visitType === 'prebook' && scenario.serviceMode === 'in-person' && scenario.bookableEntityType !== 'Group';
+
   const overrides: Partial<BookingConfig> = {
     ...bookingOverrides,
     ...(testLocationName && { defaultWalkinLocationName: testLocationName }),
+    ...(shouldClearPrebookRouting && { inPersonPrebookRoutingParams: [] }),
   };
 
   await PaperworkConfigHelper.injectValueSets(page, resolvedValueSetConfig || {});
