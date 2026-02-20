@@ -1,5 +1,5 @@
-import { ProcedureModifier } from 'candidhealth/api';
 import { CodeableConcept } from 'fhir/r4b';
+import { CPTCodeDTO } from '../../api';
 import { TestStatus } from './in-house.types';
 
 export enum PageName {
@@ -196,7 +196,7 @@ export const REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG = {
   code: 'repeat',
 };
 
-export const REPEAT_TEST_CPT_CODE_MODIFIER = {
-  code: ProcedureModifier.NinetyOne,
+export const REPEAT_TEST_CPT_CODE_MODIFIER: CPTCodeDTO = {
+  code: '91',
   display: 'Repeat Clinical Diagnostic Laboratory Test',
 };
