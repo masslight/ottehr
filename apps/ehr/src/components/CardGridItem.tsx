@@ -39,12 +39,11 @@ export default function CardGridItem({ card, aspectRatio, handleClick, isLoading
             justifyContent: 'center',
             alignItems: 'center',
             backgroundColor: otherColors.cardBackground,
-            inset: 'auto',
             height: '100%',
             width: '100%',
           }}
         >
-          <CircularProgress />
+          <CircularProgress size={24} />
         </Box>
       )}
     </Box>
