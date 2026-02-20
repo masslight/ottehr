@@ -93,3 +93,7 @@ export const getErxUrl = (appointmentId: string): string => {
 export const getProceduresUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/procedures`;
 };
+
+export const getProcedureDetailsUrl = (appointmentId: string, procedureId: string): string => {
+  return `${getProceduresUrl(appointmentId)}/${procedureId}`;
+};

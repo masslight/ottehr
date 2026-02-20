@@ -17,6 +17,7 @@ import {
   getInHouseMedicationMARUrl,
   getNursingOrderDetailsUrl,
   getNursingOrdersUrl,
+  getProcedureDetailsUrl,
   getProceduresUrl,
   getRadiologyOrderEditUrl,
   getRadiologyUrl,
@@ -192,7 +193,9 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       orders: procedures.map((procedure) => ({
         fhirResourceId: procedure.resourceId ?? '',
         itemDescription: procedure.procedureType ?? '',
-        detailPageUrl: getProceduresUrl(appointment.id),
+        detailPageUrl: procedure.resourceId
+          ? getProcedureDetailsUrl(appointment.id, procedure.resourceId)
+          : getProceduresUrl(appointment.id),
         statusChip: <></>,
       })),
     };
