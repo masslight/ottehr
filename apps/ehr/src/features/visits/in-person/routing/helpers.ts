@@ -89,3 +89,7 @@ export const getHPIUrl = (appointmentId: string): string => {
 export const getErxUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/erx`;
 };
+
+export const getProceduresUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/procedures`;
+};
