@@ -91,6 +91,7 @@ export type RequestedFields =
   | 'addendumNote'
   | 'medications'
   | 'inhouseMedications'
+  | 'procedures'
   | 'observations'
   | 'preferredPharmacies'
   | 'reasonForVisit';
@@ -497,6 +498,7 @@ export interface BillingSuggestionOutput {
 }
 
 export interface ProcedureDTO extends SaveableDTO {
+  encounterId?: string;
   procedureType?: string;
   cptCodes?: CPTCodeDTO[];
   diagnoses?: DiagnosisDTO[];
