@@ -75,16 +75,36 @@ export async function fillDateField(page: Page, value: string): Promise<void> {
  *
  * This uses the click + fill + select pattern which is required for MUI Autocomplete
  * to work reliably, especially after validation errors clear the state.
+ *
+ * The sequence ensures proper selection:
+ * 1. Click to open and focus the dropdown
+ * 2. Clear any existing value to ensure clean state
+ * 3. Type the value to filter options
+ * 4. Wait for the matching option to be visible
+ * 5. Click the option to select it
+ * 6. Wait briefly for the selection to commit before moving to next field
  */
 export async function fillChoiceDropdown(page: Page, locator: Locator, value: string): Promise<void> {
   // Click to open dropdown
   await locator.click();
 
+  // Clear existing value first to ensure clean state
+  await locator.clear();
+
   // Fill to filter options (required for MUI Autocomplete reliability)
   await locator.fill(value);
 
-  // Select the matching option
-  await page.getByRole('option', { name: value, exact: true }).click();
+  // Wait for the matching option to be visible before clicking
+  // Uses default Playwright timeout (30s) to handle dynamic loading scenarios
+  const option = page.getByRole('option', { name: value, exact: true });
+  await option.waitFor({ state: 'visible' });
+
+  // Click the option to select it
+  await option.click();
+
+  // Small delay to allow MUI Autocomplete to commit the selection
+  // before focus moves to the next field
+  await page.waitForTimeout(100);
 }
 
 /**
