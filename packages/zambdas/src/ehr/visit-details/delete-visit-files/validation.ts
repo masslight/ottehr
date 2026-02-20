@@ -21,8 +21,16 @@ export function validateSecrets(secrets: Secrets | null): Secrets {
     throw new Error('Secrets are required.');
   }
 
-  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = secrets;
-  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE || !FHIR_API || !PROJECT_API) {
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, ENVIRONMENT } = secrets;
+  if (
+    !AUTH0_ENDPOINT ||
+    !AUTH0_CLIENT ||
+    !AUTH0_SECRET ||
+    !AUTH0_AUDIENCE ||
+    !FHIR_API ||
+    !PROJECT_API ||
+    !ENVIRONMENT
+  ) {
     throw new Error('Missing required secrets');
   }
   return {
@@ -32,6 +40,7 @@ export function validateSecrets(secrets: Secrets | null): Secrets {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    ENVIRONMENT,
   };
 }
 
