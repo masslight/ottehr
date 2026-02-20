@@ -10,6 +10,7 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { i18n } from 'i18next';
 import { FC } from 'react';
+import { BRANDING_CONFIG } from 'utils';
 import { IntakeThemeContext } from '../contexts';
 import { PropsWithChildren } from '../types';
 
@@ -85,7 +86,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
       styleOverrides: {
         root: {
           display: 'flex',
-          backgroundColor: otherColors.appBarBackground,
+          backgroundColor: BRANDING_CONFIG.intake.appBar.backgroundColor,
         },
       },
     },

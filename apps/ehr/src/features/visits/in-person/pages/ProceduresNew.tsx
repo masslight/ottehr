@@ -50,6 +50,7 @@ import {
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
+  PROCEDURES_CONFIG,
   ProcedureSuggestion,
   REQUIRED_FIELD_ERROR_MESSAGE,
   SUPPLIES_VALUE_SET_URL,
@@ -103,6 +104,7 @@ interface PageState {
 
 interface ProcedureType {
   name: string;
+  code: string;
   cpt?: {
     code: string;
     display: string;
@@ -167,6 +169,7 @@ export default function ProceduresNew(): ReactElement {
   const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
+  const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
   const isReadOnly = useMemo(() => {
     if (isInPerson) {
@@ -233,15 +236,17 @@ export default function ProceduresNew(): ReactElement {
         procedureDetails: state.procedureDetails,
         timeSpent: state.timeSpent,
       });
+      setLoadingSuggestions(false);
       setRecommendedBillingCodes(codes);
-      if (formValues.procedureType === 'Laceration Repair (Suturing/Stapling)' && state.procedureDetails) {
+      if (formValues.procedureType === 'Laceration Repair (Suturing/Stapling)') {
+        setLoadingSuggestionNote(true);
         const suggestions = await aiSuggestionNotes({
           type: 'procedure',
           details: { procedureDetails: state.procedureDetails || '' },
         });
+        setLoadingSuggestionNote(false);
         setSuggestionNote(suggestions);
       }
-      setLoadingSuggestions(false);
     };
 
     fetchRecommendedBillingCodes().catch((error) => console.log(error));
@@ -682,6 +687,15 @@ export default function ProceduresNew(): ReactElement {
             });
           }
           state.cptCodes = newCodes;
+
+          if (selected) {
+            Object.entries(PROCEDURES_CONFIG.prepopulation[selected.code] ?? []).forEach(([field, value]) => {
+              const currentValue = (state as any)[field];
+              if (currentValue == null || currentValue === '') {
+                (state as any)[field] = value;
+              }
+            });
+          }
         });
       },
     });
@@ -919,9 +933,12 @@ export default function ProceduresNew(): ReactElement {
                   padding: '4px 8px 4px 8px',
                 }}
               >
-                <Typography variant="body1" style={{ fontWeight: 700 }}>
-                  Procedure Details AI Suggestions
-                </Typography>
+                <Container style={{ display: 'flex', alignItems: 'center', padding: 0 }}>
+                  <Typography variant="body1" style={{ fontWeight: 700 }}>
+                    Procedure Details AI Suggestions
+                  </Typography>
+                  {loadingSuggestionNote && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
+                </Container>
                 <Typography variant="body1">{suggestionNote?.suggestions?.join(', ')}</Typography>
               </Container>
             )}
@@ -1049,7 +1066,7 @@ function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
 
   return latest.expansion.contains
     .map((item): ProcedureType | null => {
-      if (!item.display) return null;
+      if (!item.display || !item.code) return null;
 
       const getCode = (urlPart: string): { code: string; display: string; system?: string } | undefined => {
         const coding = item.extension?.find((ext) => ext.url?.includes(urlPart))?.valueCodeableConcept?.coding?.[0];
@@ -1061,6 +1078,7 @@ function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
 
       return {
         name: item.display,
+        code: item.code,
         cpt: getCode('procedure-type-cpt'),
         hcpcs: getCode('procedure-type-hcpcs'),
       };

@@ -674,6 +674,14 @@ const formValueSets = {
     { label: 'Phone', value: 'Phone' },
   ],
   externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
-};
+} as const;
 
 export const VALUE_SETS = mergeAndFreezeConfigObjects(formValueSets, OVERRIDES);
+
+type ExtractValues<T extends readonly { readonly value: string }[]> = T[number]['value'];
+
+export type ReasonForVisitUrgentCare = ExtractValues<typeof VALUE_SETS.reasonForVisitOptions>;
+export type ReasonForVisitOccMed = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsOccMed>;
+export type ReasonForVisitWorkersComp = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsWorkersComp>;
+
+export type ReasonForVisit = ReasonForVisitUrgentCare | ReasonForVisitOccMed | ReasonForVisitWorkersComp;

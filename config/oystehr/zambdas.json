@@ -495,6 +495,13 @@
       "src": "src/patient/video-chat-invites/list-invites/index",
       "zip": ".dist/zips/video-chat-invites-list.zip"
     },
+    "VIDEO-CHAT-WAITING-ROOM-NOTIFICATION": {
+      "name": "video-chat-waiting-room-notification",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/video-chat-invites/create-waiting-room-notification-task/index",
+      "zip": ".dist/zips/video-chat-waiting-room-notification.zip"
+    },
     "GET-VISIT-DETAILS": {
       "name": "get-visit-details",
       "type": "http_auth",
@@ -737,18 +744,6 @@
       "subscription": {
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
         "reason": "create visit note PDF and send email",
-        "event": "create"
-      }
-    },
-    "SUB-RECOMMEND-DIAGNOSIS-CODES": {
-      "name": "sub-recommend-diagnosis-codes",
-      "type": "subscription",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/task/sub-recommend-diagnosis-codes/index",
-      "zip": ".dist/zips/sub-recommend-diagnosis-codes.zip",
-      "subscription": {
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|recommend-diagnosis-codes&status=requested",
-        "reason": "recommend diagnosis codes for encounter",
         "event": "create"
       }
     },
@@ -1148,13 +1143,6 @@
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
     },
-    "INVOICEABLE_PATIENTS_REPORT": {
-      "name": "invoiceable-patients-report",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/invoiceable-patients-report/index",
-      "zip": ".dist/zips/invoiceable-patients-report.zip"
-    },
     "CREATE-MANUAL-TASK": {
       "name": "create-manual-task",
       "type": "http_auth",
@@ -1169,7 +1157,7 @@
       "src": "src/subscriptions/task/sub-send-invoice-to-patient/index",
       "zip": ".dist/zips/sub-send-invoice-to-patient.zip",
       "subscription": {
-        "criteria": "Task?code=send-invoice-to-patient|&status=requested",
+        "criteria": "Task?code=send-invoice-to-patient|&status=in-progress",
         "reason": "Send invoice to patient",
         "event": "create"
       }
@@ -1181,7 +1169,7 @@
       "src": "src/cron/create-invoices-tasks/index",
       "zip": ".dist/zips/create-invoices-tasks.zip",
       "schedule": {
-        "expression": "cron(0 0 * * ? *)"
+        "expression": "cron(0 * * * ? *)"
       }
     },
     "GET-PATIENT-VISIT-HISTORY": {
@@ -1217,13 +1205,6 @@
         "event": "update"
       }
     },
-    "GET-PATIENT-AND-RESPONSIBLE-PARTY-INFO": {
-      "name": "get-patient-and-responsible-party-info",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/get-patient-and-responsible-party-info/index",
-      "zip": ".dist/zips/get-patient-and-responsible-party-info.zip"
-    },
     "GET_ERX_ORDERS": {
       "name": "get-erx-orders",
       "type": "http_auth",
@@ -1231,12 +1212,52 @@
       "src": "src/ehr/get-erx-orders/index",
       "zip": ".dist/zips/get-erx-orders.zip"
     },
+    "GET-INVOICES-TASKS": {
+      "name": "get-invoices-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-invoices-tasks/index",
+      "zip": ".dist/zips/get-invoices-tasks.zip"
+    },
+    "SUB-REFRESH-INVOICE-TASK": {
+      "name": "sub-refresh-invoice-task",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-refresh-invoice-task/index",
+      "zip": ".dist/zips/sub-refresh-invoice-task.zip",
+      "subscription": {
+        "criteria": "Task?code=send-invoice-to-patient|&status=requested",
+        "reason": "Refresh invoice task",
+        "event": "create"
+      }
+    },
     "GET_PATIENT_BALANCES": {
       "name": "get-patient-balances",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-balances/index",
       "zip": ".dist/zips/get-patient-balances.zip"
+    },
+    "GET_LOGIN_PHONE_NUMBERS": {
+      "name": "get-login-phone-numbers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-account/get-login-phone-numbers/index",
+      "zip": ".dist/zips/get-login-phone-numbers.zip"
+    },
+    "UPDATE_LOGIN_PHONE_NUMBERS": {
+      "name": "update-login-phone-numbers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-account/update-login-phone-numbers/index",
+      "zip": ".dist/zips/update-login-phone-numbers.zip"
+    },
+    "MAKE_MEDICATION_HISTORY_PDF": {
+      "name": "make-medication-history-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
+      "zip": ".dist/zips/make-medication-history-pdf.zip"
     }
   },
   "fhirResources": {
@@ -1467,7 +1488,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "Send invoice to patient",
-        "criteria": "Task?code=|send-invoice-to-patient&status=requested",
+        "criteria": "Task?code=|send-invoice-to-patient&status=in-progress",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-INVOICE-TO-PATIENT/id}"
@@ -1506,24 +1527,6 @@
         ]
       }
     },
-    "SUB_RECOMMEND_DIAGNOSIS_CODES_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Recommend diagnosis codes",
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|recommend-diagnosis-codes&status=requested",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RECOMMEND-DIAGNOSIS-CODES/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          }
-        ]
-      }
-    },
     "SUB_PATIENT_PAYMENT_CANDID_SYNC_AND_RECEIPT_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
@@ -1534,6 +1537,28 @@
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PATIENT-PAYMENT-CANDID-SYNC-AND-RECEIPT/id}"
         }
+      }
+    },
+    "SUB_REFRESH_INVOICE_TASK_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Refresh invoice task",
+        "criteria": "Task?code=|send-invoice-to-patient&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-REFRESH-INVOICE-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
       }
     }
   }

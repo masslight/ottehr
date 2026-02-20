@@ -1,1 +1,1 @@
-export const INTAKE_PAPERWORK_CONFIG = {} as any;
+export const INTAKE_PAPERWORK_CONFIG = {} as const;

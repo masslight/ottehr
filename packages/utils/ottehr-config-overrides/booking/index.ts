@@ -1,1 +1,1 @@
-export const BOOKING_OVERRIDES = {} as any;
+export const BOOKING_OVERRIDES = {} as const;

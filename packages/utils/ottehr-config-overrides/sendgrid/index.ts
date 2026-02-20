@@ -1,1 +1,1 @@
-export const SENDGRID_OVERRIDES = {};
+export const SENDGRID_OVERRIDES = {} as const;

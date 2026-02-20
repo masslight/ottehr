@@ -1,19 +1,28 @@
 import { z } from 'zod';
 
 const MedicalConditionFavoriteSchema = z.object({
-  code: z.string().min(1, 'Code is required'),
+  code: z.string().optional(),
   display: z.string().min(1, 'Display is required'),
 });
 
 const AllergyFavoriteSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  id: z.number(),
+  id: z.number().optional(),
 });
 
 const MedicationFavoriteSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   strength: z.string().optional(),
   id: z.number(),
+});
+
+const InHouseMedicationFavoriteSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  dosespotId: z.number(),
+  dose: z.number().optional(),
+  units: z.string().optional(),
+  route: z.string().optional(),
+  instructions: z.string().optional(),
 });
 
 const MedicalHistoryConfigSchema = z.object({
@@ -26,13 +35,17 @@ const MedicalHistoryConfigSchema = z.object({
   medications: z.object({
     favorites: z.array(MedicationFavoriteSchema).default([]),
   }),
+  inHouseMedications: z.object({
+    favorites: z.array(InHouseMedicationFavoriteSchema).default([]),
+  }),
 });
 
 export type MedicalConditionFavorite = z.infer<typeof MedicalConditionFavoriteSchema>;
 export type AllergyFavorite = z.infer<typeof AllergyFavoriteSchema>;
 export type MedicationFavorite = z.infer<typeof MedicationFavoriteSchema>;
+export type InHouseMedicationFavorite = z.infer<typeof InHouseMedicationFavoriteSchema>;
 export type MedicalHistoryConfig = z.infer<typeof MedicalHistoryConfigSchema>;
 
 export const validateMedicalHistoryConfig = (config: unknown): MedicalHistoryConfig => {
-  return MedicalHistoryConfigSchema.parse(config);
+  return MedicalHistoryConfigSchema.parse(config) as MedicalHistoryConfig;
 };

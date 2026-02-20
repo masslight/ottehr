@@ -1,4 +1,5 @@
 import { BrowserContext, expect, Page } from '@playwright/test';
+import { SelectInputOption } from 'src/types/form/select-input-option';
 import { VALUE_SETS } from 'utils';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
@@ -35,7 +36,7 @@ export class CancelPage {
     await expect(this.locator.cancelScreenHeading).toBeVisible();
   }
   async selectCancellationReason(serviceMode: 'in-person' | 'virtual'): Promise<void> {
-    const cancelOptions =
+    const cancelOptions: SelectInputOption[] =
       serviceMode === 'in-person'
         ? VALUE_SETS.cancelReasonOptionsInPersonPatient
         : VALUE_SETS.cancelReasonOptionsVirtualPatient;

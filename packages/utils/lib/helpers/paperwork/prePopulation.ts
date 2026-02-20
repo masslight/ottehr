@@ -166,15 +166,15 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     if (reasonOption && reasonOption !== normalizedReasonForVisit) {
       if (
         appointmentServiceCategory === 'occupational-medicine' &&
-        VALUE_SETS.reasonForVisitOptionsOccMed.map((opt) => opt.value).includes(reasonOption)
+        VALUE_SETS.reasonForVisitOptionsOccMed.some((opt) => opt.value === reasonOption)
       ) {
         normalizedReasonForVisit = reasonOption;
       } else if (
         appointmentServiceCategory === 'workers-comp' &&
-        VALUE_SETS.reasonForVisitOptionsWorkersComp.map((opt) => opt.value).includes(reasonOption)
+        VALUE_SETS.reasonForVisitOptionsWorkersComp.some((opt) => opt.value === reasonOption)
       ) {
         normalizedReasonForVisit = reasonOption;
-      } else if (VALUE_SETS.reasonForVisitOptions.map((opt) => opt.value).includes(reasonOption)) {
+      } else if (VALUE_SETS.reasonForVisitOptions.some((opt) => opt.value === reasonOption)) {
         normalizedReasonForVisit = reasonOption;
       }
     }

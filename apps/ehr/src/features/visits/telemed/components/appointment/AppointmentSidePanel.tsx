@@ -53,7 +53,7 @@ import {
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
-import { getQuickTexts } from '../../utils/appointments';
+import { getTelemedQuickTexts } from '../../utils/appointments';
 import { getTelemedVisitDetailsUrl } from '../../utils/routing';
 import InviteParticipant from '../appointment/InviteParticipant';
 import { PastVisits } from './PastVisits';
@@ -143,7 +143,7 @@ export const AppointmentSidePanel: FC = () => {
   const quickTexts = useMemo(() => {
     if (!locationVirtual) return [];
     const locationName = locationVirtual.name;
-    return getQuickTexts(getSupportPhoneFor(locationName) || '');
+    return getTelemedQuickTexts(getSupportPhoneFor(locationName) || '');
   }, [locationVirtual]);
 
   if (!patient || !locationVirtual) {

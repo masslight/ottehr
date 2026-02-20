@@ -63,7 +63,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           { name: '_include', value: 'Appointment:location' },
           { name: '_revinclude', value: 'Encounter:appointment' },
           { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-          { name: '_elements', value: 'id,status' },
+          { name: '_elements', value: 'id,status,serviceCategory' },
           { name: '_offset', value: offset.toString() },
           { name: '_count', value: count.toString() },
         ],

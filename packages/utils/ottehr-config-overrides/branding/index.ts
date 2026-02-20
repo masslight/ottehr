@@ -1,1 +1,1 @@
-export const BRANDING_OVERRIDES = {};
+export const BRANDING_OVERRIDES = {} as const;

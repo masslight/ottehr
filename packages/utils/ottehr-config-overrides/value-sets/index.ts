@@ -1,1 +1,1 @@
-export const VALUE_SET_OVERRIDES = {};
+export const VALUE_SET_OVERRIDES = {} as const;

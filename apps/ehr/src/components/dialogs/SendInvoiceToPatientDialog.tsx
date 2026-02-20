@@ -14,20 +14,19 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   BRANDING_CONFIG,
-  GetPatientAndResponsiblePartyInfoEndpointOutput,
+  InvoiceablePatientReport,
   InvoiceMessagesPlaceholders,
+  InvoiceTaskInput,
   parseInvoiceTaskInput,
-  PrefilledInvoiceInfo,
   replaceTemplateVariablesArrows,
   REQUIRED_FIELD_ERROR_MESSAGE,
-  textingConfig,
+  TEXTING_CONFIG,
 } from 'utils';
 import { BasicDatePicker } from '../form';
 import { RoundedButton } from '../RoundedButton';
@@ -43,11 +42,9 @@ interface SendInvoiceToPatientDialogProps {
   title: string;
   modalOpen: boolean;
   handleClose: () => void;
-  onSubmit: (taskId: string, prefilledInvoiceInfo: PrefilledInvoiceInfo) => Promise<void>;
+  onSubmit: (taskId: string, prefilledInvoiceInfo: InvoiceTaskInput) => Promise<void>;
   submitButtonName: string;
-  invoiceTask?: Task;
-  patientAndRP?: GetPatientAndResponsiblePartyInfoEndpointOutput;
-  additionalData?: { visitDate?: string; location?: string };
+  report?: InvoiceablePatientReport;
 }
 
 export default function SendInvoiceToPatientDialog({
@@ -56,9 +53,7 @@ export default function SendInvoiceToPatientDialog({
   handleClose,
   onSubmit,
   submitButtonName,
-  invoiceTask,
-  patientAndRP,
-  additionalData,
+  report,
 }: SendInvoiceToPatientDialogProps): ReactElement {
   const [disableAllFields, setDisableAllFields] = useState(true);
   const {
@@ -70,13 +65,13 @@ export default function SendInvoiceToPatientDialog({
   } = useForm<SendInvoiceFormData>({
     mode: 'onBlur',
   });
-  const { visitDate, location } = additionalData ?? {};
+  const { visitDate, location, patient, task, responsibleParty } = report ?? {};
   const invoiceMessagesPlaceholders: InvoiceMessagesPlaceholders = {
     clinic: BRANDING_CONFIG.projectName,
     amount: watch('amount')?.toString(),
     'due-date': watch('dueDate'),
     'invoice-link': 'https://example.com/invoice-link',
-    'patient-full-name': patientAndRP?.patient.fullName ?? '',
+    'patient-full-name': patient?.fullName ?? '',
     'url-to-patient-portal': 'https://example.com/patient-portal',
     'visit-date': visitDate,
     location,
@@ -88,10 +83,10 @@ export default function SendInvoiceToPatientDialog({
   const memoMessagePrefilledPreview = replaceTemplateVariablesArrows(watch('memo'), invoiceMessagesPlaceholders);
 
   const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
-    if (invoiceTask && invoiceTask?.id) {
+    if (task && task?.id) {
       setDisableAllFields(true);
 
-      void onSubmit(invoiceTask?.id, {
+      void onSubmit(task?.id, {
         dueDate: data.dueDate,
         memo: data.memo,
         smsTextMessage: data.smsTextMessage,
@@ -101,16 +96,16 @@ export default function SendInvoiceToPatientDialog({
   };
 
   useEffect(() => {
-    if (invoiceTask) {
+    if (task) {
       try {
-        const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
+        const invoiceTaskInput = parseInvoiceTaskInput(task);
         if (invoiceTaskInput) {
           const { amountCents } = invoiceTaskInput;
-          const dueDate = DateTime.now().plus({ days: textingConfig.invoicing.dueDateInDays }).toISODate();
-          const memo = textingConfig.invoicing.stripeMemoMessage;
-          const smsMessage = textingConfig.invoicing.smsMessage;
+          const dueDate = DateTime.now().plus({ days: TEXTING_CONFIG.invoicing.dueDateInDays }).toISODate();
+          const memo = TEXTING_CONFIG.invoicing.stripeMemoMessage;
+          const smsMessage = TEXTING_CONFIG.invoicing.smsMessage;
           reset({
-            amount: amountCents / 100,
+            amount: (amountCents ?? 0) / 100,
             dueDate: dueDate,
             memo: memo,
             smsTextMessage: smsMessage,
@@ -121,7 +116,7 @@ export default function SendInvoiceToPatientDialog({
         /* empty */
       }
     }
-  }, [invoiceTask, reset]);
+  }, [task, reset]);
 
   return (
     <Dialog open={modalOpen}>
@@ -135,20 +130,20 @@ export default function SendInvoiceToPatientDialog({
         </DialogTitle>
 
         <DialogContent>
-          {patientAndRP !== undefined ? (
+          {report !== undefined ? (
             <Box>
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">
                   Patient
                 </Typography>
-                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patientAndRP?.patient.fullName}</Typography>
+                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patient?.fullName}</Typography>
                 <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-                  <Typography variant="body2">{patientAndRP?.patient.dob}</Typography>
+                  <Typography variant="body2">{patient?.dob}</Typography>
                   <Typography variant="body2" sx={{ pl: 2 }}>
-                    {patientAndRP?.patient.gender}
+                    {patient?.gender}
                   </Typography>
                   <Typography variant="body2" sx={{ pl: 2 }}>
-                    {patientAndRP?.patient.phoneNumber}
+                    {patient?.phoneNumber}
                   </Typography>
                 </Box>
               </Box>
@@ -157,11 +152,11 @@ export default function SendInvoiceToPatientDialog({
                 <Typography variant="subtitle2" color="text.secondary">
                   Responsible party name
                 </Typography>
-                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patientAndRP?.responsibleParty.fullName}</Typography>
+                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{responsibleParty?.fullName}</Typography>
                 <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-                  <Typography variant="body2">{patientAndRP?.responsibleParty.email}</Typography>
+                  <Typography variant="body2">{responsibleParty?.email}</Typography>
                   <Typography variant="body2" sx={{ pl: 2 }}>
-                    {patientAndRP?.responsibleParty.phoneNumber}
+                    {responsibleParty?.phoneNumber}
                   </Typography>
                 </Box>
               </Box>

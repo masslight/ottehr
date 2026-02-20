@@ -1,56 +1,97 @@
 // import ErrorIcon from '@mui/icons-material/Error';
 import DownloadIcon from '@mui/icons-material/Download';
-import { IconButton, useTheme } from '@mui/material';
-import { Box } from '@mui/material';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { Box, IconButton, Menu, MenuItem, useTheme } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
+import { stripFileExtension } from 'src/helpers/files.helper';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
+import { RenameDocumentModal } from './RenameDocumentModal';
 
 export enum DocumentTableActionType {
   ActionDownload = 'ActionDownload',
+  ActionRename = 'ActionRename',
 }
 
 export type DocumentTableActions = {
   isActionAllowed: (documentId: string, actionType: DocumentTableActionType) => boolean;
   onDocumentDownload: (documentId: string) => Promise<void>;
+  onDocumentRename: (documentId: string, newName: string) => Promise<void>;
 };
 
 const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableActions }> = ({ docInfo, actions }) => {
-  const { isActionAllowed, onDocumentDownload } = actions;
+  const { isActionAllowed, onDocumentDownload, onDocumentRename } = actions;
   const theme = useTheme();
   const lineColor = theme.palette.primary.main;
 
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
+
+  const openMenu = (event: React.MouseEvent<HTMLElement>): void => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const closeMenu = (): void => {
+    setAnchorEl(null);
+  };
+
   const handleDocDownload = useCallback(async (): Promise<void> => {
+    closeMenu();
     await onDocumentDownload(docInfo.id);
   }, [docInfo.id, onDocumentDownload]);
 
+  const handleRenameClick = (): void => {
+    closeMenu();
+    setIsRenameOpen(true);
+  };
+
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'row',
-      }}
-    >
-      {/* <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
-        TODO
-      </Typography>
-      DownloadIcon
-      <ErrorIcon fontSize="small" sx={{ ml: 0.5, verticalAlign: 'middle', color: lineColor }} /> */}
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'row',
+        }}
+      >
+        {/* <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+          TODO
+        </Typography>
+        DownloadIcon
+        <ErrorIcon fontSize="small" sx={{ ml: 0.5, verticalAlign: 'middle', color: lineColor }} /> */}
 
-      {isActionAllowed(docInfo.id, DocumentTableActionType.ActionDownload) && (
-        <IconButton aria-label="Download" onClick={handleDocDownload}>
-          <DownloadIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
-        </IconButton>
-      )}
+        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionDownload) && (
+          <IconButton aria-label="Download" onClick={handleDocDownload}>
+            <DownloadIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
+          </IconButton>
+        )}
 
-      {/* {isActionAllowed(docInfo.id, DocumentTableActionType.ActionDownload) && (
-        <IconButton aria-label="Download" onClick={() => onDocumentDownload(docInfo.id)}>
-          <DownloadIcon fontSize="small" sx={{ ml: 0.5, verticalAlign: 'middle', color: lineColor }} />
+        {/* {isActionAllowed(docInfo.id, DocumentTableActionType.ActionDownload) && (
+          <IconButton aria-label="Download" onClick={() => onDocumentDownload(docInfo.id)}>
+            <DownloadIcon fontSize="small" sx={{ ml: 0.5, verticalAlign: 'middle', color: lineColor }} />
+          </IconButton>
+        )} */}
+        <IconButton aria-label="More actions" onClick={openMenu}>
+          <MoreVertIcon fontSize="small" />
         </IconButton>
-      )} */}
-    </Box>
+      </Box>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={closeMenu}>
+        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionRename) && (
+          <MenuItem onClick={handleRenameClick}>Rename document</MenuItem>
+        )}
+      </Menu>
+
+      <RenameDocumentModal
+        open={isRenameOpen}
+        initialName={stripFileExtension(docInfo.docName)}
+        onClose={() => setIsRenameOpen(false)}
+        onSubmit={async (newName) => {
+          await onDocumentRename(docInfo.id, newName);
+          setIsRenameOpen(false);
+        }}
+      />
+    </>
   );
 };
 

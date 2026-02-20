@@ -20,43 +20,10 @@ import {
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
 
-export const BillingCodesContainer: FC = () => {
-  const queryClient = useQueryClient();
-  const { encounter } = useAppointmentData();
+export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPending: boolean } => {
   const { chartData, setPartialChartData } = useChartData();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { mutate: saveCPTChartData, isPending } = useSaveChartData();
   const cptCodes = chartData?.cptCodes || [];
-  const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
-
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const {
-    isFetching: isSearching,
-    data,
-    error: icdSearchError,
-  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
-  const cptSearchOptions = data?.codes || [];
-
-  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
-  const { mutate: saveCPTChartData, isPending: isSaveCPTLoading } = useSaveChartData();
-  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
-  const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
-
-  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId));
-  const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
-
-  const { debounce } = useDebounce(800);
-
-  const debouncedHandleInputChange = (data: string): void => {
-    debounce(() => {
-      setDebouncedSearchTerm(data);
-    });
-  };
-
-  const onInternalChange = (_e: unknown, data: CPTCodeOption | null): void => {
-    if (data) {
-      onAdd(data);
-    }
-  };
 
   const onAdd = (value: CPTCodeOption): void => {
     // Optimistic update
@@ -83,6 +50,48 @@ export const BillingCodesContainer: FC = () => {
         },
       }
     );
+  };
+
+  return { onAdd, isPending };
+};
+
+export const BillingCodesContainer: FC = () => {
+  const queryClient = useQueryClient();
+  const { encounter } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const cptCodes = chartData?.cptCodes || [];
+  const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
+
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const {
+    isFetching: isSearching,
+    data,
+    error: icdSearchError,
+  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
+  const cptSearchOptions = data?.codes || [];
+
+  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
+  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
+  const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
+
+  const { onAdd, isPending: isSaveCPTLoading } = useAddCptCode();
+
+  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId));
+  const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
+
+  const { debounce } = useDebounce(800);
+
+  const debouncedHandleInputChange = (data: string): void => {
+    debounce(() => {
+      setDebouncedSearchTerm(data);
+    });
+  };
+
+  const onInternalChange = (_e: unknown, data: CPTCodeOption | null): void => {
+    if (data) {
+      onAdd(data);
+    }
   };
 
   const onDelete = async (resourceId: string): Promise<void> => {

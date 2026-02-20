@@ -208,8 +208,17 @@ const FormFields = {
       },
       tellUsMore: {
         key: 'tell-us-more',
-        label: 'Tell us more (optional)',
+        label: 'Tell us more',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'reason-for-visit',
+            effect: ['require'],
+            operator: '=',
+            answerString: 'Other',
+          },
+        ],
+        enableBehavior: 'any',
       },
       authorizedNonLegalGuardians: {
         key: 'authorized-non-legal-guardian',
@@ -244,9 +253,9 @@ const FORM_DEFAULTS = {
 };
 
 const mergedBookingQConfig = mergeAndFreezeConfigObjects(FORM_DEFAULTS, {
-  FormFields: BOOKING_OVERRIDES.FormFields ?? {},
-  questionnaireBase: BOOKING_OVERRIDES.questionnaireBase ?? {},
-  hiddenFormSections: BOOKING_OVERRIDES.hiddenFormSections ?? [],
+  FormFields: (BOOKING_OVERRIDES as any)?.FormFields ?? {},
+  questionnaireBase: (BOOKING_OVERRIDES as any).questionnaireBase ?? {},
+  hiddenFormSections: (BOOKING_OVERRIDES as any).hiddenFormSections ?? [],
 });
 
 const BookingPaperworkConfigSchema = QuestionnaireConfigSchema.extend({
@@ -420,7 +429,7 @@ export enum HomepageOptions {
   ScheduleVirtualVisit = 'schedule-virtual-visit',
 }
 
-const BOOKING_DEFAULTS: BookingConfig = {
+const BOOKING_DEFAULTS = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
@@ -456,20 +465,17 @@ const BOOKING_DEFAULTS: BookingConfig = {
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,
   inPersonPrebookRoutingParams,
-};
+} as const satisfies BookingConfig;
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
-export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(
-  BOOKING_DEFAULTS,
-  BOOKING_OVERRIDES as Partial<BookingConfig>
-);
+export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
-  return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
-    BOOKING_CONFIG.serviceCategoriesEnabled.visitType.includes(params.visitType) &&
+  return (
+    (BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes as string[]).includes(params.serviceMode) &&
+    (BOOKING_CONFIG.serviceCategoriesEnabled.visitType as string[]).includes(params.visitType) &&
     BOOKING_CONFIG.serviceCategories.length > 1
-    ? true
-    : false;
+  );
 };
 
 export const ServiceCategoryCodeSchema = z.enum(

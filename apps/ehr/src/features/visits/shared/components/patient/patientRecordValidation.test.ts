@@ -3,7 +3,7 @@
  */
 
 import { DateTime } from 'luxon';
-import { FormFieldsInputItem } from 'utils';
+import { FormFieldsInputItem, PATIENT_RECORD_CONFIG } from 'utils';
 import { describe, expect, it } from 'vitest';
 import {
   createDynamicValidationResolver,
@@ -454,6 +454,31 @@ describe('patientRecordValidation', () => {
       const result = validateFn('Primary', { 'insurance-priority-2': 'Primary' });
       expect(result).toContain('may not have two primary insurance plans');
     });
+
+    it.each([
+      ['employer-address-2', 'employer-address'],
+      ['emergency-contact-address-2', 'emergency-contact-address'],
+      ['responsible-party-address-2', 'responsible-party-address'],
+      ['patient-street-address-2', 'patient-street-address'],
+      ['policy-holder-address-additional-line', 'policy-holder-address'],
+      ['policy-holder-address-additional-line-2', 'policy-holder-address-2'],
+    ])('should require line 1 when %s has a value', (addressLine2Key, addressLine1Key) => {
+      const item: FormFieldsInputItem = {
+        key: addressLine2Key,
+        type: 'string',
+        label: 'Address line 2',
+        disabledDisplay: 'hidden',
+      };
+
+      const rules = generateFieldValidationRules(item, {});
+      expect(rules.validate).toBeDefined();
+
+      const validateFn = rules.validate as (value: string, context: any) => boolean | string;
+      expect(validateFn('Suite 200', { [addressLine1Key]: '' })).toBe(
+        'Address line 2 cannot be filled without address line 1'
+      );
+      expect(validateFn('Suite 200', { [addressLine1Key]: '100 Main St' })).toBe(true);
+    });
   });
 
   describe('generateValidationRulesForSection', () => {
@@ -484,6 +509,68 @@ describe('patientRecordValidation', () => {
   });
 
   describe('createDynamicValidationResolver', () => {
+    /**
+     * Builds form values that satisfy one section-level enable trigger,
+     * so the section becomes enabled for validation. Returns empty object
+     * if the section has no enable triggers (always enabled).
+     */
+    const buildSectionEnableValues = (section: any): Record<string, any> => {
+      const triggers = section.triggers;
+      if (!triggers?.length) return {};
+
+      for (const trigger of triggers) {
+        if (!trigger.effect.includes('enable')) continue;
+        const targetKey = trigger.targetQuestionLinkId.includes('.')
+          ? trigger.targetQuestionLinkId.split('.').pop()!
+          : trigger.targetQuestionLinkId;
+
+        if (trigger.operator === '=' && trigger.answerString !== undefined) {
+          return { [targetKey]: trigger.answerString };
+        }
+        if (trigger.operator === '=' && trigger.answerBoolean !== undefined) {
+          return { [targetKey]: trigger.answerBoolean };
+        }
+        if (trigger.operator === '=' && trigger.answerDateTime !== undefined) {
+          return { [targetKey]: trigger.answerDateTime };
+        }
+        if (trigger.operator === 'exists' && trigger.answerBoolean === true) {
+          return { [targetKey]: 'test-value' };
+        }
+        if (trigger.operator === '!=' && trigger.answerString !== undefined) {
+          return { [targetKey]: `not-${trigger.answerString}` };
+        }
+      }
+      return {};
+    };
+
+    /**
+     * Returns required fields from a non-array section that have no field-level
+     * enable triggers — these are always validated when the section itself is enabled.
+     */
+    const getUnconditionallyRequiredFields = (section: any): string[] => {
+      const requiredFields: string[] = section.requiredFields ?? [];
+      const items: Record<string, any> = Array.isArray(section.items)
+        ? Object.assign({}, ...section.items)
+        : section.items;
+
+      return requiredFields.filter((fieldKey: string) => {
+        const item = Object.values(items).find((i: any) => i.key === fieldKey) as any;
+        if (!item) return true;
+        return !item.triggers?.some((t: any) => t.effect.includes('enable'));
+      });
+    };
+
+    const hasSectionEnableTriggers = (section: any): boolean => {
+      return !!section.triggers?.some((t: any) => t.effect.includes('enable'));
+    };
+
+    const isSectionHidden = (section: any): boolean => {
+      const linkId = section.linkId;
+      if (!linkId) return false;
+      const hidden = PATIENT_RECORD_CONFIG.hiddenFormSections;
+      return Array.isArray(linkId) ? linkId.every((id: string) => hidden.includes(id)) : hidden.includes(linkId);
+    };
+
     it('should return a resolver function', () => {
       const resolver = createDynamicValidationResolver();
 
@@ -613,63 +700,91 @@ describe('patientRecordValidation', () => {
     });
 
     it('should skip validation for fields in sections disabled by section-level triggers', async () => {
-      // Test the abstract functionality: when a section has section-level triggers that disable it,
-      // required fields within that section should not be validated
-      // This test verifies the implementation logic for section-level trigger evaluation
-      // without depending on specific configuration values
-
-      // Note: This test validates the code path where currentSection.triggers exists
-      // and evaluateFieldTriggers returns enabled: false, causing isSectionDisabledByTriggers to be true.
-      // The actual sections in the config may not have section-level triggers currently,
-      // but the validation logic supports them and should work correctly when they are added.
-
-      // For now, we test that sections without section-level triggers behave correctly
-      // (i.e., validation happens normally). A proper test would require mocking the config.
-      const resolver = createDynamicValidationResolver();
-
-      const result = await resolver({
-        'responsible-party-relationship': '',
-        'responsible-party-first-name': '',
-        'responsible-party-last-name': '',
+      // Dynamically find a non-array, non-hidden section that has section-level
+      // enable triggers AND unconditionally required fields
+      const triggeredEntry = Object.entries(PATIENT_RECORD_CONFIG.FormFields).find(([_, section]) => {
+        const sec = section as any;
+        return (
+          !Array.isArray(sec.items) &&
+          !isSectionHidden(sec) &&
+          hasSectionEnableTriggers(sec) &&
+          getUnconditionallyRequiredFields(sec).length > 0
+        );
       });
 
-      // Responsible party fields ARE required in the current config,
-      // so they should have validation errors when empty
-      expect(result.errors['responsible-party-relationship']).toBeDefined();
-      expect(result.errors['responsible-party-first-name']).toBeDefined();
-      expect(result.errors['responsible-party-last-name']).toBeDefined();
+      if (!triggeredEntry) {
+        // No section with enable triggers + required fields in this config — nothing to test
+        return;
+      }
+
+      const sec = triggeredEntry[1] as any;
+      const requiredFields = getUnconditionallyRequiredFields(sec);
+      const enableValues = buildSectionEnableValues(sec);
+
+      const resolver = createDynamicValidationResolver();
+
+      const emptyValues: Record<string, string> = {};
+      requiredFields.forEach((f) => {
+        emptyValues[f] = '';
+      });
+
+      // Without trigger values the section is disabled — no validation errors expected
+      const resultDisabled = await resolver({ ...emptyValues });
+      requiredFields.forEach((field) => {
+        expect(resultDisabled.errors[field]).toBeUndefined();
+      });
+
+      // With trigger values the section is enabled — required empty fields should error
+      const resultEnabled = await resolver({ ...emptyValues, ...enableValues });
+      requiredFields.forEach((field) => {
+        expect(resultEnabled.errors[field]).toBeDefined();
+      });
     });
 
-    it('should validate fields in sections without section-level triggers', async () => {
-      // Sections that don't have section-level triggers should have their fields validated normally
+    it('should validate required fields in enabled sections', async () => {
+      const rpSection = PATIENT_RECORD_CONFIG.FormFields.responsibleParty as any;
+
+      if (isSectionHidden(rpSection)) return;
+
+      const requiredFields = getUnconditionallyRequiredFields(rpSection);
+      if (requiredFields.length === 0) return;
+
+      const enableValues = buildSectionEnableValues(rpSection);
+
       const resolver = createDynamicValidationResolver();
 
-      const result = await resolver({
-        // Leave responsible party fields empty - they SHOULD be validated
-        'responsible-party-relationship': '',
-        'responsible-party-first-name': '',
-        'responsible-party-last-name': '',
+      const emptyValues: Record<string, string> = {};
+      requiredFields.forEach((f) => {
+        emptyValues[f] = '';
       });
 
-      // Should have validation errors for required fields
-      expect(result.errors['responsible-party-relationship']).toBeDefined();
-      expect(result.errors['responsible-party-first-name']).toBeDefined();
-      expect(result.errors['responsible-party-last-name']).toBeDefined();
+      const result = await resolver({ ...emptyValues, ...enableValues });
+      requiredFields.forEach((field) => {
+        expect(result.errors[field]).toBeDefined();
+      });
     });
 
     it('should validate required emergency contact fields normally', async () => {
-      // Emergency contact section has required fields that should be validated
+      const ecSection = PATIENT_RECORD_CONFIG.FormFields.emergencyContact as any;
+
+      if (isSectionHidden(ecSection)) return;
+
+      const requiredFields = getUnconditionallyRequiredFields(ecSection);
+      if (requiredFields.length === 0) return;
+
+      const enableValues = buildSectionEnableValues(ecSection);
+
       const resolver = createDynamicValidationResolver();
 
-      const result = await resolver({
-        // Leave emergency contact fields empty
-        'emergency-contact-first-name': '',
-        'emergency-contact-relationship': '',
+      const emptyValues: Record<string, string> = {};
+      requiredFields.forEach((f) => {
+        emptyValues[f] = '';
       });
 
-      // Should have validation errors for required emergency contact fields
-      expect(result.errors['emergency-contact-first-name']).toBeDefined();
-      expect(result.errors['emergency-contact-relationship']).toBeDefined();
+      const result = await resolver({ ...emptyValues, ...enableValues });
+      requiredFields.forEach((field) => {
+        expect(result.errors[field]).toBeDefined();
+      });
     });
   });
 });

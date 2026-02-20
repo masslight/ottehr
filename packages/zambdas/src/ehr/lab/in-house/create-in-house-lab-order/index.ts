@@ -1,36 +1,24 @@
-import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { randomUUID } from 'crypto';
 import {
   Account,
   ActivityDefinition,
   Coverage,
   Encounter,
-  FhirResource,
   Location,
   Patient,
   Practitioner,
-  Procedure,
-  Provenance,
   ServiceRequest,
 } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   APIError,
-  CODE_SYSTEM_CPT,
   CreateInHouseLabOrderParameters,
-  EXTENSION_URL_CPT_MODIFIER,
-  FHIR_IDC10_VALUESET_SYSTEM,
   getAttendingPractitionerId,
   getFullestAvailableName,
   getSecret,
   IN_HOUSE_LAB_ERROR,
-  IN_HOUSE_LAB_TASK,
   IN_HOUSE_TEST_CODE_SYSTEM,
   isApiError,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
   REFLEX_ARTIFACT_DISPLAY,
-  REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG,
   Secrets,
   SecretsKeys,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
@@ -39,16 +27,19 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  fillMeta,
   getMyPractitionerId,
-  makeCptModifierExtension,
   parseCreatedResourcesBundle,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { createTask } from '../../../../shared/tasks';
 import { accountIsPatientBill, getPrimaryInsurance } from '../../shared/labs';
+import {
+  CreateInHouseLabResources,
+  makeRequestsForCreateInHouseLabs,
+  TestItemRequestData,
+  TestItemResources,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -78,15 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
-    const {
-      encounterId,
-      testItem,
-      cptCode: cptCode,
-      diagnosesAll,
-      diagnosesNew,
-      isRepeatTest,
-      notes,
-    } = validatedParameters;
+    const { encounterId, testItems, diagnosesAll, diagnosesNew, notes } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -117,22 +100,85 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         })
       ).unbundle() as (Encounter | Patient | Location | Coverage | Account)[];
 
-    const activeDefinitionRequest = async (): Promise<ActivityDefinition[]> =>
-      (
-        await oystehr.fhir.search({
-          resourceType: 'ActivityDefinition',
-          params: [
-            {
-              name: 'url',
-              value: testItem.adUrl,
-            },
-            {
-              name: 'version',
-              value: testItem.adVersion,
-            },
-          ],
+    const testItemRequests = (): Promise<TestItemRequestData[]> => {
+      return Promise.all(
+        testItems.map(async (item) => {
+          const activityDefs = await oystehr.fhir
+            .search({
+              resourceType: 'ActivityDefinition',
+              params: [
+                { name: 'url', value: item.adUrl },
+                { name: 'version', value: item.adVersion },
+              ],
+            })
+            .then((result) => result.unbundle() as ActivityDefinition[]);
+
+          if (activityDefs.length !== 1) {
+            throw Error(
+              `ActivityDefinition not found, results contain ${
+                activityDefs.length
+              } activity definitions, ids: ${activityDefs
+                .map((resource) => `ActivityDefinition/${resource.id}`)
+                .join(', ')}`
+            );
+          }
+
+          const activityDefinition = activityDefs[0];
+
+          let parentTestCanonicalUrl: string | undefined;
+          activityDefinition.relatedArtifact?.forEach((artifact) => {
+            const isDependent = artifact.type === 'depends-on';
+            const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
+
+            if (isDependent && isRelatedViaReflex) {
+              // todo labs this will take the last one it finds, so if we ever have a test be triggered by multiple parents, we'll need to update this
+              parentTestCanonicalUrl = artifact.resource;
+            }
+          });
+
+          let serviceRequests: ServiceRequest[] | undefined;
+
+          if (item.orderedAsRepeat) {
+            console.log('run as repeat for', item.name);
+            // tests being run as repeat need to be linked via basedOn to the original test that was run
+            // so we are looking for a test with the same instantiatesCanonical that does not have any value in basedOn - this will be the initialServiceRequest
+            serviceRequests = await oystehr.fhir
+              .search({
+                resourceType: 'ServiceRequest',
+                params: [
+                  { name: 'encounter', value: `Encounter/${encounterId}` },
+                  { name: 'instantiates-canonical', value: `${item.adUrl}|${item.adVersion}` },
+                ],
+              })
+              .then((result) => result.unbundle() as ServiceRequest[]);
+          } else if (parentTestCanonicalUrl) {
+            console.log('searching for parent test', parentTestCanonicalUrl);
+            // we should be able to search service request by this but looks like a fhir bug so will need to do some more round about searching here
+            serviceRequests = (
+              await oystehr.fhir.search<ServiceRequest>({
+                resourceType: 'ServiceRequest',
+                params: [
+                  {
+                    name: 'encounter',
+                    value: `Encounter/${encounterId}`,
+                  },
+                  {
+                    name: 'code',
+                    value: `${IN_HOUSE_TEST_CODE_SYSTEM}|`,
+                  },
+                  {
+                    name: '_sort',
+                    value: '-_lastUpdated',
+                  },
+                ],
+              })
+            ).unbundle();
+          }
+
+          return { activityDefinition, serviceRequests, orderedAsRepeat: item.orderedAsRepeat, parentTestCanonicalUrl };
         })
-      ).unbundle() as ActivityDefinition[];
+      );
+    };
 
     const userPractitionerIdRequest = async (): Promise<string> => {
       try {
@@ -145,42 +191,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     };
 
-    const requests: any[] = [encounterResourcesRequest(), activeDefinitionRequest(), userPractitionerIdRequest()];
-
-    if (isRepeatTest) {
-      console.log('run as repeat for', cptCode, testItem.name);
-      // tests being run as repeat need to be linked via basedOn to the original test that was run
-      // so we are looking for a test with the same cptCode that does not have any value in basedOn - this will be the initialServiceRequest
-      const initialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
-        (
-          await oystehr.fhir.search({
-            resourceType: 'ServiceRequest',
-            params: [
-              {
-                name: 'encounter',
-                value: `Encounter/${encounterId}`,
-              },
-              {
-                name: 'instantiates-canonical',
-                value: `${testItem.adUrl}|${testItem.adVersion}`,
-              },
-            ],
-          })
-        ).unbundle() as ServiceRequest[];
-      requests.push(initialServiceRequestSearch());
-    }
+    const requests: any[] = [encounterResourcesRequest(), testItemRequests(), userPractitionerIdRequest()];
 
     const results = await Promise.all(requests);
-    const [
-      encounterResources,
-      activeDefinitionResources,
-      userPractitionerId,
-      initialServiceRequestResources, // only exists if runAsRepeat is true
-    ] = results as [
+    const [encounterResources, testItemResources, userPractitionerId] = results as [
       (Encounter | Patient | Location | Coverage | Account)[],
-      ActivityDefinition[],
+      TestItemRequestData[],
       string,
-      ServiceRequest[]?,
     ];
 
     const {
@@ -213,37 +230,67 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     );
 
-    const activityDefinition = (() => {
-      if (activeDefinitionResources.length !== 1) {
+    const testResources: TestItemResources[] = testItemResources.map((data) => {
+      const { activityDefinition, serviceRequests, orderedAsRepeat, parentTestCanonicalUrl } = data;
+
+      if (activityDefinition.status !== 'active' || !activityDefinition.id || !activityDefinition.url) {
         throw Error(
-          `ActivityDefinition not found, results contain ${
-            activeDefinitionResources.length
-          } activity definitions, ids: ${activeDefinitionResources
-            .map((resource) => `ActivityDefinition/${resource.id}`)
-            .join(', ')}`
+          `ActivityDefinition is not active or has no id or is missing a canonical url, status: ${activityDefinition.status}, id: ${activityDefinition.id}, url: ${activityDefinition.url}`
         );
       }
 
-      const activeDefinition = activeDefinitionResources[0];
+      let initialServiceRequest: ServiceRequest | undefined;
+      let testDetailType: TestItemResources['testDetailType'];
 
-      if (activeDefinition.status !== 'active' || !activeDefinition.id || !activeDefinition.url) {
-        throw Error(
-          `ActivityDefinition is not active or has no id or is missing a canonical url, status: ${activeDefinition.status}, id: ${activeDefinition.id}, url: ${activeDefinition.url}`
-        );
+      if (orderedAsRepeat) {
+        if (!serviceRequests || serviceRequests.length === 0) {
+          throw IN_HOUSE_LAB_ERROR(
+            `You cannot run ${activityDefinition.name} as repeat, no initial tests could be found for this encounter.`
+          );
+        }
+        const possibleInitialSRs = serviceRequests.reduce((acc: ServiceRequest[], sr) => {
+          if (!sr.basedOn) acc.push(sr);
+          return acc;
+        }, []);
+        if (possibleInitialSRs.length > 1) {
+          console.log(
+            `More than one initial tests found for ${activityDefinition.name} for this Encounter/${encounterId}`
+          );
+          // this really shouldn't happen, something is misconfigured
+          throw IN_HOUSE_LAB_ERROR(
+            `Could not deduce which test is initial for ${activityDefinition.name} since more than one test has previously been run today`
+          );
+        }
+        if (possibleInitialSRs.length === 0) {
+          // this really shouldn't happen, something is misconfigured
+          throw IN_HOUSE_LAB_ERROR(
+            `No initial tests could be found for ${activityDefinition.name} for this encounter.`
+          );
+        }
+        initialServiceRequest = possibleInitialSRs[0];
+        testDetailType = 'repeat';
+      } else if (parentTestCanonicalUrl && serviceRequests) {
+        const parentRequest = serviceRequests.find((sr) => {
+          const isParentTest = sr.instantiatesCanonical?.some((url) => url === parentTestCanonicalUrl);
+          const hasPendingTestTag = sr.meta?.tag?.find(
+            (t) =>
+              t.system === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM &&
+              t.code === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending
+          );
+          return isParentTest && hasPendingTestTag;
+        });
+        console.log('parentRequest', parentRequest?.id);
+        initialServiceRequest = parentRequest;
+        testDetailType = 'reflex';
       }
 
-      return activeDefinition;
-    })();
+      const testItemResources: TestItemResources = {
+        activityDefinition,
+        initialServiceRequest,
+        testDetailType,
+      };
 
-    let parentTestCanonicalUrl: string | undefined;
-    activityDefinition.relatedArtifact?.forEach((artifact) => {
-      const isDependent = artifact.type === 'depends-on';
-      const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
-
-      if (isDependent && isRelatedViaReflex) {
-        // todo labs this will take the last one it finds, so if we ever have a test be triggered by multiple parents, we'll need to update this
-        parentTestCanonicalUrl = artifact.resource;
-      }
+      return testItemResources;
     });
 
     const encounter = (() => {
@@ -264,68 +311,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         throw Error(`Account not found, results contain ${accountSearchResults.length} accounts`);
       }
       return accountSearchResults[0];
-    })();
-
-    // this logic assumes we won't have any repeat reflex - you can only be one :)
-    const initialServiceRequest = await (async () => {
-      if (isRepeatTest) {
-        if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
-          throw IN_HOUSE_LAB_ERROR(
-            'You cannot run this as repeat, no initial tests could be found for this encounter.'
-          );
-        }
-        const possibleInitialSRs = initialServiceRequestResources.reduce((acc: ServiceRequest[], sr) => {
-          if (!sr.basedOn) acc.push(sr);
-          return acc;
-        }, []);
-        if (possibleInitialSRs.length > 1) {
-          console.log('More than one initial tests found for this encounter');
-          // this really shouldn't happen, something is misconfigured
-          throw IN_HOUSE_LAB_ERROR(
-            'Could not deduce which test is initial since more than one test has previously been run today'
-          );
-        }
-        if (possibleInitialSRs.length === 0) {
-          // this really shouldn't happen, something is misconfigured
-          throw IN_HOUSE_LAB_ERROR('No initial tests could be found for this encounter.');
-        }
-        const initialSR = possibleInitialSRs[0];
-        return initialSR;
-      } else if (parentTestCanonicalUrl) {
-        console.log('searching for parent test', parentTestCanonicalUrl);
-        // we should be able to search service request by this but looks like a fhir bug so will need to do some more round about searching here
-        const serviceRequestSearch = (
-          await oystehr.fhir.search<ServiceRequest>({
-            resourceType: 'ServiceRequest',
-            params: [
-              {
-                name: 'encounter',
-                value: `Encounter/${encounterId}`,
-              },
-              {
-                name: 'code',
-                value: `${IN_HOUSE_TEST_CODE_SYSTEM}|`,
-              },
-              {
-                name: '_sort',
-                value: '-_lastUpdated',
-              },
-            ],
-          })
-        ).unbundle();
-        const parentRequest = serviceRequestSearch.find((sr) => {
-          const isParentTest = sr.instantiatesCanonical?.some((url) => url === parentTestCanonicalUrl);
-          const hasPendingTestTag = sr.meta?.tag?.find(
-            (t) =>
-              t.system === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM &&
-              t.code === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending
-          );
-          return isParentTest && hasPendingTestTag;
-        });
-        console.log('parentRequest', parentRequest?.id);
-        return parentRequest;
-      }
-      return;
     })();
 
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
@@ -351,196 +336,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const location: Location | undefined = locationsSearchResults[0];
 
-    const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
-
-    const serviceRequestConfig: ServiceRequest = {
-      resourceType: 'ServiceRequest',
-      status: 'draft',
-      intent: 'order',
-      subject: {
-        reference: `Patient/${patient.id}`,
-      },
-      encounter: {
-        reference: `Encounter/${encounterId}`,
-      },
-      requester: {
-        reference: `Practitioner/${attendingPractitionerId}`,
-      },
-      authoredOn: DateTime.now().toISO() || undefined,
-      priority: 'stat',
-      code: {
-        coding: activityDefinition.code?.coding,
-        text: activityDefinition.name,
-      },
-      reasonCode: [...diagnosesAll].map((diagnosis) => {
-        return {
-          coding: [
-            {
-              system: FHIR_IDC10_VALUESET_SYSTEM,
-              code: diagnosis?.code,
-              display: diagnosis?.display,
-            },
-          ],
-          text: diagnosis?.display,
-        };
-      }),
-      ...(location && {
-        locationReference: [
-          {
-            type: 'Location',
-            reference: `Location/${location.id}`,
-          },
-        ],
-      }),
-      ...(notes && { note: [{ text: notes }] }),
-      ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
-      instantiatesCanonical: [`${activityDefinition.url}|${activityDefinition.version}`],
-    };
-    // if an initialServiceRequest is defined, the test being ordered is repeat OR reflex and should be linked to the
-    // original test represented by initialServiceRequest
-    if (initialServiceRequest) {
-      serviceRequestConfig.basedOn = [
-        {
-          reference: `ServiceRequest/${initialServiceRequest.id}`,
-        },
-      ];
-    }
-
-    const patientName = getFullestAvailableName(patient);
-
-    const taskConfig = createTask({
-      category: IN_HOUSE_LAB_TASK.category,
-      title: `Collect sample for “${activityDefinition.name}” for ${patientName}`,
-      code: {
-        system: IN_HOUSE_LAB_TASK.system,
-        code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
-      },
-      encounterId: encounterId,
-      location: location?.id
-        ? {
-            id: location.id,
-          }
-        : undefined,
-      input: [
-        {
-          type: IN_HOUSE_LAB_TASK.input.testName,
-          valueString: activityDefinition.name,
-        },
-        {
-          type: IN_HOUSE_LAB_TASK.input.patientName,
-          valueString: patientName,
-        },
-        {
-          type: IN_HOUSE_LAB_TASK.input.providerName,
-          valueString: currentUserPractitionerName ?? 'Unknown',
-        },
-        {
-          type: IN_HOUSE_LAB_TASK.input.orderDate,
-          valueString: serviceRequestConfig.authoredOn,
-        },
-        {
-          type: IN_HOUSE_LAB_TASK.input.appointmentId,
-          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
-        },
-      ],
-      basedOn: [serviceRequestFullUrl],
-    });
-
-    const provenanceConfig: Provenance = {
-      resourceType: 'Provenance',
-      activity: {
-        coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
-      },
-      target: [{ reference: serviceRequestFullUrl }],
-      ...(location && { location: { reference: `Location/${location.id}` } }),
-      recorded: DateTime.now().toISO(),
-      agent: [
-        {
-          who: {
-            reference: `Practitioner/${userPractitionerId}`,
-            display: currentUserPractitionerName,
-          },
-          onBehalfOf: {
-            reference: `Practitioner/${attendingPractitionerId}`,
-            display: attendingPractitionerName,
-          },
-        },
-      ],
+    const resourcesToCreateAllRequests: CreateInHouseLabResources = {
+      diagnosesAll,
+      notes,
+      testResources,
+      encounter,
+      patient,
+      coverage,
+      location,
+      currentUserPractitionerName,
+      currentUserPractitionerId: userPractitionerId,
+      attendingPractitionerName,
+      attendingPractitionerId,
     };
 
-    let procedureCodeExtension = {};
-    if (isRepeatTest) {
-      // this logic will cover if we add a test that is repeatable and has an extra modifier on it
-      // otherwise it will be spread below
-      const additionalModifierExt =
-        activityDefinition.code?.coding
-          ?.find((coding) => coding.system === CODE_SYSTEM_CPT)
-          ?.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept) ?? [];
+    const resourcePostRequests = makeRequestsForCreateInHouseLabs(resourcesToCreateAllRequests);
 
-      const repeatModifier = makeCptModifierExtension([
-        { code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' },
-      ]);
-      procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
+    const transactionResponse = await oystehr.fhir.transaction({ requests: resourcePostRequests });
 
-      serviceRequestConfig.meta = { tag: [REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG] };
-    }
-
-    const procedureConfig: Procedure = {
-      resourceType: 'Procedure',
-      status: 'completed',
-      subject: {
-        reference: `Patient/${patient.id}`,
-      },
-      encounter: {
-        reference: `Encounter/${encounterId}`,
-      },
-      performer: [
-        {
-          actor: {
-            reference: `Practitioner/${attendingPractitionerId}`,
-          },
-        },
-      ],
-      code: {
-        coding: [
-          {
-            ...activityDefinition.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_CPT),
-            display: activityDefinition.name,
-            ...procedureCodeExtension,
-          },
-        ],
-      },
-      meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
-    };
-
-    const transactionResponse = await oystehr.fhir.transaction({
-      requests: [
-        {
-          method: 'POST',
-          url: '/ServiceRequest',
-          resource: serviceRequestConfig,
-          fullUrl: serviceRequestFullUrl,
-        },
-        {
-          method: 'POST',
-          url: '/Task',
-          resource: taskConfig,
-        },
-        {
-          method: 'POST',
-          url: '/Provenance',
-          resource: provenanceConfig,
-        },
-        {
-          method: 'POST',
-          url: '/Procedure',
-          resource: procedureConfig,
-        },
-      ] as BatchInputRequest<FhirResource>[],
-    });
+    const serviceRequestIds: string[] = [];
 
     const resources = parseCreatedResourcesBundle(transactionResponse);
-    const newServiceRequest = resources.find((r) => r.resourceType === 'ServiceRequest');
+    resources.forEach((r) => {
+      if (r.resourceType === 'ServiceRequest' && r.id) serviceRequestIds.push(r.id);
+    });
 
     if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
       throw Error('Error creating in-house lab order in transaction');
@@ -555,9 +374,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       : {};
 
     const response = {
-      transactionResponse,
       saveChartDataResponse,
-      ...(newServiceRequest && { serviceRequestId: newServiceRequest.id }),
+      serviceRequestIds,
     };
 
     return {

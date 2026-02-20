@@ -1,1 +1,1 @@
-export const LEGAL_OVERRIDES = {};
+export const LEGAL_OVERRIDES = {} as const;

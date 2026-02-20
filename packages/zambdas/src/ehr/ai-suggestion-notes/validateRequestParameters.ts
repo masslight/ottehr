@@ -21,7 +21,7 @@ export function validateRequestParameters(input: ZambdaInput): AISuggestionNotes
     throw MISSING_REQUIRED_PARAMETERS(['details']);
   }
 
-  if (type === 'procedure' && !details.procedureDetails) {
+  if (type === 'procedure' && details.procedureDetails == undefined) {
     throw new Error('If type is procedure, procedureDetails is required');
   }
 

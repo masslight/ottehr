@@ -139,6 +139,14 @@ export function makeConditionResource(
             },
           ],
         }
+      : fieldName === 'medical-condition'
+      ? {
+          coding: [
+            {
+              display: dto.display,
+            },
+          ],
+        }
       : undefined,
     note: (data as FreeTextNoteDTO).text
       ? [{ text: (data as FreeTextNoteDTO).text || '' }]
@@ -557,17 +565,26 @@ export function makeCommunicationResource(
   data: CommunicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Communication {
+  const { resourceId, text, title } = data;
   return {
     resourceType: 'Communication',
-    id: data.resourceId,
+    id: resourceId,
     status: 'completed',
     subject: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
-    payload: [
-      {
-        contentString: data.text,
+    ...(title && {
+      topic: {
+        text: title,
       },
-    ],
+    }),
+
+    ...(text && {
+      payload: [
+        {
+          contentString: text,
+        },
+      ],
+    }),
     meta: getMetaWFieldName(fieldName),
   };
 }
@@ -575,7 +592,8 @@ export function makeCommunicationResource(
 export function makeCommunicationDTO(resource: Communication): CommunicationDTO {
   return {
     resourceId: resource.id,
-    text: resource.payload?.[0].contentString,
+    text: resource.payload?.[0]?.contentString,
+    title: resource.topic?.text,
   };
 }
 
@@ -888,16 +906,9 @@ export function makeDiagnosisConditionResource(
   encounterId: string,
   patientId: string,
   data: DiagnosisDTO,
-  fieldName: ProviderChartDataFieldsNames,
-  source?: string
+  fieldName: ProviderChartDataFieldsNames
 ): Condition {
   const meta = getMetaWFieldName(fieldName);
-  if (fieldName === 'ai-potential-diagnosis') {
-    meta.tag?.push({
-      code: source,
-      system: `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}-source`,
-    });
-  }
   const conditionConfig: Condition = {
     id: data.resourceId,
     resourceType: 'Condition',
@@ -1399,20 +1410,7 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
     data.addendumNote = { text: addendumNote.valueString };
   }
 
-  // 6. AI potential diagnoses
-  resources
-    .filter(
-      (resource) =>
-        resource.resourceType === 'Condition' &&
-        resource.meta?.tag?.[0].code === 'ai-potential-diagnosis' &&
-        encounterResource.id !== undefined &&
-        resourceReferencesEncounter(resource, encounterResource.id)
-    )
-    .forEach((condition) => {
-      data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
-    });
-
-  // 7. Procedures
+  // 6. Procedures
   data.procedures = makeProceduresDTOFromFhirResources(encounterResource, resources);
 
   return data;

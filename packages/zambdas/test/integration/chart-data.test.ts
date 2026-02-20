@@ -88,9 +88,6 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput).toHaveProperty('practitioners');
       expect(typedGetChartDataOutput.practitioners).toBeInstanceOf(Array);
       expect(typedGetChartDataOutput.practitioners?.length).toEqual(0);
-      expect(typedGetChartDataOutput).toHaveProperty('aiPotentialDiagnosis');
-      expect(typedGetChartDataOutput.aiPotentialDiagnosis).toBeInstanceOf(Array);
-      expect(typedGetChartDataOutput.aiPotentialDiagnosis?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('aiChat');
       expect(typedGetChartDataOutput.aiChat).toBeInstanceOf(Object);
       expect(typedGetChartDataOutput.aiChat?.documents).toBeInstanceOf(Array);
@@ -101,34 +98,6 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput.patientInfoConfirmed).toEqual({
         value: true,
       });
-    });
-
-    it('should get chart data with aiPotentialDiagnosis requestedField -- success', async () => {
-      const getChartDataInput: GetChartDataRequest = {
-        encounterId: baseResources.encounter.id!,
-        requestedFields: { aiPotentialDiagnosis: {} },
-      };
-      let getChartDataOutput: any;
-      try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
-      } catch (error) {
-        console.error('Error executing zambda:', error);
-        getChartDataOutput = error as Error;
-      }
-      expect(getChartDataOutput instanceof Error).toBe(false);
-      const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
-      expect(typedGetChartDataOutput).toBeDefined();
-      expect(typedGetChartDataOutput).toHaveProperty('patientId');
-      expect(typedGetChartDataOutput.patientId).toEqual(baseResources.patient.id);
-      expect(typedGetChartDataOutput).not.toHaveProperty('conditions');
-      expect(typedGetChartDataOutput).toHaveProperty('aiPotentialDiagnosis');
-      expect(typedGetChartDataOutput.aiPotentialDiagnosis).toBeInstanceOf(Array);
-      expect(typedGetChartDataOutput.aiPotentialDiagnosis?.length).toEqual(0);
     });
 
     it('should validate shape of examObservations -- success', async () => {

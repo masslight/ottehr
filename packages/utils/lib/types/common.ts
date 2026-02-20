@@ -516,15 +516,13 @@ type Appointment_Created_Task_Codes = 'create-appointment-confirmation-messages'
 type Send_Claim_Task_Codes = 'send-claim';
 type Task_Visit_Note_PDF_And_Email_Codes = 'visit-note-pdf-and-email';
 type Task_Patient_Payment_Candid_Sync_And_Receipt_Codes = 'patient-payment-candid-sync-and-receipt';
-type RecommendDiagnosisCodesCode = 'recommend-diagnosis-codes';
 
 type Task_Codes =
   | Appointment_Update_Task_Codes
   | Appointment_Created_Task_Codes
   | Send_Claim_Task_Codes
   | Task_Visit_Note_PDF_And_Email_Codes
-  | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes
-  | RecommendDiagnosisCodesCode;
+  | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes;
 
 export const Task_Email_Communication_Url = 'urgent-care-email';
 export const Task_Text_Communication_Url = 'urgent-care-text';

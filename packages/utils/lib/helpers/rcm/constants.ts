@@ -43,6 +43,7 @@ export const emCodeOptions: CPTCodeOption[] = [
   { display: '99213 Established Patient - E/M Level 3', code: '99213' },
   { display: '99214 Established Patient - E/M Level 4', code: '99214' },
   { display: '99215 Established Patient - E/M Level 5', code: '99215' },
+  { display: '99499 - Unlisted E&M Service', code: '99499' },
 ];
 
 export const EXTENSION_URL_CPT_MODIFIER = 'https://fhir.ottehr.com/Extension/cpt-code-modifier';

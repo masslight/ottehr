@@ -29,14 +29,12 @@ import {
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
-  OttehrTaskSystem,
   ProcedureDTO,
   SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   parseCreatedResourcesBundle,
-  saveResourceRequest,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -45,7 +43,6 @@ import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
   deleteEncounterDiagnosis,
-  makeEncounterTaskResource,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
@@ -256,15 +253,6 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
         );
       }
     });
-
-    // 17. regenerate diagnosis code recommendations if chief complaint or medical decision were deleted
-    if (chiefComplaint || historyOfPresentIllness || medicalDecision) {
-      deleteOrUpdateRequests.push(
-        saveResourceRequest(
-          makeEncounterTaskResource(encounterId, { system: OttehrTaskSystem, code: 'recommend-diagnosis-codes' })
-        )
-      );
-    }
 
     episodeOfCare?.forEach((element) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('EpisodeOfCare', element.resourceId!));

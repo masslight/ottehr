@@ -27,7 +27,7 @@ test.afterAll(async () => {
   await context.close();
 });
 
-const VirtualPrebookDependentTests = BOOKING_CONFIG.homepageOptions?.includes('schedule-virtual-visit')
+const VirtualPrebookDependentTests = (BOOKING_CONFIG.homepageOptions as any)?.includes('schedule-virtual-visit')
   ? test.describe.parallel
   : test.describe.skip;
 
