@@ -110,6 +110,13 @@ export async function complexValidation(
   const { documentId, patientId } = input.body;
   const { callerAccessToken } = input;
 
+  const user = await getUser(callerAccessToken, secrets);
+  const isEHRUser = user && checkIsEHRUser(user);
+  const userAccess = await userHasAccessToPatient(user, patientId, oystehr);
+  if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
+    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+  }
+
   const documentReferences = (
     await oystehr.fhir.search<DocumentReference>({
       resourceType: 'DocumentReference',
@@ -128,13 +135,6 @@ export async function complexValidation(
 
   if (!documentReferences || documentReferences.length !== 1 || !documentReferences[0].id) {
     throw FHIR_RESOURCE_NOT_FOUND('DocumentReference');
-  }
-
-  const user = await getUser(callerAccessToken, secrets);
-  const isEHRUser = user && checkIsEHRUser(user);
-  const userAccess = await userHasAccessToPatient(user, patientId, oystehr);
-  if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
-    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
   }
 
   const patientReferenceFromDr = documentReferences[0].subject?.reference;
