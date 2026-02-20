@@ -1355,7 +1355,7 @@ const isProcedureModifier = (code: unknown): code is ProcedureModifier => {
   return typeof code === 'string' && procedureModifierValues.has(code as ProcedureModifier);
 };
 
-export const makeCptModifierExtension = (input: { code: ProcedureModifier; display: string }[]): Extension => {
+export const makeCptModifierExtension = (input: { code: string; display: string }[]): Extension => {
   return {
     url: EXTENSION_URL_CPT_MODIFIER,
     valueCodeableConcept: {
