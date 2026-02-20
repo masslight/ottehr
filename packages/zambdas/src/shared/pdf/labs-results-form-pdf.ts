@@ -1296,7 +1296,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
     pdfClient = drawFourColumnText(
       pdfClient,
       textStyles,
-      { name: 'NAME', startXPos: 0 },
+      { name: 'NAME', startXPos: pdfClient.getLeftBound() },
       { name: 'VALUE', startXPos: 230 },
       { name: resultHasUnits ? 'UNITS' : '', startXPos: 350 },
       { name: 'REFERENCE RANGE', startXPos: 410 }
@@ -1318,7 +1318,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       pdfClient = drawFourColumnText(
         pdfClient,
         textStyles,
-        { name: resultDetail.name, startXPos: 0 },
+        { name: resultDetail.name, startXPos: pdfClient.getLeftBound() },
         { name: valueStringToWrite || '', startXPos: 230 },
         { name: resultDetail.units || '', startXPos: 350 },
         { name: resultRange, startXPos: 410 },
@@ -1327,6 +1327,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     }
+    pdfClient.newLine(3);
     pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', labResult.collectionDate);
     pdfClient.newLine(STANDARD_FONT_SIZE + 3);
     pdfClient = drawFieldLineRight(
