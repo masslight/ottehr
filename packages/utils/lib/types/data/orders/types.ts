@@ -5,6 +5,7 @@ import {
   GetRadiologyOrderListZambdaOrder,
   PrescribedMedicationDTO,
 } from '../../api';
+import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
 import { InHouseOrderListPageItemDTO } from '../in-house';
 import { LabOrderListPageDTO } from '../labs';
 import { NursingOrdersStatus } from './constants';
@@ -110,6 +111,7 @@ export interface OrdersForTrackingBoardTable {
   inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
   radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]>;
   erxOrdersByEncounterId: Record<string, PrescribedMedicationDTO[]>;
+  proceduresByEncounterId: Record<string, ProcedureDTO[]>;
 }
 
 export interface OrdersForTrackingBoardRow {
@@ -119,4 +121,5 @@ export interface OrdersForTrackingBoardRow {
   inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
   radiologyOrders: GetRadiologyOrderListZambdaOrder[] | undefined;
   erxOrders: PrescribedMedicationDTO[] | undefined;
+  procedures: ProcedureDTO[] | undefined;
 }
