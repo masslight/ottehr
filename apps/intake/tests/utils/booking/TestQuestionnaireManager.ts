@@ -150,7 +150,7 @@ export class TestQuestionnaireManager {
    */
   async ensureTestQuestionnaire(
     configId: string,
-    configOverrides: Partial<QuestionnaireConfigType>,
+    configOverrides: any, // todo: stricter typing here Partial<QuestionnaireConfigType> doesn't work because it uses "shallow partial"
     serviceMode: ServiceMode,
     consentForms?: ResolvedConsentFormConfig[]
   ): Promise<CreatedTestQuestionnaire> {
