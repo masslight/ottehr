@@ -3,7 +3,7 @@ import { NetworkType } from 'candidhealth/api';
 import { Coding } from 'fhir/r4b';
 import z from 'zod';
 import { VALUE_SET_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides/value-sets';
-import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 
 export interface InsurancePlanType {
   candidCode: NetworkType;
@@ -674,7 +674,7 @@ const formValueSets = {
     { label: 'Phone', value: 'Phone' },
   ],
   externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
-} as const;
+};
 
 export type ValueSetsConfig = typeof formValueSets;
 
@@ -684,19 +684,9 @@ export type ValueSetsConfig = typeof formValueSets;
  * @param testOverrides - Optional overrides for testing purposes
  * @returns Merged configuration
  */
-export function getValueSets(
-  testOverrides: Partial<ValueSetsConfig> = OVERRIDES as Partial<ValueSetsConfig>
-): ValueSetsConfig {
-  return mergeAndFreezeConfigObjects(formValueSets, testOverrides);
-}
-
-// Export as a Proxy to allow runtime config injection in tests
-export const VALUE_SETS = createProxyConfigObject<ValueSetsConfig>(getValueSets, CONFIG_INJECTION_KEYS.VALUE_SETS);
-
-type ExtractValues<T extends readonly { readonly value: string }[]> = T[number]['value'];
-
-export type ReasonForVisitUrgentCare = ExtractValues<typeof VALUE_SETS.reasonForVisitOptions>;
-export type ReasonForVisitOccMed = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsOccMed>;
-export type ReasonForVisitWorkersComp = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsWorkersComp>;
-
-export type ReasonForVisit = ReasonForVisitUrgentCare | ReasonForVisitOccMed | ReasonForVisitWorkersComp;
+// Merge defaults with instance-specific overrides (from ottehr-config-overrides)
+// Config is baked in at deploy time, no runtime injection needed
+export const VALUE_SETS: ValueSetsConfig = mergeAndFreezeConfigObjects(
+  formValueSets,
+  OVERRIDES as Partial<ValueSetsConfig>
+);

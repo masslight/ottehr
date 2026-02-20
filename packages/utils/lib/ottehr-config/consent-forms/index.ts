@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
 import { PRIVACY_POLICY_CODE } from '../../types';
-import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const CodingSchema = z.object({
   system: z.string().optional(),
@@ -90,24 +90,13 @@ const DEFAULT_CONSENT_FORMS = {
   ],
 } as const satisfies ConsentFormsConfig;
 
-/**
- * Get consent forms configuration with optional test overrides
- *
- * @param testOverrides - Optional overrides for testing purposes
- * @returns Merged configuration
- */
-export function getConsentFormsConfig(
-  testOverrides: Partial<ConsentFormsConfig> = CONSENT_FORMS_OVERRIDE as Partial<ConsentFormsConfig>
-): ConsentFormsConfig {
-  const merged = mergeAndFreezeConfigObjects(DEFAULT_CONSENT_FORMS, testOverrides);
-  return ConsentFormsConfigSchema.parse(merged);
-}
-
-// Export as a proxy to allow runtime config injection in tests
-export const CONSENT_FORMS_CONFIG = createProxyConfigObject<ConsentFormsConfig>(
-  getConsentFormsConfig,
-  CONFIG_INJECTION_KEYS.CONSENT_FORMS
+// Merge defaults with instance-specific overrides (from ottehr-config-overrides)
+// Config is baked in at deploy time, no runtime injection needed
+const mergedConsentForms = mergeAndFreezeConfigObjects(
+  DEFAULT_CONSENT_FORMS,
+  CONSENT_FORMS_OVERRIDE as Partial<ConsentFormsConfig>
 );
+export const CONSENT_FORMS_CONFIG: ConsentFormsConfig = ConsentFormsConfigSchema.parse(mergedConsentForms);
 
 const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
   if (typeof path === 'string') {
@@ -128,8 +117,7 @@ export type ResolvedConsentFormConfig = Omit<ConsentFormConfig, 'assetPath' | 'p
 
 /**
  * Resolve state-conditional paths for a given array of consent forms.
- * Use this when you already have the forms array (e.g., from getConsentFormsConfig)
- * and need to resolve the paths without reading from the proxy.
+ * Use this when you already have the forms array and need to resolve the paths.
  */
 export const resolveConsentFormsPaths = (
   forms: ConsentFormConfig[],

@@ -1,4 +1,4 @@
-import { getValueSets } from 'utils';
+import { VALUE_SETS } from 'utils';
 
 /**
  * Test data template factories
@@ -41,7 +41,7 @@ const createContactInformationData = (overrides?: {
   zip?: string;
   preferredCommunication?: string;
 }): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   return {
     valid: {
       'patient-email': overrides?.email || 'test@example.com',
@@ -73,7 +73,7 @@ export const createPatientDetailsData = (overrides?: {
   pointOfDiscovery?: string;
   relayPhone?: string;
 }): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   return {
     valid: {
       'patient-ethnicity': overrides?.ethnicity || valueSets.ethnicityOptions[0].value,
@@ -151,7 +151,7 @@ const createPaymentPageData = (method: 'insurance' | 'self-pay'): FieldTestData 
  * Options: 'Self' (self-pay) or 'Employer' (employer-paid)
  */
 const createOccMedPaymentPageData = (method: 'self' | 'employer'): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   const paymentOptions = valueSets.patientOccMedPaymentPageOptions;
   const selectedOption = method === 'employer' ? paymentOptions[1].value : paymentOptions[0].value;
 
@@ -181,7 +181,7 @@ const createInsuranceData = (overrides?: {
   state?: string;
   zip?: string;
 }): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   return {
     valid: {
       'insurance-carrier': overrides?.carrier || '', // Value unused - first option selected
@@ -225,7 +225,7 @@ const createResponsiblePartyData = (
     zip?: string;
   }
 ): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
 
   if (relationship === 'self') {
     return {
@@ -276,7 +276,7 @@ const createEmergencyContactData = (overrides?: {
   state?: string;
   zip?: string;
 }): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   return {
     valid: {
       'emergency-contact-relationship':
@@ -356,7 +356,7 @@ const createCurrentMedicationsData = (
   state: 'empty' | 'filled',
   _medications?: { typed?: string[]; selected?: string[] }
 ): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   // Index 0 = "Patient does not take any medications currently"
   // Index 1 = "Patient takes medication currently"
   const noOption = valueSets.currentMedicationsYesNoOptions[0].value;
@@ -385,7 +385,7 @@ const createCurrentAllergiesData = (
   state: 'empty' | 'filled',
   _allergies?: { typed?: string[]; selected?: string[] }
 ): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   // Index 0 = "Patient has no known current allergies"
   // Index 1 = "Patient has known current allergies"
   const noOption = valueSets.allergiesYesNoOptions[0].value;
@@ -416,7 +416,7 @@ const createMedicalHistoryData = (
   state: 'empty' | 'filled',
   _conditions?: { typed?: string[]; selected?: string[] }
 ): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   // Index 0 = "Patient has no current medical conditions"
   // Index 1 = "Patient has current medical conditions"
   const noOption = valueSets.medicalHistoryYesNoOptions[0].value;
@@ -445,7 +445,7 @@ const createSurgicalHistoryData = (
   state: 'empty' | 'filled',
   _surgeries?: { typed?: string[]; selected?: string[] }
 ): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   // Index 0 = "Patient has no surgical history"
   // Index 1 = "Patient has surgical history"
   const noOption = valueSets.surgicalHistoryYesNoOptions[0].value;
@@ -485,7 +485,7 @@ const createAdditionalQuestionsData = (overrides?: Record<string, string>): Fiel
  * Create school/work note request data (virtual only)
  */
 const createSchoolWorkNoteData = (noteType: 'none' | 'school' | 'work' | 'both'): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   // Options: 'Neither', 'School only', 'Work only', 'Both school and work notes'
   const options = valueSets.schoolWorkNoteOptions;
 
@@ -517,7 +517,7 @@ const createSchoolWorkNoteData = (noteType: 'none' | 'school' | 'work' | 'both')
  * Create invite participant data (virtual only)
  */
 const createInviteParticipantData = (): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   // Index 0 = "No, only one device will be connected"
   // Index 1 = "Yes, I will add invite details below"
   const noOption = valueSets.inviteFromAnotherDeviceOptions[0].value;
@@ -585,7 +585,7 @@ const createPharmacySearchData = (pharmacyName?: string | null): FieldTestData =
  * checkboxes when it detects we're on the consent-forms-page.
  */
 const createConsentFormsData = (overrides?: { signerName?: string; relationship?: string }): FieldTestData => {
-  const valueSets = getValueSets();
+  const valueSets = VALUE_SETS;
   return {
     valid: {
       // Consent form checkboxes are checked automatically by PagedQuestionnaireFlowHelper

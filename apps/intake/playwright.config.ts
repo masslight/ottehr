@@ -15,7 +15,7 @@ const isUIMode = process.argv.includes('--ui');
 export default defineConfig({
   testDir: './tests',
   testMatch: /.*\.spec\.ts/,
-  testIgnore: ['**/component/**', '**/unit/**'],
+  testIgnore: ['**/component/**', '**/unit/**', '**/utils/**'],
   /* Run tests in files in parallel */
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

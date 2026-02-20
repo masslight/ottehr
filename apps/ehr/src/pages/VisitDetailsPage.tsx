@@ -75,7 +75,6 @@ import {
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PatientAccountResponse,
-  ReasonForVisit,
   SERVICE_CATEGORY_SYSTEM,
   ServiceCategoryCode,
   ServiceMode,
@@ -135,7 +134,7 @@ interface EditDOBParams {
 }
 
 interface EditReasonForVisitParams {
-  reasonForVisit?: ReasonForVisit;
+  reasonForVisit?: string;
   additionalDetails?: string;
 }
 

@@ -8,7 +8,6 @@ import {
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
@@ -17,14 +16,15 @@ import {
   isLocationVirtual,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
+  parseQuestionnaireCanonicalExtension,
   PatientInfo,
   PersonSex,
   REASON_FOR_VISIT_SEPARATOR,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleOwnerFhirResource,
   Secrets,
-  SecretsKeys,
   ServiceMode,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   VisitType,
 } from 'utils';
 import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
@@ -36,8 +36,6 @@ export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   isEHRUser: boolean;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
-  /** Optional questionnaire canonical override for e2e tests (only works for test users) */
-  testQuestionnaireCanonical?: CanonicalUrl;
 };
 
 export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
@@ -47,15 +45,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const {
-    slotId,
-    language,
-    patient,
-    unconfirmedDateOfBirth,
-    locationState,
-    appointmentMetadata,
-    testQuestionnaireCanonical,
-  } = bodyJSON;
+  const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata } = bodyJSON;
   console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
@@ -144,19 +134,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('if specified, "patient.authorizedNonLegalGuardians" must be a string');
   }
 
-  // Validate testQuestionnaireCanonical if provided (for e2e tests)
-  if (testQuestionnaireCanonical) {
-    if (typeof testQuestionnaireCanonical !== 'object') {
-      throw INVALID_INPUT_ERROR('"testQuestionnaireCanonical" must be an object with url and version');
-    }
-    if (!testQuestionnaireCanonical.url || typeof testQuestionnaireCanonical.url !== 'string') {
-      throw INVALID_INPUT_ERROR('"testQuestionnaireCanonical.url" must be a non-empty string');
-    }
-    if (!testQuestionnaireCanonical.version || typeof testQuestionnaireCanonical.version !== 'string') {
-      throw INVALID_INPUT_ERROR('"testQuestionnaireCanonical.version" must be a non-empty string');
-    }
-  }
-
   return {
     slotId,
     user,
@@ -167,7 +144,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     unconfirmedDateOfBirth,
     locationState,
     appointmentMetadata,
-    testQuestionnaireCanonical,
   };
 }
 
@@ -187,7 +163,7 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, appointmentMetadata, testQuestionnaireCanonical } = input;
+  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
@@ -254,15 +230,17 @@ export const createAppointmentComplexValidation = async (
     throw new Error('Service mode not found');
   }
 
-  // Use test questionnaire canonical if provided and environment is not production
-  // This allows e2e tests to use custom questionnaires with specific config overrides
+  // Check if the Slot has a questionnaire canonical extension
+  // This allows slots to specify which questionnaire should be used for appointments booked on them
   let questionnaireCanonical: CanonicalUrl;
-  const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-  const isProduction = environment === 'production';
-  if (testQuestionnaireCanonical && !isProduction) {
-    console.log('Using test questionnaire canonical:', testQuestionnaireCanonical);
-    questionnaireCanonical = testQuestionnaireCanonical;
+  const slotQuestionnaireExtension = slot.extension?.find(
+    (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
+  );
+  if (slotQuestionnaireExtension?.valueString) {
+    questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
+    console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);
   } else {
+    // Fall back to service-mode-based questionnaire selection
     questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   }
 

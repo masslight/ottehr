@@ -527,7 +527,9 @@ export class BookingFlowHelpers {
           const option = allOptions[i];
           const optionText = await option.textContent();
           const trimmedText = optionText?.trim();
-          const matches = trimmedText?.startsWith(testLocationName);
+          // Check both directions to handle truncation - either the option starts with our name,
+          // or our name starts with the option (for when option text is truncated)
+          const matches = trimmedText?.startsWith(testLocationName) || testLocationName.startsWith(trimmedText || '');
           console.log(
             `  Option ${i}: "${trimmedText?.substring(0, 50)}${
               trimmedText && trimmedText.length > 50 ? '...' : ''

@@ -13,7 +13,7 @@ Run all e2e tests locally with Playwright UI mode:
 npm run intake:e2e:local:ui
 ```
 
-This starts local servers, runs login, then opens Playwright's interactive UI with all tests (synthetic + concrete configs). Use the UI to select which test groups to run.
+This starts local servers, runs login, then opens Playwright's interactive UI. Use the UI to select which tests to run.
 
 ### Other Commands
 
@@ -26,18 +26,9 @@ npm run intake:e2e:demo:ui
 npm run intake:e2e:staging:ui
 
 # From apps/intake directory (skips server startup)
-npm run e2e:specs        # Run synthetic tests headlessly
-npm run e2e:specs:ui     # Run synthetic tests in Playwright UI
+npm run e2e:specs        # Run tests headlessly
+npm run e2e:specs:ui     # Run tests in Playwright UI
 ```
-
-### Upstream vs Downstream Repos
-
-| Repo | Concrete Tests | Environment Variable |
-|------|----------------|---------------------|
-| **ottehr** (upstream) | ✅ Enabled | `RUN_CONCRETE_TESTS=true` in CI |
-| **Downstream instances** | ❌ Disabled | Not set (default) |
-
-Concrete config tests represent instance-specific configurations and are only relevant in the upstream ottehr repo. Downstream repos inherit synthetic tests which validate the baseline booking flows work with their config overrides.
 
 ## Architecture Overview
 
@@ -46,6 +37,19 @@ The e2e tests use a **config-driven test generation** approach. Instead of writi
 1. Define **configurations** (booking options, paperwork fields, locations)
 2. A **test factory** generates test scenarios from these configurations
 3. Tests **automatically adapt** when configurations change
+
+### Instance-Specific Testing
+
+The test framework uses the `ottehr-config-overrides` folder to customize test behavior:
+
+1. **Upstream repo:** `ottehr-config-overrides` contains empty stub objects (`{}`)
+2. **Downstream deployment:** A private CI repo clones ottehr, then overwrites `ottehr-config-overrides` with instance-specific values
+3. **Tests run:** The same test suite runs against the instance-specific configuration
+
+This means:
+- Upstream tests run against the baseline default config
+- Downstream tests automatically adapt to instance-specific configurations
+- No need to maintain separate test configurations per instance
 
 ### Test Organization
 
@@ -61,30 +65,10 @@ tests/utils/
 │   ├── TestLocationManager.ts         # Creates isolated test locations
 │   └── TestQuestionnaireManager.ts    # Deploys test questionnaires
 ├── config/
-│   ├── BookingConfigHelper.ts         # Extracts booking options from config
-│   ├── PaperworkConfigHelper.ts       # Injects paperwork config overrides
-│   └── LocationsConfigHelper.ts       # Manages location config injection
-├── paperwork/
-│   └── PagedQuestionnaireFlowHelper.ts # Fills paperwork pages dynamically
-└── booking-flow-concrete-smoke-configs/
-    ├── index.ts                       # Discovers and loads concrete configs
-    ├── instance-1-overrides/          # First concrete instance
-    └── instance-2-overrides/          # Second concrete instance
+│   └── injectTestConfig.ts            # Config injection utilities
+└── paperwork/
+    └── PagedQuestionnaireFlowHelper.ts # Fills paperwork pages dynamically
 ```
-
-### Test Groups
-
-Tests are organized into groups for selective execution:
-
-| Group | Description | Run Command |
-|-------|-------------|-------------|
-| **Synthetic (baseline)** | Tests baseline config with all booking flows | `--grep "Synthetic"` |
-| **Concrete: \<name\>** | Tests instance-specific config overrides | `--grep "Concrete: Instance 2"` |
-
-Each group runs the full booking flow matrix:
-- **Visit types:** Walk-in, Prebook
-- **Service modes:** In-person, Virtual
-- **Service categories:** Urgent Care, Occupational Medicine, Workers Comp
 
 ### What Each Test Covers
 
@@ -102,143 +86,12 @@ Plus extended coverage distributed across scenarios:
 - **Waiting room management** (virtual only - invite/cancel participants)
 - **Review page verification** (edit buttons, chip status)
 
-## Using Concrete Configs for Development
+### Test Matrix
 
-Concrete configs allow you to test **instance-specific overrides** as part of your development workflow. This is useful when:
-
-- Adding new config options that affect the booking/paperwork flow
-- Testing customer-specific configurations before deployment
-- Validating that config changes don't break existing flows
-
-### Concrete Config Structure
-
-Each concrete config is a folder under `tests/utils/booking-flow-concrete-smoke-configs/`:
-
-```
-instance-2-overrides/
-├── index.ts                      # Filling strategy and skip flag
-├── booking/
-│   └── index.ts                  # BOOKING_OVERRIDES
-├── intake-paperwork/
-│   └── index.ts                  # INTAKE_PAPERWORK_CONFIG (in-person)
-├── intake-paperwork-virtual/
-│   └── index.ts                  # INTAKE_PAPERWORK_CONFIG (virtual)
-├── locations/
-│   └── index.ts                  # LOCATIONS_OVERRIDES
-└── value-sets/
-    └── index.ts                  # VALUE_SETS_OVERRIDES
-```
-
-### Creating a New Concrete Config
-
-1. **Copy an existing config folder:**
-   ```bash
-   cp -r tests/utils/booking-flow-concrete-smoke-configs/instance-2-overrides \
-         tests/utils/booking-flow-concrete-smoke-configs/my-feature-overrides
-   ```
-
-2. **Update the index.ts:**
-   ```typescript
-   // my-feature-overrides/index.ts
-   import { FillingStrategy } from 'tests/utils/booking/BookingTestFactory';
-
-   export const fillingStrategy: FillingStrategy = {
-     checkValidation: true,
-     fillAllFields: true,
-     // Optional: verify specific fields are hidden
-     verifyFieldsNotShown: [
-       { pageLinkId: 'patient-details-page', fieldLinkId: 'patient-pronouns' },
-     ],
-   };
-
-   // Set to true to skip this config during test runs
-   export const skip = false;
-   ```
-
-3. **Configure your overrides:**
-
-   **Booking overrides** (`booking/index.ts`):
-   ```typescript
-   export const BOOKING_OVERRIDES = {
-     // Homepage options to show
-     homepageOptions: [
-       { id: 'start-in-person-visit', label: 'Walk-in visit' },
-       { id: 'schedule-in-person-visit', label: 'Book appointment' },
-     ],
-     // Service categories available
-     serviceCategories: [
-       { code: 'urgent-care', display: 'Urgent Care' },
-     ],
-   };
-   ```
-
-   **Paperwork overrides** (`intake-paperwork/index.ts`):
-   ```typescript
-   export const INTAKE_PAPERWORK_CONFIG = {
-     FormFields: {
-       patientDetails: {
-         hiddenFields: ['patient-pronouns', 'patient-point-of-discovery'],
-       },
-       pharmacy: {
-         // Only show for urgent-care
-         triggers: [
-           {
-             targetQuestionLinkId: 'contact-information-page.appointment-service-category',
-             effect: ['enable'],
-             operator: '=',
-             answerString: 'urgent-care',
-           },
-         ],
-       },
-     },
-   };
-   ```
-
-   **Locations** (`locations/index.ts`):
-   ```typescript
-   export const LOCATIONS_OVERRIDES = {
-     inPersonLocations: [
-       { name: 'Downtown Clinic' },
-       { name: 'Suburb Office' },
-     ],
-     telemedLocations: [
-       { name: 'Telemed Downtown' },
-     ],
-   };
-   ```
-
-4. **Run your tests:**
-   ```bash
-   # Run only your new config
-   npx playwright test --project=e2e --grep "Concrete: My Feature"
-   ```
-
-### Skipping a Concrete Config
-
-To temporarily disable a concrete config (e.g., work in progress):
-
-```typescript
-// index.ts
-export const skip = true;  // Tests will skip this config
-```
-
-### Verifying Hidden Fields
-
-If your config hides certain fields, you can verify they're actually hidden:
-
-```typescript
-// index.ts
-export const fillingStrategy: FillingStrategy = {
-  checkValidation: true,
-  fillAllFields: true,
-  verifyFieldsNotShown: [
-    { pageLinkId: 'patient-details-page', fieldLinkId: 'patient-pronouns' },
-    { pageLinkId: 'payment-option-page', fieldLinkId: 'self-pay-alert-text' },
-  ],
-};
-```
-
-The test will fail if any of these fields are visible when they should be hidden.
+Tests cover the full booking flow matrix:
+- **Visit types:** Walk-in, Prebook
+- **Service modes:** In-person, Virtual
+- **Service categories:** Urgent Care, Occupational Medicine, Workers Comp
 
 ## Test Resource Isolation
 
@@ -252,6 +105,19 @@ This means:
 - Tests can run in parallel without interference
 - Multiple CI runs don't conflict with each other
 - Local and CI runs use separate resources
+
+## Config Injection
+
+Tests inject booking configuration overrides before page navigation using window globals.
+Questionnaire selection is handled via the Slot extension (injected into create-slot requests).
+
+```typescript
+import { CONFIG_INJECTION_KEYS } from 'utils';
+import { injectTestConfig } from '../config/injectTestConfig';
+
+// Inject booking config before navigation - app reads on load
+await injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, bookingOverrides);
+```
 
 ## Debugging Tips
 
@@ -277,26 +143,6 @@ Add logging to see what scenarios are generated:
 console.log('Generated scenarios:', scenarios.map(s => s.description));
 ```
 
-## Configuration Reference
-
-### FillingStrategy
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `checkValidation` | boolean | Submit with invalid data first to verify validation |
-| `fillAllFields` | boolean | Fill all visible fields (vs. only required) |
-| `verifyFieldsNotShown` | array | Fields that should NOT be visible |
-
-### ConcreteTestConfig
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `bookingOverrides` | object | Homepage options, service categories |
-| `paperworkConfigInPerson` | object | In-person paperwork field config |
-| `paperworkConfigVirtual` | object | Virtual paperwork field config |
-| `locationsOverrides` | object | Location names and phone numbers |
-| `valueSetsOverrides` | object | Dropdown options, reason codes |
-
 ## Troubleshooting
 
 ### Tests timing out
@@ -310,8 +156,8 @@ console.log('Generated scenarios:', scenarios.map(s => s.description));
 
 ### Config not being applied
 - Configs are injected via `window.__TEST_*_CONFIG__` before navigation
-- Ensure your config is exported with the correct name (`BOOKING_OVERRIDES`, `INTAKE_PAPERWORK_CONFIG`, etc.)
 - Check browser console for config injection logs
+- Ensure navigation happens after injection (injection must be in `addInitScript`)
 
 ### Parallel test conflicts
 - Each worker gets a unique ID for resource isolation

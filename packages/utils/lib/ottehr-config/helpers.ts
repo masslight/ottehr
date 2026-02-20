@@ -5,13 +5,6 @@ import { deepFreezeObject } from '../utils/objects';
 // rather than concatenating them, which is rarely what we want and easy enough to achieve by iterating
 // the full desired list in the override value
 
-// Helper type to remove readonly from all properties recursively
-type Mutable<T> = T extends readonly (infer U)[]
-  ? Mutable<U>[]
-  : T extends object
-  ? { -readonly [K in keyof T]: Mutable<T[K]> }
-  : T;
-
 // Deep merge type: recursively merges T and Z
 // For arrays: Z replaces T (not merged)
 // For objects: properties are recursively merged
@@ -36,11 +29,7 @@ type DeepMerge<T, Z> = T extends readonly any[]
     : Z
   : Z;
 
-export function mergeAndFreezeConfigObjects<T, Z>(
-  baseConfig: T,
-  overrideConfig: Z,
-  freeze: boolean = true
-): Mutable<DeepMerge<T, Z>> {
+export function mergeAndFreezeConfigObjects<T, Z>(baseConfig: T, overrideConfig: Z): DeepMerge<T, Z> {
   const merged = _.mergeWith(_.cloneDeep(baseConfig), _.cloneDeep(overrideConfig), (objValue, srcValue) => {
     // For arrays, use override's array entirely (no element-by-element merge)
     // If override doesn't provide an array, fall back to base's array
@@ -49,16 +38,11 @@ export function mergeAndFreezeConfigObjects<T, Z>(
     }
   });
 
-  return (freeze ? deepFreezeObject(merged) : merged) as Mutable<DeepMerge<T, Z>>;
+  return deepFreezeObject(merged) as DeepMerge<T, Z>;
 }
 
 export enum CONFIG_INJECTION_KEYS {
   BOOKING = '__TEST_BOOKING_CONFIG__',
-  LOCATIONS = '__TEST_LOCATION_CONFIG__',
-  INTAKE_PAPERWORK = '__TEST_INTAKE_PAPERWORK_CONFIG__',
-  VIRTUAL_INTAKE_PAPERWORK = '__TEST_VIRTUAL_INTAKE_PAPERWORK_CONFIG__',
-  VALUE_SETS = '__TEST_VALUE_SETS__',
-  CONSENT_FORMS = '__TEST_CONSENT_FORMS_CONFIG__',
 }
 
 /**

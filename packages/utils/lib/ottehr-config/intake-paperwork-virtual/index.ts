@@ -5,7 +5,7 @@ import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-ove
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation, ResolvedConsentFormConfig } from '../consent-forms';
-import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
   ALLERGIES_YES_OPTION,
@@ -20,7 +20,7 @@ import {
   SELF_PAY_OPTION,
   SURGICAL_HISTORY_YES_OPTION,
 } from '../shared-questionnaire';
-import { getValueSets, type ValueSetsConfig } from '../value-sets';
+import { VALUE_SETS, type ValueSetsConfig } from '../value-sets';
 
 function getFormFields(valueSets: ValueSetsConfig, consentForms?: ResolvedConsentFormConfig[]): typeof FormFields {
   // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
@@ -2430,9 +2430,9 @@ function getIntakePaperworkVirtualConfig(
   testOverrides: any = OVERRIDES,
   consentFormsConfig?: ResolvedConsentFormConfig[]
 ): any {
-  // Get value sets at call time (reads from proxy, picks up test overrides)
-  const valueSets = getValueSets();
-  // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
+  // Use pre-merged value sets (baked in at deploy time)
+  const valueSets = VALUE_SETS;
+  // Use provided consent forms if available (for Node.js test context), otherwise read from config
   const consentForms = consentFormsConfig ?? getConsentFormsForLocation();
 
   const INTAKE_PAPERWORK_DEFAULTS = {
@@ -2450,11 +2450,8 @@ function getIntakePaperworkVirtualConfig(
   return IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
 }
 
-// Export as a Proxy to allow runtime config injection in tests
-export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = createProxyConfigObject(
-  getIntakePaperworkVirtualConfig,
-  CONFIG_INJECTION_KEYS.VIRTUAL_INTAKE_PAPERWORK
-);
+// Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
+export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = getIntakePaperworkVirtualConfig();
 
 export const VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(VIRTUAL_INTAKE_PAPERWORK_CONFIG)));

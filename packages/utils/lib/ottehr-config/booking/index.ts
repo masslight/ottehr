@@ -429,7 +429,7 @@ export enum HomepageOptions {
   ScheduleVirtualVisit = 'schedule-virtual-visit',
 }
 
-const BOOKING_DEFAULTS = {
+const BOOKING_DEFAULTS: BookingConfig = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
@@ -466,7 +466,7 @@ const BOOKING_DEFAULTS = {
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,
   inPersonPrebookRoutingParams,
-} as const satisfies BookingConfig;
+};
 
 /**
  * Get booking configuration with optional test overrides
@@ -477,7 +477,9 @@ const BOOKING_DEFAULTS = {
 export function getBookingConfig(
   testOverrides: Partial<BookingConfig> = BOOKING_OVERRIDES as Partial<BookingConfig>
 ): BookingConfig {
-  return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides);
+  // Type assertion needed: DeepMerge with Partial<T> produces T | undefined properties,
+  // but lodash merge skips undefined values so the base config properties are preserved.
+  return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides) as BookingConfig;
 }
 
 // todo: it would be nice to use zod to validate the merged booking config shape here

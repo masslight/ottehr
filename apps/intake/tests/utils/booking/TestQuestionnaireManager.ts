@@ -27,7 +27,7 @@ export interface CreatedTestQuestionnaire {
 /**
  * Manages test questionnaires for e2e booking tests
  *
- * Creates FHIR Questionnaires from concrete config overrides with unique URLs
+ * Creates FHIR Questionnaires from config overrides with unique URLs
  * to ensure test isolation. Each questionnaire is tagged with the worker ID
  * to enable cleanup after tests.
  *
@@ -63,7 +63,7 @@ export class TestQuestionnaireManager {
    * because `isNonPaperworkQuestionnaireResponse` uses string matching to identify paperwork
    * questionnaires. Test questionnaires without these patterns would be filtered out.
    *
-   * @param configId - Identifier for the concrete config (e.g., 'instance-1')
+   * @param configId - Identifier for the config (e.g., 'baseline')
    * @param serviceMode - The service mode ('in-person' or 'virtual')
    * @returns A unique URL that includes the config ID and worker ID
    */
@@ -79,7 +79,7 @@ export class TestQuestionnaireManager {
   /**
    * Generate a unique version for test questionnaires
    *
-   * @param configId - Identifier for the concrete config
+   * @param configId - Identifier for the config
    * @returns A version string with timestamp for uniqueness
    */
   private generateTestQuestionnaireVersion(configId: string): string {

@@ -14,6 +14,19 @@ This architecture enables e2e tests to automatically adapt to configuration chan
 - Which pages should appear in the flow
 - What validation rules apply
 
+## How Instance-Specific Testing Works
+
+The test framework uses the `ottehr-config-overrides` folder to customize test behavior:
+
+1. **Upstream repo:** `ottehr-config-overrides` contains empty stub objects (`{}`)
+2. **Downstream deployment:** A private CI repo clones ottehr, then overwrites `ottehr-config-overrides` with instance-specific values
+3. **Tests run:** The same test suite runs against the instance-specific configuration
+
+This means:
+- Upstream tests run against the baseline default config
+- Downstream tests automatically adapt to instance-specific configurations
+- No need to maintain separate test configurations per instance
+
 ## Architecture Layers
 
 ### 1. Capability Test Configs
@@ -39,50 +52,30 @@ Defines abstract configuration patterns that the system must support, not specif
 - hiddenPatientFields: Some patient fields hidden
 ```
 
-### 2. Concrete Test Configs
-**Location:** `apps/intake/tests/utils/booking-flow-concrete-smoke-configs/`
+### 2. Instance-Specific Overrides
+**Location:** `packages/utils/ottehr-config-overrides/`
 
-Instance-specific configurations that test real-world config combinations. Each concrete config is a folder containing:
+Contains instance-specific configuration overrides. In the upstream repo, these are empty stubs. For downstream testing, a private CI repo overwrites these files with actual instance configurations.
 
-```
-instance-name/
-├── index.ts                      # FillingStrategy, skip flag
-├── booking/index.ts              # BOOKING_OVERRIDES
-├── intake-paperwork/index.ts     # In-person paperwork config
-├── intake-paperwork-virtual/index.ts  # Virtual paperwork config
-├── locations/index.ts            # LOCATIONS_OVERRIDES
-├── value-sets/index.ts           # VALUE_SETS_OVERRIDES
-└── consent-forms/index.ts        # CONSENT_FORMS_OVERRIDE
-```
-
-Concrete configs are **auto-discovered** at runtime - add a new folder and it's automatically included in the test matrix.
-
-**Upstream vs Downstream:**
-Concrete tests only run in the upstream ottehr repo. Set `RUN_CONCRETE_TESTS=true` in CI to enable them. Downstream instances skip concrete tests entirely - no scenarios are generated, no resources are created.
-
-### 3. Config Helper Utilities
-**Location:** `apps/intake/tests/utils/config/`
-
-Derive test expectations from config:
-
-**BookingConfigHelper.ts:**
+Key exports:
 ```typescript
-- getHomepageOptions(config) → enabled booking buttons
-- getServiceCategories(config) → available service categories
-- injectTestConfig(page, overrides) → inject config before navigation
+- INTAKE_PAPERWORK_OVERRIDES: In-person paperwork config
+- INTAKE_PAPERWORK_VIRTUAL_OVERRIDES: Virtual paperwork config
+- BOOKING_CONFIG: Booking flow config
+- LOCATIONS_CONFIG: Location settings
+- VALUE_SETS_OVERRIDES: Dropdown/select options
 ```
 
-**PaperworkConfigHelper.ts:**
-```typescript
-- injectIntakePaperworkConfig(page, config) → inject in-person config
-- injectVirtualPaperworkConfig(page, config) → inject virtual config
-- injectValueSets(page, valueSets) → inject dropdown options
-```
+### 3. Config Injection
+**Location:** `apps/intake/tests/utils/config/injectTestConfig.ts`
 
-**LocationsConfigHelper.ts:**
+Simple utility for injecting test configs before page navigation:
+
 ```typescript
-- transformLocationsForInjection(config, createdLocations) → map config names to test locations
-- injectLocationsConfig(page, locations) → inject location overrides
+import { CONFIG_INJECTION_KEYS } from 'utils';
+
+// Inject booking config (questionnaire selection is handled via Slot extension)
+injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, config)
 ```
 
 ### 4. Page Interaction Helpers
@@ -126,13 +119,10 @@ generateBookingTestScenarios('baseline')
 
 **Scenario Structure:**
 ```
-(synthetic scenarios) + (concrete config scenarios)
-  = homepage_option × service_category per config type
+homepage_option × service_category = all valid permutations
 
 Example:
-- Synthetic: 4 homepage options × 3 service categories = 12 scenarios
-- Concrete Instance 2: 4 homepage options × 3 service categories = 12 scenarios
-- Total: 24+ scenarios (varies by concrete config count)
+- 4 homepage options × 3 service categories = 12 scenarios
 ```
 
 **Key Functions:**
@@ -150,7 +140,6 @@ executeBookingScenario(page, scenario, locationName)
 - ensurePrebookInPersonLocationWithSlots() → prebook location with slots
 - ensurePrebookVirtualLocationWithSlots() → virtual location with slots
 - ensurePrebookInPersonGroupWithSlots() → HealthcareService group booking
-- ensureConcreteConfigLocations(configId, overrides) → locations per concrete config
 - cleanup() → delete all test resources
 ```
 
@@ -184,9 +173,9 @@ Post-booking flows distributed across scenarios for comprehensive coverage:
 
 **Distribution Logic:**
 ```typescript
-- shouldExtendWithReturningPatient(scenario, allScenarios) → first in-person walk-in per config
-- shouldExtendWithModification(scenario, allScenarios) → first prebook per config
-- shouldExtendWithCancellation(scenario, allScenarios) → second prebook per config
+- shouldExtendWithReturningPatient(scenario, allScenarios) → first in-person walk-in
+- shouldExtendWithModification(scenario, allScenarios) → first prebook
+- shouldExtendWithCancellation(scenario, allScenarios) → second prebook
 // ... etc
 ```
 
@@ -204,61 +193,27 @@ Dynamic questionnaire page filling:
 - checkAllConsentCheckboxes() → check all consent checkboxes on current page
 ```
 
-## Test Organization
-
-### Test Groups
-
-Tests are organized into nested describe blocks for selective execution:
-
-```typescript
-test.describe('Complete booking flows', () => {
-  // Shared beforeAll/afterAll for resource setup/cleanup
-
-  test.describe('Synthetic (baseline)', () => {
-    // Baseline config scenarios
-  });
-
-  test.describe('Concrete: Instance 2', () => {
-    // Instance-specific scenarios
-  });
-});
-```
-
-**Run specific groups:**
-```bash
-npx playwright test --grep "Synthetic"           # Only baseline
-npx playwright test --grep "Concrete: Instance"  # Only concrete configs
-```
-
-### E2E Test File
+## E2E Test File
 **Location:** `apps/intake/tests/e2e/booking-flows-generated.spec.ts`
 
 **Structure:**
 ```typescript
 // 1. Generate scenarios at module load
 const scenarios = await generateBookingTestScenarios('baseline');
-const concreteConfigs = await CONCRETE_TEST_CONFIGS;
 
-// 2. Group scenarios by config type
-const syntheticScenarios = scenarios.filter(s => !s.configName.startsWith('concrete:'));
-const concreteScenarioGroups = new Map(/* grouped by config ID */);
-
-// 3. Shared setup (beforeAll)
+// 2. Shared setup (beforeAll)
 - Create test locations (walk-in, prebook in-person, prebook virtual, group)
-- Create concrete config locations
-- Deploy test questionnaires
+- Deploy test questionnaires with instance-specific overrides
 - Configure Group booking for urgent-care prebook in-person
 
-// 4. Generate tests per group
-test.describe('Synthetic (baseline)', () => {
-  for (const scenario of syntheticScenarios) {
-    test(scenario.description, async ({ page }) => {
-      // Execute flow + extended scenarios
-    });
-  }
-});
+// 3. Generate tests for each scenario
+for (const scenario of scenarios) {
+  test(scenario.description, async ({ page }) => {
+    // Execute flow + extended scenarios
+  });
+}
 
-// 5. Cleanup (afterAll)
+// 4. Cleanup (afterAll)
 - Delete test locations and schedules
 - Delete test questionnaires
 ```
@@ -276,9 +231,9 @@ const group = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
 scenario.bookableEntityType = 'Group';
 scenario.groupBookingSlug = group.slug;
 
-// 3. Test questionnaire is deployed with config overrides
+// 3. Test questionnaire is deployed with instance-specific overrides
 const canonical = await testQuestionnaireManager.ensureTestQuestionnaire(
-  'baseline', {}, ServiceMode['in-person']
+  'baseline', INTAKE_PAPERWORK_OVERRIDES, ServiceMode['in-person']
 );
 scenario.testQuestionnaireCanonical = canonical;
 
@@ -288,7 +243,7 @@ await executeBookingScenario(page, scenario, locationName);
 // Steps executed:
 // a. Inject config overrides via window.__TEST_BOOKING_CONFIG__
 // b. Inject paperwork config via window.__TEST_INTAKE_PAPERWORK_CONFIG__
-// c. Set up route interception to inject testQuestionnaireCanonical
+// c. Set up route interception to inject questionnaireCanonical into create-slot
 // d. Navigate to /home and click booking button
 // e. Select service category if multiple
 // f. For Group booking: navigate to /prebook/in-person?bookingOn={slug}&scheduleType=group
@@ -308,10 +263,12 @@ if (shouldExtendWithModification(scenario, scenarios)) {
 
 ### 1. Config Injection via Window Globals
 ```typescript
-// Inject before navigation - app reads on load
-await page.addInitScript((config) => {
-  window.__TEST_BOOKING_CONFIG__ = config;
-}, overrides);
+import { CONFIG_INJECTION_KEYS } from 'utils';
+import { injectTestConfig } from '../config/injectTestConfig';
+
+// Inject booking config before navigation - app reads on load
+// Questionnaire selection is handled via Slot extension (see pattern #3)
+await injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, overrides);
 ```
 
 ### 2. Worker-Isolated Resources
@@ -323,13 +280,14 @@ const location = await createLocation({ name: `TestLocation-${workerUniqueId}` }
 
 ### 3. Route Interception for Test Data
 ```typescript
-// Inject test questionnaire canonical into API requests
-await page.route('**/create-appointment/execute', async (route, request) => {
+// Inject questionnaire canonical into create-slot requests
+// The create-appointment endpoint reads the canonical from the Slot extension
+await page.route('**/create-slot/execute', async (route, request) => {
   const postData = request.postDataJSON();
   await route.continue({
     postData: JSON.stringify({
       ...postData,
-      testQuestionnaireCanonical: scenario.testQuestionnaireCanonical,
+      questionnaireCanonical: scenario.testQuestionnaireCanonical,
     }),
   });
 });
@@ -362,40 +320,39 @@ if (shouldExtendWithCancellation(scenario, scenarios)) { /* only second prebook 
 ## File Structure
 
 ```
-packages/utils/lib/
-├── ottehr-config/
-│   ├── intake-paperwork/index.ts      # getIntakePaperworkConfig()
-│   ├── intake-paperwork-virtual/      # getIntakePaperworkVirtualConfig()
-│   └── booking/index.ts               # getBookingConfig()
-└── ottehr-config-test-fixtures/
-    ├── capability-configs.ts          # Intake capability configs
-    ├── booking-capability-configs.ts  # Booking capability configs
-    └── index.ts                       # Public exports
+packages/utils/
+├── lib/
+│   ├── ottehr-config/
+│   │   ├── intake-paperwork/index.ts      # getIntakePaperworkConfig()
+│   │   ├── intake-paperwork-virtual/      # getIntakePaperworkVirtualConfig()
+│   │   └── booking/index.ts               # getBookingConfig()
+│   └── ottehr-config-test-fixtures/
+│       ├── capability-configs.ts          # Intake capability configs
+│       ├── booking-capability-configs.ts  # Booking capability configs
+│       └── index.ts                       # Public exports
+└── ottehr-config-overrides/
+    ├── intake-paperwork/index.ts          # Instance-specific in-person overrides
+    ├── intake-paperwork-virtual/index.ts  # Instance-specific virtual overrides
+    └── ...                                # Other instance-specific configs
 
 apps/intake/tests/
 ├── e2e/
-│   ├── booking-flows-generated.spec.ts  # Main test file
-│   └── README.md                        # Developer guide
+│   ├── booking-flows-generated.spec.ts    # Main test file
+│   └── README.md                          # Developer guide
 ├── utils/
 │   ├── config/
-│   │   ├── BookingConfigHelper.ts       # Booking config utilities
-│   │   ├── PaperworkConfigHelper.ts     # Paperwork injection
-│   │   └── LocationsConfigHelper.ts     # Location config utilities
+│   │   └── injectTestConfig.ts            # Config injection utilities
 │   ├── booking/
-│   │   ├── BookingTestFactory.ts        # Scenario generator ⭐
-│   │   ├── BookingFlowHelpers.ts        # Page interactions
-│   │   ├── ExtendedScenarioHelpers.ts   # P1/P2 extended flows
-│   │   ├── TestLocationManager.ts       # FHIR resource management
-│   │   └── TestQuestionnaireManager.ts  # Questionnaire deployment
-│   ├── paperwork/
-│   │   ├── PagedQuestionnaireFlowHelper.ts  # Dynamic form filling
-│   │   └── paperworkDataTemplates.ts        # Test data per page
-│   └── booking-flow-concrete-smoke-configs/
-│       ├── index.ts                     # Auto-discovery loader
-│       ├── instance-1-overrides/        # First concrete config
-│       └── instance-2-overrides/        # Second concrete config
-├── CONFIG_AWARE_TESTING_ARCHITECTURE.md  # This document
-└── E2E_COVERAGE_GAP_ANALYSIS.md          # Coverage tracking
+│   │   ├── BookingTestFactory.ts          # Scenario generator ⭐
+│   │   ├── BookingFlowHelpers.ts          # Page interactions
+│   │   ├── ExtendedScenarioHelpers.ts     # P1/P2 extended flows
+│   │   ├── TestLocationManager.ts         # FHIR resource management
+│   │   └── TestQuestionnaireManager.ts    # Questionnaire deployment
+│   └── paperwork/
+│       ├── PagedQuestionnaireFlowHelper.ts  # Dynamic form filling
+│       └── paperworkDataTemplates.ts        # Test data per page
+├── CONFIG_AWARE_TESTING_ARCHITECTURE.md   # This document
+└── E2E_COVERAGE_GAP_ANALYSIS.md           # Coverage tracking
 ```
 
 ## Benefits
@@ -408,7 +365,6 @@ apps/intake/tests/
 ### 2. **Comprehensive Coverage**
 - Factory generates all valid permutations automatically
 - Extended scenarios cover post-booking flows
-- Concrete configs test real-world configurations
 
 ### 3. **Parallel Execution**
 - Worker-isolated resources (locations, questionnaires)
@@ -420,18 +376,12 @@ apps/intake/tests/
 - 6-minute test timeout for extended flows
 - Resource cleanup prevents pollution
 
-### 5. **Developer Experience**
-- Add concrete config folder → tests auto-generated
-- Run specific groups with `--grep`
-- Debug with UI mode or traces
+### 5. **Simple Instance Testing**
+- Overwrite `ottehr-config-overrides` with instance-specific values
+- Run the same test suite
+- No code changes needed
 
 ## Adding New Tests
-
-### To add a new concrete config:
-1. Create folder under `booking-flow-concrete-smoke-configs/`
-2. Add required files (index.ts, booking/, intake-paperwork/, etc.)
-3. Set `skip = false` in index.ts
-4. Tests automatically generated on next run
 
 ### To add a new extended scenario:
 1. Add execution function to `ExtendedScenarioHelpers.ts`
@@ -443,8 +393,6 @@ apps/intake/tests/
 2. Update `executeBookingScenario` in `BookingTestFactory.ts`
 3. Update scenario interface if new data needed
 
-
 ## Future Enhancements
 1. Connect test flow output to EHR-side tests to validate intake → EHR handoff
 2. Visual regression testing for key screens
-

@@ -5,7 +5,7 @@ import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-ove
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation, ResolvedConsentFormConfig } from '../consent-forms';
-import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
   FormSectionSimpleSchema,
@@ -18,7 +18,7 @@ import {
   QuestionnaireConfigType,
   SELF_PAY_OPTION,
 } from '../shared-questionnaire';
-import { getValueSets, type ValueSetsConfig } from '../value-sets';
+import { VALUE_SETS, type ValueSetsConfig } from '../value-sets';
 
 /**
  * Build consent form checkbox items dynamically from consent forms config.
@@ -2020,9 +2020,9 @@ export function getIntakePaperworkConfig(
     FormFields: FormFieldsSchema,
   });
 
-  // Get value sets and consent forms at call time
-  // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
-  const valueSets = getValueSets();
+  // Use pre-merged value sets (baked in at deploy time)
+  // Use provided consent forms if available (for Node.js test context), otherwise read from config
+  const valueSets = VALUE_SETS;
   const consentForms = consentFormsConfig ?? getConsentFormsForLocation();
 
   // Build FormFields dynamically with current value sets
@@ -2056,11 +2056,8 @@ export function getIntakePaperworkConfig(
   return IntakePaperworkConfigSchema.parse(mergedConfig);
 }
 
-// Export as a Proxy to allow runtime config injection in tests
-export const INTAKE_PAPERWORK_CONFIG = createProxyConfigObject(
-  getIntakePaperworkConfig,
-  CONFIG_INJECTION_KEYS.INTAKE_PAPERWORK
-);
+// Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
+export const INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
 
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG)));

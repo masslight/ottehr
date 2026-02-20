@@ -11,6 +11,7 @@ import {
 } from 'fhir/r4b';
 import {
   AppointmentType,
+  CanonicalUrl,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
@@ -636,6 +637,28 @@ export const makeBookingOriginExtensionEntry = (url: string): { url: string; val
     url: SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
     valueString: url,
   };
+};
+
+// Extension for specifying which questionnaire should be used for appointments booked on this slot
+export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
+
+export const makeQuestionnaireCanonicalExtensionEntry = (
+  canonical: CanonicalUrl
+): { url: string; valueString: string } => {
+  // Store as "url|version" format (standard FHIR canonical with version)
+  const canonicalString = `${canonical.url}|${canonical.version}`;
+  return {
+    url: SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+    valueString: canonicalString,
+  };
+};
+
+export const parseQuestionnaireCanonicalExtension = (valueString: string): CanonicalUrl => {
+  const [url, version] = valueString.split('|');
+  if (!version) {
+    throw new Error(`Invalid questionnaire canonical extension value: "${valueString}" - missing version`);
+  }
+  return { url, version };
 };
 
 // this is the time in minutes after which a busy-tentative slot will be considered expired and will no longer

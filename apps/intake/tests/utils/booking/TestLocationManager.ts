@@ -9,24 +9,7 @@ import {
   ServiceModeCoding,
   SLUG_SYSTEM,
 } from 'utils';
-import { ConcreteLocationsOverrides } from '../booking-flow-concrete-smoke-configs';
 import { ResourceHandler } from '../resource-handler';
-
-/**
- * Created location with its original config name and worker-suffixed name
- */
-export interface CreatedConcreteLocation {
-  /** Original name from config (e.g., 'Mordor') */
-  originalName: string;
-  /** Worker-suffixed name (e.g., 'Mordor-worker123') */
-  suffixedName: string;
-  /** Created FHIR Location resource */
-  location: Location;
-  /** Created FHIR Schedule resource */
-  schedule: Schedule;
-  /** Whether this is a virtual/telemed location */
-  isVirtual: boolean;
-}
 
 /**
  * Created group booking resources (HealthcareService with Location and Practitioner members)
@@ -67,8 +50,6 @@ export class TestLocationManager {
   private prebookInPersonSchedule?: Schedule;
   private prebookVirtualLocation?: Location;
   private prebookVirtualSchedule?: Schedule;
-  /** Locations created from concrete configs, keyed by config ID */
-  private concreteConfigLocations: Map<string, CreatedConcreteLocation[]> = new Map();
   /** Group booking resources for prebook in-person */
   private prebookInPersonGroup?: CreatedGroupBookingResources;
 
@@ -220,7 +201,7 @@ export class TestLocationManager {
     // Create new test location
     const location: Location = {
       resourceType: 'Location',
-      name: `E2ETestLocation247-${processId}`,
+      name: `E2E-WalkIn-${processId}`,
       status: 'active',
       mode: 'instance',
       type: [
@@ -328,10 +309,10 @@ export class TestLocationManager {
     }
 
     // Create new prebook in-person test location
-    const slug = `e2e-test-prebook-in-person-${processId}`.toLowerCase().replace(/\s/g, '-');
+    const slug = `e2e-pb-${processId}`.toLowerCase().replace(/\s/g, '-');
     const location: Location = {
       resourceType: 'Location',
-      name: `E2ETestLocationPrebook-${processId}`,
+      name: `E2E-Prebook-${processId}`,
       status: 'active',
       mode: 'instance',
       type: [
@@ -433,10 +414,10 @@ export class TestLocationManager {
     }
 
     // Create the Location member
-    const locationSlug = `e2e-test-group-location-${processId}`.toLowerCase().replace(/\s/g, '-');
+    const locationSlug = `e2e-grp-loc-${processId}`.toLowerCase().replace(/\s/g, '-');
     const location: Location = {
       resourceType: 'Location',
-      name: `E2ETestGroupLocation-${processId}`,
+      name: `E2E-GroupLoc-${processId}`,
       status: 'active',
       mode: 'instance',
       type: [
@@ -509,11 +490,11 @@ export class TestLocationManager {
     console.log(`Created group practitioner: ${createdPractitioner.id}`);
 
     // Create the HealthcareService
-    const hcsSlug = `e2e-test-group-hcs-${processId}`.toLowerCase().replace(/\s/g, '-');
+    const hcsSlug = `e2e-grp-${processId}`.toLowerCase().replace(/\s/g, '-');
     const healthcareService: HealthcareService = {
       resourceType: 'HealthcareService',
       active: true,
-      name: `E2ETestGroup-${processId}`,
+      name: `E2E-Group-${processId}`,
       location: [
         {
           reference: `Location/${createdLocation.id}`,
@@ -768,10 +749,10 @@ export class TestLocationManager {
     }
 
     // Create new prebook virtual test location
-    const slug = `e2e-test-prebook-virtual-${processId}`.toLowerCase().replace(/\s/g, '-');
+    const slug = `e2e-virt-${processId}`.toLowerCase().replace(/\s/g, '-');
     const location: Location = {
       resourceType: 'Location',
-      name: `E2ETestLocationPrebookVirtual-${processId}`,
+      name: `E2E-Virtual-${processId}`,
       status: 'active',
       mode: 'kind',
       address: {
@@ -827,253 +808,6 @@ export class TestLocationManager {
     });
 
     return { location: this.prebookVirtualLocation, schedule: this.prebookVirtualSchedule };
-  }
-
-  /**
-   * Create test locations from a concrete config's location overrides.
-   * Each location is created with a worker-specific suffix to ensure test isolation.
-   * All locations get 24/7 schedules for reliable test execution.
-   *
-   * @param configId - Unique identifier for the concrete config
-   * @param locationsOverrides - The locations configuration from the concrete config
-   * @returns Array of created locations with their original and suffixed names
-   */
-  async ensureConcreteConfigLocations(
-    configId: string,
-    locationsOverrides: ConcreteLocationsOverrides
-  ): Promise<CreatedConcreteLocation[]> {
-    const processId = this.workerUniqueId;
-    const createdLocations: CreatedConcreteLocation[] = [];
-
-    // Create in-person locations
-    for (const locationConfig of locationsOverrides.inPersonLocations) {
-      const suffixedName = `${locationConfig.name}-${processId}`;
-      const tagCode = `concrete-${configId}-inperson-${locationConfig.name}`.toLowerCase().replace(/\s/g, '-');
-
-      // Check if location already exists
-      const existing = await this.findExistingConcreteLocation(processId, tagCode);
-      if (existing) {
-        createdLocations.push({
-          originalName: locationConfig.name,
-          suffixedName,
-          location: existing.location,
-          schedule: existing.schedule,
-          isVirtual: false,
-        });
-        continue;
-      }
-
-      // Create new in-person location
-      const { location, schedule } = await this.createConcreteLocation({
-        name: suffixedName,
-        processId,
-        tagCode,
-        isVirtual: false,
-      });
-
-      createdLocations.push({
-        originalName: locationConfig.name,
-        suffixedName,
-        location,
-        schedule,
-        isVirtual: false,
-      });
-    }
-
-    // Create telemed/virtual locations
-    for (const locationConfig of locationsOverrides.telemedLocations) {
-      const suffixedName = `${locationConfig.name}-${processId}`;
-      const tagCode = `concrete-${configId}-virtual-${locationConfig.name}`.toLowerCase().replace(/\s/g, '-');
-
-      // Check if location already exists
-      const existing = await this.findExistingConcreteLocation(processId, tagCode);
-      if (existing) {
-        createdLocations.push({
-          originalName: locationConfig.name,
-          suffixedName,
-          location: existing.location,
-          schedule: existing.schedule,
-          isVirtual: true,
-        });
-        continue;
-      }
-
-      // Create new virtual location
-      const { location, schedule } = await this.createConcreteLocation({
-        name: suffixedName,
-        processId,
-        tagCode,
-        isVirtual: true,
-      });
-
-      createdLocations.push({
-        originalName: locationConfig.name,
-        suffixedName,
-        location,
-        schedule,
-        isVirtual: true,
-      });
-    }
-
-    // Store for later cleanup
-    this.concreteConfigLocations.set(configId, createdLocations);
-
-    return createdLocations;
-  }
-
-  /**
-   * Get locations created for a specific concrete config
-   */
-  getConcreteConfigLocations(configId: string): CreatedConcreteLocation[] {
-    return this.concreteConfigLocations.get(configId) || [];
-  }
-
-  /**
-   * Get a location name mapping for a concrete config (original name -> suffixed name)
-   */
-  getConcreteConfigLocationNameMap(configId: string): Map<string, string> {
-    const locations = this.concreteConfigLocations.get(configId) || [];
-    const map = new Map<string, string>();
-    for (const loc of locations) {
-      map.set(loc.originalName, loc.suffixedName);
-    }
-    return map;
-  }
-
-  /**
-   * Find an existing concrete config location by tag
-   */
-  private async findExistingConcreteLocation(
-    processId: string,
-    tagCode: string
-  ): Promise<{ location: Location; schedule: Schedule } | undefined> {
-    const oystehr = this.resourceHandler.apiClient;
-
-    const existingLocations = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        {
-          name: '_tag',
-          value: `${processId}|${tagCode}`,
-        },
-      ],
-    });
-
-    const existingLocation = existingLocations.unbundle()[0] as Location | undefined;
-
-    if (existingLocation?.id) {
-      const existingSchedules = await oystehr.fhir.search<Schedule>({
-        resourceType: 'Schedule',
-        params: [
-          {
-            name: 'actor',
-            value: `Location/${existingLocation.id}`,
-          },
-        ],
-      });
-
-      const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
-
-      if (existingSchedule?.id) {
-        return { location: existingLocation, schedule: existingSchedule };
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Create a concrete config location with 24/7 schedule
-   */
-  private async createConcreteLocation(params: {
-    name: string;
-    processId: string;
-    tagCode: string;
-    isVirtual: boolean;
-  }): Promise<{ location: Location; schedule: Schedule }> {
-    const oystehr = this.resourceHandler.apiClient;
-    const { name, processId, tagCode, isVirtual } = params;
-    const slug = `e2e-${tagCode}-${processId}`.toLowerCase().replace(/\s/g, '-');
-
-    // Create location
-    const locationResource: Location = {
-      resourceType: 'Location',
-      name,
-      status: 'active',
-      mode: isVirtual ? 'kind' : 'instance',
-      address: isVirtual
-        ? { state: 'CA', country: 'US' }
-        : {
-            line: ['123 Test Street'],
-            city: 'Test City',
-            state: 'CA',
-            postalCode: '90210',
-            country: 'US',
-          },
-      identifier: [
-        {
-          system: 'https://fhir.ottehr.com/r4/slug',
-          value: slug,
-        },
-      ],
-      extension: isVirtual
-        ? [
-            {
-              url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
-              valueCoding: {
-                system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
-                code: 'vi',
-                display: 'Virtual',
-              },
-            },
-            {
-              url: 'http://hl7.org/fhir/StructureDefinition/timezone',
-              valueString: 'America/Los_Angeles',
-            },
-          ]
-        : undefined,
-      type: isVirtual
-        ? undefined
-        : [
-            {
-              coding: [
-                {
-                  system: 'http://terminology.hl7.org/CodeSystem/v3-RoleCode',
-                  code: 'HOSP',
-                  display: 'Hospital',
-                },
-              ],
-            },
-          ],
-      meta: {
-        tag: [
-          {
-            system: processId,
-            code: tagCode,
-            display: `E2E Concrete Config Location: ${name}`,
-          },
-        ],
-      },
-    };
-
-    const location = await oystehr.fhir.create(locationResource);
-
-    if (!location.id) {
-      throw new Error(`Failed to create concrete config location: ${name}`);
-    }
-
-    // Create 24/7 schedule using the helper
-    const schedule = await this.create247Schedule({
-      actorType: 'Location',
-      actorId: location.id,
-      actorName: location.name || name,
-      processId,
-      tagCode: `${tagCode}-schedule`,
-      capacity: 10,
-      timezone: isVirtual ? 'America/Los_Angeles' : 'America/New_York',
-    });
-
-    return { location, schedule };
   }
 
   /**
@@ -1169,28 +903,5 @@ export class TestLocationManager {
         console.warn('Failed to delete prebook virtual test location:', error);
       }
     }
-
-    // Clean up concrete config locations
-    for (const [configId, locations] of this.concreteConfigLocations.entries()) {
-      for (const loc of locations) {
-        if (loc.schedule?.id) {
-          try {
-            await oystehr.fhir.delete({ resourceType: 'Schedule', id: loc.schedule.id });
-          } catch (error) {
-            console.warn(`Failed to delete concrete config schedule for ${configId}/${loc.originalName}:`, error);
-          }
-        }
-
-        if (loc.location?.id) {
-          try {
-            await oystehr.fhir.delete({ resourceType: 'Location', id: loc.location.id });
-          } catch (error) {
-            console.warn(`Failed to delete concrete config location for ${configId}/${loc.originalName}:`, error);
-          }
-        }
-      }
-    }
-
-    this.concreteConfigLocations.clear();
   }
 }

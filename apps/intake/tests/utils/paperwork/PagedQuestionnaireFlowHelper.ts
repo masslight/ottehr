@@ -7,11 +7,12 @@ import {
   createQuestionnaireFromConfig,
   evalEnableWhen,
   evalRequired,
-  getValueSets,
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   IntakeQuestionnaireItem,
   mapQuestionnaireAndValueSetsToItemsList,
   QuestionnaireConfigType,
+  VALUE_SETS,
+  ValueSetsConfig,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
@@ -1152,8 +1153,8 @@ export class PagedQuestionnaireFlowHelper {
   /**
    * Get value sets from config (for dropdown options)
    */
-  getValueSets(): ReturnType<typeof getValueSets> {
-    return getValueSets();
+  getValueSets(): ValueSetsConfig {
+    return VALUE_SETS;
   }
 
   /**

@@ -14,19 +14,15 @@ import { Page } from '@playwright/test';
 import {
   BookingConfig,
   CanonicalUrl,
+  CONFIG_INJECTION_KEYS,
   CreateAppointmentResponse,
   getBookingCapabilityConfig,
   getBookingConfig,
-  getConsentFormsConfig,
   getIntakePaperworkConfig,
   getIntakePaperworkVirtualConfig,
-  getValueSets,
-  resolveConsentFormsPaths,
 } from 'utils';
-import { CONCRETE_TEST_CONFIGS } from '../booking-flow-concrete-smoke-configs';
-import { BookingConfigHelper } from '../config/BookingConfigHelper';
+import { injectTestConfig } from '../config/injectTestConfig';
 import { createPaperworkCapabilityConfig, PaperworkConfigName } from '../config/PaperworkCapabilityConfig';
-import { PaperworkConfigHelper } from '../config/PaperworkConfigHelper';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
@@ -57,10 +53,6 @@ export interface BookingTestScenario {
   bookingOverrides: Partial<BookingConfig>;
   /** Fully resolved paperwork config (in-person or virtual based on serviceMode) */
   resolvedPaperworkConfig?: any;
-  /** Fully resolved value sets config */
-  resolvedValueSetConfig?: any;
-  /** Fully resolved consent forms config */
-  resolvedConsentFormsConfig?: any;
   /** Test questionnaire canonical URL (used to override the default questionnaire for e2e tests) */
   testQuestionnaireCanonical?: CanonicalUrl;
   /** Type of bookable entity for location selection. Defaults to 'Location'. */
@@ -149,8 +141,8 @@ export async function generateBookingTestScenarios(configName: string): Promise<
   const capabilityOverrides = capability.overrides;
   const resolvedConfig = getBookingConfig(capabilityOverrides);
 
-  const homepageOptions = BookingConfigHelper.getHomepageOptions(resolvedConfig);
-  const serviceCategories = BookingConfigHelper.getServiceCategories(resolvedConfig);
+  const homepageOptions = resolvedConfig.homepageOptions;
+  const serviceCategories = resolvedConfig.serviceCategories;
 
   for (const option of homepageOptions) {
     // Determine visit type and service mode from homepage option ID
@@ -205,122 +197,6 @@ export async function generateBookingTestScenarios(configName: string): Promise<
           resolvedPaperworkConfig,
         };
         scenarios.push(scenario);
-      }
-    }
-  }
-
-  // Generate scenarios from concrete smoke test configs
-  // Each concrete config represents a specific instance configuration
-  // We pass the overrides through the same config resolution as the app
-  //
-  // NOTE: Concrete tests only run in the upstream ottehr repo.
-  // Downstream instances set RUN_CONCRETE_TESTS=false (or don't set it) to skip these.
-  const runConcreteTests = process.env.RUN_CONCRETE_TESTS === 'true';
-  if (!runConcreteTests) {
-    console.log('[BookingTestFactory] Skipping concrete config scenarios (RUN_CONCRETE_TESTS != true)');
-    return scenarios;
-  }
-
-  const concreteTestConfigs = await CONCRETE_TEST_CONFIGS;
-  console.error('[BookingTestFactory] CONCRETE_TEST_CONFIGS:', concreteTestConfigs);
-  for (const concreteConfig of concreteTestConfigs) {
-    const {
-      bookingOverrides,
-      fillingStrategy,
-      paperworkConfigInPerson,
-      paperworkConfigVirtual,
-      valueSetsOverrides,
-      consentFormsOverrides,
-    } = concreteConfig;
-
-    // Create a properly merged config using the same resolution as the app
-    const concreteResolvedConfig = getBookingConfig(bookingOverrides);
-
-    // Use the same helper methods to extract homepage options and service categories
-    const concreteHomepageOptions = BookingConfigHelper.getHomepageOptions(concreteResolvedConfig);
-    const concreteServiceCategories = BookingConfigHelper.getServiceCategories(concreteResolvedConfig);
-
-    console.error('[BookingTestFactory] concreteHomepageOptions:', concreteHomepageOptions);
-    for (const option of concreteHomepageOptions) {
-      if (!option || !option.id) {
-        console.error('[BookingTestFactory] Skipping undefined or invalid homepage option:', option);
-        continue;
-      }
-      console.error('[BookingTestFactory] Processing homepage option:', option);
-      const visitType = (option.id.includes('start') ? 'walk-in' : 'prebook') as 'walk-in' | 'prebook';
-      const serviceMode = (option.id.includes('virtual') ? 'virtual' : 'in-person') as 'in-person' | 'virtual';
-
-      // Select appropriate paperwork overrides based on service mode
-      const paperworkOverrides = serviceMode === 'virtual' ? paperworkConfigVirtual : paperworkConfigInPerson;
-
-      if (concreteServiceCategories.length === 1) {
-        const categoryCode = concreteServiceCategories[0].code;
-        // Resolve consent forms and value sets first (needed for paperwork config)
-        const resolvedConsentFormsConfig = getConsentFormsConfig(consentFormsOverrides || {});
-        // Resolve state-conditional paths in consent forms (needed for paperwork checkbox items)
-        const resolvedConsentForms = resolveConsentFormsPaths(resolvedConsentFormsConfig.forms);
-        const resolvedValueSetConfig = getValueSets(valueSetsOverrides || {});
-        // Resolve paperwork config using the appropriate function based on service mode
-        // Pass resolved consent forms so checkbox items are built from instance-specific forms
-        const resolvedPaperworkConfig =
-          serviceMode === 'virtual'
-            ? getIntakePaperworkVirtualConfig(paperworkOverrides, resolvedConsentForms)
-            : getIntakePaperworkConfig(paperworkOverrides, resolvedConsentForms);
-        const scenario: BookingTestScenario = {
-          configName: `concrete:${concreteConfig.id}`,
-          homepageOptionId: option.id,
-          homepageOptionLabel: option.label,
-          serviceCategory: categoryCode,
-          visitType,
-          serviceMode,
-          description: `[${concreteConfig.name}] ${option.label} → ${categoryCode}`,
-          fillingStrategy,
-          resolvedConfig: concreteResolvedConfig,
-          bookingOverrides: bookingOverrides || {},
-          resolvedPaperworkConfig,
-          resolvedValueSetConfig,
-          resolvedConsentFormsConfig,
-        };
-        scenarios.push(scenario);
-
-        // For in-person prebook with single category, add a duplicate scenario
-        // This ensures we have at least 2 in-person prebooks for extended flow coverage
-        // (modification uses first, cancellation uses second)
-        if (visitType === 'prebook' && serviceMode === 'in-person') {
-          const duplicateScenario: BookingTestScenario = {
-            ...scenario,
-          };
-          scenarios.push(duplicateScenario);
-        }
-      } else {
-        // Resolve consent forms and value sets once (same for all categories)
-        const resolvedConsentFormsConfig = getConsentFormsConfig(consentFormsOverrides || {});
-        // Resolve state-conditional paths in consent forms (needed for paperwork checkbox items)
-        const resolvedConsentForms = resolveConsentFormsPaths(resolvedConsentFormsConfig.forms);
-        const resolvedValueSetConfig = getValueSets(valueSetsOverrides || {});
-        // Resolve paperwork config once (same for all categories within this serviceMode)
-        const resolvedPaperworkConfig =
-          serviceMode === 'virtual'
-            ? getIntakePaperworkVirtualConfig(paperworkOverrides, resolvedConsentForms)
-            : getIntakePaperworkConfig(paperworkOverrides, resolvedConsentForms);
-        for (const category of concreteServiceCategories) {
-          const scenario: BookingTestScenario = {
-            configName: `concrete:${concreteConfig.id}`,
-            homepageOptionId: option.id,
-            homepageOptionLabel: option.label,
-            serviceCategory: category.code,
-            visitType,
-            serviceMode,
-            description: `[${concreteConfig.name}] ${option.label} → ${category.code}`,
-            fillingStrategy,
-            resolvedConfig: concreteResolvedConfig,
-            bookingOverrides: bookingOverrides || {},
-            resolvedPaperworkConfig,
-            resolvedValueSetConfig,
-            resolvedConsentFormsConfig,
-          };
-          scenarios.push(scenario);
-        }
       }
     }
   }
@@ -403,7 +279,7 @@ export async function executeBookingScenario(
   paperworkConfig?: PaperworkConfigName
 ): Promise<CreateAppointmentResponse> {
   // Use scenario's pre-resolved config and overrides
-  const { resolvedConfig, bookingOverrides, resolvedValueSetConfig } = scenario;
+  const { resolvedConfig, bookingOverrides } = scenario;
 
   // For walk-in flows, add test location to the overrides
   // For prebook in-person flows NOT using Group booking, clear inPersonPrebookRoutingParams
@@ -417,34 +293,21 @@ export async function executeBookingScenario(
     ...(shouldClearPrebookRouting && { inPersonPrebookRoutingParams: [] }),
   };
 
-  await PaperworkConfigHelper.injectValueSets(page, resolvedValueSetConfig || {});
+  // Inject booking config before navigation (must happen before app loads)
+  // Note: VALUE_SETS and CONSENT_FORMS are now baked in at deploy time via ottehr-config-overrides
+  // Questionnaire selection is handled via Slot extension (injected into create-slot request below)
+  await injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, overrides);
 
-  // Inject consent forms config before navigation (must happen before app loads)
-  if (scenario.resolvedConsentFormsConfig) {
-    await PaperworkConfigHelper.injectConsentFormsConfig(page, scenario.resolvedConsentFormsConfig);
-  }
-
-  // Inject only the overrides (not the full merged config) before navigation
-  await BookingConfigHelper.injectTestConfig(page, overrides);
-
-  // Inject paperwork config before navigation (must happen before app loads)
-  if (scenario.resolvedPaperworkConfig) {
-    if (scenario.serviceMode === 'in-person') {
-      await PaperworkConfigHelper.injectIntakePaperworkConfig(page, scenario.resolvedPaperworkConfig);
-    } else {
-      await PaperworkConfigHelper.injectVirtualPaperworkConfig(page, scenario.resolvedPaperworkConfig);
-    }
-  }
-
-  // Set up route interception to inject test questionnaire canonical into create-appointment requests
+  // Set up route interception to inject questionnaire canonical into create-slot requests
   // This allows e2e tests to use custom questionnaires with specific config overrides
+  // The create-appointment endpoint reads the canonical from the Slot extension
   if (scenario.testQuestionnaireCanonical) {
-    console.log('Setting up route interception for test questionnaire canonical:', scenario.testQuestionnaireCanonical);
-    await page.route('**/create-appointment/execute', async (route, request) => {
+    console.log('Setting up route interception for questionnaire canonical:', scenario.testQuestionnaireCanonical);
+    await page.route('**/create-slot/execute', async (route, request) => {
       const postData = request.postDataJSON();
       const modifiedData = {
         ...postData,
-        testQuestionnaireCanonical: scenario.testQuestionnaireCanonical,
+        questionnaireCanonical: scenario.testQuestionnaireCanonical,
       };
       await route.continue({
         postData: JSON.stringify(modifiedData),
@@ -557,13 +420,6 @@ interface CompletePaperworkParams {
  */
 async function completePaperwork(params: CompletePaperworkParams): Promise<void> {
   const { page, serviceMode, visitType, fillingStrategy, serviceCategory, resolvedPaperworkConfig } = params;
-
-  // Inject the resolved config (the app's merge will use it as-is)
-  if (serviceMode === 'in-person') {
-    await PaperworkConfigHelper.injectIntakePaperworkConfig(page, resolvedPaperworkConfig);
-  } else {
-    await PaperworkConfigHelper.injectVirtualPaperworkConfig(page, resolvedPaperworkConfig);
-  }
 
   // Navigate to paperwork from confirmation page
   // Virtual walk-in flows go directly to paperwork, others need to click "Proceed to paperwork"

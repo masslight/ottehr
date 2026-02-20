@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const overrides = OVERRIDES || {};
 
@@ -41,10 +41,8 @@ const LocationConfigSchema = z.object({
 
 export type LocationConfig = z.infer<typeof LocationConfigSchema>;
 
-export const LOCATION_CONFIG = createProxyConfigObject<LocationConfig>(
-  getLocationConfig,
-  CONFIG_INJECTION_KEYS.LOCATIONS
-);
+// Export the config directly (no proxy needed - static config for support contact display)
+export const LOCATION_CONFIG = getLocationConfig();
 
 export const ALL_LOCATIONS = [...LOCATION_CONFIG.inPersonLocations, ...LOCATION_CONFIG.telemedLocations] as const;
 
