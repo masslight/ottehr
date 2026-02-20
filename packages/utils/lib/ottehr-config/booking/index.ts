@@ -22,6 +22,7 @@ import {
   QuestionnaireBase,
   QuestionnaireConfigSchema,
 } from '../shared-questionnaire';
+import { HomepageOptions } from '../types';
 import { VALUE_SETS } from '../value-sets';
 
 const PatientDoesntExistTriggerEnableAndRequire: FormFieldTrigger = {
@@ -421,12 +422,6 @@ export interface BookingConfig {
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;
   hiddenFormSections?: string[];
-}
-export enum HomepageOptions {
-  StartInPersonVisit = 'start-in-person-visit',
-  ScheduleInPersonVisit = 'schedule-in-person-visit',
-  StartVirtualVisit = 'start-virtual-visit',
-  ScheduleVirtualVisit = 'schedule-virtual-visit',
 }
 
 const BOOKING_DEFAULTS: BookingConfig = {

@@ -22,3 +22,10 @@ export type DisplayTextDef = z.infer<typeof DisplayTextSchema>;
 export type LinkDef = z.infer<typeof LinkDefSchema>;
 
 export type TextWithLinkComposition = Array<DisplayTextDef | LinkDef>;
+
+export enum HomepageOptions {
+  StartInPersonVisit = 'start-in-person-visit',
+  ScheduleInPersonVisit = 'schedule-in-person-visit',
+  StartVirtualVisit = 'start-virtual-visit',
+  ScheduleVirtualVisit = 'schedule-virtual-visit',
+}

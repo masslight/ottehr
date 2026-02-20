@@ -2013,7 +2013,7 @@ const FormFieldsSchema = z.object({
  * @returns Parsed and merged configuration
  */
 export function getIntakePaperworkConfig(
-  overrides: Partial<QuestionnaireConfigType> = OVERRIDES,
+  overrides: any = OVERRIDES,
   consentFormsConfig?: ResolvedConsentFormConfig[]
 ): QuestionnaireConfigType {
   const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
