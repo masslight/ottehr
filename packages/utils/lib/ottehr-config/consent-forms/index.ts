@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
-import { PRIVACY_POLICY_CODE } from '../../types';
+// Import directly from the specific file to avoid circular dependency through types barrel
+import { PRIVACY_POLICY_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const CodingSchema = z.object({

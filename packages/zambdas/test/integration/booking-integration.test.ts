@@ -36,6 +36,7 @@ import {
   Timezone,
 } from 'utils';
 import { assert } from 'vitest';
+import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
   adjustHoursOfOperation,
@@ -1294,10 +1295,9 @@ describe('prebook integration - from getting list of slots to booking with selec
       assert(processId);
       const initialResources = await setUpInPersonResources();
 
-      const testCanonical: CanonicalUrl = {
-        url: 'https://example.com/Questionnaire/custom-intake',
-        version: '2.0.0',
-      };
+      // Use the virtual intake questionnaire for an in-person slot
+      // This proves the Slot's canonical is being used instead of the default in-person questionnaire
+      const testCanonical = getCanonicalUrlForPrevisitQuestionnaire(ServiceMode.virtual);
 
       // Get an available slot time
       let getScheduleResponse: GetScheduleResponse | undefined;
