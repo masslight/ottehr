@@ -55,4 +55,5 @@ export interface UpdateVisitFilesInput {
 
 export interface DeleteVisitFilesInput {
   documentId: string;
+  patientId: string;
 }
