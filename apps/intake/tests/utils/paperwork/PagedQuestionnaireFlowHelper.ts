@@ -1242,6 +1242,32 @@ export class PagedQuestionnaireFlowHelper {
     return undefined;
   }
 
+  /**
+   * Get all visible pages based on current enableWhen conditions and collected responses
+   */
+  getVisiblePages(): IntakeQuestionnaireItem[] {
+    const values = buildEnableWhenContext(this.collectedResponses);
+
+    return this.questionnairePages.filter((page) => {
+      return evalEnableWhen(page, this.questionnairePages, values);
+    });
+  }
+
+  /**
+   * Get the collected questionnaire responses
+   * These are accumulated from patch-paperwork responses as pages are filled
+   */
+  getCollectedResponses(): QuestionnaireResponseItem[] {
+    return this.collectedResponses;
+  }
+
+  /**
+   * Get all questionnaire pages (top-level group items)
+   */
+  getQuestionnairePages(): IntakeQuestionnaireItem[] {
+    return this.questionnairePages;
+  }
+
   validateErrorMessages(errorResult: ValidationErrorResult, isRequiredCheck: boolean): void {
     errorResult.fieldErrors.forEach((msg, linkId) => {
       const standardMessage = isRequiredCheck ? 'This field is required' : null;
@@ -1288,7 +1314,7 @@ export class PagedQuestionnaireFlowHelper {
       const body = errorKeys
         .map((linkId) => {
           const item = this.findItem(linkId);
-          const label = item?.text || linkId;
+          const label = item!.text!;
           return `"${label}"`;
         })
         .join(',');

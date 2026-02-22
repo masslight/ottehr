@@ -12,17 +12,15 @@
 
 import { Page } from '@playwright/test';
 import {
+  BOOKING_CONFIG,
   BookingConfig,
   CanonicalUrl,
   CONFIG_INJECTION_KEYS,
   CreateAppointmentResponse,
-  getBookingCapabilityConfig,
-  getBookingConfig,
-  getIntakePaperworkConfig,
-  getIntakePaperworkVirtualConfig,
+  INTAKE_PAPERWORK_CONFIG,
+  VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
 import { injectTestConfig } from '../config/injectTestConfig';
-import { createPaperworkCapabilityConfig, PaperworkConfigName } from '../config/PaperworkCapabilityConfig';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
@@ -101,110 +99,175 @@ function getFillingStrategyForScenario(
 }
 
 /**
- * Determine appropriate paperwork config for a booking scenario
- * Maps booking characteristics to specific paperwork configs to avoid permutation explosion
+ * Generate all valid booking test scenarios from the instance's BOOKING_CONFIG
+ *
+ * Uses the actual BOOKING_CONFIG which has downstream overrides already applied,
+ * so test scenarios match what the instance actually supports (homepage options,
+ * service categories, etc.)
  */
-function getPaperworkConfigForScenario(
-  serviceCategory: string,
-  visitType: 'walk-in' | 'prebook',
-  serviceMode: 'in-person' | 'virtual'
-): PaperworkConfigName {
-  // Service-specific mappings (use appropriate config based on serviceMode)
-  if (serviceCategory === 'workers-comp') {
-    return serviceMode === 'virtual' ? 'workers-comp-virtual' : 'workers-comp-in-person';
-  }
-  if (serviceCategory === 'occupational-medicine') {
-    return serviceMode === 'virtual' ? 'occ-med-virtual' : 'occ-med-in-person';
-  }
-
-  // Mode-specific mappings for urgent-care
-  if (serviceMode === 'virtual') {
-    // Virtual walk-in: baseline with medical history
-    // Virtual prebook: minimal without medical history
-    return visitType === 'walk-in' ? 'baseline-virtual' : 'minimal-virtual';
-  }
-
-  // In-person mappings
-  // Walk-in: baseline (full form)
-  // Prebook: required-only (quick checkout)
-  return visitType === 'walk-in' ? 'baseline-in-person' : 'required-only-in-person';
-}
-
-/**
- * Generate all valid booking test scenarios from a config
- */
-export async function generateBookingTestScenarios(configName: string): Promise<BookingTestScenario[]> {
+export async function generateBookingTestScenarios(): Promise<BookingTestScenario[]> {
   const scenarios: BookingTestScenario[] = [];
 
-  // Get capability config overrides and resolved config
-  const capability = getBookingCapabilityConfig(configName);
-  const capabilityOverrides = capability.overrides;
-  const resolvedConfig = getBookingConfig(capabilityOverrides);
+  // Use the actual BOOKING_CONFIG which has downstream overrides baked in
+  const resolvedConfig = BOOKING_CONFIG as BookingConfig;
+
+  // Extract key config values that need to be injected into the app at runtime
+  // This ensures the app sees the same config as the test expectations
+  const bookingOverridesToInject: Partial<BookingConfig> = {
+    serviceCategories: resolvedConfig.serviceCategories,
+    serviceCategoriesEnabled: resolvedConfig.serviceCategoriesEnabled,
+    homepageOptions: resolvedConfig.homepageOptions,
+  };
 
   const homepageOptions = resolvedConfig.homepageOptions;
   const serviceCategories = resolvedConfig.serviceCategories;
+  const { serviceCategoriesEnabled } = resolvedConfig;
 
   for (const option of homepageOptions) {
     // Determine visit type and service mode from homepage option ID
     const visitType = (option.id.includes('start') ? 'walk-in' : 'prebook') as 'walk-in' | 'prebook';
     const serviceMode = (option.id.includes('virtual') ? 'virtual' : 'in-person') as 'in-person' | 'virtual';
 
-    if (serviceCategories.length === 1) {
-      // Single service category - no selection needed
-      const categoryCode = serviceCategories[0].code;
-      const paperworkConfigName = getPaperworkConfigForScenario(categoryCode, visitType, serviceMode);
-      const paperworkCapability = createPaperworkCapabilityConfig(paperworkConfigName);
-      // Resolve paperwork config using the appropriate function based on service mode
+    // Check if service category selection is enabled for this flow type
+    const categorySelectionEnabled =
+      serviceCategoriesEnabled.serviceModes.includes(serviceMode) &&
+      serviceCategoriesEnabled.visitType.includes(visitType);
+
+    // Determine which categories to generate scenarios for
+    // If category selection is disabled for this flow, only use 'urgent-care' by convention
+    const categoriesToTest =
+      categorySelectionEnabled && serviceCategories.length > 1
+        ? serviceCategories
+        : [serviceCategories.find((c) => c.code === 'urgent-care') || serviceCategories[0]];
+
+    for (const category of categoriesToTest) {
+      // Use the pre-resolved instance paperwork config (has downstream overrides baked in)
       const resolvedPaperworkConfig =
-        serviceMode === 'virtual'
-          ? getIntakePaperworkVirtualConfig(paperworkCapability.configOverrides)
-          : getIntakePaperworkConfig(paperworkCapability.configOverrides as any); // todo
+        serviceMode === 'virtual' ? VIRTUAL_INTAKE_PAPERWORK_CONFIG : INTAKE_PAPERWORK_CONFIG;
       const scenario: BookingTestScenario = {
-        configName,
+        configName: 'instance',
         homepageOptionId: option.id,
         homepageOptionLabel: option.label,
-        serviceCategory: categoryCode,
+        serviceCategory: category.code,
         visitType,
         serviceMode,
-        description: `${option.label} → ${categoryCode}`,
-        fillingStrategy: getFillingStrategyForScenario(categoryCode, visitType, serviceMode),
+        description: `${option.label} → ${category.code}`,
+        fillingStrategy: getFillingStrategyForScenario(category.code, visitType, serviceMode),
         resolvedConfig,
-        bookingOverrides: capabilityOverrides,
+        bookingOverrides: bookingOverridesToInject,
         resolvedPaperworkConfig,
       };
       scenarios.push(scenario);
-    } else {
-      // Multiple service categories - generate scenario for each
-      for (const category of serviceCategories) {
-        const paperworkConfigName = getPaperworkConfigForScenario(category.code, visitType, serviceMode);
-        const paperworkCapability = createPaperworkCapabilityConfig(paperworkConfigName);
-        // Resolve paperwork config using the appropriate function based on service mode
-        const resolvedPaperworkConfig =
-          serviceMode === 'virtual'
-            ? getIntakePaperworkVirtualConfig(paperworkCapability.configOverrides)
-            : getIntakePaperworkConfig(paperworkCapability.configOverrides as any);
-        const scenario: BookingTestScenario = {
-          configName,
-          homepageOptionId: option.id,
-          homepageOptionLabel: option.label,
-          serviceCategory: category.code,
-          visitType,
-          serviceMode,
-          description: `${option.label} → ${category.code}`,
-          fillingStrategy: getFillingStrategyForScenario(category.code, visitType, serviceMode),
-          resolvedConfig,
-          bookingOverrides: capabilityOverrides,
-          resolvedPaperworkConfig,
-        };
-        scenarios.push(scenario);
-      }
     }
   }
+
+  // Ensure we have enough scenarios to cover all extensions
+  // Extensions require minimum counts per flow type:
+  // - 2 in-person walk-ins (returning-patient + past-visits fallback)
+  // - 2 in-person prebooks (modify + cancel)
+  // - 2 virtual walk-ins (participants + review-page fallback)
+  ensureExtensionCoverage(scenarios, resolvedConfig, bookingOverridesToInject);
 
   // Annotate scenario descriptions with their extended flow coverage
   annotateScenarioDescriptions(scenarios);
 
   return scenarios;
+}
+
+/**
+ * Extension coverage requirements by flow type
+ * Each extension needs a specific scenario type to attach to
+ */
+interface ExtensionRequirements {
+  inPersonWalkins: number; // returning-patient (1st) + past-visits fallback (2nd)
+  inPersonPrebooks: number; // modify (1st) + cancel (2nd)
+  virtualWalkins: number; // participants (1st) + review-page fallback (2nd)
+  virtualPrebooks: number; // no specific requirements, but helps with past-visits/review-page
+}
+
+const MINIMUM_EXTENSION_REQUIREMENTS: ExtensionRequirements = {
+  inPersonWalkins: 2,
+  inPersonPrebooks: 2,
+  virtualWalkins: 2,
+  virtualPrebooks: 0, // No specific minimum, but duplicates help reach prebook[2] and prebook[3]
+};
+
+/**
+ * Ensure we have enough scenarios to cover all extensions
+ *
+ * When there aren't enough service categories to generate sufficient scenarios,
+ * this function duplicates existing scenarios to ensure all extensions get tested.
+ * Duplicates use the same service category but are marked as extension-only tests.
+ */
+function ensureExtensionCoverage(
+  scenarios: BookingTestScenario[],
+  _resolvedConfig: BookingConfig,
+  _bookingOverrides: Partial<BookingConfig>
+): void {
+  // Count current scenarios by flow type
+  const counts = {
+    inPersonWalkins: scenarios.filter((s) => s.visitType === 'walk-in' && s.serviceMode === 'in-person').length,
+    inPersonPrebooks: scenarios.filter((s) => s.visitType === 'prebook' && s.serviceMode === 'in-person').length,
+    virtualWalkins: scenarios.filter((s) => s.visitType === 'walk-in' && s.serviceMode === 'virtual').length,
+    virtualPrebooks: scenarios.filter((s) => s.visitType === 'prebook' && s.serviceMode === 'virtual').length,
+  };
+
+  // Calculate how many duplicates we need for each flow type
+  const needed = {
+    inPersonWalkins: Math.max(0, MINIMUM_EXTENSION_REQUIREMENTS.inPersonWalkins - counts.inPersonWalkins),
+    inPersonPrebooks: Math.max(0, MINIMUM_EXTENSION_REQUIREMENTS.inPersonPrebooks - counts.inPersonPrebooks),
+    virtualWalkins: Math.max(0, MINIMUM_EXTENSION_REQUIREMENTS.virtualWalkins - counts.virtualWalkins),
+    virtualPrebooks: Math.max(0, MINIMUM_EXTENSION_REQUIREMENTS.virtualPrebooks - counts.virtualPrebooks),
+  };
+
+  const totalNeeded = needed.inPersonWalkins + needed.inPersonPrebooks + needed.virtualWalkins + needed.virtualPrebooks;
+
+  if (totalNeeded === 0) {
+    return; // We have enough scenarios already
+  }
+
+  console.log(`Adding ${totalNeeded} duplicate scenarios for extension coverage:`, needed);
+
+  // Find template scenarios to duplicate (prefer the first of each type)
+  const templates = {
+    inPersonWalkin: scenarios.find((s) => s.visitType === 'walk-in' && s.serviceMode === 'in-person'),
+    inPersonPrebook: scenarios.find((s) => s.visitType === 'prebook' && s.serviceMode === 'in-person'),
+    virtualWalkin: scenarios.find((s) => s.visitType === 'walk-in' && s.serviceMode === 'virtual'),
+    virtualPrebook: scenarios.find((s) => s.visitType === 'prebook' && s.serviceMode === 'virtual'),
+  };
+
+  // Helper to create a duplicate scenario
+  const createDuplicate = (template: BookingTestScenario, index: number): BookingTestScenario => ({
+    ...template,
+    description: `${template.description} (ext-${index + 1})`,
+    // Duplicates don't need validation checking - they're just for extension coverage
+    fillingStrategy: { ...template.fillingStrategy, checkValidation: false },
+  });
+
+  // Add duplicates for each flow type that needs them
+  if (templates.inPersonWalkin) {
+    for (let i = 0; i < needed.inPersonWalkins; i++) {
+      scenarios.push(createDuplicate(templates.inPersonWalkin, counts.inPersonWalkins + i));
+    }
+  }
+
+  if (templates.inPersonPrebook) {
+    for (let i = 0; i < needed.inPersonPrebooks; i++) {
+      scenarios.push(createDuplicate(templates.inPersonPrebook, counts.inPersonPrebooks + i));
+    }
+  }
+
+  if (templates.virtualWalkin) {
+    for (let i = 0; i < needed.virtualWalkins; i++) {
+      scenarios.push(createDuplicate(templates.virtualWalkin, counts.virtualWalkins + i));
+    }
+  }
+
+  if (templates.virtualPrebook) {
+    for (let i = 0; i < needed.virtualPrebooks; i++) {
+      scenarios.push(createDuplicate(templates.virtualPrebook, counts.virtualPrebooks + i));
+    }
+  }
 }
 
 /**
@@ -264,20 +327,28 @@ function annotateScenarioDescriptions(scenarios: BookingTestScenario[]): void {
 }
 
 /**
+ * Result from executing a booking scenario
+ */
+export interface BookingScenarioResult {
+  /** The appointment creation response */
+  appointmentResponse: CreateAppointmentResponse;
+  /** The paperwork helper with collected responses (for enableWhen evaluation) */
+  paperworkHelper?: PagedQuestionnaireFlowHelper;
+}
+
+/**
  * Execute a complete booking flow for a scenario
  * @param page - Playwright page
  * @param scenario - The booking scenario to execute
  * @param config - The booking configuration
  * @param testLocationName - Optional 24/7 test location name (used for both walk-in and prebook flows)
- * @param paperworkConfig - Optional paperwork config name to complete paperwork after booking
- * @returns The appointment creation response with appointment ID and resources
+ * @returns The booking result including appointment response and paperwork helper
  */
 export async function executeBookingScenario(
   page: Page,
   scenario: BookingTestScenario,
-  testLocationName?: string,
-  paperworkConfig?: PaperworkConfigName
-): Promise<CreateAppointmentResponse> {
+  testLocationName?: string
+): Promise<BookingScenarioResult> {
   // Use scenario's pre-resolved config and overrides
   const { resolvedConfig, bookingOverrides } = scenario;
 
@@ -287,33 +358,30 @@ export async function executeBookingScenario(
   const shouldClearPrebookRouting =
     scenario.visitType === 'prebook' && scenario.serviceMode === 'in-person' && scenario.bookableEntityType !== 'Group';
 
+  // Include test questionnaire canonical in booking config if set
+  // The app reads this from config and passes to create-slot, which stores it on the Slot extension
+  const questionnaireCanonicalOverride =
+    scenario.testQuestionnaireCanonical && scenario.serviceMode === 'virtual'
+      ? { virtualQuestionnaireCanonical: scenario.testQuestionnaireCanonical }
+      : scenario.testQuestionnaireCanonical && scenario.serviceMode === 'in-person'
+      ? { inPersonQuestionnaireCanonical: scenario.testQuestionnaireCanonical }
+      : {};
+
   const overrides: Partial<BookingConfig> = {
     ...bookingOverrides,
     ...(testLocationName && { defaultWalkinLocationName: testLocationName }),
     ...(shouldClearPrebookRouting && { inPersonPrebookRoutingParams: [] }),
+    ...questionnaireCanonicalOverride,
   };
+
+  if (scenario.testQuestionnaireCanonical) {
+    console.log('Injecting test questionnaire canonical via booking config:', scenario.testQuestionnaireCanonical);
+  }
 
   // Inject booking config before navigation (must happen before app loads)
   // Note: VALUE_SETS and CONSENT_FORMS are now baked in at deploy time via ottehr-config-overrides
-  // Questionnaire selection is handled via Slot extension (injected into create-slot request below)
+  // Questionnaire canonical is now included in the config overrides above
   await injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, overrides);
-
-  // Set up route interception to inject questionnaire canonical into create-slot requests
-  // This allows e2e tests to use custom questionnaires with specific config overrides
-  // The create-appointment endpoint reads the canonical from the Slot extension
-  if (scenario.testQuestionnaireCanonical) {
-    console.log('Setting up route interception for questionnaire canonical:', scenario.testQuestionnaireCanonical);
-    await page.route('**/create-slot/execute', async (route, request) => {
-      const postData = request.postDataJSON();
-      const modifiedData = {
-        ...postData,
-        questionnaireCanonical: scenario.testQuestionnaireCanonical,
-      };
-      await route.continue({
-        postData: JSON.stringify(modifiedData),
-      });
-    });
-  }
 
   // 1. Start from homepage with selected option
   await BookingFlowHelpers.startBookingFlow(page, scenario.homepageOptionLabel);
@@ -374,32 +442,22 @@ export async function executeBookingScenario(
   // 6. Confirm booking
   const appointmentResponse = await BookingFlowHelpers.confirmBooking(page, scenario.visitType, scenario.serviceMode);
 
-  // 7. Complete paperwork if required
-  // Use explicit paperworkConfig if provided, otherwise use scenario's resolved config
-  let paperworkConfigToUse = scenario.resolvedPaperworkConfig;
-  if (paperworkConfig) {
-    // Override with explicit named config
-    const paperworkCapability = createPaperworkCapabilityConfig(paperworkConfig);
-    paperworkConfigToUse =
-      scenario.serviceMode === 'virtual'
-        ? getIntakePaperworkVirtualConfig(paperworkCapability.configOverrides)
-        : getIntakePaperworkConfig(paperworkCapability.configOverrides as any); // todo
-  }
-
-  if (paperworkConfigToUse) {
+  // 7. Complete paperwork if required (using scenario's pre-resolved instance config)
+  let paperworkHelper: PagedQuestionnaireFlowHelper | undefined;
+  if (scenario.resolvedPaperworkConfig) {
     const serviceCategory =
       (scenario.serviceCategory as 'urgent-care' | 'workers-comp' | 'occupational-medicine') || 'urgent-care';
-    await completePaperwork({
+    paperworkHelper = await completePaperwork({
       page,
       serviceMode: scenario.serviceMode,
       visitType: scenario.visitType,
       fillingStrategy: scenario.fillingStrategy,
       serviceCategory,
-      resolvedPaperworkConfig: paperworkConfigToUse,
+      resolvedPaperworkConfig: scenario.resolvedPaperworkConfig,
     });
   }
 
-  return appointmentResponse;
+  return { appointmentResponse, paperworkHelper };
 }
 
 /**
@@ -417,8 +475,9 @@ interface CompletePaperworkParams {
 
 /**
  * Complete paperwork flow using resolved config
+ * Returns the helper which contains collected responses for enableWhen evaluation
  */
-async function completePaperwork(params: CompletePaperworkParams): Promise<void> {
+async function completePaperwork(params: CompletePaperworkParams): Promise<PagedQuestionnaireFlowHelper> {
   const { page, serviceMode, visitType, fillingStrategy, serviceCategory, resolvedPaperworkConfig } = params;
 
   // Navigate to paperwork from confirmation page
@@ -448,6 +507,8 @@ async function completePaperwork(params: CompletePaperworkParams): Promise<void>
     visitType,
     fillingStrategy,
   });
+
+  return helper;
 }
 
 /**

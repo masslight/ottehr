@@ -9,10 +9,10 @@ import {
 } from 'fhir/r4b';
 import _ from 'lodash';
 import z from 'zod';
-import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides';
+import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides/booking';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
-import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
+import { CanonicalUrl, flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
 import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 import {
@@ -422,6 +422,11 @@ export interface BookingConfig {
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;
   hiddenFormSections?: string[];
+  // Optional questionnaire canonical URLs for slot creation
+  // When set, these are passed to create-slot and stored on the Slot extension
+  // Used by e2e tests to inject isolated test questionnaires
+  virtualQuestionnaireCanonical?: CanonicalUrl;
+  inPersonQuestionnaireCanonical?: CanonicalUrl;
 }
 
 const BOOKING_DEFAULTS: BookingConfig = {

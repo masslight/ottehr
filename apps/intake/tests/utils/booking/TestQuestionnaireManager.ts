@@ -2,11 +2,10 @@ import { Questionnaire } from 'fhir/r4b';
 import {
   CanonicalUrl,
   createQuestionnaireFromConfig,
-  getIntakePaperworkConfig,
-  getIntakePaperworkVirtualConfig,
+  INTAKE_PAPERWORK_CONFIG,
   QuestionnaireConfigType,
-  ResolvedConsentFormConfig,
   ServiceMode,
+  VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
 import { ResourceHandler } from '../resource-handler';
 
@@ -27,12 +26,13 @@ export interface CreatedTestQuestionnaire {
 /**
  * Manages test questionnaires for e2e booking tests
  *
- * Creates FHIR Questionnaires from config overrides with unique URLs
- * to ensure test isolation. Each questionnaire is tagged with the worker ID
- * to enable cleanup after tests.
+ * Creates FHIR Questionnaires from the instance config with unique URLs
+ * to ensure test isolation. Uses the pre-resolved instance config (which has
+ * downstream overrides like hiddenFormSections baked in). Each questionnaire
+ * is tagged with the worker ID to enable cleanup after tests.
  *
  * Usage:
- * 1. Call `ensureTestQuestionnaire` with config overrides before running tests
+ * 1. Call `ensureTestQuestionnaire` before running tests to deploy an isolated questionnaire
  * 2. Use the returned `canonical` URL when creating test appointments
  * 3. Call `cleanup` after tests to remove test questionnaires
  */
@@ -95,26 +95,21 @@ export class TestQuestionnaireManager {
   }
 
   /**
-   * Generate a FHIR Questionnaire from config overrides
+   * Generate a FHIR Questionnaire from the instance config
    *
-   * @param configOverrides - Config overrides to apply
+   * Uses the pre-resolved instance config (which has downstream overrides baked in)
+   * and only overrides the URL/version for test isolation.
+   *
    * @param serviceMode - The service mode ('in-person' or 'virtual')
    * @param configId - Identifier for this config (used in URL)
-   * @param consentForms - Optional resolved consent forms to use (for instance-specific forms)
    * @returns The generated Questionnaire resource (not yet saved to FHIR)
    */
-  private generateQuestionnaire(
-    configOverrides: Partial<QuestionnaireConfigType>,
-    serviceMode: ServiceMode,
-    configId: string,
-    consentForms?: ResolvedConsentFormConfig[]
-  ): Questionnaire {
-    // Get the base config with overrides applied
-    // Pass consent forms so checkbox items are built from instance-specific forms
+  private generateQuestionnaire(serviceMode: ServiceMode, configId: string): Questionnaire {
+    // Use the pre-resolved instance config (has downstream overrides baked in)
     const config =
       serviceMode === 'in-person'
-        ? getIntakePaperworkConfig(configOverrides, consentForms)
-        : getIntakePaperworkVirtualConfig(configOverrides, consentForms);
+        ? (INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)
+        : (VIRTUAL_INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType);
 
     // Override the questionnaire base URL and version for test isolation
     const testUrl = this.generateTestQuestionnaireUrl(configId, serviceMode);
@@ -140,20 +135,15 @@ export class TestQuestionnaireManager {
    * Ensure a test questionnaire exists in FHIR for the given config
    *
    * If the questionnaire was already created in this session, returns the cached version.
-   * Otherwise, generates a new questionnaire and deploys it to FHIR.
+   * Otherwise, generates a new questionnaire with the instance config and deploys it to FHIR.
+   * The questionnaire uses a unique URL/version for test isolation while preserving all
+   * downstream overrides (like hiddenFormSections) from the instance config.
    *
    * @param configId - Unique identifier for this config (e.g., 'instance-2')
-   * @param configOverrides - Config overrides (e.g., hiddenFields)
    * @param serviceMode - The service mode ('in-person' or 'virtual')
-   * @param consentForms - Optional resolved consent forms to use (for instance-specific forms)
    * @returns Information about the created questionnaire including its canonical URL
    */
-  async ensureTestQuestionnaire(
-    configId: string,
-    configOverrides: any, // todo: stricter typing here Partial<QuestionnaireConfigType> doesn't work because it uses "shallow partial"
-    serviceMode: ServiceMode,
-    consentForms?: ResolvedConsentFormConfig[]
-  ): Promise<CreatedTestQuestionnaire> {
+  async ensureTestQuestionnaire(configId: string, serviceMode: ServiceMode): Promise<CreatedTestQuestionnaire> {
     const cacheKey = this.getCacheKey(configId, serviceMode);
 
     // Check cache first
@@ -166,8 +156,8 @@ export class TestQuestionnaireManager {
     const oystehr = this.resourceHandler.apiClient;
     const processId = this.workerUniqueId;
 
-    // Generate the questionnaire with instance-specific consent forms if provided
-    const questionnaire = this.generateQuestionnaire(configOverrides, serviceMode, configId, consentForms);
+    // Generate the questionnaire from instance config with unique URL/version for isolation
+    const questionnaire = this.generateQuestionnaire(serviceMode, configId);
 
     // Add test tags for identification and cleanup
     questionnaire.meta = {

@@ -9,5 +9,3 @@
 
 export { CAPABILITY_TEST_CONFIGS } from './capability-configs';
 export { getCapabilityConfig, createConfigForTest } from './helpers';
-export { BOOKING_CAPABILITY_TEST_CONFIGS } from './booking-capability-configs';
-export { getBookingCapabilityConfig, createBookingConfigForTest } from './booking-helpers';

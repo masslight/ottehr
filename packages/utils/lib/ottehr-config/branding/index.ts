@@ -68,6 +68,10 @@ const BrandingConfigSchema = z.object({
 
 export const BRANDING_CONFIG = Object.freeze(BrandingConfigSchema.parse(mergedBrandingConfig));
 
+// Derived constant - defined here to avoid circular dependencies
+// (types/constants.ts cannot import from ottehr-config without creating a cycle)
+export const PROJECT_WEBSITE = `https://${BRANDING_CONFIG.projectDomain}`;
+
 type LogoConfig = z.infer<typeof BrandingConfigSchema>['logo'];
 type LogoTarget = Exclude<keyof LogoConfig, 'default'>;
 

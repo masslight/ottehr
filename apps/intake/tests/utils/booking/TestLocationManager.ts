@@ -2,6 +2,7 @@ import { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_CATEGORY_SYSTEM,
@@ -52,6 +53,11 @@ export class TestLocationManager {
   private prebookVirtualSchedule?: Schedule;
   /** Group booking resources for prebook in-person */
   private prebookInPersonGroup?: CreatedGroupBookingResources;
+  /** Deeplink test locations */
+  private deeplinkOpenLocation?: Location;
+  private deeplinkOpenSchedule?: Schedule;
+  private deeplinkClosedLocation?: Location;
+  private deeplinkClosedSchedule?: Schedule;
 
   /**
    * @param workerUniqueId - Unique identifier for this worker to isolate test resources
@@ -139,8 +145,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: tagCode,
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}`,
             display: `E2E Test Schedule: ${actorName}`,
           },
         ],
@@ -170,7 +176,7 @@ export class TestLocationManager {
       params: [
         {
           name: '_tag',
-          value: `${processId}|test-location-24-7`,
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-test-location-24-7`,
         },
       ],
     });
@@ -225,8 +231,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: 'test-location-24-7',
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-test-location-24-7`,
             display: 'E2E Test Location 24/7',
           },
         ],
@@ -280,7 +286,7 @@ export class TestLocationManager {
       params: [
         {
           name: '_tag',
-          value: `${processId}|test-location-prebook-in-person`,
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-test-location-prebook-in-person`,
         },
       ],
     });
@@ -342,8 +348,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: 'test-location-prebook',
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-test-location-prebook`,
             display: 'E2E Test Location Prebook',
           },
         ],
@@ -394,7 +400,7 @@ export class TestLocationManager {
       params: [
         {
           name: '_tag',
-          value: `${processId}|${tagCode}`,
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-${tagCode}`,
         },
       ],
     });
@@ -447,8 +453,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: `${tagCode}-location`,
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}-location`,
             display: 'E2E Test Group Location',
           },
         ],
@@ -475,8 +481,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: `${tagCode}-practitioner`,
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}-practitioner`,
             display: 'E2E Test Group Practitioner',
           },
         ],
@@ -541,8 +547,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: tagCode,
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}`,
             display: 'E2E Test Group HealthcareService',
           },
         ],
@@ -575,8 +581,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: `${tagCode}-practitioner-role`,
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}-practitioner-role`,
             display: 'E2E Test Group PractitionerRole',
           },
         ],
@@ -646,21 +652,23 @@ export class TestLocationManager {
     // Find location
     const locations = await oystehr.fhir.search<Location>({
       resourceType: 'Location',
-      params: [{ name: '_tag', value: `${processId}|${tagCode}-location` }],
+      params: [{ name: '_tag', value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-${tagCode}-location` }],
     });
     const location = locations.unbundle()[0] as Location | undefined;
 
     // Find practitioner
     const practitioners = await oystehr.fhir.search<Practitioner>({
       resourceType: 'Practitioner',
-      params: [{ name: '_tag', value: `${processId}|${tagCode}-practitioner` }],
+      params: [{ name: '_tag', value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-${tagCode}-practitioner` }],
     });
     const practitioner = practitioners.unbundle()[0] as Practitioner | undefined;
 
     // Find practitioner role
     const roles = await oystehr.fhir.search<PractitionerRole>({
       resourceType: 'PractitionerRole',
-      params: [{ name: '_tag', value: `${processId}|${tagCode}-practitioner-role` }],
+      params: [
+        { name: '_tag', value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-${tagCode}-practitioner-role` },
+      ],
     });
     const practitionerRole = roles.unbundle()[0] as PractitionerRole | undefined;
 
@@ -720,7 +728,7 @@ export class TestLocationManager {
       params: [
         {
           name: '_tag',
-          value: `${processId}|test-location-prebook-virtual`,
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-test-location-prebook-virtual`,
         },
       ],
     });
@@ -782,8 +790,8 @@ export class TestLocationManager {
       meta: {
         tag: [
           {
-            system: processId,
-            code: 'test-location-prebook-virtual',
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-test-location-prebook-virtual`,
             display: 'E2E Test Location Prebook Virtual',
           },
         ],
@@ -808,6 +816,295 @@ export class TestLocationManager {
     });
 
     return { location: this.prebookVirtualLocation, schedule: this.prebookVirtualSchedule };
+  }
+
+  /**
+   * Create a schedule that is always closed (no working days)
+   * Used for testing "location closed" deeplink behavior
+   */
+  private async createAlwaysClosedSchedule(params: {
+    actorType: 'Location' | 'Practitioner' | 'HealthcareService';
+    actorId: string;
+    actorName: string;
+    processId: string;
+    tagCode: string;
+    timezone?: string;
+  }): Promise<Schedule> {
+    const oystehr = this.resourceHandler.apiClient;
+    const { actorType, actorId, actorName, processId, tagCode, timezone = 'America/New_York' } = params;
+
+    const now = DateTime.now().toUTC();
+    const oneYearFromNow = now.plus({ years: 1 });
+
+    // All days are non-working days
+    const closedDaySchedule = {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: false,
+      hours: [],
+    };
+
+    const scheduleConfig = {
+      schedule: {
+        monday: closedDaySchedule,
+        tuesday: closedDaySchedule,
+        wednesday: closedDaySchedule,
+        thursday: closedDaySchedule,
+        friday: closedDaySchedule,
+        saturday: closedDaySchedule,
+        sunday: closedDaySchedule,
+      },
+      scheduleOverrides: {},
+    };
+
+    const schedule: Schedule = {
+      resourceType: 'Schedule',
+      active: true,
+      actor: [
+        {
+          reference: `${actorType}/${actorId}`,
+          display: actorName,
+        },
+      ],
+      planningHorizon: {
+        start: now.toISO()!,
+        end: oneYearFromNow.toISO()!,
+      },
+      extension: [
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+          valueString: JSON.stringify(scheduleConfig),
+        },
+        {
+          url: 'http://hl7.org/fhir/StructureDefinition/timezone',
+          valueString: timezone,
+        },
+      ],
+      meta: {
+        tag: [
+          {
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}`,
+            display: `E2E Test Schedule (Closed): ${actorName}`,
+          },
+        ],
+      },
+    };
+
+    const createdSchedule = await oystehr.fhir.create(schedule);
+
+    if (!createdSchedule.id) {
+      throw new Error(`Failed to create closed schedule for ${actorType}: ${actorName}`);
+    }
+
+    return createdSchedule;
+  }
+
+  /**
+   * Create a test location for deeplink testing that is always OPEN (24/7)
+   * Used to test successful deeplink navigation to check-in page
+   */
+  async ensureDeeplinkOpenLocation(): Promise<{ location: Location; schedule: Schedule }> {
+    const oystehr = this.resourceHandler.apiClient;
+    const processId = this.workerUniqueId;
+    const tagCode = 'test-location-deeplink-open';
+
+    // Search for existing deeplink open test location
+    const existingLocations = await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [
+        {
+          name: '_tag',
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-${tagCode}`,
+        },
+      ],
+    });
+
+    const existingLocation = existingLocations.unbundle()[0] as Location | undefined;
+
+    if (existingLocation?.id) {
+      // Find its schedule
+      const existingSchedules = await oystehr.fhir.search<Schedule>({
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: 'actor',
+            value: `Location/${existingLocation.id}`,
+          },
+        ],
+      });
+
+      const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
+
+      if (existingSchedule?.id) {
+        this.deeplinkOpenLocation = existingLocation;
+        this.deeplinkOpenSchedule = existingSchedule;
+        return { location: existingLocation, schedule: existingSchedule };
+      }
+    }
+
+    // Create new deeplink open test location
+    // Name uses spaces - the URL path will use underscores which get converted to spaces
+    const location: Location = {
+      resourceType: 'Location',
+      name: `E2E Deeplink Open ${processId}`,
+      status: 'active',
+      mode: 'instance',
+      type: [
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/v3-RoleCode',
+              code: 'HOSP',
+              display: 'Hospital',
+            },
+          ],
+        },
+      ],
+      address: {
+        line: ['100 Open Location Ave'],
+        city: 'Test City',
+        state: 'CA',
+        postalCode: '90210',
+        country: 'US',
+      },
+      meta: {
+        tag: [
+          {
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}`,
+            display: 'E2E Test Location Deeplink Open',
+          },
+        ],
+      },
+    };
+
+    this.deeplinkOpenLocation = await oystehr.fhir.create(location);
+
+    if (!this.deeplinkOpenLocation.id) {
+      throw new Error('Failed to create deeplink open test location');
+    }
+
+    // Create 24/7 schedule for the location
+    this.deeplinkOpenSchedule = await this.create247Schedule({
+      actorType: 'Location',
+      actorId: this.deeplinkOpenLocation.id,
+      actorName: this.deeplinkOpenLocation.name || 'Deeplink Open Location',
+      processId,
+      tagCode: 'test-schedule-deeplink-open',
+      capacity: 10,
+    });
+
+    return { location: this.deeplinkOpenLocation, schedule: this.deeplinkOpenSchedule };
+  }
+
+  /**
+   * Create a test location for deeplink testing that is always CLOSED
+   * Used to test "location currently closed" message display
+   */
+  async ensureDeeplinkClosedLocation(): Promise<{ location: Location; schedule: Schedule }> {
+    const oystehr = this.resourceHandler.apiClient;
+    const processId = this.workerUniqueId;
+    const tagCode = 'test-location-deeplink-closed';
+
+    // Search for existing deeplink closed test location
+    const existingLocations = await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [
+        {
+          name: '_tag',
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-${tagCode}`,
+        },
+      ],
+    });
+
+    const existingLocation = existingLocations.unbundle()[0] as Location | undefined;
+
+    if (existingLocation?.id) {
+      // Find its schedule
+      const existingSchedules = await oystehr.fhir.search<Schedule>({
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: 'actor',
+            value: `Location/${existingLocation.id}`,
+          },
+        ],
+      });
+
+      const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
+
+      if (existingSchedule?.id) {
+        this.deeplinkClosedLocation = existingLocation;
+        this.deeplinkClosedSchedule = existingSchedule;
+        return { location: existingLocation, schedule: existingSchedule };
+      }
+    }
+
+    // Create new deeplink closed test location
+    // Name uses spaces - the URL path will use underscores which get converted to spaces
+    const location: Location = {
+      resourceType: 'Location',
+      name: `E2E Deeplink Closed ${processId}`,
+      status: 'active',
+      mode: 'instance',
+      type: [
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/v3-RoleCode',
+              code: 'HOSP',
+              display: 'Hospital',
+            },
+          ],
+        },
+      ],
+      address: {
+        line: ['200 Closed Location Blvd'],
+        city: 'Test City',
+        state: 'CA',
+        postalCode: '90210',
+        country: 'US',
+      },
+      meta: {
+        tag: [
+          {
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-${tagCode}`,
+            display: 'E2E Test Location Deeplink Closed',
+          },
+        ],
+      },
+    };
+
+    this.deeplinkClosedLocation = await oystehr.fhir.create(location);
+
+    if (!this.deeplinkClosedLocation.id) {
+      throw new Error('Failed to create deeplink closed test location');
+    }
+
+    // Create always-closed schedule for the location
+    this.deeplinkClosedSchedule = await this.createAlwaysClosedSchedule({
+      actorType: 'Location',
+      actorId: this.deeplinkClosedLocation.id,
+      actorName: this.deeplinkClosedLocation.name || 'Deeplink Closed Location',
+      processId,
+      tagCode: 'test-schedule-deeplink-closed',
+    });
+
+    return { location: this.deeplinkClosedLocation, schedule: this.deeplinkClosedSchedule };
+  }
+
+  /**
+   * Get deeplink test location names for URL construction
+   */
+  getDeeplinkLocationNames(): { open?: string; closed?: string } {
+    return {
+      open: this.deeplinkOpenLocation?.name,
+      closed: this.deeplinkClosedLocation?.name,
+    };
   }
 
   /**
@@ -901,6 +1198,40 @@ export class TestLocationManager {
         await oystehr.fhir.delete({ resourceType: 'Location', id: this.prebookVirtualLocation.id });
       } catch (error) {
         console.warn('Failed to delete prebook virtual test location:', error);
+      }
+    }
+
+    // Clean up deeplink open location
+    if (this.deeplinkOpenSchedule?.id) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'Schedule', id: this.deeplinkOpenSchedule.id });
+      } catch (error) {
+        console.warn('Failed to delete deeplink open test schedule:', error);
+      }
+    }
+
+    if (this.deeplinkOpenLocation?.id) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'Location', id: this.deeplinkOpenLocation.id });
+      } catch (error) {
+        console.warn('Failed to delete deeplink open test location:', error);
+      }
+    }
+
+    // Clean up deeplink closed location
+    if (this.deeplinkClosedSchedule?.id) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'Schedule', id: this.deeplinkClosedSchedule.id });
+      } catch (error) {
+        console.warn('Failed to delete deeplink closed test schedule:', error);
+      }
+    }
+
+    if (this.deeplinkClosedLocation?.id) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'Location', id: this.deeplinkClosedLocation.id });
+      } catch (error) {
+        console.warn('Failed to delete deeplink closed test location:', error);
       }
     }
   }

@@ -88,23 +88,28 @@ export async function fillChoiceDropdown(page: Page, locator: Locator, value: st
   // Click to open dropdown
   await locator.click();
 
-  // Clear existing value first to ensure clean state
-  await locator.clear();
+  // Clear by filling empty string (more reliable than clear() which can have side effects)
+  await locator.fill('');
 
-  // Fill to filter options (required for MUI Autocomplete reliability)
+  // Type to filter options
   await locator.fill(value);
 
-  // Wait for the matching option to be visible before clicking
-  // Uses default Playwright timeout (30s) to handle dynamic loading scenarios
+  // Wait for the matching option to appear (uses default 30s timeout for dynamic loading)
   const option = page.getByRole('option', { name: value, exact: true });
-  await option.waitFor({ state: 'visible' });
+
+  try {
+    await option.waitFor({ state: 'visible' });
+  } catch {
+    // If exact match fails, provide better error context
+    const allOptions = await page.getByRole('option').allTextContents();
+    throw new Error(`Could not find option "${value}" in dropdown. Available options: ${JSON.stringify(allOptions)}`);
+  }
 
   // Click the option to select it
   await option.click();
 
-  // Small delay to allow MUI Autocomplete to commit the selection
-  // before focus moves to the next field
-  await page.waitForTimeout(100);
+  // Wait for option to be hidden (confirms selection was committed and dropdown closed)
+  await option.waitFor({ state: 'hidden', timeout: 5000 });
 }
 
 /**

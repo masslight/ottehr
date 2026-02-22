@@ -14,7 +14,7 @@
 
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
-import { CanonicalUrl, INTAKE_PAPERWORK_OVERRIDES, INTAKE_PAPERWORK_VIRTUAL_OVERRIDES, ServiceMode } from 'utils';
+import { CanonicalUrl, ServiceMode } from 'utils';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
   // P1: Critical User Journeys
@@ -49,8 +49,10 @@ let _prebookVirtualSchedule: Schedule;
 let prebookInPersonGroup: CreatedGroupBookingResources;
 const testQuestionnaireCanonicals: Map<string, CanonicalUrl> = new Map();
 
-// Generate test scenarios from baseline config
-const scenarios = await generateBookingTestScenarios('baseline');
+// Generate test scenarios from instance's BOOKING_CONFIG
+// Configuration comes from ottehr-config-overrides - downstream instances can
+// customize behavior by populating those files with instance-specific values
+const scenarios = await generateBookingTestScenarios();
 
 test.describe('Complete booking flows', () => {
   // Setup: Create test locations and questionnaires
@@ -106,10 +108,9 @@ test.describe('Complete booking flows', () => {
 
     // Deploy isolated test questionnaires for baseline scenarios
     // This ensures parallel CI runs don't interfere with each other
-    // Use overrides from ottehr-config-overrides so downstream repos get their instance-specific config
+    // Uses the pre-resolved instance config (has downstream overrides baked in)
     const baselineInPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
       'baseline',
-      INTAKE_PAPERWORK_OVERRIDES, // Use instance-specific overrides (empty in upstream, configured in downstream)
       ServiceMode['in-person']
     );
     testQuestionnaireCanonicals.set('baseline-in-person', baselineInPersonResult.canonical);
@@ -117,7 +118,6 @@ test.describe('Complete booking flows', () => {
 
     const baselineVirtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
       'baseline',
-      INTAKE_PAPERWORK_VIRTUAL_OVERRIDES, // Use instance-specific overrides (empty in upstream, configured in downstream)
       ServiceMode['virtual']
     );
     testQuestionnaireCanonicals.set('baseline-virtual', baselineVirtualResult.canonical);
@@ -159,7 +159,7 @@ test.describe('Complete booking flows', () => {
       }
 
       // Execute complete booking flow with paperwork
-      const appointmentResponse = await executeBookingScenario(page, scenario, locationName);
+      const { appointmentResponse, paperworkHelper } = await executeBookingScenario(page, scenario, locationName);
 
       // Verify appointment was created
       expect(appointmentResponse.appointmentId).toBeTruthy();
@@ -199,7 +199,12 @@ test.describe('Complete booking flows', () => {
         await executePastVisitsFlow(page, appointmentResponse);
       }
       if (shouldExtendWithReviewPageVerification(scenario, scenarios)) {
-        await executeReviewPageVerification(page, appointmentResponse.appointmentId, scenario.serviceMode);
+        await executeReviewPageVerification(
+          page,
+          appointmentResponse.appointmentId,
+          scenario.serviceMode,
+          paperworkHelper
+        );
       }
     });
   }

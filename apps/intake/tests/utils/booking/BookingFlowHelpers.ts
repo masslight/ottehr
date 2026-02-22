@@ -71,6 +71,26 @@ export class BookingFlowHelpers {
         return undefined;
     }
   }
+
+  /**
+   * Fill a field by its type using shared utilities
+   * Centralizes the field type switch logic used by both fillPatientInfo and fillSingleField
+   */
+  private static async fillFieldByType(page: Page, fieldKey: string, fieldType: string, value: string): Promise<void> {
+    const locator = page.locator(`#${fieldKey}`);
+
+    if (fieldType === 'string' || fieldType === 'decimal') {
+      await fillStringField(locator, String(value));
+      console.log(`Filled ${fieldType} field '${fieldKey}' with value: ${value}`);
+    } else if (fieldType === 'date') {
+      await fillDateField(page, String(value));
+      console.log(`Filled date field '${fieldKey}' with value: ${value}`);
+    } else if (fieldType === 'choice') {
+      await fillChoiceDropdown(page, locator, String(value));
+      console.log(`Selected choice option '${value}' for field '${fieldKey}'`);
+    }
+  }
+
   /**
    * Fill patient info form based on visible fields in config
    * Uses prepopulateBookingForm to understand which fields will be visible based on logical field values
@@ -209,24 +229,13 @@ export class BookingFlowHelpers {
         continue;
       }
 
-      // Fill based on field type using shared utilities
-      if (field.type === 'string' || field.type === 'decimal') {
-        await fillStringField(fieldLocator, String(value));
-        console.log(`Filled ${field.type} field '${field.key}' with value: ${value}`);
-      } else if (field.type === 'date') {
-        console.log(`Filling date field '${field.key}' with value: ${value}`);
-        await fillDateField(page, String(value));
-        console.log(`Successfully filled date field '${field.key}'`);
-      } else if (field.type === 'choice') {
-        // Choice fields use shared dropdown utility
-        await fillChoiceDropdown(page, fieldLocator, String(value));
-        console.log(`Selected choice option '${value}' for field '${field.key}'`);
-      }
+      // Fill using shared helper
+      await this.fillFieldByType(page, field.key, field.type, String(value));
     }
   }
 
   /**
-   * Select a service category if multiple are available
+   * Select a service category if multiple are available and enabled
    */
   static async selectServiceCategoryIfNeeded(
     page: Page,
@@ -236,9 +245,20 @@ export class BookingFlowHelpers {
     serviceMode?: 'in-person' | 'virtual'
   ): Promise<void> {
     const categories = config.serviceCategories;
+    const { serviceCategoriesEnabled } = config;
 
-    if (categories.length <= 1) {
-      // Only one category, no selection needed
+    // Check if category selection is enabled for this specific flow type
+    const isEnabledForFlow =
+      serviceMode &&
+      serviceCategoriesEnabled.serviceModes.includes(serviceMode) &&
+      serviceCategoriesEnabled.visitType.includes(visitType);
+
+    // Skip if service categories are disabled for this flow or only one exists
+    if (!isEnabledForFlow || categories.length <= 1) {
+      console.log(
+        `Skipping category selection (enabledModes: ${serviceCategoriesEnabled.serviceModes}, ` +
+          `enabledTypes: ${serviceCategoriesEnabled.visitType}, current: ${serviceMode}/${visitType}, count: ${categories.length})`
+      );
       return;
     }
 
@@ -284,11 +304,6 @@ export class BookingFlowHelpers {
     // Wait for the page to be ready - look for any booking button
     await page.waitForSelector('button', { timeout: 20000 });
 
-    const testConfig = await page.evaluate(() => {
-      return (window as any).__TEST_BOOKING_CONFIG__;
-    });
-    console.log('__TEST_BOOKING_CONFIG__:', JSON.stringify(testConfig, null, 2));
-
     // Click the booking option - Playwright auto-waits for element to be visible and stable
     const bookingButton = page.getByRole('button', { name: optionLabel });
     await bookingButton.click();
@@ -297,6 +312,13 @@ export class BookingFlowHelpers {
     await page.waitForTimeout(1000);
     const url = page.url();
     console.log('URL after click:', url);
+
+    // Check if we unexpectedly landed on service category selection page
+    if (url.includes('select-service-category')) {
+      console.log('WARNING: Landed on service category selection page!');
+      console.log('This suggests shouldShowServiceCategorySelectionPage() returned true');
+      console.log('Expected the injected config to make it return false');
+    }
   }
 
   /**
@@ -417,8 +439,15 @@ export class BookingFlowHelpers {
     _context: { serviceMode: 'in-person' | 'virtual'; serviceCategory: string }
   ): Promise<void> {
     const section = config.formConfig.FormFields.patientInfo;
+    const hiddenFields = section.hiddenFields || [];
     const items = section.items;
     if (!items) return;
+
+    // Skip hidden fields (same check as fillPatientInfo)
+    if (hiddenFields.includes(fieldKey)) {
+      console.log(`Skipping hidden field '${fieldKey}'`);
+      return;
+    }
 
     // Find the field config
     const field = Object.values(items).find((f: any) => f.key === fieldKey);
@@ -427,19 +456,8 @@ export class BookingFlowHelpers {
       return;
     }
 
-    const fieldType = (field as any).type;
-    const locator = page.locator(`#${fieldKey}`);
-
-    if (fieldType === 'choice') {
-      await fillChoiceDropdown(page, locator, value);
-      console.log(`Corrected choice field '${fieldKey}' with value: ${value}`);
-    } else if (fieldType === 'date') {
-      await fillDateField(page, value);
-      console.log(`Corrected date field '${fieldKey}' with value: ${value}`);
-    } else {
-      await fillStringField(locator, value);
-      console.log(`Corrected field '${fieldKey}' with value: ${value}`);
-    }
+    // Use shared helper to fill the field
+    await this.fillFieldByType(page, fieldKey, (field as any).type, value);
   }
 
   /**
@@ -576,13 +594,22 @@ export class BookingFlowHelpers {
    *
    * @param page - Playwright page
    * @param minMinutesInFuture - Minimum minutes in the future the slot should be (default: 30)
+   * @param options - Additional options
+   * @param options.skipFirstN - Number of initial slots to skip (default: 1 to avoid edge cases
+   *   with the very first slot being too close to now or affected by timezone mismatches)
    */
-  static async selectFirstAvailableTimeSlot(page: Page, minMinutesInFuture = 30): Promise<void> {
+  static async selectFirstAvailableTimeSlot(
+    page: Page,
+    minMinutesInFuture = 30,
+    options: { skipFirstN?: number } = {}
+  ): Promise<void> {
+    const { skipFirstN = 1 } = options;
+
     // Wait for "First available time" text to appear
     await page.getByText('First available time').waitFor({ state: 'visible', timeout: 20000 });
 
     // Find and click a suitable time slot
-    const { timeText } = await this.findAndClickSuitableTimeSlot(page, minMinutesInFuture);
+    const { timeText } = await this.findAndClickSuitableTimeSlot(page, minMinutesInFuture, { skipFirstN });
     console.log(`Selected time slot: ${timeText}`);
 
     // After clicking a time, a "Select" button appears - click it to confirm
@@ -832,6 +859,7 @@ export class BookingFlowHelpers {
         'reason-for-visit': this.getValidValueFromConfig('reason-for-visit', serviceCategory),
         'reason-for-visit-om': this.getValidValueFromConfig('reason-for-visit-om', 'occupational-medicine'),
         'reason-for-visit-wc': this.getValidValueFromConfig('reason-for-visit-wc', 'workers-comp'),
+        'tell-us-more': 'Patient experiencing symptoms for testing purposes',
       },
       invalid: {
         'patient-email': 'not-a-valid-email', // Invalid email format
@@ -858,6 +886,7 @@ export interface PatientData {
   'reason-for-visit'?: string;
   'reason-for-visit-om'?: string;
   'reason-for-visit-wc'?: string;
+  'tell-us-more'?: string;
 }
 
 /**
