@@ -125,10 +125,23 @@ Example:
 - 4 homepage options × 3 service categories = 12 scenarios
 ```
 
+**Service Category Selection Logic:**
+Scenarios respect `serviceCategoriesEnabled` config which specifies which service modes and visit types support category selection:
+```typescript
+serviceCategoriesEnabled: {
+  serviceModes: ['in-person'],  // Only in-person shows category selection
+  visitType: ['prebook', 'walk-in']  // Both visit types when enabled
+}
+```
+If category selection is disabled for a flow, tests use urgent-care by default.
+
 **Key Functions:**
 ```typescript
 executeBookingScenario(page, scenario, locationName)
   → Runs complete flow: homepage → category → patient info → location → time slot → paperwork → confirm
+  → Returns: { appointmentResponse, paperworkHelper }
+     - appointmentResponse: CreateAppointmentResponse with appointment ID and FHIR resources
+     - paperworkHelper: PagedQuestionnaireFlowHelper with collected responses for review verification
 ```
 
 ### 6. Test Resource Management
@@ -140,6 +153,8 @@ executeBookingScenario(page, scenario, locationName)
 - ensurePrebookInPersonLocationWithSlots() → prebook location with slots
 - ensurePrebookVirtualLocationWithSlots() → virtual location with slots
 - ensurePrebookInPersonGroupWithSlots() → HealthcareService group booking
+- ensureDeeplinkOpenLocation() → 24/7 location for deeplink testing
+- ensureDeeplinkClosedLocation() → always-closed location for deeplink testing
 - cleanup() → delete all test resources
 ```
 
@@ -150,7 +165,10 @@ executeBookingScenario(page, scenario, locationName)
 - cleanup() → delete test questionnaires
 ```
 
-**Key Feature:** Each test worker gets a unique ID (`workerUniqueId`) ensuring complete resource isolation for parallel execution.
+**Key Features:**
+- Each test worker gets a unique ID (`workerUniqueId`) ensuring complete resource isolation for parallel execution
+- All resources are tagged with `E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM` for cleanup cron compatibility
+- Tag format: `system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code: {workerUniqueId}-{resourceType}`
 
 ### 7. Extended Scenario Helpers
 **Location:** `apps/intake/tests/utils/booking/ExtendedScenarioHelpers.ts`
@@ -168,7 +186,14 @@ Post-booking flows distributed across scenarios for comprehensive coverage:
 ```typescript
 - executeWaitingRoomParticipantsFlow() → invite/cancel participants (virtual)
 - executePastVisitsFlow() → view appointment history
-- executeReviewPageVerification() → edit buttons, chip status
+- executeReviewPageVerification(page, appointmentId, serviceMode, paperworkHelper)
+  → Config-aware verification using paperworkHelper.getVisiblePages()
+  → Only checks sections visible based on enableWhen evaluation against collected responses
+  → Includes verifyLegalTexts() for privacy policy and terms & conditions links
+- verifyLegalTexts(page, pageId) → verify legal text links based on config
+  → Page IDs: 'PAPERWORK_REVIEW_PAGE' (paperwork review), 'REVIEW_PAGE' (booking review)
+  → Verifies link visibility AND absence based on getPrivacyPolicyLinkDefForLocation/getTermsAndConditionsLinkDefForLocation
+  → Fails if config says link should exist but doesn't, OR if config says link shouldn't exist but does
 ```
 
 **Distribution Logic:**
@@ -186,14 +211,24 @@ Dynamic questionnaire page filling:
 ```typescript
 - getFirstVisiblePage() → first page based on enableWhen evaluation
 - getNextVisiblePage(currentPageId) → next page after responses collected
+- getVisiblePages() → all visible pages based on enableWhen evaluation against collected responses
+- getCollectedResponses() → QuestionnaireResponseItems collected from patch-paperwork responses
+- getQuestionnairePages() → all questionnaire page items
 - fillPageAndContinue(valueMap, pageLinkId) → fill fields and submit
   // Auto-checks all consent form checkboxes when pageLinkId is 'consent-forms-page'
 - fillPageWithValidationCheck(valid, invalid, pageLinkId) → test validation errors
+  // Multi-phase validation:
+  // Phase 1: Leave always-required fields empty, verify errors
+  // Phase 2: Fill triggers for requireWhen, leave dependent fields empty, verify errors
+  // Phase 3: Fill invalid values, verify format errors
+  // Phase 4: Correct all and submit
 - verifyFieldsNotShown(fieldLinkIds) → assert hidden fields are hidden
 - checkAllConsentCheckboxes() → check all consent checkboxes on current page
 ```
 
-## E2E Test File
+## E2E Test Files
+
+### Booking Flows
 **Location:** `apps/intake/tests/e2e/booking-flows-generated.spec.ts`
 
 **Structure:**
@@ -217,6 +252,32 @@ for (const scenario of scenarios) {
 - Delete test locations and schedules
 - Delete test questionnaires
 ```
+
+### Walk-in Deeplink Tests
+**Location:** `apps/intake/tests/e2e/deeplink-walkin.spec.ts`
+
+Tests the walk-in check-in deeplink behavior for QR code flows:
+
+**URL Pattern:** `/walkin/location/{LOCATION_NAME}?serviceCategory={SERVICE_CATEGORY}`
+- Location names use underscores in URL (converted to spaces for FHIR lookup)
+- Default service category is `urgent-care`
+
+**Test Scenarios:**
+```typescript
+- 'Open location deeplink navigates to check-in landing page'
+  → Creates 24/7 location, navigates via deeplink, verifies Continue button visible
+
+- 'Closed location deeplink shows location closed message'
+  → Creates always-closed location, navigates via deeplink, verifies closed message
+
+- 'Deeplink without serviceCategory defaults to urgent-care'
+  → Navigates without serviceCategory param, verifies successful navigation
+```
+
+**Test Resources:**
+- Uses `TestLocationManager.ensureDeeplinkOpenLocation()` for 24/7 open location
+- Uses `TestLocationManager.ensureDeeplinkClosedLocation()` for always-closed location
+- Both are cleaned up after tests and tagged for cron cleanup
 
 ## How It Works: Complete Flow
 
@@ -296,10 +357,19 @@ await page.route('**/create-slot/execute', async (route, request) => {
 ### 4. Time Slot Selection with Buffer
 ```typescript
 // Avoid "appointment in the past" flakes by selecting future slots
+static async selectFirstAvailableTimeSlot(
+  page: Page,
+  minMinutesInFuture = 30,
+  options?: { skipFirstN?: number }  // Default: 1 (skip first slot to avoid edge cases)
+) {
+  // Skips first slot by default to avoid timing flakes
+  // Uses minMinutesInFuture as additional safety buffer
+}
+
 static async findAndClickSuitableTimeSlot(
   page: Page,
   minMinutesInFuture = 30,
-  options?: { skipFirstN?: number }  // Skip first N slots (useful for modification flows)
+  options?: { skipFirstN?: number }  // Skip first N slots (modification flows use skipFirstN: 2)
 ) {
   const now = new Date();
   const minAcceptableTime = new Date(now.getTime() + minMinutesInFuture * 60 * 1000);
@@ -337,7 +407,8 @@ packages/utils/
 
 apps/intake/tests/
 ├── e2e/
-│   ├── booking-flows-generated.spec.ts    # Main test file
+│   ├── booking-flows-generated.spec.ts    # Main test file (auto-generated booking scenarios)
+│   ├── deeplink-walkin.spec.ts            # Walk-in deeplink tests (open/closed locations)
 │   └── README.md                          # Developer guide
 ├── utils/
 │   ├── config/

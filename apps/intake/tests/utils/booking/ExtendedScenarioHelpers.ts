@@ -15,7 +15,19 @@
  */
 
 import { expect, Page } from '@playwright/test';
-import { CreateAppointmentResponse, VALUE_SETS } from 'utils';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import {
+  CreateAppointmentResponse,
+  getPrivacyPolicyLinkDefForLocation,
+  getTermsAndConditionsLinkDefForLocation,
+  VALUE_SETS,
+} from 'utils';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
@@ -110,7 +122,7 @@ export async function executeModificationFlow(
   console.log('\n=== EXTENDED: Reservation Modification Flow ===');
   console.log(`Modifying appointment: ${appointmentResponse.appointmentId}`);
 
-  // Navigate to the visit confirmation page
+  // Navigate to the visit confirmation page (ThankYou.tsx)
   await page.goto(`/visit/${appointmentResponse.appointmentId}`, { waitUntil: 'networkidle' });
   console.log('Navigated to visit confirmation page');
 
@@ -511,6 +523,9 @@ export async function executeReviewPageVerification(
     }
   }
 
+  // Verify legal texts (privacy policy and terms & conditions links)
+  await verifyLegalTexts(page, 'PAPERWORK_REVIEW_PAGE');
+
   // Test edit button navigation - use first visible section that has an edit button
   const firstEditableSection = visibleSections[0] || 'contact-information-page';
   const editButton = page.getByTestId(`${firstEditableSection}-edit`);
@@ -541,6 +556,108 @@ export async function executeReviewPageVerification(
   console.log('✓ Continue button visible');
 
   console.log('✓ Review page verification completed successfully');
+}
+
+/**
+ * Verify legal texts (privacy policy and terms & conditions) on a page
+ *
+ * Based on the legal config, verifies that:
+ * - If link definition exists: link is visible and opens a PDF
+ * - If link definition is undefined: link is not visible
+ *
+ * Page IDs:
+ * - 'PAPERWORK_REVIEW_PAGE': Used on /paperwork/{id}/review (ReviewPaperwork.tsx)
+ * - 'REVIEW_PAGE': Used on /slot/{slotId}/review during booking flow (Review.tsx)
+ *
+ * Note: The visit confirmation page (/visit/{id}, ThankYou.tsx) does NOT have legal texts.
+ *
+ * @param page Playwright page object
+ * @param pageId The legal config page ID (e.g., 'PAPERWORK_REVIEW_PAGE', 'REVIEW_PAGE')
+ */
+/**
+ * Check if a PDF file exists in the public folder.
+ * Throws a descriptive error if the file is missing (misconfiguration).
+ */
+function assertPdfFileExists(pdfUrl: string, linkType: string): void {
+  // PDF URLs are relative to public folder, e.g., "/Privacy Policy.pdf" or "/template.pdf"
+  // Remove leading slash to get the filename
+  const filename = pdfUrl.startsWith('/') ? pdfUrl.slice(1) : pdfUrl;
+
+  // Resolve path relative to the intake app's public folder
+  // Tests run from apps/intake, so public folder is at ./public
+  const publicFolderPath = path.resolve(__dirname, '../../../public');
+  const pdfFilePath = path.join(publicFolderPath, filename);
+
+  if (!fs.existsSync(pdfFilePath)) {
+    throw new Error(
+      `MISCONFIGURATION: ${linkType} PDF file is missing!\n` +
+        `  Config URL: ${pdfUrl}\n` +
+        `  Expected file: ${pdfFilePath}\n` +
+        `  This will break production. Please add the PDF file to the public folder.`
+    );
+  }
+
+  console.log(`✓ PDF file exists: ${pdfFilePath}`);
+}
+
+export async function verifyLegalTexts(page: Page, pageId: string): Promise<void> {
+  console.log(`\n--- Verifying legal texts for ${pageId} ---`);
+
+  // Verify privacy policy link
+  const privacyLinkDef = getPrivacyPolicyLinkDefForLocation(pageId);
+  if (privacyLinkDef === undefined) {
+    // Config says no privacy policy - verify it's not visible
+    const privacyLink = page.locator('[data-testid="privacy-policy-review-screen"]');
+    await expect(privacyLink).not.toBeVisible({ timeout: 2000 });
+    console.log('✓ Privacy policy link correctly not visible (config undefined)');
+  } else {
+    // Config says privacy policy should exist - verify it's visible and opens PDF
+    console.log(`Privacy policy config: testId="${privacyLinkDef.testId}", url="${privacyLinkDef.url}"`);
+
+    // First, verify the PDF file exists in the public folder
+    assertPdfFileExists(privacyLinkDef.url, 'Privacy Policy');
+
+    const privacyLink = page.locator(`[data-testid="${privacyLinkDef.testId}"]`);
+    await expect(privacyLink).toBeVisible({ timeout: 5000 });
+    console.log(`✓ Privacy policy link visible (testId: ${privacyLinkDef.testId})`);
+
+    // Verify the link opens a PDF by checking for download event
+    console.log(`Clicking privacy policy link to verify PDF download from: ${privacyLinkDef.url}`);
+    const downloadPromise = page.waitForEvent('download', { timeout: 10000 });
+    await privacyLink.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+    console.log(`✓ Privacy policy link opens PDF: ${download.suggestedFilename()}`);
+  }
+
+  // Verify terms and conditions link
+  const termsLinkDef = getTermsAndConditionsLinkDefForLocation(pageId);
+  if (termsLinkDef === undefined) {
+    // Config says no terms and conditions - verify it's not visible
+    const termsLink = page.locator('[data-testid="terms-conditions-review-screen"]');
+    await expect(termsLink).not.toBeVisible({ timeout: 2000 });
+    console.log('✓ Terms and conditions link correctly not visible (config undefined)');
+  } else {
+    // Config says terms and conditions should exist - verify it's visible and opens PDF
+    console.log(`Terms and conditions config: testId="${termsLinkDef.testId}", url="${termsLinkDef.url}"`);
+
+    // First, verify the PDF file exists in the public folder
+    assertPdfFileExists(termsLinkDef.url, 'Terms and Conditions');
+
+    const termsLink = page.locator(`[data-testid="${termsLinkDef.testId}"]`);
+    await expect(termsLink).toBeVisible({ timeout: 5000 });
+    console.log(`✓ Terms and conditions link visible (testId: ${termsLinkDef.testId})`);
+
+    // Verify the link opens a PDF by checking for download event
+    console.log(`Clicking terms and conditions link to verify PDF download from: ${termsLinkDef.url}`);
+    const downloadPromise = page.waitForEvent('download', { timeout: 10000 });
+    await termsLink.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+    console.log(`✓ Terms and conditions link opens PDF: ${download.suggestedFilename()}`);
+  }
+
+  console.log('--- Legal texts verification complete ---\n');
 }
 
 /**

@@ -55,7 +55,8 @@ This means:
 
 ```
 tests/e2e/
-└── booking-flows-generated.spec.ts    # Main test file (auto-generated scenarios)
+├── booking-flows-generated.spec.ts    # Main test file (auto-generated booking scenarios)
+└── deeplink-walkin.spec.ts            # Walk-in deeplink tests (open/closed locations)
 
 tests/utils/
 ├── booking/
@@ -72,6 +73,8 @@ tests/utils/
 
 ### What Each Test Covers
 
+**Booking Flow Tests** (`booking-flows-generated.spec.ts`)
+
 Each generated test executes a complete user journey:
 
 ```
@@ -84,7 +87,15 @@ Plus extended coverage distributed across scenarios:
 - **Reservation cancellation** (cancel + book again)
 - **Past visits page** (view appointment history)
 - **Waiting room management** (virtual only - invite/cancel participants)
-- **Review page verification** (edit buttons, chip status)
+- **Review page verification** (config-aware edit buttons, chip status, legal text links)
+- **Validation testing** (required fields, conditionally-required fields, invalid formats)
+
+**Deeplink Tests** (`deeplink-walkin.spec.ts`)
+
+Tests walk-in check-in via QR code deeplinks:
+- **Open location** → navigates to check-in landing page with Continue button
+- **Closed location** → displays "Sorry! We are closed" message
+- **Default service category** → verifies urgent-care is used when not specified
 
 ### Test Matrix
 
@@ -100,11 +111,13 @@ Tests create isolated resources to enable parallel execution:
 - **Locations:** Each test worker creates unique test locations with 24/7 schedules
 - **Questionnaires:** Dedicated questionnaires deployed per config to avoid conflicts
 - **Cleanup:** All test resources are automatically deleted after tests complete
+- **Tagging:** Resources tagged with `E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM` for cleanup cron
 
 This means:
 - Tests can run in parallel without interference
 - Multiple CI runs don't conflict with each other
 - Local and CI runs use separate resources
+- Orphaned resources are cleaned up by the test-env-cleanup cron
 
 ## Config Injection
 
@@ -117,6 +130,22 @@ import { injectTestConfig } from '../config/injectTestConfig';
 
 // Inject booking config before navigation - app reads on load
 await injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, bookingOverrides);
+```
+
+## Running Specific Tests
+
+```bash
+# Run all booking flow tests
+npx playwright test booking-flows-generated
+
+# Run deeplink tests
+npx playwright test deeplink-walkin
+
+# Run a specific scenario by description
+npx playwright test --grep "Schedule Virtual Visit"
+
+# Run validation tests only (enabled for specific flows)
+npx playwright test --grep "walk-in.*urgent-care"
 ```
 
 ## Debugging Tips
