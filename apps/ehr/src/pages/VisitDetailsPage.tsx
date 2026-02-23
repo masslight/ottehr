@@ -1685,7 +1685,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   const ASPECT_RATIO = 1.57; // Standard aspect ratio for ID and insurance cards
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   const downloadDisabled = imagesLoading || (!item.front && !item.back);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<'front' | 'back' | null>(null);
 
   const itemIdentifier = (side: 'front' | 'back'): UpdateVisitFilesInput['fileType'] => {
     if (category === 'primary-ins') {
@@ -1803,11 +1803,11 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     borderRadius: '50%',
                     cursor: 'pointer',
                   }}
-                  onClick={() => setDeleteDialogOpen(true)}
+                  onClick={() => setDeleteDialogOpen(key as 'front' | 'back')}
                 />
                 <CustomDialog
-                  open={deleteDialogOpen}
-                  handleClose={() => setDeleteDialogOpen(false)}
+                  open={deleteDialogOpen === key}
+                  handleClose={() => setDeleteDialogOpen(null)}
                   title="Confirm card deletion"
                   description="Are you sure you want to delete this image?"
                   closeButtonText="Cancel"
@@ -1815,7 +1815,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                   confirmLoading={key === 'front' ? isDeletingFront : isDeletingBack}
                   handleConfirm={async () => {
                     await handleDeleteClick(key === 'front' ? item.frontId : item.backId);
-                    setDeleteDialogOpen(false);
+                    setDeleteDialogOpen(null);
                   }}
                 />
               </Grid>
