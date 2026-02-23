@@ -102,7 +102,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       : undefined;
 
     const testName = getTestNameOrCodeFromDr(diagnosticReport);
-    const labName = labOrg?.name;
+    const labName = labOrg?.name ?? 'missing';
     const patientName = patient ? getFullestAvailableName(patient) : 'missing';
 
     const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
