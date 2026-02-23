@@ -1,5 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
+import { lighten } from '@mui/material/styles';
 import { otherColors } from '@theme/colors';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -145,7 +146,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                   minHeight: '40px',
                   padding: 0,
                   '&:hover': {
-                    backgroundColor: '#2c535f',
+                    backgroundColor: lighten(theme.palette.secondary.main, 0.125),
                   },
                 }}
                 onClick={() => {
