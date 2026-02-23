@@ -59,8 +59,8 @@ import {
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
-import { SelectFromFavoritesButton } from '../../shared/components/medical-history-tab/SelectFromFavoritesButton';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { SelectFromFavoritesButton } from '../../shared/components/SelectFromFavoritesButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import {
   useAiSuggestionNotes,
