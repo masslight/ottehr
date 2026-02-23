@@ -21,6 +21,8 @@ const ExcuseNoteContent = ({
 
   return data?.files[docType] ? (
     <>
+      <Divider sx={{ my: 3 }} />
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
         <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
           {docType} note
@@ -36,8 +38,6 @@ const ExcuseNoteContent = ({
           Download PDF
         </Button>
       </Box>
-
-      <Divider sx={{ my: 3 }} />
     </>
   ) : (
     <></>
@@ -86,30 +86,6 @@ const VisitDetailsContent = ({
               Download PDF
             </Button>
           </Box>
-
-          <Divider sx={{ my: 3 }} />
-        </>
-      )}
-
-      {data?.files['statement'] && (
-        <>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
-              Statement
-            </Typography>
-            <Button
-              variant="text"
-              startIcon={<DownloadIcon />}
-              onClick={() => {
-                openExternalLink(data.files['statement'].presignedUrl || '');
-              }}
-              disabled={!data?.files['statement'].presignedUrl}
-            >
-              Download PDF
-            </Button>
-          </Box>
-
-          <Divider sx={{ my: 3 }} />
         </>
       )}
 
@@ -119,6 +95,7 @@ const VisitDetailsContent = ({
 
       {!!(data?.medications && data.medications.length > 0) && (
         <Box>
+          <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" color="primary.dark">
             Medications Prescribed
           </Typography>
@@ -132,18 +109,21 @@ const VisitDetailsContent = ({
       )}
 
       {!!(data?.reviewedLabResults && data?.reviewedLabResults.length > 0) && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: '8px' }}>
-          <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-            Labs
-          </Typography>
-          {data.reviewedLabResults.map((labResult, idx) => (
-            <Box key={`${idx}-lab-result`}>
-              <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(labResult.presignedUrl || '')}>
-                {labResult.description}
-              </Link>
-            </Box>
-          ))}
-        </Box>
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: '8px' }}>
+            <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+              Labs
+            </Typography>
+            {data.reviewedLabResults.map((labResult, idx) => (
+              <Box key={`${idx}-lab-result`}>
+                <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(labResult.presignedUrl || '')}>
+                  {labResult.description}
+                </Link>
+              </Box>
+            ))}
+          </Box>
+        </>
       )}
 
       {data?.followUps && data.followUps.length > 0 && (
@@ -189,7 +169,47 @@ const VisitDetailsContent = ({
         </>
       )}
 
-      <Divider />
+      {data?.files['receipt'] && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+            <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+              Receipt
+            </Typography>
+            <Button
+              variant="text"
+              startIcon={<DownloadIcon />}
+              onClick={() => {
+                openExternalLink(data.files['receipt'].presignedUrl || '');
+              }}
+              disabled={!data?.files['receipt'].presignedUrl}
+            >
+              Download PDF
+            </Button>
+          </Box>
+        </>
+      )}
+
+      {data?.files['statement'] && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+            <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+              Statement
+            </Typography>
+            <Button
+              variant="text"
+              startIcon={<DownloadIcon />}
+              onClick={() => {
+                openExternalLink(data.files['statement'].presignedUrl || '');
+              }}
+              disabled={!data?.files['statement'].presignedUrl}
+            >
+              Download PDF
+            </Button>
+          </Box>
+        </>
+      )}
     </>
   );
 };
