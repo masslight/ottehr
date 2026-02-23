@@ -139,6 +139,7 @@ export const CustomContainer: FC<ContainerProps> = ({
           <Grid item xs={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, pr: 2 }}>
             {!['/welcome', '/home'].includes(location.pathname) && (
               <Button
+                aria-label="Home button"
                 sx={{
                   backgroundColor: theme.palette.secondary.main,
                   borderRadius: '50%',
