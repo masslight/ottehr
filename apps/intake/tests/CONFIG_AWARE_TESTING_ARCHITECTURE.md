@@ -385,7 +385,15 @@ apps/intake/tests/
 │   ├── booking-flows-generated.spec.ts    # Main test file (auto-generated booking scenarios)
 │   ├── deeplink-walkin.spec.ts            # Walk-in deeplink tests (open/closed locations)
 │   └── README.md                          # Developer guide
+├── login/
+│   └── login.spec.ts                      # Auth login test (generates user.json)
+├── global-setup/
+│   └── index.ts                           # Validates auth before test run
+├── global-teardown/
+│   └── index.ts                           # Cleans up FHIR resources after tests
 ├── utils/
+│   ├── auth/
+│   │   └── getAuth0Token.ts               # Auth0 token retrieval
 │   ├── config/
 │   │   └── injectTestConfig.ts            # Config injection utilities
 │   ├── booking/
@@ -394,9 +402,18 @@ apps/intake/tests/
 │   │   ├── ExtendedScenarioHelpers.ts     # P1/P2 extended flows
 │   │   ├── TestLocationManager.ts         # FHIR resource management
 │   │   └── TestQuestionnaireManager.ts    # Questionnaire deployment
-│   └── paperwork/
-│       ├── PagedQuestionnaireFlowHelper.ts  # Dynamic form filling
-│       └── paperworkDataTemplates.ts        # Test data per page
+│   ├── paperwork/
+│   │   ├── PagedQuestionnaireFlowHelper.ts  # Dynamic form filling
+│   │   └── paperworkDataTemplates.ts        # Test data per page
+│   ├── shared/
+│   │   └── field-filling-utils.ts         # Shared form field utilities
+│   ├── playwright-helpers/
+│   │   └── interactions.ts                # Generic Playwright helpers
+│   ├── locators.ts                        # UI element locators
+│   ├── UploadDocs.ts                      # File upload utilities
+│   └── resource-handler.ts                # FHIR resource handler
+├── component/                             # Component tests
+├── unit/                                  # Unit tests
 ├── CONFIG_AWARE_TESTING_ARCHITECTURE.md   # This document
 └── E2E_COVERAGE_GAP_ANALYSIS.md           # Coverage tracking
 ```

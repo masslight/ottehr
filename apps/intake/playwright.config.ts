@@ -1,16 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// require('dotenv').config();
-/**
  * See https://playwright.dev/docs/test-configuration.
  */
-
-// Detect if running in UI mode - dependencies don't work well in UI mode
-const isUIMode = process.argv.includes('--ui');
 
 export default defineConfig({
   testDir: './tests',
@@ -63,7 +55,7 @@ export default defineConfig({
   projects: [
     {
       // Runs ONLY when explicitly invoked (e.g. via run-e2e "login" stage).
-      // Keeps login out of the main specs run.
+      // Generates fresh user.json for authentication.
       name: 'login',
       use: {
         ...devices['Desktop Chrome'],
@@ -72,8 +64,7 @@ export default defineConfig({
       testMatch: /.*login\/login\.spec\.ts/,
     },
     {
-      // E2E project for new booking flow tests - no legacy dependencies
-      // These tests run full booking + paperwork + extended scenarios, so they need more time
+      // E2E tests for booking flows, paperwork, and extended scenarios
       name: 'e2e',
       use: {
         ...devices['Desktop Chrome'],
@@ -81,82 +72,8 @@ export default defineConfig({
       },
       testDir: './tests/e2e',
       testMatch: /.*\.spec\.ts/,
-      timeout: 360_000, // 6 minutes - extended scenarios need more time than default 4 min
+      timeout: 360_000, // 6 minutes - extended scenarios need more time
     },
-    {
-      // Legacy: paperwork-setup for tests/specs only
-      name: 'paperwork-setup',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: './playwright/user.json',
-      },
-      testDir: './tests/specs',
-      // In UI mode, chromium project handles all tests including setup
-      // In non-UI mode, this project handles setup tests with dependency chain
-      testMatch: isUIMode ? /this-pattern-matches-nothing/ : /.*setup\.spec\.ts/,
-      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup-validation\.spec\.ts/],
-      timeout: 240000,
-    },
-    {
-      // Legacy: Validates that ALL paperwork-setup tests passed (checks marker file)
-      name: 'setup-validation',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: './playwright/user.json',
-      },
-      testDir: './tests/specs',
-      // In UI mode, chromium project handles all tests including setup-validation
-      // In non-UI mode, this project validates setup completion
-      testMatch: isUIMode ? /this-pattern-matches-nothing/ : /.*setup-validation\.spec\.ts/,
-      ...(isUIMode ? {} : { dependencies: ['paperwork-setup'] }),
-    },
-    {
-      // Legacy: chromium for tests/specs - depends on setup-validation
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: './playwright/user.json',
-      },
-      testDir: './tests/specs',
-      // chromium runs ONLY if setup-validation passes (which means ALL setup tests passed)
-      // In UI mode, dependencies are disabled to allow manual test selection
-      ...(isUIMode ? {} : { dependencies: ['setup-validation'] }),
-      // In UI mode, include all tests including setup tests for easier debugging
-      // In non-UI mode, exclude setup tests as they run in separate projects
-      testIgnore: isUIMode
-        ? [/.*login\/login\.spec\.ts/, /.*auth\/login\.spec\.ts/]
-        : [/.*login\/login\.spec\.ts/, /.*auth\/login\.spec\.ts/, /.*setup\.spec\.ts/, /.*setup-validation\.spec\.ts/],
-    },
-
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
   ],
 
   /* Run your local dev server before starting the tests */

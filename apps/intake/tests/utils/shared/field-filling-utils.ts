@@ -82,7 +82,7 @@ export async function fillDateField(page: Page, value: string): Promise<void> {
  * 3. Type the value to filter options
  * 4. Wait for the matching option to be visible
  * 5. Click the option to select it
- * 6. Wait briefly for the selection to commit before moving to next field
+ * 6. Wait for option to disappear (confirms dropdown closed and selection committed)
  */
 export async function fillChoiceDropdown(page: Page, locator: Locator, value: string): Promise<void> {
   // Click to open dropdown
@@ -108,8 +108,14 @@ export async function fillChoiceDropdown(page: Page, locator: Locator, value: st
   // Click the option to select it
   await option.click();
 
-  // Wait for option to be hidden (confirms selection was committed and dropdown closed)
-  await option.waitFor({ state: 'hidden', timeout: 5000 });
+  // Wait for option to be hidden (confirms dropdown closed and selection was processed)
+  try {
+    await option.waitFor({ state: 'hidden', timeout: 5000 });
+  } catch {
+    // If dropdown didn't close automatically, press Tab to force it closed
+    await locator.press('Tab');
+    await option.waitFor({ state: 'hidden', timeout: 5000 });
+  }
 }
 
 /**
