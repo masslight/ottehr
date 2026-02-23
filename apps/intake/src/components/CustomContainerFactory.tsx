@@ -1,5 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
+import { AppBar, Box, Button, Card, Container, Grid, IconButton, Typography, useTheme } from '@mui/material';
 import { lighten } from '@mui/material/styles';
 import { otherColors } from '@theme/colors';
 import { FC, ReactElement, useCallback } from 'react';
@@ -138,7 +138,7 @@ export const CustomContainer: FC<ContainerProps> = ({
           {/* Right section: home icon, chat and logout button  */}
           <Grid item xs={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, pr: 2 }}>
             {!['/welcome', '/home'].includes(location.pathname) && (
-              <Button
+              <IconButton
                 aria-label="Home button"
                 sx={{
                   backgroundColor: theme.palette.secondary.main,
@@ -155,7 +155,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                 }}
               >
                 <img src={home} alt="home" />
-              </Button>
+              </IconButton>
             )}
             {isAuthenticated && (
               <Button
