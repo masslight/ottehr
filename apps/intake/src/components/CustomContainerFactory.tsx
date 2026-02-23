@@ -120,7 +120,7 @@ export const CustomContainer: FC<ContainerProps> = ({
           <Grid item xs={3}></Grid>
 
           {/* Logo section  */}
-          <Grid item>
+          <Grid item xs={6} display="flex" justifyContent="center" alignItems="center">
             <Box
               component="img"
               sx={{
@@ -129,6 +129,8 @@ export const CustomContainer: FC<ContainerProps> = ({
                 width: 'auto',
                 alignSelf: 'center',
                 minHeight: '39px',
+                maxWidth: '100%',
+                objectFit: 'contain',
               }}
               alt={alt}
               src={logo}
@@ -136,7 +138,17 @@ export const CustomContainer: FC<ContainerProps> = ({
           </Grid>
 
           {/* Right section: home icon, chat and logout button  */}
-          <Grid item xs={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, pr: 2 }}>
+          <Grid
+            item
+            xs={3}
+            sx={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: { xs: 1, sm: 2 },
+              pr: { xs: 1, sm: 2 },
+            }}
+          >
             {!['/welcome', '/home'].includes(location.pathname) && (
               <IconButton
                 aria-label="Home button"
