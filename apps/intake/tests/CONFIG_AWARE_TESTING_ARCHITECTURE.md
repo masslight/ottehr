@@ -29,30 +29,7 @@ This means:
 
 ## Architecture Layers
 
-### 1. Capability Test Configs
-**Location:** `packages/utils/lib/ottehr-config-test-fixtures/`
-
-Defines abstract configuration patterns that the system must support, not specific client implementations.
-
-**Intake Paperwork Configs** (`capability-configs.ts`):
-```typescript
-- baseline: Default configuration
-- hiddenFields: Fields hidden via hiddenFields array
-- customCopy: Custom page titles and labels
-```
-
-**Booking Configs** (`booking-capability-configs.ts`):
-```typescript
-- baseline: All flows enabled
-- inPersonOnly: Only in-person visits
-- virtualOnly: Only virtual visits
-- prebookOnly: Only scheduled appointments
-- walkInOnly: Only walk-in visits
-- urgentCareOnly: Single service category
-- hiddenPatientFields: Some patient fields hidden
-```
-
-### 2. Instance-Specific Overrides
+### 1. Instance-Specific Overrides
 **Location:** `packages/utils/ottehr-config-overrides/`
 
 Contains instance-specific configuration overrides. In the upstream repo, these are empty stubs. For downstream testing, a private CI repo overwrites these files with actual instance configurations.
@@ -66,7 +43,7 @@ Key exports:
 - VALUE_SETS_OVERRIDES: Dropdown/select options
 ```
 
-### 3. Config Injection
+### 2. Config Injection
 **Location:** `apps/intake/tests/utils/config/injectTestConfig.ts`
 
 Simple utility for injecting test configs before page navigation:
@@ -78,7 +55,7 @@ import { CONFIG_INJECTION_KEYS } from 'utils';
 injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, config)
 ```
 
-### 4. Page Interaction Helpers
+### 3. Page Interaction Helpers
 **Location:** `apps/intake/tests/utils/booking/`
 
 **BookingFlowHelpers.ts** - Config-aware page interactions:
@@ -93,7 +70,7 @@ injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, config)
   // options.skipFirstN: Skip first N slots (for modification flows to avoid current slot)
 ```
 
-### 5. Test Factory
+### 4. Test Factory
 **Location:** `apps/intake/tests/utils/booking/BookingTestFactory.ts`
 
 Generates test permutations automatically:
@@ -144,7 +121,7 @@ executeBookingScenario(page, scenario, locationName)
      - paperworkHelper: PagedQuestionnaireFlowHelper with collected responses for review verification
 ```
 
-### 6. Test Resource Management
+### 5. Test Resource Management
 **Location:** `apps/intake/tests/utils/booking/`
 
 **TestLocationManager.ts** - Creates isolated FHIR resources:
@@ -170,7 +147,7 @@ executeBookingScenario(page, scenario, locationName)
 - All resources are tagged with `E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM` for cleanup cron compatibility
 - Tag format: `system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code: {workerUniqueId}-{resourceType}`
 
-### 7. Extended Scenario Helpers
+### 6. Extended Scenario Helpers
 **Location:** `apps/intake/tests/utils/booking/ExtendedScenarioHelpers.ts`
 
 Post-booking flows distributed across scenarios for comprehensive coverage:
@@ -204,7 +181,7 @@ Post-booking flows distributed across scenarios for comprehensive coverage:
 // ... etc
 ```
 
-### 8. Paperwork Flow Helper
+### 7. Paperwork Flow Helper
 **Location:** `apps/intake/tests/utils/paperwork/PagedQuestionnaireFlowHelper.ts`
 
 Dynamic questionnaire page filling:
@@ -392,17 +369,15 @@ if (shouldExtendWithCancellation(scenario, scenarios)) { /* only second prebook 
 ```
 packages/utils/
 ├── lib/
-│   ├── ottehr-config/
-│   │   ├── intake-paperwork/index.ts      # getIntakePaperworkConfig()
-│   │   ├── intake-paperwork-virtual/      # getIntakePaperworkVirtualConfig()
-│   │   └── booking/index.ts               # getBookingConfig()
-│   └── ottehr-config-test-fixtures/
-│       ├── capability-configs.ts          # Intake capability configs
-│       ├── booking-capability-configs.ts  # Booking capability configs
-│       └── index.ts                       # Public exports
+│   └── ottehr-config/
+│       ├── intake-paperwork/index.ts      # getIntakePaperworkConfig()
+│       ├── intake-paperwork-virtual/      # getIntakePaperworkVirtualConfig()
+│       ├── booking/index.ts               # getBookingConfig()
+│       └── legal/index.ts                 # getLegalCompositionForLocation()
 └── ottehr-config-overrides/
     ├── intake-paperwork/index.ts          # Instance-specific in-person overrides
     ├── intake-paperwork-virtual/index.ts  # Instance-specific virtual overrides
+    ├── legal/index.ts                     # Instance-specific legal text overrides
     └── ...                                # Other instance-specific configs
 
 apps/intake/tests/
