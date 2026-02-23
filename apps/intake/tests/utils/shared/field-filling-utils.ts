@@ -72,35 +72,21 @@ export async function fillDateField(page: Page, value: string): Promise<void> {
 
 /**
  * Fill a choice field (MUI Autocomplete dropdown)
- *
- * This uses the click + fill + select pattern which is required for MUI Autocomplete
- * to work reliably, especially after validation errors clear the state.
- *
- * The sequence ensures proper selection:
- * 1. Click to open and focus the dropdown
- * 2. Clear any existing value to ensure clean state
- * 3. Type the value to filter options
- * 4. Wait for the matching option to be visible
- * 5. Click the option to select it
- * 6. Wait for option to disappear (confirms dropdown closed and selection committed)
  */
 export async function fillChoiceDropdown(page: Page, locator: Locator, value: string): Promise<void> {
   // Click to open dropdown
   await locator.click();
 
-  // Clear by filling empty string (more reliable than clear() which can have side effects)
+  // Clear and type to filter
   await locator.fill('');
-
-  // Type to filter options
   await locator.fill(value);
 
-  // Wait for the matching option to appear (uses default 30s timeout for dynamic loading)
+  // Wait for the matching option to appear
   const option = page.getByRole('option', { name: value, exact: true });
 
   try {
     await option.waitFor({ state: 'visible' });
   } catch {
-    // If exact match fails, provide better error context
     const allOptions = await page.getByRole('option').allTextContents();
     throw new Error(`Could not find option "${value}" in dropdown. Available options: ${JSON.stringify(allOptions)}`);
   }
@@ -108,11 +94,11 @@ export async function fillChoiceDropdown(page: Page, locator: Locator, value: st
   // Click the option to select it
   await option.click();
 
-  // Wait for option to be hidden (confirms dropdown closed and selection was processed)
+  // Wait for dropdown to close
   try {
     await option.waitFor({ state: 'hidden', timeout: 5000 });
   } catch {
-    // If dropdown didn't close automatically, press Tab to force it closed
+    // If dropdown didn't close, press Tab to force it closed
     await locator.press('Tab');
     await option.waitFor({ state: 'hidden', timeout: 5000 });
   }
