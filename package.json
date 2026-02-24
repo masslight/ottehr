@@ -16,7 +16,7 @@
     "intake:start": "turbo start --filter=intake-ui",
     "intake:start:iac": "turbo start:iac --filter=intake-ui",
     "intake:e2e:local": "tsx scripts/run-e2e.ts --app=intake",
-    "intake:e2e:local:ui": "RUN_CONCRETE_TESTS=true tsx scripts/run-e2e.ts --app=intake --ui",
+    "intake:e2e:local:ui": "tsx scripts/run-e2e.ts --app=intake --ui",
     "intake:e2e:local:smoke": "SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=intake",
     "intake:e2e:local:smoke:ui": "SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=intake --ui",
     "intake:e2e:local:login": "tsx scripts/run-e2e.ts --app=intake --login-only",
