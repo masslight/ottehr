@@ -1,7 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
+import type { ValueSetsConfig } from 'config-types';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import type { ValueSetsConfig } from 'ottehr-types';
 import {
   buildEnableWhenContext,
   checkFieldHidden,

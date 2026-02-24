@@ -1,4 +1,4 @@
-import { MedicalHistoryConfig } from 'ottehr-types';
+import { MedicalHistoryConfig } from 'config-types';
 import { MEDICAL_HISTORY_OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { validateMedicalHistoryConfig } from './medical-history.schema';

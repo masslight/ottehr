@@ -1,11 +1,11 @@
 /**
- * ottehr-types
+ * config-types
  *
  * Core type definitions that define the contract between the Ottehr core system
  * and swappable configuration implementations.
  *
  * This package sits at the bottom of the dependency graph:
- * - ottehr-types (this package) - defines the contracts
+ * - config-types (this package) - defines the contracts
  * - utils, ottehr-config - implement/use the contracts
  * - apps - consume via utils
  *

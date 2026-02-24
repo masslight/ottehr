@@ -1,4 +1,4 @@
-import { RadiologyStudy } from 'ottehr-types';
+import { RadiologyStudy } from 'config-types';
 import { customRadiologyStudiesConfig } from '../../../ottehr-config-overrides/radiology';
 
 export const baseRadiologyStudiesConfig: RadiologyStudy[] = [

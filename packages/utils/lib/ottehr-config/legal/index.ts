@@ -4,7 +4,7 @@ import {
   type LinkDef,
   LinkDefSchema,
   type TextWithLinkComposition,
-} from 'ottehr-types';
+} from 'config-types';
 import { LEGAL_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 

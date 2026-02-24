@@ -8,7 +8,7 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from './constants';
 
-// Re-export config contract types from ottehr-types
+// Re-export config contract types from config-types
 export type {
   ScreeningConditionalSave,
   ScreeningField,
@@ -16,10 +16,10 @@ export type {
   ScreeningFieldType,
   ScreeningNoteField,
   ScreeningQuestionsConfig,
-} from 'ottehr-types';
+} from 'config-types';
 
 // Backwards compatibility aliases for existing code
-import type { ScreeningField, ScreeningFieldOption, ScreeningFieldType, ScreeningNoteField } from 'ottehr-types';
+import type { ScreeningField, ScreeningFieldOption, ScreeningFieldType, ScreeningNoteField } from 'config-types';
 
 export type Field = ScreeningField;
 export type FieldType = ScreeningFieldType;

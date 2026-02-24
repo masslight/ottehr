@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import type { ExamCardComponent, ExamItemConfig } from 'ottehr-types';
+import type { ExamCardComponent, ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { isDropdownComponent, isMultiSelectComponent } from 'utils';

@@ -1,8 +1,8 @@
+import { type BrandingConfig, BrandingConfigSchema, type LogoConfig } from 'config-types';
 import _ from 'lodash';
-import { type BrandingConfig, BrandingConfigSchema, type LogoConfig } from 'ottehr-types';
 import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 
-const overrides: Partial<BrandingConfig> = OVERRIDES || {};
+const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: BrandingConfig = {
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',

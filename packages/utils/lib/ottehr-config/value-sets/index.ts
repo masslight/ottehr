@@ -1,6 +1,6 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
 import { NetworkType } from 'candidhealth/api';
-import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'ottehr-types';
+import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'config-types';
 import z from 'zod';
 import { VALUE_SET_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides/value-sets';
 import { mergeAndFreezeConfigObjects } from '../helpers';
@@ -675,7 +675,7 @@ const formValueSets = {
   externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
 };
 
-// ValueSetsConfig type is now imported and re-exported from ottehr-types
+// ValueSetsConfig type is now imported and re-exported from config-types
 
 /**
  * Get value sets configuration with optional test overrides

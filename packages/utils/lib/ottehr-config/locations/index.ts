@@ -1,4 +1,4 @@
-import { type LocationConfig, LocationConfigSchema } from 'ottehr-types';
+import { type LocationConfig, LocationConfigSchema } from 'config-types';
 import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 

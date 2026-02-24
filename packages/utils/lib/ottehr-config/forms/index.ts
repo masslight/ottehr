@@ -1,4 +1,4 @@
-import { FormsConfig, FormsConfigSchema } from 'ottehr-types';
+import { FormsConfig, FormsConfigSchema } from 'config-types';
 import { FORMS_CONFIG_OVERRIDE } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 

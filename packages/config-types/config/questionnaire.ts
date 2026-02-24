@@ -109,6 +109,6 @@ export type FormFieldOption = z.infer<typeof FormFieldOptionSchema>;
  * - VALUE_SETS (runtime config dependency)
  *
  * Consider whether to:
- * 1. Move AnswerOptionSourceSchema to ottehr-types
+ * 1. Move AnswerOptionSourceSchema to config-types
  * 2. Use z.unknown() for now and refine later
  */

@@ -1,5 +1,5 @@
+import type { ExamCardComponent } from 'config-types';
 import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
-import type { ExamCardComponent } from 'ottehr-types';
 import {
   convertToBoolean,
   examConfig,

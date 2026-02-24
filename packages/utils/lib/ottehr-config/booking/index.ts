@@ -1,3 +1,4 @@
+import { HomepageOptions } from 'config-types';
 import {
   Coding,
   Patient,
@@ -8,7 +9,6 @@ import {
   Slot,
 } from 'fhir/r4b';
 import _ from 'lodash';
-import { HomepageOptions } from 'ottehr-types';
 import z from 'zod';
 import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides/booking';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';

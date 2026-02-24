@@ -1,11 +1,11 @@
-import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
-import _ from 'lodash';
 import {
   type FormFieldTrigger,
   type PatientRecordConfig,
   PatientRecordConfigSchema,
   type QuestionnaireBase,
-} from 'ottehr-types';
+} from 'config-types';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
+import _ from 'lodash';
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import {
   getTaxID,

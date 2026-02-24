@@ -1,4 +1,4 @@
-import type { ExamCardComponent } from 'ottehr-types';
+import type { ExamCardComponent } from 'config-types';
 import {
   examConfig,
   ExamObservationDTO,

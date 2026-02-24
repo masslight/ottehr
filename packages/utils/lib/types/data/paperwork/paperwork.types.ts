@@ -1,10 +1,10 @@
+import { type AnswerLoadingOptions } from 'config-types';
 import {
   QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
-import { type AnswerLoadingOptions } from 'ottehr-types';
 import { AvailableLocationInformation, FileURLs, PatientBaseInfo } from '../../common';
 import { PaperworkResponse } from '../paperwork.types';
 import type { VisitType } from '../telemed/appointments/create-appointment.types';
@@ -40,12 +40,12 @@ export interface QuestionnaireItemTextWhen extends QuestionnaireItemConditionDef
   substituteText: string;
 }
 
-// Re-export from ottehr-types for backwards compatibility
+// Re-export from config-types for backwards compatibility
 import {
   type QuestionnaireDataType as _QuestionnaireDataType,
   QuestionnaireDataTypes as _QuestionnaireDataTypes,
   QuestionnaireDataTypeSchema as _QuestionnaireDataTypeSchema,
-} from 'ottehr-types';
+} from 'config-types';
 export const QuestionnaireDataTypeSchema = _QuestionnaireDataTypeSchema;
 export const QuestionnaireDataTypes = _QuestionnaireDataTypes;
 export type QuestionnaireDataType = _QuestionnaireDataType;
@@ -73,9 +73,9 @@ export enum QuestionnaireItemGroupType {
   PharmacyCollection = 'pharmacy-collection',
 }
 
-// Re-export FHIR types from ottehr-types for backwards compatibility
-export { FhirResourceTypeSchema, AnswerOptionSourceSchema } from 'ottehr-types';
-export type { FhirResourceType, AnswerOptionSource, AnswerLoadingOptions } from 'ottehr-types';
+// Re-export FHIR types from config-types for backwards compatibility
+export { FhirResourceTypeSchema, AnswerOptionSourceSchema } from 'config-types';
+export type { FhirResourceType, AnswerOptionSource, AnswerLoadingOptions } from 'config-types';
 
 export type InputWidthOption = 's' | 'm' | 'l' | 'max';
 export interface QuestionnaireItemExtension {

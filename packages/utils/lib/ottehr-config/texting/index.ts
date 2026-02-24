@@ -1,4 +1,4 @@
-import { TextingConfigSchema } from 'ottehr-types';
+import { TextingConfigSchema } from 'config-types';
 import { BRANDING_CONFIG, replaceTemplateVariablesArrows } from 'utils';
 import { TEXTING_OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';

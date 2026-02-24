@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "lodash-es": "^4.17.21",
-    "ottehr-types": "*"
+    "config-types": "*"
   },
   "devDependencies": {
     "@types/lodash-es": "^4.17.12",

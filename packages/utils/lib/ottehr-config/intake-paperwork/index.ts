@@ -1,5 +1,3 @@
-import { Questionnaire } from 'fhir/r4b';
-import { camelCase } from 'lodash-es';
 import {
   type PaperworkConfig,
   PaperworkConfigSchema,
@@ -7,7 +5,9 @@ import {
   type QuestionnaireConfigType,
   type ResolvedConsentFormConfig,
   type ValueSetsConfig,
-} from 'ottehr-types';
+} from 'config-types';
+import { Questionnaire } from 'fhir/r4b';
+import { camelCase } from 'lodash-es';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';

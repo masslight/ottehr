@@ -4,7 +4,7 @@ import {
   ConsentFormsConfigSchema,
   type PathConfig,
   type ResolvedConsentFormConfig,
-} from 'ottehr-types';
+} from 'config-types';
 import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
 // Import directly from the specific file to avoid circular dependency through types barrel
 import { PRIVACY_POLICY_CODE } from '../../types/data/paperwork/paperwork.constants';
@@ -81,7 +81,7 @@ const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
   return path.default;
 };
 
-// ResolvedConsentFormConfig is now imported from ottehr-types
+// ResolvedConsentFormConfig is now imported from config-types
 
 /**
  * Resolve state-conditional paths for a given array of consent forms.

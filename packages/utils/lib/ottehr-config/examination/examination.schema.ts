@@ -1,4 +1,4 @@
-import type { ExamCardComponent, ExamCardDropdownComponent, ExamCardMultiSelectComponent } from 'ottehr-types';
+import type { ExamCardComponent, ExamCardDropdownComponent, ExamCardMultiSelectComponent } from 'config-types';
 
 // Type guard functions for better type narrowing
 export function isDropdownComponent(component: ExamCardComponent): component is ExamCardDropdownComponent {

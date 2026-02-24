@@ -1,4 +1,3 @@
-import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import {
   ComplexValidationSchema,
   type FormFieldsAttachmentItem,
@@ -11,11 +10,12 @@ import {
   FormSectionArraySchema,
   FormSectionSimpleSchema,
   type QuestionnaireConfigType,
-} from 'ottehr-types';
+} from 'config-types';
+import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { VALUE_SETS as formValueSets } from './value-sets';
 
-// Re-export from ottehr-types for backwards compatibility
+// Re-export from config-types for backwards compatibility
 export {
   FormFieldItemRecordSchema,
   FormFieldLogicalItemRecordSchema,
@@ -24,7 +24,7 @@ export {
   FormSectionSimpleSchema,
   QuestionnaireBaseSchema,
   QuestionnaireConfigSchema,
-} from 'ottehr-types';
+} from 'config-types';
 export type {
   FormFieldItemRecord,
   FormFieldLogicalItemRecord,
@@ -39,7 +39,7 @@ export type {
   QuestionnaireBase,
   FormFieldOption,
   QuestionnaireConfigType,
-} from 'ottehr-types';
+} from 'config-types';
 
 export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
 export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
@@ -692,7 +692,7 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
   return item;
 };
 
-// QuestionnaireBaseSchema and QuestionnaireConfigSchema are now imported and re-exported from ottehr-types
+// QuestionnaireBaseSchema and QuestionnaireConfigSchema are now imported and re-exported from config-types
 
 const applyGroupLevelProperties = (
   groupItem: QuestionnaireItem,

@@ -1,4 +1,4 @@
-import { ProceduresConfig, ProceduresConfigSchema } from 'ottehr-types';
+import { ProceduresConfig, ProceduresConfigSchema } from 'config-types';
 import { PROCEDURES_CONFIG_OVERRIDE } from '../../../ottehr-config-overrides/procedures';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 

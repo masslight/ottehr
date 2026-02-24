@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { VITALS_OVERRIDES } from '../../../ottehr-config-overrides';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
-// Re-export config contract types from ottehr-types
+// Re-export config contract types from config-types
 export {
   AgeSchema as VitalsAgeSchema,
   AgeUnitSchema as VitalsAgeUnitSchema,
@@ -27,7 +27,7 @@ export {
   type VitalsVision,
   type VitalsWeight,
   type VitalsWithComponents,
-} from 'ottehr-types';
+} from 'config-types';
 
 const VitalsConfig = {
   'vital-temperature': {
