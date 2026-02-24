@@ -1,6 +1,5 @@
 import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
-import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -9,9 +8,6 @@ import {
   formatWeight,
   formatWeightKg,
   formatWeightLbs,
-  LBS_IN_KG,
-  roundNumberToDecimalPlaces,
-  textToNumericValue,
   VitalFieldNames,
   vitalsConfig,
   VitalsWeightObservationDTO,
@@ -21,17 +17,13 @@ import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointment
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
+import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
 
 type VitalsWeightsCardProps = VitalsCardProps<VitalsWeightObservationDTO>;
-const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
-  handleSaveVital,
-  handleDeleteVital,
-  currentObs,
-  historicalObs,
-}): JSX.Element => {
+const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Element => {
   const theme = useTheme();
-  const [weightKg, setWeightKg] = useState<number | undefined>(undefined);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -39,84 +31,43 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const latestWeightKg = currentObs[0]?.value;
-  const isPatientRefused = currentObs[0]?.extraWeightOptions?.includes('patient_refused');
-
-  const [isPatientRefusedOptionSelected, setOptionRefusedOptionSelected] = useState<boolean>(Boolean(isPatientRefused));
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSaveWeightObservation = async (): Promise<void> => {
-    if (!weightKg) return;
-
-    try {
-      setIsSaving(true);
-
-      const vitalObs: VitalsWeightObservationDTO = {
-        field: VitalFieldNames.VitalWeight,
-        value: weightKg,
-      };
-
-      await handleSaveVital(vitalObs);
-      setWeightKg(undefined);
-    } catch {
-      enqueueSnackbar('Error saving Weight data', { variant: 'error' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleKgInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    setWeightKg(textToNumericValue(e.target.value));
-  }, []);
-
-  const handleLbsInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const numericValue = textToNumericValue(e.target.value);
-    if (numericValue) {
-      setWeightKg(roundNumberToDecimalPlaces(numericValue / LBS_IN_KG, 2));
-    } else {
-      setWeightKg(undefined);
-    }
-  }, []);
+  const latestWeightKg = field.current[0]?.value;
+  const isPatientRefused = field.current[0]?.extraWeightOptions?.includes('patient_refused');
+  const { localState } = field;
 
   const handleWeightOptionChanged = useCallback(
     async (isChecked: boolean, weightOption: VitalsWeightOption): Promise<void> => {
       if (weightOption !== 'patient_refused') return;
 
-      setOptionRefusedOptionSelected(isChecked);
-      setWeightKg(undefined);
+      localState.handlePatientRefusedChange(isChecked, weightOption);
 
       if (!isChecked) return;
 
-      try {
-        setIsSaving(true);
-
-        const vitalObs: VitalsWeightObservationDTO = {
-          field: VitalFieldNames.VitalWeight,
-          extraWeightOptions: ['patient_refused'],
-        };
-
-        await handleSaveVital(vitalObs);
-      } catch {
-        enqueueSnackbar('Error saving Weight data', { variant: 'error' });
-      } finally {
-        setIsSaving(false);
-      }
+      const vitalObs: VitalsWeightObservationDTO = {
+        field: VitalFieldNames.VitalWeight,
+        extraWeightOptions: ['patient_refused'],
+      };
+      await field.saveWithDto?.(vitalObs);
     },
-    [handleSaveVital]
+    [field, localState]
   );
+
+  const { handleKeyDown } = useVitalsSaveOnEnter({
+    onSave: field.save,
+  });
 
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
-        historicalObs={historicalObs}
-        currentEncounterObs={currentObs}
+        historicalObs={field.historical}
+        currentEncounterObs={field.current}
         isLoading={false}
         historyElementCreator={(historyEntry) => {
-          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          const isCurrent = field.current.some((obs) => obs.resourceId === historyEntry.resourceId);
           return (
             <VitalHistoryElement
               historyEntry={historyEntry}
-              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              onDelete={isCurrent && !isReadOnly ? field.delete : undefined}
               dataTestId={dataTestIds.vitalsPage.weightItem}
             />
           );
@@ -158,6 +109,8 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                   mx: 2,
                   py: 2,
                   px: 2,
+                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                  transition: VITALS_FORM_BORDER_TRANSITION,
                 }}
               >
                 {/* Weight Input Field column */}
@@ -171,19 +124,21 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                   >
                     <VitalsTextInputFiled
                       label="Weight (kg)"
-                      value={weightKg ? formatWeightKg(weightKg) : ''}
-                      disabled={isSaving || isPatientRefusedOptionSelected}
-                      isInputError={false}
-                      onChange={handleKgInput}
+                      value={localState.weightKg ? formatWeightKg(localState.weightKg) : ''}
+                      disabled={field.isSaving || localState.isPatientRefusedSelected}
+                      isInputError={localState.validationError}
+                      onChange={localState.handleKgInput}
+                      onKeyDown={handleKeyDown}
                       data-testid={dataTestIds.vitalsPage.weightInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
                       label="Weight (lbs)"
-                      value={weightKg ? formatWeightLbs(weightKg) : ''}
-                      disabled={isSaving || isPatientRefusedOptionSelected}
-                      isInputError={false}
-                      onChange={handleLbsInput}
+                      value={localState.weightKg ? formatWeightLbs(localState.weightKg) : ''}
+                      disabled={field.isSaving || localState.isPatientRefusedSelected}
+                      isInputError={localState.validationError}
+                      onChange={localState.handleLbsInput}
+                      onKeyDown={handleKeyDown}
                     />
                   </Box>
                 </Grid>
@@ -201,9 +156,9 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                 >
                   <RoundedButton
                     size="small"
-                    disabled={!weightKg}
-                    loading={isSaving}
-                    onClick={handleSaveWeightObservation}
+                    disabled={localState.isDisabled || field.isSaving}
+                    loading={field.isSaving}
+                    onClick={field.save}
                     color="primary"
                     sx={{
                       height: '40px',
@@ -235,8 +190,8 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                               color: lighten(theme.palette.primary.main, 0.4),
                             },
                           }}
-                          disabled={isSaving}
-                          checked={isPatientRefusedOptionSelected}
+                          disabled={field.isSaving}
+                          checked={localState.isPatientRefusedSelected}
                           onChange={(e) => handleWeightOptionChanged(e.target.checked, 'patient_refused')}
                           data-testid={dataTestIds.vitalsPage.weightPatientRefusedCheckbox}
                         />
@@ -246,7 +201,9 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                           sx={{
                             fontSize: '16px',
                             fontWeight: 500,
-                            color: isSaving ? lighten(theme.palette.text.primary, 0.4) : theme.palette.text.primary,
+                            color: field.isSaving
+                              ? lighten(theme.palette.text.primary, 0.4)
+                              : theme.palette.text.primary,
                           }}
                         >
                           Patient Refused
