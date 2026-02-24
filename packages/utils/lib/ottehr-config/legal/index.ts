@@ -1,9 +1,12 @@
-import { z } from 'zod';
+import {
+  type LegalConfig,
+  LegalConfigSchema,
+  type LinkDef,
+  LinkDefSchema,
+  type TextWithLinkComposition,
+} from 'ottehr-types';
 import { LEGAL_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-import { DisplayTextSchema, LinkDef, LinkDefSchema, TextWithLinkComposition } from '../types';
-
-export type LegalConfigSchemaType = Record<string, TextWithLinkComposition>;
 
 const LEGAL_DEFAULTS = {
   REVIEW_PAGE: [
@@ -51,17 +54,11 @@ const LEGAL_DEFAULTS = {
       tags: ['terms-and-conditions'],
     },
   ],
-} as const satisfies LegalConfigSchemaType;
+} as const satisfies LegalConfig;
 
 const mergedLegalConfig = mergeAndFreezeConfigObjects(LEGAL_DEFAULTS, OVERRIDES);
 
-const textWithLinkCompositionSchema: z.ZodType<TextWithLinkComposition> = z.array(
-  z.union([DisplayTextSchema, LinkDefSchema])
-);
-
-const legalConfigSchema = z.record(z.string(), textWithLinkCompositionSchema);
-
-export const LEGAL_CONFIG = legalConfigSchema.parse(mergedLegalConfig);
+export const LEGAL_CONFIG = LegalConfigSchema.parse(mergedLegalConfig);
 
 export const getLegalCompositionForLocation = (locationKey: string): TextWithLinkComposition | undefined => {
   const legalComposition = LEGAL_CONFIG[locationKey];

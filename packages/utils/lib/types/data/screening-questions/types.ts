@@ -8,47 +8,23 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from './constants';
 
-export interface ScreeningQuestionsConfig {
-  title: string;
-  fields: Field[];
-}
+// Re-export config contract types from ottehr-types
+export type {
+  ScreeningConditionalSave,
+  ScreeningField,
+  ScreeningFieldOption,
+  ScreeningFieldType,
+  ScreeningNoteField,
+  ScreeningQuestionsConfig,
+} from 'ottehr-types';
 
-export type FieldType = 'radio' | 'text' | 'textarea' | 'select' | 'dateRange';
+// Backwards compatibility aliases for existing code
+import type { ScreeningField, ScreeningFieldOption, ScreeningFieldType, ScreeningNoteField } from 'ottehr-types';
 
-export interface Option {
-  value: string;
-  label: string;
-  fhirValue: string;
-}
-
-export interface NoteField {
-  id: string;
-  label: string;
-  type: 'text' | 'textarea';
-  placeholder?: string;
-  fhirField: string;
-  conditionalValue?: string; // Additional behavior for noteField - what parent field value activates noteField
-}
-
-export interface Field {
-  id: string;
-  type: FieldType;
-  question: string;
-  required?: boolean;
-  options?: Option[];
-  placeholder?: string;
-  fhirField: string;
-  noteField?: NoteField;
-
-  // Behavioral flags
-  debounced?: boolean; // Use debounce (default: false)
-  canDelete?: boolean; // Can delete if value is empty (default: false)
-  conditionalSave?: {
-    // Conditional save - don't save immediately if certain value is selected
-    waitForNote: string; // Value that triggers waiting for note
-  };
-  existsInQuestionnaire?: boolean; // Whether this field exists in the patient questionnaire; field may exist in telemed questionnaire only
-}
+export type Field = ScreeningField;
+export type FieldType = ScreeningFieldType;
+export type Option = ScreeningFieldOption;
+export type NoteField = ScreeningNoteField;
 
 export type ObservationDTO =
   | ObservationTextFieldDTO

@@ -8,6 +8,7 @@ import {
   Slot,
 } from 'fhir/r4b';
 import _ from 'lodash';
+import { HomepageOptions } from 'ottehr-types';
 import z from 'zod';
 import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides/booking';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';
@@ -22,7 +23,6 @@ import {
   QuestionnaireBase,
   QuestionnaireConfigSchema,
 } from '../shared-questionnaire';
-import { HomepageOptions } from '../types';
 import { VALUE_SETS } from '../value-sets';
 
 const PatientDoesntExistTriggerEnableAndRequire: FormFieldTrigger = {
@@ -505,18 +505,6 @@ export const HomepageOptionSchema = z.enum(
 );
 
 export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
-
-export function getEnabledHomepageOptions(): BookingOption[] {
-  return BOOKING_CONFIG.homepageOptions ?? [];
-}
-
-export function getFirstEnabledHomepageOptionTestId(): string | undefined {
-  const enabledOptions = getEnabledHomepageOptions();
-  if (enabledOptions.length === 0) {
-    return undefined;
-  }
-  return enabledOptions.map((option) => `${option.id}-button`)[0];
-}
 
 export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
   const {

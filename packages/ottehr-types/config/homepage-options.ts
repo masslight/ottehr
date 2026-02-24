@@ -1,6 +1,6 @@
 /**
- * Homepage options enum - standalone file to avoid circular dependencies.
- * This file has no imports from ottehr-config or types barrels.
+ * HomepageOptions - Available options for the intake homepage
+ * Determines which booking flows are enabled
  */
 export enum HomepageOptions {
   StartInPersonVisit = 'start-in-person-visit',

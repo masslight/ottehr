@@ -1,44 +1,14 @@
-import { z } from 'zod';
+import {
+  type ConsentFormConfig,
+  type ConsentFormsConfig,
+  ConsentFormsConfigSchema,
+  type PathConfig,
+  type ResolvedConsentFormConfig,
+} from 'ottehr-types';
 import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
 // Import directly from the specific file to avoid circular dependency through types barrel
 import { PRIVACY_POLICY_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-
-const CodingSchema = z.object({
-  system: z.string().optional(),
-  code: z.string().optional(),
-  display: z.string().optional(),
-});
-
-const PathConfigSchema = z.union([
-  z.string(),
-  z.object({
-    default: z.string(),
-    byState: z.record(z.string(), z.string()).optional(),
-  }),
-]);
-
-type PathConfig = z.infer<typeof PathConfigSchema>;
-
-const ConsentFormSchema = z.object({
-  id: z.string(),
-  formTitle: z.string(),
-  resourceTitle: z.string(),
-  type: z.object({
-    coding: z.array(CodingSchema).min(1),
-    text: z.string().optional(),
-  }),
-  createsConsentResource: z.boolean(),
-  assetPath: PathConfigSchema,
-  publicUrl: PathConfigSchema,
-});
-
-const ConsentFormsConfigSchema = z.object({
-  forms: z.array(ConsentFormSchema).min(1),
-});
-
-export type ConsentFormConfig = z.infer<typeof ConsentFormSchema>;
-export type ConsentFormsConfig = z.infer<typeof ConsentFormsConfigSchema>;
 
 const DEFAULT_CONSENT_FORMS = {
   forms: [
@@ -111,10 +81,7 @@ const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
   return path.default;
 };
 
-export type ResolvedConsentFormConfig = Omit<ConsentFormConfig, 'assetPath' | 'publicUrl'> & {
-  assetPath: string;
-  publicUrl: string;
-};
+// ResolvedConsentFormConfig is now imported from ottehr-types
 
 /**
  * Resolve state-conditional paths for a given array of consent forms.

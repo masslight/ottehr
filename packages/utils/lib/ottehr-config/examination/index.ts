@@ -1,7 +1,13 @@
+import { ExaminationConfig, validateExaminationConfig } from 'ottehr-types';
 import { EXAMINATION_OVERRIDES } from '../../../ottehr-config-overrides';
-import { ExamSchema, validateExamConfig } from './examination.schema';
 import { InPersonExamConfig } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
+
+// Legacy type alias for backwards compatibility
+export type ExamSchema = ExaminationConfig;
+
+// Legacy validation function alias
+export const validateExamConfig = validateExaminationConfig;
 
 // Simple hash function for versioning (security not required)
 function createSimpleHash(data: string): string {
@@ -46,4 +52,5 @@ export const ExamDef = (config?: unknown): ExamSchema => {
 
 export const examConfig = ExamDef(EXAMINATION_OVERRIDES);
 
-export * from './examination.schema';
+// Export type guards from examination.schema
+export { isDropdownComponent, isMultiSelectComponent } from './examination.schema';

@@ -1,12 +1,13 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Autocomplete, Box, FormControlLabel, Radio, RadioGroup, TextField, Typography } from '@mui/material';
+import type { ExamCardFormComponent } from 'ottehr-types';
 import React, { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, UseFormWatch } from 'react-hook-form';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { ExamCardFormComponent, ExamObservationDTO } from 'utils';
+import { ExamObservationDTO } from 'utils';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type FormValues = Record<string, string | null>;

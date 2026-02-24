@@ -1,14 +1,13 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
 import { NetworkType } from 'candidhealth/api';
-import { Coding } from 'fhir/r4b';
+import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'ottehr-types';
 import z from 'zod';
 import { VALUE_SET_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides/value-sets';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
-export interface InsurancePlanType {
+// Extend InsurancePlanType to use the specific Candid NetworkType
+export interface InsurancePlanType extends Omit<BaseInsurancePlanType, 'candidCode'> {
   candidCode: NetworkType;
-  label: string;
-  coverageCoding?: Coding;
 }
 
 const insuranceTypeOptions: InsurancePlanType[] = z.array(z.custom<InsurancePlanType>()).parse([
@@ -676,7 +675,7 @@ const formValueSets = {
   externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
 };
 
-export type ValueSetsConfig = typeof formValueSets;
+// ValueSetsConfig type is now imported and re-exported from ottehr-types
 
 /**
  * Get value sets configuration with optional test overrides

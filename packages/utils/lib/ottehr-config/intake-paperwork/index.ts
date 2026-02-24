@@ -1,24 +1,28 @@
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
+import {
+  type PaperworkConfig,
+  PaperworkConfigSchema,
+  type QuestionnaireBase,
+  type QuestionnaireConfigType,
+  type ResolvedConsentFormConfig,
+  type ValueSetsConfig,
+} from 'ottehr-types';
 import z from 'zod';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
-import { getConsentFormsForLocation, ResolvedConsentFormConfig } from '../consent-forms';
+import { getConsentFormsForLocation } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
-  FormSectionSimpleSchema,
   HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
-  QuestionnaireBase,
-  QuestionnaireConfigSchema,
-  QuestionnaireConfigType,
   SELF_PAY_OPTION,
 } from '../shared-questionnaire';
-import { VALUE_SETS, type ValueSetsConfig } from '../value-sets';
+import { VALUE_SETS } from '../value-sets';
 
 /**
  * Build consent form checkbox items dynamically from consent forms config.
@@ -1985,26 +1989,6 @@ const questionnaireBaseDefaults = {
   status: 'active',
 } as const satisfies QuestionnaireBase;
 // note: the order of the fields on this object are what determines the order they appear in the form
-// i try to make the template above match this order for easier reading, but that's a convention, and the order
-// declared here is what will determine the order of the items on the form.
-const FormFieldsSchema = z.object({
-  contactInformation: FormSectionSimpleSchema,
-  patientDetails: FormSectionSimpleSchema,
-  primaryCarePhysician: FormSectionSimpleSchema,
-  pharmacy: FormSectionSimpleSchema,
-  paymentOption: FormSectionSimpleSchema,
-  paymentOptionOccMed: FormSectionSimpleSchema,
-  occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
-  cardPayment: FormSectionSimpleSchema,
-  responsibleParty: FormSectionSimpleSchema,
-  employerInformation: FormSectionSimpleSchema,
-  emergencyContact: FormSectionSimpleSchema,
-  attorneyInformation: FormSectionSimpleSchema,
-  photoId: FormSectionSimpleSchema,
-  consentForms: FormSectionSimpleSchema,
-  medicalHistory: FormSectionSimpleSchema,
-});
-
 /**
  * Get intake paperwork configuration with optional test overrides
  *
@@ -2015,11 +1999,7 @@ const FormFieldsSchema = z.object({
 export function getIntakePaperworkConfig(
   overrides: any = OVERRIDES,
   consentFormsConfig?: ResolvedConsentFormConfig[]
-): QuestionnaireConfigType {
-  const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
-    FormFields: FormFieldsSchema,
-  });
-
+): PaperworkConfig {
   // Use pre-merged value sets (baked in at deploy time)
   // Use provided consent forms if available (for Node.js test context), otherwise read from config
   const valueSets = VALUE_SETS;
@@ -2053,14 +2033,14 @@ export function getIntakePaperworkConfig(
   const withConsentForms = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
   const mergedConfig = mergeAndFreezeConfigObjects(withConsentForms, overrides);
 
-  return IntakePaperworkConfigSchema.parse(mergedConfig);
+  return PaperworkConfigSchema.parse(mergedConfig);
 }
 
 // Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
 export const INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
 
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG)));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)));
 
 export const checkFieldHidden = (fieldKey: string): boolean => {
   const config = INTAKE_PAPERWORK_CONFIG;

@@ -1,5 +1,5 @@
+import type { ExamCardComponent } from 'ottehr-types';
 import {
-  ExamCardComponent,
   examConfig,
   ExamObservationDTO,
   GetChartDataResponse,

@@ -1,6 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import type { ValueSetsConfig } from 'ottehr-types';
 import {
   buildEnableWhenContext,
   checkFieldHidden,
@@ -12,7 +13,6 @@ import {
   mapQuestionnaireAndValueSetsToItemsList,
   QuestionnaireConfigType,
   VALUE_SETS,
-  ValueSetsConfig,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';

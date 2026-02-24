@@ -2,6 +2,33 @@ import * as z from 'zod';
 import { VITALS_OVERRIDES } from '../../../ottehr-config-overrides';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
+// Re-export config contract types from ottehr-types
+export {
+  AgeSchema as VitalsAgeSchema,
+  AgeUnitSchema as VitalsAgeUnitSchema,
+  ConstraintTypeSchema as VitalsConstraintTypeSchema,
+  VitalAlertCriticalitySchema,
+  VitalBloodPressureComponentSchema,
+  VitalTypeSchema,
+  VitalVisionComponentSchema,
+  type Age as VitalsAge,
+  type AgeUnit as VitalsAgeUnit,
+  type AlertConstraint as VitalsAlertConstraint,
+  type AlertThreshold as VitalsAlertThreshold,
+  type BaseConstraint as VitalsBaseConstraint,
+  type ConstraintType as VitalsConstraintType,
+  type VitalAlertCriticality as VitalsAlertCriticalityType,
+  type VitalBloodPressureComponent,
+  type VitalType,
+  type VitalVisionComponent,
+  type VitalsBloodPressure,
+  type VitalsConfig,
+  type VitalsObject as VitalsObjectType,
+  type VitalsVision,
+  type VitalsWeight,
+  type VitalsWithComponents,
+} from 'ottehr-types';
+
 const VitalsConfig = {
   'vital-temperature': {
     alertThresholds: [

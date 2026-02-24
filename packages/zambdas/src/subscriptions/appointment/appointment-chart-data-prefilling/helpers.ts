@@ -1,7 +1,7 @@
 import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
+import type { ExamCardComponent } from 'ottehr-types';
 import {
   convertToBoolean,
-  ExamCardComponent,
   examConfig,
   ExamObservationDTO,
   getQuestionnaireResponseByLinkId,

@@ -1,0 +1,18 @@
+{
+  "name": "ottehr-types",
+  "private": true,
+  "type": "module",
+  "version": "1.28.2",
+  "description": "Core type definitions for Ottehr configuration contracts",
+  "main": "index.ts",
+  "types": "index.ts",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
+    "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 --fix ."
+  }
+}

@@ -1,26 +1,30 @@
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
-import z from 'zod';
+import {
+  type PaperworkConfig,
+  PaperworkConfigSchema,
+  type QuestionnaireBase,
+  type QuestionnaireConfigType,
+  type ResolvedConsentFormConfig,
+  type ValueSetsConfig,
+} from 'ottehr-types';
 import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
-import { getConsentFormsForLocation, ResolvedConsentFormConfig } from '../consent-forms';
+import { getConsentFormsForLocation } from '../consent-forms';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
   ALLERGIES_YES_OPTION,
   createQuestionnaireFromConfig,
-  FormSectionSimpleSchema,
   HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
-  QuestionnaireBase,
-  QuestionnaireConfigSchema,
   SELF_PAY_OPTION,
   SURGICAL_HISTORY_YES_OPTION,
 } from '../shared-questionnaire';
-import { VALUE_SETS, type ValueSetsConfig } from '../value-sets';
+import { VALUE_SETS } from '../value-sets';
 
 function getFormFields(valueSets: ValueSetsConfig, consentForms?: ResolvedConsentFormConfig[]): typeof FormFields {
   // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
@@ -2387,34 +2391,6 @@ function getFormFields(valueSets: ValueSetsConfig, consentForms?: ResolvedConsen
   return FormFields;
 }
 
-// note: the order of the fields on this object are what determines the order they appear in the form
-// i try to make the template above match this order for easier reading, but that's a convention, and the order
-// declared here is what will determine the order of the items on the form.
-const FormFieldsSchema = z.object({
-  contactInformation: FormSectionSimpleSchema,
-  patientDetails: FormSectionSimpleSchema,
-  primaryCarePhysician: FormSectionSimpleSchema,
-  pharmacy: FormSectionSimpleSchema,
-  currentMedications: FormSectionSimpleSchema,
-  allergies: FormSectionSimpleSchema,
-  medicalHistory: FormSectionSimpleSchema,
-  surgicalHistory: FormSectionSimpleSchema,
-  additional: FormSectionSimpleSchema,
-  paymentOption: FormSectionSimpleSchema,
-  paymentOptionOccMed: FormSectionSimpleSchema,
-  occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
-  cardPayment: FormSectionSimpleSchema,
-  responsibleParty: FormSectionSimpleSchema,
-  employerInformation: FormSectionSimpleSchema,
-  emergencyContact: FormSectionSimpleSchema,
-  attorneyInformation: FormSectionSimpleSchema,
-  photoId: FormSectionSimpleSchema,
-  patientCondition: FormSectionSimpleSchema,
-  schoolWorkNote: FormSectionSimpleSchema,
-  consentForms: FormSectionSimpleSchema,
-  inviteParticipant: FormSectionSimpleSchema,
-});
-
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults = {
@@ -2429,7 +2405,7 @@ const questionnaireBaseDefaults = {
 function getIntakePaperworkVirtualConfig(
   testOverrides: any = OVERRIDES,
   consentFormsConfig?: ResolvedConsentFormConfig[]
-): any {
+): PaperworkConfig {
   // Use pre-merged value sets (baked in at deploy time)
   const valueSets = VALUE_SETS;
   // Use provided consent forms if available (for Node.js test context), otherwise read from config
@@ -2443,18 +2419,14 @@ function getIntakePaperworkVirtualConfig(
 
   const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, testOverrides);
 
-  const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
-    FormFields: FormFieldsSchema,
-  });
-
-  return IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
+  return PaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
 }
 
 // Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
 export const VIRTUAL_INTAKE_PAPERWORK_CONFIG = getIntakePaperworkVirtualConfig();
 
 export const VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(VIRTUAL_INTAKE_PAPERWORK_CONFIG)));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(VIRTUAL_INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)));
 
 // Export the config factory function for test use
 export { getIntakePaperworkVirtualConfig };

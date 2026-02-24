@@ -1,0 +1,63 @@
+import z from 'zod';
+
+/**
+ * EmailPaletteSchema - Color palette for branded emails
+ */
+export const EmailPaletteSchema = z.object({
+  deemphasizedText: z.string().min(1, { message: 'Deemphasized text color cannot be empty' }),
+  headerText: z.string().min(1, { message: 'Header text color cannot be empty' }),
+  bodyText: z.string().min(1, { message: 'Body text color cannot be empty' }),
+  footerText: z.string().min(1, { message: 'Footer text color cannot be empty' }),
+  buttonColor: z.string().min(1, { message: 'Button color cannot be empty' }),
+});
+
+export type EmailPalette = z.infer<typeof EmailPaletteSchema>;
+
+/**
+ * EmailConfigSchema - Email branding configuration
+ */
+export const EmailConfigSchema = z.object({
+  logoURL: z.string().optional(),
+  sender: z.string().email(),
+  replyTo: z.string().email().optional(),
+  palette: EmailPaletteSchema,
+});
+
+export type EmailConfig = z.infer<typeof EmailConfigSchema>;
+
+/**
+ * LogoConfigSchema - Logo URLs for different contexts
+ */
+export const LogoConfigSchema = z.object({
+  default: z.string().optional(),
+  email: z.string().optional(),
+  pdf: z.string().optional(),
+});
+
+export type LogoConfig = z.infer<typeof LogoConfigSchema>;
+
+/**
+ * IntakeBrandingSchema - Intake-specific branding options
+ */
+export const IntakeBrandingSchema = z.object({
+  appBar: z.object({
+    logoutButtonTextColor: z.string().min(1, { message: 'AppBar logout button color cannot be empty' }),
+  }),
+});
+
+export type IntakeBranding = z.infer<typeof IntakeBrandingSchema>;
+
+/**
+ * BrandingConfig - Global branding configuration
+ * Defines project name, logos, email styling, and app-specific branding
+ */
+export const BrandingConfigSchema = z.object({
+  projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
+  projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
+  primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
+  email: EmailConfigSchema,
+  logo: LogoConfigSchema,
+  intake: IntakeBrandingSchema.optional(),
+});
+
+export type BrandingConfig = z.infer<typeof BrandingConfigSchema>;

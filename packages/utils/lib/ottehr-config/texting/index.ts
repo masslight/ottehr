@@ -1,35 +1,7 @@
-import _ from 'lodash';
+import { TextingConfigSchema } from 'ottehr-types';
 import { BRANDING_CONFIG, replaceTemplateVariablesArrows } from 'utils';
-import { z } from 'zod';
 import { TEXTING_OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-
-const I18nQuickTextSchema = z.object({
-  english: z.string(),
-  spanish: z.string().optional(),
-  when: z
-    .object({
-      appointmentTypes: z.array(z.string()).optional(),
-    })
-    .optional(),
-});
-
-const TextingConfigSchema = z.object({
-  invoicing: z.object({
-    smsMessage: z.string(),
-    stripeMemoMessage: z.string(),
-    dueDateInDays: z.number(),
-  }),
-
-  telemed: z.object({
-    inviteSms: z.string(),
-    quickTexts: z.array(z.string()),
-  }),
-
-  inPerson: z.object({
-    quickTexts: z.array(I18nQuickTextSchema),
-  }),
-});
 
 const TEXTING_DEFAULTS_BASE = Object.freeze({
   invoicing: {

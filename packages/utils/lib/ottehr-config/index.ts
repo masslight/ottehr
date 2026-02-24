@@ -19,6 +19,5 @@ export * from './patient-record';
 export * from './radiology';
 export * from './sendgrid';
 export * from './texting';
-export * from './types';
 export * from './vitals';
 export * from './procedures';

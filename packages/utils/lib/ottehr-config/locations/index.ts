@@ -1,45 +1,21 @@
-import * as z from 'zod';
+import { type LocationConfig, LocationConfigSchema } from 'ottehr-types';
 import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const overrides = OVERRIDES || {};
 
-const LOCATION_DEFAULTS = {
+const LOCATION_DEFAULTS: LocationConfig = {
   inPersonLocations: [{ name: 'New York' }, { name: 'Los Angeles' }],
   telemedLocations: [{ name: 'Telemed New Jersey' }, { name: 'Telemed Ohio' }],
   supportPhoneNumber: '(202) 555-1212',
-  locationSupportPhoneNumberMap: {} as Record<string, string>,
+  locationSupportPhoneNumberMap: {},
   supportScheduleGroups: [],
-} as const;
+};
 
-function getLocationConfig(testOverrides: any = overrides): any {
+function getLocationConfig(testOverrides: Partial<LocationConfig> = overrides): LocationConfig {
   const mergedLocationConfig = mergeAndFreezeConfigObjects(LOCATION_DEFAULTS, testOverrides);
-
   return LocationConfigSchema.parse(mergedLocationConfig);
 }
-
-const locationArraySchema = z.array(
-  z.object({
-    name: z.string().min(1, { message: 'Location name cannot be empty' }),
-  })
-);
-
-const LocationConfigSchema = z.object({
-  inPersonLocations: locationArraySchema,
-  telemedLocations: locationArraySchema,
-  supportPhoneNumber: z.string().optional(),
-  locationSupportPhoneNumberMap: z.record(z.string().min(1), z.string().min(1)).optional(),
-  supportScheduleGroups: z
-    .array(
-      z.object({
-        hours: z.string().min(1),
-        locations: z.array(z.string().min(1)),
-      })
-    )
-    .optional(),
-});
-
-export type LocationConfig = z.infer<typeof LocationConfigSchema>;
 
 // Export the config directly (no proxy needed - static config for support contact display)
 export const LOCATION_CONFIG = getLocationConfig();
