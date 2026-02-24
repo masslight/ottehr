@@ -31,7 +31,9 @@ export function useRespirationRateLocalState(): RespirationRateLocalState {
 
   const getDTO = useCallback((): VitalsRespirationRateObservationDTO | null => {
     const respRateValueNumber = textToRespirationRateNumber(respirationRateValueText);
-    if (!respRateValueNumber) return null;
+
+    if (respRateValueNumber === undefined) return null;
+
     return {
       field: VitalFieldNames.VitalRespirationRate,
       value: respRateValueNumber,
