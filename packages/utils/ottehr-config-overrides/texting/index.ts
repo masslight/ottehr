@@ -1,1 +1,1 @@
-export const TEXTING_OVERRIDES = {};
+export const TEXTING_OVERRIDES = {} as const;

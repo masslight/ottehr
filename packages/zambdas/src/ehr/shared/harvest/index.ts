@@ -1,4 +1,5 @@
 import Oystehr, {
+  BatchInputDeleteRequest,
   BatchInputPatchRequest,
   BatchInputPostRequest,
   BatchInputPutRequest,
@@ -38,6 +39,7 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  ATTORNEY_FIRM_EXTENSION_URL,
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
   ConsentSigner,
@@ -59,6 +61,7 @@ import {
   FHIR_BASE_URL,
   FHIR_EXTENSION,
   FileDocDataForDocReference,
+  filterHiddenRemovableFields,
   filterQuestionnaireResponseByEnableWhen,
   flattenIntakeQuestionnaireItems,
   flattenItems,
@@ -87,6 +90,7 @@ import {
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
   IntakeQuestionnaireItem,
+  isFieldExplicitlyCleared,
   isoStringFromDateComponents,
   isValidUUID,
   makeSSNIdentifier,
@@ -2232,18 +2236,23 @@ const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams
 
 const getOccupationalMedicineEmployerInformation = (
   items: QuestionnaireResponseItem[]
-): { occupationalMedicineEmployerReference: Reference } | undefined => {
-  const getAnswerReference = (linkId: string): Reference | undefined =>
-    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueReference;
+): { occupationalMedicineEmployerReference: Reference | null; explicitlyCleared: boolean } | undefined => {
+  const item = items.find((item) => item.linkId === 'occupational-medicine-employer');
 
-  const occupationalMedicineEmployerReference = getAnswerReference('occupational-medicine-employer');
-
-  if (!occupationalMedicineEmployerReference) {
+  // If the field is not in the response at all, return undefined (field not touched)
+  if (!item) {
     return undefined;
   }
 
+  // Check if field was explicitly cleared (present with empty answer array)
+  const explicitlyCleared = isFieldExplicitlyCleared(item);
+
+  // Get the reference value
+  const occupationalMedicineEmployerReference = item.answer?.[0]?.valueReference;
+
   return {
-    occupationalMedicineEmployerReference,
+    occupationalMedicineEmployerReference: occupationalMedicineEmployerReference || null,
+    explicitlyCleared,
   };
 };
 
@@ -2353,16 +2362,16 @@ const buildAttorneyRelatedPerson = (
   const givenNames = details.firstName ? [details.firstName] : [];
   const familyName = details.lastName;
 
-  const firmExtensionUrl = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
   const firmExtension = details.firm
     ? {
-        url: firmExtensionUrl,
+        url: ATTORNEY_FIRM_EXTENSION_URL,
         valueString: details.firm,
       }
     : undefined;
 
   // Preserve existing extensions, but update or add the firm extension
-  const existingExtensions = existingRelatedPerson?.extension?.filter((ext) => ext.url !== firmExtensionUrl) || [];
+  const existingExtensions =
+    existingRelatedPerson?.extension?.filter((ext) => ext.url !== ATTORNEY_FIRM_EXTENSION_URL) || [];
   const extensions = firmExtension
     ? [...existingExtensions, firmExtension]
     : existingExtensions.length
@@ -2603,6 +2612,7 @@ export interface GetAccountOperationsOutput {
   workersCompAccountPut?: BatchInputPutRequest<Account>;
   occupationalMedicineAccountPost?: Account;
   occupationalMedicineAccountPut?: BatchInputPutRequest<Account>;
+  occupationalMedicineAccountDelete?: BatchInputDeleteRequest;
   attorneyRelatedPersonPost?: BatchInputPostRequest<RelatedPerson>;
   attorneyRelatedPersonPut?: BatchInputPutRequest<RelatedPerson>;
 }
@@ -2639,9 +2649,12 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const employerInformation = getEmployerInformation(flattenedItems);
   const occupationalMedicineEmployerInformation = getOccupationalMedicineEmployerInformation(flattenedItems);
   let occupationalMedicineEmployerReference;
+  let shouldClearOccupationalMedicineEmployer = false;
   if (occupationalMedicineEmployerInformation) {
     occupationalMedicineEmployerReference =
       occupationalMedicineEmployerInformation.occupationalMedicineEmployerReference;
+    // Use the explicit cleared flag to determine if we should delete
+    shouldClearOccupationalMedicineEmployer = occupationalMedicineEmployerInformation.explicitlyCleared;
   }
   const attorneyInformation = getAttorneyInformation(flattenedItems);
   /*console.log(
@@ -2672,6 +2685,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   let workersCompAccountPut: BatchInputPutRequest<Account> | undefined;
   let occupationalMedicineAccountPost: Account | undefined;
   let occupationalMedicineAccountPut: BatchInputPutRequest<Account> | undefined;
+  let occupationalMedicineAccountDelete: BatchInputDeleteRequest | undefined;
   let attorneyRelatedPersonPost: BatchInputPostRequest<RelatedPerson> | undefined;
   let attorneyRelatedPersonPut: BatchInputPutRequest<RelatedPerson> | undefined;
 
@@ -3001,7 +3015,13 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     }
   }
 
-  if (occupationalMedicineEmployerReference?.reference) {
+  if (shouldClearOccupationalMedicineEmployer && existingOccupationalMedicineAccount?.id) {
+    // Field was explicitly cleared - delete the existing account
+    occupationalMedicineAccountDelete = {
+      method: 'DELETE',
+      url: `Account/${existingOccupationalMedicineAccount.id}`,
+    };
+  } else if (occupationalMedicineEmployerReference?.reference) {
     const occupationalMedicineAccountResource = buildEmployerAccountResource({
       patientId: patient.id!,
       existingAccount: existingOccupationalMedicineAccount,
@@ -3057,6 +3077,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     workersCompAccountPut,
     occupationalMedicineAccountPost,
     occupationalMedicineAccountPut,
+    occupationalMedicineAccountDelete,
     attorneyRelatedPersonPost,
     attorneyRelatedPersonPut,
   };
@@ -3988,17 +4009,24 @@ export interface UpdatePatientAccountInput {
   patientId: string;
   questionnaireResponseItem: QuestionnaireResponse['item'];
   preserveOmittedCoverages?: boolean;
+  questionnaireForEnableWhenFiltering?: Questionnaire;
 }
 
 export const updatePatientAccountFromQuestionnaire = async (
   input: UpdatePatientAccountInput,
   oystehr: Oystehr
 ): Promise<Bundle> => {
-  const { patientId, questionnaireResponseItem, preserveOmittedCoverages } = input;
+  const { patientId, questionnaireResponseItem, preserveOmittedCoverages, questionnaireForEnableWhenFiltering } = input;
 
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+  let flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItem as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
+
+  // Remove hidden removable fields based on enableWhen conditions
+  // This prevents accidental deletion when field is just hidden (not explicitly cleared)
+  if (questionnaireForEnableWhenFiltering) {
+    flattenedPaperwork = filterHiddenRemovableFields(flattenedPaperwork, questionnaireForEnableWhenFiltering);
+  }
 
   // get insurance additional information
   const insuranceOrgs = [];
@@ -4063,6 +4091,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     workersCompAccountPut,
     occupationalMedicineAccountPost,
     occupationalMedicineAccountPut,
+    occupationalMedicineAccountDelete,
     attorneyRelatedPersonPost,
     attorneyRelatedPersonPut,
   } = accountOperations;
@@ -4089,6 +4118,9 @@ export const updatePatientAccountFromQuestionnaire = async (
   }
   if (occupationalMedicineAccountPut) {
     transactionRequests.push(occupationalMedicineAccountPut);
+  }
+  if (occupationalMedicineAccountDelete) {
+    transactionRequests.push(occupationalMedicineAccountDelete);
   }
   if (accountPost) {
     transactionRequests.push({

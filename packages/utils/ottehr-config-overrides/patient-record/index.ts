@@ -1,1 +1,1 @@
-export const PATIENT_RECORD_OVERRIDES = {} as any;
+export const PATIENT_RECORD_OVERRIDES = {} as const;

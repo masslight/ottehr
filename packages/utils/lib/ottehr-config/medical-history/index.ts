@@ -2,7 +2,7 @@ import { MEDICAL_HISTORY_OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { MedicalHistoryConfig, validateMedicalHistoryConfig } from './medical-history.schema';
 
-const MEDICAL_HISTORY_DEFAULTS: MedicalHistoryConfig = {
+const MEDICAL_HISTORY_DEFAULTS = {
   medicalConditions: {
     favorites: [
       {
@@ -169,7 +169,7 @@ const MEDICAL_HISTORY_DEFAULTS: MedicalHistoryConfig = {
       },
       {
         name: 'Rocephin',
-        strength: '1 gm',
+        strength: '1 g',
         id: 30900,
       },
       {
@@ -177,13 +177,47 @@ const MEDICAL_HISTORY_DEFAULTS: MedicalHistoryConfig = {
         strength: '500 mg',
         id: 30901,
       },
+    ],
+  },
+  inHouseMedications: {
+    favorites: [
       {
-        name: 'Rocephin',
-        id: 30901,
+        name: 'Acetaminophen - Adult',
+        dose: 650,
+        units: 'mg',
+        route: '26643006',
+        instructions: 'Take 2 tablets (325 mg each) by mouth every 6 hours as needed for pain or fever.',
+        dosespotId: 23170,
+      },
+      {
+        name: 'Albuterol - Adult',
+        dose: 2.5,
+        units: 'mg',
+        route: '447694001',
+        instructions:
+          'Inhale 1 vial (2.5 mg/3 mL) via nebulizer every 4–6 hours as needed for shortness of breath or wheezing.',
+        dosespotId: 29518,
+      },
+      {
+        name: 'Albuterol - Pediatric',
+        dose: 1.25,
+        units: 'mg',
+        route: '447694001',
+        instructions:
+          'Inhale 1 vial (1.25 mg/3 mL) via nebulizer every 4–6 hours as needed for shortness of breath or wheezing.',
+        dosespotId: 29518,
+      },
+      {
+        name: 'Amoxicillin - Adult',
+        dose: 500,
+        units: 'mg',
+        route: '26643006',
+        instructions: 'Take 1 capsule by mouth every 12 hours for 10 days until finished.',
+        dosespotId: 34220,
       },
     ],
   },
-};
+} as const satisfies MedicalHistoryConfig;
 
 const mergedMedicalHistoryConfig = mergeAndFreezeConfigObjects(
   MEDICAL_HISTORY_DEFAULTS,

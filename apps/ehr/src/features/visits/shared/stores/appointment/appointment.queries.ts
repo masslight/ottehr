@@ -28,13 +28,14 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   AISuggestionNotesInput,
   APIError,
+  BillingSuggestionInput,
   CancelMatchUnsolicitedResultTask,
-  CPTCodeDTO,
   CPTSearchRequestParams,
   createSmsModel,
-  DiagnosisDTO,
   filterResources,
   FinalizeUnsolicitedResultMatch,
+  GetCreateInHouseLabOrderResourcesInput,
+  GetCreateInHouseLabOrderResourcesOutput,
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
@@ -57,6 +58,7 @@ import {
   INVENTORY_MEDICATION_TYPE_CODE,
   LabOrderResourcesRes,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MeetingData,
   ProcedureDetail,
   PromiseReturnType,
@@ -339,6 +341,28 @@ export const useGetCreateExternalLabResources = ({
   });
 };
 
+export const useGetCreateInHouseLabResources = ({
+  encounterId,
+}: GetCreateInHouseLabOrderResourcesInput): UseQueryResult<GetCreateInHouseLabOrderResourcesOutput | null, Error> => {
+  const apiClient = useOystehrAPIClient();
+  return useQuery({
+    queryKey: ['inhouse lab resource search', encounterId],
+
+    queryFn: async () => {
+      const res = await apiClient?.getCreateInHouseLabOrderResources({ encounterId });
+      if (res) {
+        return res;
+      } else {
+        return null;
+      }
+    },
+
+    enabled: Boolean(apiClient),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+};
+
 export function useDisplayUnsolicitedResultsIcon(
   input: GetUnsolicitedResultsIconStatusInput
 ): UseQueryResult<GetUnsolicitedResultsIconStatusOutput | null, Error> {
@@ -603,13 +627,13 @@ export const useAiSuggestionNotes = () => {
 export const useRecommendBillingSuggestions = () => {
   const apiClient = useOystehrAPIClient();
   return useMutation({
-    mutationFn: (props: { diagnoses: DiagnosisDTO[] | undefined; billing: CPTCodeDTO[] | undefined }) => {
+    mutationFn: (props: BillingSuggestionInput) => {
       if (!apiClient) {
         throw new Error('api client is not defined');
       }
       return apiClient.recommendBillingSuggestions(props);
     },
-    retry: 2,
+    retry: 0,
   });
 };
 
@@ -717,7 +741,7 @@ export const useSavePatientInstruction = () => {
   const apiClient = useOystehrAPIClient();
 
   return useMutation({
-    mutationFn: (instruction: { text: string }) => {
+    mutationFn: (instruction: { text?: string; title?: string }) => {
       if (apiClient) {
         return apiClient.savePatientInstruction(instruction);
       }
@@ -957,25 +981,36 @@ export const useGetMedicationOrders = (
   });
 };
 
-const emptyMedications: Record<string, string> = {};
+type MedicationListData = {
+  idToName: Record<string, string>;
+  idToMedispanCode: Record<string, string>;
+};
+
+const emptyMedicationListData: MedicationListData = {
+  idToName: {},
+  idToMedispanCode: {},
+};
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMedicationList = () => {
   const { oystehr } = useApiClients();
 
-  const getMedicationIdentifierNames = (data: Medication[]): Record<string, string> => {
-    return (data || []).reduce(
-      (acc, entry) => {
-        const identifier = entry.identifier?.find((id: Coding) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
-
-        if (identifier?.value && entry.id) {
-          acc[entry.id] = identifier.value;
-        }
-
-        return acc;
-      },
-      {} as Record<string, string>
-    );
+  const buildMedicationListData = (data: Medication[]): MedicationListData => {
+    const idToName: Record<string, string> = {};
+    const idToMedispanCode: Record<string, string> = {};
+    for (const entry of data || []) {
+      const identifier = entry.identifier?.find((id: Coding) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
+      if (identifier?.value && entry.id) {
+        idToName[entry.id] = identifier.value;
+      }
+      const medispanCoding = entry.code?.coding?.find(
+        (c: Coding) => c.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      );
+      if (medispanCoding?.code && entry.id) {
+        idToMedispanCode[entry.id] = medispanCoding.code;
+      }
+    }
+    return { idToName, idToMedispanCode };
   };
 
   const queryResult = useQuery({
@@ -983,14 +1018,14 @@ export const useGetMedicationList = () => {
 
     queryFn: async () => {
       if (!oystehr) {
-        return emptyMedications;
+        return emptyMedicationListData;
       }
       const data = await oystehr.fhir.search<Medication>({
         resourceType: 'Medication',
         params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
       });
 
-      return getMedicationIdentifierNames(data.unbundle());
+      return buildMedicationListData(data.unbundle());
     },
 
     placeholderData: keepPreviousData,

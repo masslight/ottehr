@@ -39,7 +39,7 @@ const ConsentFormsConfigSchema = z.object({
 export type ConsentFormConfig = z.infer<typeof ConsentFormSchema>;
 export type ConsentFormsConfig = z.infer<typeof ConsentFormsConfigSchema>;
 
-const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
+const DEFAULT_CONSENT_FORMS = {
   forms: [
     {
       id: 'hipaa-acknowledgement',
@@ -88,7 +88,7 @@ const DEFAULT_CONSENT_FORMS: ConsentFormsConfig = {
       createsConsentResource: true,
     },
   ],
-};
+} as const satisfies ConsentFormsConfig;
 
 const mergedConsentFormsConfig = mergeAndFreezeConfigObjects(DEFAULT_CONSENT_FORMS, CONSENT_FORMS_OVERRIDE);
 

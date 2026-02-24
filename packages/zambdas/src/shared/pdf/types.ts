@@ -627,7 +627,7 @@ export interface CptCodes extends PdfData {
 }
 
 export interface PlanData extends PdfData {
-  patientInstructions?: string[];
+  patientInstructions?: { text?: string; title?: string }[];
   disposition: {
     header: string;
     text: string;
@@ -779,6 +779,15 @@ export interface EmployerInfo extends PdfData {
   fax: string;
 }
 
+export interface AttorneyInfo extends PdfData {
+  firm: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  fax: string;
+}
+
 export interface consentFormsInfo extends PdfData {
   isSigned: boolean;
   signature: string;
@@ -806,6 +815,7 @@ export interface VisitDetailsInput {
   guarantorResource?: RelatedPerson | Patient;
   documents: DocumentReference[];
   emergencyContactResource?: RelatedPerson;
+  attorneyRelatedPerson?: RelatedPerson;
   employerOrganization?: Organization;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
@@ -867,6 +877,10 @@ export interface EmergencyContactDataInput {
 
 export interface EmployerDataInput {
   employer?: Organization;
+}
+
+export interface AttorneyDataInput {
+  attorneyRelatedPerson?: RelatedPerson;
 }
 
 export interface PatientPaymentsDataInput {
@@ -980,6 +994,7 @@ export interface VisitDetailsData extends PdfData {
   insurances: InsuranceInfo;
   responsibleParty: ResponsiblePartyInfo;
   emergencyContact: EmergencyContactInfo;
+  attorney: AttorneyInfo;
   employer: EmployerInfo;
   consentForms: consentFormsInfo;
   documents: Documents;
@@ -1040,4 +1055,29 @@ export interface ProgressNoteData extends PdfData {
 export interface DischargeSummaryInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
+}
+
+export interface DischargeSummaryData extends PdfData {
+  patient: PatientInfoForDischargeSummary;
+  visit: VisitInfo;
+  vitals: VitalsDataInDischargeSummary;
+  medications: MedicationsData;
+  allergies: AllergiesData;
+  inHouseLabs?: InHouseLabs;
+  externalLabs?: ExternalLabs;
+  radiology: RadiologyData;
+  inHouseMedications: InHouseMedicationsDataForDischargeSummary;
+  erxMedications?: ErxMedicationsData;
+  diagnoses?: DiagnosesData;
+  patientInstructions?: PatientInstructionsData;
+  educationDocuments?: EducationDocumentsData;
+  disposition: DispositionData;
+  physician: PhysicianData;
+  workSchoolExcuse?: WorkSchoolExcuseData;
+  documentsAttached?: boolean;
+}
+export interface MedicationHistoryInput extends PdfData {
+  patient: PatientInfoForDischargeSummary; // all this is pretty generic actually
+  visit: VisitInfo;
+  medications: MedicationsData;
 }

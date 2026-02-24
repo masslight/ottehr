@@ -351,3 +351,23 @@ export const WORKERS_COMP_SERVICE_REQUEST_CATEGORY = {
   code: 'workers-comp',
   display: `Worker's compensation`,
 };
+
+export const LAB_LIST_CODING_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/lab-test-item-set';
+export const LAB_LIST_CODE_CODING = {
+  external: {
+    system: LAB_LIST_CODING_SYSTEM,
+    code: 'external-labs',
+  },
+  inHouse: {
+    system: LAB_LIST_CODING_SYSTEM,
+    code: 'in-house-labs',
+  },
+};
+
+export const LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/orderable-item-search-fields';
+export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {
+  labGuid: 'https://fhir.ottehr.com/Extension/search-field-labGuid',
+  itemCode: 'https://fhir.ottehr.com/Extension/search-field-itemCode',
+} as const;
+export type LabListSearchFieldKey = keyof typeof LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL;

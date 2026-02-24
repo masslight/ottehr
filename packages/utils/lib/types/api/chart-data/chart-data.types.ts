@@ -58,7 +58,6 @@ export interface AllChartValues {
   disposition?: DispositionDTO;
   episodeOfCare?: HospitalizationDTO[];
   diagnosis?: DiagnosisDTO[];
-  aiPotentialDiagnosis?: DiagnosisDTO[];
   patientInfoConfirmed?: BooleanValueDTO;
   addToVisitNote?: BooleanValueDTO;
   addendumNote?: FreeTextNoteDTO;
@@ -94,8 +93,7 @@ export type RequestedFields =
   | 'inhouseMedications'
   | 'observations'
   | 'preferredPharmacies'
-  | 'reasonForVisit'
-  | 'aiPotentialDiagnosis';
+  | 'reasonForVisit';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -311,6 +309,7 @@ export type ClinicalImpressionDTO = z.infer<typeof clinicalImpressionDTOSchema>;
 
 export interface CommunicationDTO extends SaveableDTO {
   text?: string;
+  title?: string;
 }
 
 export enum NOTE_TYPE {
@@ -465,6 +464,37 @@ export const followUpInOptions = [
     value: 0,
   },
 ];
+
+export interface BillingSuggestionInput {
+  newPatient: boolean | undefined;
+  hpi: string;
+  mdm: string;
+  externalLabOrders: string;
+  internalLabOrders: string;
+  radiologyOrders: any;
+  procedures: any;
+  diagnoses: DiagnosisDTO[] | undefined;
+  billing: CPTCodeDTO[] | undefined;
+}
+
+export interface BillingSuggestionOutput {
+  icdCodes: {
+    code: string;
+    description: string;
+    reason: string;
+  }[];
+  cptCodes: {
+    code: string;
+    description: string;
+    reason: string;
+  }[];
+  emCode: {
+    code: string;
+    description: string;
+    upcodingSuggestion: string;
+  }[];
+  codingSuggestions: string;
+}
 
 export interface ProcedureDTO extends SaveableDTO {
   procedureType?: string;

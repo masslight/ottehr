@@ -10,8 +10,11 @@ import {
 import { evaluate } from 'fhirpath';
 import {
   CODE_SYSTEM_CPT,
+  CODE_SYSTEM_CPT_MODIFIER,
   CodeableConceptComponent,
+  CPTCodeDTO,
   DiagnosisDTO,
+  EXTENSION_URL_CPT_MODIFIER,
   IN_HOUSE_LAB_DISPLAY_TYPES,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
@@ -27,10 +30,11 @@ import {
   REFLEX_TEST_CONDITION_LANGUAGES,
   REFLEX_TEST_CONDITION_URL,
   REFLEX_TEST_LOGIC_URL,
-  REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG,
   REFLEX_TEST_TO_RUN_NAME_URL,
   REFLEX_TEST_TO_RUN_URL,
   REFLEX_TEST_TRIGGERED_URL,
+  REPEAT_TEST_CPT_CODE_MODIFIER,
+  REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   StringComponent,
   TestComponentResult,
@@ -254,11 +258,6 @@ export const convertActivityDefinitionToTestItem = (
 ): TestItem => {
   const name = activityDef.name || '';
 
-  const cptCode =
-    activityDef.code?.coding
-      ?.filter((coding) => coding.system === CODE_SYSTEM_CPT)
-      .map((coding) => coding.code || '') || [];
-
   const repeatable = !!activityDef?.extension?.find((ext) => ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url);
 
   const methods: {
@@ -340,20 +339,30 @@ export const convertActivityDefinitionToTestItem = (
   const orderedAsRepeat = serviceRequest
     ? !!serviceRequest.meta?.tag?.some(
         (t) =>
-          t.system === REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG.system && t.code === REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG.code
+          t.system === REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.system && t.code === REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.code
       )
     : false;
+
+  const cptCodes = makeCptCodeDTOsFromActivityDefinition(activityDef, orderedAsRepeat);
+
+  const isReflexTest = activityDefinitionIsReflexTest(activityDef);
+
+  const orderMode: TestItem['orderMode'] = (() => {
+    if (orderedAsRepeat) return 'repeat';
+    if (isReflexTest) return 'reflex';
+    return 'standard';
+  })();
 
   const testItem: TestItem = {
     name,
     methods,
     repeatable,
-    orderedAsRepeat,
+    orderMode,
     method: Object.keys(methods).join(' or '),
     device: Object.values(methods)
       .map((m) => m.device)
       .join(' or '),
-    cptCode,
+    cptCode: cptCodes,
     components: {
       groupedComponents,
       radioComponents,
@@ -361,10 +370,56 @@ export const convertActivityDefinitionToTestItem = (
     reflexAlert,
     adUrl: activityDef.url,
     adVersion: activityDef.version,
+    adId: activityDef.id ?? 'unknown',
   };
 
   console.log('successfully converted activity ActivityDefinition to testItem format for', testItem.name);
   return testItem;
+};
+
+const makeCptCodeDTOsFromActivityDefinition = (
+  activityDefinition: ActivityDefinition,
+  isRepeat: boolean
+): CPTCodeDTO[] => {
+  const cptCodeDTOs: CPTCodeDTO[] = [];
+
+  const cptCodeCodings = activityDefinition.code?.coding?.filter((coding) => coding.system === CODE_SYSTEM_CPT);
+
+  cptCodeCodings?.forEach((coding) => {
+    const modifierExts = coding.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER);
+    const modifiers = configModifiersArrayFromExtension(modifierExts);
+
+    const dto: CPTCodeDTO = {
+      code: coding.code || 'unknown',
+      display: activityDefinition.name || 'unknown',
+      modifier: modifiers,
+    };
+
+    cptCodeDTOs.push(dto);
+  });
+
+  if (isRepeat) {
+    cptCodeDTOs.push(REPEAT_TEST_CPT_CODE_MODIFIER);
+  }
+
+  return cptCodeDTOs;
+};
+
+const configModifiersArrayFromExtension = (modifierExtension: Extension[] | undefined): string[] | undefined => {
+  if (modifierExtension === undefined || modifierExtension.length === 0) return;
+
+  const modifiers: string[] = [];
+  modifierExtension.forEach((ext) => {
+    ext.valueCodeableConcept?.coding?.forEach((c) => {
+      if (c.system === CODE_SYSTEM_CPT_MODIFIER && typeof c.code === 'string') {
+        modifiers.push(c.code);
+      }
+    });
+  });
+
+  if (modifiers.length === 0) return;
+
+  return modifiers;
 };
 
 export const resourceIsBasedOnServiceRequest = (

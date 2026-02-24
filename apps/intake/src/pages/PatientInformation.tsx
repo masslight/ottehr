@@ -21,7 +21,7 @@ import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog } from '../components/ErrorDialog';
 import { PatientInformationKnownPatientFieldsDisplay } from '../features/patients';
-import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
+import { ACTIVE_SLOT_ID_KEY, PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 interface ErrorDialogConfig {
   title: string;
@@ -46,7 +46,7 @@ export const PatientInfoCollection: FC = () => {
     isRefetching,
     isSuccess,
   } = useQuery({
-    queryKey: ['get-booking-questionnaire', { zambdaClient, slotId }],
+    queryKey: ['get-booking-questionnaire', { zambdaClient, slotId, patientId: patientInfo?.id }],
     queryFn: async () => {
       if (!zambdaClient) throw new Error('Zambda client not initialized');
       if (!slotId) throw new Error('slotId is required');
@@ -64,15 +64,18 @@ export const PatientInfoCollection: FC = () => {
 
   const { allItems, questionnaireResponse: prepopulatedQuestionnaire } = questionnaireData || {};
 
+  console.log('questionnaireData', questionnaireData);
+
   // Clear sessionStorage when slotId changes to prevent stale data
   useEffect(() => {
-    if (slotId) {
-      const storedData = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
-      if (storedData) {
-        console.log('[PATIENT_INFO] Clearing sessionStorage for new slotId:', slotId);
-        sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
-      }
+    const activeSlotId = sessionStorage.getItem(ACTIVE_SLOT_ID_KEY);
+
+    if (!slotId || activeSlotId === slotId) {
+      return;
     }
+
+    sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
+    sessionStorage.setItem(ACTIVE_SLOT_ID_KEY, slotId);
   }, [slotId]);
 
   const pages = useMemo(() => {

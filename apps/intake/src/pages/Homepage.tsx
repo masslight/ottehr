@@ -156,7 +156,7 @@ const Homepage = (): JSX.Element => {
   const showScheduleVirtualOption = homepageOptions.includes(HomepageOptions.ScheduleVirtualVisit);
   const showStartVirtualOption = homepageOptions.includes(HomepageOptions.StartVirtualVisit);
   const showScheduleInPersonOption = homepageOptions.includes(HomepageOptions.ScheduleInPersonVisit);
-  const showStartInPersonOption = homepageOptions.includes(HomepageOptions.StartInPersonVisit);
+  const showStartInPersonOption = homepageOptions.includes(HomepageOptions.StartInPersonVisit as any);
 
   return (
     <CustomContainer title={`Welcome to ${BRANDING_CONFIG.projectName}`} description="" isFirstPage={true}>

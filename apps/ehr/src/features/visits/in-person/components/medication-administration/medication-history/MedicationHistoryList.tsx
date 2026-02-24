@@ -1,5 +1,6 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Paper,
@@ -16,13 +17,16 @@ import React, { useMemo, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { COLLAPSED_MEDS_COUNT, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ButtonStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/ButtonStyled';
+import { usePrintChartData } from 'src/features/visits/shared/hooks/usePrintChartData';
 import { MedicationHistoryEntity } from './MedicationHistoryEntity';
 
 export const MedicationHistoryList: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
 
   const { isLoading, medicationHistory } = useMedicationHistory();
+  const { generateMedicationHistoryPdf, openPdf } = usePrintChartData({});
 
   // todo: need to update react-query and use isInitialLoading
   const showSkeletons = isLoading && medicationHistory.length === 0;
@@ -47,8 +51,37 @@ export const MedicationHistoryList: React.FC = () => {
     return seeMoreOpen ? 'See less' : 'See more';
   };
 
+  const handlePrintMedicationHistoryClick = React.useCallback(async (): Promise<void> => {
+    setPrintLoading(true);
+    try {
+      const medPdfUrl = await generateMedicationHistoryPdf(medicationHistory);
+      console.log('medPdfUrl is', medPdfUrl);
+      if (medPdfUrl) await openPdf(medPdfUrl);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPrintLoading(false);
+    }
+  }, [generateMedicationHistoryPdf, openPdf, medicationHistory]);
+
   return (
-    <AccordionCard label="Medication History" collapsed={isCollapsed} onSwitch={handleToggle}>
+    <AccordionCard
+      label="Medication History"
+      collapsed={isCollapsed}
+      onSwitch={handleToggle}
+      headerItem={
+        <LoadingButton
+          loading={printLoading}
+          variant="outlined"
+          type="button"
+          sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
+          onClick={handlePrintMedicationHistoryClick}
+          disabled={!medicationHistory.length}
+        >
+          Print Medications
+        </LoadingButton>
+      }
+    >
       <Box sx={{ px: 3, py: 1 }}>
         <TableContainer component={Paper} elevation={0}>
           <Table>

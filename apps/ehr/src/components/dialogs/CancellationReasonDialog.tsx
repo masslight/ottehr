@@ -89,12 +89,14 @@ export default function CancellationReasonDialog({
     } finally {
       if (response && !apiErr) {
         await refetchData();
-        await getAndSetResources({ logs: true }).catch((error: any) => {
+        try {
+          await getAndSetResources({ logs: true });
+        } catch (error) {
           console.log('error getting activity logs after cancellation', error);
-        });
-        enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
-          variant: 'error',
-        });
+          enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
+            variant: 'error',
+          });
+        }
         handleClose();
         setError(false);
       } else {

@@ -15,7 +15,6 @@ import {
 } from 'utils';
 import AiSuggestion from '../../in-person/components/AiSuggestion';
 import { PlayRecord } from '../../in-person/components/progress-note/PlayRecord';
-import { useChartFields } from '../hooks/useChartFields';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { Loader } from './Loader';
 import { useAiResourcesPolling } from './useAiResourcesPolling';
@@ -86,12 +85,6 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
 
   const chartDataHasResources = (chartData?.aiChat?.documents?.length ?? 0) > 0;
 
-  const { data: chartDataResources } = useChartFields({
-    requestedFields: {
-      aiPotentialDiagnosis: {},
-    },
-  });
-
   const { isPolling, pollingExhausted, hasInterviewWithoutResources } = useAiResourcesPolling({
     appointment,
     encounter,
@@ -110,8 +103,6 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
   if (pollingExhausted) {
     return <Typography>No AI data available</Typography>;
   }
-
-  const aiPotentialDiagnoses = chartDataResources?.aiPotentialDiagnosis ?? [];
 
   const observations: { [key: string]: ObservationTextFieldDTO[] } = {};
   chartData?.observations?.forEach((observation) => {
@@ -185,28 +176,6 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                 </Container>
               );
             })}
-            {aiPotentialDiagnoses.length > 0 ? (
-              <Box
-                style={{
-                  background: '#E1F5FECC',
-                  borderRadius: '8px',
-                  padding: '8px',
-                }}
-              >
-                <Typography variant="body1" style={{ fontWeight: 700, marginBottom: '8px' }}>
-                  Potential Diagnoses with ICD-10 Codes
-                </Typography>
-                <ul>
-                  {aiPotentialDiagnoses.map((diagnosis) => {
-                    return (
-                      <li key={diagnosis.code}>
-                        <Typography variant="body1">{diagnosis.code + ': ' + diagnosis.display}</Typography>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Box>
-            ) : undefined}
           </Stack>
         </AccordionCard>
       </>

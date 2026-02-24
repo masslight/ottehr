@@ -20,43 +20,10 @@ import {
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
 
-export const BillingCodesContainer: FC = () => {
-  const queryClient = useQueryClient();
-  const { encounter } = useAppointmentData();
+export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPending: boolean } => {
   const { chartData, setPartialChartData } = useChartData();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { mutate: saveCPTChartData, isPending } = useSaveChartData();
   const cptCodes = chartData?.cptCodes || [];
-  const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
-
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const {
-    isFetching: isSearching,
-    data,
-    error: icdSearchError,
-  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
-  const cptSearchOptions = data?.codes || [];
-
-  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
-  const { mutate: saveCPTChartData, isPending: isSaveCPTLoading } = useSaveChartData();
-  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
-  const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
-
-  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId));
-  const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
-
-  const { debounce } = useDebounce(800);
-
-  const debouncedHandleInputChange = (data: string): void => {
-    debounce(() => {
-      setDebouncedSearchTerm(data);
-    });
-  };
-
-  const onInternalChange = (_e: unknown, data: CPTCodeOption | null): void => {
-    if (data) {
-      onAdd(data);
-    }
-  };
 
   const onAdd = (value: CPTCodeOption): void => {
     // Optimistic update
@@ -85,43 +52,18 @@ export const BillingCodesContainer: FC = () => {
     );
   };
 
-  const onDelete = async (resourceId: string): Promise<void> => {
-    const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
-    const prevCodes = [...cptCodes];
-    const queryKey = [CHART_DATA_QUERY_KEY, encounter?.id];
+  return { onAdd, isPending };
+};
 
-    // Cancel any outgoing refetches (from MDM field) to prevent race condition
-    await queryClient.cancelQueries({ queryKey });
-
-    // Optimistic update
-    setPartialChartData(
-      { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
-      { invalidateQueries: false }
-    );
-
-    deleteCPTChartData(
-      {
-        cptCodes: [preparedValue],
-      },
-      {
-        onSuccess: () => {
-          // Get fresh data from cache after cancellation and apply the filter again
-          const currentData = queryClient.getQueryData<any>(queryKey);
-          if (currentData?.cptCodes) {
-            setPartialChartData(
-              { cptCodes: currentData.cptCodes.filter((i: any) => i.resourceId !== resourceId) },
-              { invalidateQueries: false }
-            );
-          }
-        },
-        onError: () => {
-          enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
-          // Rollback to previous state
-          setPartialChartData({ cptCodes: prevCodes });
-        },
-      }
-    );
-  };
+export const useUpdateEMCode = (): {
+  onEMCodeChange: (value: CPTCodeOption | null) => void;
+  isSaveEMLoading: boolean;
+  isDeleteEMLoading: boolean;
+} => {
+  const { chartData, setPartialChartData } = useChartData();
+  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
+  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
+  const emCode = chartData?.emCode;
 
   const onEMCodeChange = (value: CPTCodeOption | null): void => {
     if (value) {
@@ -166,6 +108,83 @@ export const BillingCodesContainer: FC = () => {
         }
       );
     }
+  };
+  return { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading };
+};
+
+export const BillingCodesContainer: FC = () => {
+  const queryClient = useQueryClient();
+  const { encounter } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const cptCodes = chartData?.cptCodes || [];
+  const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
+
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const {
+    isFetching: isSearching,
+    data,
+    error: icdSearchError,
+  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
+  const cptSearchOptions = data?.codes || [];
+
+  const { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading } = useUpdateEMCode();
+  const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
+
+  const { onAdd, isPending: isSaveCPTLoading } = useAddCptCode();
+  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId));
+  const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
+
+  const { debounce } = useDebounce(800);
+
+  const debouncedHandleInputChange = (data: string): void => {
+    debounce(() => {
+      setDebouncedSearchTerm(data);
+    });
+  };
+
+  const onInternalChange = (_e: unknown, data: CPTCodeOption | null): void => {
+    if (data) {
+      onAdd(data);
+    }
+  };
+
+  const onDelete = async (resourceId: string): Promise<void> => {
+    const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
+    const prevCodes = [...cptCodes];
+    const queryKey = [CHART_DATA_QUERY_KEY, encounter?.id];
+
+    // Cancel any outgoing refetches (from MDM field) to prevent race condition
+    await queryClient.cancelQueries({ queryKey });
+
+    // Optimistic update
+    setPartialChartData(
+      { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
+      { invalidateQueries: false }
+    );
+
+    deleteCPTChartData(
+      {
+        cptCodes: [preparedValue],
+      },
+      {
+        onSuccess: () => {
+          // Get fresh data from cache after cancellation and apply the filter again
+          const currentData = queryClient.getQueryData<any>(queryKey);
+          if (currentData?.cptCodes) {
+            setPartialChartData(
+              { cptCodes: currentData.cptCodes.filter((i: any) => i.resourceId !== resourceId) },
+              { invalidateQueries: false }
+            );
+          }
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
+          setPartialChartData({ cptCodes: prevCodes });
+        },
+      }
+    );
   };
 
   const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;

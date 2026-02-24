@@ -120,7 +120,12 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   let resultBundle: Bundle;
   try {
     resultBundle = await updatePatientAccountFromQuestionnaire(
-      { questionnaireResponseItem: items, patientId, preserveOmittedCoverages },
+      {
+        questionnaireResponseItem: items,
+        patientId,
+        preserveOmittedCoverages,
+        questionnaireForEnableWhenFiltering,
+      },
       oystehr
     );
   } catch (e) {

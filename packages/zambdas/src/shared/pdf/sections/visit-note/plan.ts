@@ -13,9 +13,14 @@ import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanData> = ({ allChartData }) => {
   const { chartData, additionalChartData } = allChartData;
-  const patientInstructions: string[] = [];
+  const patientInstructions: { text?: string; title?: string }[] = [];
   chartData?.instructions?.forEach((item) => {
-    if (item.text) patientInstructions.push(item.text);
+    if (item?.text || item?.title) {
+      patientInstructions.push({
+        ...(item.title ? { title: item.title } : {}),
+        ...(item.text ? { text: item.text } : {}),
+      });
+    }
   });
   const disposition = additionalChartData?.disposition;
   let header = 'Disposition - ';
@@ -72,7 +77,7 @@ const hasDisposition = (data: PlanData): boolean =>
   );
 
 const hasPatientInstructions = (data: PlanData): boolean =>
-  Boolean(data.patientInstructions && data.patientInstructions.length);
+  Boolean(data.patientInstructions?.some((item) => item?.text || item?.title));
 
 const hasSubSpecialtyFollowUp = (data: PlanData): boolean =>
   Boolean(data.subSpecialtyFollowup && data.subSpecialtyFollowup.length);
@@ -98,7 +103,8 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
       if (hasPatientInstructions(data)) {
         drawBlockHeader(client, styles, 'Patient instructions', styles.textStyles.blockSubHeader);
         data.patientInstructions?.forEach((instruction) => {
-          drawRegularText(client, styles, instruction);
+          if (instruction.title) drawBlockHeader(client, styles, instruction.title, styles.textStyles.blockSubHeader);
+          if (instruction.text) drawRegularText(client, styles, instruction.text);
         });
         client.drawSeparatedLine(styles.lineStyles.separator);
       }

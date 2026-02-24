@@ -14,8 +14,8 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
 
     let prompt = undefined;
 
+    const { procedureDetails } = details;
     if (type === 'procedure') {
-      const { procedureDetails } = details;
       prompt = `If the procedure material type and quantity are missing, return this message:
       
       "Please specify closure type (e.g. tissue adhesive or surgical staples or sutures); if surgical staples or sutures, specify the material and quantity"
@@ -33,15 +33,23 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       throw new Error('prompt is not defined');
     }
 
-    const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
-    console.log(aiResponseString);
-
     let aiResponseObject;
-    try {
-      aiResponseObject = JSON.parse(aiResponseString);
-    } catch (parseError) {
-      console.warn('Failed to parse AI recommendations response, attempting to fix JSON format:', parseError);
-      aiResponseObject = fixAndParseJsonObjectFromString(aiResponseString);
+    if (procedureDetails) {
+      const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+      console.log(aiResponseString);
+
+      try {
+        aiResponseObject = JSON.parse(aiResponseString);
+      } catch (parseError) {
+        console.warn('Failed to parse AI recommendations response, attempting to fix JSON format:', parseError);
+        aiResponseObject = fixAndParseJsonObjectFromString(aiResponseString);
+      }
+    } else {
+      aiResponseObject = {
+        suggestions: [
+          'Please specify closure type (e.g. tissue adhesive or surgical staples or sutures); if surgical staples or sutures, specify the material and quantity',
+        ],
+      };
     }
 
     return {

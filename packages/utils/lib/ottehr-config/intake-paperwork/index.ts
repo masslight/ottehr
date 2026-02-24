@@ -1983,14 +1983,14 @@ const FormFieldsSchema = z.object({
 
 const hiddenFormSections: string[] = [];
 
-const questionnaireBaseDefaults: QuestionnaireBase = {
+const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
   version: '1.1.6',
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',
-};
+} as const satisfies QuestionnaireBase;
 
 const INTAKE_PAPERWORK_DEFAULTS = {
   questionnaireBase: questionnaireBaseDefaults,
@@ -2005,6 +2005,7 @@ const IntakePaperworkConfigSchema = QuestionnaireConfigSchema.extend({
 });
 
 export const INTAKE_PAPERWORK_CONFIG = IntakePaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
+
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG)));
 
@@ -2017,8 +2018,9 @@ export const checkFieldHidden = (fieldKey: string): boolean => {
 const GetPageSubtitleSchema = z.function().args(z.string(), z.string()).returns(z.string());
 
 let parsedGetPageSubtitle: z.infer<typeof GetPageSubtitleSchema> | undefined;
-if (OVERRIDES.getIntakeFormPageSubtitle != undefined) {
-  parsedGetPageSubtitle = GetPageSubtitleSchema.parse(OVERRIDES.getIntakeFormPageSubtitle);
+
+if ((OVERRIDES as any).getIntakeFormPageSubtitle != undefined) {
+  parsedGetPageSubtitle = GetPageSubtitleSchema.parse((OVERRIDES as any).getIntakeFormPageSubtitle);
 }
 
 export const getIntakeFormPageSubtitle =

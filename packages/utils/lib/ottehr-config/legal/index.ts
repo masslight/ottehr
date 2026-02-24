@@ -5,7 +5,7 @@ import { DisplayTextSchema, LinkDef, LinkDefSchema, TextWithLinkComposition } fr
 
 export type LegalConfigSchemaType = Record<string, TextWithLinkComposition>;
 
-const LEGAL_DEFAULTS: LegalConfigSchemaType = {
+const LEGAL_DEFAULTS = {
   REVIEW_PAGE: [
     {
       keyPath: 'reviewAndSubmit.byProceeding',
@@ -51,7 +51,7 @@ const LEGAL_DEFAULTS: LegalConfigSchemaType = {
       tags: ['terms-and-conditions'],
     },
   ],
-};
+} as const satisfies LegalConfigSchemaType;
 
 const mergedLegalConfig = mergeAndFreezeConfigObjects(LEGAL_DEFAULTS, OVERRIDES);
 

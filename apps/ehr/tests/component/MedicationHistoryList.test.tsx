@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,9 +25,25 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: vi.fn(),
 }));
 
+import { ReactNode } from 'react';
 import { useMedicationHistory } from '../../src/features/visits/in-person/hooks/useMedicationHistory';
 import { useMedicationAPI } from '../../src/features/visits/in-person/hooks/useMedicationOperations';
 import { useGetAppointmentAccessibility } from '../../src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{children}</BrowserRouter>
+    </QueryClientProvider>
+  );
+};
 
 const mockUseMedicationHistory = vi.mocked(useMedicationHistory);
 const mockUseMedicationAPI = vi.mocked(useMedicationAPI);
@@ -98,11 +115,7 @@ describe('MedicationHistoryList - Display Tests', () => {
   });
 
   const renderComponent = (): ReturnType<typeof render> => {
-    return render(
-      <BrowserRouter>
-        <MedicationHistoryList />
-      </BrowserRouter>
-    );
+    return render(<MedicationHistoryList />, { wrapper: createWrapper() });
   };
 
   it('displays medication history', () => {

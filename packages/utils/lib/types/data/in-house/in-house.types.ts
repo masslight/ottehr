@@ -1,5 +1,4 @@
-import { Bundle, FhirResource } from 'fhir/r4b';
-import { DiagnosisDTO, OBSERVATION_CODES, Pagination } from '../..';
+import { CPTCodeDTO, DiagnosisDTO, InHouseLabListDTO, LabListsDTO, OBSERVATION_CODES, Pagination } from 'utils';
 
 export interface TestItemMethods {
   manual?: { device: string };
@@ -72,9 +71,9 @@ export interface TestItem {
   methods: TestItemMethods;
   method: string;
   device: string;
-  cptCode: string[];
-  repeatable: boolean;
-  orderedAsRepeat: boolean;
+  cptCode: CPTCodeDTO[];
+  repeatable: boolean; // this test CAN be run as a repeat test
+  orderMode: 'repeat' | 'reflex' | 'standard';
   components: {
     // todo labs im not sure we ever have an instance where a test has both of these and i think we should assert that in this type
     groupedComponents: TestItemComponent[];
@@ -83,6 +82,7 @@ export interface TestItem {
   reflexAlert: { alert: string; testName: string; canonicalUrl: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
   adUrl: string;
   adVersion: string;
+  adId: string;
   note?: string;
 }
 
@@ -154,25 +154,23 @@ export type GetInHouseOrdersParameters = InHouseOrdersSearchBy &
 
 export type CreateInHouseLabOrderParameters = {
   encounterId: string;
-  testItem: TestItem;
-  cptCode: string;
+  testItems: TestItem[];
   diagnosesAll: DiagnosisDTO[];
   diagnosesNew: DiagnosisDTO[];
-  isRepeatTest: boolean;
   notes?: string;
 };
 
 export type CreateInHouseLabOrderResponse = {
-  transactionResponse: { output: Bundle<FhirResource> };
   saveChartDataResponse: { output: { chartData: { diagnosis: (DiagnosisDTO & { resourceId: string })[] } } };
-  serviceRequestId?: string | undefined;
+  serviceRequestIds: string[];
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { encounterId?: string };
+export type GetCreateInHouseLabOrderResourcesInput = { encounterId?: string; selectedLabSet?: InHouseLabListDTO };
 
-export type GetCreateInHouseLabOrderResourcesResponse = {
+export type GetCreateInHouseLabOrderResourcesOutput = {
   labs: TestItem[];
-  providerName: string;
+  providerName?: string;
+  labSets?: LabListsDTO[] | undefined;
 };
 
 export type CollectInHouseLabSpecimenParameters = {

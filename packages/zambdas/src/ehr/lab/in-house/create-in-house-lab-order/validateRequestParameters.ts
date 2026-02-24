@@ -35,12 +35,8 @@ export function validateRequestParameters(
     throw new Error('Encounter ID is required');
   }
 
-  if (!params.testItem || typeof params.testItem.name !== 'string') {
-    throw new Error('Test item is required and testItem.name must be a string');
-  }
-
-  if (!params.cptCode || typeof params.cptCode !== 'string') {
-    throw new Error('CPT code is required and must be a string');
+  if (!params.testItems) {
+    throw new Error('testItems is required');
   }
 
   if (!params.diagnosesAll || !Array.isArray(params.diagnosesAll)) {
