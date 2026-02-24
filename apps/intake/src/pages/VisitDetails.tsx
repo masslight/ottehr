@@ -91,6 +91,28 @@ const VisitDetailsContent = ({
         </>
       )}
 
+      {data?.files['discharge-summary'] && (
+        <>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+            <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+              Discharge papers
+            </Typography>
+            <Button
+              variant="text"
+              startIcon={<DownloadIcon />}
+              onClick={() => {
+                openExternalLink(data.files['discharge-summary'].presignedUrl || '');
+              }}
+              disabled={!data?.files['discharge-summary'].presignedUrl}
+            >
+              Download PDF
+            </Button>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+        </>
+      )}
+
       {data?.files['statement'] && (
         <>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
