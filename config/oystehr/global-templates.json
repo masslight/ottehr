@@ -49661,6 +49661,126 @@
         ]
       }
     },
+    "AUTOMOBILE_ACCIDENT": {
+      "resource": {
+        "resourceType": "List",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/global-template-in-person",
+              "code": "default",
+              "version": "460ac1c4",
+              "display": "Global Template In-Person"
+            }
+          ]
+        },
+        "status": "current",
+        "mode": "working",
+        "title": "Automobile Accident",
+        "entry": [
+          {
+            "item": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            }
+          },
+          {
+            "item": {
+              "reference": "#204daa70-bd63-44bf-9706-d713d30dcf8d"
+            }
+          }
+        ],
+        "contained": [
+          {
+            "resourceType": "Patient",
+            "id": "91136bab-e0dd-4d86-946f-7a2c98c5bd82",
+            "name": [{
+              "family": "stub",
+              "given": ["placeholder"]
+            }]
+          }, 
+          {
+            "id": "204daa70-bd63-44bf-9706-d713d30dcf8d",
+            "resourceType": "Condition",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "note": [
+              {
+                "text": "How did the injury happen?\n\nWhat body part(s) were injured?\n\nWhat symptoms were noticed immediately after the injury?\n\nWas the patient the driver, passenger, pedestrian, or cyclist?\n\nWhat type of collision occurred?\n\nApproximate speed of vehicle(s)? (If known, otherwise enter 'unknown')\n\nWas the patient wearing a seatbelt?\n\nDid airbags deploy?\n\nDid the patient lose consciousness at any time?"
+              }
+            ],
+            "meta": {
+              "tag": [
+                {
+                  "code": "mechanism-of-injury",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "WORKERS_COMP": {
+      "resource": {
+        "resourceType": "List",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/global-template-in-person",
+              "code": "default",
+              "version": "460ac1c4",
+              "display": "Global Template In-Person"
+            }
+          ]
+        },
+        "status": "current",
+        "mode": "working",
+        "title": "Automobile Accident",
+        "entry": [
+          {
+            "item": {
+              "reference": "#378700a6-c9b8-4a90-8b17-7ca7757c8976"
+            }
+          },
+          {
+            "item": {
+              "reference": "#c670ac5e-9e0a-47ac-8780-77f70069f23a"
+            }
+          }
+        ],
+        "contained": [
+          {
+            "resourceType": "Patient",
+            "id": "378700a6-c9b8-4a90-8b17-7ca7757c8976",
+            "name": [{
+              "family": "stub",
+              "given": ["placeholder"]
+            }]
+          }, 
+          {
+            "id": "c670ac5e-9e0a-47ac-8780-77f70069f23a",
+            "resourceType": "Condition",
+            "subject": {
+              "reference": "#378700a6-c9b8-4a90-8b17-7ca7757c8976"
+            },
+            "note": [
+              {
+                "text": "How did the injury happen?\n\nWhat body part(s) were injured?\n\nWhat symptoms  were noticed  immediately after the injury?\n\nWhere did the injury occur? (Specific workplace location)\n\nWhat was the patient doing at the time of injury? (Work task/activity)\n\n"
+              }
+            ],
+            "meta": {
+              "tag": [
+                {
+                  "code": "mechanism-of-injury",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
     "SPACER_181": {
       "resource": {
         "resourceType": "List",
