@@ -178,7 +178,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     placeholder="Enter preliminary report for the radiology order"
                     fullWidth
                     multiline
-                    rows={2}
+                    minRows={2}
+                    maxRows={10}
                     size="small"
                     value={preliminaryReport}
                     onChange={(e) => setPreliminaryReport(e.target.value)}
