@@ -4,7 +4,6 @@ import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  getAuth0Token,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -13,10 +12,9 @@ import { complexValidation, ValidatedInput, validateRequestParameters, validateS
 
 const ZAMBDA_NAME = 'delete-visit-files';
 
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateSecrets');
@@ -31,12 +29,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.group('createOystehrClient');
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(input.secrets);
-    } else {
-      console.log('already have token');
-    }
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.groupEnd();
     console.debug('createOystehrClient success');
