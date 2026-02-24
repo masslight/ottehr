@@ -8,12 +8,11 @@ import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
   createReference,
-  getCandidInventoryPagesRecursive,
+  getCandidInventoryPages,
   getResourcesFromBatchInlineRequests,
   getSecret,
-  PrefilledInvoiceInfo,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
+  InvoiceTaskInput,
+  mapDisplayToInvoiceTaskStatus,
   RcmTaskCodings,
   SecretsKeys,
   TEXTING_CONFIG,
@@ -32,7 +31,7 @@ import {
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
-const pendingTaskStatus: Task['status'] = 'ready';
+const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
 
 interface EncounterPackage {
   encounter: Encounter;
@@ -48,32 +47,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, secrets);
     const candid = createCandidApiClient(secrets);
 
-    // 1. getting candid claims for the past two weeks
-    // 2. we are getting encounters with pending tasks so we can update them
-    // 3. getting encounters without a task using claims id
-    // 4. getting itemization response for both groups at the same time to optimize this process
-
-    const twoWeeksAgo = DateTime.now().minus({ weeks: 2 });
-    const candidClaims = await getAllCandidClaims(candid, twoWeeksAgo);
     const twoDaysAgo = DateTime.now().minus({ days: 2 });
-    console.log('getting candid claims for the past two weeks');
-    const claimsForThePastTwoDays = candidClaims.filter((claim) => DateTime.fromJSDate(claim.timestamp) >= twoDaysAgo);
+    const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
+    console.log('getting candid claims for the past two days');
 
     console.log('getting pending and to create packages');
-    const [pendingPackagesToUpdate, packagesToCreate] = await Promise.all([
-      getEncountersWithPendingTasksFhir(oystehr, candid, candidClaims),
-      getEncountersWithoutTaskFhir(oystehr, candid, claimsForThePastTwoDays),
-    ]);
+    const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
 
     console.log('encounters without a task: ', packagesToCreate.length);
-    console.log('encounters with pending task: ', pendingPackagesToUpdate.length);
 
     const promises: Promise<void>[] = [];
     packagesToCreate.forEach((encounter) => {
       promises.push(createTaskForEncounter(oystehr, encounter));
-    });
-    pendingPackagesToUpdate.forEach((encounter) => {
-      promises.push(updateTaskForEncounter(oystehr, encounter));
     });
     await Promise.all(promises);
 
@@ -88,18 +73,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function getPrefilledInvoiceInfo(patientBalanceInCents: number): Promise<PrefilledInvoiceInfo> {
+async function getInvoiceTaskInput(
+  claimId: string,
+  finalizationDate: Date,
+  patientBalanceInCents: number
+): Promise<InvoiceTaskInput> {
   try {
     const smsMessageFromSecret = TEXTING_CONFIG.invoicing.smsMessage;
     const memoFromSecret = TEXTING_CONFIG.invoicing.stripeMemoMessage;
     const dueDateFromSecret = TEXTING_CONFIG.invoicing.dueDateInDays;
     const dueDate = DateTime.now().plus({ days: dueDateFromSecret }).toISODate();
+    const finalizationDateIso = finalizationDate.toISOString();
 
     return {
       smsTextMessage: smsMessageFromSecret,
       memo: memoFromSecret,
       dueDate,
       amountCents: patientBalanceInCents,
+      claimId,
+      finalizationDate: finalizationDateIso,
     };
   } catch (error) {
     console.error('Error fetching prefilled invoice info: ', error);
@@ -112,18 +104,19 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(amountCents);
+    const prefilledInvoiceInfo = await getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents);
     console.log(
       `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
     );
 
     const task: Task = {
       resourceType: 'Task',
-      status: pendingTaskStatus,
+      status: readyTaskStatus,
       description: `Send invoice for $${(amountCents / 100).toFixed(2)}`,
       intent: 'order',
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
+      for: { reference: `Patient/${patientId}` },
       authoredOn: DateTime.now().toISO(),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
@@ -133,83 +126,6 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
   } catch (error) {
     captureException(error);
   }
-}
-
-async function updateTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
-  try {
-    const { encounter, claim, invoiceTask, amountCents } = encounterPkg;
-    if (!invoiceTask?.id) {
-      console.error('Task cannot be updated for encounter: ', encounter.id);
-      return;
-    }
-    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(amountCents);
-    console.log(
-      `Updating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
-    );
-
-    await oystehr.fhir.patch({
-      resourceType: 'Task',
-      id: invoiceTask.id,
-      operations: [{ op: 'replace', path: '/input', value: createInvoiceTaskInput(prefilledInvoiceInfo) }],
-    });
-  } catch (error) {
-    captureException(error);
-  }
-}
-
-async function getEncountersWithPendingTasksFhir(
-  oystehr: Oystehr,
-  candid: CandidApiClient,
-  claims: InventoryRecord[]
-): Promise<EncounterPackage[]> {
-  console.log('fetching encounters with pending tasks');
-  const result = (
-    await oystehr.fhir.search({
-      resourceType: 'Task',
-      params: [
-        {
-          name: 'status',
-          value: pendingTaskStatus,
-        },
-        {
-          name: 'code',
-          value: `${RCM_TASK_SYSTEM}|${RcmTaskCode.sendInvoiceToPatient}`,
-        },
-        {
-          name: '_include',
-          value: 'Task:encounter',
-        },
-        {
-          name: '_count',
-          value: '1000',
-        },
-      ],
-    })
-  ).unbundle();
-  console.log('fetched fhir resources: ', result.length);
-
-  const packages: Omit<EncounterPackage, 'amountCents'>[] = [];
-  result
-    .filter((res) => res.resourceType === 'Encounter')
-    .forEach((resource) => {
-      const encounter = resource as Encounter;
-      const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
-      const claim = claims.find((el) => el.encounterId === candidEncounterId);
-      if (claim) {
-        const task = result.find(
-          (res) =>
-            res.resourceType === 'Task' && (res as Task).encounter?.reference === createReference(encounter).reference
-        ) as Task;
-        if (task) {
-          packages.push({
-            encounter,
-            invoiceTask: task,
-            claim,
-          });
-        }
-      }
-    });
-  return await populateAmountInPackagesAndFilterZeroAmount(candid, packages);
 }
 
 export async function getEncountersWithoutTaskFhir(
@@ -289,11 +205,9 @@ export async function populateAmountInPackagesAndFilterZeroAmount(
 }
 
 async function getAllCandidClaims(candid: CandidApiClient, sinceDate: DateTime): Promise<InventoryRecord[]> {
-  const inventoryPages = await getCandidInventoryPagesRecursive({
+  const inventoryPages = await getCandidInventoryPages({
     candid,
-    claims: [],
     limitPerPage: 100,
-    pageCount: 0,
     onlyInvoiceable: true,
     since: sinceDate,
   });

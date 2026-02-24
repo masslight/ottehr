@@ -23,6 +23,21 @@ const BRANDING_DEFAULTS: BrandingConfig = {
     email: '',
     pdf: '',
   },
+  intake: {
+    appBar: {
+      backgroundColor: '#0a2243',
+      logoHeight: '39px',
+      logoutButtonTextColor: '#FFFFFF',
+    },
+  },
+  /*
+  palette: {
+    // these are dummy values, but ottehr theme defaults should come from here eventually
+    primaryColor: '#4CAF50',
+    secondaryColor: '#FFC107',
+    backgroundColor: '#F5F5F5',
+    textColor: '#212121',
+  },*/
 };
 
 // todo: use mergeAndFreezeConfigObjects from helpers.ts

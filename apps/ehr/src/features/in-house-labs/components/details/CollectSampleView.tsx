@@ -46,7 +46,6 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   onSubmit,
   setLoadingState,
 }) => {
-  console.log('Props', testDetails);
   const [showSampleCollection, setShowSampleCollection] = useState(true);
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');

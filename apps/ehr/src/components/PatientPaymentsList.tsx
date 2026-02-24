@@ -29,7 +29,6 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
-import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   APIError,
   APIErrorCode,
@@ -39,6 +38,7 @@ import {
   getCoding,
   getPaymentVariantFromEncounter,
   isApiError,
+  ListPatientPaymentResponse,
   OrderedCoveragesWithSubscribers,
   PatientPaymentBenefit,
   PatientPaymentDTO,
@@ -66,6 +66,10 @@ export interface PaymentListProps {
     coverages: OrderedCoveragesWithSubscribers;
     insuranceOrgs: Organization[];
   };
+  paymentData: ListPatientPaymentResponse | undefined;
+  refetchPaymentList: () => Promise<void>;
+  isRefetching: boolean;
+  paymentListError: Error | null;
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -83,6 +87,10 @@ export default function PatientPaymentList({
   encounterId,
   responsibleParty,
   insuranceCoverages,
+  paymentData,
+  refetchPaymentList,
+  isRefetching,
+  paymentListError,
 }: PaymentListProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
@@ -102,16 +110,6 @@ export default function PatientPaymentList({
     isFetching: isReceiptFetching,
   } = useEncounterReceipt({ encounterId });
 
-  const {
-    data: paymentData,
-    refetch: refetchPaymentList,
-    isRefetching,
-    error: paymentListError,
-  } = useGetPatientPaymentsList({
-    patientId: patient?.id ?? '',
-    encounterId,
-    disabled: !encounterId || !patient?.id,
-  });
   const { data: insuranceData } = useGetPatientAccount({
     apiClient,
     patientId: patient?.id ?? null,

@@ -734,6 +734,8 @@ export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organizati
 
 export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
 
+export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
+
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
 export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;

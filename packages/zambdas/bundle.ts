@@ -203,7 +203,7 @@ const main = async (): Promise<void> => {
   console.log('Bundling...');
   console.time('Bundle time');
 
-  const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order'];
+  const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order', 'recommend-billing-suggestions'];
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
   const assetsDir = '.dist/assets';
 

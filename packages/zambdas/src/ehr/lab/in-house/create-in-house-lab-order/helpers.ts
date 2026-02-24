@@ -20,7 +20,8 @@ import {
   getFullestAvailableName,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG,
+  REPEAT_TEST_CPT_CODE_MODIFIER,
+  TestItem,
 } from 'utils';
 import { fillMeta, makeCptModifierExtension } from '../../../../shared';
 import { createTask } from '../../../../shared/tasks';
@@ -28,14 +29,14 @@ import { createTask } from '../../../../shared/tasks';
 export interface TestItemRequestData {
   activityDefinition: ActivityDefinition;
   serviceRequests: ServiceRequest[] | undefined;
-  orderedAsRepeat: boolean;
-  parentTestCanonicalUrl: string | undefined; // indicates this test is being run as reflex
+  orderMode: TestItem['orderMode'];
+  parentTestCanonicalUrl: string | undefined; // for tests being run as reflex
 }
 
 export interface TestItemResources {
   activityDefinition: ActivityDefinition;
   initialServiceRequest: ServiceRequest | undefined;
-  testDetailType: 'reflex' | 'repeat' | undefined;
+  orderMode: TestItem['orderMode'];
 }
 
 export interface CreateInHouseLabResources {
@@ -60,7 +61,7 @@ export const makeRequestsForCreateInHouseLabs = (
   const requests: BatchInputPostRequest<ServiceRequest | Task | Provenance | Procedure>[] = [];
 
   testResources.forEach((testData) => {
-    const { activityDefinition, testDetailType } = testData;
+    const { activityDefinition, orderMode } = testData;
 
     const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
     const serviceRequestConfig = makeServiceRequestConfig(resources, testData);
@@ -74,7 +75,7 @@ export const makeRequestsForCreateInHouseLabs = (
 
     const provenanceConfig = makeProvenanceConfig(resources, serviceRequestFullUrl);
 
-    const procedureConfig = makeProcedureConfig(resources, activityDefinition, testDetailType);
+    const procedureConfig = makeProcedureConfig(resources, activityDefinition, orderMode);
 
     requests.push(
       {
@@ -109,7 +110,7 @@ const makeServiceRequestConfig = (
   testData: TestItemResources
 ): ServiceRequest => {
   const { diagnosesAll, notes, encounter, patient, coverage, location, attendingPractitionerId } = resources;
-  const { activityDefinition, initialServiceRequest, testDetailType } = testData;
+  const { activityDefinition, initialServiceRequest, orderMode } = testData;
 
   const serviceRequestConfig: ServiceRequest = {
     resourceType: 'ServiceRequest',
@@ -165,8 +166,8 @@ const makeServiceRequestConfig = (
     ];
   }
 
-  if (testDetailType === 'reflex') {
-    serviceRequestConfig.meta = { tag: [REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG] };
+  if (orderMode === 'repeat') {
+    serviceRequestConfig.meta = { tag: [REPEAT_TEST_CPT_CODE_MODIFIER] };
   }
 
   return serviceRequestConfig;
@@ -260,13 +261,13 @@ const makeProvenanceConfig = (resources: CreateInHouseLabResources, serviceReque
 const makeProcedureConfig = (
   resources: CreateInHouseLabResources,
   activityDefinition: ActivityDefinition,
-  testDetailType: TestItemResources['testDetailType']
+  orderMode: TestItemResources['orderMode']
 ): Procedure => {
   const { encounter, patient, attendingPractitionerId } = resources;
 
   let procedureCodeExtension = {};
 
-  if (testDetailType === 'repeat') {
+  if (orderMode === 'repeat') {
     // this logic will cover if we add a test that is repeatable and has an extra modifier on it
     // otherwise it will be spread below
     const additionalModifierExt =
@@ -274,9 +275,7 @@ const makeProcedureConfig = (
         ?.find((coding) => coding.system === CODE_SYSTEM_CPT)
         ?.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept) ?? [];
 
-    const repeatModifier = makeCptModifierExtension([
-      { code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' },
-    ]);
+    const repeatModifier = makeCptModifierExtension([REPEAT_TEST_CPT_CODE_MODIFIER]);
     procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
   }
 

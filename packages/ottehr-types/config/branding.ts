@@ -41,6 +41,8 @@ export type LogoConfig = z.infer<typeof LogoConfigSchema>;
  */
 export const IntakeBrandingSchema = z.object({
   appBar: z.object({
+    backgroundColor: z.string().min(1, { message: 'AppBar background color cannot be empty' }),
+    logoHeight: z.string().min(1, { message: 'AppBar logo height cannot be empty' }),
     logoutButtonTextColor: z.string().min(1, { message: 'AppBar logout button color cannot be empty' }),
   }),
 });

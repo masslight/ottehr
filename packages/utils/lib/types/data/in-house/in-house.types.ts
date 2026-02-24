@@ -1,4 +1,4 @@
-import { DiagnosisDTO, InHouseLabListDTO, LabListsDTO, OBSERVATION_CODES, Pagination } from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, InHouseLabListDTO, LabListsDTO, OBSERVATION_CODES, Pagination } from 'utils';
 
 export interface TestItemMethods {
   manual?: { device: string };
@@ -71,9 +71,9 @@ export interface TestItem {
   methods: TestItemMethods;
   method: string;
   device: string;
-  cptCode: string[];
-  repeatable: boolean;
-  orderedAsRepeat: boolean;
+  cptCode: CPTCodeDTO[];
+  repeatable: boolean; // this test CAN be run as a repeat test
+  orderMode: 'repeat' | 'reflex' | 'standard';
   components: {
     // todo labs im not sure we ever have an instance where a test has both of these and i think we should assert that in this type
     groupedComponents: TestItemComponent[];

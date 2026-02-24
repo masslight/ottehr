@@ -31,8 +31,8 @@ import {
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
-import { SelectFromFavoritesButton } from '../medical-history-tab/SelectFromFavoritesButton';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
+import { SelectFromFavoritesButton } from '../SelectFromFavoritesButton';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
