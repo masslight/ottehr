@@ -824,6 +824,11 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude',
       value: 'Communication:based-on',
     });
+
+    searchParams.push({
+      name: '_include:iterate',
+      value: 'Provenance:agent',
+    });
   }
 
   if (visitDate) {

@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Alert, Box, CircularProgress, Paper, Snackbar, Typography } from '@mui/material';
-import { QueryObserverResult, RefetchOptions, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useState } from 'react';
@@ -19,9 +19,7 @@ import PaymentDialog from './dialogs/PaymentDialog';
 export interface PaymentBalancesProps {
   patient: Patient | undefined;
   patientBalances: GetPatientBalancesZambdaOutput | undefined;
-  refetchPatientBalances: (
-    options?: RefetchOptions | undefined
-  ) => Promise<QueryObserverResult<GetPatientBalancesZambdaOutput, Error>>;
+  refetchPatientBalances: () => Promise<void>;
 }
 
 export default function PatientBalances({

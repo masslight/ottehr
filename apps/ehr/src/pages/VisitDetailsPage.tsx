@@ -48,6 +48,7 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   BOOKING_CONFIG,
   DocumentInfo,
@@ -491,6 +492,22 @@ export default function VisitDetailsPage(): ReactElement {
   const encounter = visitDetailsData?.encounter;
   const qrId = visitDetailsData?.qrId;
 
+  const {
+    data: paymentData,
+    refetch: refetchPaymentList,
+    isRefetching: isPaymentListRefetching,
+    error: paymentListError,
+  } = useGetPatientPaymentsList({
+    patientId: patient?.id ?? '',
+    encounterId: encounter?.id ?? '',
+    disabled: !encounter?.id || !patient?.id,
+  });
+
+  const refetchAllPaymentData = useCallback(async () => {
+    await refetchPaymentList();
+    await refetchPatientBalances();
+  }, [refetchPaymentList, refetchPatientBalances]);
+
   const { insurance: insuranceData, isFetching } = usePatientData(patientId);
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
@@ -868,6 +885,16 @@ export default function VisitDetailsPage(): ReactElement {
   if (patientBeenToClinicPreviously) {
     patientInfoAdditionalItem['Patient has been to clinic previously'] = 'true';
   }
+
+  const appointmentContext = useMemo(
+    () => ({
+      appointmentServiceCategory: serviceCategory,
+      appointmentServiceMode: isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'],
+      reasonForVisit,
+      encounterId: encounter?.id,
+    }),
+    [serviceCategory, appointment, reasonForVisit, encounter?.id]
+  );
 
   return (
     <PageContainer>
@@ -1289,7 +1316,7 @@ export default function VisitDetailsPage(): ReactElement {
                         <PatientBalances
                           patient={patient}
                           patientBalances={patientBalancesData}
-                          refetchPatientBalances={refetchPatientBalances}
+                          refetchPatientBalances={refetchAllPaymentData}
                         />
                       </Grid>
                     ) : null}
@@ -1304,6 +1331,10 @@ export default function VisitDetailsPage(): ReactElement {
                           email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
                         insuranceCoverages={insuranceData}
+                        paymentData={paymentData}
+                        refetchPaymentList={refetchAllPaymentData}
+                        isRefetching={isPaymentListRefetching}
+                        paymentListError={paymentListError}
                       />
                     </Grid>
                     <Grid item>
@@ -1328,14 +1359,7 @@ export default function VisitDetailsPage(): ReactElement {
                 id={patientId}
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
-                appointmentContext={{
-                  appointmentServiceCategory: serviceCategory,
-                  appointmentServiceMode: isTelemedAppointment(appointment)
-                    ? ServiceMode.virtual
-                    : ServiceMode['in-person'],
-                  reasonForVisit,
-                  encounterId: encounter?.id,
-                }}
+                appointmentContext={appointmentContext}
               />
             </Grid>
           </Grid>
