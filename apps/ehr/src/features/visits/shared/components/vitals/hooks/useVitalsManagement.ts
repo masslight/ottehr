@@ -77,7 +77,7 @@ export interface UseVitalsManagementReturn {
     isLoading: boolean;
   };
   fields: VitalsFields;
-  saveAll: (includeLMP?: boolean) => Promise<void>;
+  saveAll: () => Promise<void>;
   isSavingAll: boolean;
   canSaveAll: boolean;
   refs: VitalCardRefs;
@@ -150,108 +150,113 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     lmp: lmpCardRef,
   };
 
-  const handleAddAllVitals = useCallback(
-    async (includeLMP: boolean = true) => {
-      // Map field names to refs and local states
-      const fieldMap: Record<
-        VitalFieldNames,
-        {
-          ref: React.RefObject<HTMLDivElement>;
-          state: {
-            hasData: boolean;
-            isValid: boolean;
-            getDTO: () => VitalsObservationDTO | null;
-            clearForm: () => void;
-            setValidationError: (error: boolean) => void;
-          };
-        }
-      > = {
-        [VitalFieldNames.VitalTemperature]: { ref: temperatureCardRef, state: temperatureState },
-        [VitalFieldNames.VitalHeartbeat]: { ref: heartbeatCardRef, state: heartbeatState },
-        [VitalFieldNames.VitalRespirationRate]: { ref: respirationRateCardRef, state: respirationRateState },
-        [VitalFieldNames.VitalBloodPressure]: { ref: bloodPressureCardRef, state: bloodPressureState },
-        [VitalFieldNames.VitalOxygenSaturation]: { ref: oxygenSatCardRef, state: oxygenSatState },
-        [VitalFieldNames.VitalWeight]: { ref: weightCardRef, state: weightState },
-        [VitalFieldNames.VitalHeight]: { ref: heightCardRef, state: heightState },
-        [VitalFieldNames.VitalVision]: { ref: visionCardRef, state: visionState },
-        [VitalFieldNames.VitalLastMenstrualPeriod]: { ref: lmpCardRef, state: lmpState },
-      };
+  const handleAddAllVitals = useCallback(async () => {
+    // Map field names to refs and local states
+    const fieldMap: Record<
+      VitalFieldNames,
+      {
+        ref: React.RefObject<HTMLDivElement>;
+        state: {
+          hasData: boolean;
+          isValid: boolean;
+          getDTO: () => VitalsObservationDTO | null;
+          clearForm: () => void;
+          setValidationError: (error: boolean) => void;
+        };
+      }
+    > = {
+      [VitalFieldNames.VitalTemperature]: { ref: temperatureCardRef, state: temperatureState },
+      [VitalFieldNames.VitalHeartbeat]: { ref: heartbeatCardRef, state: heartbeatState },
+      [VitalFieldNames.VitalRespirationRate]: { ref: respirationRateCardRef, state: respirationRateState },
+      [VitalFieldNames.VitalBloodPressure]: { ref: bloodPressureCardRef, state: bloodPressureState },
+      [VitalFieldNames.VitalOxygenSaturation]: { ref: oxygenSatCardRef, state: oxygenSatState },
+      [VitalFieldNames.VitalWeight]: { ref: weightCardRef, state: weightState },
+      [VitalFieldNames.VitalHeight]: { ref: heightCardRef, state: heightState },
+      [VitalFieldNames.VitalVision]: { ref: visionCardRef, state: visionState },
+      [VitalFieldNames.VitalLastMenstrualPeriod]: { ref: lmpCardRef, state: lmpState },
+    };
 
-      // Find all fields with data that are invalid
-      const invalidFields = Object.entries(fieldMap)
-        .filter(([fieldName, { state }]) => {
-          const field = fieldName as VitalFieldNames;
-          if (!includeLMP && field === VitalFieldNames.VitalLastMenstrualPeriod) return false;
-          return state.hasData && !state.isValid;
-        })
-        .map(([fieldName]) => fieldName as VitalFieldNames);
-
-      // Collect all valid vitals
-      const validVitalsEntries = Object.entries(fieldMap).filter(([fieldName, { state }]) => {
+    const { invalidFields, validVitalsEntries } = Object.entries(fieldMap).reduce<{
+      invalidFields: VitalFieldNames[];
+      validVitalsEntries: [string, { ref: React.RefObject<HTMLDivElement>; state: VitalLocalState }][];
+    }>(
+      (acc, entry) => {
+        const [fieldName, { state }] = entry;
         const field = fieldName as VitalFieldNames;
-        if (!includeLMP && field === VitalFieldNames.VitalLastMenstrualPeriod) return false;
-        return state.isValid;
+
+        // Exclude Weight if Patient Refused is selected (it saves immediately)
+        if (field === VitalFieldNames.VitalWeight && weightState.isPatientRefusedSelected) {
+          return acc;
+        }
+
+        if (state.hasData && !state.isValid) {
+          acc.invalidFields.push(field);
+        } else if (state.isValid) {
+          acc.validVitalsEntries.push(entry);
+        }
+
+        return acc;
+      },
+      { invalidFields: [], validVitalsEntries: [] }
+    );
+
+    const validVitals = validVitalsEntries
+      .map(([_, { state }]) => state.getDTO())
+      .filter((dto): dto is VitalsObservationDTO => dto !== null);
+
+    // Save valid vitals
+    if (validVitals.length > 0) {
+      setIsBatchSaving(true);
+      try {
+        await batchSaveVitals(validVitals);
+        await refetchEncounterVitals();
+
+        // Clear only the forms that were saved
+        validVitalsEntries.forEach(([_, { state }]) => {
+          state.clearForm();
+        });
+
+        const vitalText = validVitals.length === 1 ? 'vital' : 'vitals';
+        enqueueSnackbar(`Successfully saved ${validVitals.length} ${vitalText}`, {
+          variant: 'success',
+        });
+      } catch {
+        enqueueSnackbar('Error saving vitals', { variant: 'error' });
+      } finally {
+        setIsBatchSaving(false);
+      }
+    }
+
+    // After saving (or if nothing to save), handle invalid fields
+    if (invalidFields.length > 0) {
+      // Set validation error for all invalid fields
+      invalidFields.forEach((fieldName) => {
+        fieldMap[fieldName].state.setValidationError(true);
       });
 
-      const validVitals = validVitalsEntries
-        .map(([_, { state }]) => state.getDTO())
-        .filter((dto): dto is VitalsObservationDTO => dto !== null);
-
-      // Save valid vitals
-      if (validVitals.length > 0) {
-        setIsBatchSaving(true);
-        try {
-          await batchSaveVitals(validVitals);
-          await refetchEncounterVitals();
-
-          // Clear only the forms that were saved
-          validVitalsEntries.forEach(([_, { state }]) => {
-            state.clearForm();
-          });
-
-          const vitalText = validVitals.length === 1 ? 'vital' : 'vitals';
-          enqueueSnackbar(`Successfully saved ${validVitals.length} ${vitalText}`, {
-            variant: 'success',
-          });
-        } catch {
-          enqueueSnackbar('Error saving vitals', { variant: 'error' });
-        } finally {
-          setIsBatchSaving(false);
-        }
-      }
-
-      // After saving (or if nothing to save), handle invalid fields
-      if (invalidFields.length > 0) {
-        // Set validation error for all invalid fields
-        invalidFields.forEach((fieldName) => {
-          fieldMap[fieldName].state.setValidationError(true);
-        });
-
-        // Scroll to first invalid field
-        fieldMap[invalidFields[0]].ref.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-        const vitalText = invalidFields.length === 1 ? 'vital' : 'vitals';
-        enqueueSnackbar(`Failed to save ${invalidFields.length} ${vitalText}`, {
-          variant: 'error',
-        });
-      }
-    },
-    [
-      temperatureState,
-      heartbeatState,
-      respirationRateState,
-      bloodPressureState,
-      oxygenSatState,
-      weightState,
-      heightState,
-      visionState,
-      lmpState,
-      batchSaveVitals,
-      refetchEncounterVitals,
-    ]
-  );
+      // Scroll to first invalid field
+      fieldMap[invalidFields[0]].ref.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      const vitalText = invalidFields.length === 1 ? 'vital' : 'vitals';
+      enqueueSnackbar(`Failed to save ${invalidFields.length} ${vitalText}`, {
+        variant: 'error',
+      });
+    }
+  }, [
+    temperatureState,
+    heartbeatState,
+    respirationRateState,
+    bloodPressureState,
+    oxygenSatState,
+    weightState,
+    heightState,
+    visionState,
+    lmpState,
+    batchSaveVitals,
+    refetchEncounterVitals,
+  ]);
 
   // Helper to create field save handler with validation
   const createFieldSaveHandler = useCallback(
@@ -454,7 +459,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     respirationRateState.hasData ||
     bloodPressureState.hasData ||
     oxygenSatState.hasData ||
-    weightState.hasData ||
+    (weightState.hasData && !weightState.isPatientRefusedSelected) ||
     heightState.hasData ||
     visionState.hasData ||
     lmpState.hasData;

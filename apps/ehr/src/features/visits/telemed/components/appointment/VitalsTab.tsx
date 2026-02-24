@@ -62,7 +62,7 @@ export const VitalsTab: FC = () => {
       {!isReadOnly && (
         <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
           <RoundedButton
-            onClick={() => vitals.saveAll(false)}
+            onClick={() => vitals.saveAll()}
             disabled={!vitals.canSaveAll || vitals.isSavingAll}
             loading={vitals.isSavingAll}
             color="primary"
