@@ -20,7 +20,6 @@ import {
   getFullestAvailableName,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   TestItem,
 } from 'utils';
@@ -167,8 +166,8 @@ const makeServiceRequestConfig = (
     ];
   }
 
-  if (orderMode === 'reflex') {
-    serviceRequestConfig.meta = { tag: [REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG] };
+  if (orderMode === 'repeat') {
+    serviceRequestConfig.meta = { tag: [REPEAT_TEST_CPT_CODE_MODIFIER] };
   }
 
   return serviceRequestConfig;

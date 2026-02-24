@@ -169,16 +169,12 @@ const MEDICAL_HISTORY_DEFAULTS = {
       },
       {
         name: 'Rocephin',
-        strength: '1 gm',
+        strength: '1 g',
         id: 30900,
       },
       {
         name: 'Rocephin',
         strength: '500 mg',
-        id: 30901,
-      },
-      {
-        name: 'Rocephin',
         id: 30901,
       },
     ],

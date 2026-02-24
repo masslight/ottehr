@@ -159,7 +159,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (
       serviceRequestId &&
-      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+      (code === LAB_ORDER_TASK.code.reviewFinalResult ||
+        code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+        code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
     ) {
       title = `Review results for “${fullTestName}” for ${patientName}`;
     }

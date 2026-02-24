@@ -13,6 +13,7 @@ import {
   getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   InvoiceMessagesPlaceholders,
+  mapDisplayToInvoiceTaskStatus,
   PATIENT_BILLING_ACCOUNT_TYPE,
   RcmTaskCodings,
   removePrefix,
@@ -41,8 +42,8 @@ const ZAMBDA_NAME = 'sub-send-invoice-to-patient';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
-    const { secrets, encounterId, prefilledInfo, task } = validatedParams;
-    const { amountCents, dueDate, memo, smsTextMessage } = prefilledInfo;
+    const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
+    const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
     console.log('Input task id: ', task.id);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -120,13 +121,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       console.log('Setting task status to completed');
       const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
-      await updateTaskStatusAndOutput(oystehr, task, 'completed', taskCopy.output);
+      await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
       console.log('Task status and output updated');
     } catch (error) {
       const oystehr = createOystehrClient(m2mToken, secrets);
       console.log('updating task status to failed and output');
       const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
-      await updateTaskStatusAndOutput(oystehr, task, 'failed', taskCopy.output);
+      await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
       throw error;
     }
 
