@@ -44,8 +44,11 @@ export const structureQuestionnaireResponse = (
         // Check if this field was explicitly changed (dirty)
         const isFieldDirty = dirtyFields ? dirtyFields[key] === true : true;
 
-        // For null values on dirty fields for removable fields, this is an explicit clear action
-        const isExplicitClear = isRemovableField(key) && value === null && isFieldDirty;
+        // For empty values on dirty removable fields, this is an explicit clear action
+        const isExplicitClear =
+          isRemovableField(key) &&
+          isFieldDirty &&
+          (value === null || (typeof value === 'string' && value.trim().length === 0));
 
         if (isExplicitClear) {
           // Explicitly cleared field - send empty answer to signal deletion

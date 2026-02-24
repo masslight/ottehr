@@ -2256,6 +2256,27 @@ const getOccupationalMedicineEmployerInformation = (
   };
 };
 
+const EMPLOYER_INFORMATION_FIELDS = new Set([
+  'workers-comp-insurance-name',
+  'workers-comp-insurance-member-id',
+  'employer-name',
+  'employer-address',
+  'employer-address-2',
+  'employer-city',
+  'employer-state',
+  'employer-zip',
+  'employer-contact-first-name',
+  'employer-contact-last-name',
+  'employer-contact-title',
+  'employer-contact-email',
+  'employer-contact-phone',
+  'employer-contact-fax',
+]);
+
+const isEmployerInformationExplicitlyCleared = (items: QuestionnaireResponseItem[]): boolean => {
+  return items.some((item) => EMPLOYER_INFORMATION_FIELDS.has(item.linkId) && isFieldExplicitlyCleared(item));
+};
+
 const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInformation | undefined => {
   const getAnswerString = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
@@ -2647,6 +2668,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
 
   const employerInformation = getEmployerInformation(flattenedItems);
+  const shouldClearEmployerInformation =
+    employerInformation === undefined && isEmployerInformationExplicitlyCleared(flattenedItems);
   const occupationalMedicineEmployerInformation = getOccupationalMedicineEmployerInformation(flattenedItems);
   let occupationalMedicineEmployerReference;
   let shouldClearOccupationalMedicineEmployer = false;
@@ -2697,6 +2720,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     JSON.stringify(existingCoverages, null, 2),
     JSON.stringify(existingAccount, null, 2),
     JSON.stringify(employerInformation, null, 2),
+    JSON.stringify(shouldClearEmployerInformation, null, 2),
     JSON.stringify(occupationalMedicineEmployerInformation, null, 2)
   );
 
@@ -2878,130 +2902,135 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     };
   }
 
-  if (employerInformation) {
-    let employerOrganizationReference: string | undefined;
+  if (employerInformation || shouldClearEmployerInformation) {
+    const effectiveEmployerInformation = employerInformation ?? {};
+    let employerOrganizationReference: string | undefined = existingEmployerOrganization?.id
+      ? `Organization/${existingEmployerOrganization.id}`
+      : existingWorkersCompAccount?.owner?.reference;
 
     if (existingEmployerOrganization?.id) {
-      employerOrganizationReference = `Organization/${existingEmployerOrganization.id}`;
       employerOrganizationPut = {
         method: 'PUT',
         url: `Organization/${existingEmployerOrganization.id}`,
-        resource: buildEmployerOrganization(employerInformation, existingEmployerOrganization.id),
+        resource: buildEmployerOrganization(effectiveEmployerInformation, existingEmployerOrganization.id),
       };
-    } else {
+    } else if (employerInformation) {
       employerOrganizationReference = `urn:uuid:${randomUUID()}`;
       employerOrganizationPost = {
         method: 'POST',
         url: 'Organization',
         fullUrl: employerOrganizationReference,
-        resource: buildEmployerOrganization(employerInformation),
+        resource: buildEmployerOrganization(effectiveEmployerInformation),
       };
     }
 
-    let workersCompCoverage: Coverage | undefined = undefined;
     let workersCompCoverageReference: string | undefined = undefined;
-    const workersCompInsurance = employerInformation.workersCompInsurance;
-    const workersCompMemberId = employerInformation.workersCompMemberId;
-    const workersCompInsuranceOrg = organizationResources.find(
-      (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
-    );
-    const payerId = getPayerId(workersCompInsuranceOrg);
-    if (existingCoverages.workersComp) {
-      workersCompCoverage = existingCoverages.workersComp;
-      const updatedWorkersCompCoverage = { ...workersCompCoverage };
-      workersCompCoverageReference = `Coverage/${workersCompCoverage.id}`;
-      if (workersCompMemberId && workersCompInsuranceOrg) {
-        updatedWorkersCompCoverage.identifier = [
-          createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
-        ];
-        updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
-      }
-      if (workersCompInsuranceOrg) {
-        updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
-        updatedWorkersCompCoverage.class = [
-          {
-            type: {
-              coding: [
-                {
-                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
-                  code: 'plan',
-                },
-              ],
-            },
-            value: payerId ?? '',
-            name: `${workersCompInsuranceOrg?.name ?? ''}`,
-          },
-        ];
-      }
-      if (workersCompCoverage !== updatedWorkersCompCoverage) {
-        puts.push({
-          method: 'PUT',
-          url: `Coverage/${workersCompCoverage.id}`,
-          resource: updatedWorkersCompCoverage,
-        });
-      }
-    } else if (workersCompInsuranceOrg && payerId) {
-      workersCompCoverageReference = `urn:uuid:${randomUUID()}`;
-      workersCompCoverage = {
-        id: workersCompCoverageReference,
-        identifier: workersCompMemberId
-          ? [createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg)]
-          : undefined,
-        resourceType: 'Coverage',
-        status: 'active',
-        beneficiary: {
-          type: 'Patient',
-          reference: `Patient/${patient.id}`,
-        },
-        type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
-        payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
-        relationship: {
-          coding: [
+
+    if (employerInformation) {
+      let workersCompCoverage: Coverage | undefined = undefined;
+      const workersCompInsurance = employerInformation.workersCompInsurance;
+      const workersCompMemberId = employerInformation.workersCompMemberId;
+      const workersCompInsuranceOrg = organizationResources.find(
+        (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
+      );
+      const payerId = getPayerId(workersCompInsuranceOrg);
+      if (existingCoverages.workersComp) {
+        workersCompCoverage = existingCoverages.workersComp;
+        const updatedWorkersCompCoverage = { ...workersCompCoverage };
+        workersCompCoverageReference = `Coverage/${workersCompCoverage.id}`;
+        if (workersCompMemberId && workersCompInsuranceOrg) {
+          updatedWorkersCompCoverage.identifier = [
+            createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
+          ];
+          updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
+        }
+        if (workersCompInsuranceOrg) {
+          updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
+          updatedWorkersCompCoverage.class = [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
-              code: 'other',
-              display: 'Other',
+              type: {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                    code: 'plan',
+                  },
+                ],
+              },
+              value: payerId ?? '',
+              name: `${workersCompInsuranceOrg?.name ?? ''}`,
+            },
+          ];
+        }
+        if (workersCompCoverage !== updatedWorkersCompCoverage) {
+          puts.push({
+            method: 'PUT',
+            url: `Coverage/${workersCompCoverage.id}`,
+            resource: updatedWorkersCompCoverage,
+          });
+        }
+      } else if (workersCompInsuranceOrg && payerId) {
+        workersCompCoverageReference = `urn:uuid:${randomUUID()}`;
+        workersCompCoverage = {
+          id: workersCompCoverageReference,
+          identifier: workersCompMemberId
+            ? [createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg)]
+            : undefined,
+          resourceType: 'Coverage',
+          status: 'active',
+          beneficiary: {
+            type: 'Patient',
+            reference: `Patient/${patient.id}`,
+          },
+          type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
+          payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+          relationship: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
+                code: 'other',
+                display: 'Other',
+              },
+            ],
+          },
+          // todo labs subscriber is needed for submit lab but we might need to change later
+          subscriber: {
+            reference: `Patient/${patient.id}`,
+          },
+          subscriberId: workersCompMemberId,
+          class: [
+            {
+              type: {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                    code: 'plan',
+                  },
+                ],
+              },
+              value: payerId,
+              name: `${workersCompInsuranceOrg?.name ?? ''}`,
             },
           ],
-        },
-        // todo labs subscriber is needed for submit lab but we might need to change later
-        subscriber: {
-          reference: `Patient/${patient.id}`,
-        },
-        subscriberId: workersCompMemberId,
-        class: [
-          {
-            type: {
-              coding: [
-                {
-                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
-                  code: 'plan',
-                },
-              ],
-            },
-            value: payerId,
-            name: `${workersCompInsuranceOrg?.name ?? ''}`,
-          },
-        ],
-      };
-      coveragePosts.push({
-        method: 'POST',
-        fullUrl: workersCompCoverage.id,
-        url: 'Coverage',
-        resource: { ...workersCompCoverage },
-      });
+        };
+        coveragePosts.push({
+          method: 'POST',
+          fullUrl: workersCompCoverage.id,
+          url: 'Coverage',
+          resource: { ...workersCompCoverage },
+        });
+      }
     }
 
-    const workersCompAccountResource = buildEmployerAccountResource({
-      patientId: patient.id!,
-      existingAccount: existingWorkersCompAccount,
-      organizationReference: employerOrganizationReference!,
-      accountTypeCoding: WORKERS_COMP_ACCOUNT_TYPE,
-      coverageReference: workersCompCoverageReference,
-      employerInformation,
-    });
+    if (existingWorkersCompAccount?.id && employerOrganizationReference) {
+      const workersCompAccountResource = buildEmployerAccountResource({
+        patientId: patient.id!,
+        existingAccount: existingWorkersCompAccount,
+        organizationReference: employerOrganizationReference,
+        accountTypeCoding: WORKERS_COMP_ACCOUNT_TYPE,
+        coverageReference: workersCompCoverageReference,
+        employerInformation: effectiveEmployerInformation,
+      });
 
-    if (existingWorkersCompAccount?.id) {
       workersCompAccountPut = {
         method: 'PUT',
         url: `Account/${existingWorkersCompAccount.id}`,
@@ -3010,8 +3039,14 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
           id: existingWorkersCompAccount.id,
         },
       };
-    } else {
-      workersCompAccountPost = workersCompAccountResource;
+    } else if (employerInformation && employerOrganizationReference) {
+      workersCompAccountPost = buildEmployerAccountResource({
+        patientId: patient.id!,
+        organizationReference: employerOrganizationReference,
+        accountTypeCoding: WORKERS_COMP_ACCOUNT_TYPE,
+        coverageReference: workersCompCoverageReference,
+        employerInformation: effectiveEmployerInformation,
+      });
     }
   }
 
