@@ -4,12 +4,11 @@ import {
   DeleteVisitFilesInput,
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   Secrets,
 } from 'utils';
+import z from 'zod';
 import { checkIsEHRUser, getUser, isTestUser, userHasAccessToPatient, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
@@ -44,49 +43,28 @@ export function validateSecrets(secrets: Secrets | null): Secrets {
   };
 }
 
+const DeleteVisitFilesInputSchema = z.object({
+  patientId: z.string().uuid('"patientId" must be a valid UUID.'),
+  documentId: z.string().uuid('"documentId" must be a valid UUID.'),
+});
+
 export async function validateRequestParameters(input: ZambdaInput): Promise<ValidatedInput> {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
   console.log('input', JSON.stringify(input, null, 2));
 
-  const { documentId: maybeDocumentId, patientId: maybePatientId } = JSON.parse(input.body);
+  const parsedBody = JSON.parse(input.body);
 
-  const missingParams: string[] = [];
+  // Validate with Zod
+  const validationResult = DeleteVisitFilesInputSchema.safeParse(parsedBody);
 
-  if (!maybeDocumentId) {
-    missingParams.push('documentId');
+  if (!validationResult.success) {
+    const errors = validationResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+    throw INVALID_INPUT_ERROR(errors);
   }
 
-  if (!maybePatientId) {
-    missingParams.push('patientId');
-  }
-
-  if (missingParams.length > 0) {
-    throw MISSING_REQUIRED_PARAMETERS(missingParams);
-  }
-
-  console.log('checking documentId validity', maybeDocumentId);
-
-  if (typeof maybeDocumentId !== 'string') {
-    throw INVALID_INPUT_ERROR(`"documentId" must be a string.`);
-  }
-
-  if (!isValidUUID(maybeDocumentId)) {
-    throw INVALID_INPUT_ERROR(`"documentId" must be a valid UUID.`);
-  }
-  const documentId = maybeDocumentId;
-
-  console.log('checking patientId validity', maybePatientId);
-
-  if (typeof maybePatientId !== 'string') {
-    throw INVALID_INPUT_ERROR(`"patientId" must be a string.`);
-  }
-
-  if (!isValidUUID(maybePatientId)) {
-    throw INVALID_INPUT_ERROR(`"patientId" must be a valid UUID.`);
-  }
-  const patientId = maybePatientId;
+  const { documentId, patientId } = validationResult.data;
 
   const token = input.headers.Authorization.replace('Bearer ', '');
   if (!token.trim()) {

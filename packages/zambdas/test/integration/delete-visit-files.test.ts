@@ -175,86 +175,94 @@ describe('delete-visit-files integration tests', () => {
       describe('documentId', () => {
         it('should throw error when missing', async () => {
           const invalidInput = { ...input, body: JSON.stringify({ patientId: mockPatientId }) };
-          await expect(validateRequestParameters(invalidInput)).rejects.toThrow(
-            'The following required parameters were missing: documentId'
-          );
-
-          const nullInput = { ...input, body: JSON.stringify({ documentId: null, patientId: mockPatientId }) };
-          await expect(validateRequestParameters(nullInput)).rejects.toThrow(
-            'The following required parameters were missing: documentId'
-          );
+          await expect(validateRequestParameters(invalidInput)).rejects.toThrow('documentId: Required');
 
           const undefinedInput = {
             ...input,
             body: JSON.stringify({ documentId: undefined, patientId: mockPatientId }),
           };
-          await expect(validateRequestParameters(undefinedInput)).rejects.toThrow(
-            'The following required parameters were missing: documentId'
-          );
+          await expect(validateRequestParameters(undefinedInput)).rejects.toThrow('documentId: Required');
 
-          const emptyString = { ...input, body: JSON.stringify({ documentId: '', patientId: mockPatientId }) };
-          await expect(validateRequestParameters(emptyString)).rejects.toThrow(
-            'The following required parameters were missing: documentId'
+          const nullInput = { ...input, body: JSON.stringify({ documentId: null, patientId: mockPatientId }) };
+          await expect(validateRequestParameters(nullInput)).rejects.toThrow(
+            'documentId: Expected string, received null'
           );
         });
 
         it('should throw error when not a string', async () => {
           const numberInput = { ...input, body: JSON.stringify({ documentId: 123, patientId: mockPatientId }) };
-          await expect(validateRequestParameters(numberInput)).rejects.toThrow('"documentId" must be a string.');
+          await expect(validateRequestParameters(numberInput)).rejects.toThrow(
+            'documentId: Expected string, received number'
+          );
 
           const objectInput = { ...input, body: JSON.stringify({ documentId: {}, patientId: mockPatientId }) };
-          await expect(validateRequestParameters(objectInput)).rejects.toThrow('"documentId" must be a string.');
+          await expect(validateRequestParameters(objectInput)).rejects.toThrow(
+            'documentId: Expected string, received object'
+          );
 
           const arrayInput = { ...input, body: JSON.stringify({ documentId: [], patientId: mockPatientId }) };
-          await expect(validateRequestParameters(arrayInput)).rejects.toThrow('"documentId" must be a string.');
+          await expect(validateRequestParameters(arrayInput)).rejects.toThrow(
+            'documentId: Expected string, received array'
+          );
         });
 
         it('should throw error when not a valid UUID', async () => {
+          const emptyString = { ...input, body: JSON.stringify({ documentId: '', patientId: mockPatientId }) };
+          await expect(validateRequestParameters(emptyString)).rejects.toThrow(
+            'documentId: "documentId" must be a valid UUID.'
+          );
+
           const notAUuid = { ...input, body: JSON.stringify({ documentId: 'not-a-uuid', patientId: mockPatientId }) };
-          await expect(validateRequestParameters(notAUuid)).rejects.toThrow('"documentId" must be a valid UUID.');
+          await expect(validateRequestParameters(notAUuid)).rejects.toThrow(
+            'documentId: "documentId" must be a valid UUID.'
+          );
         });
       });
 
       describe('patientId', () => {
         it('should throw error when missing', async () => {
           const invalidInput = { ...input, body: JSON.stringify({ documentId: mockDocumentId }) };
-          await expect(validateRequestParameters(invalidInput)).rejects.toThrow(
-            'The following required parameters were missing: patientId'
-          );
-
-          const nullInput = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: null }) };
-          await expect(validateRequestParameters(nullInput)).rejects.toThrow(
-            'The following required parameters were missing: patientId'
-          );
+          await expect(validateRequestParameters(invalidInput)).rejects.toThrow('patientId: Required');
 
           const undefinedInput = {
             ...input,
             body: JSON.stringify({ documentId: mockDocumentId, patientId: undefined }),
           };
-          await expect(validateRequestParameters(undefinedInput)).rejects.toThrow(
-            'The following required parameters were missing: patientId'
-          );
+          await expect(validateRequestParameters(undefinedInput)).rejects.toThrow('patientId: Required');
 
-          const emptyString = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: '' }) };
-          await expect(validateRequestParameters(emptyString)).rejects.toThrow(
-            'The following required parameters were missing: patientId'
+          const nullInput = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: null }) };
+          await expect(validateRequestParameters(nullInput)).rejects.toThrow(
+            'patientId: Expected string, received null'
           );
         });
 
         it('should throw error when not a string', async () => {
           const numberInput = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: 123 }) };
-          await expect(validateRequestParameters(numberInput)).rejects.toThrow('"patientId" must be a string.');
+          await expect(validateRequestParameters(numberInput)).rejects.toThrow(
+            'patientId: Expected string, received number'
+          );
 
           const objectInput = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: {} }) };
-          await expect(validateRequestParameters(objectInput)).rejects.toThrow('"patientId" must be a string.');
+          await expect(validateRequestParameters(objectInput)).rejects.toThrow(
+            'patientId: Expected string, received object'
+          );
 
           const arrayInput = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: [] }) };
-          await expect(validateRequestParameters(arrayInput)).rejects.toThrow('"patientId" must be a string.');
+          await expect(validateRequestParameters(arrayInput)).rejects.toThrow(
+            'patientId: Expected string, received array'
+          );
         });
 
         it('should throw error when not a valid UUID', async () => {
+          const emptyString = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: '' }) };
+          await expect(validateRequestParameters(emptyString)).rejects.toThrow(
+            'patientId: "patientId" must be a valid UUID.'
+          );
+
           const notAUuid = { ...input, body: JSON.stringify({ documentId: mockDocumentId, patientId: 'not-a-uuid' }) };
-          await expect(validateRequestParameters(notAUuid)).rejects.toThrow('"patientId" must be a valid UUID.');
+          await expect(validateRequestParameters(notAUuid)).rejects.toThrow(
+            'patientId: "patientId" must be a valid UUID.'
+          );
         });
       });
 
