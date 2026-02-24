@@ -26,7 +26,7 @@ import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointment
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
-import { SelectFromFavoritesButton } from '../SelectFromFavoritesButton';
+import { SelectFromFavoritesButton } from '../../SelectFromFavoritesButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
 
 interface CurrentMedicationsProviderColumnForm {

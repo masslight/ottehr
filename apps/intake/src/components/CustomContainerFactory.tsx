@@ -1,6 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
-import { otherColors } from '@theme/colors';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BRANDING_CONFIG } from 'utils';
@@ -108,7 +107,7 @@ export const CustomContainer: FC<ContainerProps> = ({
       <AppBar
         data-testid={isAuthenticated ? dataTestIds.header.authenticated : dataTestIds.header.unauthenticated} // used in e2e login test, dont remove
         position="static"
-        sx={{ backgroundColor: otherColors.appBarBackground }}
+        sx={{ backgroundColor: BRANDING_CONFIG.intake.appBar.backgroundColor }}
       >
         <Grid container justifyContent="center" alignItems="center" sx={{ position: 'relative' }}>
           <Grid item>
@@ -116,10 +115,9 @@ export const CustomContainer: FC<ContainerProps> = ({
               component="img"
               sx={{
                 margin: 1,
-                height: '50px',
+                height: BRANDING_CONFIG.intake.appBar.logoHeight,
                 width: 'auto',
                 alignSelf: 'center',
-                minHeight: '39px',
               }}
               alt={alt}
               src={logo}
@@ -141,7 +139,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                 variant="text"
                 onClick={handleLogout}
                 sx={{
-                  color: BRANDING_CONFIG.intake?.appBar?.logoutButtonTextColor || theme.palette.primary.contrastText,
+                  color: BRANDING_CONFIG.intake.appBar.logoutButtonTextColor,
                   '&:hover': { backgroundColor: 'transparent' },
                 }}
               >

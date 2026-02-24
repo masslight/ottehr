@@ -39,6 +39,7 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  ATTORNEY_FIRM_EXTENSION_URL,
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
   ConsentSigner,
@@ -2361,16 +2362,16 @@ const buildAttorneyRelatedPerson = (
   const givenNames = details.firstName ? [details.firstName] : [];
   const familyName = details.lastName;
 
-  const firmExtensionUrl = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
   const firmExtension = details.firm
     ? {
-        url: firmExtensionUrl,
+        url: ATTORNEY_FIRM_EXTENSION_URL,
         valueString: details.firm,
       }
     : undefined;
 
   // Preserve existing extensions, but update or add the firm extension
-  const existingExtensions = existingRelatedPerson?.extension?.filter((ext) => ext.url !== firmExtensionUrl) || [];
+  const existingExtensions =
+    existingRelatedPerson?.extension?.filter((ext) => ext.url !== ATTORNEY_FIRM_EXTENSION_URL) || [];
   const extensions = firmExtension
     ? [...existingExtensions, firmExtension]
     : existingExtensions.length

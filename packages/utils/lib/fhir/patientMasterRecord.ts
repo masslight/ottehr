@@ -217,12 +217,12 @@ const PRONOUNS_MAPPING = {
 
 const GENDER_IDENTITY_MAPPING = {
   'Female gender identity': {
-    code: '446151000124109',
+    code: '446141000124107',
     display: 'Female gender identity',
     system: 'http://snomed.info/sct',
   },
   'Male gender identity': {
-    code: '446141000124107',
+    code: '446151000124109',
     display: 'Male gender identity',
     system: 'http://snomed.info/sct',
   },

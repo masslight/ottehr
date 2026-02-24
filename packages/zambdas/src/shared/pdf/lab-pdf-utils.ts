@@ -228,26 +228,47 @@ export const drawFourColumnText = (
 ): PdfClient => {
   const fontSize = STANDARD_FONT_SIZE;
   const fontStyleTemp = { fontSize: fontSize, color: color };
-  pdfClient.drawStartXPosSpecifiedText(
+
+  const startingY = pdfClient.getY();
+  let maxYReached = startingY;
+
+  const drawColumn = (text: string, style: TextStyle, startX: number, rightBound: number): void => {
+    pdfClient.setY(startingY);
+    const result = pdfClient.drawStartXPosSpecifiedText(text, style, startX, { leftBound: startX, rightBound });
+    maxYReached = Math.min(maxYReached, result.endYPos);
+  };
+
+  drawColumn(
     columnOne.name,
     { ...(columnOne.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnOne.startXPos
-  );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnTwo.name,
-    { ...(columnTwo.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnOne.startXPos,
     columnTwo.startXPos
   );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnThree.name,
-    { ...(columnThree.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+
+  drawColumn(
+    columnTwo.name,
+    { ...(columnTwo.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnTwo.startXPos,
     columnThree.startXPos
   );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnFour.name,
-    { ...(columnFour.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+
+  drawColumn(
+    columnThree.name,
+    { ...(columnThree.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnThree.startXPos,
     columnFour.startXPos
   );
+
+  drawColumn(
+    columnFour.name,
+    { ...(columnFour.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnFour.startXPos,
+    pdfClient.getRightBound()
+  );
+
+  // After all columns, move cursor to lowest Y reached
+  pdfClient.setY(maxYReached);
+
   return pdfClient;
 };
 
