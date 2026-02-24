@@ -67,7 +67,8 @@ export const index = wrapHandler(
         "emCode": [
           {
             "code": "code",
-            "suggestion": "suggestion"
+            "description": "description",
+            "upcodingSuggestion": "upcodingSuggestion"
           }
         ],
         "codingSuggestions": "codingSuggestions"
@@ -111,6 +112,8 @@ export const index = wrapHandler(
         prompt += `\n CPT: ${billing.map((code) => code.code).join(', ')}`;
       }
 
+      console.log(prompt);
+
       const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
       // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 
@@ -124,7 +127,7 @@ export const index = wrapHandler(
 
       const icdSuggestions: { code: string; description: string; reason: string }[] = [];
       const cptSuggestions: { code: string; description: string; reason: string }[] = [];
-      const emCodeSuggestions: { code: string; description: string; suggestion: string }[] = [];
+      const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
 
       // Validate ICD codes and get the descriptions for the codes
       if (suggestions?.icdCodes) {
@@ -189,7 +192,7 @@ export const index = wrapHandler(
             emCodeSuggestions.push({
               code: code.code,
               description: emCodeOption.display,
-              suggestion: code.suggestion,
+              upcodingSuggestion: code.upcodingSuggestion,
             });
           } else {
             console.log("Didn't get an E&M code", code.code);

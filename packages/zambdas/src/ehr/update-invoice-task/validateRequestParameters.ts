@@ -13,12 +13,12 @@ export function validateRequestParameters(
   if (input.secrets == null) throw MISSING_REQUEST_SECRETS;
 
   const parsedJSON = JSON.parse(input.body);
-  const { taskId, status, prefilledInvoiceInfo, userTimezone } = UpdateInvoiceTaskZambdaInputSchema.parse(parsedJSON);
+  const { taskId, status, invoiceTaskInput, userTimezone } = UpdateInvoiceTaskZambdaInputSchema.parse(parsedJSON);
 
   return {
     taskId,
     status,
-    prefilledInvoiceInfo,
+    invoiceTaskInput,
     secrets: input.secrets,
     userTimezone,
   };

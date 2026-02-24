@@ -17,7 +17,7 @@ import {
 import { useChartFields } from '../hooks/useChartFields';
 import { useRecommendBillingSuggestions } from '../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
-import { useAddCptCode } from './assessment-tab/BillingCodesContainer';
+import { useAddCptCode, useUpdateEMCode } from './assessment-tab/BillingCodesContainer';
 import { useAddDiagnosis } from './assessment-tab/DiagnosesContainer';
 
 export const AiPotentialDiagnosesCard: FC = () => {
@@ -26,6 +26,14 @@ export const AiPotentialDiagnosesCard: FC = () => {
   const { chartData, isLoading: chartDataLoading } = useChartData();
   const { appointment, encounter } = useAppointmentData();
   const encounterId = encounter.id;
+  const currentDiagnoses: DiagnosisDTO[] | undefined = chartData?.diagnosis;
+  const currentCptCodes: CPTCodeDTO[] | undefined = [];
+  if (chartData?.cptCodes) {
+    currentCptCodes.push(...chartData.cptCodes);
+  }
+  if (chartData?.emCode) {
+    currentCptCodes.push(chartData.emCode);
+  }
 
   const { data: chartDataFields, isLoading: chartDataFieldsLoading } = useChartFields({
     requestedFields: {
@@ -40,6 +48,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
 
   const { onAdd: onAddDiagnosis } = useAddDiagnosis();
   const { onAdd: onAddCptCode } = useAddCptCode();
+  const { onEMCodeChange } = useUpdateEMCode();
 
   const { groupedLabOrdersForChartTable } = usePatientLabOrders({
     searchBy: { field: 'encounterId', value: encounterId || '' },
@@ -55,12 +64,17 @@ export const AiPotentialDiagnosesCard: FC = () => {
   const [icdCodes, setIcdCodes] = useState<{ code: string; description: string; reason: string }[] | undefined>(
     undefined
   );
+  const icdCodesSuggest = icdCodes?.filter(
+    (code) => !currentDiagnoses?.some((diagnosis) => diagnosis.code === code.code)
+  );
   const [cptCodes, setCptCodes] = useState<{ code: string; description: string; reason: string }[] | undefined>(
     undefined
   );
-  const [emCode, setEmCode] = useState<{ code: string; description: string; suggestion: string }[] | undefined>(
+  const cptCodesSuggest = cptCodes?.filter((code) => !currentCptCodes?.some((cptCode) => cptCode.code === code.code));
+  const [emCode, setEmCode] = useState<{ code: string; description: string; upcodingSuggestion: string }[] | undefined>(
     undefined
   );
+
   const [codingSuggestions, setCodingSuggestions] = useState<string | undefined>(undefined);
 
   React.useEffect(() => {
@@ -71,15 +85,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
       }
       if (chartDataFieldsLoading) {
         return;
-      }
-      const diagnoses: DiagnosisDTO[] | undefined = chartData?.diagnosis;
-      const cptCodes: CPTCodeDTO[] | undefined = [];
-
-      if (chartData?.cptCodes) {
-        cptCodes.push(...chartData.cptCodes);
-      }
-      if (chartData?.emCode) {
-        cptCodes.push(chartData.emCode);
       }
 
       const externalLabOrders = Object.entries(groupedLabOrdersForChartTable?.hasResults || [])
@@ -114,8 +119,8 @@ export const AiPotentialDiagnosesCard: FC = () => {
         newPatient,
         hpi: chartDataFields?.chiefComplaint?.text ?? '',
         mdm: chartDataFields?.medicalDecision?.text ?? '',
-        diagnoses: diagnoses,
-        billing: cptCodes,
+        diagnoses: currentDiagnoses,
+        billing: currentCptCodes,
         externalLabOrders: externalLabOrders,
         internalLabOrders: inHouseLabOrders,
         radiologyOrders: radiologyOrdersString,
@@ -129,9 +134,9 @@ export const AiPotentialDiagnosesCard: FC = () => {
     fetchRecommendedBillingSuggestions().catch((error) => console.log(error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    chartData?.diagnosis,
-    chartData?.cptCodes,
-    chartData?.emCode,
+    // chartData?.diagnosis,
+    // chartData?.cptCodes,
+    // chartData?.emCode,
     recommendBillingSuggestions,
     // chartDataFields?.chiefComplaint,
     chartDataFields?.medicalDecision,
@@ -155,6 +160,10 @@ export const AiPotentialDiagnosesCard: FC = () => {
 
   const addCptCode = (cptCode: { code: string; description: string; reason: string }): void => {
     onAddCptCode({ code: cptCode.code, display: cptCode.description });
+  };
+
+  const updateEMCode = (emCode: { code: string; description: string; upcodingSuggestion: string }): void => {
+    onEMCodeChange({ code: emCode.code, display: emCode.description });
   };
 
   return visible &&
@@ -198,7 +207,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
           <CloseIcon />
         </IconButton>
       </Box>
-      {icdCodes && icdCodes.length > 0 && (
+      {icdCodesSuggest && icdCodesSuggest.length > 0 && (
         <Box
           style={{
             background: '#E1F5FECC',
@@ -211,7 +220,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
             Potential Diagnoses with ICD-10 Codes
           </Typography>
           <ul>
-            {icdCodes.map((icdCode) => {
+            {icdCodesSuggest.map((icdCode) => {
               return (
                 <li key={icdCode.code}>
                   <Grid container alignItems="center">
@@ -234,7 +243,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
           </ul>
         </Box>
       )}
-      {cptCodes && cptCodes.length > 0 && (
+      {cptCodesSuggest && cptCodesSuggest.length > 0 && (
         <Box
           style={{
             background: '#E1F5FECC',
@@ -247,7 +256,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
             CPT Codes
           </Typography>
           <ul>
-            {cptCodes.map((cptCode) => {
+            {cptCodesSuggest.map((cptCode) => {
               return (
                 <li key={cptCode.code}>
                   <Grid container alignItems="center">
@@ -285,9 +294,11 @@ export const AiPotentialDiagnosesCard: FC = () => {
           <ul>
             {emCode.map((code) => (
               <li key={code.code}>
-                <Typography variant="body1">{code.code + ': ' + code.description}</Typography>
+                <Link onClick={(_event) => updateEMCode(code)} sx={{ cursor: 'pointer' }}>
+                  <Typography variant="body1">{code.code + ': ' + code.description}</Typography>
+                </Link>
                 <Typography variant="body2" color="textSecondary">
-                  Suggestion: {code.suggestion}
+                  Suggestion: {code.upcodingSuggestion}
                 </Typography>
               </li>
             ))}

@@ -2,232 +2,247 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import {
-  Alert,
-  Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   IconButton,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { GridRenderCellParams } from '@mui/x-data-grid-pro';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { Box, Stack } from '@mui/system';
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { SendInvoiceToPatientDialog } from 'src/components/dialogs';
 import {
-  INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME,
-  INVOICEABLE_PATIENTS_REPORTS_FILE_NAME,
-  InvoiceablePatientsReport,
+  chooseJson,
+  formatDateConfigurable,
+  GET_INVOICES_TASKS_ZAMBDA_KEY,
+  GetInvoicesTasksInput,
+  GetInvoicesTasksResponse,
+  getLatestTaskOutput,
+  INVOICEABLE_PATIENTS_PAGE_SIZE,
+  InvoiceablePatientReport,
+  InvoiceTaskDisplayStatus,
+  InvoiceTaskDisplayStatuses,
+  InvoiceTaskInput,
+  mapDisplayToInvoiceTaskStatus,
+  mapInvoiceTaskStatusToDisplay,
 } from 'utils';
-import { invoiceablePatientsReport } from '../../api/api';
+import { updateInvoiceTask } from '../../api/api';
+import { SelectInput } from '../../components/input/SelectInput';
+import { MappedStatusChip } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
-export default function InvoiceablePatients(): React.ReactElement {
-  const navigate = useNavigate();
-  const { oystehrZambda, oystehr } = useApiClients();
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reportData, setReportData] = useState<InvoiceablePatientsReport | null>(null);
+const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
 
-  // 1. New State for Date Picker (Defaults to 2 weeks ago)
-  const [startDate, setStartDate] = useState<DateTime | null>(DateTime.now().minus({ weeks: 2 }));
+const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
+  [status in InvoiceTaskDisplayStatus]: {
+    background: {
+      primary: string;
+      secondary?: string;
+    };
+    color: {
+      primary: string;
+      secondary?: string;
+    };
+  };
+} = {
+  ready: {
+    background: {
+      primary: '#6129ef',
+    },
+    color: {
+      primary: '#ffffff',
+    },
+  },
+  updating: {
+    background: {
+      primary: '#B3E5FC',
+    },
+    color: {
+      primary: '#01579B',
+    },
+  },
+  sending: {
+    background: {
+      primary: '#D1C4E9',
+    },
+    color: {
+      primary: '#311B92',
+    },
+  },
+  sent: {
+    background: {
+      primary: '#C8E6C9',
+    },
+    color: {
+      primary: '#1B5E20',
+    },
+  },
+  error: {
+    background: {
+      primary: '#FFCCBC',
+    },
+    color: {
+      primary: '#BF360C',
+    },
+  },
+};
+
+export default function InvoiceablePatients(): React.ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const navigate = useNavigate();
+  const methods = useForm();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedReportToSend, setSelectedReportToSend] = useState<InvoiceablePatientReport | undefined>();
+  const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
+  const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
+  const pageSP = Number(searchParams.get('page') ?? '0');
+  const statusSP = searchParams.get('status');
+  const patientSP = searchParams.get('patient');
 
   const handleBack = (): void => {
     navigate('/reports');
   };
 
-  const fetchReport = useCallback(async (): Promise<void> => {
-    setLoading(true);
-    setError(null);
+  const setPage = (page: number): void => {
+    searchParams.set('page', page.toString());
+    setSearchParams(searchParams);
+  };
 
+  const {
+    data: invoiceablePatients,
+    isLoading: isInvoiceablePatientsLoading,
+    refetch: refetchInvoiceablePatients,
+  } = useQuery<GetInvoicesTasksResponse>({
+    queryKey: [GET_INVOICES_TASKS_ZAMBDA_KEY, pageSP, statusSP, patientSP],
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const params: GetInvoicesTasksInput = {
+        page: pageSP,
+        status: statusSP ? mapDisplayToInvoiceTaskStatus(statusSP as InvoiceTaskDisplayStatus) : undefined,
+        patientId: patientSP ?? undefined,
+      };
+      const response = await oystehrZambda.zambda.execute({
+        id: GET_INVOICES_TASKS_ZAMBDA_KEY,
+        ...params,
+      });
+      return chooseJson(response);
+    },
+    enabled: oystehrZambda !== undefined,
+    retry: 2,
+    staleTime: 5 * 1000,
+    refetchInterval: 5 * 1000,
+  });
+
+  const sendInvoice = async (taskId: string, invoiceTaskInput: InvoiceTaskInput): Promise<void> => {
     try {
-      if (!oystehrZambda || !oystehr) {
-        throw new Error('Oystehr client not available');
+      if (oystehrZambda) {
+        setSendingTaskIds((prev) => new Set(prev).add(taskId));
+
+        await updateInvoiceTask(oystehrZambda, {
+          taskId,
+          status: mapDisplayToInvoiceTaskStatus('sending'),
+          invoiceTaskInput,
+          userTimezone: DateTime.local().zoneName,
+        }).finally(() => {
+          setSendingTaskIds((prev) => {
+            const next = new Set(prev);
+            next.delete(taskId);
+            return next;
+          });
+        });
+
+        setSelectedReportToSend(undefined);
+        enqueueSnackbar('Invoice status changed to "sending"', { variant: 'success' });
+        await refetchInvoiceablePatients();
       }
-
-      const fullBucketName = `${import.meta.env.VITE_APP_PROJECT_ID}-${INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME}`;
-      const fileBuffer = await oystehr.z3.downloadFile({
-        bucketName: fullBucketName,
-        'objectPath+': INVOICEABLE_PATIENTS_REPORTS_FILE_NAME,
-      });
-      const decoder = new TextDecoder('utf-8');
-      const jsonString = decoder.decode(fileBuffer);
-      const reports = JSON.parse(jsonString);
-
-      setReportData(reports);
-    } catch (err) {
-      console.error('Error fetching visits overview report:', err);
-      setError('Failed to load visits overview report. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, oystehr]);
-
-  useEffect(() => {
-    void fetchReport();
-  }, [fetchReport]);
-
-  const updateReport = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      if (!oystehrZambda) throw new Error('Oystehr client not available');
-
-      console.log('date: ', startDate?.toISODate());
-      await invoiceablePatientsReport(oystehrZambda, {
-        startFrom: startDate ? startDate.toISODate() ?? undefined : undefined,
-      });
-
-      void fetchReport();
     } catch {
-      enqueueSnackbar('Error occurred while updating invoiceable patients report. Please try again.', {
-        variant: 'error',
-      });
-    } finally {
-      setLoading(false);
+      enqueueSnackbar('Error occurred, please try again', { variant: 'error' });
     }
   };
 
-  const patientsReportsColumns: GridColDef[] = useMemo(
-    () => [
-      {
-        field: 'patientName',
-        headerName: 'Patient Name',
-        width: 250,
-        sortable: true,
-        renderCell: (params: GridRenderCellParams) => (
-          <Link to={`/patient/${params.row.patientId}`} style={{ textDecoration: 'underline', color: 'inherit' }}>
-            <Typography variant="inherit">{params.value}</Typography>
-          </Link>
-        ),
-      },
-      {
-        field: 'patientDob',
-        headerName: 'DOB',
-        width: 180,
-        sortable: true,
-      },
-      {
-        field: 'appointmentDate',
-        headerName: 'Appointment Date',
-        width: 180,
-        sortable: true,
-      },
-      {
-        field: 'finalizationDate',
-        headerName: 'Finalization Date',
-        width: 180,
-        sortable: true,
-      },
-      {
-        field: 'responsiblePartyName',
-        headerName: 'Responsible Party',
-        width: 250,
-        sortable: true,
-        renderCell: (params: GridRenderCellParams) => (
-          <Typography variant="inherit">
-            {params.value}, {params.row.responsiblePartyRelationship}
-          </Typography>
-        ),
-      },
-      {
-        field: 'amountInvoiceable',
-        headerName: 'Amount',
-        width: 100,
-        sortable: true,
-      },
-      {
-        field: 'candidClaimId',
-        headerName: 'Candid ID',
-        width: 350,
-        sortable: true,
-      },
-    ],
-    []
-  );
-  const failedReportsColumns: GridColDef[] = useMemo(
-    () => [
-      {
-        field: 'claimId',
-        headerName: 'Claim Id',
-        width: 350,
-        sortable: true,
-        renderCell: (params: any) => (
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{params.value}</span>
-            <Tooltip title="Copy claim id">
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation(); // prevent row selection
-                  void navigator.clipboard
-                    .writeText(params.value)
-                    .then(() => enqueueSnackbar('Copied to clipboard', { variant: 'success' }));
-                }}
-              >
-                <ContentCopyIcon />
-              </IconButton>
-            </Tooltip>
-          </div>
-        ),
-      },
-      {
-        field: 'patientId',
-        headerName: 'Patient Id',
-        width: 350,
-        sortable: true,
-      },
-      {
-        field: 'candidEncounterId',
-        headerName: 'Candid Encounter Id',
-        width: 350,
-        sortable: true,
-      },
-      {
-        field: 'error',
-        headerName: 'Error message',
-        width: 800,
-        sortable: true,
-      },
-    ],
-    []
-  );
+  const updateInvoice = (taskId: string | undefined): void => {
+    try {
+      if (oystehrZambda && taskId) {
+        setUpdatingTaskIds((prev) => new Set(prev).add(taskId));
 
-  const patientsRows = useMemo(() => {
-    if (!reportData?.patientsReports) return [];
+        void updateInvoiceTask(oystehrZambda, {
+          taskId,
+          status: mapDisplayToInvoiceTaskStatus('updating'),
+          userTimezone: DateTime.local().zoneName,
+        }).finally(async () => {
+          enqueueSnackbar('Invoice status changed to "updating"', { variant: 'success' });
+          await refetchInvoiceablePatients();
+          setUpdatingTaskIds((prev) => {
+            const next = new Set(prev);
+            next.delete(taskId);
+            return next;
+          });
+        });
+      }
+    } catch {
+      enqueueSnackbar('Error occurred, please try again', { variant: 'error' });
+    }
+  };
 
-    return reportData.patientsReports.map((patient) => ({
-      id: patient.claimId,
-      patientId: patient.id,
-      patientName: patient.name,
-      patientDob: patient.dob,
-      finalizationDate: patient.finalizationDate,
-      appointmentDate: patient.appointmentDate,
-      responsiblePartyName: patient.responsiblePartyName,
-      responsiblePartyRelationship: patient.responsiblePartyRelationshipToPatient,
-      amountInvoiceable: patient.amountInvoiceable,
-      candidClaimId: patient.claimId,
-    }));
-  }, [reportData]);
+  useEffect(() => {
+    const filtersValues = {
+      status: searchParams.get('status'),
+      patient: searchParams.get('patient'),
+    };
+    methods.reset(filtersValues);
+  }, [searchParams, methods]);
 
-  const failedReportsRows = useMemo(() => {
-    if (!reportData?.failedReports) return [];
+  useEffect(() => {
+    const callback = methods.subscribe({
+      formState: {
+        values: true,
+      },
+      callback: ({ values }) => {
+        const queryParams = new URLSearchParams();
+        const filtersToPersist: Record<string, string> = {};
+        for (const key in values) {
+          const value = values[key];
+          if (value) {
+            queryParams.set(key, value);
+            filtersToPersist[key] = value;
+          }
+        }
+        setSearchParams(queryParams);
+        if (Object.keys(filtersToPersist).length > 0) {
+          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
+        } else {
+          localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+        }
+      },
+    });
+    return () => callback();
+  }, [methods, navigate, setSearchParams]);
 
-    return reportData.failedReports.map((patient) => ({
-      id: patient.claimId,
-      claimId: patient.claimId,
-      patientId: patient.patientId,
-      candidEncounterId: patient.candidEncounterId,
-      error: patient.error,
-    }));
-  }, [reportData]);
+  useEffect(() => {
+    const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
+    if (searchParams.size === 0 && persistedFilters != null) {
+      const filters = JSON.parse(persistedFilters);
+      const queryParams = new URLSearchParams();
+      for (const key in filters) {
+        queryParams.set(key, filters[key]);
+      }
+      setSearchParams(queryParams);
+    }
+  }, [searchParams, setSearchParams]);
 
   return (
     <PageContainer>
@@ -244,119 +259,196 @@ export default function InvoiceablePatients(): React.ReactElement {
           </Box>
         </Box>
 
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Click Refresh to generate a new report. This will fetch up to 200 items starting from the selected date
-          (finalization date is used to filter reports).
-        </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        <LocalizationProvider dateAdapter={AdapterLuxon}>
-          <Box sx={{ width: 300, mb: 3 }}>
-            <DatePicker
-              label="Start Date"
-              value={startDate}
-              onChange={(newValue: DateTime | null) => {
-                setStartDate(newValue);
-              }}
-              slotProps={{ textField: { fullWidth: true } }}
-            />
-          </Box>
-        </LocalizationProvider>
-
-        <Button sx={{ mb: 3 }} variant="outlined" onClick={() => void updateReport()} disabled={loading}>
-          Refresh
-        </Button>
-
-        {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        )}
-
-        {!loading && reportData && (
-          <Typography variant="body1" sx={{ mb: 4 }}>
-            Report was generated on: {reportData.date}
-            <br /> Claims fetched from candid: {reportData.claimsFound}
-            <br /> Claims in report: {reportData.patientsReports?.length}
-          </Typography>
-        )}
-
-        {!loading && reportData && (
-          <Box>
-            {reportData && patientsRows.length > 0 && (
-              <Card sx={{ mb: 4 }}>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 3 }}>
-                    Invoiceable Patients
+        <FormProvider {...methods}>
+          <Paper>
+            <Stack direction="row" spacing={2} padding="8px">
+              <SelectInput name="status" label="Status" options={InvoiceTaskDisplayStatuses as unknown as string[]} />
+              <TextField {...methods.register('patient')} label="Patient id" sx={{ width: '100%' }} size="small" />
+            </Stack>
+          </Paper>
+        </FormProvider>
+        <Paper sx={{ mt: 2 }}>
+          <Table sx={{ width: '100%' }}>
+            <TableHead>
+              <TableRow>
+                <TableCell style={{ width: '200px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Patient Name
                   </Typography>
-                  <Box sx={{ height: 800, width: '100%' }}>
-                    <DataGrid
-                      rows={patientsRows}
-                      columns={patientsReportsColumns}
-                      initialState={{
-                        pagination: {
-                          paginationModel: { pageSize: 25 },
-                        },
-                      }}
-                      pageSizeOptions={[25, 50, 100]}
-                      rowBuffer={6}
-                      sx={{
-                        '& .MuiDataGrid-cell': {
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        },
-                        '& .MuiDataGrid-columnHeaderTitle': {
-                          fontWeight: 600,
-                        },
-                      }}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            )}
-          </Box>
-        )}
-
-        {!loading && reportData && (
-          <Box>
-            {reportData && failedReportsRows.length > 0 && (
-              <Card sx={{ mb: 4 }}>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 3 }}>
-                    Failed Reports
+                </TableCell>
+                <TableCell style={{ width: '150px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    DOB
                   </Typography>
-                  <Box sx={{ height: 800, width: '100%' }}>
-                    <DataGrid
-                      rows={failedReportsRows}
-                      columns={failedReportsColumns}
-                      initialState={{
-                        pagination: {
-                          paginationModel: { pageSize: 25 },
-                        },
-                      }}
-                      pageSizeOptions={[25, 50, 100]}
-                      rowBuffer={6}
-                      sx={{
-                        '& .MuiDataGrid-cell': {
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        },
-                        '& .MuiDataGrid-columnHeaderTitle': {
-                          fontWeight: 600,
-                        },
-                      }}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            )}
-          </Box>
-        )}
+                </TableCell>
+                <TableCell style={{ width: '150px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Appointment Date
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '150px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Finalization Date
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '200px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Responsible Party
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '120px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Amount
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '150px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    RCM Claim id
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '100px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Status
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '200px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Actions
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {isInvoiceablePatientsLoading ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    <CircularProgress />
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {!isInvoiceablePatientsLoading && (invoiceablePatients?.reports ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    <Typography variant="body2">No reports</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {!isInvoiceablePatientsLoading &&
+                (invoiceablePatients?.reports ?? []).map((report) => {
+                  const isUpdating = report.task.id ? updatingTaskIds.has(report.task.id) : false;
+                  const isSending = report.task.id ? sendingTaskIds.has(report.task.id) : false;
+                  const displayStatus = isUpdating
+                    ? 'updating'
+                    : isSending
+                    ? 'sending'
+                    : mapInvoiceTaskStatusToDisplay(report.task.status);
+                  const lastTaskOutput = getLatestTaskOutput(report.task);
+                  const statusTooltipMessage = lastTaskOutput
+                    ? lastTaskOutput.type === 'success'
+                      ? 'Invoice id: ' + lastTaskOutput.message
+                      : 'Error: ' + lastTaskOutput.message
+                    : displayStatus;
+
+                  return (
+                    <TableRow key={report.task.id}>
+                      <TableCell>
+                        <Link
+                          to={`/patient/${report.patient.patientId}`}
+                          style={{ textDecoration: 'underline', color: 'inherit' }}
+                        >
+                          <Typography variant="inherit">{report.patient.fullName}</Typography>
+                        </Link>{' '}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body1">{report.patient.dob}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body1">{report.visitDate}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body1">
+                          {formatDateConfigurable({ isoDate: report.finalizationDateISO })}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body1">
+                          {report.responsibleParty.fullName}, {report.responsibleParty.relationshipToPatient}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body1">${(report.amountInvoiceable / 100).toFixed(2)}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body1">
+                          {report.claimId.slice(0, 8)}...
+                          <Tooltip title="Copy claim id">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                void navigator.clipboard
+                                  .writeText(report.claimId)
+                                  .then(() => enqueueSnackbar('Copied to clipboard', { variant: 'success' }));
+                              }}
+                            >
+                              <ContentCopyIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title={statusTooltipMessage}>
+                          <span>
+                            <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
+                          </span>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          sx={{ mr: 1 }}
+                          onClick={() => {
+                            updateInvoice(report.task.id);
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                        <Button
+                          disabled={
+                            isUpdating || isSending || displayStatus === 'updating' || displayStatus === 'sending'
+                          }
+                          onClick={() => {
+                            setSelectedReportToSend(report);
+                          }}
+                          variant="contained"
+                        >
+                          Invoice
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+            </TableBody>
+          </Table>
+          <TablePagination
+            rowsPerPageOptions={[INVOICEABLE_PATIENTS_PAGE_SIZE]}
+            component="div"
+            count={invoiceablePatients?.totalCount ?? -1}
+            rowsPerPage={INVOICEABLE_PATIENTS_PAGE_SIZE}
+            page={pageSP}
+            onPageChange={(_e, newPageNumber) => {
+              setPage(newPageNumber);
+            }}
+          />
+        </Paper>
+        <SendInvoiceToPatientDialog
+          title="Send invoice"
+          modalOpen={selectedReportToSend !== undefined}
+          handleClose={() => {
+            setSelectedReportToSend(undefined);
+          }}
+          submitButtonName="Send Invoice"
+          onSubmit={sendInvoice}
+          report={selectedReportToSend}
+        />
       </Box>
     </PageContainer>
   );

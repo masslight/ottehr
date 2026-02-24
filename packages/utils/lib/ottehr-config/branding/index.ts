@@ -23,6 +23,13 @@ const BRANDING_DEFAULTS: any = {
     email: '',
     pdf: '',
   },
+  intake: {
+    appBar: {
+      backgroundColor: '#0a2243',
+      logoHeight: '39px',
+      logoutButtonTextColor: '#FFFFFF',
+    },
+  },
   /*
   palette: {
     // these are dummy values, but ottehr theme defaults should come from here eventually
@@ -57,13 +64,13 @@ const BrandingConfigSchema = z.object({
     email: z.string().optional(),
     pdf: z.string().optional(),
   }),
-  intake: z
-    .object({
-      appBar: z.object({
-        logoutButtonTextColor: z.string().min(1, { message: 'AppBar logout button color cannot be empty' }),
-      }),
-    })
-    .optional(),
+  intake: z.object({
+    appBar: z.object({
+      backgroundColor: z.string().min(1, { message: 'AppBar background color cannot be empty' }),
+      logoHeight: z.string().min(1, { message: 'AppBar logo height cannot be empty' }),
+      logoutButtonTextColor: z.string().min(1, { message: 'AppBar logout button color cannot be empty' }),
+    }),
+  }),
 });
 
 export const BRANDING_CONFIG = Object.freeze(BrandingConfigSchema.parse(mergedBrandingConfig));
