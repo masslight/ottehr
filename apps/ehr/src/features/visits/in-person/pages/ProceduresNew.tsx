@@ -238,7 +238,7 @@ export default function ProceduresNew(): ReactElement {
       });
       setLoadingSuggestions(false);
       setRecommendedBillingCodes(codes);
-      if (formValues.procedureType === 'Laceration Repair (Suturing/Stapling)') {
+      if (formValues.procedureType.toLowerCase().includes('laceration')) {
         setLoadingSuggestionNote(true);
         const suggestions = await aiSuggestionNotes({
           type: 'procedure',
