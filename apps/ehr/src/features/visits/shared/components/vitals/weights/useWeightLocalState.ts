@@ -35,7 +35,7 @@ export function useWeightLocalState(): WeightLocalState {
 
   const handleLbsInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const numericValue = textToNumericValue(e.target.value);
-    if (numericValue) {
+    if (numericValue !== undefined) {
       setWeightKg(roundNumberToDecimalPlaces(numericValue / LBS_IN_KG, 2));
     } else {
       setWeightKg(undefined);
