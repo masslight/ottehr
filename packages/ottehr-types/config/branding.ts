@@ -59,7 +59,7 @@ export const BrandingConfigSchema = z.object({
   primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
   email: EmailConfigSchema,
   logo: LogoConfigSchema,
-  intake: IntakeBrandingSchema.optional(),
+  intake: IntakeBrandingSchema,
 });
 
 export type BrandingConfig = z.infer<typeof BrandingConfigSchema>;
