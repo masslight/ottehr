@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import {
   getCoding,
-  getFullestAvailableName,
   getSecret,
   getTestNameOrCodeFromDr,
   LAB_DR_TYPE_TAG,
@@ -22,7 +21,7 @@ import {
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
 import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
-import { fetchRelatedResources, getCodeForNewTask } from './helpers';
+import { fetchRelatedResources, formatPatientNameForTask, getCodeForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -103,7 +102,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const testName = getTestNameOrCodeFromDr(diagnosticReport);
     const labName = labOrg?.name ?? 'missing';
-    const patientName = patient ? getFullestAvailableName(patient) : 'missing';
+    const patientName = formatPatientNameForTask(patient, isUnsolicited, diagnosticReport);
 
     const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
@@ -167,7 +166,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       title = `Review results for “${fullTestName}” for ${patientName}`;
     }
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
-      title = 'Match unsolicited test results';
+      title = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
+        patientName ? ` for ${patientName}` : ''
+      }`;
     }
     if (
       code === LAB_ORDER_TASK.code.reviewFinalResult ||
