@@ -30,7 +30,7 @@ import {
 } from '../../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
-import { SelectFromFavoritesButton } from '../SelectFromFavoritesButton';
+import { SelectFromFavoritesButton } from '../../SelectFromFavoritesButton';
 
 type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'display'> & { code: string | undefined };
 

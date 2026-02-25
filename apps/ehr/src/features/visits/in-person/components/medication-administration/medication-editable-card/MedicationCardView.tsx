@@ -18,7 +18,7 @@ import {
 } from 'utils';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { Loader } from '../../../../shared/components/Loader';
-import { SelectFromFavoritesButton } from '../../../../shared/components/medical-history-tab/SelectFromFavoritesButton';
+import { SelectFromFavoritesButton } from '../../../../shared/components/SelectFromFavoritesButton';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ButtonRounded } from '../../RoundedButton';
