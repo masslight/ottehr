@@ -280,29 +280,27 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           return;
         }
 
-        if (state.isValid) {
-          const dto = state.getDTO();
-          if (dto) {
-            try {
-              setFieldSavingStates((prev) => ({ ...prev, [field]: true }));
-              await handleSaveVital(dto);
-              state.clearForm();
-            } catch {
-              const fieldNameMap: Record<VitalFieldNames, string> = {
-                [VitalFieldNames.VitalTemperature]: 'Temperature',
-                [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
-                [VitalFieldNames.VitalRespirationRate]: 'Respiration Rate',
-                [VitalFieldNames.VitalBloodPressure]: 'Blood Pressure',
-                [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen Saturation',
-                [VitalFieldNames.VitalWeight]: 'Weight',
-                [VitalFieldNames.VitalHeight]: 'Height',
-                [VitalFieldNames.VitalVision]: 'Vision',
-                [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
-              };
-              enqueueSnackbar(`Error saving ${fieldNameMap[field] || ''} data`, { variant: 'error' });
-            } finally {
-              setFieldSavingStates((prev) => ({ ...prev, [field]: false }));
-            }
+        const dto = state.getDTO();
+        if (dto) {
+          try {
+            setFieldSavingStates((prev) => ({ ...prev, [field]: true }));
+            await handleSaveVital(dto);
+            state.clearForm();
+          } catch {
+            const fieldNameMap: Record<VitalFieldNames, string> = {
+              [VitalFieldNames.VitalTemperature]: 'Temperature',
+              [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
+              [VitalFieldNames.VitalRespirationRate]: 'Respiration Rate',
+              [VitalFieldNames.VitalBloodPressure]: 'Blood Pressure',
+              [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen Saturation',
+              [VitalFieldNames.VitalWeight]: 'Weight',
+              [VitalFieldNames.VitalHeight]: 'Height',
+              [VitalFieldNames.VitalVision]: 'Vision',
+              [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
+            };
+            enqueueSnackbar(`Error saving ${fieldNameMap[field] || ''} data`, { variant: 'error' });
+          } finally {
+            setFieldSavingStates((prev) => ({ ...prev, [field]: false }));
           }
         }
       },

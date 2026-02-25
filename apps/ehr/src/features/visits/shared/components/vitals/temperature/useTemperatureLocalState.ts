@@ -62,7 +62,7 @@ export function useTemperatureLocalState(): TemperatureLocalState {
 
   const getDTO = useCallback((): VitalsTemperatureObservationDTO | null => {
     const temperatureValueNumber = textToTemperatureNumber(temperatureValueText);
-    if (!temperatureValueNumber) return null;
+    if (temperatureValueNumber === undefined) return null;
     return {
       field: VitalFieldNames.VitalTemperature,
       value: temperatureValueNumber,
