@@ -1,22 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
-import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
-import {
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
-  PATIENT_RECORD_QUESTIONNAIRE,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
-} from '../ottehr-config';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE, VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
-
-// todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
-const getQuestionnaires = (): Array<Questionnaire> => [
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(),
-  PATIENT_RECORD_QUESTIONNAIRE(),
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE(),
-  ...Object.values(virtualIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
-  ...Object.values(inPersonIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
-];
 
 // throws an error if unable to find exactly 1 matching resource
 export const getCanonicalQuestionnaire = async (
@@ -25,16 +10,7 @@ export const getCanonicalQuestionnaire = async (
 ): Promise<Questionnaire> => {
   const { url, version } = canonical;
 
-  const maybeQuestionnaireFromFile = getQuestionnaires().find((q) => q.url === url && q.version === version);
-  // if we found the Q in the local file, return it
-  console.log('looking for questionnaire locally', url, version);
-  if (maybeQuestionnaireFromFile) {
-    console.log('found questionnaire locally');
-    return JSON.parse(JSON.stringify(maybeQuestionnaireFromFile));
-  }
-  console.log('questionnaire not found locally, fetching from FHIR server');
-
-  // otherwise, fetch from the FHIR server
+  console.log('fetching questionnaire from FHIR server', url, version);
   const questionnaireSearch = (
     await oystehrClient.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',

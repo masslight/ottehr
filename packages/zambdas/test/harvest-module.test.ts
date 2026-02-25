@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   flattenItems,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   INSURANCE_PAY_OPTION,
   isValidUUID,
   ORG_TYPE_CODE_SYSTEM,
@@ -12,7 +13,6 @@ import {
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
-import InPersonQuestionnaireFile from '../../../config/oystehr/in-person-intake-questionnaire.json';
 import {
   createAccount,
   createContainedGuarantor,
@@ -33,16 +33,8 @@ import {
 } from './data/expected-coverage-resources-qr1';
 import { fillReferences } from './helpers/harvest-test-helpers';
 
-const questionnaire = Object.values(InPersonQuestionnaireFile.fhirResources).find(
-  (q) =>
-    q.resource.resourceType === 'Questionnaire' &&
-    q.resource.status === 'active' &&
-    q.resource.url.includes('intake-paperwork-inperson')
-);
-if (!questionnaire) {
-  throw new Error('Questionnaire not found in local config');
-}
-const InPersonQuestionnaire = questionnaire.resource;
+// Generate questionnaire dynamically from config
+const InPersonQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
 
 const expectedPrimaryPolicyHolderFromQR1 = fillReferences(rawPPHQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [

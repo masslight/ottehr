@@ -34,11 +34,11 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   RelationshipOption,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
@@ -340,22 +340,15 @@ export class ResourceHandler {
       })
     ).unbundle()[0] as Schedule;
 
-    const questionnaire = Object.values(inPersonIntakeQuestionnaire.fhirResources).find(
-      (q) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-inperson')
-    );
-    if (!questionnaire) {
-      throw new Error('Questionnaire not found in local config');
-    }
+    // Generate questionnaire dynamically from config
+    const questionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
 
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(
       /\{\{questionnaireUrl\}\}/g,
-      `${questionnaire.resource.url}|${questionnaire.resource.version}`
+      `${questionnaire.url}|${questionnaire.version}`
     );
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 

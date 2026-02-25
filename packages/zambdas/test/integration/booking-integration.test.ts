@@ -34,9 +34,9 @@ import {
   SlotServiceCategory,
   SLUG_SYSTEM,
   Timezone,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 import { assert } from 'vitest';
-import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
   adjustHoursOfOperation,
@@ -1297,7 +1297,8 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       // Use the virtual intake questionnaire for an in-person slot
       // This proves the Slot's canonical is being used instead of the default in-person questionnaire
-      const testCanonical = getCanonicalUrlForPrevisitQuestionnaire(ServiceMode.virtual);
+      const virtualQ = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
+      const testCanonical: CanonicalUrl = { url: virtualQ.url!, version: virtualQ.version! };
 
       // Get an available slot time
       let getScheduleResponse: GetScheduleResponse | undefined;

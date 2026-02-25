@@ -11,7 +11,13 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { BRANDING_CONFIG, SENDGRID_CONFIG } from 'utils';
+import {
+  BRANDING_CONFIG,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  SENDGRID_CONFIG,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
+} from 'utils';
+import { generateQuestionnaireArchiveKey } from '../packages/spec/src/questionnaire-utils';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 import { Schema20250925 } from '../packages/spec/src/schema-20250925';
@@ -152,6 +158,20 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   }
   if (schemaVersion === '2025-09-25') {
     const schema = new Schema20250925(specs, vars, outputPath, zambdasDirPath);
+
+    // Add current questionnaires from config
+    // These are generated dynamically and added alongside archived versions
+    const inPersonQ = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
+    const virtualQ = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
+
+    const inPersonKey = generateQuestionnaireArchiveKey('in-person', inPersonQ.version!);
+    const virtualKey = generateQuestionnaireArchiveKey('virtual', virtualQ.version!);
+
+    schema.resources.fhirResources[inPersonKey] = { resource: inPersonQ };
+    schema.resources.fhirResources[virtualKey] = { resource: virtualQ };
+
+    console.log(`Added dynamic questionnaires: ${inPersonKey}, ${virtualKey}`);
+
     await schema.generate();
   }
 }

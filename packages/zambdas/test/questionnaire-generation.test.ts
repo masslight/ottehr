@@ -7,32 +7,15 @@ import {
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 import { expect, test } from 'vitest';
-import InPersonIntakeQuestionnaireConfig from '../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import VirtualIntakeQuestionnaireConfig from '../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import BookingQuestionnaire from './data/booking-questionnaire.json' assert { type: 'json' };
 import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json' assert { type: 'json' };
 import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json' assert { type: 'json' };
 import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork-questionnaire.json' assert { type: 'json' };
 
+// Note: Validation that generated questionnaires match deployed versions is now handled by
+// the validate-intake-questionnaire-archive script, which compares against the archive files.
+
 describe('testing Questionnaire generation from config objects', () => {
-  test.concurrent('in person intake paperwork config JSON matches generated questionnaire', () => {
-    const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
-    const key = Object.keys((InPersonIntakeQuestionnaireConfig as any).fhirResources as any)[0];
-    const actualConfigQuestionnaire = (InPersonIntakeQuestionnaireConfig as any).fhirResources[key].resource;
-
-    expect(actualConfigQuestionnaire).toBeDefined();
-    expect(generatedQuestionnaire).toEqual(actualConfigQuestionnaire);
-  });
-
-  test.concurrent('virtual intake paperwork config JSON matches generated questionnaire', () => {
-    const generatedQuestionnaire = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
-    const key = Object.keys((VirtualIntakeQuestionnaireConfig as any).fhirResources as any)[0];
-    const actualConfigQuestionnaire = (VirtualIntakeQuestionnaireConfig as any).fhirResources[key].resource;
-
-    expect(actualConfigQuestionnaire).toBeDefined();
-    expect(generatedQuestionnaire).toEqual(actualConfigQuestionnaire);
-  });
-
   test
     .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
     .concurrent('patient record questionnaire config generates expected questionnaire items', async () => {
