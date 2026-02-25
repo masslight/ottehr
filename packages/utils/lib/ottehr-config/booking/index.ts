@@ -1,3 +1,4 @@
+import { HomepageOptions } from 'config-types';
 import {
   Coding,
   Patient,
@@ -9,12 +10,12 @@ import {
 } from 'fhir/r4b';
 import _ from 'lodash';
 import z from 'zod';
-import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides';
+import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides/booking';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
-import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
+import { CanonicalUrl, flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
   FormFieldTrigger,
@@ -394,6 +395,11 @@ const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'scheduleType', value: 'group' },
 ];
 
+export interface BookingOption {
+  id: string;
+  label: string;
+}
+
 enum VisitType {
   InPersonWalkIn = 'in-person-walk-in',
   InPersonPreBook = 'in-person-pre-booked',
@@ -401,45 +407,40 @@ enum VisitType {
   VirtualOnDemand = 'virtual-on-demand',
   VirtualScheduled = 'virtual-scheduled',
 }
-
-interface BookingOption {
-  id: string;
-  label: string;
-}
 export interface BookingConfig {
   serviceCategoriesEnabled: {
     serviceModes: string[];
     visitType: string[];
   };
-  homepageOptions: string[];
+  homepageOptions: BookingOption[];
   ehrBookingOptions: BookingOption[];
   serviceCategories: StrongCoding[];
   formConfig: z.infer<typeof QuestionnaireConfigSchema>;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
+  defaultWalkinLocationName?: string;
   // Questionnaire-related fields used for building the form
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;
   hiddenFormSections?: string[];
+  // Optional questionnaire canonical URLs for slot creation
+  // When set, these are passed to create-slot and stored on the Slot extension
+  // Used by e2e tests to inject isolated test questionnaires
+  virtualQuestionnaireCanonical?: CanonicalUrl;
+  inPersonQuestionnaireCanonical?: CanonicalUrl;
 }
 
-export enum HomepageOptions {
-  StartInPersonVisit = 'start-in-person-visit',
-  ScheduleInPersonVisit = 'schedule-in-person-visit',
-  StartVirtualVisit = 'start-virtual-visit',
-  ScheduleVirtualVisit = 'schedule-virtual-visit',
-}
-
-const BOOKING_DEFAULTS = {
+const BOOKING_DEFAULTS: BookingConfig = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
   },
   homepageOptions: [
-    HomepageOptions.StartInPersonVisit,
-    HomepageOptions.ScheduleInPersonVisit,
-    HomepageOptions.StartVirtualVisit,
-    HomepageOptions.ScheduleVirtualVisit,
+    { id: HomepageOptions.StartInPersonVisit, label: 'In-Person Check-In' },
+    { id: HomepageOptions.ScheduleInPersonVisit, label: 'Schedule In-Person Visit' },
+    { id: HomepageOptions.StartVirtualVisit, label: 'Start Virtual Visit' },
+    { id: HomepageOptions.ScheduleVirtualVisit, label: 'Schedule Virtual Visit' },
   ],
+  defaultWalkinLocationName: 'New_York',
   ehrBookingOptions: [
     {
       id: VisitType.InPersonWalkIn,
@@ -465,10 +466,25 @@ const BOOKING_DEFAULTS = {
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   formConfig,
   inPersonPrebookRoutingParams,
-} as const satisfies BookingConfig;
+};
+
+/**
+ * Get booking configuration with optional test overrides
+ *
+ * @param testOverrides - Optional overrides for testing purposes
+ * @returns Merged configuration
+ */
+export function getBookingConfig(
+  testOverrides: Partial<BookingConfig> = BOOKING_OVERRIDES as Partial<BookingConfig>
+): BookingConfig {
+  // Type assertion needed: DeepMerge with Partial<T> produces T | undefined properties,
+  // but lodash merge skips undefined values so the base config properties are preserved.
+  return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides) as BookingConfig;
+}
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
-export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
+// Export as a getter property to allow runtime config injection in tests
+export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return (
@@ -484,21 +500,11 @@ export const ServiceCategoryCodeSchema = z.enum(
 
 export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
 
-export const HomepageOptionSchema = z.enum(BOOKING_CONFIG.homepageOptions as [string, ...string[]]);
+export const HomepageOptionSchema = z.enum(
+  BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]
+);
 
 export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
-
-export function getEnabledHomepageOptions(): HomepageOption[] {
-  return BOOKING_CONFIG.homepageOptions ?? [];
-}
-
-export function getFirstEnabledHomepageOptionTestId(): string | undefined {
-  const enabledOptions = getEnabledHomepageOptions();
-  if (enabledOptions.length === 0) {
-    return undefined;
-  }
-  return enabledOptions.map((option) => `${option}-button`)[0];
-}
 
 export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
   const {
@@ -605,13 +611,13 @@ export const getReasonForVisitOptionsForServiceCategory = (
   serviceCategory: string
 ): { value: string; label: string }[] => {
   if (serviceCategory === 'occupational-medicine') {
-    return VALUE_SETS.reasonForVisitOptionsOccMed;
+    return [...VALUE_SETS.reasonForVisitOptionsOccMed];
   }
   if (serviceCategory === 'workers-comp') {
-    return VALUE_SETS.reasonForVisitOptionsWorkersComp;
+    return [...VALUE_SETS.reasonForVisitOptionsWorkersComp];
   }
   if (serviceCategory === 'urgent-care') {
-    return VALUE_SETS.reasonForVisitOptions;
+    return [...VALUE_SETS.reasonForVisitOptions];
   }
   return [];
 };

@@ -2,6 +2,16 @@ import _ from 'lodash';
 import * as z from 'zod';
 import { SENDGRID_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 
+// Re-export base types from config-types
+export {
+  EmailTemplateBaseSchema,
+  SendgridConfigSchema,
+  SendgridTemplatesSchema,
+  type EmailTemplateBase,
+  type SendgridTemplateIdSecretName,
+  type SendgridTemplates,
+} from 'config-types';
+
 // this is relative to the deploy folder where tf runs
 const PATH_PREFIX = '../packages/utils/lib';
 
