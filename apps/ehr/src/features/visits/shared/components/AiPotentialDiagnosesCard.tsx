@@ -289,7 +289,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
           }}
         >
           <Typography variant="body1" style={{ fontWeight: 700, marginBottom: '8px' }}>
-            EM Code
+            E&M Code
           </Typography>
           <ul>
             {emCode.map((code) => (

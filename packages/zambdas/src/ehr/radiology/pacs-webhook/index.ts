@@ -307,7 +307,7 @@ const handleCreateDiagnosticReport = async (
   }
   const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
   console.log('Found our ServiceRequest: ', pacsServiceRequest);
-  await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, oystehr);
+  await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
 const handleUpdateDiagnosticReport = async (

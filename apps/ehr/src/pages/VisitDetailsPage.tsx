@@ -1,7 +1,9 @@
 import { otherColors } from '@ehrTheme/colors';
+import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CircleIcon from '@mui/icons-material/Circle';
 import DownloadIcon from '@mui/icons-material/Download';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -29,7 +31,7 @@ import { Appointment, Attachment, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   createZ3Object,
   deleteVisitFiles,
@@ -50,6 +52,7 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   BOOKING_CONFIG,
   DocumentInfo,
@@ -60,11 +63,8 @@ import {
   formatDateForDisplay,
   getCancellationReasonDisplay,
   getCoding,
-  getFirstName,
   getFullName,
   getInPersonVisitStatus,
-  getLastName,
-  getMiddleName,
   getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
@@ -125,13 +125,6 @@ import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
-interface EditNameParams {
-  first?: string;
-  middle?: string;
-  last?: string;
-  suffix?: string;
-}
-
 interface EditDOBParams {
   dob?: DateTime | null;
 }
@@ -155,17 +148,6 @@ type EditDialogConfig =
       values: object;
       keyTitleMap: object;
     }
-  | {
-      type: 'name';
-      values: EditNameParams;
-      keyTitleMap: {
-        first: 'First';
-        middle: 'Middle';
-        last: 'Last';
-        suffix: 'Suffix';
-      };
-      requiredKeys: string[];
-    }
   | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' }; requiredKeys: string[] }
   | {
       type: 'reason-for-visit';
@@ -183,8 +165,6 @@ type EditDialogConfig =
 
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   switch (type) {
-    case 'name':
-      return "Please enter patient's name";
     case 'dob':
       return "Please enter patient's confirmed date of birth";
     case 'reason-for-visit':
@@ -250,6 +230,8 @@ export default function VisitDetailsPage(): ReactElement {
   const cardSectionHeight = isSmallScreen ? '120px' : '180px';
 
   const queryClient = useQueryClient();
+
+  const navigate = useNavigate();
 
   // state variables
   const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
@@ -522,27 +504,34 @@ export default function VisitDetailsPage(): ReactElement {
   const encounter = visitDetailsData?.encounter;
   const qrId = visitDetailsData?.qrId;
 
+  const {
+    data: paymentData,
+    refetch: refetchPaymentList,
+    isRefetching: isPaymentListRefetching,
+    error: paymentListError,
+  } = useGetPatientPaymentsList({
+    patientId: patient?.id ?? '',
+    encounterId: encounter?.id ?? '',
+    disabled: !encounter?.id || !patient?.id,
+  });
+
+  const refetchAllPaymentData = useCallback(async () => {
+    await refetchPaymentList();
+    await refetchPatientBalances();
+  }, [refetchPaymentList, refetchPatientBalances]);
+
   const { insurance: insuranceData, isFetching } = usePatientData(patientId);
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
-  const { fullName, patientFirstName, patientMiddleName, patientLastName } = useMemo(() => {
+  const { fullName } = useMemo(() => {
     let fullName = '';
-    let patientFirstName: string | undefined;
-    let patientMiddleName: string | undefined;
-    let patientLastName: string | undefined;
 
     if (patient) {
       fullName = getFullName(patient);
-      patientFirstName = getFirstName(patient);
-      patientMiddleName = getMiddleName(patient);
-      patientLastName = getLastName(patient);
     }
     return {
       fullName,
-      patientFirstName,
-      patientMiddleName,
-      patientLastName,
     };
   }, [patient]);
 
@@ -565,11 +554,6 @@ export default function VisitDetailsPage(): ReactElement {
     },
     onSuccess: async () => {
       await refetchVisitDetails();
-      if (editDialogConfig.type === 'name') {
-        await getAndSetHistoricResources({ logs: true }).catch((error) => {
-          console.error('error getting activity logs after name update', error);
-        });
-      }
       setEditDialogConfig(CLOSED_EDIT_DIALOG);
       enqueueSnackbar('Patient information updated successfully', {
         variant: 'success',
@@ -585,12 +569,6 @@ export default function VisitDetailsPage(): ReactElement {
     if (editDialogConfig.type === 'dob') {
       bookingDetails = {
         confirmedDob: editDialogConfig.values.dob?.toISODate() ?? undefined,
-      };
-    } else if (editDialogConfig.type === 'name') {
-      bookingDetails = {
-        patientName: {
-          ...editDialogConfig.values,
-        },
       };
     } else if (editDialogConfig.type === 'nlg') {
       bookingDetails = {
@@ -610,7 +588,7 @@ export default function VisitDetailsPage(): ReactElement {
       appointmentId: appointmentID,
       bookingDetails,
     });
-    if (editDialogConfig.type === 'dob' || editDialogConfig.type === 'name') {
+    if (editDialogConfig.type === 'dob') {
       await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
     }
   };
@@ -900,6 +878,16 @@ export default function VisitDetailsPage(): ReactElement {
     patientInfoAdditionalItem['Patient has been to clinic previously'] = 'true';
   }
 
+  const appointmentContext = useMemo(
+    () => ({
+      appointmentServiceCategory: serviceCategory,
+      appointmentServiceMode: isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'],
+      reasonForVisit,
+      encounterId: encounter?.id,
+    }),
+    [serviceCategory, appointment, reasonForVisit, encounter?.id]
+  );
+
   return (
     <PageContainer>
       <>
@@ -945,23 +933,13 @@ export default function VisitDetailsPage(): ReactElement {
               {loading || activityLogsLoading || !patient ? (
                 <Skeleton aria-busy="true" width={200} height="" />
               ) : (
-                <>
-                  <PencilIconButton
-                    onClick={() =>
-                      setEditDialogConfig({
-                        type: 'name',
-                        values: {
-                          first: patientFirstName,
-                          middle: patientMiddleName,
-                          last: patientLastName,
-                        },
-                        keyTitleMap: { first: 'First', middle: 'Middle', last: 'Last', suffix: 'Suffix' },
-                        requiredKeys: ['first', 'last'],
-                      })
-                    }
-                    size="25px"
-                    sx={{ mr: '7px', padding: 0, alignSelf: 'center' }}
-                  />
+                <Box
+                  onClick={() => navigate(`/patient/${patientId}/info`)}
+                  sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
+                >
+                  <AssignmentIndOutlinedIcon
+                    sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
+                  ></AssignmentIndOutlinedIcon>
                   <Typography
                     variant="h2"
                     color="primary.dark"
@@ -969,7 +947,7 @@ export default function VisitDetailsPage(): ReactElement {
                   >
                     {fullName}
                   </Typography>
-                </>
+                </Box>
               )}
 
               <CircleIcon
@@ -1110,6 +1088,17 @@ export default function VisitDetailsPage(): ReactElement {
               <Grid item container sx={{ padding: '10px' }}>
                 <Paper sx={{ width: '100%' }}>
                   <Box padding={2}>
+                    <Grid container justifyContent="space-between" sx={{ p: '0 22px' }}>
+                      <Typography variant="h4" color="primary.dark">
+                        Cards & IDs
+                      </Typography>
+                      <RoundedButton
+                        to={`/patient/${patientId}/docs`}
+                        startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}
+                      >
+                        See All Patient Docs
+                      </RoundedButton>
+                    </Grid>
                     <Grid container item direction="row" alignItems="center" minHeight={cardSectionHeight}>
                       <CardCategoryGridItem
                         category="primary-ins"
@@ -1329,7 +1318,7 @@ export default function VisitDetailsPage(): ReactElement {
                         <PatientBalances
                           patient={patient}
                           patientBalances={patientBalancesData}
-                          refetchPatientBalances={refetchPatientBalances}
+                          refetchPatientBalances={refetchAllPaymentData}
                         />
                       </Grid>
                     ) : null}
@@ -1344,6 +1333,10 @@ export default function VisitDetailsPage(): ReactElement {
                           email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
                         insuranceCoverages={insuranceData}
+                        paymentData={paymentData}
+                        refetchPaymentList={refetchAllPaymentData}
+                        isRefetching={isPaymentListRefetching}
+                        paymentListError={paymentListError}
                       />
                     </Grid>
                     <Grid item>
@@ -1368,14 +1361,7 @@ export default function VisitDetailsPage(): ReactElement {
                 id={patientId}
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
-                appointmentContext={{
-                  appointmentServiceCategory: serviceCategory,
-                  appointmentServiceMode: isTelemedAppointment(appointment)
-                    ? ServiceMode.virtual
-                    : ServiceMode['in-person'],
-                  reasonForVisit,
-                  encounterId: encounter?.id,
-                }}
+                appointmentContext={appointmentContext}
               />
             </Grid>
           </Grid>
