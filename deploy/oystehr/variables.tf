@@ -11,6 +11,7 @@ variable "sendgrid_template_ids" {
     SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID   = string
     SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID     = string
     SENDGRID_TELEMED_INVITATION_TEMPLATE_ID     = string
+    SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID     = string
   })
   nullable  = false
   sensitive = false
