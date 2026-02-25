@@ -167,6 +167,27 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
     const inPersonKey = generateQuestionnaireArchiveKey('in-person', inPersonQ.version!);
     const virtualKey = generateQuestionnaireArchiveKey('virtual', virtualQ.version!);
 
+    // Safety check: if the archive already has a resource with the same key but different content,
+    // this indicates a validation failure upstream (content changed without version bump).
+    // this should be a redundant safety check and its triggering indicates some dangerous manual
+    // use of this script outside the usual pipelines, or a serious regression issue in upstream validation.
+    if (schema.resources.fhirResources[inPersonKey]) {
+      const existing = schema.resources.fhirResources[inPersonKey].resource;
+      if (JSON.stringify(existing) !== JSON.stringify(inPersonQ)) {
+        throw new Error(
+          `Key collision with different content for ${inPersonKey}. This indicates a validation failure - questionnaire content changed without version bump.`
+        );
+      }
+    }
+    if (schema.resources.fhirResources[virtualKey]) {
+      const existing = schema.resources.fhirResources[virtualKey].resource;
+      if (JSON.stringify(existing) !== JSON.stringify(virtualQ)) {
+        throw new Error(
+          `Key collision with different content for ${virtualKey}. This indicates a validation failure - questionnaire content changed without version bump.`
+        );
+      }
+    }
+
     schema.resources.fhirResources[inPersonKey] = { resource: inPersonQ };
     schema.resources.fhirResources[virtualKey] = { resource: virtualQ };
 
