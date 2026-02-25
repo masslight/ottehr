@@ -77,11 +77,8 @@ function getArrivedToDischargedDuration(visitStatusHistory: VisitStatusHistoryEn
     return null;
   }
 
-  // Find the discharge time (discharged, awaiting supervisor approval, or completed)
-  const dischargedEntry = visitStatusHistory.findLast(
-    (entry) =>
-      entry.status === 'discharged' || entry.status === 'awaiting supervisor approval' || entry.status === 'completed'
-  );
+  // Find the discharge time (discharged)
+  const dischargedEntry = visitStatusHistory.findLast((entry) => entry.status === 'discharged');
 
   if (!dischargedEntry?.period.start) {
     return null;
@@ -210,11 +207,8 @@ function getProviderToDischargedDuration(visitStatusHistory: VisitStatusHistoryE
     return null;
   }
 
-  // Find the discharge time (discharged, awaiting supervisor approval, or completed)
-  const dischargedEntry = visitStatusHistory.findLast(
-    (entry) =>
-      entry.status === 'discharged' || entry.status === 'awaiting supervisor approval' || entry.status === 'completed'
-  );
+  // Find the discharge time (discharged)
+  const dischargedEntry = visitStatusHistory.findLast((entry) => entry.status === 'discharged');
 
   if (!dischargedEntry?.period.start) {
     return null;
