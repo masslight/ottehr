@@ -53,7 +53,7 @@ export function useBloodPressureLocalState(): BloodPressureLocalState {
   const getDTO = useCallback((): VitalsBloodPressureObservationDTO | null => {
     const systolicValueNum = textToBloodPressureNumber(systolicValueText);
     const diastolicValueNum = textToBloodPressureNumber(diastolicValueText);
-    if (!systolicValueNum || !diastolicValueNum) return null;
+    if (systolicValueNum === undefined || diastolicValueNum === undefined) return null;
     return {
       field: VitalFieldNames.VitalBloodPressure,
       systolicPressure: systolicValueNum,
