@@ -2,7 +2,7 @@ import { BatchInputGetRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -161,18 +161,22 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   console.log(`canceling appointment with id ${appointmentID}`);
 
-  await cancelAppointmentResource(
-    appointment,
-    [
+  const fhirCancellationReason: Coding = {
+    system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
+    code: cancellationReason,
+    display: cancellationReason,
+  };
+
+  if (cancellationReasonAdditional) {
+    fhirCancellationReason.extension = [
       {
-        // todo reassess codes and reasons, just using custom codes atm
-        system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
-        code: cancellationReason,
-        display: cancellationReasonAdditional || cancellationReason,
+        url: `${FHIR_ZAPEHR_URL}/StructureDefinition/cancellation-reason-additional-info`,
+        valueString: cancellationReasonAdditional,
       },
-    ],
-    oystehr
-  );
+    ];
+  }
+
+  await cancelAppointmentResource(appointment, [fhirCancellationReason], oystehr);
 
   const response: CancelTelemedAppointmentZambdaOutput = {};
 
