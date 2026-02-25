@@ -33,6 +33,7 @@ export const TASKS_PAGE_SIZE = 20;
 
 const TASK_CODES_TO_EXCLUDE = [
   LAB_ORDER_TASK.code.preSubmission,
+  LAB_ORDER_TASK.code.reviewCancelledResult,
   IN_HOUSE_LAB_TASK.code.collectSampleTask,
   IN_HOUSE_LAB_TASK.code.inputResultsTask,
 ];

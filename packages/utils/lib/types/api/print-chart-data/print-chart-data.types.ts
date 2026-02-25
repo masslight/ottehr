@@ -14,6 +14,7 @@ export type MakeMedicationHistoryPdfZambdaInput = {
   appointment: Appointment;
   encounter: Encounter;
   location?: Location;
+  timezone?: string;
 };
 
 export type MakeMedicationHistoryPdfZambdaOutput = {

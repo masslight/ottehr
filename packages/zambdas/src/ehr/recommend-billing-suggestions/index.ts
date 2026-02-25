@@ -68,7 +68,7 @@ export const index = wrapHandler(
           {
             "code": "code",
             "description": "description",
-            "upcodingSuggestion": "upcodingSuggestion"
+            "upcodingSuggestion": "upcodingSuggestion. Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level and a sample MDM paragraph that would satisfy that level"
           }
         ],
         "codingSuggestions": "codingSuggestions"

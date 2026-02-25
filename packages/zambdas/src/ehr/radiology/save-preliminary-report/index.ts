@@ -87,7 +87,7 @@ async function performEffect(
 
   // Create a DiagnosticReport in Oystehr with the preliminary report
   console.group('Creating DiagnosticReport in Oystehr');
-  await createOurDiagnosticReport(serviceRequest, advaPacsDiagnosticReport, oystehr);
+  await createOurDiagnosticReport(serviceRequest, advaPacsDiagnosticReport, preliminaryReport, oystehr);
   console.groupEnd();
   console.debug('DiagnosticReport created successfully in Oystehr');
 
@@ -110,7 +110,7 @@ const createDiagnosticReportInAdvaPACS = async (
   const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
   const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
-  const reportAsBase64 = Buffer.from(preliminaryReport).toString('base64');
+  const reportAsBase64 = Buffer.from(preliminaryReport.replace(/\n/g, '<br>')).toString('base64');
   const reportAsBase64Size = Buffer.byteLength(reportAsBase64);
 
   const diagnosticReport: DiagnosticReport = {
