@@ -1,3 +1,4 @@
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -60,13 +61,32 @@ export const VitalsTab: FC = () => {
       </Box>
 
       {!isReadOnly && (
-        <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
+        <Box
+          sx={{
+            mt: 2,
+            mb: 4,
+            pt: 2,
+            pb: 3,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InfoOutlinedIcon sx={{ color: 'text.secondary', fontSize: 20, flexShrink: 0 }} />
+            <Typography variant="body2" color="text.secondary">
+              To save multiple vitals at once, fill in the forms above and click the button "Add All Vitals"
+            </Typography>
+          </Box>
           <RoundedButton
             onClick={() => vitals.saveAll()}
             disabled={!vitals.canSaveAll || vitals.isSavingAll}
             loading={vitals.isSavingAll}
+            variant="contained"
             color="primary"
-            sx={{ px: 4, py: 1.5, fontSize: '16px', color: '#43A047' }}
+            sx={{ px: 4, py: 1.5, fontSize: '16px', flexShrink: 0 }}
             data-testid={dataTestIds.vitalsPage.addAllVitalsButton}
           >
             Add All Vitals
