@@ -40,7 +40,7 @@ export function useHeartbeatLocalState(): HeartbeatLocalState {
 
   const getDTO = useCallback((): VitalsHeartbeatObservationDTO | null => {
     const heartbeatValueNumber = textToHeartbeatNumber(heartbeatValueText);
-    if (!heartbeatValueNumber) return null;
+    if (heartbeatValueNumber === undefined) return null;
     return {
       field: VitalFieldNames.VitalHeartbeat,
       value: heartbeatValueNumber,

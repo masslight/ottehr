@@ -40,7 +40,7 @@ export function useOxygenSatLocalState(): OxygenSatLocalState {
 
   const getDTO = useCallback((): VitalsOxygenSatObservationDTO | null => {
     const oxySatValueNumber = textToOxygenSatNumber(oxySatValueText);
-    if (!oxySatValueNumber) return null;
+    if (oxySatValueNumber === undefined) return null;
     return {
       field: VitalFieldNames.VitalOxygenSaturation,
       value: oxySatValueNumber,
