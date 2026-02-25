@@ -10,6 +10,15 @@ export const getCanonicalQuestionnaire = async (
 ): Promise<Questionnaire> => {
   const { url, version } = canonical;
 
+  // Check if the canonical matches one of the intake questionnaires from config
+  // If so, return it directly to save a network request
+  const intakeQuestionnaires = [IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(), VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()];
+  const matchingIntakeQuestionnaire = intakeQuestionnaires.find((q) => q.url === url && q.version === version);
+  if (matchingIntakeQuestionnaire) {
+    console.log('returning intake questionnaire from config', url, version);
+    return matchingIntakeQuestionnaire;
+  }
+
   console.log('fetching questionnaire from FHIR server', url, version);
   const questionnaireSearch = (
     await oystehrClient.fhir.search<Questionnaire>({
