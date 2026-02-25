@@ -1,21 +1,7 @@
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { VitalFieldNames, VitalsLastMenstrualPeriodObservationDTO } from 'utils';
-
-export interface LMPLocalState {
-  selectedDate: DateTime | null;
-  isUnsureSelected: boolean;
-  validationError: boolean;
-  isDateInvalid: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleDateChange: (date: DateTime | null) => void;
-  handleUnsureChange: (isChecked: boolean) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsLastMenstrualPeriodObservationDTO | null;
-}
+import { LMPLocalState } from '../types';
 
 export function useLMPLocalState(): LMPLocalState {
   const [selectedDate, setSelectedDate] = useState<DateTime | null>(null);

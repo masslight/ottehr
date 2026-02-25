@@ -1,18 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
 import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
+import { RespirationRateLocalState } from '../types';
 import { textToRespirationRateNumber } from './helpers';
-
-export interface RespirationRateLocalState {
-  value: string;
-  validationError: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleValueChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsRespirationRateObservationDTO | null;
-}
 
 export function useRespirationRateLocalState(): RespirationRateLocalState {
   const [respirationRateValueText, setRespirationRateValueText] = useState('');

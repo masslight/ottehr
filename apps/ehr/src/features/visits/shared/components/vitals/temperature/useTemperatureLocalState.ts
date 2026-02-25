@@ -6,25 +6,8 @@ import {
   VitalFieldNames,
   VitalsTemperatureObservationDTO,
 } from 'utils';
+import { TemperatureLocalState } from '../types';
 import { textToTemperatureNumber } from './helpers';
-
-export interface TemperatureLocalState {
-  valueCelsius: string;
-  valueFahrenheit: string;
-  observationQualifier: string;
-  validationError: boolean;
-  isCelsiusInvalid: boolean;
-  isFahrenheitInvalid: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleCelsiusChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleFahrenheitChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleQualifierChange: (qualifier: string) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsTemperatureObservationDTO | null;
-}
 
 export function useTemperatureLocalState(): TemperatureLocalState {
   const [temperatureValueText, setTemperatureValueText] = useState('');

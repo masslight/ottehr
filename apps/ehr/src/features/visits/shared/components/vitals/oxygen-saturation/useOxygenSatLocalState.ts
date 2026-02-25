@@ -1,20 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
 import { toVitalOxygenSatObservationMethod, VitalFieldNames, VitalsOxygenSatObservationDTO } from 'utils';
+import { OxygenSatLocalState } from '../types';
 import { textToOxygenSatNumber } from './helpers';
-
-export interface OxygenSatLocalState {
-  value: string;
-  observationQualifier: string;
-  validationError: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleValueChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleQualifierChange: (qualifier: string) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsOxygenSatObservationDTO | null;
-}
 
 export function useOxygenSatLocalState(): OxygenSatLocalState {
   const [oxySatValueText, setOxySatValueText] = useState('');

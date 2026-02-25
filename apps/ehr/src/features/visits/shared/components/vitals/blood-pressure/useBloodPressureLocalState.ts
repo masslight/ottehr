@@ -1,24 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
 import { toVitalBloodPressureObservationMethod, VitalFieldNames, VitalsBloodPressureObservationDTO } from 'utils';
+import { BloodPressureLocalState } from '../types';
 import { textToBloodPressureNumber } from './helpers';
-
-export interface BloodPressureLocalState {
-  systolicValue: string;
-  diastolicValue: string;
-  observationQualifier: string;
-  validationError: boolean;
-  isSystolicInvalid: boolean;
-  isDiastolicInvalid: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleSystolicChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleDiastolicChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleQualifierChange: (qualifier: string) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsBloodPressureObservationDTO | null;
-}
 
 export function useBloodPressureLocalState(): BloodPressureLocalState {
   const [systolicValueText, setSystolicValueText] = useState('');

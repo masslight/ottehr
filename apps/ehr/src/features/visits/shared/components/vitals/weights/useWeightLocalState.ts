@@ -7,21 +7,7 @@ import {
   VitalsWeightObservationDTO,
   VitalsWeightOption,
 } from 'utils';
-
-export interface WeightLocalState {
-  weightKg: number | undefined;
-  isPatientRefusedSelected: boolean;
-  validationError: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleKgInput: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleLbsInput: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handlePatientRefusedChange: (isChecked: boolean, weightOption: VitalsWeightOption) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsWeightObservationDTO | null;
-}
+import { WeightLocalState } from '../types';
 
 export function useWeightLocalState(): WeightLocalState {
   const [weightKg, setWeightKg] = useState<number | undefined>(undefined);

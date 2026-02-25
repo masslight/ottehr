@@ -1,20 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
 import { toVitalHeartbeatObservationMethod, VitalFieldNames, VitalsHeartbeatObservationDTO } from 'utils';
+import { HeartbeatLocalState } from '../types';
 import { textToHeartbeatNumber } from './helpers';
-
-export interface HeartbeatLocalState {
-  value: string;
-  observationQualifier: string;
-  validationError: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleValueChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleQualifierChange: (qualifier: string) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsHeartbeatObservationDTO | null;
-}
 
 export function useHeartbeatLocalState(): HeartbeatLocalState {
   const [heartbeatValueText, setHeartbeatValueText] = useState('');

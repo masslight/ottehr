@@ -1,5 +1,6 @@
 import { ChangeEvent, useCallback, useState } from 'react';
 import { VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
+import { HeightLocalState } from '../types';
 import {
   heightCmToFeetText,
   heightCmToInchesText,
@@ -7,22 +8,6 @@ import {
   textToHeightNumberFromFeet,
   textToHeightNumberFromInches,
 } from './helpers';
-
-export interface HeightLocalState {
-  valueCm: string;
-  valueInches: string;
-  valueFeet: string;
-  validationError: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleCmChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleInchesChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleFeetChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsHeightObservationDTO | null;
-}
 
 export function useHeightLocalState(): HeightLocalState {
   const [heightValueTextCm, setHeightValueTextCm] = useState('');

@@ -22,6 +22,7 @@ import { useLMPLocalState } from '../last-menstrual-period/useLMPLocalState';
 import { useOxygenSatLocalState } from '../oxygen-saturation/useOxygenSatLocalState';
 import { useRespirationRateLocalState } from '../respiration-rate/useRespirationRateLocalState';
 import { useTemperatureLocalState } from '../temperature/useTemperatureLocalState';
+import { VitalLocalState } from '../types';
 import { useVisionLocalState } from '../vision/useVisionLocalState';
 import { useWeightLocalState } from '../weights/useWeightLocalState';
 import { useBatchSaveVitals } from './useBatchSaveVitals';
@@ -156,13 +157,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       VitalFieldNames,
       {
         ref: React.RefObject<HTMLDivElement>;
-        state: {
-          hasData: boolean;
-          isValid: boolean;
-          getDTO: () => VitalsObservationDTO | null;
-          clearForm: () => void;
-          setValidationError: (error: boolean) => void;
-        };
+        state: VitalLocalState;
       }
     > = {
       [VitalFieldNames.VitalTemperature]: { ref: temperatureCardRef, state: temperatureState },
@@ -260,50 +255,40 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
   // Helper to create field save handler with validation
   const createFieldSaveHandler = useCallback(
-    (
-      field: VitalFieldNames,
-      state: {
-        hasData: boolean;
-        isValid: boolean;
-        getDTO: () => VitalsObservationDTO | null;
-        clearForm: () => void;
-        setValidationError: (error: boolean) => void;
+    (field: VitalFieldNames, state: VitalLocalState) => async () => {
+      if (fieldSavingStates[field]) {
+        return;
       }
-    ) =>
-      async () => {
-        if (fieldSavingStates[field]) {
-          return;
-        }
 
-        if (!state.isValid) {
-          state.setValidationError(true);
-          return;
-        }
+      if (!state.isValid) {
+        state.setValidationError(true);
+        return;
+      }
 
-        const dto = state.getDTO();
-        if (dto) {
-          try {
-            setFieldSavingStates((prev) => ({ ...prev, [field]: true }));
-            await handleSaveVital(dto);
-            state.clearForm();
-          } catch {
-            const fieldNameMap: Record<VitalFieldNames, string> = {
-              [VitalFieldNames.VitalTemperature]: 'Temperature',
-              [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
-              [VitalFieldNames.VitalRespirationRate]: 'Respiration Rate',
-              [VitalFieldNames.VitalBloodPressure]: 'Blood Pressure',
-              [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen Saturation',
-              [VitalFieldNames.VitalWeight]: 'Weight',
-              [VitalFieldNames.VitalHeight]: 'Height',
-              [VitalFieldNames.VitalVision]: 'Vision',
-              [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
-            };
-            enqueueSnackbar(`Error saving ${fieldNameMap[field] || ''} data`, { variant: 'error' });
-          } finally {
-            setFieldSavingStates((prev) => ({ ...prev, [field]: false }));
-          }
+      const dto = state.getDTO();
+      if (dto) {
+        try {
+          setFieldSavingStates((prev) => ({ ...prev, [field]: true }));
+          await handleSaveVital(dto);
+          state.clearForm();
+        } catch {
+          const fieldNameMap: Record<VitalFieldNames, string> = {
+            [VitalFieldNames.VitalTemperature]: 'Temperature',
+            [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
+            [VitalFieldNames.VitalRespirationRate]: 'Respiration Rate',
+            [VitalFieldNames.VitalBloodPressure]: 'Blood Pressure',
+            [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen Saturation',
+            [VitalFieldNames.VitalWeight]: 'Weight',
+            [VitalFieldNames.VitalHeight]: 'Height',
+            [VitalFieldNames.VitalVision]: 'Vision',
+            [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
+          };
+          enqueueSnackbar(`Error saving ${fieldNameMap[field] || ''} data`, { variant: 'error' });
+        } finally {
+          setFieldSavingStates((prev) => ({ ...prev, [field]: false }));
         }
-      },
+      }
+    },
     [fieldSavingStates, handleSaveVital]
   );
 

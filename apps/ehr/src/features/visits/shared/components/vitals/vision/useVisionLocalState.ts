@@ -1,27 +1,6 @@
 import { useCallback, useState } from 'react';
 import { VitalFieldNames, VitalsVisionObservationDTO, VitalsVisionOption } from 'utils';
-
-export interface VisionLocalState {
-  leftEyeSelection: string;
-  rightEyeSelection: string;
-  bothEyesSelection: string;
-  isChildTooYoungSelected: boolean;
-  isWithGlassesSelected: boolean;
-  isWithoutGlassesSelected: boolean;
-  validationError: boolean;
-  isLeftEyeInvalid: boolean;
-  isRightEyeInvalid: boolean;
-  isDisabled: boolean;
-  hasData: boolean;
-  isValid: boolean;
-  handleLeftEyeChange: (event: { target: { value: string } }) => void;
-  handleRightEyeChange: (event: { target: { value: string } }) => void;
-  handleBothEyesChange: (event: { target: { value: string } }) => void;
-  handleVisionOptionChange: (isChecked: boolean, visionOption: VitalsVisionOption) => void;
-  setValidationError: (error: boolean) => void;
-  clearForm: () => void;
-  getDTO: () => VitalsVisionObservationDTO | null;
-}
+import { VisionLocalState } from '../types';
 
 export function useVisionLocalState(): VisionLocalState {
   const [leftEyeSelection, setLeftEyeSelection] = useState<string>('');
