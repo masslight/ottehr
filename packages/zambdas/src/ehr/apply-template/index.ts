@@ -112,9 +112,9 @@ const performEffect = async (
   // Temporary workaround: ROS_TEMPLATE_GENERAL should not delete existing resources.
   // We skip delete requests for this template to preserve current data.
   // TODO: move this behavior to a more generic logic.
-  const skipDelete = ['ROS : 14 Systems', 'Automobile Accident', "Worker's Comp"].includes(templateList.title ?? '');
+  const isRosTemplate = templateList.title === 'ROS : 14 Systems';
   // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
-  const deleteRequests = await makeDeleteRequests(encounterBundle, { skipDelete });
+  const deleteRequests = await makeDeleteRequests(encounterBundle, { skipDelete: isRosTemplate });
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
