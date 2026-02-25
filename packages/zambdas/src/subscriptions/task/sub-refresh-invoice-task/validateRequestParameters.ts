@@ -1,15 +1,10 @@
 import { Task } from 'fhir/r4b';
-import {
-  MISSING_REQUEST_BODY,
-  parseInvoiceTaskInput,
-  SubSendInvoiceToPatientTaskInput,
-  SubSendInvoiceToPatientTaskInputSchema,
-} from 'utils';
+import { InvoiceTaskInput, InvoiceTaskInputSchema, MISSING_REQUEST_BODY, parseInvoiceTaskInput } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
-): { task: Task; encounterId: string; invoiceTaskInput: SubSendInvoiceToPatientTaskInput } & Pick<
+): { task: Task; taskId: string; encounterId: string; invoiceTaskInput: InvoiceTaskInput } & Pick<
   ZambdaInput,
   'secrets'
 > {
@@ -24,15 +19,19 @@ export function validateRequestParameters(
   const task = inputRes as Task;
 
   const invoiceTaskInput = parseInvoiceTaskInput(task);
-  const invoiceTaskInputParsed = SubSendInvoiceToPatientTaskInputSchema.parse(invoiceTaskInput);
+  const subSendInvoiceInput = InvoiceTaskInputSchema.parse(invoiceTaskInput);
 
   const encounterId = task.encounter?.reference?.split('/')[1];
   if (!encounterId) throw new Error('Encounter id is not found');
 
+  const taskId = task.id;
+  if (!taskId) throw new Error('Task id is not found in the input task');
+
   return {
     task: task as Task,
+    taskId,
     encounterId,
-    invoiceTaskInput: invoiceTaskInputParsed,
+    invoiceTaskInput: subSendInvoiceInput,
     secrets: input.secrets,
   };
 }

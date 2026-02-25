@@ -779,6 +779,15 @@ export interface EmployerInfo extends PdfData {
   fax: string;
 }
 
+export interface AttorneyInfo extends PdfData {
+  firm: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  fax: string;
+}
+
 export interface consentFormsInfo extends PdfData {
   isSigned: boolean;
   signature: string;
@@ -806,6 +815,7 @@ export interface VisitDetailsInput {
   guarantorResource?: RelatedPerson | Patient;
   documents: DocumentReference[];
   emergencyContactResource?: RelatedPerson;
+  attorneyRelatedPerson?: RelatedPerson;
   employerOrganization?: Organization;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
@@ -867,6 +877,10 @@ export interface EmergencyContactDataInput {
 
 export interface EmployerDataInput {
   employer?: Organization;
+}
+
+export interface AttorneyDataInput {
+  attorneyRelatedPerson?: RelatedPerson;
 }
 
 export interface PatientPaymentsDataInput {
@@ -980,6 +994,7 @@ export interface VisitDetailsData extends PdfData {
   insurances: InsuranceInfo;
   responsibleParty: ResponsiblePartyInfo;
   emergencyContact: EmergencyContactInfo;
+  attorney: AttorneyInfo;
   employer: EmployerInfo;
   consentForms: consentFormsInfo;
   documents: Documents;

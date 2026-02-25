@@ -1,8 +1,10 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
-import { otherColors } from '@theme/colors';
+import { AppBar, Box, Button, Card, Container, Grid, IconButton, Typography, useTheme } from '@mui/material';
+import { lighten } from '@mui/material/styles';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { home } from 'src/themes/ottehr';
 import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 
@@ -80,6 +82,8 @@ export const CustomContainer: FC<ContainerProps> = ({
   const theme = useTheme();
   const { isAuthenticated, logout } = useAuth0();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = useCallback(() => {
     if (logoutHandler !== undefined) {
@@ -108,47 +112,75 @@ export const CustomContainer: FC<ContainerProps> = ({
       <AppBar
         data-testid={isAuthenticated ? dataTestIds.header.authenticated : dataTestIds.header.unauthenticated} // used in e2e login test, dont remove
         position="static"
-        sx={{ backgroundColor: otherColors.appBarBackground }}
+        sx={{ backgroundColor: BRANDING_CONFIG.intake.appBar.backgroundColor }}
       >
-        <Grid container justifyContent="center" alignItems="center" sx={{ position: 'relative' }}>
-          <Grid item>
+        <Grid container justifyContent="space-between" alignItems="center">
+          {/* Left section - for now is empty but we will have language select here  */}
+          <Grid item xs={3}></Grid>
+
+          {/* Logo section  */}
+          <Grid item xs={6} display="flex" justifyContent="center" alignItems="center">
             <Box
               component="img"
               sx={{
                 margin: 1,
-                height: '50px',
+                height: BRANDING_CONFIG.intake.appBar.logoHeight,
                 width: 'auto',
                 alignSelf: 'center',
                 minHeight: '39px',
+                maxWidth: '100%',
+                objectFit: 'contain',
               }}
               alt={alt}
               src={logo}
             />
           </Grid>
-          {isAuthenticated && (
-            <Grid
-              item
-              sx={{
-                position: 'absolute',
-                right: 0,
-                display: 'flex',
-                alignItems: 'center',
-                mx: { xs: 'auto', md: 2 },
-                maxWidth: { xs: '20%', md: 'unset' },
-              }}
-            >
+
+          {/* Right section: home icon, chat and logout button  */}
+          <Grid
+            item
+            xs={3}
+            sx={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: { xs: 1, sm: 2 },
+              pr: { xs: 1, sm: 2 },
+            }}
+          >
+            {!['/welcome', '/home'].includes(location.pathname) && (
+              <IconButton
+                aria-label="Home button"
+                sx={{
+                  backgroundColor: theme.palette.secondary.main,
+                  borderRadius: '50%',
+                  minWidth: '40px',
+                  minHeight: '40px',
+                  padding: 0,
+                  '&:hover': {
+                    backgroundColor: lighten(theme.palette.secondary.main, 0.125),
+                  },
+                }}
+                onClick={() => {
+                  navigate('/home');
+                }}
+              >
+                <img src={home} alt="home" />
+              </IconButton>
+            )}
+            {isAuthenticated && (
               <Button
                 variant="text"
                 onClick={handleLogout}
                 sx={{
-                  color: BRANDING_CONFIG.intake?.appBar?.logoutButtonTextColor || theme.palette.primary.contrastText,
+                  color: BRANDING_CONFIG.intake.appBar.logoutButtonTextColor,
                   '&:hover': { backgroundColor: 'transparent' },
                 }}
               >
                 {t('general.button.logout')}
               </Button>
-            </Grid>
-          )}
+            )}
+          </Grid>
         </Grid>
       </AppBar>
       <Box

@@ -27,7 +27,6 @@ import {
   CreateDischargeSummaryResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
-  CreateInvoiceablePatientsReportZambdaInputType,
   CreateLabOrderParameters,
   CreateLabOrderZambdaOutput,
   CreateNursingOrderInput,
@@ -185,7 +184,6 @@ const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
-const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
@@ -1393,22 +1391,6 @@ export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisit
       id: 'update-visit-files',
       ...parameters,
     });
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const invoiceablePatientsReport = async (
-  oystehr: Oystehr,
-  params: CreateInvoiceablePatientsReportZambdaInputType
-): Promise<void> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
-      ...params,
-    });
-    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;

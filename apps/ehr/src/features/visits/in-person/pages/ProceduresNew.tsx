@@ -60,6 +60,7 @@ import {
 } from 'utils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { SelectFromFavoritesButton } from '../../shared/components/SelectFromFavoritesButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import {
   useAiSuggestionNotes,
@@ -719,6 +720,24 @@ export default function ProceduresNew(): ReactElement {
     setInitialFormStateSet(true);
   }, [methods, procedure]);
 
+  const onFavoriteSelect = (favorite: (typeof PROCEDURES_CONFIG.favorites)[number]): void => {
+    updateState((state) => {
+      if (favorite.procedureType) {
+        methods.reset({
+          ...formValues,
+          procedureType: selectOptions?.procedureTypes.find(
+            (procedureType) => procedureType.code === favorite.procedureType
+          )?.name,
+        });
+      }
+      Object.entries(favorite).forEach(([key, value]) => {
+        if (key !== 'name' && key !== 'procedureType') {
+          (state as any)[key] = value;
+        }
+      });
+    });
+  };
+
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
@@ -743,6 +762,14 @@ export default function ProceduresNew(): ReactElement {
                 </Link>
               </Typography>
             </Box>
+
+            {!procedureId && PROCEDURES_CONFIG.favorites.length > 0 ? (
+              <SelectFromFavoritesButton
+                favorites={PROCEDURES_CONFIG.favorites}
+                getLabel={(favorite) => favorite.name}
+                onSelect={onFavoriteSelect}
+              />
+            ) : null}
 
             <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>

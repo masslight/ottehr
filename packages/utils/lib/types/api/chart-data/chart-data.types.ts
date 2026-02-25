@@ -492,7 +492,7 @@ export interface BillingSuggestionOutput {
   emCode: {
     code: string;
     description: string;
-    suggestion: string;
+    upcodingSuggestion: string;
   }[];
   codingSuggestions: string;
 }
