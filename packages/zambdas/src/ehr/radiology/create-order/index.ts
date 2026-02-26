@@ -8,6 +8,7 @@ import randomstring from 'randomstring';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
+  CPTCodeDTO,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
@@ -32,6 +33,8 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
+  makeCPTCodeDTO,
+  makeCptModifierExtension,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -90,7 +93,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ output }),
+      body: JSON.stringify(output),
     };
   } catch (error: any) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
@@ -123,7 +126,8 @@ const performEffect = async (
     throw new Error('Error creating service request, id is missing');
   }
 
-  await writeOurProcedure(ourServiceRequest, secrets, oystehr);
+  const cptCodeDTO = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
+  const cptCodesSaved = cptCodeDTO ? [cptCodeDTO] : undefined;
 
   // Send the order to AdvaPACS
   try {
@@ -136,6 +140,7 @@ const performEffect = async (
 
   return {
     serviceRequestId: ourServiceRequest.id,
+    cptCodesSaved,
   };
 };
 
@@ -144,8 +149,10 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, stat, clinicalHistory } = validatedBody;
+  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory } = validatedBody;
   const now = DateTime.now();
+
+  const srCodeCoding = lateralityModifier ? { ...cpt, code: `${cpt.code}-${lateralityModifier.code}` } : cpt;
 
   const fillerAndPlacerOrderNumber = randomstring.generate({
     length: 22,
@@ -225,7 +232,7 @@ const writeOurServiceRequest = (
     },
     priority: stat ? 'stat' : 'routine',
     code: {
-      coding: [cpt],
+      coding: [srCodeCoding],
     },
     orderDetail: [
       {
@@ -307,9 +314,23 @@ const writeOurServiceRequest = (
 // This Procedure holds the CPT code for billing purposes
 const writeOurProcedure = async (
   ourServiceRequest: ServiceRequest,
+  validatedBody: EnhancedBody,
   secrets: Secrets,
   oystehr: Oystehr
-): Promise<void> => {
+): Promise<CPTCodeDTO | undefined> => {
+  const { cpt, lateralityModifier } = validatedBody;
+
+  const modifierExtension = lateralityModifier ? { extension: [makeCptModifierExtension([lateralityModifier])] } : {};
+
+  const procedureCode = {
+    coding: [
+      {
+        ...cpt,
+        ...modifierExtension,
+      },
+    ],
+  };
+
   const procedureConfig: Procedure = {
     resourceType: 'Procedure',
     status: 'completed',
@@ -318,10 +339,16 @@ const writeOurProcedure = async (
     performer: ourServiceRequest.performer?.map((performer) => ({
       actor: performer,
     })),
-    code: ourServiceRequest.code,
+    code: procedureCode,
     meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
   };
-  await oystehr.fhir.create<Procedure>(procedureConfig);
+
+  const fhirProcedure = await oystehr.fhir.create<Procedure>(procedureConfig);
+  console.log(`cpt code procedure successfully created: Procedure/${fhirProcedure.id}`);
+
+  const cptCodeDTO = makeCPTCodeDTO(fhirProcedure);
+
+  return cptCodeDTO;
 };
 
 const writeAdvaPacsTransaction = async (
