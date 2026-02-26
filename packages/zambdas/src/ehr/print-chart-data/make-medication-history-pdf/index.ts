@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Appointment, CodeableConcept, ContactPoint, Encounter, Location, Patient, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, CodeableConcept, ContactPoint, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
@@ -10,7 +10,6 @@ import {
   genderMap,
   getPresignedURL,
   getSecret,
-  getTimezone,
   MEDICATION_HISTORY_DOC_REF_CODING,
   MedicationInfoForPrinting,
   Secrets,
@@ -40,41 +39,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { patient, medicationHistory, appointment, encounter, location, secrets } = validatedParameters;
+    const { patient, medicationHistory, appointment, encounter, location, timezone, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const schedule = (
-      await oystehr.fhir.search<Appointment | Schedule | Slot>({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: '_id',
-            value: appointment.id ?? '',
-          },
-          {
-            name: '_include',
-            value: 'Appointment:slot',
-          },
-          {
-            name: '_include:iterate',
-            value: 'Slot:schedule',
-          },
-        ],
-      })
-    )
-      .unbundle()
-      .filter((res): res is Schedule => res.resourceType === 'Schedule')[0];
-
     const formattedData: MedicationHistoryInput = formatData({
       patient,
       medicationHistory,
       appointment,
       location,
-      schedule,
+      timezone,
     });
 
     const output = await makeMedicationHistoryPDF(oystehr, m2mToken, secrets, formattedData, encounter);
@@ -98,13 +75,13 @@ const formatData = ({
   medicationHistory,
   appointment,
   location,
-  schedule,
+  timezone,
 }: {
   patient: Patient;
   medicationHistory: MedicationInfoForPrinting[];
   appointment: Appointment;
   location?: Location;
-  schedule?: Schedule;
+  timezone?: string;
 }): MedicationHistoryInput => {
   const patientInfo: PatientInfoForDischargeSummary = {
     fullName: getPatientLastFirstName(patient) ?? '',
@@ -114,7 +91,9 @@ const formatData = ({
     phone: standardizePhoneNumber(patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value),
   };
 
-  const visit = composeVisitData({ appointment, location, timezone: schedule ? getTimezone(schedule) : 'undefined' });
+  console.log('This is timezone for print medication pdf', timezone);
+  const visit = composeVisitData({ appointment, location, timezone: timezone ?? '' });
+  console.log('This is visit', visit);
 
   return {
     patient: patientInfo,
