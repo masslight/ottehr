@@ -38,6 +38,11 @@ const TASK_CODES_TO_EXCLUDE = [
   IN_HOUSE_LAB_TASK.code.inputResultsTask,
 ];
 
+const TASK_STATUSES_TO_EXCLUDE = [
+  'cancelled',
+  'rejected', // labs sets tasks to rejected when we delete orders
+];
+
 export interface TasksSearchParams {
   assignedTo?: string | null;
   category?: string | null;
@@ -91,10 +96,7 @@ export const useGetTasks = ({
           name: '_count',
           value: TASKS_PAGE_SIZE,
         },
-        {
-          name: 'status:not',
-          value: 'cancelled',
-        },
+        ...TASK_STATUSES_TO_EXCLUDE.map((status) => ({ name: 'status:not', value: status })),
         ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
       ];
       if (page) {
