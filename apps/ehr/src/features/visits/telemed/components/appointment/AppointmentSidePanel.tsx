@@ -43,6 +43,9 @@ import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue, getPatientName } from 'src/shared/utils';
 import {
   calculatePatientAge,
+  FhirAppointmentType,
+  formatDateToMDYWithTime,
+  getAppointmentServiceCategoryAbbreviation,
   getInsuranceNameFromCoverage,
   getQuestionnaireResponseByLinkId,
   getSupportPhoneFor,
@@ -99,6 +102,18 @@ export const AppointmentSidePanel: FC = () => {
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
   const { allergies } = chartData || {};
   const formattedReasonForVisit = appointment?.description && addSpacesAfterCommas(appointment.description);
+  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const appointmentType = appointment
+    ? appointment.appointmentType?.text === FhirAppointmentType.prebook
+      ? 'Pre-Booked'
+      : 'On Demand'
+    : undefined;
+  const appointmentTime = formatDateToMDYWithTime(
+    appointment?.start ?? encounter?.period?.start,
+    DateTime.local().zoneName
+  )?.time;
+  const visitTypeAndCategory = [appointmentType, serviceCategory].filter(Boolean).join(' | ');
+  const visitTypeCategoryAndTime = [visitTypeAndCategory, appointmentTime].filter(Boolean).join('  ');
 
   const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
     ?.valueString;
@@ -212,6 +227,18 @@ export const AppointmentSidePanel: FC = () => {
                   VID: {appointment.id}
                 </Typography>
               </Tooltip>
+            )}
+            {visitTypeCategoryAndTime && (
+              <Typography
+                sx={{
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+                variant="body2"
+              >
+                {visitTypeCategoryAndTime}
+              </Typography>
             )}
 
             <Tooltip title={paymentVariant}>
