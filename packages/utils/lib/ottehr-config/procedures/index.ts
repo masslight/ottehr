@@ -4,7 +4,22 @@ import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const DEFAULT_PROCEDURES_CONFIG: ProceduresConfig = {
   prepopulation: {},
-  favorites: [],
+  favorites: [
+    {
+      name: 'X-ray of knee; 3 views',
+      procedureType: 'x-ray',
+      cptCodes: [
+        {
+          code: '73562',
+          display: 'X-ray of knee, 3 views',
+        },
+      ],
+      bodySite: 'Leg',
+      complications: 'None',
+      patientResponse: 'Tolerated Well',
+      postInstructions: ['Further details, consultation or follow-up imaging may be obtained as clinically indicated '],
+    },
+  ],
 };
 
 const mergedConfig = mergeAndFreezeConfigObjects(DEFAULT_PROCEDURES_CONFIG, PROCEDURES_CONFIG_OVERRIDE);
@@ -37,7 +52,7 @@ const FavoriteEntry = z.object({
   otherBodySite: z.string().optional(),
   bodySide: z.string().optional(),
   technique: z.string().optional(),
-  suppliesUsed: z.array(z.string().optional()),
+  suppliesUsed: z.array(z.string().optional()).optional(),
   otherSuppliesUsed: z.string().optional(),
   procedureDetails: z.string().optional(),
   specimenSent: z.boolean().optional(),
