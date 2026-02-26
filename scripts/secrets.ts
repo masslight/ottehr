@@ -16,8 +16,13 @@ interface PathConfig {
   target: string;
 }
 
+interface AppConfig extends PathConfig {
+  public: PathConfig;
+}
+
 interface ZambdasConfig extends PathConfig {
   sentry: PathConfig;
+  assets: PathConfig;
 }
 
 interface TerraformConfig extends PathConfig {
@@ -27,8 +32,8 @@ interface TerraformConfig extends PathConfig {
 
 interface GetFilePathConfig {
   zambdas: ZambdasConfig;
-  ehr: PathConfig;
-  patientPortal: PathConfig;
+  ehr: AppConfig;
+  patientPortal: AppConfig;
   terraform: TerraformConfig;
 }
 
@@ -43,14 +48,26 @@ function getFilePaths(environment: string): GetFilePathConfig {
         source: path.join(secretsPath, 'zambdas', '.env', '.env.sentry-build-plugin'),
         target: path.join(repoRoot, 'packages', 'zambdas', '.env.sentry-build-plugin'),
       },
+      assets: {
+        source: path.join(secretsPath, 'zambdas', 'assets'),
+        target: path.join(repoRoot, 'packages', 'zambdas', 'assets'),
+      },
     },
     ehr: {
       source: path.join(secretsPath, 'apps', 'ehr', 'env', `.env.${environment}`),
       target: path.join(repoRoot, 'apps', 'ehr', 'env', `.env.${environment}`),
+      public: {
+        source: path.join(secretsPath, 'apps', 'ehr', 'public'),
+        target: path.join(repoRoot, 'apps', 'ehr', 'public'),
+      },
     },
     patientPortal: {
       source: path.join(secretsPath, 'apps', 'intake', 'env', `.env.${environment}`),
       target: path.join(repoRoot, 'apps', 'intake', 'env', `.env.${environment}`),
+      public: {
+        source: path.join(secretsPath, 'apps', 'intake', 'public'),
+        target: path.join(repoRoot, 'apps', 'intake', 'public'),
+      },
     },
     terraform: {
       source: path.join(secretsPath, 'terraform', `${environment}.tfvars`),
