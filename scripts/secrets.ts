@@ -37,19 +37,19 @@ function getFilePaths(environment: string): GetFilePathConfig {
   const secretsPath = path.join(repoRoot, 'secrets');
   return {
     zambdas: {
-      source: path.join(secretsPath, 'zambdas', `${environment}.json`),
+      source: path.join(secretsPath, 'zambdas', '.env', `${environment}.json`),
       target: path.join(repoRoot, 'packages', 'zambdas', '.env', `${environment}.json`),
       sentry: {
-        source: path.join(secretsPath, 'zambdas', '.env.sentry-build-plugin'),
+        source: path.join(secretsPath, 'zambdas', '.env', '.env.sentry-build-plugin'),
         target: path.join(repoRoot, 'packages', 'zambdas', '.env.sentry-build-plugin'),
       },
     },
     ehr: {
-      source: path.join(secretsPath, 'ehr', 'app', `.env.${environment}`),
+      source: path.join(secretsPath, 'apps', 'ehr', 'env', `.env.${environment}`),
       target: path.join(repoRoot, 'apps', 'ehr', 'env', `.env.${environment}`),
     },
     patientPortal: {
-      source: path.join(secretsPath, 'intake', 'app', `.env.${environment}`),
+      source: path.join(secretsPath, 'apps', 'intake', 'env', `.env.${environment}`),
       target: path.join(repoRoot, 'apps', 'intake', 'env', `.env.${environment}`),
     },
     terraform: {
