@@ -38,7 +38,7 @@ import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/ty
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
-import { MeasurementUnitCode, ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -69,7 +69,6 @@ import {
   isAppointmentOccupationalMedicine,
   isAppointmentWorkersComp,
   isTelemedAppointment,
-  MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
@@ -1237,21 +1236,6 @@ export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string):
 
 export function getCandidEncounterIdFromEncounter(encounter: Encounter): string | undefined {
   return encounter.identifier?.find((idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM)?.value;
-}
-
-export function mapMedicationToCandidMeasurement(units: MedicationUnitOptions): MeasurementUnitCode | undefined {
-  switch (units) {
-    case 'mg':
-      return MeasurementUnitCode.Milligram;
-    case 'ml':
-      return MeasurementUnitCode.Milliliters;
-    case 'unit':
-      return MeasurementUnitCode.Units;
-    case 'g':
-      return MeasurementUnitCode.Grams;
-    default:
-      return MeasurementUnitCode.InternationalUnit; // todo ??? i have unhandled 'cc' and 'application' cases
-  }
 }
 
 const procedureModifierValues = new Set(Object.values(ProcedureModifier));
