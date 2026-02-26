@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import {
   getCoding,
+  getFullestAvailableName,
   getSecret,
   getTestNameOrCodeFromDr,
   LAB_DR_TYPE_TAG,
@@ -13,6 +14,7 @@ import {
   SecretsKeys,
   TaskAlertCode,
 } from 'utils';
+import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
 import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
@@ -21,7 +23,7 @@ import {
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
 import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
-import { fetchRelatedResources, formatPatientNameForTask, getCodeForNewTask } from './helpers';
+import { fetchRelatedResources, getCodeForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -102,7 +104,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const testName = getTestNameOrCodeFromDr(diagnosticReport);
     const labName = labOrg?.name ?? 'missing';
-    const patientName = formatPatientNameForTask(patient, isUnsolicited, diagnosticReport);
+    const patientResource = patient ? patient : getContainedPatientFromDiagnosticReport(diagnosticReport);
+    const patientName = patientResource ? getFullestAvailableName(patientResource) : 'missing';
 
     const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input

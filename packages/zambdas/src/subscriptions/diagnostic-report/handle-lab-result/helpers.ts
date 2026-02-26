@@ -1,12 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference, Encounter, Organization, Patient, Task } from 'fhir/r4b';
-import {
-  DR_UNSOLICITED_PATIENT_REF,
-  getFullestAvailableName,
-  LAB_ORDER_TASK,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  LabOrderTaskCode,
-} from 'utils';
+import { LAB_ORDER_TASK, LAB_RESULT_DOC_REF_CODING_CODE, LabOrderTaskCode } from 'utils';
 
 export const ACCEPTED_RESULTS_STATUS = ['preliminary', 'final', 'corrected', 'cancelled'];
 type AcceptedResultsStatus = (typeof ACCEPTED_RESULTS_STATUS)[number];
@@ -24,23 +18,6 @@ export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, 
   } else {
     return STATUS_CODE_MAP[dr.status];
   }
-};
-
-export const formatPatientNameForTask = (
-  patient: Patient | undefined,
-  isUnsolicited: boolean,
-  diagnosticReport: DiagnosticReport
-): string => {
-  let patientName: string | undefined = '';
-  if (patient) {
-    patientName = getFullestAvailableName(patient);
-  } else if (isUnsolicited) {
-    const containedPatient = diagnosticReport.contained?.find(
-      (resource) => resource.resourceType === 'Patient' && resource.id === DR_UNSOLICITED_PATIENT_REF
-    ) as Patient;
-    if (containedPatient) patientName = getFullestAvailableName(containedPatient);
-  }
-  return patientName ?? 'missing';
 };
 
 export async function fetchRelatedResources(
