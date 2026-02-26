@@ -320,24 +320,21 @@ const CODEABLE_CONCEPT_MAPPINGS = {
   [PATIENT_ETHNICITY_URL]: ETHNICITY_MAPPING,
 };
 
-export function getPatchOperationToAddOrUpdateExtension(
-  resource: PatientMasterRecordResource,
-  extension: {
-    url: string;
-    value: string;
-    valueType?: string;
-  },
-  currentValue?: any
-): Operation {
-  const config = Object.values(EXTENSION_CONFIGS).find((config) => config.url === extension.url);
-  if (!config) return {} as Operation;
+/**
+ * Builds a complete FHIR Extension object from a URL and string value,
+ * using EXTENSION_CONFIGS to determine the correct value type and
+ * CODEABLE_CONCEPT_MAPPINGS for coded values.
+ */
+export function buildExtensionObject(url: string, value: string): Extension | undefined {
+  const config = Object.values(EXTENSION_CONFIGS).find((config) => config.url === url);
+  if (!config) return undefined;
 
   let extensionValue;
   switch (config.valueType) {
     case 'valueCodeableConcept': {
-      const mapping = CODEABLE_CONCEPT_MAPPINGS[extension.url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
+      const mapping = CODEABLE_CONCEPT_MAPPINGS[url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
       if (mapping) {
-        const valueMapping = mapping[extension.value as keyof typeof mapping] as Coding;
+        const valueMapping = mapping[value as keyof typeof mapping] as Coding;
         extensionValue = {
           valueCodeableConcept: {
             coding: [
@@ -354,45 +351,27 @@ export function getPatchOperationToAddOrUpdateExtension(
     }
     case 'valueBoolean':
       extensionValue = {
-        valueBoolean: extension.value === 'true',
+        valueBoolean: value === 'true',
       };
       break;
 
     case 'valueDateTime':
       extensionValue = {
-        valueDateTime: extension.value,
+        valueDateTime: value,
       };
       break;
 
     case 'valueString':
     default:
       extensionValue = {
-        valueString: extension.value,
+        valueString: value,
       };
       break;
   }
 
-  const existingExtensionIndex = resource.extension?.findIndex((ext) => ext.url === extension.url);
+  if (!extensionValue) return undefined;
 
-  if (currentValue !== undefined && existingExtensionIndex !== undefined && existingExtensionIndex >= 0) {
-    return {
-      op: 'replace',
-      path: `/extension/${existingExtensionIndex}`,
-      value: {
-        url: extension.url,
-        ...extensionValue,
-      },
-    };
-  }
-
-  return {
-    op: 'add',
-    path: '/extension/-',
-    value: {
-      url: extension.url,
-      ...extensionValue,
-    },
-  };
+  return { url, ...extensionValue };
 }
 
 export function getCurrentValue(

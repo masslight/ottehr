@@ -1,6 +1,6 @@
 import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { filterQuestionnaireResponseByEnableWhen } from './filterQuestionnaireResponseByEnableWhen';
+import { prepareQuestionnaireResponseForHarvest } from './prepareQuestionnaireItemsForHarvest';
 
 describe('filterQuestionnaireResponseByEnableWhen', () => {
   it('should return all items when questionnaire has no items', () => {
@@ -14,7 +14,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       status: 'active',
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toEqual(responseItems);
   });
@@ -34,7 +38,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toEqual(responseItems);
   });
@@ -69,7 +77,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toHaveLength(2);
     expect(result).toEqual(responseItems);
@@ -105,7 +117,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toHaveLength(1);
     expect(result[0].linkId).toBe('is-new-patient');
@@ -124,7 +140,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       item: [{ linkId: 'item1', text: 'Item 1', type: 'string' }],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toHaveLength(2);
     expect(result.find((item) => item.linkId === 'unknown-item')).toBeDefined();
@@ -164,7 +184,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     // The nested-field's enableWhen references has-condition which is in the same group
     // Since has-condition is true, nested-field should be included
@@ -200,7 +224,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toHaveLength(2);
     expect(result.find((item) => item.linkId === 'insurance-provider')).toBeDefined();
@@ -240,7 +268,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toHaveLength(3);
     expect(result.find((item) => item.linkId === 'dependent-field')).toBeDefined();
@@ -280,7 +312,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     expect(result).toHaveLength(2);
     expect(result.find((item) => item.linkId === 'dependent-field')).toBeUndefined();
@@ -319,7 +355,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     // Should have 2 items: is-new-qrs-patient and patient-first-name
     // patient-point-of-discovery should be filtered out
@@ -368,7 +408,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     // Both items should be kept since is-new-qrs-patient is true
     expect(result).toHaveLength(2);
@@ -414,7 +458,11 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
       ],
     };
 
-    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true },
+    });
 
     // Only is-new-qrs-patient should be kept, patient-point-of-discovery should be filtered out
     expect(result).toHaveLength(1);

@@ -166,9 +166,12 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   console.log('creating patch operations');
   const patientPatchOps = createMasterRecordPatchOperations(
-    qr.item || [],
-    patientResource,
-    questionnaireForEnableWhenFiltering
+    {
+      questionnaireResponseItems: qr.item || [],
+      sourceQuestionnaire: questionnaireForEnableWhenFiltering,
+      options: { filterByEnableWhen: true },
+    },
+    patientResource
   );
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
