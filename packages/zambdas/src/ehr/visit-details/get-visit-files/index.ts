@@ -118,6 +118,7 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
 
           if (presignedUrl) {
             z3Documents.push({
+              id: docRef.id!,
               z3Url: z3Url,
               presignedUrl: presignedUrl,
               type: title as DocumentType,

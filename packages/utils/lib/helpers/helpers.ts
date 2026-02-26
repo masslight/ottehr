@@ -220,12 +220,6 @@ export function findFirstAndLastTimeSlot(arr: Extension[]): {
   return { firstFulfillmentIndex, lastFulfillmentIndex };
 }
 
-// https://stackoverflow.com/a/13653180/2150542
-const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-export const isValidUUID = (maybeUUID: string): boolean => {
-  return uuidRegex.test(maybeUUID);
-};
-
 export const deepCopy = <T extends object>(source: T): T => {
   return JSON.parse(JSON.stringify(source));
 };

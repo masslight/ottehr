@@ -18,7 +18,8 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { cleanAppointmentGraph, M2MClientMockType, RoleType } from 'utils';
+import { M2MClientMockType, RoleType } from 'utils';
+import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
 import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
