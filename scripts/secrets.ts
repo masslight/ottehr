@@ -100,6 +100,11 @@ function populate(environment: string): void {
       fs.copyFileSync(paths.zambdas.source, paths.zambdas.target);
       console.log(`Successfully copied ${environment}.json to packages/zambdas/.env`);
     }
+    if (fs.existsSync(paths.zambdas.assets.source)) {
+      fs.mkdirSync(paths.zambdas.assets.target, { recursive: true });
+      fs.cpSync(paths.zambdas.assets.source, paths.zambdas.assets.target, { recursive: true });
+      console.log(`Successfully copied assets to packages/zambdas/assets`);
+    }
     if (environment !== 'local' && fs.existsSync(paths.zambdas.sentry.source)) {
       // No sentry config for local environment
       fs.mkdirSync(path.dirname(paths.zambdas.sentry.target), { recursive: true });
@@ -111,10 +116,20 @@ function populate(environment: string): void {
       fs.copyFileSync(paths.ehr.source, paths.ehr.target);
       console.log(`Successfully copied .env.${environment} to packages/ehr/env`);
     }
+    if (fs.existsSync(paths.ehr.public.source)) {
+      fs.mkdirSync(paths.ehr.public.target, { recursive: true });
+      fs.cpSync(paths.ehr.public.source, paths.ehr.public.target, { recursive: true });
+      console.log(`Successfully copied public assets to packages/ehr/public`);
+    }
     if (fs.existsSync(paths.patientPortal.source)) {
       fs.mkdirSync(path.dirname(paths.patientPortal.target), { recursive: true });
       fs.copyFileSync(paths.patientPortal.source, paths.patientPortal.target);
       console.log(`Successfully copied .env.${environment} to packages/intake/env`);
+    }
+    if (fs.existsSync(paths.patientPortal.public.source)) {
+      fs.mkdirSync(paths.patientPortal.public.target, { recursive: true });
+      fs.cpSync(paths.patientPortal.public.source, paths.patientPortal.public.target, { recursive: true });
+      console.log(`Successfully copied public assets to packages/intake/public`);
     }
     if (fs.existsSync(paths.terraform.source)) {
       fs.mkdirSync(path.dirname(paths.terraform.target), { recursive: true });
