@@ -19,6 +19,45 @@ const DEFAULT_PROCEDURES_CONFIG: ProceduresConfig = {
       patientResponse: 'Tolerated Well',
       postInstructions: ['Further details, consultation or follow-up imaging may be obtained as clinically indicated '],
     },
+    {
+      name: 'X-Ray of ankle, 3 views',
+      procedureType: 'x-ray',
+      cptCodes: [
+        {
+          code: '73610',
+          display: 'X-ray of ankle, minimum of 3 views',
+        },
+      ],
+      bodySite: 'Leg',
+      complications: 'None',
+      patientResponse: 'Tolerated Well',
+      postInstructions: ['Further details, consultation or follow-up imaging may be obtained as clinically indicated '],
+    },
+    {
+      name: 'X-Ray, finger, 2 views',
+      procedureType: 'x-ray',
+      cptCodes: [
+        {
+          code: '73140',
+          display: 'X-ray of finger, minimum of 2 views',
+        },
+      ],
+      patientResponse: 'Tolerated Well',
+      postInstructions: ['Further details, consultation or follow-up imaging may be obtained as clinically indicated '],
+    },
+    {
+      name: 'X-Ray of hand, 3 views',
+      procedureType: 'x-ray',
+      cptCodes: [
+        {
+          code: '73130',
+          display: 'X-ray of hand, minimum of 3 views',
+        },
+      ],
+      complications: 'None',
+      patientResponse: 'Tolerated Well',
+      postInstructions: ['Further details, consultation or follow-up imaging may be obtained as clinically indicated '],
+    },
   ],
 };
 
