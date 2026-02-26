@@ -300,6 +300,7 @@ export const sendOrderResultEmailToPatient = async ({
     testName: string;
     visitDate: string;
     appointmentId: string;
+    locationName: string; // needs to match the branding config so the support phone can be pulled
   };
   secrets: Secrets | null;
 }): Promise<void> => {
@@ -311,13 +312,14 @@ export const sendOrderResultEmailToPatient = async ({
     if (patientEmail) {
       console.log(`sending order result alert to Patient/${fhirPatient.id} via email ${patientEmail}`);
 
-      const { orderType, testName, visitDate, appointmentId } = emailDetails;
+      const { orderType, testName, visitDate, appointmentId, locationName } = emailDetails;
 
       const templateData: OrderResultAlertTemplateData = {
         'order-type': orderType,
         'test-name': testName,
         'visit-date': visitDate,
         'result-url': makePastVisitDetailUrl(fhirPatient.id || '', appointmentId, secrets),
+        location: locationName,
       };
       await emailClient.sendOrderResultAlert(patientEmail, templateData);
     } else {

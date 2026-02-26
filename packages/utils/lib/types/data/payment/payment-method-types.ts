@@ -36,6 +36,7 @@ export interface GetPatientBalancesZambdaInput {
 
 export interface GetPatientBalancesZambdaOutput {
   totalBalanceCents: number;
+  pendingPaymentCents: number;
   encounters: {
     encounterId: string;
     encounterDate: string;

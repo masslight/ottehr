@@ -17,7 +17,8 @@ import { cleanupTestScheduleResources } from '../helpers/testScheduleUtils';
 
 function createMockCandidApiClient(
   encounterResponses: Map<string, { claimId: string }> = new Map(),
-  claimResponses: Map<string, { patientBalanceCents: number }> = new Map()
+  claimResponses: Map<string, { patientBalanceCents: number }> = new Map(),
+  pendingPaymentCents: number = 0
 ): CandidApiClient {
   return {
     encounters: {
@@ -76,6 +77,41 @@ function createMockCandidApiClient(
         },
       },
     },
+    patientPayments: {
+      v4: {
+        getMulti: async () => {
+          const paymentItems = [];
+          if (pendingPaymentCents > 0) {
+            paymentItems.push({
+              patientPaymentId: 'payment-id-1',
+              organizationId: 'organization-id',
+              paymentSource: 'MANUAL_ENTRY',
+              amountCents: pendingPaymentCents,
+              patientExternalId: 'patient-id',
+              paymentTimestamp: '2026-02-25T16:16:16.039Z',
+              allocations: [
+                {
+                  amountCents: pendingPaymentCents,
+                  target: {
+                    type: 'appointment',
+                    appointmentId: 'appointment-id-1',
+                    patientExternalId: 'patient-id',
+                  },
+                  allocated_on: '2026-02-25T16:16:16.071699Z',
+                },
+              ],
+            });
+          }
+          return {
+            ok: true,
+            body: {
+              items: paymentItems,
+            } as any,
+            rawResponse: {} as Response,
+          };
+        },
+      },
+    } as unknown as CandidApi.patientPayments.v4.GetMultiPatientPaymentsRequest,
   } as CandidApiClient;
 }
 
@@ -363,6 +399,7 @@ describe('get-patient-balances integration tests', () => {
       expect(response).toBeDefined();
       expect(response.encounters).toEqual([]);
       expect(response.totalBalanceCents).toBe(0);
+      expect(response.pendingPaymentCents).toBe(0);
     });
 
     it('should return balance for patient with an encounter', async () => {
@@ -379,12 +416,14 @@ describe('get-patient-balances integration tests', () => {
 
       const mockCandidClient = createMockCandidApiClient(
         new Map([[candidEncounterId, { claimId }]]),
-        new Map([[claimId, { patientBalanceCents: 5000 }]])
+        new Map([[claimId, { patientBalanceCents: 5000 }]]),
+        0
       );
 
       const response = await getPatientBalances(patient.id!, mockCandidClient);
       expect(response).toBeDefined();
       expect(response.totalBalanceCents).toBe(5000);
+      expect(response.pendingPaymentCents).toBe(0);
       expect(response.encounters).toBeDefined();
       expect(response.encounters.length).toBe(1);
 
@@ -425,12 +464,71 @@ describe('get-patient-balances integration tests', () => {
         new Map([
           [claimId, { patientBalanceCents: 5000 }],
           [claimId2, { patientBalanceCents: 3000 }],
-        ])
+        ]),
+        0
       );
 
       const response = await getPatientBalances(patient.id!, mockCandidClient);
       expect(response).toBeDefined();
       expect(response.totalBalanceCents).toBe(8000);
+      expect(response.pendingPaymentCents).toBe(0);
+      expect(response.encounters).toBeDefined();
+      expect(response.encounters.length).toBe(2);
+
+      const encounter1 = response.encounters.find((e) => e.appointmentId === appointment.id);
+      expect(encounter1).toBeDefined();
+      expect(encounter1?.appointmentId).toBe(appointment.id);
+      expect(encounter1?.patientBalanceCents).toBe(5000);
+      expect(encounter1?.encounterDate).toBe(appointment.start);
+
+      const encounter2 = response.encounters.find((e) => e.appointmentId === appointment2.id);
+      expect(encounter2).toBeDefined();
+      expect(encounter2?.appointmentId).toBe(appointment2.id);
+      expect(encounter2?.patientBalanceCents).toBe(3000);
+      expect(encounter2?.encounterDate).toBe(appointment2.start);
+
+      expect(response.totalBalanceCents).toBe(
+        response.encounters[0]?.patientBalanceCents + response.encounters[1]?.patientBalanceCents
+      );
+    });
+
+    it('should return pending balance for patient with pending payment', async () => {
+      const patient = await createMockPatient();
+      const appointment = await createMockAppointment({ patientId: patient.id!, processId });
+      const candidEncounterId = randomUUID();
+      const claimId = randomUUID();
+      await createMockEncounter({
+        patientId: patient.id!,
+        appointmentId: appointment.id!,
+        processId,
+        candidId: candidEncounterId,
+      });
+      const appointment2 = await createMockAppointment({ patientId: patient.id!, processId });
+      const candidEncounterId2 = randomUUID();
+      const claimId2 = randomUUID();
+      await createMockEncounter({
+        patientId: patient.id!,
+        appointmentId: appointment2.id!,
+        processId,
+        candidId: candidEncounterId2,
+      });
+
+      const mockCandidClient = createMockCandidApiClient(
+        new Map([
+          [candidEncounterId, { claimId: claimId }],
+          [candidEncounterId2, { claimId: claimId2 }],
+        ]),
+        new Map([
+          [claimId, { patientBalanceCents: 5000 }],
+          [claimId2, { patientBalanceCents: 3000 }],
+        ]),
+        1000
+      );
+
+      const response = await getPatientBalances(patient.id!, mockCandidClient);
+      expect(response).toBeDefined();
+      expect(response.totalBalanceCents).toBe(8000);
+      expect(response.pendingPaymentCents).toBe(1000);
       expect(response.encounters).toBeDefined();
       expect(response.encounters.length).toBe(2);
 
@@ -664,7 +762,8 @@ describe('get-patient-balances integration tests', () => {
       // Mock client where encounter succeeds but claim itemization fails
       const mockCandidClient = createMockCandidApiClient(
         new Map([[candidEncounterId, { claimId }]]),
-        new Map() // Empty claim responses - will return error
+        new Map(), // Empty claim responses - will return error
+        0
       );
 
       await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(/Failed to fetch Candid claim/);

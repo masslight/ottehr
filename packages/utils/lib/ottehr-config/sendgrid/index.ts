@@ -130,7 +130,8 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/order-result-alert.html`,
       subject: '{{env}}New {{{order-type}}} results are ready for your review',
       templateIdSecretName: 'SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID',
-      dynamicTemplateData: ['order-type', 'test-name', 'visit-date', 'result-url'],
+      // location (location name) is needed so that the correct support number can be pulled
+      dynamicTemplateData: ['order-type', 'test-name', 'visit-date', 'result-url', 'location'],
       supportsAttachments: false,
     },
   },

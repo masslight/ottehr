@@ -7,6 +7,7 @@ import {
   DiagnosticReport,
   Encounter,
   FhirResource,
+  Location,
   Observation,
   Patient,
   Practitioner,
@@ -316,7 +317,18 @@ const handleReviewedEvent = async ({
     throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
   }
 
+  let location: Location | undefined;
   const locationReference = serviceRequest?.locationReference?.[0];
+  if (locationReference) {
+    const isActuallyLocationRef = locationReference.reference?.startsWith('Location/');
+    const locationId = locationReference.reference?.replace('Location/', '');
+    if (isActuallyLocationRef && locationId) {
+      location = await oystehr.fhir.get<Location>({
+        resourceType: 'Location',
+        id: locationId,
+      });
+    }
+  }
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
 
@@ -418,12 +430,13 @@ const handleReviewedEvent = async ({
   }
 
   if (patient) {
-    const visitDate = appointment?.start ? DateTime.fromISO(appointment?.start).toFormat('MM/DD/YYYY') : '';
+    const locationName = location?.name ?? '';
+    const visitDate = appointment?.start ? DateTime.fromISO(appointment?.start).toFormat('MM/dd/yyyy') : '';
     const testName = getTestNameFromDr(diagnosticReport) || '';
     try {
       await sendOrderResultEmailToPatient({
         fhirPatient: patient,
-        emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '' },
+        emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '', locationName },
         secrets,
       });
     } catch (e) {
