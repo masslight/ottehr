@@ -90,6 +90,21 @@ const DEFAULT_PROCEDURES_CONFIG: ProceduresConfig = {
       patientResponse: 'Tolerated Well',
       postInstructions: ['Return if worsening'],
     },
+    {
+      name: 'Subungual Hematoma drainage, finger/toe nail',
+      procedureType: 'nail-trephination',
+      cptCodes: [
+        {
+          code: '11740',
+          display: 'Removal of blood accumulation under fingernail or toenail',
+        },
+      ],
+      suppliesUsed: ['Other'],
+      otherSuppliesUsed: 'Cauterize pen',
+      complications: 'None',
+      patientResponse: 'Tolerated Well',
+      postInstructions: ['Return if worsening'],
+    },
   ],
 };
 
