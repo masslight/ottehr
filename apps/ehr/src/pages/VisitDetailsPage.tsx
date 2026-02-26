@@ -1278,7 +1278,7 @@ export default function VisitDetailsPage(): ReactElement {
                         <PatientBalances
                           patient={patient}
                           patientBalances={patientBalancesData}
-                          refetchPatientBalances={refetchAllPaymentData}
+                          handleClose={refetchAllPaymentData}
                         />
                       </Grid>
                     ) : null}
