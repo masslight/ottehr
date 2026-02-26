@@ -1129,6 +1129,13 @@
       "src": "src/ehr/visit-details/update-visit-files/index",
       "zip": ".dist/zips/update-visit-files.zip"
     },
+    "DELETE-VISIT-FILES": {
+      "name": "delete-visit-files",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/delete-visit-files/index",
+      "zip": ".dist/zips/delete-visit-files.zip"
+    },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
