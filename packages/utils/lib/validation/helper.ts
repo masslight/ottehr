@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 // modified from https://stackoverflow.com/a/50376498
 export function isNumber(value: string): boolean {
   if (value.includes(' ')) {
+    console.log('this is not a number because it has white space and white space is not a number');
     return false;
   }
   return value != null && value !== '' && !isNaN(Number(value.toString()));
