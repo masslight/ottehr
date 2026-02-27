@@ -18,7 +18,13 @@ export const MechanismOfInjuryContainer: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Mechanism of Injury
       </Typography>
-      <Typography>{mechanismOfInjury}</Typography>
+      <Typography
+        sx={{
+          whiteSpace: 'pre-line',
+        }}
+      >
+        {mechanismOfInjury}
+      </Typography>
     </Box>
   );
 };

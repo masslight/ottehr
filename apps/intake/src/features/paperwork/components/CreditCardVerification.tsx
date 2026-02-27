@@ -90,7 +90,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldI
         setPendingSelection(undefined);
       },
       onError: (error) => {
-        console.error('[CreditCardVerification] setDefault error:', error);
+        console.error('setDefault error', error);
         setPendingSelection(undefined);
         setErrorMessage('Unable to set default payment method. Please try again later or select a card.');
       },
