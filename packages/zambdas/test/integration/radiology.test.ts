@@ -47,6 +47,7 @@ describe('radiology integration tests', () => {
         encounterId: baseResources.encounter.id!,
         diagnosisCode: 'W21.89XA',
         cptCode: '73562',
+        lateralityModifier: undefined,
         stat: true,
         clinicalHistory: 'Took an arrow to the knee',
       };
