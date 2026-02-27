@@ -4,6 +4,7 @@ import { Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BOOKING_CONFIG,
+  CanonicalUrl,
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
@@ -11,6 +12,7 @@ import {
   INVALID_INPUT_ERROR,
   isValidUUID,
   makeBookingOriginExtensionEntry,
+  makeQuestionnaireCanonicalExtensionEntry,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
@@ -72,6 +74,7 @@ interface ApptLengthDef {
 interface BasicInput extends Omit<CreateSlotParams, 'lengthInMinutes' | 'lengthInHours'> {
   secrets: Secrets | null;
   apptLength: ApptLengthDef;
+  questionnaireCanonical?: CanonicalUrl;
 }
 
 const validateRequestParameters = (input: ZambdaInput): BasicInput => {
@@ -90,6 +93,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     postTelemedLabOnly,
     originalBookingUrl,
     serviceCategoryCode: maybeServiceCategoryCode,
+    questionnaireCanonical,
   } = JSON.parse(input.body);
 
   // required param checks
@@ -158,6 +162,17 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (originalBookingUrl && typeof originalBookingUrl !== 'string') {
     throw INVALID_INPUT_ERROR('if included, "originalBookingUrl must be a string');
   }
+  if (questionnaireCanonical) {
+    if (typeof questionnaireCanonical !== 'object') {
+      throw INVALID_INPUT_ERROR('"questionnaireCanonical" must be an object with url and version');
+    }
+    if (typeof questionnaireCanonical.url !== 'string') {
+      throw INVALID_INPUT_ERROR('"questionnaireCanonical.url" must be a string');
+    }
+    if (typeof questionnaireCanonical.version !== 'string') {
+      throw INVALID_INPUT_ERROR('"questionnaireCanonical.version" must be a string');
+    }
+  }
   const apptLength: ApptLengthDef = { length: 0, unit: 'minutes' };
   if (lengthInMinutes) {
     apptLength.length = lengthInMinutes;
@@ -187,6 +202,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     serviceModality: serviceModality as ServiceMode,
     originalBookingUrl,
     serviceCategoryCode,
+    questionnaireCanonical: questionnaireCanonical as CanonicalUrl | undefined,
   };
 };
 
@@ -205,6 +221,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     postTelemedLabOnly,
     originalBookingUrl,
     serviceCategoryCode,
+    questionnaireCanonical,
   } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
@@ -241,9 +258,12 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       });
     }
   }
-  let extension: Slot['extension'];
+  const extension: Slot['extension'] = [];
   if (originalBookingUrl) {
-    extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];
+    extension.push(makeBookingOriginExtensionEntry(originalBookingUrl));
+  }
+  if (questionnaireCanonical) {
+    extension.push(makeQuestionnaireCanonicalExtensionEntry(questionnaireCanonical));
   }
   const slot: Slot = {
     resourceType: 'Slot',
@@ -254,7 +274,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     schedule: {
       reference: `Schedule/${schedule.id}`,
     },
-    extension,
+    ...(extension.length > 0 && { extension }),
   };
   if (walkin) {
     slot.appointmentType = { ...SLOT_WALKIN_APPOINTMENT_TYPE_CODING };

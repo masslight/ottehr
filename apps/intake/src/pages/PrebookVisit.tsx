@@ -7,6 +7,7 @@ import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchP
 import {
   APIError,
   BookableItem,
+  BOOKING_CONFIG,
   CreateSlotParams,
   createSlotParamsFromSlotAndOptions,
   GetScheduleResponse,
@@ -209,10 +210,18 @@ const PrebookVisit: FC = () => {
 
   const handleSlotSelection = async (slot?: Slot): Promise<void> => {
     if (slot && tokenlessZambdaClient) {
-      const createSlotInput: CreateSlotParams = createSlotParamsFromSlotAndOptions(slot, {
-        originalBookingUrl: getUrl(),
-        status: 'busy-tentative',
-      });
+      // Use test questionnaire canonical if injected via config (for e2e test isolation)
+      const questionnaireCanonical =
+        serviceMode === ServiceMode.virtual
+          ? BOOKING_CONFIG.virtualQuestionnaireCanonical
+          : BOOKING_CONFIG.inPersonQuestionnaireCanonical;
+      const createSlotInput: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(slot, {
+          originalBookingUrl: getUrl(),
+          status: 'busy-tentative',
+        }),
+        ...(questionnaireCanonical && { questionnaireCanonical }),
+      };
 
       try {
         const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
