@@ -3,13 +3,13 @@ import { Account, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
-  CardPaymentDTO,
   CashPaymentDTO,
   checkForStripeCustomerDeletedError,
   convertPaymentNoticeListToCashPaymentDTOs,
   getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   PatientPaymentDTO,
+  PAYMENT_METHOD_EXTENSION_URL,
 } from 'utils';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../shared';
 
@@ -113,7 +113,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     }
   }
 
-  return buildPaymentDTOs(fhirPaymentNotices, stripePayments, paymentMethods, encounterId);
+  return buildPaymentDTOs(fhirPaymentNotices, stripePayments, paymentMethods, stripeClient, stripeAccount, encounterId);
 };
 
 export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): Promise<PatientPaymentDTO[]> => {
@@ -199,27 +199,105 @@ export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): 
     }
   }
 
-  return buildPaymentDTOs(fhirPaymentNotices, stripePayments, paymentMethods, encounterId);
+  return buildPaymentDTOs(fhirPaymentNotices, stripePayments, paymentMethods, stripeClient, stripeAccount, encounterId);
 };
 
-function buildPaymentDTOs(
+const resolvePaymentMethodIdForIntent = async (
+  paymentIntent: Stripe.PaymentIntent,
+  stripeClient: Stripe,
+  stripeAccount?: string
+): Promise<string | undefined> => {
+  if (typeof paymentIntent.payment_method === 'string') {
+    return paymentIntent.payment_method;
+  }
+
+  try {
+    const expandedIntent = await stripeClient.paymentIntents.retrieve(
+      paymentIntent.id,
+      {
+        expand: ['latest_charge'],
+      },
+      {
+        stripeAccount,
+      }
+    );
+
+    if (typeof expandedIntent.payment_method === 'string') {
+      return expandedIntent.payment_method;
+    }
+
+    const latestCharge =
+      expandedIntent.latest_charge && typeof expandedIntent.latest_charge !== 'string'
+        ? expandedIntent.latest_charge
+        : undefined;
+
+    const generatedCard =
+      latestCharge?.payment_method_details?.type === 'card_present'
+        ? latestCharge.payment_method_details.card_present?.generated_card
+        : undefined;
+
+    return generatedCard ?? undefined;
+  } catch (error) {
+    console.error('Error resolving Stripe payment method for payment intent', paymentIntent.id, error);
+    return undefined;
+  }
+};
+
+async function buildPaymentDTOs(
   fhirPaymentNotices: PaymentNotice[],
   stripePayments: Stripe.PaymentIntent[],
   paymentMethods: Stripe.PaymentMethod[],
+  stripeClient: Stripe,
+  stripeAccount: string | undefined,
   encounterId?: string
-): PatientPaymentDTO[] {
-  const cardPayments: CardPaymentDTO[] = fhirPaymentNotices
-    .flatMap((paymentNotice) => {
+): Promise<PatientPaymentDTO[]> {
+  const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
+
+  const cardPaymentsNested: PatientPaymentDTO[][] = await Promise.all(
+    fhirPaymentNotices.map(async (paymentNotice) => {
       const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
       if (!pnStripeId) {
-        // not a card payment, skip!
         return [];
       }
 
+      const paymentMethodExtension = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
+        ?.valueString;
+
+      if (paymentMethodExtension === 'cash' || paymentMethodExtension === 'check') {
+        return [];
+      }
+
+      const paymentMethod = paymentMethodExtension === 'card-reader' ? 'card-reader' : 'card';
+
       const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
       const stripePaymentId = paymentIntent ? paymentIntent.id : pnStripeId;
-      const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
-      const paymentMethodId = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.id;
+
+      let paymentMethodId =
+        paymentIntent && typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : undefined;
+
+      if (!paymentMethodId && paymentIntent && paymentMethod === 'card-reader') {
+        paymentMethodId = await resolvePaymentMethodIdForIntent(paymentIntent, stripeClient, stripeAccount);
+      }
+
+      let stripePaymentMethod: Stripe.PaymentMethod | undefined;
+      if (paymentMethodId) {
+        stripePaymentMethod = paymentMethodCache.get(paymentMethodId);
+
+        if (!stripePaymentMethod) {
+          try {
+            const retrievedPaymentMethod = await stripeClient.paymentMethods.retrieve(paymentMethodId, {
+              stripeAccount,
+            });
+            stripePaymentMethod = retrievedPaymentMethod;
+            paymentMethodCache.set(paymentMethodId, retrievedPaymentMethod);
+          } catch (error) {
+            console.error('Error retrieving Stripe payment method', paymentMethodId, error);
+          }
+        }
+      }
+
+      const last4 = stripePaymentMethod?.card?.last4;
+      const cardBrand = stripePaymentMethod?.card?.brand;
       const dateISO = DateTime.fromISO(paymentNotice.created).toISO();
 
       if (!dateISO || !paymentNotice.id) {
@@ -227,24 +305,53 @@ function buildPaymentDTOs(
         return [];
       }
 
-      return {
-        paymentMethod: 'card' as const,
-        stripePaymentId,
-        amountInCents: (paymentNotice.amount.value ?? 0) * 100,
-        description: paymentIntent?.description ?? undefined,
-        stripePaymentMethodId: paymentMethodId,
-        fhirPaymentNotificationId: paymentNotice.id,
-        cardLast4: last4,
-        dateISO,
-      };
+      if (paymentMethod === 'card-reader') {
+        return [
+          {
+            paymentMethod: 'card-reader',
+            amountInCents: (paymentNotice.amount.value ?? 0) * 100,
+            description: paymentIntent?.description ?? undefined,
+            fhirPaymentNotificationId: paymentNotice.id,
+            cardBrand,
+            cardLast4: last4,
+            dateISO,
+          },
+        ];
+      }
+
+      return [
+        {
+          paymentMethod: 'card' as const,
+          stripePaymentId,
+          amountInCents: (paymentNotice.amount.value ?? 0) * 100,
+          description: paymentIntent?.description ?? undefined,
+          stripePaymentMethodId: paymentMethodId,
+          fhirPaymentNotificationId: paymentNotice.id,
+          cardBrand,
+          cardLast4: last4,
+          dateISO,
+        },
+      ];
     })
-    .slice(0, 20); // We only fetch the last 20 payments from stripe, which should be more than enough for pretty much any real world use case
+  );
+
+  const cardPayments: PatientPaymentDTO[] = cardPaymentsNested.flat().slice(0, 20);
 
   // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
   // but that awaits the candid integration portion
   const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices, encounterId);
 
-  const payments: PatientPaymentDTO[] = [...cardPayments, ...cashPayments].sort((a, b) => {
+  const deDuplicatedCashPayments = cashPayments.filter((cashPayment) => {
+    if (!cashPayment.fhirPaymentNotificationId) {
+      return true;
+    }
+
+    return !cardPayments.some(
+      (cardPayment) => cardPayment.fhirPaymentNotificationId === cashPayment.fhirPaymentNotificationId
+    );
+  });
+
+  const payments: PatientPaymentDTO[] = [...cardPayments, ...deDuplicatedCashPayments].sort((a, b) => {
     return DateTime.fromISO(b.dateISO).toMillis() - DateTime.fromISO(a.dateISO).toMillis();
   });
 

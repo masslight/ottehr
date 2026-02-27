@@ -49,6 +49,7 @@ import {
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import { sendReceiptByEmail } from '../api/api';
+import CreditCardBrandIcon from './CreditCardBrandIcon';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
@@ -170,10 +171,26 @@ export default function PatientPaymentList({
   };
 
   const getLabelForPayment = (payment: PatientPaymentDTO): string | ReactElement => {
-    if (payment.paymentMethod === 'card') {
+    if (
+      payment.paymentMethod === 'card' ||
+      payment.paymentMethod === 'card-reader' ||
+      payment.paymentMethod === 'external-card-reader'
+    ) {
       if (payment.cardLast4) {
-        return `XXXX - XXXX - XXXX - ${payment.cardLast4}`;
-      } else {
+        const formattedBrand = payment.cardBrand ? capitalize(payment.cardBrand) : 'Card';
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {payment.cardBrand && (
+              <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                <CreditCardBrandIcon brand={payment.cardBrand} />
+              </Box>
+            )}
+            <Typography variant="body1">{`${formattedBrand} •••• ${payment.cardLast4}`}</Typography>
+          </Box>
+        );
+      }
+
+      if (payment.paymentMethod === 'card') {
         return (
           <RefreshableStatusChip
             status={'processing...'}
@@ -195,9 +212,11 @@ export default function PatientPaymentList({
           />
         );
       }
-    } else {
-      return capitalize(payment.paymentMethod);
+
+      return 'Card Reader';
     }
+
+    return capitalize(payment.paymentMethod);
   };
 
   const createNewPayment = useMutation({
@@ -522,9 +541,13 @@ export default function PatientPaymentList({
         <PaymentDialog
           open={paymentDialogOpen}
           patient={patient}
+          encounterId={encounterId}
           appointmentId={appointment?.id}
           handleClose={() => setPaymentDialogOpen(false)}
           isSubmitting={createNewPayment.isPending}
+          onTerminalPaymentSuccess={async () => {
+            await refetchPaymentList();
+          }}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
               patientId: patient.id ?? '',
