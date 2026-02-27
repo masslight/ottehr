@@ -2,9 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
+import {
+  getSecret,
+  isTelemedAppointment,
+  SecretsKeys,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
+  TaskIndicator,
+} from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
@@ -120,10 +127,31 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
     operations,
   });
 
+  // todo: add a fhir post request to write a task for harvesting, with input that identifies the page_id
+  // https://github.com/masslight/ottehr/issues/5693
+
+  const harvestTask: Task = {
+    resourceType: 'Task',
+    status: 'requested',
+    code: {
+      coding: [{ ...TaskIndicator.harvestPaperwork }],
+    },
+    intent: 'order',
+    focus: { reference: `QuestionnaireResponse/${questionnaireResponseId}` },
+    input: [
+      {
+        type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.PAGE_INDEX }] },
+        valueUnsignedInt: patchIndex,
+      },
+    ],
+  };
+
+  const taskPromise = oystehr.fhir.create<Task>(harvestTask);
+
   // temp fix to harvest paperwork after consent forms page is complete
   const [updatedQR] = await (appointmentId && input.submittedAnswer.linkId === 'consent-forms-page'
-    ? Promise.all([qrPromise, appointmentPromise])
-    : Promise.all([qrPromise]));
+    ? Promise.all([qrPromise, taskPromise, appointmentPromise])
+    : Promise.all([qrPromise, taskPromise]));
 
   return updatedQR;
 };
