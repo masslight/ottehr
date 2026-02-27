@@ -63,7 +63,7 @@ module "sendgrid" {
 }
 
 module "oystehr" {
-  depends_on = [module.infra]
+  depends_on = [module.infra, module.sendgrid]
   source     = "./oystehr"
   providers = {
     oystehr = oystehr
