@@ -6,22 +6,16 @@ import {
   Account,
   Appointment,
   Coding,
-  DocumentReference,
   Encounter,
-  List,
   Location,
   Observation,
   Patient,
-  Questionnaire,
   QuestionnaireResponseItem,
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
-  CONSENT_FORMS_CONFIG,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
-  flattenQuestionnaireAnswers,
-  getCanonicalQuestionnaire,
   getPatchOperationsForNewMetaTags,
   getRelatedPersonForPatient,
   getSecret,
@@ -29,18 +23,12 @@ import {
   IntakeQuestionnaireItem,
   PaymentVariant,
   SecretsKeys,
-  SELF_PAY_OPTION,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
-  createConsentResources,
-  createDocumentResources,
   createErxContactOperation,
-  createMasterRecordPatchOperations,
-  createUpdatePharmacyPatchOps,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
-  updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
@@ -98,13 +86,16 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     return `skipped: status=${qr.status}`;
   }
 
-  const tasksFailed: string[] = [];
-  let updatedAccount: Account | undefined;
-  let workersCompAccount: Account | undefined;
+  // Page-level harvesting (patient record, account/coverage, documents, consent)
+  // is now handled incrementally by the sub-harvest-paperwork-page Task subscription.
+  // This subscription handles finalization operations that run after the full QR
+  // reaches completed/amended status.
 
-  console.time('querying for resources to support qr harvest');
+  const tasksFailed: string[] = [];
+
+  console.time('querying for resources to support qr harvest finalization');
   const resources = (
-    await oystehr.fhir.search<Encounter | Patient | Appointment | Location | List | DocumentReference>({
+    await oystehr.fhir.search<Encounter | Patient | Appointment | Location>({
       resourceType: 'Encounter',
       params: [
         {
@@ -123,110 +114,31 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
           name: '_include:iterate',
           value: 'Appointment:location',
         },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'DocumentReference:patient',
-        },
       ],
     })
   ).unbundle();
-  console.timeEnd('querying for resources to support qr harvest');
-
-  // Fetch questionnaire for enableWhen filtering
-  const questionnaireForEnableWhenFiltering = await (async (): Promise<Questionnaire | undefined> => {
-    if (qr.questionnaire) {
-      const parts = qr.questionnaire.split('|');
-      if (parts.length === 2 && parts[0] && parts[1]) {
-        try {
-          return await getCanonicalQuestionnaire({ url: parts[0], version: parts[1] }, oystehr);
-        } catch (error) {
-          console.warn(`Failed to fetch questionnaire ${qr.questionnaire}:`, error);
-        }
-      }
-    }
-    return undefined;
-  })();
+  console.timeEnd('querying for resources to support qr harvest finalization');
 
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
-  let patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
-  const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
-  const documentReferenceResources = resources.filter(
-    (res) => res.resourceType === 'DocumentReference'
-  ) as DocumentReference[];
-  const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
+  const patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
 
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
 
-  console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(
-    {
-      questionnaireResponseItems: qr.item || [],
-      sourceQuestionnaire: questionnaireForEnableWhenFiltering,
-      options: { filterByEnableWhen: true },
-    },
-    patientResource
-  );
-
-  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
-
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-    console.time('patching patient resource');
-    try {
-      patientResource = await oystehr.fhir.patch<Patient>({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-      });
-      console.timeEnd('patching patient resource');
-      console.log('Patient update successful');
-    } catch (error: unknown) {
-      tasksFailed.push('patch patient');
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-      captureException(error);
-    }
-  }
-  // combining these patch ops with patientPatchOps caused a bug so keeping separate for now
-  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? []));
-  if (pharmacyPatchOps.length > 0) {
-    console.log('Applying pharmacy patch operations: ', JSON.stringify(pharmacyPatchOps, null, 2));
-    patientResource = await oystehr.fhir.patch<Patient>({
-      resourceType: 'Patient',
-      id: patientResource.id!,
-      operations: pharmacyPatchOps,
-    });
+  if (encounterResource === undefined || encounterResource.id === undefined) {
+    throw new Error('Encounter resource not found');
   }
 
-  if (patientResource === undefined || patientResource.id === undefined) {
-    throw new Error('Patient resource not found');
+  if (appointmentResource === undefined || appointmentResource.id === undefined) {
+    throw new Error('Appointment resource not found');
   }
 
-  console.log(`Running harvest for QR ${qr.id}`);
-
+  // ── Stripe customer sync ──────────────────────────────────────────────
+  let updatedAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
   try {
-    // if the user selects the self-pay option, we don't want to remove any coverages that already exist on the account
-    const preserveOmittedCoverages =
-      qr.item
-        ?.find((item) => item.linkId === 'payment-option-page')
-        ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString === SELF_PAY_OPTION;
-    await updatePatientAccountFromQuestionnaire(
-      { patientId: patientResource.id, questionnaireResponseItem: qr.item ?? [], preserveOmittedCoverages },
-      oystehr
-    );
-  } catch (error: unknown) {
-    tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
-    console.log(`Failed to update Account: ${JSON.stringify(error)}`);
-    captureException(error);
-  }
-  // fetch the latest account resources and update the stripe customer
-  try {
-    // refetch the patient account resources
     const {
       account: latestAccount,
       guarantorResource: updatedGuarantorResource,
@@ -252,66 +164,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     captureException(error);
   }
 
-  const paperwork = qr.item ?? [];
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    paperwork as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-  const consentFormsSigned = CONSENT_FORMS_CONFIG.forms.every(
-    (form) =>
-      flattenedPaperwork.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
-  );
-  console.log('Flattened paperwork: ', JSON.stringify(flattenedPaperwork, null, 2));
-  console.log('Consent forms signed: ', consentFormsSigned);
-  console.log('qr.status', qr.status);
-
-  if (appointmentResource === undefined || appointmentResource.id === undefined) {
-    throw new Error('Appointment resource not found');
-  }
-
-  // only create the consent resources once when qr goes to completed.
-  // it seems QR is saved twice in rapid succession on submission
-  if (consentFormsSigned && qr.status === 'completed') {
-    console.time('creating consent resources');
-    try {
-      await createConsentResources({
-        questionnaireResponse: qr,
-        patientResource,
-        locationResource,
-        appointmentId: appointmentResource.id,
-        oystehrAccessToken: oystehrToken,
-        oystehr,
-        secrets,
-        listResources,
-      });
-    } catch (error: unknown) {
-      tasksFailed.push('create consent resources');
-      console.log(`Failed to create consent resources: ${error}`);
-      captureException(error);
-    }
-    console.timeEnd('creating consent resources');
-  }
-
-  console.time('creating insurances cards, condition photo, work school notes resources');
-  try {
-    await createDocumentResources(
-      qr,
-      patientResource.id,
-      appointmentResource.id,
-      oystehr,
-      listResources,
-      documentReferenceResources
-    );
-  } catch (error: unknown) {
-    tasksFailed.push('create insurances cards, condition photo, work school notes resources');
-    console.log(`Failed to create insurances cards, condition photo, work school notes resources: ${error}`);
-    captureException(error);
-  }
-  console.timeEnd('creating insurances cards, condition photo, work school notes resources');
-
-  if (encounterResource === undefined || encounterResource.id === undefined) {
-    throw new Error('Encounter resource not found');
-  }
-
+  // ── Paperwork edit flagging ───────────────────────────────────────────
   if (qr.status === 'amended') {
     try {
       console.log('flagging paperwork edit');
@@ -322,6 +175,12 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
       captureException(error);
     }
   }
+
+  // ── Encounter payment variant + account references ────────────────────
+  const paperwork = qr.item ?? [];
+  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+    paperwork as IntakeQuestionnaireItem[]
+  ) as QuestionnaireResponseItem[];
 
   if (qr.status === 'completed' || qr.status === 'amended') {
     try {
@@ -376,6 +235,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     }
   }
 
+  // ── ERx contact + default country ─────────────────────────────────────
   console.time('querying for related person for patient self');
   const relatedPerson = await getRelatedPersonForPatient(patientResource.id, oystehr);
   console.timeEnd('querying for related person for patient self');
@@ -411,8 +271,8 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     }
   }
 
+  // ── Additional questions + HARVESTING_COMPLETED tag ───────────────────
   try {
-    // Additional questions chart data resource prefilling
     const additionalQuestions = createAdditionalQuestions(qr);
     const saveOrUpdateChartDataResourceRequests: (
       | BatchInputPostRequest<Observation>
@@ -465,7 +325,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   if (tasksFailed.length && ENVIRONMENT !== 'local') {
     await triggerSlackAlarm(
-      `Alert in ${ENVIRONMENT} zambda qr-subscription.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
+      `Alert in ${ENVIRONMENT} zambda qr-subscription.\n\nOne or more harvest finalization tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
       secrets
     );
   }

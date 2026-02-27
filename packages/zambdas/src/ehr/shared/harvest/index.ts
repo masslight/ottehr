@@ -1823,19 +1823,9 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
   return undefined;
 }
 
-const buildEmergencyContactAddress = (contact: EmergencyContact, patient: Patient): Address | undefined => {
-  if (contact.addressSameAsPatient) {
-    const patientAddress = patient.address?.[0];
-    if (patientAddress) {
-      return {
-        line: patientAddress.line ? [...patientAddress.line] : undefined,
-        city: patientAddress.city,
-        state: patientAddress.state,
-        postalCode: patientAddress.postalCode,
-      };
-    }
-  }
-
+const buildEmergencyContactAddress = (contact: EmergencyContact): Address | undefined => {
+  // The frontend auto-fills the address fields when "same as patient" is selected,
+  // so we always read directly from the emergency contact's own fields.
   const { addressLine, addressLine2, city, state, zip } = contact;
   const hasAddressData = addressLine || addressLine2 || city || state || zip;
   if (!hasAddressData) {
@@ -2486,7 +2476,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const emergencyContactData = extractEmergencyContact(flattenedItems);
   const emergencyContactAddress =
-    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
+    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData) : undefined;
 
   const employerInformation = getEmployerInformation(flattenedItems);
   const occupationalMedicineEmployerInformation = getOccupationalMedicineEmployerInformation(flattenedItems);

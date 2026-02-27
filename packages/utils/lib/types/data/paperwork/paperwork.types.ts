@@ -77,6 +77,10 @@ export enum QuestionnaireItemGroupType {
 export { FhirResourceTypeSchema, AnswerOptionSourceSchema } from 'config-types';
 export type { FhirResourceType, AnswerOptionSource, AnswerLoadingOptions } from 'config-types';
 
+// Re-export harvest config from config-types
+export { pageHarvestStrategy } from 'config-types';
+export type { HarvestStrategy } from 'config-types';
+
 export type InputWidthOption = 's' | 'm' | 'l' | 'max';
 export interface QuestionnaireItemExtension {
   acceptsMultipleAnswers: boolean;

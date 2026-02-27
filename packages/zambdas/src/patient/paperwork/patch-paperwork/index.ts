@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import {
   getSecret,
   isTelemedAppointment,
+  pageHarvestStrategy,
   SecretsKeys,
   TASK_INPUT_TYPE_CODES,
   TASK_INPUT_TYPE_SYSTEM,
@@ -35,14 +36,6 @@ export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): 
     console.log('effect input', JSON.stringify(effectInput));
 
     const qr = await performEffect(effectInput, oystehr);
-    /*
-    todo
-    try {
-      await createAuditEvent(AuditableZambdaEndpoints.patchPaperwork, oystehr, input, patientId, secrets);
-    } catch (e) {
-      console.log('error writing audit event', e);
-    }
-      */
 
     return {
       statusCode: 200,
@@ -90,19 +83,18 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
     );
   }
 
-  const appointmentPromise = (async (): Promise<null | Appointment> => {
-    if (!appointmentId) return null;
+  const updateAppointmentStatus = async (): Promise<void> => {
+    if (!appointmentId) return;
     try {
       const appointment = await oystehr.fhir.get<Appointment>({
         resourceType: 'Appointment',
         id: appointmentId,
       });
 
-      const appointmentStatus = appointment.status;
       const isOttehrTm = isTelemedAppointment(appointment);
 
-      if (isOttehrTm && appointmentStatus === 'proposed') {
-        return oystehr.fhir.patch<Appointment>({
+      if (isOttehrTm && appointment.status === 'proposed') {
+        await oystehr.fhir.patch<Appointment>({
           id: appointmentId,
           resourceType: 'Appointment',
           operations: [
@@ -114,44 +106,54 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
           ],
         });
       }
-      return null;
     } catch (e) {
       console.log('error updating appointment status', JSON.stringify(e, null, 2));
       captureException(e);
-      return null;
     }
-  })();
-  const qrPromise = oystehr.fhir.patch<QuestionnaireResponse>({
+  };
+
+  // Patch QR first, then create the harvest Task serially so the subscription reads up-to-date QR data.
+  const promises: Promise<unknown>[] = [];
+
+  // temp fix to harvest paperwork after consent forms page is complete
+  if (appointmentId && input.submittedAnswer.linkId === 'consent-forms-page') {
+    promises.push(updateAppointmentStatus());
+  }
+
+  const updatedQR = await oystehr.fhir.patch<QuestionnaireResponse>({
     id: questionnaireResponseId,
     resourceType: 'QuestionnaireResponse',
     operations,
   });
 
-  // todo: add a fhir post request to write a task for harvesting, with input that identifies the page_id
-  // https://github.com/masslight/ottehr/issues/5693
-
-  const harvestTask: Task = {
-    resourceType: 'Task',
-    status: 'requested',
-    code: {
-      coding: [{ ...TaskIndicator.harvestPaperwork }],
-    },
-    intent: 'order',
-    focus: { reference: `QuestionnaireResponse/${questionnaireResponseId}` },
-    input: [
-      {
-        type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.PAGE_INDEX }] },
-        valueUnsignedInt: patchIndex,
+  if (pageHarvestStrategy[input.submittedAnswer.linkId]) {
+    const harvestTask: Task = {
+      resourceType: 'Task',
+      status: 'requested',
+      code: {
+        coding: [{ ...TaskIndicator.harvestPaperwork }],
       },
-    ],
-  };
+      intent: 'order',
+      focus: { reference: `QuestionnaireResponse/${questionnaireResponseId}` },
+      input: [
+        {
+          type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.PAGE_INDEX }] },
+          valueUnsignedInt: patchIndex,
+        },
+      ],
+    };
+    promises.push(oystehr.fhir.create<Task>(harvestTask));
+  }
 
-  const taskPromise = oystehr.fhir.create<Task>(harvestTask);
-
-  // temp fix to harvest paperwork after consent forms page is complete
-  const [updatedQR] = await (appointmentId && input.submittedAnswer.linkId === 'consent-forms-page'
-    ? Promise.all([qrPromise, taskPromise, appointmentPromise])
-    : Promise.all([qrPromise, taskPromise]));
+  // We wrap this in a try catch and make sure that we log that it happened in sentry, but allow
+  // the main thread to continue, since the failure would prevent a patient from completing their paperwork
+  // and needlessly interrupt a crucial business process.
+  try {
+    await Promise.all(promises);
+  } catch (e) {
+    console.log('error creating harvest task', JSON.stringify(e, null, 2));
+    captureException(e);
+  }
 
   return updatedQR;
 };

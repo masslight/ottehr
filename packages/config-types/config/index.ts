@@ -113,8 +113,8 @@ export type {
 } from './consent-forms';
 
 // Paperwork config types (used by both in-person and virtual intake)
-export { PaperworkFormFieldsSchema, PaperworkConfigSchema } from './intake-paperwork';
-export type { PaperworkFormFields, PaperworkConfig } from './intake-paperwork';
+export { PaperworkFormFieldsSchema, PaperworkConfigSchema, pageHarvestStrategy } from './intake-paperwork';
+export type { PaperworkFormFields, PaperworkConfig, HarvestStrategy } from './intake-paperwork';
 
 // Patient record config types
 export { PatientRecordFormFieldsSchema, PatientRecordConfigSchema } from './patient-record';
