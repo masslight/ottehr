@@ -139,7 +139,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         };
       }
       case 'saveOrderCollectionData': {
-        const { serviceRequestId, data, specimenCollectionDates } = validatedParameters;
+        const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
         const { presignedLabelURL } = await handleSaveCollectionData(
           oystehr,
           m2mToken,
@@ -149,6 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             serviceRequestId,
             data,
             specimenCollectionDates,
+            userTimezone,
           }
         );
 
@@ -514,7 +515,7 @@ const handleSaveCollectionData = async (
   input: SaveOrderCollectionData
 ): Promise<{ presignedLabelURL: string | undefined }> => {
   console.log('double check input', JSON.stringify(input));
-  const { serviceRequestId, data, specimenCollectionDates } = input;
+  const { serviceRequestId, data, specimenCollectionDates, userTimezone } = input;
   const now = DateTime.now();
 
   console.log('getting resources needed for saving collection data');
@@ -578,7 +579,12 @@ const handleSaveCollectionData = async (
         patientFirstName: getPatientFirstName(patient) ?? '',
         patientLastName: getPatientLastName(patient) ?? '',
         patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
-        sampleCollectionDate: mostRecentSampleCollectionDate,
+        sampleCollectionDateAndTimezone: mostRecentSampleCollectionDate
+          ? {
+              sampleCollectionDate: mostRecentSampleCollectionDate,
+              timezone: userTimezone,
+            }
+          : undefined,
         orderNumber: orderNumber,
         accountNumber:
           (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
