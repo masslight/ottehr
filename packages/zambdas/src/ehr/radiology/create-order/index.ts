@@ -152,7 +152,13 @@ const writeOurServiceRequest = (
   const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory } = validatedBody;
   const now = DateTime.now();
 
-  const srCodeCoding = lateralityModifier ? { ...cpt, code: `${cpt.code}-${lateralityModifier.code}` } : cpt;
+  const srCodeCoding = lateralityModifier
+    ? {
+        code: `${cpt.code}-${lateralityModifier.code}`,
+        display: `${cpt.display} - ${lateralityModifier.display}`,
+        system: cpt.system,
+      }
+    : cpt;
 
   const fillerAndPlacerOrderNumber = randomstring.generate({
     length: 22,
