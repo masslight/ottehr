@@ -161,6 +161,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   console.log(`canceling appointment with id ${appointmentID}`);
 
+  // todo reassess codes and reasons, just using custom codes atm
   const fhirCancellationReason: Coding = {
     system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
     code: cancellationReason,
