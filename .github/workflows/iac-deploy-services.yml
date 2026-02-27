@@ -131,7 +131,7 @@ jobs:
         id: copy-import-file
         continue-on-error: true
         run: |
-          cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
+          cp secrets/ottehr/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials
