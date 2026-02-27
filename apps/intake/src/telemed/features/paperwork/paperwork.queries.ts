@@ -181,7 +181,7 @@ export const useDeletePaymentMethod = (
 
 export interface SetDefaultPaymentMethodParams {
   paymentMethodId: string;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
   onError?: (error: unknown) => void;
 }
 export const useSetDefaultPaymentMethod = (
@@ -203,9 +203,9 @@ export const useSetDefaultPaymentMethod = (
             paymentMethodId,
             appointmentId,
           })
-          .then(() => {
+          .then(async () => {
             if (onSuccess) {
-              onSuccess();
+              await onSuccess();
             }
           })
           .catch((error) => {
