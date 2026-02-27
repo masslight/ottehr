@@ -50,6 +50,7 @@ import { getUCInputType } from '../../helpers/paperworkUtils';
 import { otherColors } from '../../IntakeThemeProvider';
 import { ControlButtonsProps } from '../../types';
 import AIInterview from './components/AIInterview';
+import { CardErrorDialog } from './components/CardErrorDialog';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
 import DecimalInput from './components/DecimalInput';
@@ -62,6 +63,7 @@ import { PharmacyCollection } from './components/PharmacyCollection';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
+import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useAutoFillValues } from './useAutofill';
 import { useFilterAnswersOptions } from './useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
@@ -131,7 +133,6 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
   if (numErrors === 0) {
     return undefined;
   }
-  // console.log('errors in form', JSON.stringify(errors, null, 2));
 
   // Check if any error is for a group with list-with-form type
   const hasListWithFormError = items.some((item) => {
@@ -292,10 +293,12 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const { questionnaireResponse, saveButtonDisabled } = usePaperworkContext();
   const { continueLabel } = usePaperworkStore();
-  //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
-  //console.log('all items', allItems);
 
-  const { handleSubmit, formState } = useFormContext();
+  const { handleSubmit, formState, setValue } = useFormContext();
+
+  const { isSavingCard, handleCardSave } = useCreditCardSave({
+    setValue,
+  });
 
   const theme = useTheme();
 
@@ -304,11 +307,20 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const errorMessage = makeFormErrorMessage(items, errors);
   const { formValues } = useQRState();
 
-  const submitHandler = useCallback(async () => {
-    setIsSavingProgress(true);
-    await handleSubmit(onSubmit)();
-    setIsSavingProgress(false);
-  }, [handleSubmit, onSubmit]);
+  const submitHandler = useCallback(
+    async ({ skipValidation = false }: { skipValidation?: boolean } = {}) => {
+      const { shouldContinue } = await handleCardSave({ skipValidation });
+
+      if (!shouldContinue) {
+        return;
+      }
+
+      setIsSavingProgress(true);
+      await handleSubmit(onSubmit)();
+      setIsSavingProgress(false);
+    },
+    [handleSubmit, onSubmit, handleCardSave]
+  );
 
   const { bottomComponent, hideControls, controlButtons } = options;
   const swizzledCtrlButtons = useMemo(() => {
@@ -329,7 +341,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   });
 
   return (
-    <form onSubmit={submitHandler}>
+    <form onSubmit={() => void submitHandler()}>
       <Grid container spacing={1}>
         <RenderItems items={items} pageItem={pageItem} />
       </Grid>
@@ -344,8 +356,12 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
         </FormHelperText>
       )}
       {!hideControls && (
-        <ControlButtons {...swizzledCtrlButtons} loading={isSavingProgress || isSubmitting || parentIsSaving} />
+        <ControlButtons
+          {...swizzledCtrlButtons}
+          loading={isSavingProgress || isSubmitting || parentIsSaving || isSavingCard}
+        />
       )}
+      <CardErrorDialog onContinueAnyway={() => void submitHandler({ skipValidation: true })} />
     </form>
   );
 };
@@ -360,8 +376,6 @@ export interface RenderItemsProps {
 const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
   const { items, pageItem, parentItem, fieldId } = props;
   const styledItems = useStyledItems({ formItems: items });
-  // console.log('styledItems', styledItems);
-  // console.log('all items', items);
   useAutoFillValues({ questionnaireItems: items, fieldId, parentItem });
 
   return (
@@ -435,9 +449,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
 
   // fieldId returns the path to the scalar value (the thing that the inputs manipulate directly)
   // call site 2: ignores result when no parent item
-  //console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
   const fieldId = getPaperworkFieldId({ item, parentItem, parentFieldId: inheritedFieldId });
-  //console.log('linkId, fieldId', item.linkId, fieldId);
   const { hasError, errorMessage } = useFieldError(parentItem ? fieldId : item.linkId);
 
   useEffect(() => {
@@ -801,7 +813,12 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         }
       case 'Credit Card':
         return (
-          <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
+          <CreditCardVerification
+            fieldId={fieldId}
+            onChange={smartOnChange}
+            required={item.required ?? false}
+            value={unwrappedValue}
+          />
         );
       case 'Medical History':
         return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;
