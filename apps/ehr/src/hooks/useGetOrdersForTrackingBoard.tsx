@@ -49,7 +49,7 @@ export const useGetOrdersForTrackingBoard = (
 
   const erxOrdersQuery = useGetErxOrders({ encounterIds });
 
-  const { procedures, refetch: refetchProcedures } = useGetProcedures({ encounterIds });
+  const proceduresQuery = useGetProcedures({ encounterIds });
 
   const orders = useMemo(
     () => ({
@@ -59,7 +59,7 @@ export const useGetOrdersForTrackingBoard = (
       inHouseMedicationsByEncounterId: groupByEncounterId(medicationOrdersQuery.data?.orders),
       radiologyOrdersByAppointmentId: groupByAppointmentId(radiologyOrders),
       erxOrdersByEncounterId: groupByEncounterId(erxOrdersQuery.data?.orders),
-      proceduresByEncounterId: groupByEncounterId(procedures),
+      proceduresByEncounterId: groupByEncounterId(proceduresQuery.data),
     }),
     [
       externalLabOrders?.labOrders,
@@ -68,12 +68,12 @@ export const useGetOrdersForTrackingBoard = (
       medicationOrdersQuery.data?.orders,
       radiologyOrders,
       erxOrdersQuery.data?.orders,
-      procedures,
+      proceduresQuery.data,
     ]
   );
 
   const refetchOrders = async (): Promise<void> => {
-    await Promise.all([medicationOrdersQuery.refetch(), erxOrdersQuery.refetch(), refetchProcedures()]);
+    await Promise.all([medicationOrdersQuery.refetch(), erxOrdersQuery.refetch(), proceduresQuery.refetch()]);
   };
 
   return {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { ProcedureDTO } from 'utils';
@@ -9,17 +9,13 @@ interface UseGetProceduresParams {
   encounterIds: string[];
 }
 
-interface UseGetProceduresOutput {
-  procedures: ProcedureWithEncounterId[];
-  isLoading: boolean;
-  refetch: () => Promise<void>;
-}
-
-export const useGetProcedures = ({ encounterIds }: UseGetProceduresParams): UseGetProceduresOutput => {
+export const useGetProcedures = ({
+  encounterIds,
+}: UseGetProceduresParams): UseQueryResult<ProcedureWithEncounterId[], Error> => {
   const apiClient = useOystehrAPIClient();
   const hasEncounters = encounterIds.length > 0;
 
-  const query = useQuery({
+  return useQuery({
     queryKey: ['procedures-for-tracking-board', encounterIds.sort().join(',')],
     queryFn: async () => {
       if (!apiClient) {
@@ -48,12 +44,4 @@ export const useGetProcedures = ({ encounterIds }: UseGetProceduresParams): UseG
     enabled: !!apiClient && hasEncounters,
     staleTime: QUERY_STALE_TIME,
   });
-
-  return {
-    procedures: (query.data ?? []) as ProcedureWithEncounterId[],
-    isLoading: query.isLoading,
-    refetch: async () => {
-      await query.refetch();
-    },
-  };
 };
