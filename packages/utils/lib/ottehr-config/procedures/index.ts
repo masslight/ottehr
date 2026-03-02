@@ -2,7 +2,7 @@ import { ProceduresConfig, ProceduresConfigSchema } from 'config-types';
 import { PROCEDURES_CONFIG_OVERRIDE } from '../../../ottehr-config-overrides/procedures';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
-const DEFAULT_PROCEDURES_CONFIG: ProceduresConfig = {
+const DEFAULT_PROCEDURES_CONFIG = {
   prepopulation: {},
   favorites: [
     {
@@ -106,8 +106,8 @@ const DEFAULT_PROCEDURES_CONFIG: ProceduresConfig = {
       postInstructions: ['Return if worsening'],
     },
   ],
-};
+} as const satisfies ProceduresConfig;
 
 const mergedConfig = mergeAndFreezeConfigObjects(DEFAULT_PROCEDURES_CONFIG, PROCEDURES_CONFIG_OVERRIDE);
 
-export const PROCEDURES_CONFIG = ProceduresConfigSchema.parse(mergedConfig);
+export const PROCEDURES_CONFIG = ProceduresConfigSchema.parse(mergedConfig) as typeof mergedConfig;
