@@ -3,7 +3,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Appointment, Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
+import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -48,8 +48,9 @@ export class ClaudeClient {
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
-function getPrompt(fields: string): string {
+function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
+Patient details: ${patientInfoDetails} 
 Please generate ${fields} with ICD-10 codes for the patient. 
 Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
 Use a single string property in JSON for each section except potential diagnoses. 
@@ -140,7 +141,7 @@ export async function createResourcesFromAiInterview(
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
   // if there is a provider user profile, it is a recording
   const resources = (
-    await oystehr.fhir.search<Encounter | Appointment>({
+    await oystehr.fhir.search<Encounter | Appointment | Patient>({
       resourceType: 'Encounter',
       params: [
         {
@@ -151,12 +152,33 @@ export async function createResourcesFromAiInterview(
           name: '_include',
           value: 'Encounter:appointment',
         },
+        {
+          name: '_include',
+          value: 'Encounter:subject',
+        },
       ],
     })
   ).unbundle();
 
   const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
   const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+  const patient = resources.find((resource) => resource.resourceType === 'Patient');
+
+  let patientInfoDetails = undefined;
+
+  if (patient) {
+    let patientAge = undefined;
+    let patientSex = undefined;
+    if (patient.birthDate) {
+      const birthDate = DateTime.fromISO(patient.birthDate);
+      const now = DateTime.now();
+      patientAge = Math.floor(now.diff(birthDate, 'years').years);
+    }
+    if (patient.gender) {
+      patientSex = patient.gender;
+    }
+    patientInfoDetails = `The patient is a ${patientAge || 'unknown'} year old ${patientSex || 'unknown sex'}`;
+  }
 
   if (
     appointment?.serviceCategory?.find(
@@ -174,9 +196,10 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  const aiResponseString = (
-    await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
-  ).content.toString();
+  const aiResponseString = await invokeChatbotVertexAI(
+    [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
+    secrets
+  );
   console.log(`AI response: "${aiResponseString}"`);
   let aiResponse;
   try {
