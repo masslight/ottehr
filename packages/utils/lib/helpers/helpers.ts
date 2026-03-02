@@ -1498,12 +1498,18 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
 
   const paymentMethod = extension.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
 
-  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check' && paymentMethod !== 'card-reader')) {
+  if (
+    !paymentMethod ||
+    (paymentMethod !== 'cash' &&
+      paymentMethod !== 'check' &&
+      paymentMethod !== 'card-reader' &&
+      paymentMethod !== 'external-card-reader')
+  ) {
     return undefined;
   }
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader',
+    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
