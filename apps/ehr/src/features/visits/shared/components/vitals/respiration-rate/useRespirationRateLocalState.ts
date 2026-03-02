@@ -1,0 +1,47 @@
+import { ChangeEvent, useCallback, useState } from 'react';
+import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
+import { RespirationRateLocalState } from '../types';
+import { textToRespirationRateNumber } from './helpers';
+
+export function useRespirationRateLocalState(): RespirationRateLocalState {
+  const [respirationRateValueText, setRespirationRateValueText] = useState('');
+  const [isValidationError, setValidationError] = useState<boolean>(false);
+
+  const handleValueChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    const respirationRateAsText = e.target.value;
+    setRespirationRateValueText(respirationRateAsText);
+    setValidationError(false);
+  }, []);
+
+  const clearForm = useCallback(() => {
+    setRespirationRateValueText('');
+    setValidationError(false);
+  }, []);
+
+  const getDTO = useCallback((): VitalsRespirationRateObservationDTO | null => {
+    const respRateValueNumber = textToRespirationRateNumber(respirationRateValueText);
+
+    if (respRateValueNumber === undefined) return null;
+
+    return {
+      field: VitalFieldNames.VitalRespirationRate,
+      value: respRateValueNumber,
+    };
+  }, [respirationRateValueText]);
+
+  const hasData = respirationRateValueText.length > 0;
+  const isValid = getDTO() !== null;
+  const isDisabled = !respirationRateValueText;
+
+  return {
+    value: respirationRateValueText,
+    validationError: isValidationError,
+    isDisabled,
+    hasData,
+    isValid,
+    handleValueChange,
+    setValidationError,
+    clearForm,
+    getDTO,
+  };
+}

@@ -2,28 +2,23 @@ import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } 
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
-import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VitalFieldNames, VitalsLastMenstrualPeriodObservationDTO } from 'utils';
+import { VitalsLastMenstrualPeriodObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
+import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
+import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
 
 type VitalsLastMenstrualPeriodCardProps = VitalsCardProps<VitalsLastMenstrualPeriodObservationDTO>;
 
-const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps> = ({
-  handleSaveVital,
-  handleDeleteVital,
-  currentObs,
-  historicalObs,
-}): JSX.Element => {
+const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps> = ({ field }): JSX.Element => {
   const theme = useTheme();
-  const [selectedDate, setSelectedDate] = useState<DateTime | null>(null);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -31,47 +26,27 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const latestObservation = currentObs[0];
+  const latestObservation = field.current[0];
   const isUnsure = latestObservation?.isUnsure === true;
   const latestDate = latestObservation?.value;
+  const { localState } = field;
 
-  const [isUnsureOptionSelected, setIsUnsureOptionSelected] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSaveLMPObservation = async (): Promise<void> => {
-    if (!selectedDate) {
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      const vitalObs: VitalsLastMenstrualPeriodObservationDTO = {
-        field: VitalFieldNames.VitalLastMenstrualPeriod,
-        value: selectedDate.toISODate() ?? '',
-        isUnsure: isUnsureOptionSelected,
-      };
-      await handleSaveVital(vitalObs);
-      setSelectedDate(null);
-      setIsUnsureOptionSelected(false);
-    } catch {
-      enqueueSnackbar('Error saving Last Menstrual Period data', { variant: 'error' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const { handleKeyDown } = useVitalsSaveOnEnter({
+    onSave: field.save,
+  });
 
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
-        historicalObs={historicalObs}
-        currentEncounterObs={currentObs}
+        historicalObs={field.historical}
+        currentEncounterObs={field.current}
         isLoading={false}
         historyElementCreator={(historyEntry) => {
-          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          const isCurrent = field.current.some((obs) => obs.resourceId === historyEntry.resourceId);
           return (
             <VitalHistoryElement
               historyEntry={historyEntry}
-              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              onDelete={isCurrent && !isReadOnly ? field.delete : undefined}
               dataTestId={dataTestIds.vitalsPage.lastMenstrualPeriodItem}
             />
           );
@@ -108,6 +83,7 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
             leftColumn={
               <Grid
                 container
+                onKeyDown={handleKeyDown}
                 sx={{
                   height: 'auto',
                   width: 'auto',
@@ -117,25 +93,37 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                   mx: 2,
                   py: 2,
                   px: 2,
+                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                  transition: VITALS_FORM_BORDER_TRANSITION,
                 }}
               >
                 <Grid item xs={12} sm={8} md={8} lg={8} order={{ xs: 1, sm: 1, md: 1 }}>
                   <LocalizationProvider dateAdapter={AdapterLuxon}>
                     <DatePicker
                       label="Last Menstrual Period"
-                      value={selectedDate}
-                      onChange={setSelectedDate}
-                      disabled={isSaving}
+                      value={localState.selectedDate}
+                      onChange={localState.handleDateChange}
+                      disabled={field.isSaving}
                       maxDate={DateTime.now()}
                       slotProps={{
                         textField: {
                           fullWidth: true,
                           size: 'small',
+                          error: localState.isDateInvalid && localState.validationError,
+                          helperText:
+                            localState.isDateInvalid && localState.validationError ? 'Invalid value' : undefined,
                           InputLabelProps: {
                             shrink: true,
                           },
                           inputProps: {
                             'data-testid': dataTestIds.vitalsPage.lastMenstrualPeriodDateInput,
+                          },
+                          FormHelperTextProps: {
+                            sx: {
+                              position: 'absolute',
+                              bottom: '-15px',
+                              left: 0,
+                            },
                           },
                         },
                       }}
@@ -155,9 +143,9 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                 >
                   <RoundedButton
                     size="small"
-                    disabled={!selectedDate}
-                    loading={isSaving}
-                    onClick={handleSaveLMPObservation}
+                    disabled={localState.isDisabled || field.isSaving}
+                    loading={field.isSaving}
+                    onClick={field.save}
                     color="primary"
                     sx={{
                       height: '40px',
@@ -188,9 +176,9 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                               color: lighten(theme.palette.primary.main, 0.4),
                             },
                           }}
-                          disabled={isSaving}
-                          checked={isUnsureOptionSelected}
-                          onChange={(e) => setIsUnsureOptionSelected(e.target.checked)}
+                          disabled={field.isSaving}
+                          checked={localState.isUnsureSelected}
+                          onChange={(e) => localState.handleUnsureChange(e.target.checked)}
                           data-testid={dataTestIds.vitalsPage.lastMenstrualPeriodUnsureCheckbox}
                         />
                       }
@@ -199,7 +187,9 @@ const VitalsLastMenstrualPeriodCard: React.FC<VitalsLastMenstrualPeriodCardProps
                           sx={{
                             fontSize: '16px',
                             fontWeight: 500,
-                            color: isSaving ? lighten(theme.palette.text.primary, 0.4) : theme.palette.text.primary,
+                            color: field.isSaving
+                              ? lighten(theme.palette.text.primary, 0.4)
+                              : theme.palette.text.primary,
                           }}
                         >
                           Unsure
