@@ -1,17 +1,12 @@
 import { useCallback } from 'react';
-import { UseFormSetValue } from 'react-hook-form';
 import { useCreditCardStore } from '../stores/useCreditCardStore';
-
-interface UseCreditCardSaveParams {
-  setValue: UseFormSetValue<any>;
-}
 
 interface UseCreditCardSaveReturn {
   isSavingCard: boolean;
   handleCardSave: (options?: { skipValidation?: boolean }) => Promise<{ shouldContinue: boolean }>;
 }
 
-export const useCreditCardSave = ({ setValue }: UseCreditCardSaveParams): UseCreditCardSaveReturn => {
+export const useCreditCardSave = (): UseCreditCardSaveReturn => {
   const isSavingCard = useCreditCardStore((state) => state.isSavingCard);
   const getCardState = useCreditCardStore((state) => state.getCardState);
   const saveCard = useCreditCardStore((state) => state.saveCard);
@@ -47,12 +42,11 @@ export const useCreditCardSave = ({ setValue }: UseCreditCardSaveParams): UseCre
         }
 
         if (saveResult?.success) {
-          setValue('valid-card-on-file', { valueBoolean: true }, { shouldValidate: true });
-
           const { onCreditCardFieldChange } = useCreditCardStore.getState();
 
           if (onCreditCardFieldChange) {
-            onCreditCardFieldChange({ target: { value: true } });
+            const cardValidEvent = { target: { value: true } };
+            onCreditCardFieldChange(cardValidEvent);
           }
         }
       }
@@ -64,7 +58,6 @@ export const useCreditCardSave = ({ setValue }: UseCreditCardSaveParams): UseCre
       return { shouldContinue: true };
     },
     [
-      setValue,
       setCardSaveError,
       setShowCardErrorDialog,
       setIsSavingCard,
