@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { AddCreditCardFormHandle } from 'ui-components';
@@ -17,7 +18,7 @@ export const useCreditCardContext = ({
   required,
   value,
   hasSavedCards = false,
-}: UseCreditCardContextParams): React.RefObject<AddCreditCardFormHandle> => {
+}: UseCreditCardContextParams): RefObject<AddCreditCardFormHandle> => {
   const cardFormRef = useRef<AddCreditCardFormHandle>(null);
   const { clearErrors } = useFormContext();
 

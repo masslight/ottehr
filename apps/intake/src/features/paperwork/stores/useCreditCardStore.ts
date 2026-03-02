@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { AddCreditCardFormHandle } from 'ui-components';
 import { create } from 'zustand';
 
@@ -7,7 +8,7 @@ interface CardState {
 }
 
 interface CreditCardState {
-  cardFormRef: React.RefObject<AddCreditCardFormHandle> | null;
+  cardFormRef: RefObject<AddCreditCardFormHandle> | null;
   isSavingCard: boolean;
   cardSaveError: string | undefined;
   showCardErrorDialog: boolean;
@@ -19,7 +20,7 @@ interface CreditCardState {
   hasSavedCards: boolean;
 
   initializeContext: (params: {
-    cardFormRef: React.RefObject<AddCreditCardFormHandle>;
+    cardFormRef: RefObject<AddCreditCardFormHandle>;
     fieldId: string;
     onChange: (event: { target: { value: boolean } }) => void;
     required: boolean;
@@ -28,7 +29,7 @@ interface CreditCardState {
     hasSavedCards: boolean;
   }) => void;
   handleCardChange: () => void;
-  setCardFormRef: (ref: React.RefObject<AddCreditCardFormHandle>) => void;
+  setCardFormRef: (ref: RefObject<AddCreditCardFormHandle>) => void;
   setIsSavingCard: (isSaving: boolean) => void;
   setCardSaveError: (error: string | undefined) => void;
   setShowCardErrorDialog: (show: boolean) => void;
