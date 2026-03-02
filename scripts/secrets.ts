@@ -39,7 +39,9 @@ interface GetFilePathConfig {
 
 function getFilePaths(environment: string): GetFilePathConfig {
   const repoRoot = process.cwd();
+  console.log('Working directory:', repoRoot);
   const secretsPath = path.join(repoRoot, 'secrets');
+  console.log('Secrets path:', secretsPath);
   return {
     zambdas: {
       source: path.join(secretsPath, 'zambdas', '.env', `${environment}.json`),
