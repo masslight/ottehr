@@ -92,6 +92,7 @@ jobs:
         with:
           repository: ${{ inputs.secrets_repository }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: develop
           path: 'secrets'
 
       - name: Copy secrets to appropriate locations
@@ -169,17 +170,18 @@ jobs:
         with:
           repository: ${{ inputs.secrets_repository }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: develop
           path: 'secrets'
 
       - name: Setup environment
         run: |
           mkdir -p packages/zambdas/.env
-          cp secrets/zambdas/* packages/zambdas/.env
+          cp secrets/ottehr/zambdas/.env packages/zambdas/.env
           mkdir -p apps/ehr/env apps/intake/env
-          cp secrets/ehr/app/tests.*.json apps/ehr/env/
-          cp secrets/ehr/app/.env* apps/ehr/env/
-          cp secrets/intake/app/tests.*.json apps/intake/env/
-          cp secrets/intake/app/.env* apps/intake/env/
+          cp secrets/ottehr/apps/ehr/env/tests.*.json apps/ehr/env/
+          cp secrets/ottehr/apps/ehr/env/.env* apps/ehr/env/
+          cp secrets/ottehr/apps/intake/env/tests.*.json apps/intake/env/
+          cp secrets/ottehr/apps/intake/env/.env* apps/intake/env/
 
       - name: Restore Playwright browsers
         id: playwright-cache-restore

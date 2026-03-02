@@ -247,16 +247,17 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: develop
           path: 'secrets'
 
       - name: Setup environment
         run: |
           setup_env() {
             mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
+            cp secrets/ottehr/zambdas/.env/* "packages/zambdas/.env"
             mkdir -p "apps/$app/env"
-            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env"* "apps/$app/env/"
+            cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
+            cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"
           }
       
           for app in ehr intake; do
@@ -381,16 +382,17 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: develop
           path: 'secrets'
 
       - name: Setup environment
         run: |
           setup_env() {
             mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
+            cp secrets/ottehr/zambdas/.env/* "packages/zambdas/.env"
             mkdir -p "apps/$app/env"
-            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env"* "apps/$app/env/"
+            cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
+            cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"
           }
       
           for app in ehr intake; do

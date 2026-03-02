@@ -117,6 +117,7 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: develop
           path: "secrets"
 
       - name: Copy secrets to appropriate locations
