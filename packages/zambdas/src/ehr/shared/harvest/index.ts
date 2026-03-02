@@ -945,7 +945,7 @@ export function createMasterRecordPatchOperations(
           return;
         }
 
-        if (item.linkId === 'patient-ssn' && value) {
+        if (item.linkId === 'patient-ssn') {
           const currentValue = getTaxID(patient);
           if (currentValue !== value) {
             const ssnIdentifier = makeSSNIdentifier(value as string);
@@ -969,12 +969,14 @@ export function createMasterRecordPatchOperations(
                   value: ssnIdentifier,
                 });
               } else {
-                // Scenario 3: SSN entry exists - replace entire identifier to ensure type field is included
-                tempOperations.patient.push({
-                  op: 'replace',
-                  path: `/identifier/${ssnIndex}`,
-                  value: ssnIdentifier,
-                });
+                // Scenario 3: SSN entry exists - replace entire identifier to ensure type field is included, but only if value is provided
+                if (value) {
+                  tempOperations.patient.push({
+                    op: 'replace',
+                    path: `/identifier/${ssnIndex}`,
+                    value: ssnIdentifier,
+                  });
+                }
               }
             }
           }
