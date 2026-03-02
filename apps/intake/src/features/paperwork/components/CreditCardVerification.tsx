@@ -48,7 +48,10 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
 
-  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount);
+  const stripePromise = useMemo(
+    () => loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount),
+    [setupData?.stripeAccount]
+  );
 
   useEffect(() => {
     if (selectedOption !== defaultCard?.id) {
@@ -231,18 +234,26 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         </RadioGroup>
       </Box>
 
-      {disabled ? (
+      {/* Don't render Elements until clientSecret is available to avoid re-initialization */}
+      {!setupData?.clientSecret ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <Elements stripe={stripePromise} options={{ clientSecret: setupData?.clientSecret || '' }}>
-          <AddCreditCardForm
-            clientSecret={setupData?.clientSecret || ''}
-            isLoading={disabled}
-            disabled={disabled}
-            selectPaymentMethod={handleNewPaymentMethod}
-          />
+        // Once Elements is mounted, keep it mounted to avoid Stripe re-initialization
+        <Elements stripe={stripePromise} options={{ clientSecret: setupData.clientSecret }}>
+          {disabled ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <AddCreditCardForm
+              clientSecret={setupData.clientSecret}
+              isLoading={disabled}
+              disabled={disabled}
+              selectPaymentMethod={handleNewPaymentMethod}
+            />
+          )}
         </Elements>
       )}
       <Snackbar

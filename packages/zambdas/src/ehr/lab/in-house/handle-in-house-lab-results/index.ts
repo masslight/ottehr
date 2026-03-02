@@ -295,9 +295,11 @@ const getInHouseLabResultResources = async (
   const inputResultTask = inputResultTasks[0];
 
   if (inputResultTask.status === 'completed') {
+    console.log(`Task is completed: Task/${inputResultTask.id}`);
     throw new Error('Result has already been entered. Refresh the page to continue.');
   }
   if (inputResultTask.status !== 'ready' && inputResultTask.status !== 'in-progress') {
+    console.log(`Task is in unexpected state. Task/${inputResultTask.id} status: ${inputResultTask.status}`);
     throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 

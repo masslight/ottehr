@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.28.19",
+  "version": "1.29.1",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -39,6 +39,7 @@
     "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix .",
     "clear-tasks": "tsx src/scripts/clear-tasks.ts production",
     "test": "ENV=local vitest run",
+    "test:watch": "ENV=local vitest watch",
     "test:coverage": "c8 npm run test",
     "mock-reflex-test": "tsx src/scripts/labs/reflex-test-helper.ts",
     "mock-unsolicited-result": "tsx src/scripts/labs/unsolicited-result-helper.ts",
