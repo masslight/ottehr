@@ -42,7 +42,7 @@ export const index = wrapTaskHandler('sub-harvest-paperwork-page', async (input,
   return { taskStatus: 'completed' as const, statusReason: result };
 });
 
-function extractPatchIndex(task: Task): number {
+export function extractPatchIndex(task: Task): number {
   const input = task.input?.find(
     (i) =>
       i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
@@ -53,7 +53,7 @@ function extractPatchIndex(task: Task): number {
   return input.valueUnsignedInt;
 }
 
-function extractQrId(task: Task): string {
+export function extractQrId(task: Task): string {
   const ref = task.focus?.reference;
   if (!ref?.startsWith('QuestionnaireResponse/')) {
     throw new Error(`Task focus is not a QuestionnaireResponse: ${ref}`);

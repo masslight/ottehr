@@ -160,7 +160,7 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
 
 // ── Strategy registry ───────────────────────────────────────────────────
 
-const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> = {
+export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> = {
   'master-record': masterRecordStrategy,
   pharmacy: pharmacyStrategy,
   'account-coverage': accountCoverageStrategy,
