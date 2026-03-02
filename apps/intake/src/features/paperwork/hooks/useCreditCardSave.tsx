@@ -19,6 +19,7 @@ export const useCreditCardSave = ({ setValue }: UseCreditCardSaveParams): UseCre
   const setCardSaveError = useCreditCardStore((state) => state.setCardSaveError);
   const setShowCardErrorDialog = useCreditCardStore((state) => state.setShowCardErrorDialog);
   const isCreditCardRequired = useCreditCardStore((state) => state.isCreditCardRequired);
+  const creditCardFieldValue = useCreditCardStore((state) => state.creditCardFieldValue);
 
   const handleCardSave = useCallback(
     async ({ skipValidation = false }: { skipValidation?: boolean } = {}): Promise<{ shouldContinue: boolean }> => {
@@ -56,13 +57,22 @@ export const useCreditCardSave = ({ setValue }: UseCreditCardSaveParams): UseCre
         }
       }
 
-      if (!cardState?.complete && isCreditCardRequired) {
+      if (!cardState?.complete && isCreditCardRequired && creditCardFieldValue !== true) {
         return { shouldContinue: false };
       }
 
       return { shouldContinue: true };
     },
-    [setValue, setCardSaveError, setShowCardErrorDialog, setIsSavingCard, getCardState, saveCard, isCreditCardRequired]
+    [
+      setValue,
+      setCardSaveError,
+      setShowCardErrorDialog,
+      setIsSavingCard,
+      getCardState,
+      saveCard,
+      isCreditCardRequired,
+      creditCardFieldValue,
+    ]
   );
 
   return {

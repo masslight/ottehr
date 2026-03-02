@@ -12,8 +12,17 @@ export const CardErrorDialog: FC<CardErrorDialogProps> = ({ onContinueAnyway }) 
   const showCardErrorDialog = useCreditCardStore((state) => state.showCardErrorDialog);
   const closeCardErrorDialog = useCreditCardStore((state) => state.closeCardErrorDialog);
   const isRequired = useCreditCardStore((state) => state.isCreditCardRequired);
+  const hasSavedCards = useCreditCardStore((state) => state.hasSavedCards);
 
   const errorMessage = cardSaveError || 'An error occurred while saving the card';
+
+  const additionalMessage = hasSavedCards ? (
+    <div style={{ marginTop: 10 }}>
+      You can use your saved card instead. Clear the card input field to continue with your saved card.
+    </div>
+  ) : (
+    ''
+  );
 
   const handleContinueAnyway = (): void => {
     closeCardErrorDialog();
@@ -31,7 +40,10 @@ export const CardErrorDialog: FC<CardErrorDialogProps> = ({ onContinueAnyway }) 
           Card cannot be saved
         </Typography>
 
-        <Typography>{errorMessage}</Typography>
+        <Typography>
+          {errorMessage}
+          {additionalMessage}
+        </Typography>
 
         <Box
           sx={{

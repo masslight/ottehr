@@ -8,6 +8,7 @@ interface UseCreditCardContextParams {
   onChange: (event: { target: { value: boolean } }) => void;
   required: boolean;
   value?: boolean;
+  hasSavedCards?: boolean;
 }
 
 export const useCreditCardContext = ({
@@ -15,6 +16,7 @@ export const useCreditCardContext = ({
   onChange,
   required,
   value,
+  hasSavedCards = false,
 }: UseCreditCardContextParams): React.RefObject<AddCreditCardFormHandle> => {
   const cardFormRef = useRef<AddCreditCardFormHandle>(null);
   const { clearErrors } = useFormContext();
@@ -27,9 +29,10 @@ export const useCreditCardContext = ({
       required,
       value,
       clearErrors: (id) => clearErrors(id),
+      hasSavedCards,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldId, required, value]);
+  }, [fieldId, required, value, hasSavedCards]);
 
   return cardFormRef;
 };

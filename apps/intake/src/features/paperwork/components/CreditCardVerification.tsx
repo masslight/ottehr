@@ -31,7 +31,6 @@ interface CreditCardVerificationProps {
 }
 
 export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldId, onChange, required, value }) => {
-  useCreditCardContext({ fieldId, onChange, required, value });
   const {
     patient,
     appointment,
@@ -42,10 +41,10 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldI
     paymentMethodStateInitializing,
     cardsAreLoading,
   } = usePaperworkContext();
+
+  useCreditCardContext({ fieldId, onChange, required, value, hasSavedCards: cards.length > 0 });
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
-
   const [pendingSelection, setPendingSelection] = useState<string | undefined>(undefined);
-
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
 
