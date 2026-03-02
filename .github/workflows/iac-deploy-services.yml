@@ -122,6 +122,7 @@ jobs:
 
       - name: Copy secrets to appropriate locations
         run: |
+          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
           npm exec -- tsx ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}
           npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 

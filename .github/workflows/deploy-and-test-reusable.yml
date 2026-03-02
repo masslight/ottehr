@@ -97,7 +97,7 @@ jobs:
 
       - name: Copy secrets to appropriate locations
         run: |
-          tree -L 3 ./secrets/ || find ./secrets/ -type f | head -20
+          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
           npm exec -- tsx ./scripts/secrets.ts populate ${{ inputs.environment }}
           npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
 
