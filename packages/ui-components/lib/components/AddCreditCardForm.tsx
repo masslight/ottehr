@@ -41,7 +41,9 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
 
   const saveCard = async (): Promise<{ success: boolean; error?: string }> => {
     if (!stripe || !elements) {
-      return { success: false, error: 'Stripe or stripe elements not provided' };
+      const error = 'Stripe or stripe elements not provided';
+      setSaveError(error);
+      return { success: false, error };
     }
 
     if (saveStateRef.current === 'saved') {
@@ -49,13 +51,17 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
     }
 
     if (saveStateRef.current === 'saving') {
-      return { success: false, error: 'Card save already in progress' };
+      const error = 'Card save already in progress';
+      setSaveError(error);
+      return { success: false, error };
     }
 
     const card = elements.getElement(CardElement);
 
     if (!card) {
-      return { success: false, error: 'Stripe card element not found' };
+      const error = 'Stripe card element not found';
+      setSaveError(error);
+      return { success: false, error };
     }
 
     saveStateRef.current = 'saving';
