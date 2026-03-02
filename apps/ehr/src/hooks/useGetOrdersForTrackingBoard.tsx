@@ -49,7 +49,7 @@ export const useGetOrdersForTrackingBoard = (
 
   const erxOrdersQuery = useGetErxOrders({ encounterIds });
 
-  const { procedures, refetch: refetchProcedures } = useGetProcedures({ encounterIds, refreshKey });
+  const { procedures, refetch: refetchProcedures } = useGetProcedures({ encounterIds });
 
   const orders = useMemo(
     () => ({

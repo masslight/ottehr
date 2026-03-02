@@ -7,7 +7,6 @@ type ProcedureWithEncounterId = ProcedureDTO & { encounterId: string };
 
 interface UseGetProceduresParams {
   encounterIds: string[];
-  refreshKey?: number;
 }
 
 interface UseGetProceduresOutput {
@@ -16,12 +15,12 @@ interface UseGetProceduresOutput {
   refetch: () => Promise<void>;
 }
 
-export const useGetProcedures = ({ encounterIds, refreshKey }: UseGetProceduresParams): UseGetProceduresOutput => {
+export const useGetProcedures = ({ encounterIds }: UseGetProceduresParams): UseGetProceduresOutput => {
   const apiClient = useOystehrAPIClient();
   const hasEncounters = encounterIds.length > 0;
 
   const query = useQuery({
-    queryKey: ['procedures-for-tracking-board', encounterIds.sort().join(','), refreshKey],
+    queryKey: ['procedures-for-tracking-board', encounterIds.sort().join(',')],
     queryFn: async () => {
       if (!apiClient) {
         throw new Error('API client not defined');
