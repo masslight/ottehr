@@ -413,6 +413,7 @@ export type SaveOrderCollectionData = {
   serviceRequestId: string;
   data: DynamicAOEInput;
   specimenCollectionDates?: SpecimenCollectionDateConfig;
+  userTimezone: string;
 };
 
 export type CancelMatchUnsolicitedResultTask = {
