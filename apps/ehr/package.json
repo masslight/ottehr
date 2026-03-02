@@ -48,6 +48,7 @@
     "setup-test-deps": "node setup-test-deps.js"
   },
   "dependencies": {
+    "@aaronfagan/ccicons": "github:aaronfagan/svg-credit-card-payment-icons#v0.1.1",
     "@fullcalendar/core": "^5.11.3",
     "@fullcalendar/daygrid": "^5.11.3",
     "@fullcalendar/list": "^5.11.3",

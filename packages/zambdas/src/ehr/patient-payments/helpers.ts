@@ -307,7 +307,6 @@ async function buildPaymentDTOs(
       if (!pnStripeId) {
         return [];
       }
-      console.log(`\n\n\n>>>>>> ZING >>>>>>>: Processing PaymentNotice with Stripe ID: ${pnStripeId}`);
 
       const paymentMethodExtension = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
         ?.valueString;
@@ -317,9 +316,6 @@ async function buildPaymentDTOs(
       }
 
       const paymentMethod = paymentMethodExtension === 'card-reader' ? 'card-reader' : 'card';
-
-      console.log(`>>>>>> ZING >>>>>>>: Processing PaymentNotice with Payment Type: ${paymentMethod}`);
-
       let paymentIntent = paymentIntentCache.get(pnStripeId);
       if (!paymentIntent) {
         const retrievedPaymentIntent = await resolvePaymentIntentById(pnStripeId, stripeClient, stripeAccount);
