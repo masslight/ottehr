@@ -16,6 +16,7 @@ import {
   isLocationVirtual,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
+  parseQuestionnaireCanonicalExtension,
   PatientInfo,
   PersonSex,
   REASON_FOR_VISIT_SEPARATOR,
@@ -23,6 +24,7 @@ import {
   ScheduleOwnerFhirResource,
   Secrets,
   ServiceMode,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   VisitType,
 } from 'utils';
 import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
@@ -228,7 +230,19 @@ export const createAppointmentComplexValidation = async (
     throw new Error('Service mode not found');
   }
 
-  const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
+  // Check if the Slot has a questionnaire canonical extension
+  // This allows slots to specify which questionnaire should be used for appointments booked on them
+  let questionnaireCanonical: CanonicalUrl;
+  const slotQuestionnaireExtension = slot.extension?.find(
+    (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
+  );
+  if (slotQuestionnaireExtension?.valueString) {
+    questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
+    console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);
+  } else {
+    // Fall back to service-mode-based questionnaire selection
+    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
+  }
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
   if (getSlotIsWalkin(slot)) {

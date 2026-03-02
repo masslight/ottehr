@@ -1,6 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { DateTime } from 'luxon';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -90,6 +91,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         serviceRequestId: labOrder.serviceRequestId,
         data: sanitizedData,
         ...(!labOrder.isPSC && { specimenCollectionDates: specimensData }), // non PSC orders require specimens
+        userTimezone: DateTime.local().zoneName,
       });
       if (result.presignedLabelURL) await openPdf(result.presignedLabelURL);
       navigate(`/in-person/${appointmentID}/external-lab-orders`);

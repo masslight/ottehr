@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import React, { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { MedicationWithTypeDTO } from '../../in-person/hooks/useMedicationHistory';
@@ -30,17 +31,18 @@ export const usePrintChartData = ({
   const generateMedicationHistoryPdf = useCallback(
     async (medicationHistory: MedicationWithTypeDTO[]): Promise<string | undefined> => {
       if (!apiClient || !appointment || !encounter || !patient || !medicationHistory) return undefined;
-      console.log('this is medicationHistory from hook', medicationHistory);
-      console.log('this is patient from hook', patient);
+
+      const userTimezone = DateTime.local().zoneName;
+
       const result = await apiClient.makeMedicationHistoryPdf({
         appointment,
         encounter,
         patient,
         medicationHistory,
         location,
+        timezone: userTimezone,
       });
 
-      console.log('zambda output for makeMedicationHistoryPdf', result);
       if (!result) {
         console.warn('Pdf info for medication history was undefined');
         return undefined;

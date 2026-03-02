@@ -62,7 +62,12 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
       return patientInstructions;
     }
     const lowerSearchTerm = searchTerm.toLowerCase();
-    return patientInstructions.filter((instruction) => instruction.title?.toLowerCase().includes(lowerSearchTerm));
+    return patientInstructions.filter((instruction) => {
+      const titleMatch = instruction.title?.toLowerCase().includes(lowerSearchTerm);
+      const textMatch = instruction.text?.toLowerCase().includes(lowerSearchTerm);
+
+      return titleMatch || textMatch;
+    });
   }, [patientInstructions, searchTerm]);
 
   return (

@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { VitalsObservationDTO } from 'utils';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
-import { UseSaveVitals } from '../types';
+
+export type UseSaveVitals = (props: { encounterId: string }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
 
 export const useSaveVitals: UseSaveVitals = ({ encounterId }) => {
   const apiClient = useOystehrAPIClient();

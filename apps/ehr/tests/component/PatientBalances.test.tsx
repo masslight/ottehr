@@ -119,6 +119,7 @@ const mockPatient: Patient = {
 
 const mockPatientBalances: GetPatientBalancesZambdaOutput = {
   totalBalanceCents: 300,
+  pendingPaymentCents: 50,
   encounters: [
     {
       encounterId: 'encounter-1',
@@ -135,7 +136,7 @@ const mockPatientBalances: GetPatientBalancesZambdaOutput = {
   ],
 };
 
-const mockRefetchPatientBalances = vi.fn();
+const mockHandleClose = vi.fn();
 
 // ============================================================================
 // TESTS
@@ -145,31 +146,23 @@ describe('PatientBalances', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockExecute.mockResolvedValue({});
-    mockRefetchPatientBalances.mockResolvedValue({});
+    mockHandleClose.mockResolvedValue({});
   });
 
   describe('Render correctly', () => {
     it('should display header', () => {
       render(
-        <PatientBalances
-          patient={mockPatient}
-          patientBalances={mockPatientBalances}
-          refetchPatientBalances={mockRefetchPatientBalances}
-        />,
+        <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
         { wrapper: createWrapper() }
       );
 
       expect(screen.getByText('Outstanding Balance')).toBeInTheDocument();
-      expect(screen.getByText('$3.00')).toBeInTheDocument();
+      expect(screen.getByText('$2.50 ($0.50 pending)')).toBeInTheDocument();
     });
 
     it('should not show loading indicator', () => {
       render(
-        <PatientBalances
-          patient={mockPatient}
-          patientBalances={mockPatientBalances}
-          refetchPatientBalances={mockRefetchPatientBalances}
-        />,
+        <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
         { wrapper: createWrapper() }
       );
 
@@ -178,11 +171,7 @@ describe('PatientBalances', () => {
 
     it('should display all encounters with correct data', () => {
       render(
-        <PatientBalances
-          patient={mockPatient}
-          patientBalances={mockPatientBalances}
-          refetchPatientBalances={mockRefetchPatientBalances}
-        />,
+        <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
         { wrapper: createWrapper() }
       );
 
@@ -208,11 +197,7 @@ describe('PatientBalances', () => {
   describe('Payment Dialog', () => {
     it('should not show payment dialog by default', () => {
       render(
-        <PatientBalances
-          patient={mockPatient}
-          patientBalances={mockPatientBalances}
-          refetchPatientBalances={mockRefetchPatientBalances}
-        />,
+        <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
         { wrapper: createWrapper() }
       );
 
@@ -224,11 +209,7 @@ describe('PatientBalances', () => {
       const user = userEvent.setup();
 
       render(
-        <PatientBalances
-          patient={mockPatient}
-          patientBalances={mockPatientBalances}
-          refetchPatientBalances={mockRefetchPatientBalances}
-        />,
+        <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
         { wrapper: createWrapper() }
       );
 
@@ -244,11 +225,7 @@ describe('PatientBalances', () => {
         const user = userEvent.setup();
 
         render(
-          <PatientBalances
-            patient={mockPatient}
-            patientBalances={mockPatientBalances}
-            refetchPatientBalances={mockRefetchPatientBalances}
-          />,
+          <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
           { wrapper: createWrapper() }
         );
 
@@ -268,11 +245,7 @@ describe('PatientBalances', () => {
         const user = userEvent.setup();
 
         render(
-          <PatientBalances
-            patient={mockPatient}
-            patientBalances={mockPatientBalances}
-            refetchPatientBalances={mockRefetchPatientBalances}
-          />,
+          <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
           { wrapper: createWrapper() }
         );
 
@@ -293,11 +266,7 @@ describe('PatientBalances', () => {
       const user = userEvent.setup();
 
       render(
-        <PatientBalances
-          patient={mockPatient}
-          patientBalances={mockPatientBalances}
-          refetchPatientBalances={mockRefetchPatientBalances}
-        />,
+        <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
         { wrapper: createWrapper() }
       );
 
@@ -320,11 +289,7 @@ describe('PatientBalances', () => {
         const user = userEvent.setup();
 
         render(
-          <PatientBalances
-            patient={mockPatient}
-            patientBalances={mockPatientBalances}
-            refetchPatientBalances={mockRefetchPatientBalances}
-          />,
+          <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
           { wrapper: createWrapper() }
         );
 
@@ -351,11 +316,7 @@ describe('PatientBalances', () => {
         const user = userEvent.setup();
 
         render(
-          <PatientBalances
-            patient={mockPatient}
-            patientBalances={mockPatientBalances}
-            refetchPatientBalances={mockRefetchPatientBalances}
-          />,
+          <PatientBalances patient={mockPatient} patientBalances={mockPatientBalances} handleClose={mockHandleClose} />,
           { wrapper: createWrapper() }
         );
 
@@ -387,7 +348,7 @@ describe('PatientBalances', () => {
             <PatientBalances
               patient={mockPatient}
               patientBalances={mockPatientBalances}
-              refetchPatientBalances={mockRefetchPatientBalances}
+              handleClose={mockHandleClose}
             />,
             { wrapper: createWrapper() }
           );
@@ -399,7 +360,7 @@ describe('PatientBalances', () => {
           await user.click(submitButton);
 
           await waitFor(() => {
-            expect(mockRefetchPatientBalances).toHaveBeenCalled();
+            expect(mockHandleClose).toHaveBeenCalled();
           });
         });
 
@@ -410,7 +371,7 @@ describe('PatientBalances', () => {
             <PatientBalances
               patient={mockPatient}
               patientBalances={mockPatientBalances}
-              refetchPatientBalances={mockRefetchPatientBalances}
+              handleClose={mockHandleClose}
             />,
             { wrapper: createWrapper() }
           );

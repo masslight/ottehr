@@ -240,7 +240,7 @@ export default function ProceduresNew(): ReactElement {
       });
       setLoadingSuggestions(false);
       setRecommendedBillingCodes(codes);
-      if (formValues.procedureType === 'Laceration Repair (Suturing/Stapling)') {
+      if (formValues.procedureType.toLowerCase().includes('laceration')) {
         setLoadingSuggestionNote(true);
         const suggestions = await aiSuggestionNotes({
           type: 'procedure',
@@ -738,6 +738,10 @@ export default function ProceduresNew(): ReactElement {
     });
   };
 
+  const selectedProcedureTypeCode = selectOptions?.procedureTypes?.find(
+    (procedureType) => procedureType.name === formValues.procedureType
+  )?.code;
+
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
@@ -765,7 +769,10 @@ export default function ProceduresNew(): ReactElement {
 
             {!procedureId && PROCEDURES_CONFIG.favorites.length > 0 ? (
               <SelectFromFavoritesButton
-                favorites={PROCEDURES_CONFIG.favorites}
+                favorites={PROCEDURES_CONFIG.favorites.filter(
+                  (favorite) =>
+                    selectedProcedureTypeCode == null || selectedProcedureTypeCode === favorite.procedureType
+                )}
                 getLabel={(favorite) => favorite.name}
                 onSelect={onFavoriteSelect}
               />

@@ -56,6 +56,7 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { PROJECT_WEBSITE } from '../ottehr-config/branding';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   BookableResource,
@@ -64,7 +65,6 @@ import {
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
-  PROJECT_WEBSITE,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleOwnerFhirResource,
   ServiceMode,
