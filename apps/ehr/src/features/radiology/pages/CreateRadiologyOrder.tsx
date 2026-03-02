@@ -35,7 +35,7 @@ import {
   useSaveChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { CPTCodeDTO, DiagnosisDTO, radiologyStudiesConfig } from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, LATERALITY_SELECTORS, LateralityValue, radiologyStudiesConfig } from 'utils';
 import { createRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
@@ -43,14 +43,6 @@ import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
 }
-
-const LATERALITY_SELECTORS = {
-  '50': 'Both sides - bilateral',
-  LT: 'Left side',
-  RT: 'Right side',
-} as const;
-
-type LateralityValue = keyof typeof LATERALITY_SELECTORS;
 
 export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => {
   const theme = useTheme();
@@ -103,7 +95,9 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     e.preventDefault();
     setSubmitting(true);
     const lateralityModifier =
-      laterality !== '' ? { display: LATERALITY_SELECTORS[laterality], code: laterality } : undefined;
+      laterality !== ''
+        ? { display: LATERALITY_SELECTORS[laterality].modifierDescription, code: laterality }
+        : undefined;
 
     const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
 
@@ -288,7 +282,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     >
                       {Object.entries(LATERALITY_SELECTORS).map(([selectorKey, selectorDisplay]) => (
                         <MenuItem key={selectorKey} value={selectorKey}>
-                          {`${selectorKey} (${selectorDisplay})`}
+                          {`${selectorKey} (${selectorDisplay.uiDisplay})`}
                         </MenuItem>
                       ))}
                     </Select>
