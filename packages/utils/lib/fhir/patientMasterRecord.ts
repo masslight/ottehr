@@ -79,6 +79,10 @@ export const patientFieldPaths = {
   responsiblePartyEmail: 'Patient/contact/0/telecom/1/value',
   releaseOfInfo: `Patient/extension/${PATIENT_RELEASE_OF_INFO_URL}`,
   rxHistoryConsentStatus: `Patient/extension/${PATIENT_RX_HISTORY_CONSENT_STATUS_URL}`,
+  // TODO: This positional path assumes SSN is at index 0. Currently safe because the SSN-specific
+  // handler in harvest/index.ts finds the identifier by system URL, but if we ever need to harvest
+  // multiple identifier types, this should be refactored to use system-based lookup instead of
+  // positional indexing.
   ssn: 'Patient/identifier/0/value',
   active: 'Patient/active',
   deceased: 'Patient/deceasedBoolean',

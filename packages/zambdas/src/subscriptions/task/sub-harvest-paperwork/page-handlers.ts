@@ -12,6 +12,7 @@ import {
 import {
   flattenQuestionnaireAnswers,
   type HarvestStrategy,
+  OCC_MED_SELF_PAY_OPTION,
   pageHarvestStrategy,
   Secrets,
   SELF_PAY_OPTION,
@@ -82,10 +83,15 @@ const pharmacyStrategy: HarvestStrategyHandler = async (ctx) => {
 const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
   const { qr, patient, questionnaire, oystehr } = ctx;
 
-  const preserveOmittedCoverages =
-    qr.item
-      ?.find((item) => item.linkId === 'payment-option-page')
-      ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString === SELF_PAY_OPTION;
+  const paymentOption = qr.item
+    ?.find((item) => item.linkId === 'payment-option-page')
+    ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString;
+
+  const occMedPaymentOption = qr.item
+    ?.find((item) => item.linkId === 'payment-option-occ-med-page')
+    ?.item?.find((subItem) => subItem.linkId === 'payment-option-occupational')?.answer?.[0]?.valueString;
+
+  const preserveOmittedCoverages = paymentOption === SELF_PAY_OPTION || occMedPaymentOption === OCC_MED_SELF_PAY_OPTION;
 
   await updatePatientAccountFromQuestionnaire(
     {

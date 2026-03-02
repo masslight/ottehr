@@ -694,7 +694,7 @@ describe('Patient Master Record Tests', () => {
       relatedPerson: {},
     });
 
-    // Patient with an existing SSN identifier: empty SSN should remove the SSN identifier
+    // Patient with an existing SSN identifier (only identifier): empty SSN should remove /identifier entirely
     const patientWithSSNIdentifier: Patient = {
       id: 'patient-with-ssn-identifier',
       resourceType: 'Patient',
@@ -719,6 +719,39 @@ describe('Patient Master Record Tests', () => {
       coverage: {},
       patient: {
         patchOpsForDirectUpdate: [{ op: 'remove', path: '/identifier' }],
+      },
+      relatedPerson: {},
+    });
+
+    // Patient with SSN + non-SSN identifiers: empty SSN should remove only the SSN, preserving the other
+    const patientWithMixedIdentifiers: Patient = {
+      id: 'patient-with-mixed-identifiers',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+      identifier: [
+        {
+          system: 'http://example.org/mrn',
+          value: 'MRN-12345',
+        },
+        {
+          system: 'http://hl7.org/fhir/sid/us-ssn',
+          type: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                code: 'SS',
+              },
+            ],
+          },
+          value: '444-44-4444',
+        },
+      ],
+    };
+    result = createMasterRecordPatchOperations({ questionnaireResponseItems: ssnItems }, patientWithMixedIdentifiers);
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        patchOpsForDirectUpdate: [{ op: 'remove', path: '/identifier/1' }],
       },
       relatedPerson: {},
     });
