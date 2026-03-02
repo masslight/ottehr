@@ -55,7 +55,7 @@ jobs:
       - name: Setup secrets
         run: |
           mkdir -p packages/zambdas/.env
-          cp secrets/ottehr/zambdas/.env packages/zambdas/.env
+          cp -r secrets/ottehr/zambdas/.env/* packages/zambdas/.env/
           mkdir -p apps/ehr/env apps/intake/env
           cp secrets/ottehr/apps/ehr/env/.env.local apps/ehr/env/
           cp secrets/ottehr/apps/ehr/env/tests.*.json apps/ehr/env/
