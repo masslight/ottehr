@@ -83,19 +83,11 @@ async function main(): Promise<void> {
     ).unbundle()[0];
     const scheduleId = schedule?.id;
 
-    const { default: inPersonIntakeQuestionnaire } = await import(
-      '../config/oystehr/in-person-intake-questionnaire.json',
-      { assert: { type: 'json' } }
-    );
+    // Generate questionnaire dynamically from config
+    const { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } = await import('utils');
+    const questionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
 
-    const questionnaire = Object.values(inPersonIntakeQuestionnaire.fhirResources).find(
-      (q: any) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-inperson')
-    ) as any;
-
-    const questionnaireUrl = `${questionnaire.resource.url}|${questionnaire.resource.version}`;
+    const questionnaireUrl = `${questionnaire.url}|${questionnaire.version}`;
     const today = DateTime.now().toUTC().toFormat('yyyy-MM-dd');
 
     console.log('Converting to seed format with placeholders...');

@@ -1,54 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
-import {
-  CanonicalUrl,
-  getCanonicalQuestionnaire,
-  OtherParticipantsExtension,
-  PatientAccountResponse,
-  ServiceMode,
-  TELEMED_VIDEO_ROOM_CODE,
-} from 'utils';
-import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
+import { Coding, DocumentReference, Extension, Organization, Practitioner } from 'fhir/r4b';
+import { OtherParticipantsExtension, PatientAccountResponse, ServiceMode, TELEMED_VIDEO_ROOM_CODE } from 'utils';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
-export const getCurrentQuestionnaireForServiceType = async (
-  serviceMode: ServiceMode,
-  oystehrClient: Oystehr
-): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
-  return getCanonicalQuestionnaire(canonical, oystehrClient);
-};
-
-export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
-  let url = '';
-  let version = '';
-  if (serviceMode === 'in-person') {
-    const questionnaire = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
-      (q) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-inperson')
-    );
-    url = questionnaire?.resource.url || '';
-    version = questionnaire?.resource.version || '';
-  } else if (serviceMode === 'virtual') {
-    const questionnaire = Object.values(virtualIntakeQuestionnaireJson.fhirResources).find(
-      (q) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-virtual')
-    );
-    url = questionnaire?.resource.url || '';
-    version = questionnaire?.resource.version || '';
-  }
-  if (!url || !version) {
-    throw new Error('Questionnaire url missing or malformed');
-  }
-  return {
-    url,
-    version,
-  };
-};
 
 export const getTelemedRequiredAppointmentEncounterExtensions = (
   patientRef: string,

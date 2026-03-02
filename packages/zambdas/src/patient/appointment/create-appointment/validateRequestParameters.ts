@@ -12,6 +12,7 @@ import {
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   INVALID_INPUT_ERROR,
   isLocationVirtual,
   MISSING_REQUIRED_PARAMETERS,
@@ -25,10 +26,36 @@ import {
   Secrets,
   ServiceMode,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
   VisitType,
 } from 'utils';
 import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
-import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
+
+/**
+ * Gets the canonical URL for the previsit questionnaire based on service mode.
+ * This function uses the current config to determine the questionnaire URL and version.
+ * The questionnaire must exist in FHIR for the appointment to work correctly.
+ */
+const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
+  const questionnaire =
+    serviceMode === 'in-person'
+      ? IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE()
+      : serviceMode === 'virtual'
+      ? VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()
+      : null;
+
+  if (!questionnaire) {
+    throw new Error(`Unknown service mode: ${serviceMode}`);
+  }
+
+  const { url, version } = questionnaire;
+
+  if (!url || !version) {
+    throw new Error('Questionnaire url missing or malformed');
+  }
+
+  return { url, version };
+};
 
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;

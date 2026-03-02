@@ -156,6 +156,14 @@ jobs:
           aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
           aws configure --profile "${profile}" set region us-east-1
 
+      - name: Validate Questionnaire Archives (Production Only)
+        if: ${{ env.ENVIRONMENT == 'demo' || env.ENVIRONMENT == 'production' }}
+        run: |
+          echo "Validating questionnaire archives for production deployment..."
+          npm run validate-intake-questionnaire-archive in-person
+          npm run validate-intake-questionnaire-archive virtual
+          echo "✓ All questionnaire archives validated successfully"
+
       - name: Deploy Ottehr Resources Using Terraform
         working-directory: deploy
         run: |

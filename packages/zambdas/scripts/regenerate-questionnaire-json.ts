@@ -9,27 +9,12 @@ import {
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 
-const rootDir = path.resolve(__dirname, '../../..');
+// Note: The in-person-intake-questionnaire.json and virtual-intake-questionnaire.json files
+// have been eliminated. Questionnaires are now generated dynamically from TypeScript config.
+// Historical versions are stored in the *-archive.json files and updated via:
+//   npm run validate-intake-questionnaire-archive <in-person|virtual> -- --update
 
-// Regenerate in-person intake questionnaire config file
-const inPersonQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
-const inPersonConfigPath = path.join(rootDir, 'config/oystehr/in-person-intake-questionnaire.json');
-const inPersonConfig = JSON.parse(fs.readFileSync(inPersonConfigPath, 'utf-8'));
-const inPersonKey = Object.keys(inPersonConfig.fhirResources)[0];
-inPersonConfig.fhirResources[inPersonKey].resource = inPersonQuestionnaire;
-fs.writeFileSync(inPersonConfigPath, JSON.stringify(inPersonConfig, null, 2) + '\n');
-console.log('Regenerated:', inPersonConfigPath);
-
-// Regenerate virtual intake questionnaire config file
-const virtualQuestionnaire = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
-const virtualConfigPath = path.join(rootDir, 'config/oystehr/virtual-intake-questionnaire.json');
-const virtualConfig = JSON.parse(fs.readFileSync(virtualConfigPath, 'utf-8'));
-const virtualKey = Object.keys(virtualConfig.fhirResources)[0];
-virtualConfig.fhirResources[virtualKey].resource = virtualQuestionnaire;
-fs.writeFileSync(virtualConfigPath, JSON.stringify(virtualConfig, null, 2) + '\n');
-console.log('Regenerated:', virtualConfigPath);
-
-// Regenerate test data files
+// Regenerate test data files (only when running with default Ottehr branding)
 if (BRANDING_CONFIG.projectName === 'Ottehr') {
   const testDataDir = path.join(__dirname, '../test/data');
 
@@ -50,19 +35,23 @@ if (BRANDING_CONFIG.projectName === 'Ottehr') {
   );
   console.log('Regenerated: booking-questionnaire.json');
 
-  // Intake paperwork questionnaire (full questionnaire)
+  // Intake paperwork questionnaire (full questionnaire for test comparison)
+  const inPersonQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
   fs.writeFileSync(
     path.join(testDataDir, 'intake-paperwork-questionnaire.json'),
     JSON.stringify(inPersonQuestionnaire, null, 2) + '\n'
   );
   console.log('Regenerated: intake-paperwork-questionnaire.json');
 
-  // Virtual intake paperwork questionnaire items (just the items array)
+  // Virtual intake paperwork questionnaire items (just the items array for test comparison)
+  const virtualQuestionnaire = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
   fs.writeFileSync(
     path.join(testDataDir, 'virtual-intake-paperwork-questionnaire.json'),
     JSON.stringify(virtualQuestionnaire.item, null, 2) + '\n'
   );
   console.log('Regenerated: virtual-intake-paperwork-questionnaire.json');
-}
 
-console.log('\nAll questionnaire JSON files regenerated successfully!');
+  console.log('\nTest data files regenerated successfully!');
+} else {
+  console.log('Skipping test data regeneration (non-Ottehr branding)');
+}

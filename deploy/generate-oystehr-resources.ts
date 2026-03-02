@@ -11,7 +11,13 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { BRANDING_CONFIG, SENDGRID_CONFIG } from 'utils';
+import {
+  BRANDING_CONFIG,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  SENDGRID_CONFIG,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
+} from 'utils';
+import { generateQuestionnaireArchiveKey } from '../packages/spec/src/questionnaire-utils';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 import { Schema20250925 } from '../packages/spec/src/schema-20250925';
@@ -152,6 +158,41 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   }
   if (schemaVersion === '2025-09-25') {
     const schema = new Schema20250925(specs, vars, outputPath, zambdasDirPath);
+
+    // Add current questionnaires from config
+    // These are generated dynamically and added alongside archived versions
+    const inPersonQ = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
+    const virtualQ = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
+
+    const inPersonKey = generateQuestionnaireArchiveKey('in-person', inPersonQ.version!);
+    const virtualKey = generateQuestionnaireArchiveKey('virtual', virtualQ.version!);
+
+    // Safety check: if the archive already has a resource with the same key but different content,
+    // this indicates a validation failure upstream (content changed without version bump).
+    // this should be a redundant safety check and its triggering indicates some dangerous manual
+    // use of this script outside the usual pipelines, or a serious regression issue in upstream validation.
+    if (schema.resources.fhirResources[inPersonKey]) {
+      const existing = schema.resources.fhirResources[inPersonKey].resource;
+      if (JSON.stringify(existing) !== JSON.stringify(inPersonQ)) {
+        throw new Error(
+          `Key collision with different content for ${inPersonKey}. This indicates a validation failure - questionnaire content changed without version bump.`
+        );
+      }
+    }
+    if (schema.resources.fhirResources[virtualKey]) {
+      const existing = schema.resources.fhirResources[virtualKey].resource;
+      if (JSON.stringify(existing) !== JSON.stringify(virtualQ)) {
+        throw new Error(
+          `Key collision with different content for ${virtualKey}. This indicates a validation failure - questionnaire content changed without version bump.`
+        );
+      }
+    }
+
+    schema.resources.fhirResources[inPersonKey] = { resource: inPersonQ };
+    schema.resources.fhirResources[virtualKey] = { resource: virtualQ };
+
+    console.log(`Added dynamic questionnaires: ${inPersonKey}, ${virtualKey}`);
+
     await schema.generate();
   }
 }

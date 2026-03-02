@@ -104,7 +104,10 @@
     "prepare": "husky",
     "spellcheck": "cspell .",
     "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
-    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts"
+    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts",
+    "validate-intake-questionnaire-version": "tsx scripts/config/validate-intake-questionnaire-version.ts",
+    "validate-intake-questionnaire-archive": "tsx scripts/config/validate-intake-questionnaire-archive.ts",
+    "update-intake-questionnaire-archive": "tsx scripts/config/update-intake-questionnaire-archive.ts"
   },
   "workspaces": [
     "packages/**/*",

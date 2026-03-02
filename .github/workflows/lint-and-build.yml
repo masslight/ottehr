@@ -93,6 +93,12 @@ jobs:
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
 
+      - name: Validate intake questionnaire versions
+        if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
+        run: |
+          npm run validate-intake-questionnaire-version in-person
+          npm run validate-intake-questionnaire-version virtual
+
       - name: TruffleHog -- Check for secrets in bundles of publicly available code
         run: |
           docker run --rm -v .:/tmp -w /tmp \
