@@ -187,6 +187,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
 
         const result = await oystehrZambda.zambda.execute({
           id: 'patient-payments-terminal-get-config',
+          encounterId,
         });
         const response = chooseJson<GetPatientPaymentTerminalConfigResponse>(result);
         setTerminalConfig(response);
@@ -203,7 +204,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
     };
 
     void getTerminalConfig();
-  }, [oystehrZambda, onTerminalConfiguredChange]);
+  }, [encounterId, oystehrZambda, onTerminalConfiguredChange]);
 
   useEffect(() => {
     const initializeStripeTerminal = async (): Promise<void> => {
@@ -247,12 +248,12 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           simulated: terminalConfig.terminalSimulatorMode ?? false,
         };
 
-        if (!terminalConfig.terminalReaderId && terminalConfig.terminalLocationId) {
+        if (terminalConfig.terminalLocationId) {
           discoverOptions.location = terminalConfig.terminalLocationId;
         }
 
         console.log(
-          `Discovering terminal readers by ${terminalConfig.terminalReaderId ? 'reader ID' : 'location/default'}`,
+          'Discovering terminal readers by location/default',
           JSON.stringify({ terminalConfig, discoverOptions }, null, 2)
         );
         const discoveryResult = await terminal.discoverReaders(discoverOptions);
@@ -278,15 +279,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           throw new Error('No terminal readers were discovered.');
         }
 
-        const selectedReader = terminalConfig.terminalReaderId
-          ? discoveryResult.discoveredReaders.find((reader) => reader.id === terminalConfig.terminalReaderId)
-          : discoveryResult.discoveredReaders[0];
-
-        if (!selectedReader) {
-          throw new Error(
-            `Configured terminal reader ${terminalConfig.terminalReaderId} was not found during discovery.`
-          );
-        }
+        const selectedReader = discoveryResult.discoveredReaders[0];
 
         const connectResult = await terminal.connectReader(selectedReader);
         if (connectResult.error) {

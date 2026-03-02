@@ -36,8 +36,11 @@ export interface ListPatientPaymentResponse {
 export interface GetPatientPaymentTerminalConfigResponse {
   terminalConfigured: boolean;
   terminalLocationId?: string;
-  terminalReaderId?: string;
   terminalSimulatorMode?: boolean;
+}
+
+export interface GetPatientPaymentTerminalConfigInput {
+  encounterId: string;
 }
 
 export interface GetPatientPaymentTerminalConnectionTokenResponse {
