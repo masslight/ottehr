@@ -666,33 +666,37 @@ describe('Patient Master Record Tests', () => {
     };
     const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn' }];
 
-    let result = createMasterRecordPatchOperations(ssnItems, patientWithOtherIdentifier);
+    // Patient with a non-SSN identifier: empty SSN should NOT remove the other identifier
+    let result = createMasterRecordPatchOperations(
+      { questionnaireResponseItems: ssnItems },
+      patientWithOtherIdentifier
+    );
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
         patchOpsForDirectUpdate: [],
       },
       relatedPerson: {},
     });
 
+    // Patient with no identifiers: empty SSN is a no-op
     const patientWithNoIdentifier: Patient = {
-      id: 'patient-with-other-identifier',
+      id: 'patient-with-no-identifier',
       resourceType: 'Patient',
       name: [{ given: ['Jane'], family: 'Smith' }],
     };
-    result = createMasterRecordPatchOperations(ssnItems, patientWithNoIdentifier);
+    result = createMasterRecordPatchOperations({ questionnaireResponseItems: ssnItems }, patientWithNoIdentifier);
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
         patchOpsForDirectUpdate: [],
       },
       relatedPerson: {},
     });
 
+    // Patient with an existing SSN identifier: empty SSN should remove the SSN identifier
     const patientWithSSNIdentifier: Patient = {
-      id: 'patient-with-other-identifier',
+      id: 'patient-with-ssn-identifier',
       resourceType: 'Patient',
       name: [{ given: ['Jane'], family: 'Smith' }],
       identifier: [
@@ -710,12 +714,11 @@ describe('Patient Master Record Tests', () => {
         },
       ],
     };
-    result = createMasterRecordPatchOperations(ssnItems, patientWithSSNIdentifier);
+    result = createMasterRecordPatchOperations({ questionnaireResponseItems: ssnItems }, patientWithSSNIdentifier);
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
-        patchOpsForDirectUpdate: [],
+        patchOpsForDirectUpdate: [{ op: 'remove', path: '/identifier' }],
       },
       relatedPerson: {},
     });

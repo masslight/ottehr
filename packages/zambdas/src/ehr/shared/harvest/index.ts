@@ -901,8 +901,24 @@ export function createMasterRecordPatchOperations(
       return;
     }
 
-    if (item.linkId === 'patient-ssn' && value) {
+    if (item.linkId === 'patient-ssn') {
       const currentValue = getTaxID(patient);
+      const SSN_SYSTEM = 'http://hl7.org/fhir/sid/us-ssn';
+
+      if (isAnswerEmpty) {
+        // SSN field is enabled but empty — remove existing SSN identifier if present
+        if (patient.identifier) {
+          const ssnIndex = patient.identifier.findIndex((id) => id.system === SSN_SYSTEM);
+          if (ssnIndex !== -1) {
+            tempOperations.push({
+              op: 'remove',
+              path: `/identifier/${ssnIndex}`,
+            });
+          }
+        }
+        return;
+      }
+
       if (currentValue !== value) {
         const ssnIdentifier = makeSSNIdentifier(value as string);
 
