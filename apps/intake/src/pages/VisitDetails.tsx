@@ -31,9 +31,10 @@ const FILE_SECTIONS: {
 }[] = [
   { key: visitFileTypes.visitNote, label: 'Full visit note' },
   { key: visitFileTypes.dischargeSummary, label: 'Discharge papers' },
-  { key: visitFileTypes.statement, label: 'Statement' },
   { key: visitFileTypes.school, label: 'School note' },
   { key: visitFileTypes.work, label: 'Work note' },
+  { key: visitFileTypes.receipt, label: 'Receipt' },
+  { key: visitFileTypes.statement, label: 'Statement' },
 ];
 
 const VisitDetailsContent = ({

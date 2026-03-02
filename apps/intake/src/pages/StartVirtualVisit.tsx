@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   APIError,
+  BOOKING_CONFIG,
   CreateSlotParams,
   getClosingTime,
   getHoursOfOperationForToday,
@@ -85,6 +86,10 @@ const StartVirtualVisit = (): JSX.Element => {
         status: 'busy-tentative',
         walkin: true,
         ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
+        // Use test questionnaire canonical if injected via config (for e2e test isolation)
+        ...(BOOKING_CONFIG.virtualQuestionnaireCanonical && {
+          questionnaireCanonical: BOOKING_CONFIG.virtualQuestionnaireCanonical,
+        }),
       };
 
       try {

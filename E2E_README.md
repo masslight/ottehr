@@ -434,6 +434,72 @@ await expect(async () => {
 }).toPass({ timeout: 30000, intervals: [2000] });
 ```
 
+## Config-Aware Testing
+
+### Overview
+
+Config-aware testing allows tests to adapt automatically to configuration changes without hardcoded expectations. Tests read the actual configuration to determine what options should be available, which fields should be visible, and which flows are enabled.
+
+The intake app's e2e tests use this pattern extensively. For detailed documentation, see:
+- `apps/intake/tests/e2e/README.md` - Quick start and test execution
+- `apps/intake/tests/CONFIG_AWARE_TESTING_ARCHITECTURE.md` - Architecture deep dive
+
+### How It Works
+
+**1. Test injects config overrides before navigation:**
+```typescript
+import { CONFIG_INJECTION_KEYS } from 'utils';
+import { injectTestConfig } from '../config/injectTestConfig';
+
+// Inject booking config overrides
+await injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, bookingOverrides);
+await page.goto('/home');
+```
+
+**2. `injectTestConfig()` uses Playwright's `addInitScript()`:**
+```typescript
+export async function injectTestConfig(page: Page, key: CONFIG_INJECTION_KEYS, config: unknown): Promise<void> {
+  await page.addInitScript(
+    ({ key, overrides }) => {
+      (window as any)[key] = overrides;
+    },
+    { key, overrides: config }
+  );
+}
+```
+
+**3. Application config uses a Proxy that checks for test overrides:**
+```typescript
+// BOOKING_CONFIG is a Proxy that checks window.__TEST_BOOKING_CONFIG__ at access time
+export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
+```
+
+**4. Application components read from the proxy:**
+```typescript
+// Gets test config if injected, otherwise uses default + instance overrides
+const { homepageOptions } = BOOKING_CONFIG;
+```
+
+### Instance-Specific Testing
+
+The test framework uses `ottehr-config-overrides` for instance customization:
+
+1. **Upstream repo**: `ottehr-config-overrides` contains default values
+2. **Downstream deployment**: Private CI overwrites with instance-specific values
+3. **Tests run**: Same test suite adapts to instance configuration
+
+### Key Benefits
+
+- **Automatic Adaptation**: Tests adapt to config changes without code updates
+- **Parallel Execution**: Each test gets isolated config via `addInitScript()`
+- **Instance Compatibility**: Same tests work across upstream and downstream repos
+- **Production Safe**: When test config is not injected, uses production config
+
+### Important Notes
+
+- **Call `injectTestConfig()` BEFORE `page.goto()`** - The init script must be registered before navigation
+- **Config is read-only** - The Proxy pattern doesn't support config mutation at runtime
+
 ## Environment Management
 
 ### Hybrid Configuration Strategy

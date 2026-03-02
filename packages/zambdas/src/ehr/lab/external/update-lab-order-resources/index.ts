@@ -7,6 +7,7 @@ import {
   DiagnosticReport,
   Encounter,
   FhirResource,
+  Location,
   Observation,
   Patient,
   Practitioner,
@@ -138,7 +139,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         };
       }
       case 'saveOrderCollectionData': {
-        const { serviceRequestId, data, specimenCollectionDates } = validatedParameters;
+        const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
         const { presignedLabelURL } = await handleSaveCollectionData(
           oystehr,
           m2mToken,
@@ -148,6 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             serviceRequestId,
             data,
             specimenCollectionDates,
+            userTimezone,
           }
         );
 
@@ -316,7 +318,18 @@ const handleReviewedEvent = async ({
     throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
   }
 
+  let location: Location | undefined;
   const locationReference = serviceRequest?.locationReference?.[0];
+  if (locationReference) {
+    const isActuallyLocationRef = locationReference.reference?.startsWith('Location/');
+    const locationId = locationReference.reference?.replace('Location/', '');
+    if (isActuallyLocationRef && locationId) {
+      location = await oystehr.fhir.get<Location>({
+        resourceType: 'Location',
+        id: locationId,
+      });
+    }
+  }
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
 
@@ -418,12 +431,13 @@ const handleReviewedEvent = async ({
   }
 
   if (patient) {
-    const visitDate = appointment?.start ? DateTime.fromISO(appointment?.start).toFormat('MM/DD/YYYY') : '';
+    const locationName = location?.name ?? '';
+    const visitDate = appointment?.start ? DateTime.fromISO(appointment?.start).toFormat('MM/dd/yyyy') : '';
     const testName = getTestNameFromDr(diagnosticReport) || '';
     try {
       await sendOrderResultEmailToPatient({
         fhirPatient: patient,
-        emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '' },
+        emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '', locationName },
         secrets,
       });
     } catch (e) {
@@ -501,7 +515,7 @@ const handleSaveCollectionData = async (
   input: SaveOrderCollectionData
 ): Promise<{ presignedLabelURL: string | undefined }> => {
   console.log('double check input', JSON.stringify(input));
-  const { serviceRequestId, data, specimenCollectionDates } = input;
+  const { serviceRequestId, data, specimenCollectionDates, userTimezone } = input;
   const now = DateTime.now();
 
   console.log('getting resources needed for saving collection data');
@@ -565,7 +579,12 @@ const handleSaveCollectionData = async (
         patientFirstName: getPatientFirstName(patient) ?? '',
         patientLastName: getPatientLastName(patient) ?? '',
         patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
-        sampleCollectionDate: mostRecentSampleCollectionDate,
+        sampleCollectionDateAndTimezone: mostRecentSampleCollectionDate
+          ? {
+              sampleCollectionDate: mostRecentSampleCollectionDate,
+              timezone: userTimezone,
+            }
+          : undefined,
         orderNumber: orderNumber,
         accountNumber:
           (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',

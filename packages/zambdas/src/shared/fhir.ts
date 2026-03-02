@@ -393,18 +393,21 @@ export async function fetchAllPages(
   do {
     let bundle;
     let pageFetched = false;
-    while (!pageFetched) {
+    while (!pageFetched && pageSize > 0) {
       try {
         bundle = await fetchPage(offset, pageSize);
         pageFetched = true;
       } catch (error: unknown) {
         console.log(`Error fetching page: ${error}`, JSON.stringify(error));
-        if (error instanceof Oystehr.OystehrSdkError && error.code === 4130) {
-          pageSize /= 2;
+        if (error instanceof Oystehr.OystehrSdkError && (error.code === 4130 || (error.code as any) === '4130')) {
+          pageSize = Math.floor(pageSize / 2);
         } else {
           throw error;
         }
       }
+    }
+    if (pageSize === 0) {
+      throw new Error('Failed to fetch resources');
     }
     hasMorePages = bundle?.link?.find((link) => link.relation === 'next') != null;
     offset += pageSize;
