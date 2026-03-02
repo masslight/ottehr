@@ -55,6 +55,63 @@ export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPend
   return { onAdd, isPending };
 };
 
+export const useUpdateEMCode = (): {
+  onEMCodeChange: (value: CPTCodeOption | null) => void;
+  isSaveEMLoading: boolean;
+  isDeleteEMLoading: boolean;
+} => {
+  const { chartData, setPartialChartData } = useChartData();
+  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
+  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
+  const emCode = chartData?.emCode;
+
+  const onEMCodeChange = (value: CPTCodeOption | null): void => {
+    if (value) {
+      const prevValue = emCode ? { ...emCode } : undefined;
+
+      // Optimistic update
+      setPartialChartData({ emCode: { ...emCode, ...value } }, { invalidateQueries: false });
+      saveEMChartData(
+        { emCode: { ...emCode, ...value } },
+        {
+          onSuccess: (data) => {
+            const saved = data.chartData?.emCode;
+            console.log(data);
+
+            if (saved) {
+              setPartialChartData({ emCode: saved });
+            }
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
+            setPartialChartData({ emCode: prevValue || undefined });
+          },
+        }
+      );
+    } else if (emCode) {
+      const prevValue = { ...emCode };
+
+      // Optimistic update
+      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
+      deleteEMChartData(
+        { emCode },
+        {
+          onSuccess: async () => {
+            // No need to update again, optimistic update already applied
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
+            setPartialChartData({ emCode: prevValue });
+          },
+        }
+      );
+    }
+  };
+  return { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading };
+};
+
 export const BillingCodesContainer: FC = () => {
   const queryClient = useQueryClient();
   const { encounter } = useAppointmentData();
@@ -71,12 +128,10 @@ export const BillingCodesContainer: FC = () => {
   } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = data?.codes || [];
 
-  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
-  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
+  const { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading } = useUpdateEMCode();
   const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
 
   const { onAdd, isPending: isSaveCPTLoading } = useAddCptCode();
-
   const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId));
   const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
 
@@ -130,51 +185,6 @@ export const BillingCodesContainer: FC = () => {
         },
       }
     );
-  };
-
-  const onEMCodeChange = (value: CPTCodeOption | null): void => {
-    if (value) {
-      const prevValue = emCode ? { ...emCode } : undefined;
-
-      // Optimistic update
-      setPartialChartData({ emCode: { ...emCode, ...value } }, { invalidateQueries: false });
-      saveEMChartData(
-        { emCode: { ...emCode, ...value } },
-        {
-          onSuccess: (data) => {
-            const saved = data.chartData?.emCode;
-            console.log(data);
-
-            if (saved) {
-              setPartialChartData({ emCode: saved });
-            }
-          },
-          onError: () => {
-            enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
-            // Rollback to previous state
-            setPartialChartData({ emCode: prevValue || undefined });
-          },
-        }
-      );
-    } else if (emCode) {
-      const prevValue = { ...emCode };
-
-      // Optimistic update
-      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
-      deleteEMChartData(
-        { emCode },
-        {
-          onSuccess: async () => {
-            // No need to update again, optimistic update already applied
-          },
-          onError: () => {
-            enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
-            // Rollback to previous state
-            setPartialChartData({ emCode: prevValue });
-          },
-        }
-      );
-    }
   };
 
   const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;

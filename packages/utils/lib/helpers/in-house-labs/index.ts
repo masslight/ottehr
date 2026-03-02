@@ -30,11 +30,11 @@ import {
   REFLEX_TEST_CONDITION_LANGUAGES,
   REFLEX_TEST_CONDITION_URL,
   REFLEX_TEST_LOGIC_URL,
-  REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG,
   REFLEX_TEST_TO_RUN_NAME_URL,
   REFLEX_TEST_TO_RUN_URL,
   REFLEX_TEST_TRIGGERED_URL,
   REPEAT_TEST_CPT_CODE_MODIFIER,
+  REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   StringComponent,
   TestComponentResult,
@@ -339,7 +339,7 @@ export const convertActivityDefinitionToTestItem = (
   const orderedAsRepeat = serviceRequest
     ? !!serviceRequest.meta?.tag?.some(
         (t) =>
-          t.system === REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG.system && t.code === REFLEX_TEST_ORDER_DETAIL_TAG_CONFIG.code
+          t.system === REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.system && t.code === REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.code
       )
     : false;
 

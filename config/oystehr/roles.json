@@ -53,11 +53,6 @@
           "effect": "Allow"
         },
         {
-          "resource": ["Zambda:Function:invoiceable-patients-report"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Deny"
-        },
-        {
           "action": ["Telemed:JoinMeeting"],
           "effect": "Allow",
           "resource": ["Telemed:Meeting"]
@@ -248,11 +243,6 @@
           "effect": "Allow"
         },
         {
-          "resource": ["Zambda:Function:invoiceable-patients-report"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Deny"
-        },
-        {
           "resource": [
             "FHIR:Consent",
             "FHIR:Coverage",
@@ -406,11 +396,6 @@
           "resource": ["Zambda:Function:*"]
         },
         {
-          "resource": ["Zambda:Function:invoiceable-patients-report"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Deny"
-        },
-        {
           "action": ["FHIR:Read", "FHIR:Update"],
           "effect": "Allow",
           "resource": ["FHIR:Practitioner"]
@@ -499,11 +484,6 @@
           "resource": ["Zambda:Function:*"]
         },
         {
-          "resource": ["Zambda:Function:invoiceable-patients-report"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Deny"
-        },
-        {
           "action": ["FHIR:Read", "FHIR:Update"],
           "effect": "Allow",
           "resource": ["FHIR:Practitioner"]
@@ -587,11 +567,6 @@
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow",
           "resource": ["Zambda:Function:*"]
-        },
-        {
-          "resource": ["Zambda:Function:invoiceable-patients-report"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Deny"
         },
         {
           "action": ["FHIR:Read", "FHIR:Update"],
@@ -681,11 +656,6 @@
           "resource": ["Zambda:Function:*"],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
-        },
-        {
-          "resource": ["Zambda:Function:invoiceable-patients-report"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Deny"
         }
       ]
     }

@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Alert, Box, CircularProgress, Paper, Snackbar, Typography } from '@mui/material';
-import { QueryObserverResult, RefetchOptions, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useState } from 'react';
@@ -19,21 +19,21 @@ import PaymentDialog from './dialogs/PaymentDialog';
 export interface PaymentBalancesProps {
   patient: Patient | undefined;
   patientBalances: GetPatientBalancesZambdaOutput | undefined;
-  refetchPatientBalances: (
-    options?: RefetchOptions | undefined
-  ) => Promise<QueryObserverResult<GetPatientBalancesZambdaOutput, Error>>;
+  handleClose: () => Promise<void>;
 }
 
-export default function PatientBalances({
-  patient,
-  patientBalances,
-  refetchPatientBalances,
-}: PaymentBalancesProps): ReactElement {
+export default function PatientBalances({ patient, patientBalances, handleClose }: PaymentBalancesProps): ReactElement {
   const { encounters } = patientBalances || { encounters: [] };
 
   // for payment dialog
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const { oystehrZambda } = useApiClients();
+
+  const refetchAndCloseDialog = async (): Promise<void> => {
+    await handleClose();
+    setPaymentDialogOpen(false);
+  };
+
   const createNewPayment = useMutation({
     mutationFn: async (input: PostPatientPaymentInput) => {
       if (oystehrZambda && input) {
@@ -42,10 +42,7 @@ export default function PatientBalances({
             id: 'patient-payments-post',
             ...input,
           })
-          .then(async () => {
-            await refetchPatientBalances();
-            setPaymentDialogOpen(false);
-          });
+          .then(refetchAndCloseDialog);
       }
     },
     retry: 0,
@@ -67,6 +64,14 @@ export default function PatientBalances({
     return null;
   })();
 
+  const outstandingBalance =
+    ((patientBalances?.totalBalanceCents ?? 0) - (patientBalances?.pendingPaymentCents ?? 0)) / 100;
+  const pendingPayments = (patientBalances?.pendingPaymentCents ?? 0) / 100;
+  let balance = `$${outstandingBalance.toFixed(2)}`;
+  if (pendingPayments > 0) {
+    balance += ` ($${pendingPayments.toFixed(2)} pending)`;
+  }
+
   return (
     <Paper
       sx={{
@@ -79,7 +84,7 @@ export default function PatientBalances({
           Outstanding Balance
         </Typography>
         <Typography variant="h4" color="error.dark">
-          ${((patientBalances?.totalBalanceCents ?? 0) / 100).toFixed(2)}
+          {balance}
         </Typography>
       </Box>
       {patientBalances ? (
@@ -149,7 +154,7 @@ export default function PatientBalances({
           open={paymentDialogOpen}
           patient={patient}
           appointmentId={selectedEncounter.appointmentId}
-          handleClose={() => setPaymentDialogOpen(false)}
+          handleClose={refetchAndCloseDialog}
           isSubmitting={createNewPayment.isPending}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
@@ -158,6 +163,7 @@ export default function PatientBalances({
               paymentDetails: data,
             };
             await createNewPayment.mutateAsync(postInput);
+            await refetchAndCloseDialog();
           }}
         />
       )}

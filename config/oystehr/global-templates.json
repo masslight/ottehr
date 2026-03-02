@@ -49661,6 +49661,1884 @@
         ]
       }
     },
+    "AUTOMOBILE_ACCIDENT": {
+      "resource": {
+        "resourceType": "List",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/global-template-in-person",
+              "code": "default",
+              "version": "460ac1c4",
+              "display": "Global Template In-Person"
+            }
+          ]
+        },
+        "status": "current",
+        "mode": "working",
+        "title": "Automobile Accident",
+        "entry": [
+          {
+            "item": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            }
+          },
+          {
+            "item": {
+              "reference": "#204daa70-bd63-44bf-9706-d713d30dcf8d"
+            }
+          },
+          {
+            "item": {
+              "reference": "#0ccbce9b-c444-42f5-881c-a68eb466b155"
+            }
+          },
+          {
+            "item": {
+              "reference": "#1894b4ea-02cb-4117-a830-132e68bc7b6b"
+            }
+          },
+          {
+            "item": {
+              "reference": "#1f0e8c5e-c0e2-4e78-94b8-d6927a6d442a"
+            }
+          },
+          {
+            "item": {
+              "reference": "#21717817-7ae1-4ae9-8e40-dba535c6252e"
+            }
+          },
+          {
+            "item": {
+              "reference": "#237ae94d-4186-4a57-900c-c47c4adadc1c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#28d37b0d-b2ba-4c0a-adc1-4b5e07cdf2f3"
+            }
+          },
+          {
+            "item": {
+              "reference": "#2ddf898d-19b8-4911-b4d3-a93d11402bc3"
+            }
+          },
+          {
+            "item": {
+              "reference": "#2e062568-3133-4a1b-a6d4-97375946e2a0"
+            }
+          },
+          {
+            "item": {
+              "reference": "#311ed959-09b3-4409-90d0-8087446525e1"
+            }
+          },
+          {
+            "item": {
+              "reference": "#31815f7c-2366-41dc-82bf-4ebebec2371a"
+            }
+          },
+          {
+            "item": {
+              "reference": "#39e5e315-cbe0-4cf8-b2b4-d37607825e99"
+            }
+          },
+          {
+            "item": {
+              "reference": "#44335cd9-4261-4698-b95e-162282b8fc37"
+            }
+          },
+          {
+            "item": {
+              "reference": "#52af1480-ce41-448d-a7c5-55dd7592ebbc"
+            }
+          },
+          {
+            "item": {
+              "reference": "#5796c04f-10cc-4ef9-a7c1-30f0c0c75332"
+            }
+          },
+          {
+            "item": {
+              "reference": "#5ab4e6a3-0bbe-4259-a008-bce7d1cbab87"
+            }
+          },
+          {
+            "item": {
+              "reference": "#5ae3a24e-d9a1-465c-b0eb-f46d9b4c03fd"
+            }
+          },
+          {
+            "item": {
+              "reference": "#60824289-30c2-42ae-b03a-93b40536912c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#64c03901-8cf3-4b97-9d93-88f00cde5ac8"
+            }
+          },
+          {
+            "item": {
+              "reference": "#757623e7-f2ec-4796-b25b-1959da3c1b0c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#8b53b48c-a3f1-47f4-809a-b31c3e1b1f32"
+            }
+          },
+          {
+            "item": {
+              "reference": "#971f9579-ac0d-4c48-bdfa-153f38dab88b"
+            }
+          },
+          {
+            "item": {
+              "reference": "#9aec173c-e689-42c0-af3d-a29ce18ce432"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a0e68b38-257d-4d41-bc9d-a26aa5adcbb7"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a2d445d4-657d-440f-9b11-c92e2b2047b6"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a3288b62-297d-49cf-a95c-7940a5d4d3b0"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a88d3afa-2fe6-4f04-8607-fcfc84fab35d"
+            }
+          },
+          {
+            "item": {
+              "reference": "#b557b952-6806-4726-b94b-8ae681c01bed"
+            }
+          },
+          {
+            "item": {
+              "reference": "#c364368c-0fcd-4fbc-8b95-ca69b82ab6df"
+            }
+          },
+          {
+            "item": {
+              "reference": "#d2dab289-6d27-4557-b607-cd63ee071c6c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f009ebca-0275-4804-bd00-33255e96a5e3"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f1ffa773-a58e-4c1e-adf7-91da45660532"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f2d62744-8dcb-4c21-82af-fb623115ca77"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f3332913-d966-4417-9078-e9749e370d80"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f8361de6-6dcd-4607-8478-95dafd654660"
+            }
+          },
+          {
+            "item": {
+              "reference": "#fa771406-06d3-4929-9f0e-8969e3a8ba7e"
+            }
+          }
+        ],
+        "contained": [
+          {
+            "resourceType": "Patient",
+            "id": "91136bab-e0dd-4d86-946f-7a2c98c5bd82",
+            "name": [
+              {
+                "family": "stub",
+                "given": [
+                  "placeholder"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "204daa70-bd63-44bf-9706-d713d30dcf8d",
+            "resourceType": "Condition",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "note": [
+              {
+                "text": "How did the injury happen?\n\nWhat body part(s) were injured?\n\nWhat symptoms were noticed immediately after the injury?\n\nWas the patient the driver, passenger, pedestrian, or cyclist?\n\nWhat type of collision occurred?\n\nApproximate speed of vehicle(s)? (If known, otherwise enter 'unknown')\n\nWas the patient wearing a seatbelt?\n\nDid airbags deploy?\n\nDid the patient lose consciousness at any time?"
+              }
+            ],
+            "meta": {
+              "tag": [
+                {
+                  "code": "mechanism-of-injury",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury"
+                }
+              ]
+            }
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Alert"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "alert",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "0ccbce9b-c444-42f5-881c-a68eb466b155"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No effusion"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-effusion",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "1894b4ea-02cb-4117-a830-132e68bc7b6b"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Warm and dry"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "warm-and-dry",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "1f0e8c5e-c0e2-4e78-94b8-d6927a6d442a"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "In no acute distress"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "in-no-acute-distress",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "21717817-7ae1-4ae9-8e40-dba535c6252e"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal tone"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-tone",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "237ae94d-4186-4a57-900c-c47c4adadc1c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Nasal mucosa normal"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "nasal-mucosa-normal",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "28d37b0d-b2ba-4c0a-adc1-4b5e07cdf2f3"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal appearance of neck"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-appearance-of-neck",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "2ddf898d-19b8-4911-b4d3-a93d11402bc3"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Active"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "active",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "2e062568-3133-4a1b-a6d4-97375946e2a0"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No rash"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-rash",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "311ed959-09b3-4409-90d0-8087446525e1"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Right eye - conjunctiva non-injected, no discharge"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "right-eye-conjunctiva-non-injected-no-discharge",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "31815f7c-2366-41dc-82bf-4ebebec2371a"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normocephalic"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normocephalic",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "39e5e315-cbe0-4cf8-b2b4-d37607825e99"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal canals"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-canals",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "44335cd9-4261-4698-b95e-162282b8fc37"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No obvious injury or swelling"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-obvious-injury-or-swelling",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "52af1480-ce41-448d-a7c5-55dd7592ebbc"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal mental status"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-mental-status",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "5796c04f-10cc-4ef9-a7c1-30f0c0c75332"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Lids and lashes normal"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "lids-and-lashes-normal",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "5ab4e6a3-0bbe-4259-a008-bce7d1cbab87"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal range of motion"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-range-of-motion",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "5ae3a24e-d9a1-465c-b0eb-f46d9b4c03fd"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal external ear"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-external-ear",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "60824289-30c2-42ae-b03a-93b40536912c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Nondistended"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "nondistended",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "64c03901-8cf3-4b97-9d93-88f00cde5ac8"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Good air movement throughout lung fields"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "good-air-movement-throughout-lung-fields",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "757623e7-f2ec-4796-b25b-1959da3c1b0c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Nontender"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "nontender",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "8b53b48c-a3f1-47f4-809a-b31c3e1b1f32"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Soft"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "soft",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "971f9579-ac0d-4c48-bdfa-153f38dab88b"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Oropharynx clear with no erythema, lesions, or exudate"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "9aec173c-e689-42c0-af3d-a29ce18ce432"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Moist mucous membranes"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "moist-mucous-membranes",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a0e68b38-257d-4d41-bc9d-a26aa5adcbb7"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Uvula midline"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "uvula-midline",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a2d445d4-657d-440f-9b11-c92e2b2047b6"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No generalized lymphadenopathy"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-generalized-lymphadenopathy",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a3288b62-297d-49cf-a95c-7940a5d4d3b0"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Extremities are warm and well perfused"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "extremities-are-warm-and-well-perfused",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a88d3afa-2fe6-4f04-8607-fcfc84fab35d"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Left eye - conjunctiva non-injected, no discharge"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "left-eye-conjunctiva-non-injected-no-discharge",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "b557b952-6806-4726-b94b-8ae681c01bed"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Right TM pearly with good light reflex, preserved landmarks"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "c364368c-0fcd-4fbc-8b95-ca69b82ab6df"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Chest is clear to auscultation bilaterally"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "chest-is-clear-to-auscultation-bilaterally",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "d2dab289-6d27-4557-b607-cd63ee071c6c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Moves all extremities symmetrically"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "moves-all-extremities-symmetrically",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f009ebca-0275-4804-bd00-33255e96a5e3"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Left TM pearly with good light reflex, preserved landmarks"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f1ffa773-a58e-4c1e-adf7-91da45660532"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No signs of respiratory distress"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-signs-of-respiratory-distress",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f2d62744-8dcb-4c21-82af-fb623115ca77"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Atraumatic"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "atraumatic",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f3332913-d966-4417-9078-e9749e370d80"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Regular rate and rhythm with no murmur"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "regular-rate-and-rhythm-with-no-murmur",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f8361de6-6dcd-4607-8478-95dafd654660"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Well-hydrated"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "well-hydrated",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "fa771406-06d3-4929-9f0e-8969e3a8ba7e"
+          }
+        ]
+      }
+    },
+    "WORKERS_COMP": {
+      "resource": {
+        "resourceType": "List",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/global-template-in-person",
+              "code": "default",
+              "version": "460ac1c4",
+              "display": "Global Template In-Person"
+            }
+          ]
+        },
+        "status": "current",
+        "mode": "working",
+        "title": "Worker's Comp",
+        "entry": [
+          {
+            "item": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            }
+          },
+          {
+            "item": {
+              "reference": "#c670ac5e-9e0a-47ac-8780-77f70069f23a"
+            }
+          },
+          {
+            "item": {
+              "reference": "#0ccbce9b-c444-42f5-881c-a68eb466b155"
+            }
+          },
+          {
+            "item": {
+              "reference": "#1894b4ea-02cb-4117-a830-132e68bc7b6b"
+            }
+          },
+          {
+            "item": {
+              "reference": "#1f0e8c5e-c0e2-4e78-94b8-d6927a6d442a"
+            }
+          },
+          {
+            "item": {
+              "reference": "#21717817-7ae1-4ae9-8e40-dba535c6252e"
+            }
+          },
+          {
+            "item": {
+              "reference": "#237ae94d-4186-4a57-900c-c47c4adadc1c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#28d37b0d-b2ba-4c0a-adc1-4b5e07cdf2f3"
+            }
+          },
+          {
+            "item": {
+              "reference": "#2ddf898d-19b8-4911-b4d3-a93d11402bc3"
+            }
+          },
+          {
+            "item": {
+              "reference": "#2e062568-3133-4a1b-a6d4-97375946e2a0"
+            }
+          },
+          {
+            "item": {
+              "reference": "#311ed959-09b3-4409-90d0-8087446525e1"
+            }
+          },
+          {
+            "item": {
+              "reference": "#31815f7c-2366-41dc-82bf-4ebebec2371a"
+            }
+          },
+          {
+            "item": {
+              "reference": "#39e5e315-cbe0-4cf8-b2b4-d37607825e99"
+            }
+          },
+          {
+            "item": {
+              "reference": "#44335cd9-4261-4698-b95e-162282b8fc37"
+            }
+          },
+          {
+            "item": {
+              "reference": "#52af1480-ce41-448d-a7c5-55dd7592ebbc"
+            }
+          },
+          {
+            "item": {
+              "reference": "#5796c04f-10cc-4ef9-a7c1-30f0c0c75332"
+            }
+          },
+          {
+            "item": {
+              "reference": "#5ab4e6a3-0bbe-4259-a008-bce7d1cbab87"
+            }
+          },
+          {
+            "item": {
+              "reference": "#5ae3a24e-d9a1-465c-b0eb-f46d9b4c03fd"
+            }
+          },
+          {
+            "item": {
+              "reference": "#60824289-30c2-42ae-b03a-93b40536912c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#64c03901-8cf3-4b97-9d93-88f00cde5ac8"
+            }
+          },
+          {
+            "item": {
+              "reference": "#757623e7-f2ec-4796-b25b-1959da3c1b0c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#8b53b48c-a3f1-47f4-809a-b31c3e1b1f32"
+            }
+          },
+          {
+            "item": {
+              "reference": "#971f9579-ac0d-4c48-bdfa-153f38dab88b"
+            }
+          },
+          {
+            "item": {
+              "reference": "#9aec173c-e689-42c0-af3d-a29ce18ce432"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a0e68b38-257d-4d41-bc9d-a26aa5adcbb7"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a2d445d4-657d-440f-9b11-c92e2b2047b6"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a3288b62-297d-49cf-a95c-7940a5d4d3b0"
+            }
+          },
+          {
+            "item": {
+              "reference": "#a88d3afa-2fe6-4f04-8607-fcfc84fab35d"
+            }
+          },
+          {
+            "item": {
+              "reference": "#b557b952-6806-4726-b94b-8ae681c01bed"
+            }
+          },
+          {
+            "item": {
+              "reference": "#c364368c-0fcd-4fbc-8b95-ca69b82ab6df"
+            }
+          },
+          {
+            "item": {
+              "reference": "#d2dab289-6d27-4557-b607-cd63ee071c6c"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f009ebca-0275-4804-bd00-33255e96a5e3"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f1ffa773-a58e-4c1e-adf7-91da45660532"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f2d62744-8dcb-4c21-82af-fb623115ca77"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f3332913-d966-4417-9078-e9749e370d80"
+            }
+          },
+          {
+            "item": {
+              "reference": "#f8361de6-6dcd-4607-8478-95dafd654660"
+            }
+          },
+          {
+            "item": {
+              "reference": "#fa771406-06d3-4929-9f0e-8969e3a8ba7e"
+            }
+          }
+        ],
+        "contained": [
+          {
+            "resourceType": "Patient",
+            "id": "91136bab-e0dd-4d86-946f-7a2c98c5bd82",
+            "name": [
+              {
+                "family": "stub",
+                "given": [
+                  "placeholder"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "c670ac5e-9e0a-47ac-8780-77f70069f23a",
+            "resourceType": "Condition",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "note": [
+              {
+                "text": "How did the injury happen?\n\nWhat body part(s) were injured?\n\nWhat symptoms  were noticed  immediately after the injury?\n\nWhere did the injury occur? (Specific workplace location)\n\nWhat was the patient doing at the time of injury? (Work task/activity)\n\n"
+              }
+            ],
+            "meta": {
+              "tag": [
+                {
+                  "code": "mechanism-of-injury",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury"
+                }
+              ]
+            }
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Alert"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "alert",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "0ccbce9b-c444-42f5-881c-a68eb466b155"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No effusion"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-effusion",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "1894b4ea-02cb-4117-a830-132e68bc7b6b"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Warm and dry"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "warm-and-dry",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "1f0e8c5e-c0e2-4e78-94b8-d6927a6d442a"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "In no acute distress"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "in-no-acute-distress",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "21717817-7ae1-4ae9-8e40-dba535c6252e"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal tone"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-tone",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "237ae94d-4186-4a57-900c-c47c4adadc1c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Nasal mucosa normal"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "nasal-mucosa-normal",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "28d37b0d-b2ba-4c0a-adc1-4b5e07cdf2f3"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal appearance of neck"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-appearance-of-neck",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "2ddf898d-19b8-4911-b4d3-a93d11402bc3"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Active"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "active",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "2e062568-3133-4a1b-a6d4-97375946e2a0"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No rash"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-rash",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "311ed959-09b3-4409-90d0-8087446525e1"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Right eye - conjunctiva non-injected, no discharge"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "right-eye-conjunctiva-non-injected-no-discharge",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "31815f7c-2366-41dc-82bf-4ebebec2371a"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normocephalic"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normocephalic",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "39e5e315-cbe0-4cf8-b2b4-d37607825e99"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal canals"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-canals",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "44335cd9-4261-4698-b95e-162282b8fc37"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No obvious injury or swelling"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-obvious-injury-or-swelling",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "52af1480-ce41-448d-a7c5-55dd7592ebbc"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal mental status"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-mental-status",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "5796c04f-10cc-4ef9-a7c1-30f0c0c75332"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Lids and lashes normal"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "lids-and-lashes-normal",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "5ab4e6a3-0bbe-4259-a008-bce7d1cbab87"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal range of motion"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-range-of-motion",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "5ae3a24e-d9a1-465c-b0eb-f46d9b4c03fd"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Normal external ear"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "normal-external-ear",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "60824289-30c2-42ae-b03a-93b40536912c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Nondistended"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "nondistended",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "64c03901-8cf3-4b97-9d93-88f00cde5ac8"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Good air movement throughout lung fields"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "good-air-movement-throughout-lung-fields",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "757623e7-f2ec-4796-b25b-1959da3c1b0c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Nontender"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "nontender",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "8b53b48c-a3f1-47f4-809a-b31c3e1b1f32"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Soft"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "soft",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "971f9579-ac0d-4c48-bdfa-153f38dab88b"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Oropharynx clear with no erythema, lesions, or exudate"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "9aec173c-e689-42c0-af3d-a29ce18ce432"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Moist mucous membranes"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "moist-mucous-membranes",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a0e68b38-257d-4d41-bc9d-a26aa5adcbb7"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Uvula midline"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "uvula-midline",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a2d445d4-657d-440f-9b11-c92e2b2047b6"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No generalized lymphadenopathy"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-generalized-lymphadenopathy",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a3288b62-297d-49cf-a95c-7940a5d4d3b0"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Extremities are warm and well perfused"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "extremities-are-warm-and-well-perfused",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "a88d3afa-2fe6-4f04-8607-fcfc84fab35d"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Left eye - conjunctiva non-injected, no discharge"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "left-eye-conjunctiva-non-injected-no-discharge",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "b557b952-6806-4726-b94b-8ae681c01bed"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Right TM pearly with good light reflex, preserved landmarks"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "c364368c-0fcd-4fbc-8b95-ca69b82ab6df"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Chest is clear to auscultation bilaterally"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "chest-is-clear-to-auscultation-bilaterally",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "d2dab289-6d27-4557-b607-cd63ee071c6c"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Moves all extremities symmetrically"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "moves-all-extremities-symmetrically",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f009ebca-0275-4804-bd00-33255e96a5e3"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Left TM pearly with good light reflex, preserved landmarks"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f1ffa773-a58e-4c1e-adf7-91da45660532"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "No signs of respiratory distress"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "no-signs-of-respiratory-distress",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f2d62744-8dcb-4c21-82af-fb623115ca77"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Atraumatic"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "atraumatic",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f3332913-d966-4417-9078-e9749e370d80"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Regular rate and rhythm with no murmur"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "regular-rate-and-rhythm-with-no-murmur",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "f8361de6-6dcd-4607-8478-95dafd654660"
+          },
+          {
+            "resourceType": "Observation",
+            "subject": {
+              "reference": "#91136bab-e0dd-4d86-946f-7a2c98c5bd82"
+            },
+            "status": "final",
+            "valueBoolean": true,
+            "code": {
+              "text": "Well-hydrated"
+            },
+            "meta": {
+              "tag": [
+                {
+                  "code": "well-hydrated",
+                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+                }
+              ]
+            },
+            "id": "fa771406-06d3-4929-9f0e-8969e3a8ba7e"
+          }
+        ]
+      }
+    },
     "SPACER_181": {
       "resource": {
         "resourceType": "List",

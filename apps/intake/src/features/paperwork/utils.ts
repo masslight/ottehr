@@ -71,9 +71,6 @@ const inputTypeForDisplayItem = (item: IntakeQuestionnaireItem): FormItemType =>
 
 const radioListIds = ['patient-filling-out-as'];
 const inputTypeForChoiceItem = (item: IntakeQuestionnaireItem): FormItemType => {
-  /*if (item.linkId === 'relay-phone') {
-    console.log('preferred element', item.preferredElement);
-  }*/
   if (
     item.preferredElement === 'Radio' ||
     item.preferredElement === 'Radio List' ||
