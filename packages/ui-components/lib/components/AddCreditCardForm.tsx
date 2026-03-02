@@ -37,18 +37,18 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
   // EHR app uses this state for error messages; Intake app uses a modal instead
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
 
-  const hasSavedRef = useRef<boolean>(false);
+  const saveStateRef = useRef<'pending' | 'saving' | 'saved'>('pending');
 
   const saveCard = async (): Promise<{ success: boolean; error?: string }> => {
     if (!stripe || !elements) {
       return { success: false, error: 'Stripe or stripe elements not provided' };
     }
 
-    if (hasSavedRef.current) {
+    if (saveStateRef.current === 'saved') {
       return { success: true };
     }
 
-    if (isSaving) {
+    if (saveStateRef.current === 'saving') {
       return { success: false, error: 'Card save already in progress' };
     }
 
@@ -58,15 +58,15 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
       return { success: false, error: 'Stripe card element not found' };
     }
 
+    saveStateRef.current = 'saving';
     setIsSaving(true);
-    hasSavedRef.current = true;
 
     try {
       const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, { payment_method: { card } });
 
       if (error) {
         console.error('[AddCreditCardForm] Stripe error:', error);
-        hasSavedRef.current = false;
+        saveStateRef.current = 'pending';
         setSaveError(error.message);
         return { success: false, error: error.message };
       }
@@ -77,11 +77,12 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
         await selectPaymentMethod(setupIntent.payment_method);
       }
 
+      saveStateRef.current = 'saved';
       setSaveError(undefined);
       return { success: true };
     } catch (err) {
       console.error('[AddCreditCardForm] Unexpected error during card save:', err);
-      hasSavedRef.current = false;
+      saveStateRef.current = 'pending';
       const errorMessage = 'Failed to save card data';
       setSaveError(errorMessage);
       return { success: false, error: errorMessage };
@@ -128,7 +129,7 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
             setSaveError(undefined);
             onCardChange?.();
             if (!e.complete) {
-              hasSavedRef.current = false;
+              saveStateRef.current = 'pending';
             }
           }}
           options={{
