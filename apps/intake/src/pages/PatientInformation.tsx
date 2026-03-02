@@ -129,8 +129,8 @@ export const PatientInfoCollection: FC = () => {
       refetchPaymentMethods: () => {
         throw new Error('Function not implemented.');
       },
-      refetchSetupData: async () => {
-        return {} as any;
+      refetchSetupData: () => {
+        throw new Error('Function not implemented.');
       },
     };
   }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse, saveButtonDisabled]);
