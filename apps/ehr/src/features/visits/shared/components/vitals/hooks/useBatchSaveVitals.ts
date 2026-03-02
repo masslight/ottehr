@@ -3,26 +3,27 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { VitalsObservationDTO } from 'utils';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 
-export type UseDeleteVitals = (props: { encounterId: string }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
+export type UseBatchSaveVitals = (props: {
+  encounterId: string;
+}) => (vitalEntities: VitalsObservationDTO[]) => Promise<void>;
 
-export const useDeleteVitals: UseDeleteVitals = ({ encounterId }) => {
+export const useBatchSaveVitals: UseBatchSaveVitals = ({ encounterId }) => {
   const apiClient = useOystehrAPIClient();
-
   const user = useEvolveUser();
 
-  const handleDelete = useCallback(
-    async (vitalEntity: VitalsObservationDTO): Promise<void> => {
+  const handleBatchSave = useCallback(
+    async (vitalEntities: VitalsObservationDTO[]): Promise<void> => {
       if (!user) throw new Error('User not found');
 
       const payload = {
         encounterId: encounterId,
-        vitalsObservations: [vitalEntity],
+        vitalsObservations: vitalEntities,
       };
 
-      await apiClient?.deleteChartData?.(payload);
+      await apiClient?.saveChartData?.(payload);
     },
     [apiClient, encounterId, user]
   );
 
-  return handleDelete;
+  return handleBatchSave;
 };

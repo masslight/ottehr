@@ -60,30 +60,28 @@ export const VitalsIconTooltip: React.FC<VitalsIconTooltipProps> = ({ appointmen
         <>
           <AssessmentTitle>Abnormal vitals</AssessmentTitle>
           <Stack spacing={1}>
-            {Object.values(abnormals).map((abnormal) => {
+            {Object.entries(abnormals).map(([key, abnormal]) => {
               return (
-                <>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {abnormal.data.length > 0 &&
-                      abnormal.data.map((item) => (
-                        <Box key={item.resourceId || item.lastUpdated} sx={{ display: 'flex', alignItems: 'center' }}>
-                          {abnormal.label} -&nbsp;
-                          <Typography
-                            component="span"
-                            sx={{ fontSize: '14px', fontWeight: 'bold', color: theme.palette.warning.light }}
-                          >
-                            {getObservationValueElements(item, theme.palette.warning.light)}
-                          </Typography>
-                          {item.alertCriticality === 'abnormal' && (
-                            <WarningAmberOutlinedIcon
-                              fontSize="small"
-                              sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
-                            />
-                          )}
-                        </Box>
-                      ))}
-                  </Box>
-                </>
+                <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {abnormal.data.length > 0 &&
+                    abnormal.data.map((item) => (
+                      <Box key={item.resourceId || item.lastUpdated} sx={{ display: 'flex', alignItems: 'center' }}>
+                        {abnormal.label} -&nbsp;
+                        <Typography
+                          component="span"
+                          sx={{ fontSize: '14px', fontWeight: 'bold', color: theme.palette.warning.light }}
+                        >
+                          {getObservationValueElements(item, theme.palette.warning.light)}
+                        </Typography>
+                        {item.alertCriticality === 'abnormal' && (
+                          <WarningAmberOutlinedIcon
+                            fontSize="small"
+                            sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
+                          />
+                        )}
+                      </Box>
+                    ))}
+                </Box>
               );
             })}
           </Stack>

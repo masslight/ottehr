@@ -16,11 +16,13 @@ import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
+  getCoding,
   getFullName,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   PROVIDER_TYPE_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
 } from '../fhir';
 import { CONSENT_FORMS_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config';
@@ -1618,6 +1620,27 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
   const type = subType ? `${baseType} ${subType}` : baseType;
 
   return { type };
+}
+
+export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | undefined {
+  if (!serviceCategory) return undefined;
+
+  const normalizedServiceCategory = serviceCategory
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC'> = {
+    urgentcare: 'UC',
+    occupationalmedicine: 'OM',
+    workerscomp: 'WC',
+  };
+
+  return serviceCategoryMap[normalizedServiceCategory];
+}
+
+export function getAppointmentServiceCategoryAbbreviation(appointment?: Appointment): 'UC' | 'OM' | 'WC' | undefined {
+  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+  return getServiceCategoryAbbreviation(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
 }
 
 /**

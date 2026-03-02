@@ -651,4 +651,73 @@ describe('Patient Master Record Tests', () => {
       relatedPerson: {},
     });
   });
+
+  test('should handle empty SSN answer, produce no patch operations', () => {
+    const patientWithOtherIdentifier: Patient = {
+      id: 'patient-with-other-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+      identifier: [
+        {
+          system: 'http://example.org/mrn',
+          value: 'MRN-12345',
+        },
+      ],
+    };
+    const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn' }];
+
+    let result = createMasterRecordPatchOperations(ssnItems, patientWithOtherIdentifier);
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [],
+      },
+      relatedPerson: {},
+    });
+
+    const patientWithNoIdentifier: Patient = {
+      id: 'patient-with-other-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+    };
+    result = createMasterRecordPatchOperations(ssnItems, patientWithNoIdentifier);
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [],
+      },
+      relatedPerson: {},
+    });
+
+    const patientWithSSNIdentifier: Patient = {
+      id: 'patient-with-other-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+      identifier: [
+        {
+          system: 'http://hl7.org/fhir/sid/us-ssn',
+          type: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                code: 'SS',
+              },
+            ],
+          },
+          value: '444-44-4444',
+        },
+      ],
+    };
+    result = createMasterRecordPatchOperations(ssnItems, patientWithSSNIdentifier);
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [],
+      },
+      relatedPerson: {},
+    });
+  });
 });

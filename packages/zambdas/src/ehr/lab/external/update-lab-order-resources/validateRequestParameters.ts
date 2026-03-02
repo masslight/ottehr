@@ -76,7 +76,7 @@ export function validateRequestParameters(
       userToken,
     };
   } else if (params.event === 'saveOrderCollectionData') {
-    const { serviceRequestId, data, specimenCollectionDates, event } = params;
+    const { serviceRequestId, data, specimenCollectionDates, userTimezone, event } = params;
 
     if (typeof serviceRequestId !== 'string') {
       throw Error(`Invalid parameter type: serviceRequestId must be a string, received: ${typeof serviceRequestId}`);
@@ -97,6 +97,7 @@ export function validateRequestParameters(
       serviceRequestId,
       data,
       specimenCollectionDates,
+      userTimezone,
       event,
       secrets,
       userToken,
