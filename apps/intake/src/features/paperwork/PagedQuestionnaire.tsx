@@ -294,11 +294,9 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const { questionnaireResponse, saveButtonDisabled } = usePaperworkContext();
   const { continueLabel } = usePaperworkStore();
 
-  const { handleSubmit, formState, setValue } = useFormContext();
+  const { handleSubmit, formState } = useFormContext();
 
-  const { isSavingCard, handleCardSave } = useCreditCardSave({
-    setValue,
-  });
+  const { isSavingCard, handleCardSave } = useCreditCardSave();
 
   const theme = useTheme();
 
@@ -341,7 +339,12 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   });
 
   return (
-    <form onSubmit={() => void submitHandler()}>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submitHandler();
+      }}
+    >
       <Grid container spacing={1}>
         <RenderItems items={items} pageItem={pageItem} />
       </Grid>
