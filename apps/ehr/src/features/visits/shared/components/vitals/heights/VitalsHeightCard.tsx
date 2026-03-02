@@ -1,39 +1,23 @@
 import { Box, Grid, Typography } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
-import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
+import { VitalsHeightObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
-import {
-  heightCmToFeetText,
-  heightCmToInchesText,
-  textToHeightNumber,
-  textToHeightNumberFromFeet,
-  textToHeightNumberFromInches,
-} from './helpers';
 
 type VitalsHeightCardProps = VitalsCardProps<VitalsHeightObservationDTO>;
 
-const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
-  handleSaveVital,
-  handleDeleteVital,
-  currentObs,
-  historicalObs,
-}): JSX.Element => {
-  const [heightValueTextCm, setHeightValueTextCm] = useState('');
-  const [heightValueTextInches, setHeightValueTextInches] = useState('');
-  const [heightValueTextFeet, setHeightValueTextFeet] = useState('');
+const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  const [isHeightValidationError, setHeightValidationError] = useState<boolean>(false);
   const { isLargeScreen } = useScreenDimensions();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -41,113 +25,25 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const [isSaving, setIsSaving] = useState(false);
+  const latestHeightValue = field.current[0]?.value;
+  const { localState } = field;
 
-  const isDisabledAddButton =
-    (!heightValueTextCm && !heightValueTextInches && !heightValueTextFeet) || isHeightValidationError;
-
-  const latestHeightValue = currentObs[0]?.value;
-
-  const handleSaveHeightObservation = async (): Promise<void> => {
-    let heightValueNumber: number | undefined;
-
-    if (heightValueTextCm) {
-      heightValueNumber = textToHeightNumber(heightValueTextCm);
-    } else if (heightValueTextInches) {
-      heightValueNumber = textToHeightNumberFromInches(heightValueTextInches);
-    } else if (heightValueTextFeet) {
-      heightValueNumber = textToHeightNumberFromFeet(heightValueTextFeet);
-    }
-
-    if (!heightValueNumber) return;
-
-    try {
-      setIsSaving(true);
-      const vitalObs: VitalsHeightObservationDTO = {
-        field: VitalFieldNames.VitalHeight,
-        value: heightValueNumber,
-      };
-      await handleSaveVital(vitalObs);
-      setHeightValueTextCm('');
-      setHeightValueTextInches('');
-      setHeightValueTextFeet('');
-    } catch {
-      enqueueSnackbar('Error saving Height vital record', { variant: 'error' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleTextInputChangeCm = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const cmAsText = e.target.value;
-    setHeightValueTextCm(cmAsText);
-    const heightCm = textToHeightNumber(cmAsText);
-    if (heightCm) {
-      const inchesText = heightCmToInchesText(heightCm);
-      setHeightValueTextInches(inchesText);
-
-      const feetText = heightCmToFeetText(heightCm);
-      setHeightValueTextFeet(feetText);
-    } else {
-      setHeightValueTextInches('');
-      setHeightValueTextFeet('');
-    }
-    if (cmAsText.length === 0) {
-      setHeightValidationError(false);
-    }
-  }, []);
-
-  const handleTextInputChangeInches = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const inchesAsText = e.target.value;
-    setHeightValueTextInches(inchesAsText);
-    const heightCm = textToHeightNumberFromInches(inchesAsText);
-    if (heightCm) {
-      setHeightValueTextCm(heightCm.toString());
-
-      const feetText = heightCmToFeetText(heightCm);
-      setHeightValueTextFeet(feetText);
-    } else {
-      setHeightValueTextCm('');
-      setHeightValueTextFeet('');
-    }
-    if (inchesAsText.length === 0) {
-      setHeightValidationError(false);
-    }
-  }, []);
-
-  const handleTextInputChangeFeet = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const feetAsText = e.target.value;
-    setHeightValueTextFeet(feetAsText);
-
-    const heightCm = textToHeightNumberFromFeet(feetAsText);
-
-    if (heightCm) {
-      setHeightValueTextCm(heightCm.toString());
-
-      const inchesText = heightCmToInchesText(heightCm);
-      setHeightValueTextInches(inchesText);
-    } else {
-      setHeightValueTextCm('');
-      setHeightValueTextInches('');
-    }
-
-    if (feetAsText.length === 0) {
-      setHeightValidationError(false);
-    }
-  }, []);
+  const { handleKeyDown } = useVitalsSaveOnEnter({
+    onSave: field.save,
+  });
 
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
-        currentEncounterObs={currentObs}
-        historicalObs={historicalObs}
+        currentEncounterObs={field.current}
+        historicalObs={field.historical}
         isLoading={false}
         historyElementCreator={(historyEntry) => {
-          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          const isCurrent = field.current.some((obs) => obs.resourceId === historyEntry.resourceId);
           return (
             <VitalHistoryElement
               historyEntry={historyEntry}
-              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              onDelete={isCurrent && !isReadOnly ? field.delete : undefined}
               dataTestId={dataTestIds.vitalsPage.heightItem}
             />
           );
@@ -181,6 +77,8 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                   mx: 2,
                   py: 2,
                   px: 2,
+                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                  transition: VITALS_FORM_BORDER_TRANSITION,
                 }}
               >
                 {/* Height Input Field column */}
@@ -194,27 +92,30 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                   >
                     <VitalsTextInputFiled
                       label="Height (cm)"
-                      value={heightValueTextCm}
-                      disabled={isSaving}
-                      isInputError={isHeightValidationError}
-                      onChange={handleTextInputChangeCm}
+                      value={localState.valueCm}
+                      disabled={field.isSaving}
+                      isInputError={localState.validationError}
+                      onChange={localState.handleCmChange}
+                      onKeyDown={handleKeyDown}
                       data-testid={dataTestIds.vitalsPage.heightInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
                       label="Height (inch)"
-                      value={heightValueTextInches}
-                      disabled={isSaving}
-                      isInputError={isHeightValidationError}
-                      onChange={handleTextInputChangeInches}
+                      value={localState.valueInches}
+                      disabled={field.isSaving}
+                      isInputError={localState.validationError}
+                      onChange={localState.handleInchesChange}
+                      onKeyDown={handleKeyDown}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
                       label="Height (ft)"
-                      value={heightValueTextFeet}
-                      disabled={isSaving}
-                      isInputError={isHeightValidationError}
-                      onChange={handleTextInputChangeFeet}
+                      value={localState.valueFeet}
+                      disabled={field.isSaving}
+                      isInputError={localState.validationError}
+                      onChange={localState.handleFeetChange}
+                      onKeyDown={handleKeyDown}
                     />
                   </Box>
                 </Grid>
@@ -231,9 +132,9 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                 >
                   <RoundedButton
                     size="small"
-                    disabled={isDisabledAddButton}
-                    onClick={handleSaveHeightObservation}
-                    loading={isSaving}
+                    disabled={localState.isDisabled}
+                    onClick={field.save}
+                    loading={field.isSaving}
                     color="primary"
                     sx={{
                       height: '40px',

@@ -287,6 +287,16 @@
             "item": {
               "reference": "List/#{ref/fhirResources/ROS_TEMPLATE_GENERAL/id}"
             }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/AUTOMOBILE_ACCIDENT/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/WORKERS_COMP/id}"
+            }
           }
         ],
         "meta": {

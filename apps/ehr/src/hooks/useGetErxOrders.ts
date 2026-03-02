@@ -2,7 +2,7 @@ import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { chooseJson, GetErxOrdersInput, GetErxOrdersResponse } from 'utils';
 import { useApiClients } from './useAppClients';
 
-export const useGetErxOrders = (input: GetErxOrdersInput): UseQueryResult<GetErxOrdersResponse | undefined, Error> => {
+export const useGetErxOrders = (input: GetErxOrdersInput): UseQueryResult<GetErxOrdersResponse | null, Error> => {
   const { oystehrZambda } = useApiClients();
   const encounterIdsHasLen = input.encounterIds && input.encounterIds.length > 0;
   return useQuery({
@@ -16,7 +16,7 @@ export const useGetErxOrders = (input: GetErxOrdersInput): UseQueryResult<GetErx
         });
         return chooseJson(response);
       } else {
-        return;
+        return null;
       }
     },
     enabled: oystehrZambda && encounterIdsHasLen,

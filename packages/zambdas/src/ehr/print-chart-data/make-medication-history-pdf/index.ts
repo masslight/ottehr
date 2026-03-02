@@ -39,7 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { patient, medicationHistory, appointment, encounter, location, secrets } = validatedParameters;
+    const { patient, medicationHistory, appointment, encounter, location, timezone, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -51,6 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       medicationHistory,
       appointment,
       location,
+      timezone,
     });
 
     const output = await makeMedicationHistoryPDF(oystehr, m2mToken, secrets, formattedData, encounter);
@@ -74,11 +75,13 @@ const formatData = ({
   medicationHistory,
   appointment,
   location,
+  timezone,
 }: {
   patient: Patient;
   medicationHistory: MedicationInfoForPrinting[];
   appointment: Appointment;
   location?: Location;
+  timezone?: string;
 }): MedicationHistoryInput => {
   const patientInfo: PatientInfoForDischargeSummary = {
     fullName: getPatientLastFirstName(patient) ?? '',
@@ -88,10 +91,8 @@ const formatData = ({
     phone: standardizePhoneNumber(patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value),
   };
 
-  const userTimezone = DateTime.local().zoneName;
-  console.log('This is userTimezone', userTimezone);
-
-  const visit = composeVisitData({ appointment, location, timezone: userTimezone });
+  console.log('This is timezone for print medication pdf', timezone);
+  const visit = composeVisitData({ appointment, location, timezone: timezone ?? '' });
   console.log('This is visit', visit);
 
   return {

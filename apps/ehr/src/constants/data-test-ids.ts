@@ -366,6 +366,7 @@ export const dataTestIds = {
   vitalsPage: {
     title: 'vitals-title',
     deleteVitalModal: 'delete-vital-modal',
+    addAllVitalsButton: 'vitals-page-add-all-button',
     temperatureInput: 'temperature-input',
     temperatureHeader: 'temperature-header',
     temperatureAddButton: 'temperature-add-button',

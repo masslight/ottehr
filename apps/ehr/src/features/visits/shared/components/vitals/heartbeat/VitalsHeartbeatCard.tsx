@@ -1,88 +1,42 @@
 import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
-import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  toVitalHeartbeatObservationMethod,
-  VitalFieldNames,
-  VitalHeartbeatObservationMethod,
-  VitalsHeartbeatObservationDTO,
-} from 'utils';
+import { VitalHeartbeatObservationMethod, VitalsHeartbeatObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
-import { textToHeartbeatNumber } from './helpers';
 
 type VitalsHeartbeatCardProps = VitalsCardProps<VitalsHeartbeatObservationDTO>;
-const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
-  handleSaveVital,
-  handleDeleteVital,
-  currentObs,
-  historicalObs,
-}): JSX.Element => {
-  const [heartbeatValueText, setHeartbeatValueText] = useState('');
+const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({ field }): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  // the method how this Heartbeat observation has been acquired
-  const [observationQualifier, setObservationsQualifier] = useState<string>('');
-
-  const [isHeartbeatValidationError, setHeartbeatValidationError] = useState<boolean>(false);
-
   const { isLargeScreen } = useScreenDimensions();
-
-  const [isSaving, setIsSaving] = useState(false);
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton = !heartbeatValueText || isHeartbeatValidationError;
+  const latestHeartbeatValue = field.current[0]?.value;
+  const { localState } = field;
 
-  const latestHeartbeatValue = currentObs[0]?.value;
-
-  const handleSaveHeartbeatObservation = async (heartbeatValueText: string): Promise<void> => {
-    const heartbeatValueNumber = textToHeartbeatNumber(heartbeatValueText);
-    if (!heartbeatValueNumber) return;
-
-    const observationMethod = toVitalHeartbeatObservationMethod(observationQualifier);
-    try {
-      setIsSaving(true);
-      const vitalObs: VitalsHeartbeatObservationDTO = {
-        field: VitalFieldNames.VitalHeartbeat,
-        value: heartbeatValueNumber,
-        observationMethod: observationMethod,
-      };
-      await handleSaveVital(vitalObs);
-      setHeartbeatValueText('');
-      setObservationsQualifier('');
-    } catch {
-      enqueueSnackbar('Error saving Heartbeat data', { variant: 'error' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleTextInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const hrAsText = e.target.value;
-    setHeartbeatValueText(hrAsText);
-    if (hrAsText.length === 0) {
-      setHeartbeatValidationError(false);
-    }
-  }, []);
+  const { handleKeyDown } = useVitalsSaveOnEnter({
+    onSave: field.save,
+  });
 
   const renderQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSaving}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={field.isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
-          value={observationQualifier}
+          value={localState.observationQualifier}
           label="Qualifier"
           labelId="qualifier-label"
           variant="outlined"
@@ -91,7 +45,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
           onChange={(event) => {
             const eventValue = event.target.value;
             const selectedQualifier = eventValue && eventValue.length > 0 ? eventValue : '';
-            setObservationsQualifier(selectedQualifier);
+            localState.handleQualifierChange(selectedQualifier);
           }}
         >
           <MenuItem key="default_obs_method" value={''}>
@@ -114,15 +68,15 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
-        currentEncounterObs={currentObs}
-        historicalObs={historicalObs}
+        currentEncounterObs={field.current}
+        historicalObs={field.historical}
         isLoading={false}
         historyElementCreator={(historyEntry) => {
-          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          const isCurrent = field.current.some((obs) => obs.resourceId === historyEntry.resourceId);
           return (
             <VitalHistoryElement
               historyEntry={historyEntry}
-              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              onDelete={isCurrent && !isReadOnly ? field.delete : undefined}
               dataTestId={dataTestIds.vitalsPage.heartbeatItem}
             />
           );
@@ -156,16 +110,19 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
                   mx: 2,
                   py: 2,
                   px: 2,
+                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                  transition: VITALS_FORM_BORDER_TRANSITION,
                 }}
               >
                 {/* Heartbeat Input Field column */}
                 <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 1, sm: 1, md: 1 }}>
                   <VitalsTextInputFiled
                     label="HR (/min)"
-                    value={heartbeatValueText}
-                    disabled={isSaving}
-                    isInputError={isHeartbeatValidationError}
-                    onChange={handleTextInputChange}
+                    value={localState.value}
+                    disabled={field.isSaving}
+                    isInputError={localState.validationError}
+                    onChange={localState.handleValueChange}
+                    onKeyDown={handleKeyDown}
                     data-testid={dataTestIds.vitalsPage.heartbeatInput}
                   />
                 </Grid>
@@ -195,9 +152,9 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
                 <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 3, sm: 3, md: 3, lg: 3 }} sx={{ mt: 0 }}>
                   <RoundedButton
                     size="small"
-                    disabled={isDisabledAddButton}
-                    loading={isSaving}
-                    onClick={() => handleSaveHeartbeatObservation(heartbeatValueText)}
+                    disabled={localState.isDisabled}
+                    loading={field.isSaving}
+                    onClick={field.save}
                     color="primary"
                     sx={{
                       height: '40px',

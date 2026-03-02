@@ -51,7 +51,7 @@ const FavoriteEntry = z.object({
   otherBodySite: z.string().optional(),
   bodySide: z.string().optional(),
   technique: z.string().optional(),
-  suppliesUsed: z.array(z.string().optional()),
+  suppliesUsed: z.array(z.string().optional()).optional(),
   otherSuppliesUsed: z.string().optional(),
   procedureDetails: z.string().optional(),
   specimenSent: z.boolean().optional(),

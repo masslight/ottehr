@@ -1,111 +1,46 @@
 import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
-import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  celsiusToFahrenheit,
-  fahrenheitToCelsius,
-  roundTemperatureValue,
-  toVitalTemperatureObservationMethod,
-  VitalFieldNames,
-  VitalsTemperatureObservationDTO,
-  VitalTemperatureObservationMethod,
-} from 'utils';
+import { roundTemperatureValue, VitalsTemperatureObservationDTO, VitalTemperatureObservationMethod } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { HISTORY_ELEMENT_SKELETON_TEXT, VitalsCardProps } from '../types';
-import { textToTemperatureNumber } from './helpers';
+import { HISTORY_ELEMENT_SKELETON_TEXT, VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
+import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
+import { VitalsCardProps } from '../types';
 
 type VitalsTemperatureCardProps = VitalsCardProps<VitalsTemperatureObservationDTO>;
 const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
-  handleSaveVital,
-  handleDeleteVital,
-  currentObs,
-  historicalObs,
+  field,
   historyElementSkeletonText = HISTORY_ELEMENT_SKELETON_TEXT,
 }): JSX.Element => {
-  const [temperatureValueText, setTemperatureValueText] = useState('');
-  const [temperatureValueTextFahrenheit, setTemperatureValueTextFahrenheit] = useState('');
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  // the method how this Temperature observation has been acquired
-  const [observationQualifier, setObservationsQualifier] = useState<string>('');
-
-  const [isTemperatureValidationError, setTemperatureValidationError] = useState<boolean>(false);
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const [isSaving, setIsSaving] = useState(false);
+  const latestTemperatureValue = field.current[0]?.value;
+  const { localState } = field;
 
-  const isDisabledAddButton = !temperatureValueText || isTemperatureValidationError;
-
-  const latestTemperatureValue = currentObs[0]?.value;
-
-  const handleSaveTemperatureObservation = async (temperatureValueText: string): Promise<void> => {
-    // console.log(`handleSaveTemperatureObservation() value=[${temperatureValueText}]`);
-
-    const temperatureValueNumber = textToTemperatureNumber(temperatureValueText);
-    if (!temperatureValueNumber) return;
-
-    const observationMethod = toVitalTemperatureObservationMethod(observationQualifier);
-    try {
-      setIsSaving(true);
-      const vitalObs: VitalsTemperatureObservationDTO = {
-        field: VitalFieldNames.VitalTemperature,
-        value: temperatureValueNumber,
-        observationMethod: observationMethod,
-      };
-      await handleSaveVital(vitalObs);
-      setTemperatureValueText('');
-      setTemperatureValueTextFahrenheit('');
-      setObservationsQualifier('');
-    } catch {
-      enqueueSnackbar('Error saving Temperature data', { variant: 'error' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleTextInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const tempAsText = e.target.value;
-    setTemperatureValueText(tempAsText);
-    const tempAsNumber = textToTemperatureNumber(tempAsText);
-    setTemperatureValueTextFahrenheit(tempAsNumber ? celsiusToFahrenheit(tempAsNumber).toString() : '');
-    if (tempAsText.length === 0) {
-      setTemperatureValidationError(false);
-    }
-  }, []);
-
-  const handleTextInputChangeFahrenheit = useCallback(
-    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      const tempAsText = e.target.value;
-      setTemperatureValueTextFahrenheit(tempAsText);
-      const tempAsNumber = textToTemperatureNumber(tempAsText);
-      setTemperatureValueText(tempAsNumber ? fahrenheitToCelsius(tempAsNumber).toString() : '');
-      if (tempAsText.length === 0) {
-        setTemperatureValidationError(false);
-      }
-    },
-    []
-  );
+  const { handleKeyDown } = useVitalsSaveOnEnter({
+    onSave: field.save,
+  });
 
   // if (!vitalsEntities.length && isLoading)
   //   return <InPersonLoader height="80px" marginTop="20px" backgroundColor={theme.palette.background.paper} />;
 
   const renderTempQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSaving}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={field.isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
-          value={observationQualifier}
+          value={localState.observationQualifier}
           label="Qualifier"
           labelId="qualifier-label"
           variant="outlined"
@@ -114,7 +49,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
           onChange={(event) => {
             const eventValue = event.target.value;
             const selectedQualifier = eventValue && eventValue.length > 0 ? eventValue : '';
-            setObservationsQualifier(selectedQualifier);
+            localState.handleQualifierChange(selectedQualifier);
           }}
         >
           <MenuItem key="default_obs_method" value={''}>
@@ -137,16 +72,16 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
-        currentEncounterObs={currentObs}
-        historicalObs={historicalObs}
+        currentEncounterObs={field.current}
+        historicalObs={field.historical}
         isLoading={false}
         historyElementSkeletonText={historyElementSkeletonText}
         historyElementCreator={(historyEntry) => {
-          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          const isCurrent = field.current.some((obs) => obs.resourceId === historyEntry.resourceId);
           return (
             <VitalHistoryElement
               historyEntry={historyEntry}
-              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              onDelete={isCurrent && !isReadOnly ? field.delete : undefined}
               dataTestId={dataTestIds.vitalsPage.temperatureItem}
             />
           );
@@ -180,6 +115,8 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                   p: 2,
                   pt: 1,
                   pl: 1,
+                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                  transition: VITALS_FORM_BORDER_TRANSITION,
                 }}
                 rowSpacing={1}
                 columnSpacing={1}
@@ -195,19 +132,21 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                   >
                     <VitalsTextInputFiled
                       label="Temp (C)"
-                      value={temperatureValueText}
-                      disabled={isSaving}
-                      isInputError={isTemperatureValidationError}
-                      onChange={handleTextInputChange}
+                      value={localState.valueCelsius}
+                      disabled={field.isSaving}
+                      isInputError={localState.isCelsiusInvalid && localState.validationError}
+                      onChange={localState.handleCelsiusChange}
+                      onKeyDown={handleKeyDown}
                       data-testid={dataTestIds.vitalsPage.temperatureInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
                       label="Temp (F)"
-                      value={temperatureValueTextFahrenheit}
-                      disabled={isSaving}
-                      isInputError={isTemperatureValidationError}
-                      onChange={handleTextInputChangeFahrenheit}
+                      value={localState.valueFahrenheit}
+                      disabled={field.isSaving}
+                      isInputError={localState.isFahrenheitInvalid && localState.validationError}
+                      onChange={localState.handleFahrenheitChange}
+                      onKeyDown={handleKeyDown}
                     />
                   </Box>
                 </Grid>
@@ -220,10 +159,10 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                 {/* Add Button column */}
                 <Grid item xs={12} sm={3} md={3} lg={2} order={{ xs: 3, sm: 3, md: 3, lg: 3 }}>
                   <RoundedButton
-                    disabled={isDisabledAddButton}
-                    loading={isSaving}
+                    disabled={localState.isDisabled}
+                    loading={field.isSaving}
                     size="small"
-                    onClick={() => handleSaveTemperatureObservation(temperatureValueText)}
+                    onClick={field.save}
                     color="primary"
                     sx={{
                       height: '40px',

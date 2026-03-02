@@ -117,10 +117,12 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: develop
           path: "secrets"
 
       - name: Copy secrets to appropriate locations
         run: |
+          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
           npm exec -- tsx ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}
           npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 
@@ -131,7 +133,7 @@ jobs:
         id: copy-import-file
         continue-on-error: true
         run: |
-          cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
+          cp secrets/ottehr/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials

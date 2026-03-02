@@ -64,6 +64,7 @@ export async function performEffect(
   const noData = {
     encounters: [],
     totalBalanceCents: 0,
+    pendingPaymentCents: 0,
   };
 
   console.group('getFhirEncountersAndAppointmentsForPatient');
@@ -130,6 +131,11 @@ export async function performEffect(
   console.groupEnd();
   console.debug('saveBalancesInMap success');
 
+  console.group('getPendingPatientPayments');
+  const pendingPatientPayments = await getPendingPatientPayments(candidApiClient, patientId);
+  console.groupEnd();
+  console.debug('getPendingPatientPayments success');
+
   console.log('encounterDataMap', encounterDataMap);
 
   const returnData = Array.from(encounterDataMap.entries()).map(([encounterId, mapValue]) => ({
@@ -141,6 +147,7 @@ export async function performEffect(
   return {
     encounters: returnData,
     totalBalanceCents: returnData.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
+    pendingPaymentCents: pendingPatientPayments || 0,
   };
 }
 
@@ -242,6 +249,12 @@ function saveBalancesInMap(
 
     const claimId = candidClaim.body.claimId;
     const encounterId = claimIdToEncounterIdMap.get(claimId);
+
+    if (candidClaim.body.patientBalanceCents <= 0) {
+      encounterDataMap.delete(encounterId!);
+      return;
+    }
+
     const mapValue = encounterDataMap.get(encounterId!);
     if (!mapValue) {
       throw new Error(`No map value found for encounterId ${encounterId}`);
@@ -249,4 +262,21 @@ function saveBalancesInMap(
     mapValue.patientBalanceCents = candidClaim.body.patientBalanceCents;
     encounterDataMap.set(encounterId!, mapValue);
   });
+}
+
+async function getPendingPatientPayments(candidApiClient: CandidApiClient, patientId: string): Promise<number> {
+  const candidResponse = await candidApiClient.patientPayments.v4.getMulti({
+    patientExternalId: CandidApi.PatientExternalId(patientId),
+  });
+  if (!candidResponse.ok) {
+    throw new Error(`Failed to fetch Candid pending payments: ${JSON.stringify(candidResponse.error)}`);
+  }
+  const payments = candidResponse.body.items;
+
+  const pendingPayments = payments.map((payment) => {
+    const isPending = payment.allocations.find((allocation) => allocation.target.type === 'appointment');
+    return isPending ? payment.amountCents : 0;
+  });
+
+  return pendingPayments.reduce((acc, amount) => acc + amount, 0);
 }
