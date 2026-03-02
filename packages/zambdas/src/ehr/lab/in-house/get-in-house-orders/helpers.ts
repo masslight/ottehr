@@ -512,7 +512,7 @@ export const extractInHouseResources = (
   const locations: Location[] = [];
   const provenances: Provenance[] = [];
   const specimens: Specimen[] = [];
-  const observations: Observation[] = [];
+  const allObservations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const activityDefinitions: ActivityDefinition[] = [];
   const appointments: Appointment[] = [];
@@ -534,7 +534,7 @@ export const extractInHouseResources = (
     } else if (resource.resourceType === 'Specimen') {
       specimens.push(resource);
     } else if (resource.resourceType === 'Observation') {
-      observations.push(resource);
+      allObservations.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource);
     } else if (resource.resourceType === 'ActivityDefinition') {
@@ -564,6 +564,9 @@ export const extractInHouseResources = (
       }
     }
   }
+
+  const obsRefs = new Set(diagnosticReports.flatMap((dr) => dr.result?.map((r) => r.reference) ?? []));
+  const observations = allObservations.filter((obs) => obsRefs.has(`Observation/${obs.id}`));
 
   return {
     serviceRequests,

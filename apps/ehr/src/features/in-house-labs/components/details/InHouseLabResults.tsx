@@ -3,16 +3,22 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { DiagnosisDTO, getFormattedDiagnoses } from 'utils';
-import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
-import { FinalResultCard } from './FinalResultCard';
+import { DiagnosisDTO, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
+import { InHouseLabResultCard } from './InHouseLabResultCard';
 
-interface FinalResultViewProps {
+interface InHouseLabResultsProps {
   testDetails: InHouseOrderDetailPageItemDTO[] | undefined;
+  setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
+  entryMode: 'initial' | 'edit';
 }
 
-export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, onBack }) => {
+export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
+  testDetails,
+  setLoadingState,
+  onBack,
+  entryMode,
+}) => {
   const navigate = useNavigate();
 
   // we sort the tests on the back end, most recent will always be first
@@ -25,10 +31,8 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
   };
 
   const diagnoses = testDetails?.reduce((acc: DiagnosisDTO[], detail) => {
-    detail.diagnosesDTO.forEach((diagnoses) => {
-      if (!acc.some((d) => d.code === diagnoses.code)) {
-        acc.push(diagnoses);
-      }
+    detail.diagnosesDTO.forEach((d) => {
+      if (!acc.some((existing) => existing.code === d.code)) acc.push(d);
     });
     return acc;
   }, []);
@@ -74,6 +78,40 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
     });
   };
 
+  const pageTitle = entryMode === 'initial' && (
+    <Typography
+      data-testid={dataTestIds.performTestPage.title}
+      variant="h4"
+      color="primary.dark"
+      sx={{ mb: 3, fontWeight: 'bold' }}
+    >
+      Perform Test & Enter Results
+    </Typography>
+  );
+
+  const resultButtons = entryMode === 'edit' && (
+    <Box display="flex" justifyContent="space-between" alignItems="center">
+      {openPdf && (
+        <Button
+          data-testid={dataTestIds.finalResultPage.resultsPDF}
+          variant="outlined"
+          color="primary"
+          sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
+          onClick={() => openPdf()}
+          startIcon={<BiotechOutlined />}
+          disabled={!mostRecentTest?.resultsPDFUrl}
+        >
+          Results PDF
+        </Button>
+      )}
+      {buttonsToDisplay?.repeat && (
+        <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
+          Repeat
+        </Button>
+      )}
+    </Box>
+  );
+
   if (!testDetails) {
     return (
       <Box>
@@ -96,29 +134,17 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
         {getFormattedDiagnoses(diagnoses || [])}
       </Typography>
 
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        {openPdf && (
-          <Button
-            data-testid={dataTestIds.finalResultPage.resultsPDF}
-            variant="outlined"
-            color="primary"
-            sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
-            onClick={() => openPdf()}
-            startIcon={<BiotechOutlined />}
-            disabled={!mostRecentTest?.resultsPDFUrl}
-          >
-            Results PDF
-          </Button>
-        )}
-        {buttonsToDisplay?.repeat && (
-          <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
-            Repeat
-          </Button>
-        )}
-      </Box>
+      {pageTitle}
+
+      {resultButtons}
 
       {testDetails.map((test, idx) => (
-        <FinalResultCard key={`${idx}-${test.testItemName.split(' ').join('')}`} testDetails={test} />
+        <InHouseLabResultCard
+          key={`${idx}-${test.testItemName.split(' ').join('')}`}
+          testDetails={test}
+          setLoadingState={setLoadingState}
+          entryMode={entryMode}
+        ></InHouseLabResultCard>
       ))}
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mt={3}>
