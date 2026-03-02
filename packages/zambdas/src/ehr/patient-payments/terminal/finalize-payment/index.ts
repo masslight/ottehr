@@ -74,7 +74,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw GENERIC_STRIPE_PAYMENT_ERROR;
     }
 
-    const paymentMethodId = getPaymentMethodIdForDefault(paymentIntent);
+    const paymentMethodIdCandidate = getPaymentMethodIdForDefault(paymentIntent);
+    const paymentMethodId = paymentMethodIdCandidate
+      ? await ensureUniqueCustomerPaymentMethodByFingerprint(
+          stripeClient,
+          stripeContext.stripeCustomerId,
+          paymentMethodIdCandidate,
+          stripeContext.stripeAccount
+        )
+      : undefined;
+
     if (paymentMethodId) {
       await setDefaultPaymentMethodForCustomer(
         stripeClient,
@@ -230,6 +239,59 @@ const setDefaultPaymentMethodForCustomer = async (
     );
   } catch (error) {
     throw parseStripeError(error);
+  }
+};
+
+const ensureUniqueCustomerPaymentMethodByFingerprint = async (
+  stripeClient: Stripe,
+  stripeCustomerId: string,
+  paymentMethodId: string,
+  stripeAccount?: string
+): Promise<string> => {
+  try {
+    const paymentMethod = await stripeClient.paymentMethods.retrieve(paymentMethodId, {
+      stripeAccount,
+    });
+
+    const fingerprint = paymentMethod.card?.fingerprint ?? paymentMethod.card_present?.fingerprint;
+    if (!fingerprint) {
+      return paymentMethodId;
+    }
+
+    const customerPaymentMethods = await stripeClient.paymentMethods.list(
+      {
+        customer: stripeCustomerId,
+        type: 'card',
+        limit: 100,
+      },
+      {
+        stripeAccount,
+      }
+    );
+
+    const existingPaymentMethod = customerPaymentMethods.data.find(
+      (customerPaymentMethod) =>
+        customerPaymentMethod.id !== paymentMethodId && customerPaymentMethod.card?.fingerprint === fingerprint
+    );
+
+    if (!existingPaymentMethod) {
+      return paymentMethodId;
+    }
+
+    if (typeof paymentMethod.customer === 'string' && paymentMethod.customer === stripeCustomerId) {
+      try {
+        await stripeClient.paymentMethods.detach(paymentMethodId, {
+          stripeAccount,
+        });
+      } catch (detachError) {
+        console.warn('Unable to detach duplicate generated card payment method', paymentMethodId, detachError);
+      }
+    }
+
+    return existingPaymentMethod.id;
+  } catch (error) {
+    console.error('Error ensuring unique customer payment method by fingerprint', paymentMethodId, error);
+    return paymentMethodId;
   }
 };
 
