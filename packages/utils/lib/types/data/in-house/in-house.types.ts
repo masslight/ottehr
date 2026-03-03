@@ -107,6 +107,7 @@ export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
   labDetails: TestItem;
   orderHistory: {
     status: TestStatus;
+    statusSubtitle: string | undefined;
     providerName: string;
     date: string;
   }[];

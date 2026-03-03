@@ -21,7 +21,7 @@ import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
-import { keepPreviousData, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -169,6 +169,7 @@ export default function ProceduresNew(): ReactElement {
   const { isInPerson } = useAppFlags();
   const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
+  const queryClient = useQueryClient();
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
   const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
@@ -412,6 +413,12 @@ export default function ProceduresNew(): ReactElement {
           ],
         });
       }
+
+      void queryClient.invalidateQueries({
+        queryKey: ['procedures-for-tracking-board'],
+        refetchType: 'active',
+      });
+
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
       navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
