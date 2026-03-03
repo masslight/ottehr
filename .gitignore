@@ -23,6 +23,12 @@ playwright/.cache/
 
 dist
 packages/ui-components/dist/*
+packages/ui-components/lib/**/*.js
+packages/ui-components/lib/**/*.js.map
+packages/ui-components/vite.config.js
+packages/ui-components/vite.config.js.map
+packages/ui-components/vitest.config.js
+packages/ui-components/vitest.config.js.map
 
 # Sentry Config File
 .env.sentry-build-plugin
