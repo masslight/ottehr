@@ -115,6 +115,16 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
   const [paymentResult, setPaymentResult] = useState<PaymentResultState>({ status: 'idle' });
   const terminalRef = useRef<StripeTerminalInstance | null>(null);
   const readerConnected = terminalInitialized && !terminalInitializationError;
+  let terminalBorderColor: string | undefined;
+  if (terminalConfigured) {
+    if (paymentResult.status === 'failure') {
+      terminalBorderColor = '#8A1538';
+    } else if (readerConnected) {
+      terminalBorderColor = '#4CAF50';
+    } else {
+      terminalBorderColor = 'grey.300';
+    }
+  }
 
   useEffect(() => {
     onReaderConnectionChange?.(readerConnected);
@@ -332,87 +342,102 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
         backgroundColor: 'grey.300',
         borderRadius: 1,
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 1,
-        textAlign: 'center',
+        justifyContent: 'flex-start',
+        gap: 2,
+        textAlign: 'left',
+        px: 2,
+        py: 1.5,
         border: terminalConfigured ? '2px solid' : undefined,
-        borderColor: terminalConfigured ? (readerConnected ? '#4CAF50' : 'grey.300') : undefined,
+        borderColor: terminalBorderColor,
       }}
     >
       {terminalConfigured ? (
         <>
-          <Typography variant="body2" color="text.primary">
-            Use the terminal to complete the payment
-          </Typography>
-          <svg width="84" height="84" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="14" y="4" width="28" height="48" rx="5" fill="#D9D9D9" stroke="#90A4AE" strokeWidth="2" />
-            <rect x="19" y="10" width="18" height="13" rx="2" fill="#ECEFF1" />
+          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <svg width="101" height="101" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="14" y="4" width="28" height="48" rx="5" fill="#D9D9D9" stroke="#90A4AE" strokeWidth="2" />
+              <rect x="19" y="10" width="18" height="13" rx="2" fill="#ECEFF1" />
+              {paymentResult.status === 'success' ? (
+                <path
+                  d="M22 17.2L25.4 20.6L33.6 14.4"
+                  stroke="#4CAF50"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : null}
+              {paymentResult.status === 'failure' ? (
+                <>
+                  <path d="M25 13.5L31 19.5" stroke="#8A1538" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M31 13.5L25 19.5" stroke="#8A1538" strokeWidth="2" strokeLinecap="round" />
+                </>
+              ) : null}
+              {isProcessingPayment ? (
+                <>
+                  <circle cx="28" cy="39" r="4" fill="#2196F3">
+                    <animate attributeName="r" values="3;6;3" dur="1.2s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="1;0.35;1" dur="1.2s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx="28" cy="39" r="2.5" fill="#90CAF9" />
+                </>
+              ) : paymentResult.status === 'failure' ? (
+                <circle cx="28" cy="39" r="7.65" fill="#8A1538" />
+              ) : (
+                <circle cx="28" cy="39" r="7.65" fill={readerConnected ? '#4CAF50' : '#B0BEC5'} />
+              )}
+            </svg>
+          </Box>
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 0.5, flex: 1, minWidth: 0 }}
+          >
+            <Typography variant="body2" color="text.primary" sx={{ fontSize: '1.2rem', fontWeight: 700 }}>
+              Use the terminal to complete the payment
+            </Typography>
             {paymentResult.status === 'success' ? (
-              <path
-                d="M22 17.2L25.4 20.6L33.6 14.4"
-                stroke="#4CAF50"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            ) : null}
-            {paymentResult.status === 'failure' ? (
-              <>
-                <path d="M23 14.5L33 19.5" stroke="#8A1538" strokeWidth="2" strokeLinecap="round" />
-                <path d="M33 14.5L23 19.5" stroke="#8A1538" strokeWidth="2" strokeLinecap="round" />
-              </>
-            ) : null}
-            {isProcessingPayment ? (
-              <>
-                <circle cx="28" cy="39" r="4" fill="#2196F3">
-                  <animate attributeName="r" values="3;6;3" dur="1.2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="1;0.35;1" dur="1.2s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="28" cy="39" r="2.5" fill="#90CAF9" />
-              </>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '1.14rem' }}>
+                Charged{' '}
+                <Box component="span" sx={{ color: '#4CAF50', fontWeight: 600 }}>
+                  {formatCurrencyFromCents(paymentResult.amountInCents)}
+                </Box>{' '}
+                successfully!
+              </Typography>
             ) : paymentResult.status === 'failure' ? (
-              <circle cx="28" cy="39" r="7.65" fill="#8A1538" />
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4, fontSize: '1.14rem' }}>
+                <Box component="span" sx={{ color: '#8A1538', fontWeight: 600 }}>
+                  Payment failed
+                </Box>
+                <br />
+                {paymentResult.reason}
+              </Typography>
             ) : (
-              <circle cx="28" cy="39" r="7.65" fill={readerConnected ? '#4CAF50' : '#B0BEC5'} />
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '1.14rem' }}>
+                {terminalInitializationError ??
+                  (terminalInitialized ? terminalReadyStatus : 'initializing terminal...')}
+              </Typography>
             )}
-          </svg>
-          {paymentResult.status === 'success' ? (
-            <Typography variant="caption" color="text.secondary">
-              Charged{' '}
-              <Box component="span" sx={{ color: '#4CAF50', fontWeight: 600 }}>
-                {formatCurrencyFromCents(paymentResult.amountInCents)}
-              </Box>{' '}
-              successfully!
-            </Typography>
-          ) : paymentResult.status === 'failure' ? (
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
-              <Box component="span" sx={{ color: '#8A1538', fontWeight: 600 }}>
-                Payment failed
-              </Box>
-              <br />
-              {paymentResult.reason}
-            </Typography>
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              {terminalInitializationError ?? (terminalInitialized ? terminalReadyStatus : 'initializing terminal...')}
-            </Typography>
-          )}
+          </Box>
         </>
       ) : (
         <>
-          <Typography variant="body2" color="text.secondary">
-            Record a payment from an external card reader
-          </Typography>
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="12" width="36" height="24" rx="4" stroke="#bbb" strokeWidth="2.5" fill="#e8e8e8" />
-            <rect x="6" y="19" width="36" height="7" fill="#bbb" />
-            <rect x="10" y="29" width="8" height="3" rx="1" fill="#ccc" />
-          </svg>
-          <Typography variant="caption" color="text.secondary">
-            no card reader configured for this office
-          </Typography>
+          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <svg width="58" height="58" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="12" width="36" height="24" rx="4" stroke="#bbb" strokeWidth="2.5" fill="#e8e8e8" />
+              <rect x="6" y="19" width="36" height="7" fill="#bbb" />
+              <rect x="10" y="29" width="8" height="3" rx="1" fill="#ccc" />
+            </svg>
+          </Box>
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 0.5, flex: 1, minWidth: 0 }}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '1.2rem' }}>
+              Record a payment from an external card reader
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '1.14rem' }}>
+              no card reader configured for this office
+            </Typography>
+          </Box>
         </>
       )}
     </Box>
