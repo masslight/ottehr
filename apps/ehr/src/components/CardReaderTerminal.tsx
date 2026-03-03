@@ -58,6 +58,11 @@ interface StripeTerminalProcessPaymentResult {
   error?: StripeTerminalError | null;
 }
 
+type PaymentResultState =
+  | { status: 'idle' }
+  | { status: 'success'; amountInCents: number }
+  | { status: 'failure'; reason: string };
+
 interface StripeTerminalSdk {
   create: (options: {
     onFetchConnectionToken: () => Promise<string>;
@@ -105,6 +110,8 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
   const [terminalInitialized, setTerminalInitialized] = useState(false);
   const [terminalInitializationError, setTerminalInitializationError] = useState<string | null>(null);
   const [terminalReadyStatus, setTerminalReadyStatus] = useState<string>('Initializing terminal...');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<PaymentResultState>({ status: 'idle' });
   const terminalRef = useRef<StripeTerminalInstance | null>(null);
   const readerConnected = terminalInitialized && !terminalInitializationError;
 
@@ -126,51 +133,65 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           throw new Error('Terminal reader is not connected.');
         }
 
+        setIsProcessingPayment(true);
+        setPaymentResult({ status: 'idle' });
         setTerminalReadyStatus('Preparing payment...');
 
-        const initiateResult = await oystehrZambda.zambda.execute({
-          id: 'patient-payments-terminal-initiate-payment',
-          patientId,
-          encounterId,
-          amountInCents,
-        });
+        try {
+          const initiateResult = await oystehrZambda.zambda.execute({
+            id: 'patient-payments-terminal-initiate-payment',
+            patientId,
+            encounterId,
+            amountInCents,
+          });
 
-        const initiateResponse = chooseJson<InitiatePatientPaymentTerminalResponse>(initiateResult);
-        const paymentIntentClientSecret = initiateResponse.paymentIntentClientSecret;
+          const initiateResponse = chooseJson<InitiatePatientPaymentTerminalResponse>(initiateResult);
+          const paymentIntentClientSecret = initiateResponse.paymentIntentClientSecret;
 
-        const collectResult = await terminalRef.current.collectPaymentMethod(paymentIntentClientSecret);
-        if (collectResult.error) {
-          throw new Error(collectResult.error.message ?? 'Unable to collect payment method from terminal reader.');
+          const collectResult = await terminalRef.current.collectPaymentMethod(paymentIntentClientSecret);
+          if (collectResult.error) {
+            throw new Error(collectResult.error.message ?? 'Unable to collect payment method from terminal reader.');
+          }
+
+          if (!collectResult.paymentIntent) {
+            throw new Error('Terminal did not return a payment intent after collecting payment method.');
+          }
+
+          setTerminalReadyStatus('Processing payment...');
+          const processResult = await terminalRef.current.processPayment(collectResult.paymentIntent);
+          if (processResult.error) {
+            throw new Error(processResult.error.message ?? 'Unable to process payment on terminal reader.');
+          }
+
+          const processedPaymentIntent = processResult.paymentIntent;
+          if (!processedPaymentIntent?.id) {
+            throw new Error('Terminal did not return a processed payment intent.');
+          }
+
+          if (processedPaymentIntent.status !== 'succeeded') {
+            throw new Error(
+              `Terminal payment did not succeed (status: ${processedPaymentIntent.status ?? 'unknown'}).`
+            );
+          }
+
+          const finalizeResult = await oystehrZambda.zambda.execute({
+            id: 'patient-payments-terminal-finalize-payment',
+            patientId,
+            encounterId,
+            paymentIntentId: processedPaymentIntent.id,
+          });
+
+          chooseJson<FinalizePatientPaymentTerminalResponse>(finalizeResult);
+          setPaymentResult({ status: 'success', amountInCents });
+          setTerminalReadyStatus('Payment completed');
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : 'Unknown payment error';
+          setPaymentResult({ status: 'failure', reason });
+          setTerminalReadyStatus('Payment failed');
+          throw error;
+        } finally {
+          setIsProcessingPayment(false);
         }
-
-        if (!collectResult.paymentIntent) {
-          throw new Error('Terminal did not return a payment intent after collecting payment method.');
-        }
-
-        setTerminalReadyStatus('Processing payment...');
-        const processResult = await terminalRef.current.processPayment(collectResult.paymentIntent);
-        if (processResult.error) {
-          throw new Error(processResult.error.message ?? 'Unable to process payment on terminal reader.');
-        }
-
-        const processedPaymentIntent = processResult.paymentIntent;
-        if (!processedPaymentIntent?.id) {
-          throw new Error('Terminal did not return a processed payment intent.');
-        }
-
-        if (processedPaymentIntent.status !== 'succeeded') {
-          throw new Error(`Terminal payment did not succeed (status: ${processedPaymentIntent.status ?? 'unknown'}).`);
-        }
-
-        const finalizeResult = await oystehrZambda.zambda.execute({
-          id: 'patient-payments-terminal-finalize-payment',
-          patientId,
-          encounterId,
-          paymentIntentId: processedPaymentIntent.id,
-        });
-
-        chooseJson<FinalizePatientPaymentTerminalResponse>(finalizeResult);
-        setTerminalReadyStatus('Payment completed');
       },
     }),
     [encounterId, oystehrZambda, patient.id, readerConnected]
@@ -296,6 +317,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
         console.error('Failed to initialize Stripe Terminal SDK', error);
         setTerminalInitialized(false);
         setTerminalInitializationError('Unable to initialize card reader terminal');
+        setPaymentResult({ status: 'idle' });
         setTerminalReadyStatus('Unable to connect to card reader terminal');
       }
     };
@@ -325,16 +347,59 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           <Typography variant="body2" color="text.primary">
             Use the terminal to complete the payment
           </Typography>
-          <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="84" height="84" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="14" y="4" width="28" height="48" rx="5" fill="#D9D9D9" stroke="#90A4AE" strokeWidth="2" />
-            <rect x="19" y="11" width="18" height="5" rx="1.5" fill="#B0BEC5" />
-            <rect x="19" y="20" width="18" height="10" rx="2" fill="#ECEFF1" />
-            <circle cx="28" cy="39" r="5" fill={readerConnected ? '#4CAF50' : '#B0BEC5'} />
-            <path d="M21 46h14" stroke="#90A4AE" strokeWidth="2" strokeLinecap="round" />
+            <rect x="19" y="10" width="18" height="13" rx="2" fill="#ECEFF1" />
+            {paymentResult.status === 'success' ? (
+              <path
+                d="M22 17.2L25.4 20.6L33.6 14.4"
+                stroke="#4CAF50"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ) : null}
+            {paymentResult.status === 'failure' ? (
+              <>
+                <path d="M23 14.5L33 19.5" stroke="#8A1538" strokeWidth="2" strokeLinecap="round" />
+                <path d="M33 14.5L23 19.5" stroke="#8A1538" strokeWidth="2" strokeLinecap="round" />
+              </>
+            ) : null}
+            {isProcessingPayment ? (
+              <>
+                <circle cx="28" cy="39" r="4" fill="#2196F3">
+                  <animate attributeName="r" values="3;6;3" dur="1.2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="1;0.35;1" dur="1.2s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="28" cy="39" r="2.5" fill="#90CAF9" />
+              </>
+            ) : paymentResult.status === 'failure' ? (
+              <circle cx="28" cy="39" r="7.65" fill="#8A1538" />
+            ) : (
+              <circle cx="28" cy="39" r="7.65" fill={readerConnected ? '#4CAF50' : '#B0BEC5'} />
+            )}
           </svg>
-          <Typography variant="caption" color="text.secondary">
-            {terminalInitializationError ?? (terminalInitialized ? terminalReadyStatus : 'initializing terminal...')}
-          </Typography>
+          {paymentResult.status === 'success' ? (
+            <Typography variant="caption" color="text.secondary">
+              Charged{' '}
+              <Box component="span" sx={{ color: '#4CAF50', fontWeight: 600 }}>
+                {formatCurrencyFromCents(paymentResult.amountInCents)}
+              </Box>{' '}
+              successfully!
+            </Typography>
+          ) : paymentResult.status === 'failure' ? (
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+              <Box component="span" sx={{ color: '#8A1538', fontWeight: 600 }}>
+                Payment failed
+              </Box>
+              <br />
+              {paymentResult.reason}
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              {terminalInitializationError ?? (terminalInitialized ? terminalReadyStatus : 'initializing terminal...')}
+            </Typography>
+          )}
         </>
       ) : (
         <>
@@ -404,4 +469,8 @@ const waitForTerminalSdk = async (): Promise<void> => {
   if (!window.StripeTerminal) {
     throw new Error('Stripe Terminal SDK did not become available.');
   }
+};
+
+const formatCurrencyFromCents = (amountInCents: number): string => {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amountInCents / 100);
 };
