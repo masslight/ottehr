@@ -77,13 +77,13 @@ export function buildOrderHistory(
   specimen?: Specimen
 ): {
   status: TestStatus;
-  statusAdditional: string | undefined;
+  statusSubtitle: string | undefined;
   providerName: string;
   date: string;
 }[] {
   const history: {
     status: TestStatus;
-    statusAdditional: string | undefined;
+    statusSubtitle: string | undefined;
     providerName: string;
     date: string;
   }[] = [];
@@ -96,7 +96,7 @@ export function buildOrderHistory(
 
       // Map activity codes to statuses
       let status: TestStatus | undefined;
-      let statusAdditional: string | undefined;
+      let statusSubtitle: string | undefined;
 
       if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code) {
         status = 'ORDERED';
@@ -104,7 +104,7 @@ export function buildOrderHistory(
         status = 'FINAL';
       } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.editResults.code) {
         status = 'FINAL';
-        statusAdditional = 'updated results';
+        statusSubtitle = 'updated results';
       }
 
       if (status && provenance.recorded) {
@@ -112,7 +112,7 @@ export function buildOrderHistory(
 
         history.push({
           status,
-          statusAdditional,
+          statusSubtitle,
           providerName: agentName,
           date: provenance.recorded,
         });
@@ -127,7 +127,7 @@ export function buildOrderHistory(
     if (collectedByDate) {
       history.push({
         status: 'COLLECTED',
-        statusAdditional: undefined,
+        statusSubtitle: undefined,
         providerName: collectedByDisplay,
         date: collectedByDate,
       });

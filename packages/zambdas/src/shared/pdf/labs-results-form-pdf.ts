@@ -68,6 +68,7 @@ import {
   TestItemComponent,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
+import { getObservationsForDiagnosticReportResults } from '../../ehr/lab/shared/helpers';
 import {
   fetchResultResourcesForRelatedServiceRequest,
   provenanceIsInHouseLabResultEntry,
@@ -1679,8 +1680,8 @@ const getAdditionalResultsForRelated = async (
     const diagnosticReports = allDiagnosticReports.filter(
       (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${srId}`)
     );
-    const obsRefs = new Set(diagnosticReports.flatMap((dr) => dr.result?.map((r) => r.reference) ?? []));
-    const observations = allObservations.filter((obs) => obsRefs.has(`Observation/${obs.id}`));
+
+    const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
 
     const config = await getFormattedInHouseLabResults(
       oystehr,

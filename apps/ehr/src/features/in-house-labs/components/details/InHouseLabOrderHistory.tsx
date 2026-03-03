@@ -21,7 +21,7 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
       }}
     >
       <TableBody>
-        {testDetails.orderHistory.map(({ date, providerName, status, statusAdditional }) => (
+        {testDetails.orderHistory.map(({ date, providerName, status, statusSubtitle }) => (
           <TableRow
             key={date + providerName + status}
             sx={{
@@ -39,9 +39,9 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
               }}
             >
               <InHouseLabsStatusChip status={status} />
-              {statusAdditional && (
+              {statusSubtitle && (
                 <Typography variant="caption" sx={{ ml: '8px' }}>
-                  {statusAdditional}
+                  {statusSubtitle}
                 </Typography>
               )}
             </TableCell>

@@ -264,7 +264,7 @@ const getInHouseLabResultResources = async (
           name: '_revinclude:iterate',
           value: 'ServiceRequest:based-on',
         },
-        // Include existing diagnostic reports in case results are being updated/corrected (we will mark these as entered in error)
+        // Include existing diagnostic reports in case results are being updated/corrected
         {
           name: '_revinclude',
           value: 'DiagnosticReport:based-on',
@@ -310,11 +310,15 @@ const getInHouseLabResultResources = async (
     console.log(
       'result entry mode has been flagged as edit since the service request is completed and a diagnostic report already exists'
     );
+
     existingDiagnosticReport = diagnosticReports.find((dr) => {
-      const relatedServiceRequestId = dr.basedOn
-        ?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
-        ?.reference?.replace('ServiceRequest/', '');
-      return relatedServiceRequestId === serviceRequest.id;
+      const statusIsValid = !['entered-in-error', 'cancelled'].includes(dr.status);
+
+      const isBasedOnServiceRequest = dr.basedOn?.some(
+        (ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`
+      );
+
+      return isBasedOnServiceRequest && statusIsValid;
     });
 
     if (!existingDiagnosticReport) {

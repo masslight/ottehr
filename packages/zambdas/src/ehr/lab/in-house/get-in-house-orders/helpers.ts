@@ -37,6 +37,7 @@ import {
   TestStatus,
 } from 'utils';
 import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../../../shared';
+import { getObservationsForDiagnosticReportResults } from '../../shared/helpers';
 import {
   buildOrderHistory,
   determineOrderStatus,
@@ -565,8 +566,7 @@ export const extractInHouseResources = (
     }
   }
 
-  const obsRefs = new Set(diagnosticReports.flatMap((dr) => dr.result?.map((r) => r.reference) ?? []));
-  const observations = allObservations.filter((obs) => obsRefs.has(`Observation/${obs.id}`));
+  const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
 
   return {
     serviceRequests,
