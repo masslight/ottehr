@@ -268,13 +268,20 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
               const currentTerminal = terminalRef.current as typeof window.StripeTerminal | null;
               // disconnectReader may not exist on all implementations; guard its usage.
               // Fire-and-forget; errors are logged but do not block state updates.
-
-              (currentTerminal as any)?.disconnectReader?.().catch((disconnectError: unknown) => {
-                console.error(
-                  'Error while disconnecting Stripe Terminal reader after unexpected disconnect:',
-                  disconnectError
-                );
-              });
+              const currentTerminal = terminalRef.current;
+              // disconnectReader may not exist on all implementations; guard its usage.
+              // Fire-and-forget; errors are logged but do not block state updates.
+              if ('disconnectReader' in currentTerminal && typeof currentTerminal.disconnectReader === 'function') {
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                currentTerminal
+                  .disconnectReader()
+                  .catch((disconnectError: unknown) => {
+                    console.error(
+                      'Error while disconnecting Stripe Terminal reader after unexpected disconnect:',
+                      disconnectError,
+                    );
+                  });
+              }
               terminalRef.current = null;
             }
           },
