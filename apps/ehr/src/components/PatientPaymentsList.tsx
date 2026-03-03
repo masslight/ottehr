@@ -147,7 +147,8 @@ export default function PatientPaymentList({
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
-  const hasCreditCardOnFile = hasCreditCardOnFileFromList ?? false;
+  const hasCreditCardOnFile = hasCreditCardOnFileFromList === true;
+  const showCardOnFileStatus = hasCreditCardOnFileFromList !== undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -458,61 +459,63 @@ export default function PatientPaymentList({
         <Typography variant="h4" color="primary.dark">
           Payer/Responsible for Claim
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 'auto' }}>
-          <Typography variant="caption" sx={{ color: cardStatusColors.dark, fontWeight: 600 }}>
-            {hasCreditCardOnFile ? 'credit card on file' : 'no credit card on file'}
-          </Typography>
-          <Box
-            sx={{
-              width: 20,
-              height: 20,
-              position: 'relative',
-              borderRadius: '50%',
-              backgroundColor: cardStatusColors.light,
-              border: `2px solid ${cardStatusColors.dark}`,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            aria-hidden="true"
-          >
-            {hasCreditCardOnFile ? (
-              <Box
-                component="span"
-                sx={{
-                  width: 8,
-                  height: 5,
-                  borderLeft: `2px solid ${cardStatusColors.dark}`,
-                  borderBottom: `2px solid ${cardStatusColors.dark}`,
-                  transform: 'rotate(-45deg) translateY(-1px)',
-                }}
-              />
-            ) : (
-              <>
+        {showCardOnFileStatus ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 'auto' }}>
+            <Typography variant="caption" sx={{ color: cardStatusColors.dark, fontWeight: 600 }}>
+              {hasCreditCardOnFile ? 'credit card on file' : 'no credit card on file'}
+            </Typography>
+            <Box
+              sx={{
+                width: 20,
+                height: 20,
+                position: 'relative',
+                borderRadius: '50%',
+                backgroundColor: cardStatusColors.light,
+                border: `2px solid ${cardStatusColors.dark}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              aria-hidden="true"
+            >
+              {hasCreditCardOnFile ? (
                 <Box
                   component="span"
                   sx={{
-                    position: 'absolute',
-                    width: 10,
-                    height: 0,
-                    borderTop: `2px solid ${cardStatusColors.dark}`,
-                    transform: 'rotate(45deg)',
+                    width: 8,
+                    height: 5,
+                    borderLeft: `2px solid ${cardStatusColors.dark}`,
+                    borderBottom: `2px solid ${cardStatusColors.dark}`,
+                    transform: 'rotate(-45deg) translateY(-1px)',
                   }}
                 />
-                <Box
-                  component="span"
-                  sx={{
-                    position: 'absolute',
-                    width: 10,
-                    height: 0,
-                    borderTop: `2px solid ${cardStatusColors.dark}`,
-                    transform: 'rotate(-45deg)',
-                  }}
-                />
-              </>
-            )}
+              ) : (
+                <>
+                  <Box
+                    component="span"
+                    sx={{
+                      position: 'absolute',
+                      width: 10,
+                      height: 0,
+                      borderTop: `2px solid ${cardStatusColors.dark}`,
+                      transform: 'rotate(45deg)',
+                    }}
+                  />
+                  <Box
+                    component="span"
+                    sx={{
+                      position: 'absolute',
+                      width: 10,
+                      height: 0,
+                      borderTop: `2px solid ${cardStatusColors.dark}`,
+                      transform: 'rotate(-45deg)',
+                    }}
+                  />
+                </>
+              )}
+            </Box>
           </Box>
-        </Box>
+        ) : null}
       </Box>
       <RadioGroup
         row
