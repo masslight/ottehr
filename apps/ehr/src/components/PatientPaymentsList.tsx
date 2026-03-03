@@ -267,7 +267,7 @@ export default function PatientPaymentList({
     return () => {
       cancelled = true;
     };
-  }, [oystehrZambda, patient?.id, appointment?.id, paymentData]);
+  }, [oystehrZambda, patient?.id, appointment?.id]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
