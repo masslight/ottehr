@@ -49669,7 +49669,7 @@
             {
               "system": "https://fhir.ottehr.com/CodeSystem/global-template-in-person",
               "code": "default",
-              "version": "460ac1c4",
+              "version": "062c8923",
               "display": "Global Template In-Person"
             }
           ]
@@ -50608,7 +50608,7 @@
             {
               "system": "https://fhir.ottehr.com/CodeSystem/global-template-in-person",
               "code": "default",
-              "version": "460ac1c4",
+              "version": "062c8923",
               "display": "Global Template In-Person"
             }
           ]
