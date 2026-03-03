@@ -248,7 +248,7 @@ describe('testing vitals config validation', () => {
       const nonAlertingHeartbeat: VitalsHeartbeatObservationDTO = {
         patientId: testPatient.id,
         field: VitalFieldNames.VitalHeartbeat,
-        value: 100,
+        value: 109, // this was 100, which caused an alert
         resourceId: randomUUID(),
       };
       const nonAlertingHeartbeatCriticality = getVitalObservationAlertLevel({
