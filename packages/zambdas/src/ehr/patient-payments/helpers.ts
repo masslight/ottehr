@@ -354,6 +354,7 @@ async function buildPaymentDTOs(
 
       const { cardBrand, cardLast4: last4 } = getCardDetails(stripePaymentMethod, paymentIntent);
       const dateISO = DateTime.fromISO(paymentNotice.created).toISO();
+      const amountInCents = Math.round((paymentNotice.amount.value ?? 0) * 100);
 
       if (!dateISO || !paymentNotice.id) {
         console.log('missing data for payment notice:', paymentNotice.id, 'dateISO', dateISO);
@@ -364,7 +365,7 @@ async function buildPaymentDTOs(
         return [
           {
             paymentMethod: 'card-reader',
-            amountInCents: (paymentNotice.amount.value ?? 0) * 100,
+            amountInCents,
             description: paymentIntent?.description ?? undefined,
             fhirPaymentNotificationId: paymentNotice.id,
             cardBrand,
@@ -378,7 +379,7 @@ async function buildPaymentDTOs(
         {
           paymentMethod: 'card' as const,
           stripePaymentId,
-          amountInCents: (paymentNotice.amount.value ?? 0) * 100,
+          amountInCents,
           description: paymentIntent?.description ?? undefined,
           stripePaymentMethodId: paymentMethodId,
           fhirPaymentNotificationId: paymentNotice.id,

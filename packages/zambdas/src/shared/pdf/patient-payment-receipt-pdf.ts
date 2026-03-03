@@ -195,7 +195,7 @@ async function getReceiptData(input: {
         stripeClient.paymentMethods.list(
           {
             customer: customerId,
-            type: 'card_present',
+            type: 'card_present' as Stripe.PaymentMethodListParams.Type,
           },
           { stripeAccount: stripeAccountId }
         ),

@@ -44,6 +44,7 @@ interface StripeTerminalInstance {
     location?: string;
   }) => Promise<StripeTerminalDiscoverReadersResult>;
   connectReader: (reader: StripeTerminalReader) => Promise<StripeTerminalConnectReaderResult>;
+  disconnectReader?: () => Promise<unknown>;
   collectPaymentMethod: (clientSecret: string) => Promise<StripeTerminalProcessPaymentResult>;
   processPayment: (paymentIntent: StripeTerminalPaymentIntent) => Promise<StripeTerminalProcessPaymentResult>;
 }
@@ -265,13 +266,10 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
 
             if (terminalRef.current) {
               // Best-effort cleanup of the disconnected reader and ref so reinitialization can occur.
-              const currentTerminal = terminalRef.current as typeof window.StripeTerminal | null;
-              // disconnectReader may not exist on all implementations; guard its usage.
-              // Fire-and-forget; errors are logged but do not block state updates.
               const currentTerminal = terminalRef.current;
               // disconnectReader may not exist on all implementations; guard its usage.
               // Fire-and-forget; errors are logged but do not block state updates.
-              if ('disconnectReader' in currentTerminal && typeof currentTerminal.disconnectReader === 'function') {
+              if (typeof currentTerminal.disconnectReader === 'function') {
                 currentTerminal.disconnectReader().catch((disconnectError: unknown) => {
                   console.error(
                     'Error while disconnecting Stripe Terminal reader after unexpected disconnect:',
