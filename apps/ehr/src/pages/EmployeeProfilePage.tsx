@@ -65,7 +65,7 @@ export default function EmployeeProfilePage(): JSX.Element {
       taskNotificationsEnabled,
       telemedNotificationsEnabled,
       method: notificationMethod,
-      phoneNumber,
+      phoneNumber: phoneNumber !== '' ? phoneNumber : undefined,
     };
     try {
       await updateNotificationSettingsMutation.mutateAsync(params);
