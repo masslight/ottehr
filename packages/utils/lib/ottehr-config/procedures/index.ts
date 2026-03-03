@@ -1,9 +1,9 @@
-import { ProceduresConfig, ProceduresConfigSchema } from 'config-types';
+import { PrepopulationEntry, ProceduresConfig, ProceduresConfigSchema } from 'config-types';
 import { PROCEDURES_CONFIG_OVERRIDE } from '../../../ottehr-config-overrides/procedures';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const DEFAULT_PROCEDURES_CONFIG = {
-  prepopulation: {},
+  prepopulation: {} as Record<string, PrepopulationEntry>,
   favorites: [
     {
       name: 'X-ray of knee; 3 views',
