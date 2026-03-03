@@ -3,6 +3,7 @@ import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
+  CPTCodeDTO,
   CPTCodeOption,
   getDosageUnitsAndRouteOfMedication,
   getLocationCodeFromMedicationAdministration,
@@ -152,6 +153,19 @@ export async function getCptHcpcsCodesToAddToChartData(
   });
 
   return codesOptionsToAdd;
+}
+
+export function getCptHcpcsCodesToDeleteFromChartData(
+  medication: Medication,
+  chartDataCptCodes: CPTCodeDTO[]
+): CPTCodeDTO[] {
+  const cptMedicationCodes = getAllCptCodesFromInHouseMedication(medication);
+  const hcpcsMedicationCodes = getAllHcpcsCodesFromInHouseMedication(medication);
+  const medicationCodesMerged = [...cptMedicationCodes, ...hcpcsMedicationCodes];
+
+  return chartDataCptCodes?.filter((chartCode) => {
+    return medicationCodesMerged.includes(chartCode.code);
+  });
 }
 
 export function getAllHcpcsCodesFromInHouseMedication(medication: Medication): string[] {
