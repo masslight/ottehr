@@ -613,7 +613,6 @@ export async function createInHouseLabResultPDF(
   }
 
   const inHouseLabResults = await getFormattedInHouseLabResults(
-    oystehr,
     activityDefinition,
     observations,
     specimen,
@@ -1547,7 +1546,6 @@ export const makeRelatedForLabsPDFDocRef = (input: LabDocRelatedReferenceInput):
 };
 
 const getFormattedInHouseLabResults = async (
-  oystehr: Oystehr,
   activityDefinition: ActivityDefinition,
   observations: Observation[],
   specimen: Specimen,
@@ -1684,7 +1682,6 @@ const getAdditionalResultsForRelated = async (
     const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
 
     const config = await getFormattedInHouseLabResults(
-      oystehr,
       relatedAd,
       observations,
       specimen,
