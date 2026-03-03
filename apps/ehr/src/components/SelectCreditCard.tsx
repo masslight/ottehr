@@ -15,9 +15,8 @@ import { FC, useState } from 'react';
 import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod';
 import { useSetupStripe } from 'src/hooks/useSetupStripe';
-import { AddCreditCardForm, loadStripe } from 'ui-components';
+import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
 import { CreditCardInfo } from 'utils';
-import CreditCardBrandIcon from './CreditCardBrandIcon';
 
 interface CardOption {
   id: string;

@@ -29,6 +29,7 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
+import { CreditCardBrandIcon } from 'ui-components';
 import {
   APIError,
   APIErrorCode,
@@ -49,7 +50,6 @@ import {
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import { sendReceiptByEmail } from '../api/api';
-import CreditCardBrandIcon from './CreditCardBrandIcon';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
 import { GenericToolTip } from './GenericToolTip';

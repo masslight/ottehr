@@ -13,14 +13,13 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { AddCreditCardForm, loadStripe } from 'ui-components';
+import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
 import { CreditCardInfo, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
-import CreditCardBrandIcon from './CreditCardBrandIcon';
 
 interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
