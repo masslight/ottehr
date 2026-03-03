@@ -25,19 +25,31 @@ const brandSvgMarkupMap: Record<string, string> = {
   diners: `<svg width="780" height="500" enable-background="new 0 0 780 500" version="1.1" viewBox="0 0 780 500" xml:space="preserve" xmlns="http://www.w3.org/2000/svg"><rect width="780" height="500" fill="#FFF" stroke-width="15px" stroke="#000"/><path d="m599.93 251.45c0-99.416-82.979-168.13-173.9-168.1h-78.241c-92.003-0.033-167.73 68.705-167.73 168.1 0 90.931 75.729 165.64 167.73 165.2h78.241c90.913 0.437 173.9-74.293 173.9-165.2z" fill="#0079BE"/><path d="m348.28 97.432c-84.069 0.026-152.19 68.308-152.22 152.58 0.021 84.258 68.145 152.53 152.22 152.56 84.088-0.025 152.23-68.301 152.24-152.56-0.011-84.274-68.15-152.55-152.24-152.58z" fill="#fff"/><path d="m252.07 249.6c0.08-41.18 25.747-76.296 61.94-90.25v180.48c-36.193-13.946-61.861-49.044-61.94-90.229zm131 90.275v-180.52c36.208 13.921 61.915 49.057 61.98 90.256-0.066 41.212-25.772 76.322-61.98 90.269z" fill="#0079BE"/></svg>`,
 };
 
-const brandIconUrlMap: Record<string, string> = {
-  visa: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.visa)}`,
-  mastercard: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.mastercard)}`,
-  amex: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.amex)}`,
-  discover: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.discover)}`,
-  unionpay: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.unionpay)}`,
-  jcb: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.jcb)}`,
-  diners: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.diners)}`,
-  'diners-club': `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.diners)}`,
-  dinersclub: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.diners)}`,
-  'american express': `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.amex)}`,
-  americanexpress: `data:image/svg+xml;utf8,${encodeURIComponent(brandSvgMarkupMap.amex)}`,
+const brandAliasMap: Record<string, string> = {
+  // Normalize common variants to the canonical keys used in brandSvgMarkupMap
+  'diners-club': 'diners',
+  dinersclub: 'diners',
+  'american express': 'amex',
+  americanexpress: 'amex',
 };
+
+function getBrandIconUrl(brand: string): string | undefined {
+  const normalizedBrand = brand.toLowerCase();
+  const canonicalKey = brandSvgMarkupMap[normalizedBrand]
+    ? normalizedBrand
+    : brandAliasMap[normalizedBrand];
+
+  if (!canonicalKey) {
+    return undefined;
+  }
+
+  const svgMarkup = brandSvgMarkupMap[canonicalKey];
+  if (!svgMarkup) {
+    return undefined;
+  }
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svgMarkup)}`;
+}
 
 function getCardPlaceholder(brand: string): { label: string; bg: string; fg: string } {
   const normalizedBrand = brand.toLowerCase();
@@ -45,8 +57,7 @@ function getCardPlaceholder(brand: string): { label: string; bg: string; fg: str
 }
 
 export default function CreditCardBrandIcon({ brand }: CreditCardBrandIconProps): ReactElement {
-  const normalizedBrand = brand.toLowerCase();
-  const iconUrl = brandIconUrlMap[normalizedBrand];
+  const iconUrl = getBrandIconUrl(brand);
 
   if (iconUrl) {
     return (
