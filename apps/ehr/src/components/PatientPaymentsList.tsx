@@ -52,6 +52,7 @@ import { sendReceiptByEmail } from '../api/api';
 import CreditCardBrandIcon from './CreditCardBrandIcon';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
+import { GenericToolTip } from './GenericToolTip';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
@@ -161,8 +162,19 @@ export default function PatientPaymentList({
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
-  const hasCreditCardOnFile = hasCreditCardOnFileFromList === true;
-  const showCardOnFileStatus = hasCreditCardOnFileFromList !== undefined;
+  const cardOnFileKnown = hasCreditCardOnFileFromList !== undefined;
+  const cardOnFileStatusStroke =
+    hasCreditCardOnFileFromList === true ? '#2E7D32' : hasCreditCardOnFileFromList === false ? '#8A1538' : '#90A4AE';
+  const cardOnFileStatusFill =
+    hasCreditCardOnFileFromList === true ? '#E8F5E9' : hasCreditCardOnFileFromList === false ? '#FBE9E7' : '#D9D9D9';
+  const cardOnFileStatusLabel =
+    hasCreditCardOnFileFromList === true
+      ? 'card on file'
+      : hasCreditCardOnFileFromList === false
+      ? 'no card on file'
+      : 'checking card on file';
+  const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
+  const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
 
   useEffect(() => {
     let cancelled = false;
@@ -256,16 +268,6 @@ export default function PatientPaymentList({
       cancelled = true;
     };
   }, [oystehrZambda, patient?.id, appointment?.id, paymentData]);
-
-  const cardStatusColors = hasCreditCardOnFile
-    ? {
-        light: '#E8F5E9',
-        dark: '#2E7D32',
-      }
-    : {
-        light: '#FBE9E7',
-        dark: '#8A1538',
-      };
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -475,63 +477,6 @@ export default function PatientPaymentList({
         <Typography variant="h4" color="primary.dark">
           Payer/Responsible for Claim
         </Typography>
-        {showCardOnFileStatus ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 'auto' }}>
-            <Typography variant="caption" sx={{ color: cardStatusColors.dark, fontWeight: 600 }}>
-              {hasCreditCardOnFile ? 'credit card on file' : 'no credit card on file'}
-            </Typography>
-            <Box
-              sx={{
-                width: 20,
-                height: 20,
-                position: 'relative',
-                borderRadius: '50%',
-                backgroundColor: cardStatusColors.light,
-                border: `2px solid ${cardStatusColors.dark}`,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              aria-hidden="true"
-            >
-              {hasCreditCardOnFile ? (
-                <Box
-                  component="span"
-                  sx={{
-                    width: 8,
-                    height: 5,
-                    borderLeft: `2px solid ${cardStatusColors.dark}`,
-                    borderBottom: `2px solid ${cardStatusColors.dark}`,
-                    transform: 'rotate(-45deg) translateY(-1px)',
-                  }}
-                />
-              ) : (
-                <>
-                  <Box
-                    component="span"
-                    sx={{
-                      position: 'absolute',
-                      width: 10,
-                      height: 0,
-                      borderTop: `2px solid ${cardStatusColors.dark}`,
-                      transform: 'rotate(45deg)',
-                    }}
-                  />
-                  <Box
-                    component="span"
-                    sx={{
-                      position: 'absolute',
-                      width: 10,
-                      height: 0,
-                      borderTop: `2px solid ${cardStatusColors.dark}`,
-                      transform: 'rotate(-45deg)',
-                    }}
-                  />
-                </>
-              )}
-            </Box>
-          </Box>
-        ) : null}
       </Box>
       <RadioGroup
         row
@@ -632,9 +577,89 @@ export default function PatientPaymentList({
       {stripeCustomerDeletedError && <StripeErrorAlert />}
       {!stripeCustomerDeletedError && (
         <>
-          <Typography variant="h5" color="primary.dark" sx={{ mt: 2 }}>
-            Patient Payments
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 2 }}>
+            <Typography variant="h5" color="primary.dark">
+              Patient Payments
+            </Typography>
+            <GenericToolTip
+              disableHoverListener={!cardOnFileKnown}
+              customWidth={220}
+              title={
+                cardOnFileKnown ? (
+                  <Box
+                    sx={{
+                      px: 1,
+                      py: 0.75,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      backgroundColor: 'transparent',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        px: 0.75,
+                        py: 0.25,
+                        borderRadius: 1,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.3px',
+                        color: hasCreditCardOnFileFromList === true ? '#2E7D32' : '#8A1538',
+                        backgroundColor: hasCreditCardOnFileFromList === true ? '#C8E6C9' : '#FFCDD2',
+                      }}
+                    >
+                      {cardOnFileChipLabel}
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#000000',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {cardOnFileTooltipText}
+                    </Typography>
+                  </Box>
+                ) : (
+                  ''
+                )
+              }
+            >
+              <Box sx={{ ml: 'auto', display: 'inline-flex', alignItems: 'center' }} aria-label={cardOnFileStatusLabel}>
+                <svg width="38" height="38" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect
+                    x="10"
+                    y="12"
+                    width="36"
+                    height="30"
+                    rx="5"
+                    fill={cardOnFileStatusFill}
+                    stroke={cardOnFileStatusStroke}
+                    strokeWidth="2"
+                  />
+                  <rect x="15" y="18" width="26" height="5" rx="1" fill={cardOnFileStatusStroke} opacity="0.7" />
+                  <rect x="15" y="27" width="12" height="4" rx="1" fill={cardOnFileStatusStroke} opacity="0.45" />
+                  {cardOnFileKnown && hasCreditCardOnFileFromList === true ? (
+                    <path
+                      d="M31 31L34.5 34.5L41 28"
+                      stroke={cardOnFileStatusStroke}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ) : null}
+                  {cardOnFileKnown && hasCreditCardOnFileFromList === false ? (
+                    <>
+                      <path d="M32 28L40 36" stroke={cardOnFileStatusStroke} strokeWidth="2" strokeLinecap="round" />
+                      <path d="M40 28L32 36" stroke={cardOnFileStatusStroke} strokeWidth="2" strokeLinecap="round" />
+                    </>
+                  ) : null}
+                </svg>
+              </Box>
+            </GenericToolTip>
+          </Box>
           <Table size="small" style={{ tableLayout: 'fixed' }}>
             <TableBody>
               {payments.length === 0 && !loading && (
