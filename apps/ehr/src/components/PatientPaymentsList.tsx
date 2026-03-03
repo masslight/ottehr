@@ -81,6 +81,20 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const formatUsd = (amount: number | string | undefined | null): string | null => {
+  if (amount === undefined || amount === null) return null;
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return null;
+  return usdFormatter.format(numericAmount);
+};
+
 export default function PatientPaymentList({
   loading,
   patient,
@@ -447,6 +461,8 @@ export default function PatientPaymentList({
   const isUrgentCare = serviceCategory === 'urgent-care';
   const isOccupationalMedicine = serviceCategory === 'occupational-medicine';
   const isWorkmansComp = serviceCategory === 'workers-comp';
+  const formattedCopayAmount = formatUsd(copayAmount?.amountInUSD);
+  const formattedRemainingDeductibleAmount = formatUsd(remainingDeductibleAmount?.amountInUSD);
 
   return (
     <Paper
@@ -577,13 +593,15 @@ export default function PatientPaymentList({
                 <TableRow>
                   <TableCell style={{ fontSize: '16px' }}>Copay</TableCell>
                   <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
-                    {copayAmount ? `$${copayAmount?.amountInUSD} / ${copayAmount?.periodDescription}` : 'Unknown'}
+                    {formattedCopayAmount && copayAmount?.periodDescription
+                      ? `${formattedCopayAmount} / ${copayAmount.periodDescription}`
+                      : 'Unknown'}
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ '&:last-child td': { borderBottom: 'none' } }}>
                   <TableCell style={{ fontSize: '16px' }}>Remaining Deductible</TableCell>
                   <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
-                    {remainingDeductibleAmount ? `$${remainingDeductibleAmount?.amountInUSD}` : 'Unknown'}
+                    {formattedRemainingDeductibleAmount ?? 'Unknown'}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -630,6 +648,7 @@ export default function PatientPaymentList({
               )}
               {payments.map((payment) => {
                 const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
+                const formattedPaymentAmount = formatUsd(payment.amountInCents / 100) ?? '$0.00';
                 return (
                   <Fragment key={idForPaymentDTO(payment)}>
                     <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
@@ -670,7 +689,7 @@ export default function PatientPaymentList({
                             {loading ? (
                               <Skeleton aria-busy="true" width={200} />
                             ) : (
-                              <Typography variant="body1">{`$${payment.amountInCents / 100}`}</Typography>
+                              <Typography variant="body1">{formattedPaymentAmount}</Typography>
                             )}
                           </Box>
                         </TableCell>

@@ -183,13 +183,28 @@ async function getReceiptData(input: {
       },
       { stripeAccount: stripeAccountId }
     ),
-    stripeClient.paymentMethods.list(
-      {
-        customer: customerId,
-        type: 'card',
-      },
-      { stripeAccount: stripeAccountId }
-    ),
+    (async () => {
+      const [cardPaymentMethods, cardPresentPaymentMethods] = await Promise.all([
+        stripeClient.paymentMethods.list(
+          {
+            customer: customerId,
+            type: 'card',
+          },
+          { stripeAccount: stripeAccountId }
+        ),
+        stripeClient.paymentMethods.list(
+          {
+            customer: customerId,
+            type: 'card_present',
+          },
+          { stripeAccount: stripeAccountId }
+        ),
+      ]);
+
+      return [...cardPaymentMethods.data, ...cardPresentPaymentMethods.data].filter(
+        (paymentMethod, index, allMethods) => allMethods.findIndex((pm) => pm.id === paymentMethod.id) === index
+      );
+    })(),
   ]);
   // find resources
   const resources = fhirBundle.unbundle();
@@ -212,7 +227,7 @@ async function getReceiptData(input: {
     paymentNotices,
     paymentIntents.data,
     customer,
-    paymentMethods.data,
+    paymentMethods,
     lastOperationPaymentIntent
   );
 
@@ -436,16 +451,48 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     const firstColumnWidth = tableWidth / 2;
     const otherColumnWidth = tableWidth / 4;
     const initialLeftBound = pdfClient.getLeftBound();
+    const usdFormatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const formatUsd = (amount: number): string => {
+      const numericAmount = Number(amount);
+      if (!Number.isFinite(numericAmount)) return '$0.00';
+      return usdFormatter.format(numericAmount);
+    };
     let totalAmount = 0;
 
     drawBlockHeader('Payments');
 
     // Payments list
     receiptData.payments.forEach((payment) => {
-      let cardText = `Card ending ${payment.last4}`;
+      const formattedBrand = payment.brand
+        ? `${payment.brand.charAt(0).toUpperCase()}${payment.brand.slice(1)}`
+        : 'Card';
+      const formattedLast4 = payment.last4 ?? '••••';
+      let cardText = `${formattedBrand} •••• ${formattedLast4}`;
       if (payment.isPrimary) cardText += ' (Primary)';
-      const paymentMethodText = payment.method === 'card' ? cardText : capitalize(payment.method);
-      totalAmount += payment.amount;
+      let paymentMethodText: string;
+      switch (payment.method) {
+        case 'card':
+        case 'card-reader':
+          paymentMethodText = cardText;
+          break;
+        case 'external-card-reader':
+          paymentMethodText = 'Card Reader';
+          break;
+        case 'cash':
+          paymentMethodText = 'Cash';
+          break;
+        case 'check':
+          paymentMethodText = 'Check';
+          break;
+        default:
+          paymentMethodText = capitalize(payment.method);
+      }
+      totalAmount += Number(payment.amount) || 0;
 
       pdfClient.setRightBound(initialLeftBound + firstColumnWidth);
       writeText(paymentMethodText, { noNewLineAfter: true, spacing: 0 });
@@ -457,7 +504,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       pdfClient.setLeftBound(initialLeftBound + firstColumnWidth + otherColumnWidth);
       pdfClient.setRightBound(initialLeftBound + firstColumnWidth + otherColumnWidth * 2);
 
-      writeText(`$ ${payment.amount}`, { side: 'right' });
+      writeText(formatUsd(payment.amount), { side: 'right' });
       pdfClient.setLeftBound(initialLeftBound);
       const grayLine = { ...GREY_LINE_STYLE };
       grayLine.margin = { top: 5, bottom: 1 };
@@ -466,7 +513,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
 
     // Totals
     writeText(`Total:`, { noNewLineAfter: true, bold: true });
-    writeText(`$ ${totalAmount}`, { side: 'right', bold: true });
+    writeText(formatUsd(totalAmount), { side: 'right', bold: true });
   };
 
   drawHeadline();

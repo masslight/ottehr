@@ -20,6 +20,7 @@ import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
+import CreditCardBrandIcon from './CreditCardBrandIcon';
 
 interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
@@ -183,6 +184,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
           onChange={(e) => onMakePrimary(e.target.value)}
         >
           {cards.map((item) => {
+            const formattedBrand = item.brand ? `${item.brand.charAt(0).toUpperCase()}${item.brand.slice(1)}` : 'Card';
             return (
               <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <FormControlLabel
@@ -199,12 +201,19 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
                     <Box
                       sx={{
                         display: 'flex',
-                        // flexDirection: 'row',
-                        justifyContent: 'space-between',
+                        justifyContent: 'flex-start',
                         alignItems: 'center',
+                        gap: 1,
                       }}
                     >
-                      <Typography data-testid={dataTestIds.cardNumber}>XXXX - XXXX - XXXX - {item.lastFour}</Typography>
+                      {item.brand && (
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <CreditCardBrandIcon brand={item.brand} />
+                        </Box>
+                      )}
+                      <Typography
+                        data-testid={dataTestIds.cardNumber}
+                      >{`${formattedBrand} •••• ${item.lastFour}`}</Typography>
                     </Box>
                   }
                   sx={{
