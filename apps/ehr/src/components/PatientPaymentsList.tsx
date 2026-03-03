@@ -113,7 +113,8 @@ export default function PatientPaymentList({
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
-  const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean | undefined>(undefined);
+  const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean>(false);
+  const [cardOnFileKnown, setCardOnFileKnown] = useState<boolean>(false);
 
   const {
     data: encounter,
@@ -162,17 +163,13 @@ export default function PatientPaymentList({
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
-  const cardOnFileKnown = hasCreditCardOnFileFromList !== undefined;
-  const cardOnFileStatusStroke =
-    hasCreditCardOnFileFromList === true ? '#2E7D32' : hasCreditCardOnFileFromList === false ? '#8A1538' : '#90A4AE';
-  const cardOnFileStatusFill =
-    hasCreditCardOnFileFromList === true ? '#E8F5E9' : hasCreditCardOnFileFromList === false ? '#FBE9E7' : '#D9D9D9';
-  const cardOnFileStatusLabel =
-    hasCreditCardOnFileFromList === true
+  const cardOnFileStatusStroke = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#2E7D32' : '#8A1538') : '#90A4AE';
+  const cardOnFileStatusFill = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#E8F5E9' : '#FBE9E7') : '#D9D9D9';
+  const cardOnFileStatusLabel = cardOnFileKnown
+    ? hasCreditCardOnFileFromList
       ? 'card on file'
-      : hasCreditCardOnFileFromList === false
-      ? 'no card on file'
-      : 'checking card on file';
+      : 'no card on file'
+    : 'checking card on file';
   const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
   const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
 
@@ -186,21 +183,19 @@ export default function PatientPaymentList({
       return undefined;
     };
 
-    const deriveCardOnFileStatus = (output: unknown): boolean | undefined => {
+    const deriveCardOnFileStatus = (output: unknown): boolean => {
       if (!output || typeof output !== 'object') {
-        return undefined;
+        return false;
       }
 
       const response = output as Record<string, unknown>;
       if (!Array.isArray(response.cards)) {
-        return undefined;
+        return false;
       }
 
       const allCards = response.cards as unknown[];
       if (allCards.length === 0) {
-        // Backend may return an empty array even when cards exist but no default is set.
-        // Treat this as "unknown" rather than "no card on file".
-        return undefined;
+        return false;
       }
 
       let hasAnyDefaultFlag = false;
@@ -241,7 +236,8 @@ export default function PatientPaymentList({
 
     const fetchCardStatus = async (): Promise<void> => {
       if (!oystehrZambda || !patient?.id) {
-        setHasCreditCardOnFileFromList(undefined);
+        setCardOnFileKnown(false);
+        setHasCreditCardOnFileFromList(false);
         return;
       }
 
@@ -255,11 +251,13 @@ export default function PatientPaymentList({
         const derivedStatus = deriveCardOnFileStatus(result.output);
         if (!cancelled) {
           setHasCreditCardOnFileFromList(derivedStatus);
+          setCardOnFileKnown(true);
         }
       } catch (error) {
         console.error('Failed to determine card-on-file status from payment-methods-list', error);
         if (!cancelled) {
-          setHasCreditCardOnFileFromList(undefined);
+          setCardOnFileKnown(false);
+          setHasCreditCardOnFileFromList(false);
         }
       }
     };
