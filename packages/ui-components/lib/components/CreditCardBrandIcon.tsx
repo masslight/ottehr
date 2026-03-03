@@ -32,20 +32,17 @@ const brandAliasMap: Record<string, string> = {
   americanexpress: 'amex',
 };
 
+const brandDataUrlMap: Record<string, string> = Object.fromEntries(
+  Object.entries(brandSvgMarkupMap).map(([key, svg]) => [key, `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`])
+);
+
 function getBrandIconUrl(brand: string): string | undefined {
   const normalizedBrand = brand.toLowerCase();
-  const canonicalKey = brandSvgMarkupMap[normalizedBrand] ? normalizedBrand : brandAliasMap[normalizedBrand];
-
+  const canonicalKey = brandDataUrlMap[normalizedBrand] ? normalizedBrand : brandAliasMap[normalizedBrand];
   if (!canonicalKey) {
     return undefined;
   }
-
-  const svgMarkup = brandSvgMarkupMap[canonicalKey];
-  if (!svgMarkup) {
-    return undefined;
-  }
-
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svgMarkup)}`;
+  return brandDataUrlMap[canonicalKey];
 }
 
 function getCardPlaceholder(brand: string): { label: string; bg: string; fg: string } {
