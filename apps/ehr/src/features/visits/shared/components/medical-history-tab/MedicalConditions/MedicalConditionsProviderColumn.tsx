@@ -305,7 +305,7 @@ const AddMedicalConditionField: FC = () => {
     favorite: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.favorites)[number]
   ): Promise<void> => {
     const favoriteAsIcdCode: IcdSearchResponseOptionalCode = {
-      code: favorite.code,
+      code: 'code' in favorite ? favorite.code : undefined,
       display: favorite.display,
     };
     await handleSelectOption(favoriteAsIcdCode);
@@ -329,7 +329,10 @@ const AddMedicalConditionField: FC = () => {
     >
       <SelectFromFavoritesButton
         favorites={MEDICAL_HISTORY_CONFIG.medicalConditions.favorites}
-        getLabel={(favorite) => `${favorite.code ? `${favorite.code} ` : ''}${favorite.display}`}
+        getLabel={(favorite) => {
+          const code = 'code' in favorite ? favorite.code : '';
+          return `${code}${favorite.display}`;
+        }}
         onSelect={handleFavoriteSelect}
         disabled={isChartDataLoading || isLoading}
       />

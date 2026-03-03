@@ -234,7 +234,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             <SelectFromFavoritesButton
               favorites={favoritesInHouseMedicationsList}
               getLabel={(favorite) => {
-                const parts = [favorite.name];
+                const parts = [favorite.name] as string[];
                 if (favorite.dose != null && favorite.units != null) {
                   parts.push(`${favorite.dose} ${favorite.units}`);
                 } else if (favorite.dose != null) {

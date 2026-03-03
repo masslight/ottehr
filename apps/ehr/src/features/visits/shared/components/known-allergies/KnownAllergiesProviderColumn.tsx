@@ -320,9 +320,9 @@ const AddAllergyField: FC = () => {
   const handleFavoriteSelect = async (
     favorite: (typeof MEDICAL_HISTORY_CONFIG.allergies.favorites)[number]
   ): Promise<void> => {
-    const favoriteAsAllergy: ExtractObjectType<ErxSearchAllergensResponse> = {
+    const favoriteAsAllergy = {
       name: favorite.name,
-      id: favorite.id,
+      id: 'id' in favorite ? favorite.id : undefined,
     } as ExtractObjectType<ErxSearchAllergensResponse>;
     await handleSelectOption(favoriteAsAllergy);
   };
