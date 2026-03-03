@@ -23,7 +23,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Appointment, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, Fragment, ReactElement, useState } from 'react';
+import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -98,6 +98,7 @@ export default function PatientPaymentList({
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
+  const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean | undefined>(undefined);
 
   const {
     data: encounter,
@@ -145,6 +146,111 @@ export default function PatientPaymentList({
   }
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
+
+  const hasCreditCardOnFile = hasCreditCardOnFileFromList ?? false;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const getBooleanFlag = (candidate: unknown): boolean | undefined => {
+      if (typeof candidate === 'boolean') {
+        return candidate;
+      }
+      return undefined;
+    };
+
+    const deriveCardOnFileStatus = (output: unknown): boolean | undefined => {
+      if (!output || typeof output !== 'object') {
+        return undefined;
+      }
+
+      const response = output as Record<string, unknown>;
+      if (!Array.isArray(response.cards)) {
+        return undefined;
+      }
+
+      const allCards = response.cards as unknown[];
+      if (allCards.length === 0) {
+        return false;
+      }
+
+      let hasAnyDefaultFlag = false;
+      let hasDefaultOrPrimary = false;
+
+      allCards.forEach((card) => {
+        if (!card || typeof card !== 'object') {
+          return;
+        }
+
+        const cardObj = card as Record<string, unknown>;
+        const possibleFlags = [
+          cardObj.default,
+          cardObj.isDefault,
+          cardObj.is_default,
+          cardObj.primary,
+          cardObj.isPrimary,
+          cardObj.is_primary,
+        ];
+
+        possibleFlags.forEach((flag) => {
+          const boolFlag = getBooleanFlag(flag);
+          if (boolFlag !== undefined) {
+            hasAnyDefaultFlag = true;
+            if (boolFlag) {
+              hasDefaultOrPrimary = true;
+            }
+          }
+        });
+      });
+
+      if (hasAnyDefaultFlag) {
+        return hasDefaultOrPrimary;
+      }
+
+      return true;
+    };
+
+    const fetchCardStatus = async (): Promise<void> => {
+      if (!oystehrZambda || !patient?.id) {
+        setHasCreditCardOnFileFromList(undefined);
+        return;
+      }
+
+      try {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'payment-methods-list',
+          beneficiaryPatientId: patient.id,
+          appointmentId: appointment?.id,
+        });
+
+        const derivedStatus = deriveCardOnFileStatus(result.output);
+        if (!cancelled) {
+          setHasCreditCardOnFileFromList(derivedStatus);
+        }
+      } catch (error) {
+        console.error('Failed to determine card-on-file status from payment-methods-list', error);
+        if (!cancelled) {
+          setHasCreditCardOnFileFromList(undefined);
+        }
+      }
+    };
+
+    void fetchCardStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [oystehrZambda, patient?.id, appointment?.id, paymentData]);
+
+  const cardStatusColors = hasCreditCardOnFile
+    ? {
+        light: '#E8F5E9',
+        dark: '#2E7D32',
+      }
+    : {
+        light: '#FBE9E7',
+        dark: '#8A1538',
+      };
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -348,9 +454,66 @@ export default function PatientPaymentList({
         padding: 3,
       }}
     >
-      <Typography variant="h4" color="primary.dark">
-        Payer/Responsible for Claim
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Typography variant="h4" color="primary.dark">
+          Payer/Responsible for Claim
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 'auto' }}>
+          <Typography variant="caption" sx={{ color: cardStatusColors.dark, fontWeight: 600 }}>
+            {hasCreditCardOnFile ? 'credit card on file' : 'no credit card on file'}
+          </Typography>
+          <Box
+            sx={{
+              width: 20,
+              height: 20,
+              position: 'relative',
+              borderRadius: '50%',
+              backgroundColor: cardStatusColors.light,
+              border: `2px solid ${cardStatusColors.dark}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            aria-hidden="true"
+          >
+            {hasCreditCardOnFile ? (
+              <Box
+                component="span"
+                sx={{
+                  width: 8,
+                  height: 5,
+                  borderLeft: `2px solid ${cardStatusColors.dark}`,
+                  borderBottom: `2px solid ${cardStatusColors.dark}`,
+                  transform: 'rotate(-45deg) translateY(-1px)',
+                }}
+              />
+            ) : (
+              <>
+                <Box
+                  component="span"
+                  sx={{
+                    position: 'absolute',
+                    width: 10,
+                    height: 0,
+                    borderTop: `2px solid ${cardStatusColors.dark}`,
+                    transform: 'rotate(45deg)',
+                  }}
+                />
+                <Box
+                  component="span"
+                  sx={{
+                    position: 'absolute',
+                    width: 10,
+                    height: 0,
+                    borderTop: `2px solid ${cardStatusColors.dark}`,
+                    transform: 'rotate(-45deg)',
+                  }}
+                />
+              </>
+            )}
+          </Box>
+        </Box>
+      </Box>
       <RadioGroup
         row
         name="options"
