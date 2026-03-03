@@ -272,15 +272,12 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
               // disconnectReader may not exist on all implementations; guard its usage.
               // Fire-and-forget; errors are logged but do not block state updates.
               if ('disconnectReader' in currentTerminal && typeof currentTerminal.disconnectReader === 'function') {
-                // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                currentTerminal
-                  .disconnectReader()
-                  .catch((disconnectError: unknown) => {
-                    console.error(
-                      'Error while disconnecting Stripe Terminal reader after unexpected disconnect:',
-                      disconnectError,
-                    );
-                  });
+                currentTerminal.disconnectReader().catch((disconnectError: unknown) => {
+                  console.error(
+                    'Error while disconnecting Stripe Terminal reader after unexpected disconnect:',
+                    disconnectError
+                  );
+                });
               }
               terminalRef.current = null;
             }
@@ -295,28 +292,10 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           discoverOptions.location = terminalConfig.terminalLocationId;
         }
 
-        console.log(
-          'Discovering terminal readers by location/default',
-          JSON.stringify({ terminalConfig, discoverOptions }, null, 2)
-        );
         const discoveryResult = await terminal.discoverReaders(discoverOptions);
         if (discoveryResult.error) {
           throw new Error(discoveryResult.error.message ?? 'Unable to discover terminal readers.');
         }
-
-        console.log('Discovered readers', JSON.stringify(discoveryResult.discoveredReaders, null, 2));
-        console.log(
-          'Discovered reader location info',
-          JSON.stringify(
-            discoveryResult.discoveredReaders.map((reader) => ({
-              readerId: reader.id,
-              readerLabel: reader.label,
-              location: reader.location,
-            })),
-            null,
-            2
-          )
-        );
 
         if (!discoveryResult.discoveredReaders.length) {
           throw new Error('No terminal readers were discovered.');
