@@ -254,10 +254,13 @@ export async function getChartData(
     chartDataRequests.push(...labRequests);
   }
 
-  // old code (but we don't have 'procedures' in requestedFields fields currently):
-  // if ((!requestedFields || requestedFields.procedures) && encounter.id) {
-  if (!requestedFields && encounter.id) {
-    chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
+  // procedures can be requested with custom search params (e.g., multiple encounters)
+  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+    const proceduresSearchParams = requestedFields?.procedures;
+    // Check if encounterIds are provided in search params for batch request
+    const encounterIdsParam = proceduresSearchParams?.encounterIds;
+    const encounterIds = encounterIdsParam || encounter.id;
+    chartDataRequests.push(configProceduresRequestsForGetChartData(encounterIds));
   }
 
   if (requestedFields?.preferredPharmacies) {

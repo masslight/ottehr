@@ -191,11 +191,11 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   }
 
   if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
-    let stringSchema = Yup.string();
+    // Apply .oneOf() first, then .required() - order matters because .oneOf() allows undefined by default
+    let stringSchema = Yup.string().oneOf(item.answerOption.map((option) => option.valueString));
     if (required) {
       stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
-    stringSchema = stringSchema.oneOf(item.answerOption.map((option) => option.valueString));
     let schema = Yup.object({
       valueString: stringSchema,
     });
