@@ -405,14 +405,17 @@ const makeCptCodeDTOsFromActivityDefinition = (
   return cptCodeDTOs;
 };
 
-const configModifiersArrayFromExtension = (modifierExtension: Extension[] | undefined): string[] | undefined => {
+const configModifiersArrayFromExtension = (
+  modifierExtension: Extension[] | undefined
+): { code: string; display: string }[] | undefined => {
   if (modifierExtension === undefined || modifierExtension.length === 0) return;
 
-  const modifiers: string[] = [];
+  const modifiers: { code: string; display: string }[] = [];
   modifierExtension.forEach((ext) => {
     ext.valueCodeableConcept?.coding?.forEach((c) => {
       if (c.system === CODE_SYSTEM_CPT_MODIFIER && typeof c.code === 'string') {
-        modifiers.push(c.code);
+        const mod = { code: c.code, display: c.display ?? '' };
+        modifiers.push(mod);
       }
     });
   });

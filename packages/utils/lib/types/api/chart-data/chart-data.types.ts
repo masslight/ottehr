@@ -298,7 +298,7 @@ export type AiObservationDTO = {
 export interface CPTCodeDTO extends SaveableDTO {
   code: string;
   display: string;
-  modifier?: string[];
+  modifier?: { code: string; display: string }[];
 }
 
 export const clinicalImpressionDTOSchema = z.object({
