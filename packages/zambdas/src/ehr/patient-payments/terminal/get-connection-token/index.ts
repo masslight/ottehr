@@ -45,9 +45,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
     const { stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
-
-    console.log('\n\n\n>>>>>>> ZING >>>> STRIPE account\n\n\n ', stripeAccount);
-
     const stripeClient = getStripeClient(input.secrets);
     const connectionToken = await stripeClient.terminal.connectionTokens.create(
       {},
@@ -55,8 +52,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         stripeAccount,
       }
     );
-
-    console.log('\n\n\n>>>>>>> ZING >>>> STRIPE connection token\n\n\n ', JSON.stringify(connectionToken, null, 2));
 
     const response: GetPatientPaymentTerminalConnectionTokenResponse = {
       connectionToken: connectionToken.secret,
