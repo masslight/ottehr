@@ -4,6 +4,7 @@ import {
   DiagnosticReport,
   DocumentReference,
   List,
+  Observation,
   Patient,
   QuestionnaireResponse,
   Reference,
@@ -120,6 +121,20 @@ export const getContainedPatientFromDiagnosticReport = (diagnosticReport: Diagno
   if (!containedPatient) return;
 
   return containedPatient as Patient;
+};
+
+/**
+ * the function will return the subset of the array of observations passed that are contained in the diagnostic reports' results
+ * @param observations - array of observations
+ * @param diagnosticReports - array of diagnosticReports
+ */
+export const getObservationsForDiagnosticReportResults = (
+  allObservations: Observation[],
+  diagnosticReports: DiagnosticReport[]
+): Observation[] => {
+  const obsRefs = new Set(diagnosticReports.flatMap((dr) => dr.result?.map((r) => r.reference) ?? []));
+  const observations = allObservations.filter((obs) => obsRefs.has(`Observation/${obs.id}`));
+  return observations;
 };
 
 /**
