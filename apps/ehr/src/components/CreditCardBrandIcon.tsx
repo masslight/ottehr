@@ -35,9 +35,7 @@ const brandAliasMap: Record<string, string> = {
 
 function getBrandIconUrl(brand: string): string | undefined {
   const normalizedBrand = brand.toLowerCase();
-  const canonicalKey = brandSvgMarkupMap[normalizedBrand]
-    ? normalizedBrand
-    : brandAliasMap[normalizedBrand];
+  const canonicalKey = brandSvgMarkupMap[normalizedBrand] ? normalizedBrand : brandAliasMap[normalizedBrand];
 
   if (!canonicalKey) {
     return undefined;

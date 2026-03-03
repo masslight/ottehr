@@ -121,8 +121,7 @@ const validateRequestParameters = (input: ZambdaInput): InitiatePatientPaymentTe
     throw INVALID_INPUT_ERROR('"encounterId" must be a valid UUID.');
   }
 
-  const verifiedAmountInCents =
-    typeof amountInCents === 'number' ? amountInCents : Number(amountInCents);
+  const verifiedAmountInCents = typeof amountInCents === 'number' ? amountInCents : Number(amountInCents);
   if (
     !Number.isFinite(verifiedAmountInCents) ||
     !Number.isInteger(verifiedAmountInCents) ||
