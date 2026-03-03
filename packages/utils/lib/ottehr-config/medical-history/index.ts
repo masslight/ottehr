@@ -108,42 +108,19 @@ const MEDICAL_HISTORY_DEFAULTS = {
   },
   allergies: {
     favorites: [
-      {
-        name: 'Amoxicillin',
-      },
-      {
-        name: 'Augmentin',
-      },
-      {
-        name: 'Azithromycin',
-      },
-      {
-        name: 'Sulfa/Bactrim',
-      },
-      {
-        name: 'Codeine',
-      },
-      {
-        name: 'Nsaids',
-      },
-      {
-        name: 'Tylenol',
-      },
-      {
-        name: 'Levaquin',
-      },
-      {
-        name: 'Ciprofloxacin',
-      },
-      {
-        name: 'Zofran',
-      },
-      {
-        name: 'Keflex',
-      },
-      {
-        name: 'Clindamycin',
-      },
+      { name: 'Acetaminophen', id: 26 },
+      { name: 'Amoxicillin', id: 138 },
+      { name: 'Amoxicillin / Clavulanate', id: 250 },
+      { name: 'Aspirin', id: 229 },
+      { name: 'Azithromycin', id: 285 },
+      { name: 'Cephalexin', id: 545 },
+      { name: 'Ciprofloxacin', id: 605 },
+      { name: 'Clindamycin', id: 622 },
+      { name: 'Codeine', id: 647 },
+      { name: 'Levofloxacin', id: 1717 },
+      { name: 'Ibuprofen', id: 1469 },
+      { name: 'Naproxen', id: 2047 },
+      { name: 'Sulfamethoxazole / Trimethoprim', id: 293 },
     ],
   },
   medications: {

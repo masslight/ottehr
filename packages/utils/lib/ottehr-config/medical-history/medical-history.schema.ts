@@ -7,7 +7,7 @@ const MedicalConditionFavoriteSchema = z.object({
 
 const AllergyFavoriteSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  id: z.number().optional(),
+  id: z.number(),
 });
 
 const MedicationFavoriteSchema = z.object({
