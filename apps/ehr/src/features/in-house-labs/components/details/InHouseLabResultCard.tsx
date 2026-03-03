@@ -105,7 +105,11 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
                 <Typography variant="body2">
                   {formatDateForLabs(testDetails.orderAddedDate, testDetails.timezone)}
                 </Typography>
-                <InHouseLabsStatusChip status={testDetails.status} additionalStyling={{ height: '24px' }} />
+                <InHouseLabsStatusChip
+                  testId={dataTestIds.performTestPage.status}
+                  status={testDetails.status}
+                  additionalStyling={{ height: '24px' }}
+                />
               </Box>
             </Box>
 
