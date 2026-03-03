@@ -285,25 +285,27 @@ export default function ({
                 error={formState.errors.creditCard?.message}
               />
             </Box>
-            <Box
-              sx={{
-                display: paymentMethod === 'card-reader' ? 'initial' : 'none',
-              }}
-            >
-              <CardReaderTerminal
-                ref={cardReaderTerminalRef}
-                patient={patient}
-                appointmentId={appointmentId}
-                selectedCardId={creditCard ?? ''}
-                handleCardSelected={(newVal: string | undefined) => {
-                  setValue('creditCard', newVal ?? '');
+            {paymentMethod === 'card-reader' && (
+              <Box
+                sx={{
+                  display: 'initial',
                 }}
-                error={formState.errors.creditCard?.message}
-                encounterId={encounterId}
-                onTerminalConfiguredChange={handleTerminalConfiguredChange}
-                onReaderConnectionChange={handleTerminalReaderConnectionChange}
-              />
-            </Box>
+              >
+                <CardReaderTerminal
+                  ref={cardReaderTerminalRef}
+                  patient={patient}
+                  appointmentId={appointmentId}
+                  selectedCardId={creditCard ?? ''}
+                  handleCardSelected={(newVal: string | undefined) => {
+                    setValue('creditCard', newVal ?? '');
+                  }}
+                  error={formState.errors.creditCard?.message}
+                  encounterId={encounterId}
+                  onTerminalConfiguredChange={handleTerminalConfiguredChange}
+                  onReaderConnectionChange={handleTerminalReaderConnectionChange}
+                />
+              </Box>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
