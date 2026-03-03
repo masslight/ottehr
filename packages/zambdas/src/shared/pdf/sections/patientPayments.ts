@@ -19,7 +19,10 @@ export const composePatientPaymentsData: DataComposer<PatientPaymentsDataInput, 
       const formattedBrand = payment.cardBrand ? capitalize(payment.cardBrand) : 'Card';
       label = `${formattedBrand} •••• ${payment.cardLast4}`;
     } else {
-      label = capitalize(payment.paymentMethod);
+      label =
+        payment.paymentMethod === 'card-reader' || payment.paymentMethod === 'external-card-reader'
+          ? 'Card Reader'
+          : capitalize(payment.paymentMethod);
     }
 
     const amount = `$${payment.amountInCents / 100}`;
