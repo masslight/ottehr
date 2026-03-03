@@ -8,7 +8,6 @@ import {
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  NOT_AUTHORIZED,
   SecretsKeys,
 } from 'utils';
 import {
@@ -28,11 +27,6 @@ const SIMULATION_TERMINAL_LOCATION_VALUES = new Set(['sim', 'simulated', 'simula
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const authorization = input.headers.Authorization;
-    if (!authorization) {
-      throw NOT_AUTHORIZED;
-    }
-
     const validatedParameters = validateRequestParameters(input);
 
     if (!oystehrM2MClientToken) {
