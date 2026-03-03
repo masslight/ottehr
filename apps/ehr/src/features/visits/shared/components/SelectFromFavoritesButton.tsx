@@ -49,7 +49,7 @@ export const SelectFromFavoritesButton = <T,>({
           mb: 0.5,
         }}
       >
-        Select from favorite
+        Select from Quick Picks
       </Button>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
         {favorites.map((item, index) => (
