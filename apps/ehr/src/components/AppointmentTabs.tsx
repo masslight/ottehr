@@ -3,7 +3,7 @@ import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useState } from 'react';
+import React, { ReactElement, useCallback, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
@@ -66,7 +66,7 @@ export default function AppointmentTabs({
       setNow(DateTime.now());
     }
 
-    const timeInterval = setInterval(updateTime, 1000);
+    const timeInterval = setInterval(updateTime, 60000);
     // Call updateTime so we don't need to wait for it to be called
     updateTime();
 
@@ -102,20 +102,23 @@ export default function AppointmentTabs({
     </Grid>
   );
 
-  const renderAppointmentTable = (appointments: InPersonAppointmentInformation[]): ReactElement => {
-    return (
-      <AppointmentTable
-        appointments={appointments}
-        orders={orders}
-        vitals={vitals}
-        location={location}
-        tab={value}
-        now={now}
-        updateAppointments={updateAppointments}
-        setEditingComment={setEditingComment}
-      />
-    );
-  };
+  const renderAppointmentTable = useCallback(
+    (appointments: InPersonAppointmentInformation[]): ReactElement => {
+      return (
+        <AppointmentTable
+          appointments={appointments}
+          orders={orders}
+          vitals={vitals}
+          location={location}
+          tab={value}
+          now={now}
+          updateAppointments={updateAppointments}
+          setEditingComment={setEditingComment}
+        />
+      );
+    },
+    [orders, vitals, location, value, now, updateAppointments, setEditingComment]
+  );
 
   return (
     <Box sx={{ width: '100%', marginTop: 3 }}>

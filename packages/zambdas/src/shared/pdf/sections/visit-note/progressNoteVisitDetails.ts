@@ -4,6 +4,8 @@ import {
   formatDateTimeToZone,
   formatFhirEncounterToPatientFollowupDetails,
   getAdmitterPractitionerId,
+  getAppointmentServiceCategoryAbbreviation,
+  getAppointmentType,
   getAttendingPractitionerId,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
@@ -65,6 +67,8 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
     };
   } else {
     const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);
+    const { type } = getAppointmentType(appointment);
+    const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
     const reasonForVisit = appointment?.description ?? '';
     let providerName: string;
     let intakePersonName: string | undefined = undefined;
@@ -94,6 +98,8 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
 
     return {
       visitType: 'initial',
+      type,
+      serviceCategory,
       dateOfService: dateOfService ?? '',
       reasonForVisit,
       provider: providerName,
@@ -132,6 +138,10 @@ export const createProgressNoteVisitDetailsSection = <
           drawFieldLine(client, styles, { label: 'Comment', value: data.message });
         }
       } else {
+        if (data.type) {
+          const typeAndServiceCategory = [data.type, data.serviceCategory].filter(Boolean).join(' | ');
+          drawFieldLine(client, styles, { label: 'Type', value: typeAndServiceCategory });
+        }
         drawFieldLine(client, styles, { label: 'Date of Service', value: data.dateOfService });
         drawFieldLine(client, styles, { label: 'Reason for Visit', value: data.reasonForVisit });
         drawFieldLine(client, styles, { label: 'Provider', value: data.provider });

@@ -41,10 +41,12 @@ import { AssetPaths, DischargeSummaryData, DischargeSummaryInput, PdfResult } fr
 const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, DischargeSummaryData> = (input) => {
   const { allChartData, appointmentPackage } = input;
   const { appointment, location, timezone } = appointmentPackage;
+  const visit = composeVisitData({ appointment, location, timezone });
+  visit.serviceCategory = undefined;
   const workSchoolExcuse = composeWorkSchoolExcuseSection({ allChartData });
   return {
     patient: composePatientInformationForDischargeSummary({ appointmentPackage }),
-    visit: composeVisitData({ appointment, location, timezone }),
+    visit,
     vitals: composeVitalsForDischargeSummary({ allChartData }),
     medications: composeMedications({ allChartData }),
     allergies: composeAllergies({ allChartData }),

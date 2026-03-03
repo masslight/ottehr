@@ -1567,6 +1567,7 @@ export function makeProceduresDTOFromFhirResources(
   return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
     return {
       resourceId: serviceRequests.id,
+      encounterId: serviceRequests.encounter?.reference?.split('/')[1],
       procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
       cptCodes: cptCodeProcedures
         .filter(

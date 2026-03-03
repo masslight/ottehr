@@ -914,7 +914,7 @@ export default function AppointmentTableRow({
       </TableCell>
       {((tab === ApptTab['in-office'] && table === 'in-exam') || tab === ApptTab.completed) && (
         <TableCell sx={{ verticalAlign: 'center' }}>
-          <Typography sx={{ fontSize: 14, display: 'inline' }}>
+          <Typography component="div" sx={{ fontSize: 14, display: 'inline' }}>
             <VitalsIconTooltip appointment={appointment} abnormalVitals={getAbnormalVitals(vitals)} />
           </Typography>
         </TableCell>
