@@ -198,7 +198,9 @@ export default function PatientPaymentList({
 
       const allCards = response.cards as unknown[];
       if (allCards.length === 0) {
-        return false;
+        // Backend may return an empty array even when cards exist but no default is set.
+        // Treat this as "unknown" rather than "no card on file".
+        return undefined;
       }
 
       let hasAnyDefaultFlag = false;
