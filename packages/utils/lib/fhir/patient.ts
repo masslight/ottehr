@@ -25,6 +25,8 @@ import {
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
+  PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
+  PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
   RelatedPersonMaps,
@@ -632,12 +634,29 @@ export const getProviderNotificationSettingsForPractitioner = (
   const notificationValue = notifyExtension?.extension?.find(
     (extension) => extension.url === PROVIDER_NOTIFICATION_METHOD_URL
   )?.valueString as ProviderNotificationMethod;
+
+  /** @deprecated */
   const notificationsEnabled =
     notifyExtension?.extension?.find((extension) => extension.url === PROVIDER_NOTIFICATIONS_ENABLED_URL)
       ?.valueBoolean === true;
+  const taskNotificationsExtension = notifyExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL
+  );
+  const telemedNotificationsExtension = notifyExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL
+  );
+  const hasNewExtensions = taskNotificationsExtension !== undefined && telemedNotificationsExtension !== undefined;
+  const taskNotificationsEnabled = hasNewExtensions
+    ? taskNotificationsExtension!.valueBoolean === true
+    : notificationsEnabled;
+  const telemedNotificationsEnabled = hasNewExtensions
+    ? telemedNotificationsExtension!.valueBoolean === true
+    : notificationsEnabled;
+
   return {
-    enabled: notificationsEnabled,
     method: notificationValue,
+    taskNotificationsEnabled,
+    telemedNotificationsEnabled,
   };
 };
 

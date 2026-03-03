@@ -1,3 +1,5 @@
+import { otherColors } from '@ehrTheme/colors';
+import SettingsIcon from '@mui/icons-material/Settings';
 import WarningIcon from '@mui/icons-material/Warning';
 import {
   Avatar,
@@ -125,6 +127,13 @@ export const UserMenu: FC = () => {
             <Divider />
           </>
         )}
+        <Link to="/profile" style={{ textDecoration: 'none', color: 'inherit' }} onClick={() => setAnchorElement(null)}>
+          <MenuItem>
+            <SettingsIcon fontSize="small" sx={{ mr: 1, color: otherColors.blackTransparent }} />
+            <Typography variant="body1">Settings</Typography>
+          </MenuItem>
+        </Link>
+        <Divider sx={{ my: 1 }} />
         <Link to="/logout" style={{ textDecoration: 'none' }}>
           <MenuItem>
             <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
