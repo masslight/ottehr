@@ -13,7 +13,10 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  chooseJson,
   createCancellationTagOperations,
+  GetChartDataRequest,
+  GetChartDataResponse,
   getMedicationFromMA,
   getMedicationName,
   getMedicationTypeCode,
@@ -29,6 +32,7 @@ import {
   MedicationOrderStatusesType,
   OrderPackage,
   replaceOperation,
+  SaveChartDataRequest,
   searchMedicationLocation,
   searchRouteByCode,
   SecretsKeys,
@@ -48,6 +52,8 @@ import {
 } from './fhir-resources-creation';
 import {
   createMedicationCopy,
+  getCptHcpcsCodesToAddToChartData,
+  getEncounterIdFromMA,
   getMedicationById,
   practitionerIdFromZambdaInput,
   updateMedicationAdministrationData,
@@ -56,8 +62,9 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-
 const ZAMBDA_NAME = 'create-update-medication-order';
+const statusesToCreateAdditionalCptCodes = ['administered', 'administered-partly'];
+// const statusesToDeleteAdditionalCptCodes = ['cancelled'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -88,15 +95,37 @@ async function performEffect(
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
   if (orderId && orderData) {
-    await updateOrder(oystehr, orderId, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
+    const orderResources = await getOrderResources(oystehr, orderId);
+    await updateOrder(oystehr, orderResources, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
+
+    const encounterIdFromMA = orderData.encounterId ?? getEncounterIdFromMA(orderResources.medicationAdministration);
+    if (encounterIdFromMA && newStatus) {
+      await manageAdditionalCptCodesForOrder(
+        oystehr,
+        encounterIdFromMA,
+        newStatus,
+        orderResources.medicationAdministration
+      );
+    } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+
     return {
       message: 'Order was updated successfully',
       id: orderId,
     };
   } else if (orderId && newStatus) {
     const orderResources = await getOrderResources(oystehr, orderId);
-    if (!orderResources) throw new Error(`No order found with id: ${orderId}`);
     await changeOrderStatus(oystehr, orderResources, newStatus);
+
+    const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
+    if (encounterIdFromMA) {
+      await manageAdditionalCptCodesForOrder(
+        oystehr,
+        encounterIdFromMA,
+        newStatus,
+        orderResources.medicationAdministration
+      );
+    } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+
     return {
       message: 'Order status was changed successfully',
       id: orderId,
@@ -118,7 +147,7 @@ async function performEffect(
 
 async function updateOrder(
   oystehr: Oystehr,
-  orderId: string,
+  orderResources: OrderPackage,
   newStatus: MedicationOrderStatusesType | undefined,
   orderData: MedicationData,
   interactions: MedicationInteractions | undefined,
@@ -126,8 +155,6 @@ async function updateOrder(
 ): Promise<any> {
   console.log('updateOrder');
 
-  const orderResources = await getOrderResources(oystehr, orderId);
-  if (!orderResources) throw new Error(`No order found with id: ${orderId}`);
   const currentStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
   if (currentStatus !== 'pending' && newStatus)
     throw new Error(`Can't change status if current is not 'pending'. Current status is: ${currentStatus}`);
@@ -369,7 +396,7 @@ async function changeOrderStatus(
     ?.resource as MedicationAdministration;
 }
 
-async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage | undefined> {
+async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage> {
   console.log(`Getting order resources for orderId: ${orderId}`);
   const bundle = await oystehr.fhir.search({
     resourceType: 'MedicationAdministration',
@@ -418,4 +445,42 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
     medicationRequest,
     patient,
   };
+}
+
+async function manageAdditionalCptCodesForOrder(
+  oystehr: Oystehr,
+  encounterId: string,
+  medicationStatus: MedicationOrderStatusesType,
+  medicationAdministration: MedicationAdministration
+): Promise<void> {
+  console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
+  const medication = getMedicationFromMA(medicationAdministration);
+
+  if (statusesToCreateAdditionalCptCodes.includes(medicationStatus) && medication) {
+    console.log('Adding additional CPT codes to chart data');
+    const getChartDataInput: GetChartDataRequest = {
+      encounterId,
+    };
+    const chartDataResponse = await oystehr.zambda.execute({
+      id: 'get-chart-data',
+      ...getChartDataInput,
+    });
+    const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
+    const chartDataCptCodes = chartData.cptCodes?.map((code) => code.code) ?? [];
+    console.log('Chart data CPT codes: ', JSON.stringify(chartDataCptCodes.join(', ')));
+
+    const codesToAddToChartData = await getCptHcpcsCodesToAddToChartData(oystehr, medication, chartDataCptCodes);
+    console.log(
+      'Codes to add to chart data: ',
+      JSON.stringify(codesToAddToChartData.map((coding) => coding.code).join(', '))
+    );
+
+    if (codesToAddToChartData.length === 0) return;
+    const saveChartDataInput: SaveChartDataRequest = {
+      encounterId,
+      cptCodes: codesToAddToChartData,
+    };
+    await oystehr.zambda.execute({ id: 'save-chart-data', ...saveChartDataInput });
+    console.log('Additional CPT codes added to chart data');
+  }
 }

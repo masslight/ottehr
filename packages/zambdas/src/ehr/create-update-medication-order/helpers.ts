@@ -1,6 +1,9 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_HCPCS,
+  CPTCodeOption,
   getDosageUnitsAndRouteOfMedication,
   getLocationCodeFromMedicationAdministration,
   getResourcesFromBatchInlineRequests,
@@ -114,4 +117,65 @@ export function updateMedicationAdministrationData(data: {
   });
   newMA.id = orderResources.medicationAdministration.id;
   return newMA;
+}
+
+export async function getCptHcpcsCodesToAddToChartData(
+  oystehr: Oystehr,
+  medication: Medication,
+  chartDataCptCodes: string[]
+): Promise<CPTCodeOption[]> {
+  const cptMedicationCodes = getAllCptCodesFromInHouseMedication(medication);
+  const hcpcsMedicationCodes = getAllHcpcsCodesFromInHouseMedication(medication);
+
+  const filteredCptCodesToAdd = cptMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd));
+  const filteredHcpcsCodesToAdd = hcpcsMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd));
+
+  const cptCodesPromises: Promise<TerminologySearchCptResponse>[] = [];
+  const hcpcsCodesPromises: Promise<TerminologySearchHcpcsResponse>[] = [];
+  filteredCptCodesToAdd?.forEach((codeToAdd) => {
+    cptCodesPromises.push(oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: codeToAdd }));
+  });
+  filteredHcpcsCodesToAdd?.forEach((codeToAdd) => {
+    hcpcsCodesPromises.push(
+      oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: codeToAdd })
+    );
+  });
+  const cptTerminologyCodes = (await Promise.all(cptCodesPromises)).flatMap((terminology) => terminology.codes);
+  const hcpcsTerminologyCodes = (await Promise.all(hcpcsCodesPromises)).flatMap((terminology) => terminology.codes);
+  const terminologyCodesMerged = [...cptTerminologyCodes, ...hcpcsTerminologyCodes];
+
+  const codesOptionsToAdd: CPTCodeOption[] = [];
+
+  [...filteredCptCodesToAdd, ...filteredHcpcsCodesToAdd].forEach((codeToAdd) => {
+    const terminologyResponse = terminologyCodesMerged.find((terminology) => terminology.code === codeToAdd);
+    if (terminologyResponse) codesOptionsToAdd.push({ code: codeToAdd, display: terminologyResponse.display });
+  });
+
+  return codesOptionsToAdd;
+}
+
+export function getAllHcpcsCodesFromInHouseMedication(medication: Medication): string[] {
+  const resultCodes: string[] = [];
+  medication.code?.coding?.forEach((coding) => {
+    if (coding.system === CODE_SYSTEM_HCPCS && coding.code) {
+      resultCodes.push(coding.code);
+    }
+  });
+  return resultCodes;
+}
+
+export function getAllCptCodesFromInHouseMedication(medication: Medication): string[] {
+  const resultCodes: string[] = [];
+  medication.code?.coding?.forEach((coding) => {
+    if (coding.system === CODE_SYSTEM_CPT && coding.code) {
+      resultCodes.push(coding.code);
+    }
+  });
+  return resultCodes;
+}
+
+export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {
+  const maContext = medicationAdministration.context?.reference;
+  if (maContext?.includes('Encounter/')) return maContext?.replace('Encounter/', '');
+  return undefined;
 }
