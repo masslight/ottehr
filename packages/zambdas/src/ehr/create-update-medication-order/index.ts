@@ -15,7 +15,6 @@ import { DateTime } from 'luxon';
 import {
   chooseJson,
   createCancellationTagOperations,
-  DeleteChartDataRequest,
   GetChartDataRequest,
   GetChartDataResponse,
   getMedicationFromMA,
@@ -54,7 +53,6 @@ import {
 import {
   createMedicationCopy,
   getCptHcpcsCodesToAddToChartData,
-  getCptHcpcsCodesToDeleteFromChartData,
   getEncounterIdFromMA,
   getMedicationById,
   practitionerIdFromZambdaInput,
@@ -66,7 +64,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-update-medication-order';
 const statusesToCreateAdditionalCptCodes: MedicationOrderStatusesType[] = ['administered', 'administered-partly'];
-const statusesToDeleteAdditionalCptCodes: MedicationOrderStatusesType[] = ['cancelled'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -484,24 +481,5 @@ async function manageAdditionalCptCodesForOrder(
     };
     await oystehr.zambda.execute({ id: 'save-chart-data', ...saveChartDataInput });
     console.log('Additional CPT codes added to chart data');
-  } else if (statusesToDeleteAdditionalCptCodes.includes(medicationStatus) && medication) {
-    console.log('Removing additional CPT codes from chart data');
-    const getChartDataInput: GetChartDataRequest = {
-      encounterId,
-    };
-    const chartDataResponse = await oystehr.zambda.execute({
-      id: 'get-chart-data',
-      ...getChartDataInput,
-    });
-    const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
-    const chartDataCptCodes = chartData.cptCodes ?? [];
-    const codesToDeleteFromChartData = getCptHcpcsCodesToDeleteFromChartData(medication, chartDataCptCodes);
-
-    const deleteChartDataInput: DeleteChartDataRequest = {
-      encounterId,
-      cptCodes: codesToDeleteFromChartData,
-    };
-    await oystehr.zambda.execute({ id: 'delete-chart-data', ...deleteChartDataInput });
-    console.log('Additional CPT codes removed from chart data');
   }
 }
