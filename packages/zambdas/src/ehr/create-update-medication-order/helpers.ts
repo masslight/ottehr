@@ -16,7 +16,7 @@ import {
   searchRouteByCode,
   Secrets,
 } from 'utils';
-import { createOystehrClient, ZambdaInput } from '../../shared';
+import { createOystehrClient } from '../../shared';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -45,8 +45,7 @@ export function createMedicationCopy(
   return resourceCopy;
 }
 
-export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets: Secrets | null): Promise<string> {
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
+export async function practitionerIdFromZambdaInput(userToken: string, secrets: Secrets | null): Promise<string> {
   const oystehr = createOystehrClient(userToken, secrets);
   const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
   if (!myPractitionerId) throw new Error('No practitioner id was found for token provided');

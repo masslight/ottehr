@@ -71,11 +71,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Validated parameters: ', JSON.stringify(validatedParameters));
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+    const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const practitionerId = await practitionerIdFromZambdaInput(input, validatedParameters.secrets);
+    const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
     console.log('Created zapToken, fhir and clients.');
 
-    const response = await performEffect(oystehr, validatedParameters, practitionerId);
+    const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -90,7 +91,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: UpdateMedicationOrderInput,
-  practitionerIdCalledZambda: string
+  practitionerIdCalledZambda: string,
+  userToken: string
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
   if (orderId && orderData) {
@@ -103,7 +105,8 @@ async function performEffect(
         oystehr,
         encounterIdFromMA,
         newStatus,
-        orderResources.medicationAdministration
+        orderResources.medicationAdministration,
+        userToken
       );
     } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
 
@@ -121,7 +124,8 @@ async function performEffect(
         oystehr,
         encounterIdFromMA,
         newStatus,
-        orderResources.medicationAdministration
+        orderResources.medicationAdministration,
+        userToken
       );
     } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
 
@@ -450,7 +454,8 @@ async function manageAdditionalCptCodesForOrder(
   oystehr: Oystehr,
   encounterId: string,
   medicationStatus: MedicationOrderStatusesType,
-  medicationAdministration: MedicationAdministration
+  medicationAdministration: MedicationAdministration,
+  userToken: string
 ): Promise<void> {
   try {
     console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
@@ -461,10 +466,13 @@ async function manageAdditionalCptCodesForOrder(
       const getChartDataInput: GetChartDataRequest = {
         encounterId,
       };
-      const chartDataResponse = await oystehr.zambda.execute({
-        id: 'get-chart-data',
-        ...getChartDataInput,
-      });
+      const chartDataResponse = await oystehr.zambda.execute(
+        {
+          id: 'get-chart-data',
+          ...getChartDataInput,
+        },
+        { accessToken: userToken }
+      );
       const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
       const chartDataCptCodes = chartData.cptCodes?.map((code) => code.code) ?? [];
       console.log('Chart data CPT codes: ', JSON.stringify(chartDataCptCodes.join(', ')));
@@ -480,7 +488,7 @@ async function manageAdditionalCptCodesForOrder(
         encounterId,
         cptCodes: codesToAddToChartData,
       };
-      await oystehr.zambda.execute({ id: 'save-chart-data', ...saveChartDataInput });
+      await oystehr.zambda.execute({ id: 'save-chart-data', ...saveChartDataInput }, { accessToken: userToken });
       console.log('Additional CPT codes added to chart data');
     }
   } catch (e) {
