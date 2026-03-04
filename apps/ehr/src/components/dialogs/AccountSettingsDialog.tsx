@@ -5,7 +5,7 @@ import { Box, Stack } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
-import { getPatientLoginPhoneNumbers, updatePatientLoginPhoneNumbers } from 'src/api/api';
+import { getPatientAccessPhoneNumbers, updatePatientAccessPhoneNumbers } from 'src/api/api';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { normalizePhoneNumber } from 'utils';
@@ -32,7 +32,7 @@ export const AccountSettingsDialog: React.FC<Props> = ({ patientId, handleClose 
     if (valid) {
       try {
         if (oystehrZambda) {
-          await updatePatientLoginPhoneNumbers(oystehrZambda, {
+          await updatePatientAccessPhoneNumbers(oystehrZambda, {
             patientId,
             phoneNumbers: formValue.phones.map((phone: { value: string }) => normalizePhoneNumber(phone.value)),
           });
@@ -48,7 +48,7 @@ export const AccountSettingsDialog: React.FC<Props> = ({ patientId, handleClose 
   useEffect(() => {
     async function fetchPhoneNumbers(): Promise<void> {
       if (oystehrZambda) {
-        const response = await getPatientLoginPhoneNumbers(oystehrZambda, {
+        const response = await getPatientAccessPhoneNumbers(oystehrZambda, {
           patientId,
         });
         methods.reset({

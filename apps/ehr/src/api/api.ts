@@ -59,10 +59,10 @@ import {
   GetLabOrdersParameters,
   GetNursingOrdersInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
+  GetPatientAccessPhoneNumbersInput,
+  GetPatientAccessPhoneNumbersOutput,
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,
-  GetPatientLoginPhoneNumbersInput,
-  GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -112,7 +112,7 @@ import {
   UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
-  UpdatePatientLoginPhoneNumbersInput,
+  UpdatePatientAccessPhoneNumbersInput,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
@@ -1520,13 +1520,13 @@ export const getPatientBalances = async (
   }
 };
 
-export const getPatientLoginPhoneNumbers = async (
+export const getPatientAccessPhoneNumbers = async (
   oystehr: Oystehr,
-  parameters: GetPatientLoginPhoneNumbersInput
-): Promise<GetPatientLoginPhoneNumbersOutput> => {
+  parameters: GetPatientAccessPhoneNumbersInput
+): Promise<GetPatientAccessPhoneNumbersOutput> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'get-login-phone-numbers',
+      id: 'get-access-phone-numbers',
       ...parameters,
     });
     return chooseJson(response);
@@ -1536,13 +1536,13 @@ export const getPatientLoginPhoneNumbers = async (
   }
 };
 
-export const updatePatientLoginPhoneNumbers = async (
+export const updatePatientAccessPhoneNumbers = async (
   oystehr: Oystehr,
-  parameters: UpdatePatientLoginPhoneNumbersInput
+  parameters: UpdatePatientAccessPhoneNumbersInput
 ): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'update-login-phone-numbers',
+      id: 'update-access-phone-numbers',
       ...parameters,
     });
     return chooseJson(response);
