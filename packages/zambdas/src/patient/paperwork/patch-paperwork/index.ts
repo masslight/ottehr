@@ -127,22 +127,7 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
   });
 
   if (pageHarvestStrategy[input.submittedAnswer.linkId]) {
-    const harvestTask: Task = {
-      resourceType: 'Task',
-      status: 'requested',
-      code: {
-        coding: [{ ...TaskIndicator.harvestPaperwork }],
-      },
-      intent: 'order',
-      focus: { reference: `QuestionnaireResponse/${questionnaireResponseId}` },
-      input: [
-        {
-          type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.PAGE_INDEX }] },
-          valueUnsignedInt: patchIndex,
-        },
-      ],
-    };
-    promises.push(oystehr.fhir.create<Task>(harvestTask));
+    promises.push(createHarvestTaskIfNeeded(questionnaireResponseId, patchIndex, oystehr));
   }
 
   // We wrap this in a try catch and make sure that we log that it happened in sentry, but allow
@@ -157,3 +142,51 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
 
   return updatedQR;
 };
+
+async function createHarvestTaskIfNeeded(
+  questionnaireResponseId: string,
+  patchIndex: number,
+  oystehr: Oystehr
+): Promise<void> {
+  const existingTasks = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        { name: 'code', value: `${TaskIndicator.harvestPaperwork.system}|${TaskIndicator.harvestPaperwork.code}` },
+        { name: 'focus', value: `QuestionnaireResponse/${questionnaireResponseId}` },
+        { name: 'status', value: 'requested,in-progress' },
+      ],
+    })
+  ).unbundle();
+
+  const alreadyActive = existingTasks.some((task) => {
+    const taskPageIndex = task.input?.find(
+      (i) =>
+        i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
+    )?.valueUnsignedInt;
+    return taskPageIndex === patchIndex;
+  });
+
+  if (alreadyActive) {
+    console.log(
+      `skipping harvest task creation: active task already exists for QR ${questionnaireResponseId} page index ${patchIndex}`
+    );
+    return;
+  }
+
+  await oystehr.fhir.create<Task>({
+    resourceType: 'Task',
+    status: 'requested',
+    code: {
+      coding: [{ ...TaskIndicator.harvestPaperwork }],
+    },
+    intent: 'order',
+    focus: { reference: `QuestionnaireResponse/${questionnaireResponseId}` },
+    input: [
+      {
+        type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.PAGE_INDEX }] },
+        valueUnsignedInt: patchIndex,
+      },
+    ],
+  });
+}
