@@ -134,6 +134,7 @@ export interface TelemedAppointmentInformation extends Omit<AppointmentInformati
   telemedStatusHistory: TelemedStatusHistoryElement[];
   provider?: string[];
   group?: string[];
+  serviceCategory?: string;
 }
 
 export interface GetAppointmentsRequest {
