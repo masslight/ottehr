@@ -1,22 +1,10 @@
 import { input, password } from '@inquirer/prompts';
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import dotenv from 'dotenv';
-import { FhirResource, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { Location, Practitioner } from 'fhir/r4b';
 import fs from 'fs';
-import {
-  allLicensesForPractitioner,
-  FULL_DAY_SCHEDULE,
-  makeQualificationForPractitioner,
-  SCHEDULE_EXTENSION_URL,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { allLicensesForPractitioner, makeQualificationForPractitioner } from 'utils';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import {
-  allPhysicalDefaultLocations,
-  defaultGroup,
-  virtualDefaultLocations,
-} from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
@@ -31,15 +19,7 @@ const getEnvironment = (): string => {
   return 'local';
 };
 
-const getMode = (): string | undefined => {
-  const modeFlagIndex = process.argv.findIndex((arg) => arg === '--mode');
-  const mode =
-    modeFlagIndex !== -1 && modeFlagIndex < process.argv.length - 1 ? process.argv[modeFlagIndex + 1] : undefined;
-  return mode || undefined;
-};
-
 const environment = getEnvironment();
-const mode = getMode();
 console.log(`Using environment: ${environment}`);
 
 interface EhrConfig {
@@ -107,140 +87,6 @@ async function getToken(
   return oystehr;
 }
 
-async function getLocationsForTesting(
-  ehrZambdaEnv: Record<string, string>
-): Promise<{ locationId: string; locationName: string; locationSlug: string; virtualLocationState: string }> {
-  console.log(`Setting up locations for testing`);
-  const oystehr = await getToken(ehrZambdaEnv);
-
-  const firstDefaultLocation = allPhysicalDefaultLocations[0];
-  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
-
-  // Use getAllFhirSearchPages to handle pagination when there are more than 1000 locations
-  const locationsAndSchedules = await getAllFhirSearchPages<Location | Schedule>(
-    {
-      resourceType: 'Location',
-      params: [
-        {
-          name: '_revinclude',
-          value: 'Schedule:actor:Location',
-        },
-      ],
-    },
-    oystehr
-  );
-
-  const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<
-    HealthcareService | Location | Practitioner | Schedule
-  >({
-    resourceType: 'HealthcareService',
-    params: [
-      {
-        name: 'name',
-        value: defaultGroup,
-      },
-      {
-        name: '_include',
-        value: 'HealthcareService:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'PractitionerRole:service',
-      },
-      {
-        name: '_include:iterate',
-        value: 'PractitionerRole:practitioner',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Schedule:actor:Location',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Schedule:actor:Practitioner',
-      },
-    ],
-  });
-
-  const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
-
-  const defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
-    (res): res is Location | Practitioner => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
-  );
-
-  const defaultGroupSchedules = defaultGroupRelatedResources.filter(
-    (res): res is Schedule => res.resourceType === 'Schedule'
-  );
-  const locations = locationsAndSchedules.filter((res): res is Location => res.resourceType === 'Location');
-  const schedules = locationsAndSchedules.filter((res): res is Schedule => res.resourceType === 'Schedule');
-
-  const virtualLocations = locations.filter(isLocationVirtual);
-
-  if (locations.length === 0) {
-    throw Error('No locations found in FHIR API');
-  }
-
-  if (virtualLocations.length === 0) {
-    throw Error('No virtual locations found in FHIR API');
-  }
-
-  const locationResource = locations.find((location) => location.name === firstDefaultLocation.name);
-
-  const locationId = locationResource?.id;
-  const locationName = locationResource?.name;
-  const locationSlug = locationResource?.identifier?.[0]?.value;
-
-  const virtualLocation = virtualLocations.find(
-    (location) => location.address?.state === firstDefaultVirtualLocation.state
-  );
-  const virtualLocationState = (virtualLocation?.address?.state || '').toLowerCase();
-
-  if (!virtualLocation) {
-    throw Error('Required virtual location not found');
-  }
-
-  if (!locationId) {
-    throw Error('Required locationId not found  ');
-  }
-
-  if (!locationName) {
-    throw Error('Required locationName not found');
-  }
-
-  if (!locationSlug) {
-    throw Error('Required locationSlug not found');
-  }
-
-  if (!virtualLocationState) {
-    throw Error('Required virtual location state not found');
-  }
-
-  console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
-  console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
-
-  console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
-  console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
-
-  console.group('Ensure test location schedules and slots. Only if mode is not SMOKE');
-  if (mode !== 'smoke') {
-    await Promise.all([
-      ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
-      ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
-      defaultGroupLocationsAndPractitioners.map((owner) =>
-        ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
-      ),
-    ]);
-  }
-  console.groupEnd();
-
-  return {
-    locationId,
-    locationName,
-    locationSlug,
-    virtualLocationState: virtualLocationState,
-  };
-}
-
 async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
   console.log(`Setting up test EHR provider credentials`);
   const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
@@ -285,14 +131,13 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
   if (virtualLocations.length === 0) {
     throw Error('No virtual locations found in FHIR API');
   }
-  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
   const licenses = allLicensesForPractitioner(practitioner);
   const qualification = practitioner.qualification || [];
-  if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
+  if (!licenses.find((license) => license.state === 'CA')) {
     qualification.push(
       makeQualificationForPractitioner({
-        state: firstDefaultVirtualLocation.state,
+        state: 'CA',
         number: '1234567890',
         code: 'MD',
         active: true,
@@ -325,8 +170,6 @@ export async function createTestEnvFiles(): Promise<void> {
     const intakeUiEnv: Record<string, string> = dotenv.parse(
       fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
     );
-
-    const { locationId, locationName, locationSlug, virtualLocationState } = await getLocationsForTesting(zambdaEnv);
 
     let existingEhrConfig: EhrConfig = {};
     let existingIntakeConfig: IntakeConfig = {};
@@ -398,8 +241,6 @@ export async function createTestEnvFiles(): Promise<void> {
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
       AUTH0_CLIENT_TESTS: existingEhrConfig.AUTH0_CLIENT_TESTS,
       AUTH0_SECRET_TESTS: existingEhrConfig.AUTH0_SECRET_TESTS,
-      LOCATION: locationName,
-      LOCATION_ID: locationId,
       WEBSITE_URL: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL,
       FHIR_API: zambdaEnv.FHIR_API,
       AUTH0_ENDPOINT: zambdaEnv.AUTH0_ENDPOINT,
@@ -409,8 +250,6 @@ export async function createTestEnvFiles(): Promise<void> {
       CREATE_APPOINTMENT_ZAMBDA_ID: 'create-appointment',
       GET_ANSWER_OPTIONS_ZAMBDA_ID: 'get-answer-options',
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
-      SLUG_ONE: locationSlug,
-      STATE_ONE: virtualLocationState,
       EHR_APPLICATION_ID: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
       ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
@@ -419,14 +258,10 @@ export async function createTestEnvFiles(): Promise<void> {
       PHONE_NUMBER: phoneNumber,
       TEXT_USERNAME: textUsername,
       TEXT_PASSWORD: textPassword,
-      SLUG_ONE: locationSlug,
-      STATE_ONE: virtualLocationState,
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
       AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
       AUTH0_SECRET_TESTS: existingIntakeConfig.AUTH0_SECRET_TESTS,
-      LOCATION: locationName,
-      LOCATION_ID: locationId,
       WEBSITE_URL: zambdaEnv.WEBSITE_URL,
       FHIR_API: zambdaEnv.FHIR_API,
       AUTH0_ENDPOINT: zambdaEnv.AUTH0_ENDPOINT,
@@ -465,105 +300,3 @@ createTestEnvFiles().catch((error) => {
   console.error(error?.stack);
   process.exit(1);
 });
-
-async function ensureOwnerResourceSchedulesAndSlots(
-  owner: Location | Practitioner,
-  schedules: Schedule[],
-  oystehr: Oystehr
-): Promise<void> {
-  const ownerSchedules = schedules.filter(
-    (schedule) => schedule.actor?.[0]?.reference === `${owner.resourceType}/${owner.id}`
-  );
-
-  const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
-  const ownerUpdateRequests: BatchInputPutRequest<Location | Practitioner | Schedule>[] = [];
-  const scheduleUpdateRequests: BatchInputPutRequest<Schedule>[] = [];
-
-  if (ownerSchedules.length === 0) {
-    schedulePostRequests.push(createScheduleRequest(owner));
-  } else {
-    ownerSchedules.forEach((schedule) => {
-      const extension = schedule.extension ?? [];
-      const existingScheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
-      const existingTimezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
-
-      if (
-        !existingScheduleExtension ||
-        existingScheduleExtension.valueString !== FULL_DAY_SCHEDULE ||
-        !existingTimezoneExtension
-      ) {
-        scheduleUpdateRequests.push({
-          method: 'PUT',
-          url: `/Schedule/${schedule.id}`,
-          resource: {
-            ...schedule,
-            extension: [
-              ...extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL),
-              { url: SCHEDULE_EXTENSION_URL, valueString: FULL_DAY_SCHEDULE },
-              {
-                url: TIMEZONE_EXTENSION_URL,
-                valueString: existingTimezoneExtension ? existingTimezoneExtension.valueString : 'America/New_York',
-              },
-            ],
-          },
-        });
-      }
-    });
-  }
-
-  const extension = owner.extension ?? [];
-
-  const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
-
-  if (!timezoneExtension) {
-    ownerUpdateRequests.push({
-      method: 'PUT',
-      url: `/${owner.resourceType}/${owner.id}`,
-      resource: {
-        ...owner,
-        extension: [
-          ...extension.filter((ext) => ext.url !== TIMEZONE_EXTENSION_URL),
-          { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
-        ],
-      },
-    });
-  }
-
-  if (schedulePostRequests.length > 0 || ownerUpdateRequests.length > 0 || scheduleUpdateRequests.length > 0) {
-    await oystehr.fhir.transaction<FhirResource>({
-      requests: [...schedulePostRequests, ...ownerUpdateRequests, ...scheduleUpdateRequests],
-    });
-    console.log(
-      `Updated/created resources for ensuring schedules for owner resource ${owner.resourceType} ${owner.id}}`
-    );
-  }
-}
-
-function createScheduleRequest(owner: Location | Practitioner | Schedule): BatchInputPostRequest<Schedule> {
-  const ownerSchedule: Schedule = {
-    resourceType: 'Schedule',
-    active: true,
-    extension: [
-      {
-        url: SCHEDULE_EXTENSION_URL,
-        valueString: FULL_DAY_SCHEDULE,
-      },
-      {
-        url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
-      },
-    ],
-    actor: [
-      {
-        reference: `${owner.resourceType}/${owner.id}`,
-      },
-    ],
-  };
-
-  const createScheduleRequest: BatchInputPostRequest<Schedule> = {
-    method: 'POST',
-    url: '/Schedule',
-    resource: ownerSchedule,
-  };
-  return createScheduleRequest;
-}
