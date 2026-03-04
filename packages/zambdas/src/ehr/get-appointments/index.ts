@@ -619,13 +619,12 @@ const makeAppointmentInformation = (
         linkedPersons.forEach((person) => {
           const phone = getPersonPhone(person);
           if (!phone) return;
-          const personRef = `Person/${person.id}`;
 
-          const key = `${personRef}|${phone}`;
+          const key = `${rpRef}|${phone}`;
 
           if (!recipientsMap.has(key)) {
             recipientsMap.set(key, {
-              recipientResourceUri: personRef,
+              recipientResourceUri: rpRef,
               smsNumber: phone,
             });
           }

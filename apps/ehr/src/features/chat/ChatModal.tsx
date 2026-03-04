@@ -134,7 +134,6 @@ const ChatModal = memo(
 
     const { isFetching: isMessagesFetching, refetch: refetchMessages } = useFetchChatMessagesQuery(
       timezone,
-      patientFromAppointment.id,
       numbersToSendTo,
       (messages) => {
         if (!messages) {

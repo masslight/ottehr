@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Bundle, Communication, Device, Patient, Person, Practitioner, RelatedPerson } from 'fhir/r4b';
+import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BRANDING_CONFIG,
@@ -49,7 +49,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets, patientId, timezone } = validatedParameters;
+    const { secrets, smsNumbers, timezone } = validatedParameters;
     console.groupEnd();
     if (!oystehrToken) {
       console.log('getting token');
@@ -59,39 +59,22 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
+    const uniqueNumbers = Array.from(new Set(smsNumbers));
+    const smsQuery = uniqueNumbers.map((number) => `${number}`).join(',');
+    console.log('smsQuery', smsQuery);
     console.time('sms-query');
-    const results = (
-      await oystehr.fhir.search<RelatedPerson | Person | Patient>({
-        resourceType: 'Patient',
-        params: [
-          { name: '_id', value: patientId },
-          { name: '_revinclude:iterate', value: 'RelatedPerson:patient' },
-          { name: '_revinclude:iterate', value: 'Person:link' },
-        ],
+    const allRecipients = (
+      await oystehr.fhir.search({
+        resourceType: 'RelatedPerson',
+        params: [{ name: 'telecom', value: smsQuery }],
       })
-    ).unbundle();
-
-    const allRecipients: string[] = [];
-    const personMap: Record<string, Person> = {};
-    const rpMap: Record<string, RelatedPerson> = {};
-    const patientMap: Record<string, Patient> = {};
-
-    results.forEach((resource) => {
-      if (resource.resourceType === 'Person' && resource.id) {
-        const ref = `Person/${resource.id}`;
-        allRecipients.push(ref);
-        personMap[ref] = resource;
-      }
-
-      if (resource.resourceType === 'RelatedPerson' && resource.id) {
-        rpMap[`RelatedPerson/${resource.id}`] = resource;
-      }
-
-      if (resource.resourceType === 'Patient' && resource.id) {
-        patientMap[`Patient/${resource.id}`] = resource;
-      }
-    });
+    )
+      .unbundle()
+      .map((recipient) => `RelatedPerson/${recipient.id}`);
     console.timeEnd('sms-query');
+    console.log(
+      `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`
+    );
 
     console.time('get_sent_and_received_messages');
     const [sentMessages, receivedMessages] = await Promise.all([
@@ -102,7 +85,9 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     console.timeEnd('get_sent_and_received_messages');
 
     console.time('structure_conversation_data');
+    const rpMap: Record<string, RelatedPerson> = {};
     const senderMap: Record<string, Device | Practitioner> = {};
+    const patientMap: Record<string, Patient> = {};
     const sentCommunications: Communication[] = [];
     const receivedCommunications: Communication[] = [];
 
@@ -202,10 +187,13 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error('No request body provided');
   }
 
-  const { patientId, timezone } = JSON.parse(input.body);
+  const secrets = input.secrets;
+  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const smsPhoneRegex = env === 'production' ? /^(\+1)\d{10}$/ : /^\+\d{1,3}\d{10}$/;
+  const { smsNumbers, timezone } = JSON.parse(input.body);
 
-  if (patientId === undefined) {
-    throw new Error('These fields are required: "patientId"');
+  if (smsNumbers === undefined || smsNumbers.length === 0) {
+    throw new Error('These fields are required: "smsNumbers"');
   }
 
   if (timezone === undefined) {
@@ -217,12 +205,21 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error(`Field "timezone" is invalid ${now.invalidExplanation ?? ''}`);
   }
 
+  smsNumbers.forEach((smsNumber: any) => {
+    if (typeof smsNumber !== 'string') {
+      throw new Error('Field "smsNumbers" must be a list of strings');
+    }
+    if (!smsPhoneRegex.test(smsNumber)) {
+      throw new Error('smsNumber must be of the form "+1", followed by 10 digits');
+    }
+  });
+
   if (!input.secrets) {
     throw new Error('No secrets provided');
   }
 
   return {
-    patientId,
+    smsNumbers: Array.from(new Set(smsNumbers)),
     timezone,
     secrets: input.secrets,
   };

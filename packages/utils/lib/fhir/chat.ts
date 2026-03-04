@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Communication, Person } from 'fhir/r4b';
+import { Communication, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ConversationMessage,
@@ -142,63 +142,68 @@ export const initialsFromName = (name: string): string => {
   return parts.join('');
 };
 
-export const getUniquePhoneNumbers = (persons: Person[]): string[] => {
-  const numbers = persons.map(getSMSNumberForIndividual).filter((n): n is string => !!n);
+export function getUniquePhonesNumbers(allRps: RelatedPerson[]): string[] {
+  const uniquePhoneNumbers: string[] = [];
 
-  return [...new Set(numbers)];
-};
+  allRps.forEach((rp) => {
+    const phone = getSMSNumberForIndividual(rp);
+    if (phone && !uniquePhoneNumbers.includes(phone)) uniquePhoneNumbers.push(phone);
+  });
+
+  return uniquePhoneNumbers;
+}
 
 export const getCommunicationsAndSenders = async (
   oystehr: Oystehr,
   uniqueNumbers: string[]
-): Promise<(Communication | Person)[]> => {
+): Promise<(Communication | RelatedPerson)[]> => {
   // // If there are no phone numbers, return empty array to avoid FHIR error
   if (uniqueNumbers.length === 0) {
     return [];
   }
 
   return (
-    await oystehr.fhir.search<Communication | Person>({
+    await oystehr.fhir.search<Communication | RelatedPerson>({
       resourceType: 'Communication',
       params: [
         { name: 'medium', value: ZAP_SMS_MEDIUM_CODE },
-        { name: 'sender:Person.telecom', value: uniqueNumbers.join(',') },
-        { name: '_include', value: 'Communication:sender:Person' },
+        { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
+        { name: '_include', value: 'Communication:sender:RelatedPerson' },
       ],
     })
   ).unbundle();
 };
 
-export const createSmsModel = (patientId: string, maps: RelatedPersonMaps): SMSModel | undefined => {
-  const rps = maps.rpsToPatientIdMap[patientId];
-  if (!rps?.length) return undefined;
-
-  const recipients: SMSRecipient[] = [];
-  const allCommunications: Communication[] = [];
-
-  for (const rp of rps) {
-    const rpRef = `RelatedPerson/${rp.id}`;
-
-    const persons = maps.rpToPersonsMap[rpRef] ?? [];
-
-    for (const person of persons) {
-      const personRef = `Person/${person.id}`;
-      const sms = maps.personIdToSmsMap[personRef];
-      if (!sms) continue;
-
-      recipients.push({
-        recipientResourceUri: personRef,
-        smsNumber: sms,
+export const createSmsModel = (patientId: string, allRelatedPersonMaps: RelatedPersonMaps): SMSModel | undefined => {
+  let rps: RelatedPerson[] = [];
+  try {
+    rps = allRelatedPersonMaps.rpsToPatientIdMap[patientId];
+    const recipients = filterValidRecipients(rps);
+    if (recipients.length) {
+      const allCommunications = recipients.flatMap((recipient) => {
+        return allRelatedPersonMaps.commsToRpRefMap[recipient.recipientResourceUri] ?? [];
       });
+      return {
+        hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
+        recipients,
+      };
     }
-
-    allCommunications.push(...(maps.rpToCommMap[rpRef] ?? []));
+  } catch (e) {
+    console.log('error building sms model: ', e);
+    console.log('related persons value prior to error: ', rps);
   }
-
-  if (!recipients.length) return undefined;
-
-  return {
-    hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
-    recipients,
-  };
+  return undefined;
 };
+
+function filterValidRecipients(relatedPersons: RelatedPerson[] = []): SMSRecipient[] {
+  // some slack alerts suggest this could be undefined, but that would mean there are patients with no RP
+  // or some bug preventing rp from being returned with the query
+  return relatedPersons
+    .map((rp) => {
+      return {
+        recipientResourceUri: rp.id ? `RelatedPerson/${rp.id}` : undefined,
+        smsNumber: getSMSNumberForIndividual(rp),
+      };
+    })
+    .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
+}
