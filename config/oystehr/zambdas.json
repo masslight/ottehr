@@ -1038,6 +1038,34 @@
       "src": "src/ehr/patient-payments/post/index",
       "zip": ".dist/zips/patient-payments-post.zip"
     },
+    "PATIENT-PAYMENTS-GET-CONFIG": {
+      "name": "patient-payments-terminal-get-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/terminal/get-config/index",
+      "zip": ".dist/zips/patient-payments-terminal-get-config.zip"
+    },
+    "PATIENT-PAYMENTS-GET-CONNECTION-TOKEN": {
+      "name": "patient-payments-terminal-get-connection-token",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/terminal/get-connection-token/index",
+      "zip": ".dist/zips/patient-payments-terminal-get-connection-token.zip"
+    },
+    "PATIENT-PAYMENTS-INITIATE-PAYMENT": {
+      "name": "patient-payments-terminal-initiate-payment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/terminal/initiate-payment/index",
+      "zip": ".dist/zips/patient-payments-terminal-initiate-payment.zip"
+    },
+    "PATIENT-PAYMENTS-FINALIZE-PAYMENT": {
+      "name": "patient-payments-terminal-finalize-payment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/terminal/finalize-payment/index",
+      "zip": ".dist/zips/patient-payments-terminal-finalize-payment.zip"
+    },
     "FAILING-ENDPOINT": {
       "name": "failing-endpoint",
       "type": "http_open",
