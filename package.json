@@ -9,6 +9,7 @@
   "scripts": {
     "build": "NODE_OPTIONS='--max-old-space-size=8192' turbo build lint",
     "version": "npm version $npm_package_version --workspaces && git add package.json '**/package.json'",
+    "load-secrets": "tsx ./scripts/load-secrets.ts",
     "lint": "npm run lint:eslint",
     "lint:eslint": "turbo lint",
     "lint:eslint:fix": "turbo lint:fix",
