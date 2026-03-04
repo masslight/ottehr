@@ -84,7 +84,12 @@ export { TextWithLinkCompositionSchema, LegalConfigSchema } from './legal';
 export type { LegalConfig } from './legal';
 
 // Location config types
-export { LocationItemSchema, SupportScheduleGroupSchema, SupportDisplaySchema, LocationConfigSchema } from './locations';
+export {
+  LocationItemSchema,
+  SupportScheduleGroupSchema,
+  SupportDisplaySchema,
+  LocationConfigSchema,
+} from './locations';
 export type { LocationItem, SupportScheduleGroup, SupportDisplay, LocationConfig } from './locations';
 
 // Branding config types
