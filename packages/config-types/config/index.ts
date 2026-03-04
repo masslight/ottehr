@@ -92,10 +92,22 @@ export {
   EmailPaletteSchema,
   EmailConfigSchema,
   LogoConfigSchema,
+  IconConfigSchema,
+  IntakeThemePaletteSchema,
+  IntakeThemeSchema,
   IntakeBrandingSchema,
   BrandingConfigSchema,
 } from './branding';
-export type { EmailPalette, EmailConfig, LogoConfig, IntakeBranding, BrandingConfig } from './branding';
+export type {
+  EmailPalette,
+  EmailConfig,
+  LogoConfig,
+  IconConfig,
+  IntakeThemePalette,
+  IntakeTheme,
+  IntakeBranding,
+  BrandingConfig,
+} from './branding';
 
 // Consent forms config types
 export {

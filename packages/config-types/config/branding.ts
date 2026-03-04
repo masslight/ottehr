@@ -1,5 +1,7 @@
 import z from 'zod';
 
+const colorString = z.string().min(1, { message: 'Color value cannot be empty' });
+
 /**
  * EmailPaletteSchema - Color palette for branded emails
  */
@@ -32,9 +34,85 @@ export const LogoConfigSchema = z.object({
   default: z.string().optional(),
   email: z.string().optional(),
   pdf: z.string().optional(),
+  intake: z.string().optional(),
+  ehr: z.string().optional(),
 });
 
 export type LogoConfig = z.infer<typeof LogoConfigSchema>;
+
+export const IconConfigSchema = z.object({
+  primary: z.string().optional(),
+  secondary: z.string().optional(),
+  ai: z.string().optional(),
+});
+
+export type IconConfig = z.infer<typeof IconConfigSchema>;
+
+const IntakePaletteColorSchema = z
+  .object({
+    main: colorString,
+    light: colorString,
+    dark: colorString,
+    contrast: colorString,
+    contrastText: colorString,
+  })
+  .partial();
+
+const IntakePaletteTextSchema = z
+  .object({
+    primary: colorString,
+    secondary: colorString,
+    disabled: colorString,
+    cancelled: colorString,
+  })
+  .partial();
+
+const IntakePaletteActionSchema = z
+  .object({
+    active: colorString,
+    hover: colorString,
+    selected: colorString,
+    disabled: colorString,
+    disabledBackground: colorString,
+    focus: colorString,
+  })
+  .partial();
+
+const IntakePaletteBackgroundSchema = z
+  .object({
+    default: colorString,
+    paper: colorString,
+    cancelled: colorString,
+  })
+  .partial();
+
+export const IntakeThemePaletteSchema = z
+  .object({
+    text: IntakePaletteTextSchema,
+    primary: IntakePaletteColorSchema,
+    secondary: IntakePaletteColorSchema,
+    tertiary: IntakePaletteColorSchema,
+    step: IntakePaletteColorSchema,
+    info: IntakePaletteColorSchema,
+    success: IntakePaletteColorSchema,
+    warning: IntakePaletteColorSchema,
+    error: IntakePaletteColorSchema,
+    destructive: IntakePaletteColorSchema,
+    action: IntakePaletteActionSchema,
+    background: IntakePaletteBackgroundSchema,
+    divider: colorString,
+  })
+  .partial();
+
+export type IntakeThemePalette = z.infer<typeof IntakeThemePaletteSchema>;
+
+export const IntakeThemeSchema = z
+  .object({
+    palette: IntakeThemePaletteSchema,
+  })
+  .partial();
+
+export type IntakeTheme = z.infer<typeof IntakeThemeSchema>;
 
 /**
  * IntakeBrandingSchema - Intake-specific branding options
@@ -45,6 +123,7 @@ export const IntakeBrandingSchema = z.object({
     logoHeight: z.string().min(1, { message: 'AppBar logo height cannot be empty' }),
     logoutButtonTextColor: z.string().min(1, { message: 'AppBar logout button color cannot be empty' }),
   }),
+  theme: IntakeThemeSchema.optional(),
 });
 
 export type IntakeBranding = z.infer<typeof IntakeBrandingSchema>;
@@ -59,6 +138,7 @@ export const BrandingConfigSchema = z.object({
   primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
   email: EmailConfigSchema,
   logo: LogoConfigSchema,
+  icons: IconConfigSchema,
   intake: IntakeBrandingSchema,
 });
 
