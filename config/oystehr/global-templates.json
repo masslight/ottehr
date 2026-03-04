@@ -2963,26 +2963,6 @@
           },
           {
             "resourceType": "Observation",
-            "id": "1e7461aa-a9ed-4696-b6df-fa5a000382e7",
-            "subject": {
-              "reference": "#0deded7b-1bde-4d97-b298-140c17883221"
-            },
-            "status": "final",
-            "valueBoolean": true,
-            "code": {
-              "text": "Right TM pearly with good light reflex, preserved landmarks"
-            },
-            "meta": {
-              "tag": [
-                {
-                  "code": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
-                  "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-                }
-              ]
-            }
-          },
-          {
-            "resourceType": "Observation",
             "id": "00422f7a-7fb4-4e47-b04d-9eddfd5e67a2",
             "subject": {
               "reference": "#0deded7b-1bde-4d97-b298-140c17883221"
@@ -49633,11 +49613,13 @@
           {
             "resourceType": "Patient",
             "id": "9f8379bb-44ee-4d35-99b7-a02426881dda",
-            "name": [{
-              "family": "stub",
-              "given": ["placeholder"]
-            }]
-          }, 
+            "name": [
+              {
+                "family": "stub",
+                "given": ["placeholder"]
+              }
+            ]
+          },
           {
             "id": "081aeb57-16a4-417d-b3ad-245f2365832d",
             "resourceType": "Condition",
@@ -49871,9 +49853,7 @@
             "name": [
               {
                 "family": "stub",
-                "given": [
-                  "placeholder"
-                ]
+                "given": ["placeholder"]
               }
             ]
           },
@@ -50810,9 +50790,7 @@
             "name": [
               {
                 "family": "stub",
-                "given": [
-                  "placeholder"
-                ]
+                "given": ["placeholder"]
               }
             ]
           },
