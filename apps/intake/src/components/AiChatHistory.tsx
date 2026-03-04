@@ -2,6 +2,7 @@ import { Avatar, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
+import { secondaryIcon } from '../branding/assets';
 const MESSAGES_CONTAINER_ID = 'messages-container';
 
 export interface AiChatHistoryProps {
@@ -58,7 +59,7 @@ export const AiChatHistory: FC<AiChatHistoryProps> = ({
             marginBottom: message.author === 'ai' ? '10px' : '18px',
           }}
         >
-          {message.author === 'ai' && <img src="/secondaryIcon.svg" style={{ width: '24px', marginRight: '10px' }} />}
+          {message.author === 'ai' && <img src={secondaryIcon} style={{ width: '24px', marginRight: '10px' }} />}
           <Typography
             variant="body1"
             key={message.linkId + '-' + message.author}

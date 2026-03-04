@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
 import { BRANDING_CONFIG } from 'utils';
 import { BOOKING_SLOT_ID_PARAM, intakeFlowPageRoute } from '../App';
+import { primaryIcon } from '../branding/assets';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
@@ -38,7 +39,7 @@ const NewUser = (): JSX.Element => {
   return (
     <PageContainer
       title={t('newUser.title', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
-      img="/primaryIcon.svg"
+      img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={100}
     >

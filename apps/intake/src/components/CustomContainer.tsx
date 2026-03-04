@@ -2,6 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import mixpanel from 'mixpanel-browser';
 import React, { useCallback } from 'react';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils';
+import { intakeLogo } from '../branding/assets';
 import { useClearStores } from '../features';
 import { useIntakeCommonStore } from '../features/common';
 import { ContainerProps, CustomContainer } from './CustomContainerFactory';
@@ -26,7 +27,7 @@ export const PageContainer: React.FC<PageContainerProps> = (props) => {
     ...props,
     logoutHandler,
     footer: <Footer />,
-    logo: '/intakeLogo.png',
+    logo: intakeLogo,
     alt: `${BRANDING_CONFIG.projectName} In Person`,
   };
   return <CustomContainer showLanguagePicker={true} {...passThroughProps} />;

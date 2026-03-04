@@ -24,6 +24,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
+import { primaryIcon } from '../branding/assets';
 import { PageContainer } from '../components';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -277,7 +278,7 @@ const ThankYou = (): JSX.Element => {
           {visitType !== VisitType.WalkIn && <Divider />}
           <Grid container alignItems="center" marginTop={2} marginBottom={2}>
             <Grid item xs={12} md={2.5}>
-              <img src="/primaryIcon.svg" alt={BRANDING_CONFIG.primaryIconAlt} width="80px" />
+              <img src={primaryIcon} alt={BRANDING_CONFIG.primaryIconAlt} width="80px" />
             </Grid>
             <Grid item xs={12} md={9.5}>
               <Typography variant="subtitle1" color="text.primary">

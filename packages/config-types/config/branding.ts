@@ -38,6 +38,17 @@ export const LogoConfigSchema = z.object({
 
 export type LogoConfig = z.infer<typeof LogoConfigSchema>;
 
+export const IntakeAssetsSchema = z
+  .object({
+    logo: z.string().optional(),
+    primaryIcon: z.string().optional(),
+    secondaryIcon: z.string().optional(),
+    aiIcon: z.string().optional(),
+  })
+  .partial();
+
+export type IntakeAssets = z.infer<typeof IntakeAssetsSchema>;
+
 export const IntakeThemeOtherColorsSchema = z.record(colorString);
 
 export type IntakeThemeOtherColors = z.infer<typeof IntakeThemeOtherColorsSchema>;
@@ -118,6 +129,7 @@ export const IntakeBrandingSchema = z.object({
     logoHeight: z.string().min(1, { message: 'AppBar logo height cannot be empty' }),
     logoutButtonTextColor: z.string().min(1, { message: 'AppBar logout button color cannot be empty' }),
   }),
+  assets: IntakeAssetsSchema.optional(),
   theme: IntakeThemeSchema.optional(),
 });
 

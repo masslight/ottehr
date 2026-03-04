@@ -1,6 +1,7 @@
 import { Skeleton } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { BRANDING_CONFIG } from 'utils';
+import { primaryIcon } from '../branding/assets';
 import { otherColors } from '../IntakeThemeProvider';
 import CardWithDescription from './CardWithDescription';
 
@@ -17,7 +18,7 @@ export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps
 
   return (
     <CardWithDescription
-      icon="/primaryIcon.svg"
+      icon={primaryIcon}
       iconAlt={BRANDING_CONFIG.primaryIconAlt}
       iconHeight={70}
       mainText={t('waitingEstimate.title')}

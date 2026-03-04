@@ -4,6 +4,7 @@ import { Box } from '@mui/system';
 import { useNavigate } from 'react-router-dom';
 import { BRANDING_CONFIG } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
+import { primaryIcon } from '../../branding/assets';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
@@ -17,7 +18,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
   return (
     <CustomContainer
       title={`Welcome to ${BRANDING_CONFIG.projectName}`}
-      img="/primaryIcon.svg"
+      img={primaryIcon}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={100}
       isFirstPage={true}
