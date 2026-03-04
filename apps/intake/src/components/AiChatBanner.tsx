@@ -1,9 +1,9 @@
 import { Button, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { ottehrAiLogo } from '@theme/index';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from 'src/App';
+import { aiLogo } from '../branding/assets';
 
 interface Props {
   appointmentId: string;
@@ -30,7 +30,7 @@ export const AiChatBanner: FC<Props> = ({ appointmentId }) => {
               Start Chatting
             </Button>
           </Box>
-          <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
+          <img src={aiLogo} style={{ width: '80px', marginLeft: '8px' }} />
         </Box>
       )}
     </>
