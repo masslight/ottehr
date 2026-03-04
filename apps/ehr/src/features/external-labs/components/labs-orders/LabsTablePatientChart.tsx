@@ -95,7 +95,6 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
                   allowSubmit={allowSubmit}
                   fetchLabOrders={fetchLabOrders}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
-                  DeleteOrderDialog={DeleteOrderDialog}
                   handleRejectedAbn={handleRejectedAbn}
                 />
               )
@@ -113,7 +112,6 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
                 allowSubmit={false}
                 fetchLabOrders={fetchLabOrders}
                 showDeleteLabOrderDialog={showDeleteLabOrderDialog}
-                DeleteOrderDialog={DeleteOrderDialog}
               />
             )}
             {showPagination && totalPages > 1 && (
@@ -136,6 +134,7 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
           </>
         )}
       </Box>
+      {DeleteOrderDialog}
     </>
   );
 };
