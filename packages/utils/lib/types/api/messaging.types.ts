@@ -1,4 +1,4 @@
-import { Appointment, Coding, Communication, Encounter, RelatedPerson } from 'fhir/r4b';
+import { Appointment, Coding, Communication, Encounter, Person, RelatedPerson } from 'fhir/r4b';
 
 export const PATIENT_MESSAGE_SYSTEM = 'patient-message-status';
 export const PATIENT_MESSAGE_CODE = 'read-by-staff';
@@ -44,5 +44,7 @@ export interface AppointmentMessaging {
 
 export type RelatedPersonMaps = {
   rpsToPatientIdMap: Record<string, RelatedPerson[]>;
-  commsToRpRefMap: Record<string, Communication[]>;
+  rpToPersonsMap: Record<string, Person[]>;
+  personIdToSmsMap: Record<string, string>;
+  rpToCommMap: Record<string, Communication[]>;
 };

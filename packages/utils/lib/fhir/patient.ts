@@ -36,7 +36,7 @@ import {
   filterResources,
   getAllPractitionerCredentials,
   getCommunicationsAndSenders,
-  getUniquePhonesNumbers,
+  getUniquePhoneNumbers,
   PRIVATE_EXTENSION_BASE_URL,
 } from '.';
 
@@ -95,7 +95,10 @@ export async function createUserResourcesForPatient(
       console.log(`Did not find a Person for user with phone number ${phoneNumber}, creating one`);
       person = (await oystehr.fhir.create({
         resourceType: 'Person',
-        telecom: [{ system: 'phone', value: phoneNumber }],
+        telecom: [
+          { system: 'phone', value: phoneNumber },
+          { system: 'sms', value: phoneNumber },
+        ],
         link: [
           {
             target: { reference: `RelatedPerson/${relatedPerson.id}` },
@@ -538,21 +541,68 @@ export const relatedPersonAndCommunicationMaps = async (
   inputResources: Resource[]
 ): Promise<RelatedPersonMaps> => {
   const allRelatedPersons = filterResources(inputResources, 'RelatedPerson') as RelatedPerson[];
-  const rpsPhoneNumbers = getUniquePhonesNumbers(allRelatedPersons);
-  const rpsToPatientIdMap = mapRelatedPersonToPatientId(allRelatedPersons);
-  const rpToIdMap = mapRelatedPersonToId(allRelatedPersons);
-  const foundResources = await getCommunicationsAndSenders(oystehr, rpsPhoneNumbers);
-  const foundRelatedPersons = filterResources(foundResources, 'RelatedPerson') as RelatedPerson[];
-  Object.assign(rpToIdMap, mapRelatedPersonToId(foundRelatedPersons));
-  rpsPhoneNumbers.concat(getUniquePhonesNumbers(foundRelatedPersons)); // do better here
-  const rpsRefsToPhoneNumberMap = mapRelatedPersonsRefsToPhoneNumber(foundRelatedPersons);
 
-  const foundCommunications = filterResources(foundResources, 'Communication') as Communication[];
-  const commsToRpRefMap = mapCommunicationsToRelatedPersonRef(foundCommunications, rpToIdMap, rpsRefsToPhoneNumberMap);
+  const rpsToPatientIdMap = mapRelatedPersonToPatientId(allRelatedPersons);
+
+  const persons = filterResources(inputResources, 'Person') as Person[];
+  const phoneNumbers = getUniquePhoneNumbers(persons);
+
+  const foundResources = await getCommunicationsAndSenders(oystehr, phoneNumbers);
+  const communications = filterResources(foundResources, 'Communication') as Communication[];
+
+  // ---------- Person ↔ RP ----------
+  const rpToPersonsMap: Record<string, Person[]> = {};
+  const personToRpRefsMap: Record<string, string[]> = {};
+  const personIdToSmsMap: Record<string, string> = {};
+
+  for (const person of persons) {
+    const sms = getSMSNumberForIndividual(person);
+    if (!sms) continue;
+
+    const personRef = `Person/${person.id}`;
+    personIdToSmsMap[personRef] = sms;
+
+    for (const link of person.link ?? []) {
+      const rpRef = link.target?.reference;
+      if (!rpRef?.startsWith('RelatedPerson/')) continue;
+
+      // RP → Persons
+      if (!rpToPersonsMap[rpRef]) rpToPersonsMap[rpRef] = [];
+      rpToPersonsMap[rpRef].push(person);
+
+      // Person → RP
+      if (!personToRpRefsMap[personRef]) personToRpRefsMap[personRef] = [];
+      personToRpRefsMap[personRef].push(rpRef);
+    }
+  }
+
+  // ---------- RP ↔ Communications ----------
+  const rpToCommMap: Record<string, Communication[]> = {};
+
+  for (const comm of communications) {
+    const refs = [comm.sender?.reference, ...(comm.recipient ?? []).map((r) => r.reference)].filter(
+      (r): r is string => typeof r === 'string' && r.startsWith('Person/')
+    );
+
+    for (const personRef of refs) {
+      const rpRefs = personToRpRefsMap[personRef] ?? [];
+
+      for (const rpRef of rpRefs) {
+        if (!rpToCommMap[rpRef]) rpToCommMap[rpRef] = [];
+        rpToCommMap[rpRef].push(comm);
+      }
+    }
+  }
+
+  for (const rpRef of Object.keys(rpToCommMap)) {
+    rpToCommMap[rpRef] = dedupeCommunications(rpToCommMap[rpRef]);
+  }
 
   return {
     rpsToPatientIdMap,
-    commsToRpRefMap,
+    rpToPersonsMap,
+    personIdToSmsMap,
+    rpToCommMap,
   };
 };
 
@@ -570,56 +620,20 @@ function mapRelatedPersonToPatientId(allRps: RelatedPerson[]): Record<string, Re
   return rpsToPatientIdMap;
 }
 
-function mapRelatedPersonToId(allRps: RelatedPerson[]): Record<string, RelatedPerson> {
-  const rpToIdMap: Record<string, RelatedPerson> = {};
+function dedupeCommunications(comms: Communication[]): Communication[] {
+  const seen = new Set<string>();
 
-  allRps.forEach((rp) => {
-    rpToIdMap['RelatedPerson/' + rp.id] = rp;
+  return comms.filter((c) => {
+    const content = c.payload?.[0]?.contentString ?? '';
+    const sent = c.sent ?? '';
+    const direction = c.sender?.reference ?? 'unknown';
+
+    const key = `${sent}_${content}_${direction}`;
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
-
-  return rpToIdMap;
-}
-
-function mapRelatedPersonsRefsToPhoneNumber(allRps: RelatedPerson[]): Record<string, string[]> {
-  const relatedPersonRefToPhoneNumber: Record<string, string[]> = {};
-
-  allRps.forEach((rp) => {
-    const rpRef = `RelatedPerson/${rp.id}`;
-    const pn = getSMSNumberForIndividual(rp as RelatedPerson);
-    if (pn) {
-      if (relatedPersonRefToPhoneNumber[pn]) relatedPersonRefToPhoneNumber[pn].push(rpRef);
-      else relatedPersonRefToPhoneNumber[pn] = [rpRef];
-    }
-  });
-  return relatedPersonRefToPhoneNumber;
-}
-
-function mapCommunicationsToRelatedPersonRef(
-  allCommunications: Communication[],
-  rpToIdMap: Record<string, RelatedPerson>,
-  rpsRefsToPhoneNumberMap: Record<string, string[]>
-): Record<string, Communication[]> {
-  const commsToRpRefMap: Record<string, Communication[]> = {};
-
-  allCommunications.forEach((comm) => {
-    const communication = comm as Communication;
-    const rpRef = communication.sender?.reference;
-    if (rpRef) {
-      const senderResource = rpToIdMap[rpRef];
-      if (senderResource) {
-        const smsNumber = getSMSNumberForIndividual(senderResource);
-        if (smsNumber) {
-          const allRPsWithThisNumber = rpsRefsToPhoneNumberMap[smsNumber];
-          allRPsWithThisNumber.forEach((rpRef) => {
-            if (commsToRpRefMap[rpRef]) commsToRpRefMap[rpRef].push(communication);
-            else commsToRpRefMap[rpRef] = [communication];
-          });
-        }
-      }
-    }
-  });
-
-  return commsToRpRefMap;
 }
 
 export const getProviderNotificationSettingsForPractitioner = (
