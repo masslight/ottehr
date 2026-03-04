@@ -75,6 +75,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { encounter, appointment } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const didPrimaryDiagnosisInit = useRef(false);
+  const didPrefillInit = useRef(false);
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
@@ -127,21 +128,26 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const labSets = createInHouseLabResources?.labSets;
 
   useEffect(() => {
-    if (prefillData) {
-      const { testItemName, diagnoses } = prefillData;
-      if (testItemName) {
-        const found = availableTests.find((test) => test.name === testItemName);
-        if (found) {
-          if (prefillData.type === 'repeat') {
-            found.orderMode = 'repeat';
-          }
-          setSelectedTests([found]);
+    if (!prefillData || didPrefillInit.current) {
+      return;
+    }
+
+    const { testItemName, diagnoses } = prefillData;
+
+    if (testItemName) {
+      const found = availableTests.find((test) => test.name === testItemName);
+      if (found) {
+        if (prefillData.type === 'repeat') {
+          found.orderMode = 'repeat';
         }
-      }
-      if (diagnoses) {
-        setSelectedAssessmentDiagnoses(diagnoses);
+        setSelectedTests([found]);
       }
     }
+    if (diagnoses) {
+      setSelectedAssessmentDiagnoses(diagnoses);
+    }
+
+    didPrefillInit.current = true;
   }, [prefillData, availableTests]);
 
   const handleBack = (): void => {
