@@ -331,8 +331,8 @@ function getStripeCardDetails(paymentMethod?: Stripe.PaymentMethod): Pick<Paymen
 
   if (paymentMethod.card_present) {
     return {
-      last4: paymentMethod.card_present.last4,
-      brand: paymentMethod.card_present.brand,
+      last4: paymentMethod.card_present.last4 ?? undefined,
+      brand: paymentMethod.card_present.brand ?? undefined,
     };
   }
 
