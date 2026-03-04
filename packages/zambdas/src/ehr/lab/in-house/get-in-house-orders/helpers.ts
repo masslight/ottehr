@@ -284,6 +284,8 @@ export const getInHouseResources = async (
     appointmentScheduleMap,
   } = extractInHouseResources(resources);
 
+  console.log('whats here?', JSON.stringify(serviceRequests));
+
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
@@ -522,7 +524,7 @@ export const extractInHouseResources = (
   const appointmentScheduleMap: Record<string, Schedule> = {};
 
   for (const resource of resources) {
-    if (resource.resourceType === 'ServiceRequest') {
+    if (resource.resourceType === 'ServiceRequest' && resource.status !== 'revoked') {
       serviceRequests.push(resource);
     } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
       tasks.push(resource);
