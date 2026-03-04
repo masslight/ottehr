@@ -126,21 +126,29 @@ export async function getCptHcpcsCodesToAddToChartData(
   const cptMedicationCodes = getAllCptCodesFromInHouseMedication(medication);
   const hcpcsMedicationCodes = getAllHcpcsCodesFromInHouseMedication(medication);
 
-  const filteredCptCodesToAdd = cptMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd));
-  const filteredHcpcsCodesToAdd = hcpcsMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd));
+  const filteredCptCodesToAdd = new Set(
+    cptMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd))
+  );
+  const filteredHcpcsCodesToAdd = new Set(
+    hcpcsMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd))
+  );
 
-  const cptCodesPromises: Promise<TerminologySearchCptResponse>[] = [];
-  const hcpcsCodesPromises: Promise<TerminologySearchHcpcsResponse>[] = [];
+  const cptTerminologyPromises: Promise<TerminologySearchCptResponse>[] = [];
+  const hcpcsTerminologyPromises: Promise<TerminologySearchHcpcsResponse>[] = [];
   filteredCptCodesToAdd?.forEach((codeToAdd) => {
-    cptCodesPromises.push(oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: codeToAdd }));
+    cptTerminologyPromises.push(
+      oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: codeToAdd })
+    );
   });
   filteredHcpcsCodesToAdd?.forEach((codeToAdd) => {
-    hcpcsCodesPromises.push(
+    hcpcsTerminologyPromises.push(
       oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: codeToAdd })
     );
   });
-  const cptTerminologyCodes = (await Promise.all(cptCodesPromises)).flatMap((terminology) => terminology.codes);
-  const hcpcsTerminologyCodes = (await Promise.all(hcpcsCodesPromises)).flatMap((terminology) => terminology.codes);
+  const cptTerminologyCodes = (await Promise.all(cptTerminologyPromises)).flatMap((terminology) => terminology.codes);
+  const hcpcsTerminologyCodes = (await Promise.all(hcpcsTerminologyPromises)).flatMap(
+    (terminology) => terminology.codes
+  );
   const terminologyCodesMerged = [...cptTerminologyCodes, ...hcpcsTerminologyCodes];
 
   const codesOptionsToAdd: CPTCodeOption[] = [];
