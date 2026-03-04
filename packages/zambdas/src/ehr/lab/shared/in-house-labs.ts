@@ -14,6 +14,7 @@ import {
   IN_HOUSE_LAB_TASK,
   IN_HOUSE_TAG_DEFINITION,
   InHouseOrderDetailPageItemDTO,
+  PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
@@ -76,11 +77,13 @@ export function buildOrderHistory(
   specimen?: Specimen
 ): {
   status: TestStatus;
+  statusSubtitle: string | undefined;
   providerName: string;
   date: string;
 }[] {
   const history: {
     status: TestStatus;
+    statusSubtitle: string | undefined;
     providerName: string;
     date: string;
   }[] = [];
@@ -93,11 +96,15 @@ export function buildOrderHistory(
 
       // Map activity codes to statuses
       let status: TestStatus | undefined;
+      let statusSubtitle: string | undefined;
 
       if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code) {
         status = 'ORDERED';
       } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults.code) {
         status = 'FINAL';
+      } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.editResults.code) {
+        status = 'FINAL';
+        statusSubtitle = 'updated results';
       }
 
       if (status && provenance.recorded) {
@@ -105,6 +112,7 @@ export function buildOrderHistory(
 
         history.push({
           status,
+          statusSubtitle,
           providerName: agentName,
           date: provenance.recorded,
         });
@@ -119,6 +127,7 @@ export function buildOrderHistory(
     if (collectedByDate) {
       history.push({
         status: 'COLLECTED',
+        statusSubtitle: undefined,
         providerName: collectedByDisplay,
         date: collectedByDate,
       });
@@ -280,7 +289,7 @@ export const fetchResultResourcesForRelatedServiceRequest = async (
   const additionalSpecimens: Specimen[] = [];
   const additionalActivityDefinitions: ActivityDefinition[] = []; // reflex tests will have different ADs so we need to do this
   resources.forEach((r) => {
-    if (r.resourceType === 'DiagnosticReport') {
+    if (r.resourceType === 'DiagnosticReport' && r.status !== 'entered-in-error') {
       additionalDiagnosticReports.push(r);
       srResourceMap = addToSrResourceMap(r, 'diagnosticReports', srResourceMap);
     }
@@ -395,4 +404,10 @@ export const getUrlAndVersionForADFromServiceRequest = (
     );
   console.log('AD url and version parsed:', adUrl, version);
   return { url: adUrl, version };
+};
+
+export const provenanceIsInHouseLabResultEntry = (provenance: Provenance): boolean => {
+  return !!provenance.activity?.coding?.some(
+    (c) => c.code === PROVENANCE_ACTIVITY_CODES.editResults || c.code === PROVENANCE_ACTIVITY_CODES.inputResults
+  );
 };

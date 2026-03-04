@@ -1368,7 +1368,9 @@ export const makeCptModifierExtension = (input: { code: string; display: string 
   };
 };
 
-export const getCptModifierCodeFromProcedure = (fhirProcedure: Procedure): string[] | undefined => {
+export const getCptModifierCodeFromProcedure = (
+  fhirProcedure: Procedure
+): { code: string; display: string }[] | undefined => {
   const coding = fhirProcedure.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   if (!coding) return;
 
@@ -1376,7 +1378,7 @@ export const getCptModifierCodeFromProcedure = (fhirProcedure: Procedure): strin
     (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept
   )?.valueCodeableConcept;
   const modifier = modifierCodableConcept?.coding?.flatMap((c) =>
-    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [c.code] : []
+    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [{ code: c.code, display: c.display ?? '' }] : []
   );
 
   return modifier;

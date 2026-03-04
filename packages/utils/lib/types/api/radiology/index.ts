@@ -1,15 +1,17 @@
-import { Pagination, Task } from 'utils';
+import { CPTCodeDTO, Pagination, Task } from 'utils';
 
 export interface CreateRadiologyZambdaOrderInput {
   encounterId: string;
   diagnosisCode: string;
   cptCode: string;
+  lateralityModifier: { display: string; code: string } | undefined;
   stat: boolean;
   clinicalHistory: string;
 }
 
 export interface CreateRadiologyZambdaOrderOutput {
   serviceRequestId: string;
+  cptCodesSaved: CPTCodeDTO[] | undefined;
 }
 
 export interface CancelRadiologyOrderZambdaInput {
