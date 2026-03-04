@@ -179,12 +179,12 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         >
           <AddCreditCardForm
             clientSecret={setupData?.clientSecret ?? ''}
-            isLoading={false}
             disabled={false}
             selectPaymentMethod={(id) => {
               void handleNewPaymentMethod(id, !someDefault);
             }}
             condition="I have obtained the consent to add a card on file from the patient"
+            showAddButton={true}
           />
           {error && !showCardList && <FormHelperText error={Boolean(error)}>{error}</FormHelperText>}
         </Box>

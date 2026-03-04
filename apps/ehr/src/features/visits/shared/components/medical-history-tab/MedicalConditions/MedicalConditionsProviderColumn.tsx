@@ -30,7 +30,7 @@ import {
 } from '../../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
-import { SelectFromFavoritesButton } from '../../SelectFromFavoritesButton';
+import { QuickPicksButton } from '../../QuickPicksButton';
 
 type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'display'> & { code: string | undefined };
 
@@ -301,14 +301,14 @@ const AddMedicalConditionField: FC = () => {
     }
   };
 
-  const handleFavoriteSelect = async (
-    favorite: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.favorites)[number]
+  const handleQuickPickSelect = async (
+    quickPick: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks)[number]
   ): Promise<void> => {
-    const favoriteAsIcdCode: IcdSearchResponseOptionalCode = {
-      code: 'code' in favorite ? favorite.code : undefined,
-      display: favorite.display,
+    const quickPickAsIcdCode: IcdSearchResponseOptionalCode = {
+      code: 'code' in quickPick ? quickPick.code : undefined,
+      display: quickPick.display,
     };
-    await handleSelectOption(favoriteAsIcdCode);
+    await handleSelectOption(quickPickAsIcdCode);
   };
 
   if (isChartDataLoading) {
@@ -327,13 +327,13 @@ const AddMedicalConditionField: FC = () => {
         gap: 2,
       }}
     >
-      <SelectFromFavoritesButton
-        favorites={MEDICAL_HISTORY_CONFIG.medicalConditions.favorites}
-        getLabel={(favorite) => {
-          const code = 'code' in favorite ? favorite.code : '';
-          return `${code}${favorite.display}`;
+      <QuickPicksButton
+        quickPicks={MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks}
+        getLabel={(quickPick) => {
+          const code = 'code' in quickPick ? `${quickPick.code} ` : '';
+          return `${code}${quickPick.display}`;
         }}
-        onSelect={handleFavoriteSelect}
+        onSelect={handleQuickPickSelect}
         disabled={isChartDataLoading || isLoading}
       />
       <Controller
