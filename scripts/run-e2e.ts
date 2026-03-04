@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'child_process';
+import fs from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 
@@ -146,6 +147,14 @@ const setupTestDeps = async (): Promise<void> => {
   }
 
   for (const app of supportedApps) {
+    // Skip e2e-test-setup if test config files already exist for both apps
+    const ehrTestConfig = path.join(process.cwd(), `apps/ehr/env/tests.${ENV}.json`);
+    const intakeTestConfig = path.join(process.cwd(), `apps/intake/env/tests.${ENV}.json`);
+    if (fs.existsSync(ehrTestConfig) && fs.existsSync(intakeTestConfig)) {
+      console.log(`Test config files already exist for ${ENV} environment, skipping e2e-test-setup.sh`);
+      continue;
+    }
+
     try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
