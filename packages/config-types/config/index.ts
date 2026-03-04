@@ -84,18 +84,37 @@ export { TextWithLinkCompositionSchema, LegalConfigSchema } from './legal';
 export type { LegalConfig } from './legal';
 
 // Location config types
-export { LocationItemSchema, SupportScheduleGroupSchema, LocationConfigSchema } from './locations';
-export type { LocationItem, SupportScheduleGroup, LocationConfig } from './locations';
+export {
+  LocationItemSchema,
+  SupportScheduleGroupSchema,
+  SupportDisplaySchema,
+  LocationConfigSchema,
+} from './locations';
+export type { LocationItem, SupportScheduleGroup, SupportDisplay, LocationConfig } from './locations';
 
 // Branding config types
 export {
   EmailPaletteSchema,
   EmailConfigSchema,
   LogoConfigSchema,
+  IntakeAssetsSchema,
+  IntakeThemePaletteSchema,
+  IntakeThemeOtherColorsSchema,
+  IntakeThemeSchema,
   IntakeBrandingSchema,
   BrandingConfigSchema,
 } from './branding';
-export type { EmailPalette, EmailConfig, LogoConfig, IntakeBranding, BrandingConfig } from './branding';
+export type {
+  EmailPalette,
+  EmailConfig,
+  LogoConfig,
+  IntakeAssets,
+  IntakeThemePalette,
+  IntakeThemeOtherColors,
+  IntakeTheme,
+  IntakeBranding,
+  BrandingConfig,
+} from './branding';
 
 // Consent forms config types
 export {
