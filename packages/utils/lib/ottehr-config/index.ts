@@ -21,3 +21,4 @@ export * from './sendgrid';
 export * from './texting';
 export * from './vitals';
 export * from './procedures';
+export * from './provider';
