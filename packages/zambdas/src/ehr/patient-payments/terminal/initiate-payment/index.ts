@@ -11,7 +11,6 @@ import {
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  NOT_AUTHORIZED,
   SecretsKeys,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils';
@@ -19,7 +18,6 @@ import {
   createOystehrClient,
   getAuth0Token,
   getStripeClient,
-  getUser,
   lambdaResponse,
   topLevelCatch,
   wrapHandler,
@@ -33,16 +31,6 @@ let oystehrM2MClientToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const authorization = input.headers.Authorization;
-    if (!authorization) {
-      throw NOT_AUTHORIZED;
-    }
-
-    const user = await getUser(authorization.replace('Bearer ', ''), input.secrets);
-    if (!user.profile) {
-      throw NOT_AUTHORIZED;
-    }
-
     const validatedParameters = validateRequestParameters(input);
 
     if (!oystehrM2MClientToken) {

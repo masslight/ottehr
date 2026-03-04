@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   CashOrCardPayment,
@@ -150,14 +150,6 @@ export default function ({
   const [isTerminalReaderConnected, setIsTerminalReaderConnected] = useState(false);
   const [isTerminalPaymentSubmitting, setIsTerminalPaymentSubmitting] = useState(false);
   const cardReaderTerminalRef = useRef<CardReaderTerminalHandle | null>(null);
-
-  const handleTerminalConfiguredChange = useCallback((isConfigured: boolean): void => {
-    setIsTerminalConfigured(isConfigured);
-  }, []);
-
-  const handleTerminalReaderConnectionChange = useCallback((isConnected: boolean): void => {
-    setIsTerminalReaderConnected(isConnected);
-  }, []);
 
   const isConfiguredReaderPayment = paymentMethod === 'card-reader' && isTerminalConfigured;
   const submitButtonLabel =
@@ -304,8 +296,8 @@ export default function ({
                   }}
                   error={formState.errors.creditCard?.message}
                   encounterId={encounterId}
-                  onTerminalConfiguredChange={handleTerminalConfiguredChange}
-                  onReaderConnectionChange={handleTerminalReaderConnectionChange}
+                  onTerminalConfiguredChange={setIsTerminalConfigured}
+                  onReaderConnectionChange={setIsTerminalReaderConnected}
                 />
               </Box>
             )}
