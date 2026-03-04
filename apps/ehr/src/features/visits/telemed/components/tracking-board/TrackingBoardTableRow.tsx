@@ -111,6 +111,8 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
 
   const reasonForVisit = appointment?.reasonForVisit;
 
+  const serviceCategory = appointment.serviceCategory ? ' | ' + makeAbbreviation(appointment.serviceCategory) : '';
+
   const goToAppointment = (): void => {
     navigate(getTelemedAppointmentUrl(appointment.id));
   };
@@ -176,6 +178,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
           {capitalize?.(
             appointment.appointmentType === 'walk-in' ? 'On-demand' : (appointment.appointmentType || '').toString()
           )}
+          {serviceCategory}
         </Typography>
         <Typography variant="body1">
           <strong>{start}</strong>
@@ -323,6 +326,12 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
       )}
     </TableRow>
   );
+}
+
+function makeAbbreviation(str: string): string {
+  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
+    return previousValue + currentValue.charAt(0).toUpperCase();
+  }, '');
 }
 
 const SKELETON_ROWS_COUNT = 3;
