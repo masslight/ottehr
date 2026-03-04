@@ -94,6 +94,8 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
         retries--;
       }
     }
+
+    throw new Error('Error with fetching');
   }
 
   // call the vertex ai with fetch
