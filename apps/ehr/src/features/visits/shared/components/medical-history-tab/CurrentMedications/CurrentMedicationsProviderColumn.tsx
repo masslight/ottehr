@@ -26,7 +26,7 @@ import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointment
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
-import { SelectFromFavoritesButton } from '../../SelectFromFavoritesButton';
+import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
 
 interface CurrentMedicationsProviderColumnForm {
@@ -106,14 +106,14 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     }
   };
 
-  const handleFavoriteSelect = (favorite: (typeof MEDICAL_HISTORY_CONFIG.medications.favorites)[number]): void => {
-    const favoriteAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
-      name: favorite.name,
-      strength: favorite.strength,
-      id: favorite.id,
+  const handleQuickPickSelect = (quickPick: (typeof MEDICAL_HISTORY_CONFIG.medications.quickPicks)[number]): void => {
+    const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
+      name: quickPick.name,
+      strength: quickPick.strength,
+      id: quickPick.id,
     } as ExtractObjectType<ErxSearchMedicationsResponse>;
 
-    setValue('medication', favoriteAsMedication);
+    setValue('medication', quickPickAsMedication);
   };
 
   return (
@@ -174,10 +174,10 @@ export const CurrentMedicationsProviderColumn: FC = () => {
               gap: 2,
             }}
           >
-            <SelectFromFavoritesButton
-              favorites={MEDICAL_HISTORY_CONFIG.medications.favorites}
-              getLabel={(favorite) => `${favorite.name}${favorite.strength ? ` (${favorite.strength})` : ''}`}
-              onSelect={handleFavoriteSelect}
+            <QuickPicksButton
+              quickPicks={MEDICAL_HISTORY_CONFIG.medications.quickPicks}
+              getLabel={(quickPick) => `${quickPick.name}${quickPick.strength ? ` (${quickPick.strength})` : ''}`}
+              onSelect={handleQuickPickSelect}
               disabled={isLoading || isChartDataLoading}
             />
             <Controller

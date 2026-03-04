@@ -5,7 +5,7 @@ import { validateMedicalHistoryConfig } from './medical-history.schema';
 
 const MEDICAL_HISTORY_DEFAULTS = {
   medicalConditions: {
-    favorites: [
+    quickPicks: [
       {
         display: 'Arthritis',
       },
@@ -107,7 +107,7 @@ const MEDICAL_HISTORY_DEFAULTS = {
     ],
   },
   allergies: {
-    favorites: [
+    quickPicks: [
       { name: 'Acetaminophen', id: 26 },
       { name: 'Amoxicillin', id: 138 },
       { name: 'Amoxicillin / Clavulanate', id: 250 },
@@ -124,7 +124,7 @@ const MEDICAL_HISTORY_DEFAULTS = {
     ],
   },
   medications: {
-    favorites: [
+    quickPicks: [
       {
         name: 'Toradol',
         strength: '60 mg',
@@ -158,7 +158,7 @@ const MEDICAL_HISTORY_DEFAULTS = {
     ],
   },
   inHouseMedications: {
-    favorites: [
+    quickPicks: [
       {
         name: 'Acetaminophen - Adult',
         dose: 650,

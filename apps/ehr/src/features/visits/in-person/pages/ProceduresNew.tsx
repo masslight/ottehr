@@ -60,7 +60,7 @@ import {
 } from 'utils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
-import { SelectFromFavoritesButton } from '../../shared/components/SelectFromFavoritesButton';
+import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import {
   useAiSuggestionNotes,
@@ -713,17 +713,17 @@ export default function ProceduresNew(): ReactElement {
     setInitialFormStateSet(true);
   }, [methods, procedure]);
 
-  const onFavoriteSelect = (favorite: (typeof PROCEDURES_CONFIG.favorites)[number]): void => {
+  const onQuickPickSelect = (quickPick: (typeof PROCEDURES_CONFIG.quickPicks)[number]): void => {
     updateState((state) => {
-      if (favorite.procedureType) {
+      if (quickPick.procedureType) {
         methods.reset({
           ...formValues,
           procedureType: selectOptions?.procedureTypes.find(
-            (procedureType) => procedureType.code === favorite.procedureType
+            (procedureType) => procedureType.code === quickPick.procedureType
           )?.name,
         });
       }
-      Object.entries(favorite).forEach(([key, value]) => {
+      Object.entries(quickPick).forEach(([key, value]) => {
         if (key !== 'name' && key !== 'procedureType') {
           (state as any)[key] = value;
         }
@@ -760,14 +760,14 @@ export default function ProceduresNew(): ReactElement {
               </Typography>
             </Box>
 
-            {!procedureId && PROCEDURES_CONFIG.favorites.length > 0 ? (
-              <SelectFromFavoritesButton
-                favorites={PROCEDURES_CONFIG.favorites.filter(
-                  (favorite) =>
-                    selectedProcedureTypeCode == null || selectedProcedureTypeCode === favorite.procedureType
+            {!procedureId && PROCEDURES_CONFIG.quickPicks.length > 0 ? (
+              <QuickPicksButton
+                quickPicks={PROCEDURES_CONFIG.quickPicks.filter(
+                  (quickPick) =>
+                    selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
                 )}
-                getLabel={(favorite) => favorite.name}
-                onSelect={onFavoriteSelect}
+                getLabel={(quickPick) => quickPick.name}
+                onSelect={onQuickPickSelect}
               />
             ) : null}
 
