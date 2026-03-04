@@ -69,6 +69,7 @@ export interface AllChartValues {
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
   reasonForVisit?: FreeTextNoteDTO;
+  accident?: AccidentDTO;
 }
 
 export type RequestedFields =
@@ -516,4 +517,10 @@ export interface ProcedureDTO extends SaveableDTO {
   timeSpent?: string;
   documentedBy?: string;
   consentObtained?: boolean;
+}
+
+export interface AccidentDTO extends SaveableDTO {
+  type: ('AA' | 'EM' | 'OA')[];
+  date?: string;
+  state?: string;
 }
