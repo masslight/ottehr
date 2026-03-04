@@ -5,11 +5,11 @@ export const EmCodeOptionSchema = z.object({
   display: z.string(),
 });
 
-export const EmCodesSchema = z.array(EmCodeOptionSchema);
+export const EmCodeOptionsSchema = z.array(EmCodeOptionSchema);
 
 export const ProviderConfigSchema = z.object({
   assessment: z.object({
-    emCodes: EmCodesSchema,
+    emCodeOptions: EmCodeOptionsSchema,
   }),
 });
 

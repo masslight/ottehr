@@ -5,7 +5,7 @@ import { mergeAndFreezeConfigObjects } from '../helpers';
 const overrides: any = OVERRIDES || {};
 const PROVIDER_DEFAULTS: ProviderConfig = {
   assessment: {
-    emCodes: [
+    emCodeOptions: [
       { display: '99202 New Patient - E/M Level 2', code: '99202' },
       { display: '99203 New Patient - E/M Level 3', code: '99203' },
       { display: '99204 New Patient - E/M Level 4', code: '99204' },
