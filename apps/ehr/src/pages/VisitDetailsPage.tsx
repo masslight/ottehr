@@ -1770,7 +1770,17 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
           .filter(([key]) => key !== 'frontId' && key !== 'backId')
           .map(([key, card]) =>
             card ? (
-              <Grid item key={card.type} xs={5.5} position={'relative'}>
+              <Grid
+                item
+                key={card.type}
+                xs={5.5}
+                position={'relative'}
+                sx={{
+                  '&:hover .card-cancel-icon': {
+                    visibility: 'visible',
+                  },
+                }}
+              >
                 <CardGridItem
                   card={card}
                   appointmentID={appointmentID}
@@ -1780,6 +1790,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                   isLoading={key === 'front' ? isDeletingFront : isDeletingBack}
                 />
                 <CancelIcon
+                  className="card-cancel-icon"
                   sx={{
                     position: 'absolute',
                     inset: '-4px -12px auto auto',
@@ -1787,6 +1798,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     backgroundColor: theme.palette.background.paper,
                     borderRadius: '50%',
                     cursor: 'pointer',
+                    visibility: 'hidden',
                   }}
                   onClick={() => setDeleteDialogOpen(key as 'front' | 'back')}
                 />
