@@ -18,7 +18,7 @@ import {
 } from 'utils';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { Loader } from '../../../../shared/components/Loader';
-import { SelectFromFavoritesButton } from '../../../../shared/components/SelectFromFavoritesButton';
+import { QuickPicksButton } from '../../../../shared/components/QuickPicksButton';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ButtonRounded } from '../../RoundedButton';
@@ -65,7 +65,7 @@ type MedicationCardViewProps = {
   onInteractionsMessageClick: () => void;
   onDelete?: () => void;
   isReadOnly?: boolean;
-  onFavoriteSelect?: (favorite: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.favorites)[number]) => void;
+  onQuickPickSelect?: (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => void;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -90,19 +90,21 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   onInteractionsMessageClick,
   onDelete,
   isReadOnly,
-  onFavoriteSelect,
+  onQuickPickSelect,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const theme = useTheme();
 
-  const favoritesInHouseMedicationsList = useMemo(() => {
+  const inHouseMedicationsquickPicksList = useMemo(() => {
     const medispanCodeSet = selectsOptions.medicationId.medispanCodeSet ?? new Set<string>();
-    return MEDICAL_HISTORY_CONFIG.inHouseMedications.favorites.filter((f) => medispanCodeSet.has(String(f.dosespotId)));
+    return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter((f) =>
+      medispanCodeSet.has(String(f.dosespotId))
+    );
   }, [selectsOptions.medicationId.medispanCodeSet]);
 
-  const showAddFromFavorites =
-    (type === 'order-new' || type === 'order-edit') && onFavoriteSelect && favoritesInHouseMedicationsList.length > 0;
+  const showAddFromQuickPicks =
+    (type === 'order-new' || type === 'order-edit') && onQuickPickSelect && inHouseMedicationsquickPicksList.length > 0;
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -229,25 +231,25 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <Grid container spacing={2}>
-        {showAddFromFavorites && (
+        {showAddFromQuickPicks && (
           <Grid item xs={12}>
-            <SelectFromFavoritesButton
-              favorites={favoritesInHouseMedicationsList}
-              getLabel={(favorite) => {
-                const parts = [favorite.name];
-                if (favorite.dose != null && favorite.units != null) {
-                  parts.push(`${favorite.dose} ${favorite.units}`);
-                } else if (favorite.dose != null) {
-                  parts.push(String(favorite.dose));
+            <QuickPicksButton
+              quickPicks={inHouseMedicationsquickPicksList}
+              getLabel={(quickPick) => {
+                const parts = [quickPick.name];
+                if (quickPick.dose != null && quickPick.units != null) {
+                  parts.push(`${quickPick.dose} ${quickPick.units}`);
+                } else if (quickPick.dose != null) {
+                  parts.push(String(quickPick.dose));
                 }
-                if (favorite.route != null) {
+                if (quickPick.route != null) {
                   const routeLabel =
-                    selectsOptions.route.options.find((o) => o.value === favorite.route)?.label ?? favorite.route;
+                    selectsOptions.route.options.find((o) => o.value === quickPick.route)?.label ?? quickPick.route;
                   parts.push(routeLabel);
                 }
                 return parts.join(', ');
               }}
-              onSelect={onFavoriteSelect}
+              onSelect={onQuickPickSelect}
               disabled={isUpdating}
             />
           </Grid>

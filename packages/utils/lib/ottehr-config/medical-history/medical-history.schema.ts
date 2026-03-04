@@ -1,22 +1,22 @@
 import { z } from 'zod';
 
-const MedicalConditionFavoriteSchema = z.object({
+const MedicalConditionQuickPickSchema = z.object({
   code: z.string().optional(),
   display: z.string().min(1, 'Display is required'),
 });
 
-const AllergyFavoriteSchema = z.object({
+const AllergyQuickPickSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  id: z.number().optional(),
+  id: z.number(),
 });
 
-const MedicationFavoriteSchema = z.object({
+const MedicationQuickPickSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   strength: z.string().optional(),
   id: z.number(),
 });
 
-const InHouseMedicationFavoriteSchema = z.object({
+const InHouseMedicationQuickPickSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   dosespotId: z.number(),
   dose: z.number().optional(),
@@ -27,23 +27,23 @@ const InHouseMedicationFavoriteSchema = z.object({
 
 const MedicalHistoryConfigSchema = z.object({
   medicalConditions: z.object({
-    favorites: z.array(MedicalConditionFavoriteSchema).default([]),
+    quickPicks: z.array(MedicalConditionQuickPickSchema).default([]),
   }),
   allergies: z.object({
-    favorites: z.array(AllergyFavoriteSchema).default([]),
+    quickPicks: z.array(AllergyQuickPickSchema).default([]),
   }),
   medications: z.object({
-    favorites: z.array(MedicationFavoriteSchema).default([]),
+    quickPicks: z.array(MedicationQuickPickSchema).default([]),
   }),
   inHouseMedications: z.object({
-    favorites: z.array(InHouseMedicationFavoriteSchema).default([]),
+    quickPicks: z.array(InHouseMedicationQuickPickSchema).default([]),
   }),
 });
 
-export type MedicalConditionFavorite = z.infer<typeof MedicalConditionFavoriteSchema>;
-export type AllergyFavorite = z.infer<typeof AllergyFavoriteSchema>;
-export type MedicationFavorite = z.infer<typeof MedicationFavoriteSchema>;
-export type InHouseMedicationFavorite = z.infer<typeof InHouseMedicationFavoriteSchema>;
+export type MedicalConditionQuickPick = z.infer<typeof MedicalConditionQuickPickSchema>;
+export type AllergyQuickPick = z.infer<typeof AllergyQuickPickSchema>;
+export type MedicationQuickPick = z.infer<typeof MedicationQuickPickSchema>;
+export type InHouseMedicationQuickPick = z.infer<typeof InHouseMedicationQuickPickSchema>;
 export type MedicalHistoryConfig = z.infer<typeof MedicalHistoryConfigSchema>;
 
 export const validateMedicalHistoryConfig = (config: unknown): MedicalHistoryConfig => {

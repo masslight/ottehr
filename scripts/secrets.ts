@@ -86,6 +86,41 @@ function getFilePaths(environment: string): GetFilePathConfig {
   };
 }
 
+function copyConfiguration(): void {
+  const repoRoot = process.cwd();
+  const secretsPath = path.join(repoRoot, 'secrets');
+
+  console.log('\n=== Copying configuration files ===');
+
+  // Clear and create target directories for configuration
+  const configPaths = [
+    { source: path.join(secretsPath, 'configuration', 'oystehr'), target: path.join(repoRoot, 'config', 'oystehr') },
+    { source: path.join(secretsPath, 'configuration', 'sendgrid'), target: path.join(repoRoot, 'config', 'sendgrid') },
+    {
+      source: path.join(secretsPath, 'configuration', 'ottehr-config-overrides'),
+      target: path.join(repoRoot, 'packages', 'utils', 'ottehr-config-overrides'),
+    },
+  ];
+
+  configPaths.forEach(({ source, target }) => {
+    // Remove existing directory and create fresh one
+    if (fs.existsSync(target)) {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+    fs.mkdirSync(target, { recursive: true });
+
+    // Copy if source exists
+    if (fs.existsSync(source)) {
+      fs.cpSync(source, target, { recursive: true });
+      console.log(
+        `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
+      );
+    } else {
+      console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
+    }
+  });
+}
+
 function populate(environment: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
@@ -95,6 +130,11 @@ function populate(environment: string): void {
     console.error('Error: secrets directory not found in repository root');
     process.exit(1);
   }
+
+  // Copy configuration files first
+  copyConfiguration();
+
+  console.log('\n=== Populating environment-specific secrets ===');
 
   try {
     if (fs.existsSync(paths.zambdas.source)) {
