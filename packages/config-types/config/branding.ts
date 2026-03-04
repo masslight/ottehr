@@ -48,6 +48,10 @@ export const IconConfigSchema = z.object({
 
 export type IconConfig = z.infer<typeof IconConfigSchema>;
 
+export const IntakeThemeOtherColorsSchema = z.record(colorString);
+
+export type IntakeThemeOtherColors = z.infer<typeof IntakeThemeOtherColorsSchema>;
+
 const IntakePaletteColorSchema = z
   .object({
     main: colorString,
@@ -109,6 +113,7 @@ export type IntakeThemePalette = z.infer<typeof IntakeThemePaletteSchema>;
 export const IntakeThemeSchema = z
   .object({
     palette: IntakeThemePaletteSchema,
+    otherColors: IntakeThemeOtherColorsSchema,
   })
   .partial();
 

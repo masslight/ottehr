@@ -10,7 +10,11 @@ import { PropsWithChildren } from './types';
 
 const { palette: p } = createTheme();
 
-export const otherColors = { ...defaults.otherColors, ...customTheme.otherColors };
+export const otherColors = {
+  ...defaults.otherColors,
+  ...customTheme.otherColors,
+  ...(BRANDING_CONFIG.intake.theme?.otherColors ?? {}),
+};
 
 const mergedPalette = _.merge({}, defaults.palette, customTheme.palette, BRANDING_CONFIG.intake.theme?.palette ?? {});
 
