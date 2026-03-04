@@ -284,8 +284,6 @@ export const getInHouseResources = async (
     appointmentScheduleMap,
   } = extractInHouseResources(resources);
 
-  console.log('whats here?', JSON.stringify(serviceRequests));
-
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
