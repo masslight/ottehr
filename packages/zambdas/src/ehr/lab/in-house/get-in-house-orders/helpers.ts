@@ -37,6 +37,7 @@ import {
   TestStatus,
 } from 'utils';
 import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../../../shared';
+import { getObservationsForDiagnosticReportResults } from '../../shared/helpers';
 import {
   buildOrderHistory,
   determineOrderStatus,
@@ -512,7 +513,7 @@ export const extractInHouseResources = (
   const locations: Location[] = [];
   const provenances: Provenance[] = [];
   const specimens: Specimen[] = [];
-  const observations: Observation[] = [];
+  const allObservations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const activityDefinitions: ActivityDefinition[] = [];
   const appointments: Appointment[] = [];
@@ -534,7 +535,7 @@ export const extractInHouseResources = (
     } else if (resource.resourceType === 'Specimen') {
       specimens.push(resource);
     } else if (resource.resourceType === 'Observation') {
-      observations.push(resource);
+      allObservations.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource);
     } else if (resource.resourceType === 'ActivityDefinition') {
@@ -564,6 +565,8 @@ export const extractInHouseResources = (
       }
     }
   }
+
+  const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
 
   return {
     serviceRequests,

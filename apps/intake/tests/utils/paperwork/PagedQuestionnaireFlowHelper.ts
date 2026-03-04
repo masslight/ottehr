@@ -442,6 +442,138 @@ export class PagedQuestionnaireFlowHelper {
    * @param cardData - Credit card information (defaults to test card if not provided)
    */
   async fillCreditCard(cardData?: { number?: string; expiry?: string; cvc?: string }): Promise<void> {
+    const number = cardData?.number || CARD_NUMBER;
+    const expiry = cardData?.expiry || CARD_EXP_DATE;
+    const cvc = cardData?.cvc || CARD_CVV;
+
+    const stripeIframe = this.page.frameLocator('iframe[title="Secure card payment input frame"]');
+    await stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]').fill(number);
+    await stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]').fill(expiry);
+    await stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]').fill(cvc);
+  }
+
+  /**
+   * Verify that card error modal is displayed with expected content
+   *
+   * @param options - Modal verification options
+   * @param options.hasContinueAnyway - Whether "Continue anyway" button should be present
+   */
+  async verifyCreditCardErrorModal(options?: { hasContinueAnyway?: boolean }): Promise<void> {
+    const errorModal = this.page.getByRole('heading', { name: 'Card cannot be saved' });
+    await expect(errorModal).toBeVisible();
+    await expect(this.page.getByText('Failed to save card data')).toBeVisible();
+
+    const editButton = this.page.getByRole('button', { name: 'Edit card information' });
+    await expect(editButton).toBeVisible();
+
+    if (options?.hasContinueAnyway !== undefined) {
+      const continueAnywayButton = this.page.getByRole('button', { name: 'Continue anyway' });
+      if (options.hasContinueAnyway) {
+        await expect(continueAnywayButton).toBeVisible();
+      } else {
+        await expect(continueAnywayButton).not.toBeVisible();
+      }
+    }
+  }
+
+  /**
+   * Click "Edit card information" button in error modal
+   */
+  async clickEditCardInformation(): Promise<void> {
+    await this.page.getByRole('button', { name: 'Edit card information' }).click();
+    await this.waitForPage();
+  }
+
+  /**
+   * Handle complete credit card flow with error detection and handling
+   *
+   * This method:
+   * 1. Checks if card is already saved
+   * 2. Fills card fields in Stripe iframe
+   * 3. Clicks Continue (triggers card save)
+   * 4. Detects if error modal appears (waits for modal OR navigation)
+   * 5. If modal appears: verifies modal content and clicks "Edit card information"
+   * 6. If no modal: navigates to next page, goes back, verifies card was saved
+   *
+   * @param options - Credit card flow options
+   * @param options.cardData - Credit card information (defaults to test card if not provided)
+   * @param options.expectError - Whether test expects error modal (e.g., when testing invalid card data)
+   * @param options.isRequired - Whether credit card field is required (affects "continue anyway" modal button visibility)
+   */
+  async handleCreditCardFlow(options?: {
+    cardData?: { number?: string; expiry?: string; cvc?: string };
+    expectError?: boolean;
+    isRequired?: boolean;
+  }): Promise<void> {
+    const { cardData, expectError = false, isRequired = false } = options || {};
+
+    const savedCard = this.page.getByTestId(dataTestIds.cardNumber).first();
+    const isCardAlreadyAdded = await savedCard.isVisible().catch(() => false);
+
+    if (isCardAlreadyAdded) {
+      return;
+    }
+
+    await this.fillCreditCard(cardData);
+
+    const currentUrl = this.page.url();
+    await this.clickContinue();
+
+    const errorModal = this.page.getByRole('heading', { name: 'Card cannot be saved' });
+
+    const result = await Promise.race([
+      errorModal.waitFor({ state: 'visible', timeout: 60_000 }).then(() => 'modal'),
+      this.page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 60_000 }).then(() => 'navigation'),
+    ]).catch(() => 'timeout');
+
+    const hasError = result === 'modal';
+
+    if (expectError && !hasError) {
+      throw new Error('Expected credit card error modal but card saved successfully');
+    }
+
+    if (!expectError && hasError) {
+      throw new Error('Unexpected credit card save error - card data may be invalid');
+    }
+
+    if (hasError) {
+      await this.verifyCreditCardErrorModal({ hasContinueAnyway: !isRequired });
+
+      const continueAnywayButton = this.page.getByRole('button', { name: 'Continue anyway' });
+      if (isRequired) {
+        await expect(continueAnywayButton).not.toBeVisible();
+      } else {
+        await expect(continueAnywayButton).toBeVisible();
+      }
+
+      await this.clickEditCardInformation();
+
+      const stripeIframe = this.page.frameLocator('iframe[title="Secure card payment input frame"]');
+      await expect(stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]')).toBeVisible();
+    } else {
+      await this.clickBack();
+      await this.waitForPage();
+      await expect(savedCard).toBeVisible({ timeout: 60_000 });
+    }
+  }
+
+  /**
+   * Fill credit card information and verify it was saved
+   *
+   * This method:
+   * 1. Fills card fields in Stripe iframe
+   * 2. Clicks Continue (triggers card save)
+   * 3. Waits for navigation to next page
+   * 4. Goes back to credit card page
+   * 5. Verifies card appears in saved cards list
+   *
+   * Note: This leaves the user on the credit card page after verification.
+   * Test must call clickContinue() to proceed to next page.
+   *
+   * @param cardData - Credit card information (defaults to test card if not provided)
+   * @deprecated Use handleCreditCardFlow() instead for better error handling
+   */
+  async fillAndCheckCreditCard(cardData?: { number?: string; expiry?: string; cvc?: string }): Promise<void> {
     // Check if card is already added (matches legacy pattern)
     const savedCard = this.page.getByTestId(dataTestIds.cardNumber).first();
     const isCardAlreadyAdded = await savedCard.isVisible().catch(() => false);
@@ -450,22 +582,13 @@ export class PagedQuestionnaireFlowHelper {
       return;
     }
 
-    const number = cardData?.number || CARD_NUMBER;
-    const expiry = cardData?.expiry || CARD_EXP_DATE;
-    const cvc = cardData?.cvc || CARD_CVV;
+    await this.fillCreditCard(cardData);
 
-    // Fill card fields - Playwright's fill() auto-waits for elements to be actionable
-    // No explicit waitFor or timeout needed (matches legacy pattern)
-    const stripeIframe = this.page.frameLocator('iframe[title="Secure card payment input frame"]');
-    await stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]').fill(number);
-    await stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]').fill(expiry);
-    await stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]').fill(cvc);
-
-    // Click add card
-    await this.page.getByRole('button', { name: 'Add card' }).click();
-
-    // Wait for saved card to appear (Stripe processing + backend save + UI update)
-    // Using expect().toBeVisible() matches the legacy pattern
+    // save and check that it was saved
+    await this.clickContinue();
+    await this.waitForPage();
+    await this.clickBack();
+    await this.waitForPage();
     await expect(this.page.getByTestId(dataTestIds.cardNumber).first()).toBeVisible({ timeout: 60000 });
   }
 
@@ -627,8 +750,19 @@ export class PagedQuestionnaireFlowHelper {
    */
   private async fillFieldWithSpecialHandling(linkId: string, value: any): Promise<void> {
     // Handle special cases
-    if (linkId === 'valid-card-on-file' && typeof value === 'object' && 'number' in value) {
-      await this.fillCreditCard(value);
+    if (linkId === 'valid-card-on-file' && typeof value === 'object') {
+      // Determine if card is required based on questionnaire item
+      const item = this.findItem(linkId);
+      const isRequired = item?.required ?? false;
+
+      // Extract card data and expectError flag
+      const { expectError, ...cardData } = value;
+
+      await this.handleCreditCardFlow({
+        cardData: Object.keys(cardData).length > 0 ? cardData : undefined,
+        expectError: expectError ?? false,
+        isRequired,
+      });
       return;
     }
 

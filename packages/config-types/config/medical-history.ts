@@ -3,55 +3,55 @@ import z from 'zod';
 /**
  * Medical History Configuration Types
  *
- * These types define the contract for medical history favorites configuration,
+ * These types define the contract for medical history quick picks configuration,
  * including medical conditions, allergies, medications, and in-house medications.
  */
 
 /**
- * Medical condition favorite item
+ * Medical condition quick pick item
  */
-export interface MedicalConditionFavorite {
+export interface MedicalConditionQuickPick {
   code?: string;
   display: string;
 }
 
-export const MedicalConditionFavoriteSchema: z.ZodType<MedicalConditionFavorite, z.ZodTypeDef, unknown> = z.object({
+export const MedicalConditionQuickPickSchema: z.ZodType<MedicalConditionQuickPick, z.ZodTypeDef, unknown> = z.object({
   code: z.string().optional(),
   display: z.string().min(1),
 });
 
 /**
- * Allergy favorite item
+ * Allergy quick pick item
  */
-export interface AllergyFavorite {
+export interface AllergyQuickPick {
   name: string;
   id?: number;
 }
 
-export const AllergyFavoriteSchema: z.ZodType<AllergyFavorite, z.ZodTypeDef, unknown> = z.object({
+export const AllergyQuickPickSchema: z.ZodType<AllergyQuickPick, z.ZodTypeDef, unknown> = z.object({
   name: z.string().min(1),
   id: z.number().optional(),
 });
 
 /**
- * Medication favorite item
+ * Medication quick pick item
  */
-export interface MedicationFavorite {
+export interface MedicationQuickPick {
   name: string;
   strength?: string;
   id: number;
 }
 
-export const MedicationFavoriteSchema: z.ZodType<MedicationFavorite, z.ZodTypeDef, unknown> = z.object({
+export const MedicationQuickPickSchema: z.ZodType<MedicationQuickPick, z.ZodTypeDef, unknown> = z.object({
   name: z.string().min(1),
   strength: z.string().optional(),
   id: z.number(),
 });
 
 /**
- * In-house medication favorite item
+ * In-house medication quick pick item
  */
-export interface InHouseMedicationFavorite {
+export interface InHouseMedicationQuickPick {
   name: string;
   dosespotId: number;
   dose?: number;
@@ -60,7 +60,7 @@ export interface InHouseMedicationFavorite {
   instructions?: string;
 }
 
-export const InHouseMedicationFavoriteSchema: z.ZodType<InHouseMedicationFavorite, z.ZodTypeDef, unknown> = z.object({
+export const InHouseMedicationQuickPickSchema: z.ZodType<InHouseMedicationQuickPick, z.ZodTypeDef, unknown> = z.object({
   name: z.string().min(1),
   dosespotId: z.number(),
   dose: z.number().optional(),
@@ -73,28 +73,28 @@ export const InHouseMedicationFavoriteSchema: z.ZodType<InHouseMedicationFavorit
  * Medical conditions section
  */
 export interface MedicalConditionsSection {
-  favorites: MedicalConditionFavorite[];
+  quickPicks: MedicalConditionQuickPick[];
 }
 
 /**
  * Allergies section
  */
 export interface AllergiesSection {
-  favorites: AllergyFavorite[];
+  quickPicks: AllergyQuickPick[];
 }
 
 /**
  * Medications section
  */
 export interface MedicationsSection {
-  favorites: MedicationFavorite[];
+  quickPicks: MedicationQuickPick[];
 }
 
 /**
  * In-house medications section
  */
 export interface InHouseMedicationsSection {
-  favorites: InHouseMedicationFavorite[];
+  quickPicks: InHouseMedicationQuickPick[];
 }
 
 /**
@@ -109,15 +109,15 @@ export interface MedicalHistoryConfig {
 
 export const MedicalHistoryConfigSchema: z.ZodType<MedicalHistoryConfig, z.ZodTypeDef, unknown> = z.object({
   medicalConditions: z.object({
-    favorites: z.array(MedicalConditionFavoriteSchema).default([]),
+    quickPicks: z.array(MedicalConditionQuickPickSchema).default([]),
   }),
   allergies: z.object({
-    favorites: z.array(AllergyFavoriteSchema).default([]),
+    quickPicks: z.array(AllergyQuickPickSchema).default([]),
   }),
   medications: z.object({
-    favorites: z.array(MedicationFavoriteSchema).default([]),
+    quickPicks: z.array(MedicationQuickPickSchema).default([]),
   }),
   inHouseMedications: z.object({
-    favorites: z.array(InHouseMedicationFavoriteSchema).default([]),
+    quickPicks: z.array(InHouseMedicationQuickPickSchema).default([]),
   }),
 });

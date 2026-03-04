@@ -25,7 +25,7 @@ export const PrepopulationEntrySchema: z.ZodType<PrepopulationEntry, z.ZodTypeDe
  * Full procedures configuration
  */
 
-const FavoriteEntry = z.object({
+const QuickPickEntry = z.object({
   name: z.string(),
   consentObtained: z.boolean().optional(),
   procedureType: z.string().optional(),
@@ -65,10 +65,10 @@ const FavoriteEntry = z.object({
 });
 export interface ProceduresConfig {
   prepopulation: Record<string, PrepopulationEntry>;
-  favorites: z.infer<typeof FavoriteEntry>[];
+  quickPicks: z.infer<typeof QuickPickEntry>[];
 }
 
 export const ProceduresConfigSchema: z.ZodType<ProceduresConfig, z.ZodTypeDef, unknown> = z.object({
   prepopulation: z.record(PrepopulationEntrySchema),
-  favorites: z.array(FavoriteEntry),
+  quickPicks: z.array(QuickPickEntry),
 });

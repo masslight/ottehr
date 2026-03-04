@@ -4,7 +4,7 @@ import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const DEFAULT_PROCEDURES_CONFIG: ProceduresConfig = {
   prepopulation: {},
-  favorites: [
+  quickPicks: [
     {
       name: 'X-ray of knee; 3 views',
       procedureType: 'x-ray',

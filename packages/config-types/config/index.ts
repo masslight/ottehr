@@ -221,17 +221,17 @@ export type {
 
 // Medical history config types
 export {
-  MedicalConditionFavoriteSchema,
-  AllergyFavoriteSchema,
-  MedicationFavoriteSchema,
-  InHouseMedicationFavoriteSchema,
+  MedicalConditionQuickPickSchema,
+  AllergyQuickPickSchema,
+  MedicationQuickPickSchema,
+  InHouseMedicationQuickPickSchema,
   MedicalHistoryConfigSchema,
 } from './medical-history';
 export type {
-  MedicalConditionFavorite,
-  AllergyFavorite,
-  MedicationFavorite,
-  InHouseMedicationFavorite,
+  MedicalConditionQuickPick,
+  AllergyQuickPick,
+  MedicationQuickPick,
+  InHouseMedicationQuickPick,
   MedicalConditionsSection,
   AllergiesSection,
   MedicationsSection,
