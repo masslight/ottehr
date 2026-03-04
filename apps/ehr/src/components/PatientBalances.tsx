@@ -158,7 +158,7 @@ export default function PatientBalances({ patient, patientBalances, handleClose 
           handleClose={refetchAndCloseDialog}
           isSubmitting={createNewPayment.isPending}
           onTerminalPaymentSuccess={async () => {
-            await refetchPatientBalances();
+            await handleClose();
           }}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
