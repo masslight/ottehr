@@ -3,7 +3,6 @@ import { Box } from '@mui/system';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from 'src/App';
-import { aiLogo } from '../branding/assets';
 
 interface Props {
   appointmentId: string;
@@ -30,7 +29,7 @@ export const AiChatBanner: FC<Props> = ({ appointmentId }) => {
               Start Chatting
             </Button>
           </Box>
-          <img src={aiLogo} style={{ width: '80px', marginLeft: '8px' }} />
+          <img src="/aiIcon.svg" style={{ width: '80px', marginLeft: '8px' }} />
         </Box>
       )}
     </>

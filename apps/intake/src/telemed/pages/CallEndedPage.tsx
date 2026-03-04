@@ -3,7 +3,6 @@ import { Box, Container } from '@mui/system';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BRANDING_CONFIG } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
-import { primaryIcon } from '../../branding/assets';
 import { CustomContainer } from '../features/common';
 
 const CallEndedPage = (): JSX.Element => {
@@ -33,7 +32,7 @@ const CallEndedPage = (): JSX.Element => {
               gap: 3,
             }}
           >
-            <img alt={BRANDING_CONFIG.primaryIconAlt} src={primaryIcon} width={120} />
+            <img alt={BRANDING_CONFIG.primaryIconAlt} src="/primaryIcon.svg" width={120} />
 
             <Box>
               <Typography variant="h2" color="primary.main" textAlign="center">

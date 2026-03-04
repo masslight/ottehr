@@ -1,4 +1,4 @@
-import { type BrandingConfig, BrandingConfigSchema, type IconConfig, type LogoConfig } from 'config-types';
+import { type BrandingConfig, BrandingConfigSchema, type LogoConfig } from 'config-types';
 import _ from 'lodash';
 import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 
@@ -22,12 +22,6 @@ const BRANDING_DEFAULTS: BrandingConfig = {
     default: '',
     email: '',
     pdf: '',
-    intake: '',
-  },
-  icons: {
-    primary: '',
-    secondary: '',
-    ai: '',
   },
   intake: {
     appBar: {
@@ -56,14 +50,9 @@ export const BRANDING_CONFIG = Object.freeze(BrandingConfigSchema.parse(mergedBr
 export const PROJECT_WEBSITE = `https://${BRANDING_CONFIG.projectDomain}`;
 
 type LogoTarget = Exclude<keyof LogoConfig, 'default'>;
-type IconTarget = keyof IconConfig;
 
 export function getLogoFor(target: LogoTarget): string | undefined {
   const { logo } = BRANDING_CONFIG;
 
   return logo?.[target] || logo?.default;
-}
-
-export function getIconFor(target: IconTarget): string | undefined {
-  return BRANDING_CONFIG.icons?.[target];
 }

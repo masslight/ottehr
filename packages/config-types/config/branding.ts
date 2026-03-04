@@ -34,19 +34,9 @@ export const LogoConfigSchema = z.object({
   default: z.string().optional(),
   email: z.string().optional(),
   pdf: z.string().optional(),
-  intake: z.string().optional(),
-  ehr: z.string().optional(),
 });
 
 export type LogoConfig = z.infer<typeof LogoConfigSchema>;
-
-export const IconConfigSchema = z.object({
-  primary: z.string().optional(),
-  secondary: z.string().optional(),
-  ai: z.string().optional(),
-});
-
-export type IconConfig = z.infer<typeof IconConfigSchema>;
 
 export const IntakeThemeOtherColorsSchema = z.record(colorString);
 
@@ -143,7 +133,6 @@ export const BrandingConfigSchema = z.object({
   primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
   email: EmailConfigSchema,
   logo: LogoConfigSchema,
-  icons: IconConfigSchema,
   intake: IntakeBrandingSchema,
 });
 

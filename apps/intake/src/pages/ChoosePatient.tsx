@@ -9,7 +9,6 @@ import { BRANDING_CONFIG, PatientAppointmentDTO, ServiceMode, VALUE_SETS, VisitT
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
-import { primaryIcon } from '../branding/assets';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { CustomLoadingButton } from '../components/CustomLoadingButton';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
@@ -362,7 +361,7 @@ const ChoosePatient = (): JSX.Element => {
         visitType === VisitType.WalkIn && showCheckIn ? (
           <CardWithDescriptionAndLink
             iconHeight={50}
-            icon={primaryIcon}
+            icon="/primaryIcon.svg"
             iconAlt={BRANDING_CONFIG.primaryIconAlt}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}

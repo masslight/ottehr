@@ -10,7 +10,6 @@ import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import { AppointmentType, BRANDING_CONFIG, getSelectors } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
-import { primaryIcon } from '../../branding/assets';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
 import { IntakeThemeContext } from '../../contexts';
 import { CallSettings, CancelVisitDialog } from '../components';
@@ -107,7 +106,7 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title="Waiting room"
-      img={primaryIcon}
+      img="/primaryIcon.svg"
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={80}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
