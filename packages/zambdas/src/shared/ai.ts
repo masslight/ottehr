@@ -177,7 +177,7 @@ export async function createResourcesFromAiInterview(
     if (patient.gender) {
       patientSex = patient.gender;
     }
-    patientInfoDetails = `The patient is a ${patientAge || 'unknown'} year old ${patientSex || 'unknown sex'}`;
+    patientInfoDetails = `Age: ${patientAge || 'unknown'} year old, Sex: ${patientSex || 'unknown'}`;
   }
 
   if (
