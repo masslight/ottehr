@@ -236,6 +236,9 @@ export default function ({
                   size="small"
                   notched
                   error={Boolean(formState.errors.amount)}
+                  onFocus={(event) => {
+                    event.target.select();
+                  }}
                   {...register('amount', { required: true })}
                 />
                 {formState.errors.amount && (
