@@ -7,8 +7,7 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
-import { FinalResultView } from '../components/details/FinalResultView';
-import { PerformTestView } from '../components/details/PerformTestView';
+import { InHouseLabResults } from '../components/details/InHouseLabResults';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
@@ -116,10 +115,22 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
               );
             case 'COLLECTED':
               return (
-                <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />
+                <InHouseLabResults
+                  testDetails={[testDetails]}
+                  onBack={handleBack}
+                  setLoadingState={setLoadingState}
+                  entryMode="initial"
+                />
               );
             case 'FINAL':
-              return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
+              return (
+                <InHouseLabResults
+                  testDetails={allTestDetails}
+                  onBack={handleBack}
+                  setLoadingState={setLoadingState}
+                  entryMode="edit"
+                />
+              );
             default:
               // temp for debugging
               return <p>Status could not be parsed: {testDetails.status}</p>;
