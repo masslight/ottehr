@@ -452,34 +452,38 @@ async function manageAdditionalCptCodesForOrder(
   medicationStatus: MedicationOrderStatusesType,
   medicationAdministration: MedicationAdministration
 ): Promise<void> {
-  console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
-  const medication = getMedicationFromMA(medicationAdministration);
+  try {
+    console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
+    const medication = getMedicationFromMA(medicationAdministration);
 
-  if (statusesToCreateAdditionalCptCodes.includes(medicationStatus) && medication) {
-    console.log('Adding additional CPT codes to chart data');
-    const getChartDataInput: GetChartDataRequest = {
-      encounterId,
-    };
-    const chartDataResponse = await oystehr.zambda.execute({
-      id: 'get-chart-data',
-      ...getChartDataInput,
-    });
-    const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
-    const chartDataCptCodes = chartData.cptCodes?.map((code) => code.code) ?? [];
-    console.log('Chart data CPT codes: ', JSON.stringify(chartDataCptCodes.join(', ')));
+    if (statusesToCreateAdditionalCptCodes.includes(medicationStatus) && medication) {
+      console.log('Adding additional CPT codes to chart data');
+      const getChartDataInput: GetChartDataRequest = {
+        encounterId,
+      };
+      const chartDataResponse = await oystehr.zambda.execute({
+        id: 'get-chart-data',
+        ...getChartDataInput,
+      });
+      const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
+      const chartDataCptCodes = chartData.cptCodes?.map((code) => code.code) ?? [];
+      console.log('Chart data CPT codes: ', JSON.stringify(chartDataCptCodes.join(', ')));
 
-    const codesToAddToChartData = await getCptHcpcsCodesToAddToChartData(oystehr, medication, chartDataCptCodes);
-    console.log(
-      'Codes to add to chart data: ',
-      JSON.stringify(codesToAddToChartData.map((coding) => coding.code).join(', '))
-    );
+      const codesToAddToChartData = await getCptHcpcsCodesToAddToChartData(oystehr, medication, chartDataCptCodes);
+      console.log(
+        'Codes to add to chart data: ',
+        JSON.stringify(codesToAddToChartData.map((coding) => coding.code).join(', '))
+      );
 
-    if (codesToAddToChartData.length === 0) return;
-    const saveChartDataInput: SaveChartDataRequest = {
-      encounterId,
-      cptCodes: codesToAddToChartData,
-    };
-    await oystehr.zambda.execute({ id: 'save-chart-data', ...saveChartDataInput });
-    console.log('Additional CPT codes added to chart data');
+      if (codesToAddToChartData.length === 0) return;
+      const saveChartDataInput: SaveChartDataRequest = {
+        encounterId,
+        cptCodes: codesToAddToChartData,
+      };
+      await oystehr.zambda.execute({ id: 'save-chart-data', ...saveChartDataInput });
+      console.log('Additional CPT codes added to chart data');
+    }
+  } catch (e) {
+    console.log('Error in manageAdditionalCptCodesForOrder: ', e, JSON.stringify(e));
   }
 }
