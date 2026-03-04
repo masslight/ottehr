@@ -599,8 +599,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       .filter((metrics) => metrics.visitCount > 0)
       .sort((a, b) => a.locationName.localeCompare(b.locationName));
 
+    const totalVisits = locationMetrics.map((metrics) => metrics.visitCount).reduce((prev, curr) => prev + curr, 0);
+
     const response: PracticeKpisReportZambdaOutput = {
-      message: `Found ${dischargedAppointments.length} discharged in-person visits across ${locationMetrics.length} locations`,
+      message: `Found ${totalVisits} discharged in-person visits across ${locationMetrics.length} locations`,
       locations: locationMetrics,
       dateRange,
     };
