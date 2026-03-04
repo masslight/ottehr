@@ -1,1 +1,1 @@
-export const PROMPTS_OVERRIDE = {};
+export const PROMPTS_OVERRIDE = {} as const;
