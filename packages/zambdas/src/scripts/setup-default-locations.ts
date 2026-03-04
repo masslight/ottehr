@@ -13,12 +13,13 @@ import {
   SCHEDULE_EXTENSION_URL,
   SlotServiceCategory,
   SLUG_SYSTEM,
-  TELEMED_INITIAL_STATES,
   TIMEZONE_EXTENSION_URL,
   unbundleBatchPostOutput,
   VirtualLocationBody,
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
+
+const TELEMED_INITIAL_STATES = ['NJ', 'OH'];
 
 export const virtualDefaultLocations: { state: string }[] = [...TELEMED_INITIAL_STATES.map((state) => ({ state }))];
 
