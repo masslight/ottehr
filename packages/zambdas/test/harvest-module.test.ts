@@ -2553,6 +2553,35 @@ describe('Harvest Module', () => {
       const updatedAccount = result.workersCompAccountPut?.resource;
       expect(updatedAccount?.guarantor?.[0]?.party?.reference).toBe(`Organization/${employerOrg.id}`);
     });
+
+    it('clears employer organization and workers comp account when employer fields are explicitly cleared', () => {
+      const employerOrg: Organization = {
+        resourceType: 'Organization',
+        id: uuidV4(),
+        name: 'Wayne Enterprises',
+      };
+
+      const existingWorkersCompAccount: Account = {
+        ...workersCompAccountResource,
+        owner: { reference: `Organization/${employerOrg.id}` },
+        name: 'Wayne Enterprises',
+      };
+
+      const result = getAccountOperations({
+        patient,
+        questionnaireResponseItem: [{ linkId: 'employer-name', answer: [] }],
+        organizationResources: [],
+        existingCoverages: {},
+        existingWorkersCompAccount,
+        existingEmployerOrganization: employerOrg,
+      });
+
+      expect(result.employerOrganizationPut?.url).toBe(`Organization/${employerOrg.id}`);
+      expect(result.employerOrganizationPut?.resource.name).toBeUndefined();
+      expect(result.workersCompAccountPut?.url).toBe(`Account/${existingWorkersCompAccount.id}`);
+      expect(result.workersCompAccountPut?.resource.name).toBeUndefined();
+      expect(result.workersCompAccountPost).toBeUndefined();
+    });
   });
   describe('translating query results into input for the account operations', () => {
     const stubSecondaryCoverage: Coverage = {

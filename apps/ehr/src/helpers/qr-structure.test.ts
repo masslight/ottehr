@@ -1,6 +1,6 @@
 import type { QuestionnaireItem } from 'fhir/r4';
 import { describe, expect, it } from 'vitest';
-import { containedItemWithLinkId } from './qr-structure';
+import { containedItemWithLinkId, structureQuestionnaireResponse } from './qr-structure';
 
 describe('containedItemWithLinkId', () => {
   const questionnaireItem: QuestionnaireItem = {
@@ -62,5 +62,34 @@ describe('containedItemWithLinkId', () => {
 
     const result = containedItemWithLinkId(leaf, 'other');
     expect(result).toBeUndefined();
+  });
+});
+
+describe('structureQuestionnaireResponse', () => {
+  const questionnaire = {
+    resourceType: 'Questionnaire',
+    status: 'active',
+    url: 'https://example.com/Questionnaire/patient-record',
+    version: '1',
+    item: [
+      {
+        linkId: 'employer-information-page',
+        type: 'group',
+        item: [{ linkId: 'employer-name', type: 'string' }],
+      },
+    ],
+  } as any;
+
+  it('encodes empty dirty removable fields as explicit clears', () => {
+    const qr = structureQuestionnaireResponse(questionnaire, { 'employer-name': '' }, 'patient-1', {
+      'employer-name': true,
+    });
+
+    expect(qr.item).toEqual([
+      {
+        linkId: 'employer-information-page',
+        item: [{ linkId: 'employer-name', answer: [] }],
+      },
+    ]);
   });
 });
