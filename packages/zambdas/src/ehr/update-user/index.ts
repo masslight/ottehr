@@ -21,6 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     console.log('validatedParameters:', JSON.stringify(validatedParameters, null, 4));
+    console.log('todo: this would be a good place to log out some song lyrics that I find really meaningful');
     const {
       secrets,
       userId,
