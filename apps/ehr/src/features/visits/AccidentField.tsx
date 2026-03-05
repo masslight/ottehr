@@ -1,4 +1,4 @@
-import { Stack } from '@mui/material';
+import { Box, CircularProgress, Stack } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { AccordionCard } from 'src/components/AccordionCard';
@@ -21,7 +21,7 @@ interface FormData {
   state?: string;
 }
 
-export const AccidentField: FC<Props> = (_p) => {
+export const AccidentField: FC<Props> = ({ readOnly }) => {
   const {
     data: chartDataFields,
     refetch,
@@ -33,8 +33,9 @@ export const AccidentField: FC<Props> = (_p) => {
       },
     },
   });
-  const { mutate: saveChartData, isPending: _isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isPending: _isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+
   const [lastSavedAccident, setLastSavedAccident] = useState<AccidentDTO | undefined>();
 
   const methods = useForm<FormData>({
@@ -109,22 +110,27 @@ export const AccidentField: FC<Props> = (_p) => {
     return () => callback();
   }, [methods, chartDataFields, lastSavedAccident, deleteChartData, saveChartData, refetch]);
 
+  const disabled = isChartDataLoading || readOnly;
+
   return (
     <AccordionCard label="Patient's condition related to">
       <FormProvider {...methods}>
         <Stack spacing={2} padding={2}>
           <Stack spacing={2} direction="row" justifyContent="flex-start">
-            <CheckboxInput name="autoAccident" label="Auto Accident" disabled={isChartDataLoading} />
-            <CheckboxInput name="employmentAccident" label="Employment" disabled={isChartDataLoading} />
-            <CheckboxInput name="otherAccident" label="Other Accident" disabled={isChartDataLoading} />
+            <CheckboxInput name="autoAccident" label="Auto Accident" disabled={disabled} />
+            <CheckboxInput name="employmentAccident" label="Employment" disabled={disabled} />
+            <CheckboxInput name="otherAccident" label="Other Accident" disabled={disabled} />
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '80px' }}>
+              {isSaveLoading || isDeleteLoading ? <CircularProgress size="20px" /> : null}
+            </Box>
           </Stack>
           <Stack spacing={2} direction="row">
-            <DateInput name="date" label="Date of accident" disabled={isChartDataLoading} />
+            <DateInput name="date" label="Date of accident" disabled={disabled} />
             <SelectInput
               name="state"
               label="State"
               options={AllStates.map((state) => state.value)}
-              disabled={isChartDataLoading}
+              disabled={disabled}
             />
           </Stack>
         </Stack>
