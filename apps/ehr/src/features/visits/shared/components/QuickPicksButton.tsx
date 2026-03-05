@@ -3,23 +3,23 @@ import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlin
 import { Button, Menu, MenuItem, Stack } from '@mui/material';
 import { useState } from 'react';
 
-interface SelectFromFavoritesButtonProps<T> {
-  favorites: T[];
+interface QuickPicksButtonProps<T> {
+  quickPicks: T[];
   getLabel: (item: T) => string;
   onSelect: (item: T) => void;
   disabled?: boolean;
 }
 
-export const SelectFromFavoritesButton = <T,>({
-  favorites,
+export const QuickPicksButton = <T,>({
+  quickPicks,
   getLabel,
   onSelect,
   disabled = false,
-}: SelectFromFavoritesButtonProps<T>): JSX.Element | null => {
+}: QuickPicksButtonProps<T>): JSX.Element | null => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  if (favorites.length === 0) {
+  if (quickPicks.length === 0) {
     return null;
   }
 
@@ -49,10 +49,10 @@ export const SelectFromFavoritesButton = <T,>({
           mb: 0.5,
         }}
       >
-        Select from favorite
+        Quick Picks
       </Button>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        {favorites.map((item, index) => (
+        {quickPicks.map((item, index) => (
           <MenuItem key={index} onClick={() => handleSelect(item)}>
             {getLabel(item)}
           </MenuItem>

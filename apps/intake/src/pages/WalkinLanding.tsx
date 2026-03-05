@@ -1,7 +1,6 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { primaryIcon } from '@theme/icons';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
@@ -17,6 +16,7 @@ import {
 } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
+import { primaryIcon } from '../branding/assets';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';

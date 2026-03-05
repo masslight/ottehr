@@ -16,7 +16,6 @@ import {
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
   SecretsKeys,
-  SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
@@ -250,17 +249,14 @@ const parseResultsToOrder = (
   const hasNeedsFinalReadExtension = existingExtensions?.some(
     (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
   );
-  const hasBeenSentExtension = existingExtensions?.some(
-    (ext) => ext.url === SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL
-  );
 
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
   } else if (serviceRequest.status === 'completed' && !preliminaryDiagnosticReport && !bestFinalReport) {
     status = RadiologyOrderStatus.performed;
-  } else if (preliminaryDiagnosticReport && !(hasNeedsFinalReadExtension || hasBeenSentExtension) && !bestFinalReport) {
+  } else if (preliminaryDiagnosticReport && !hasNeedsFinalReadExtension && !bestFinalReport) {
     status = RadiologyOrderStatus.preliminary;
-  } else if (preliminaryDiagnosticReport && hasNeedsFinalReadExtension && !hasBeenSentExtension && !bestFinalReport) {
+  } else if (preliminaryDiagnosticReport && hasNeedsFinalReadExtension && !bestFinalReport) {
     status = RadiologyOrderStatus.pendingFinal;
   } else if (bestFinalReport?.status === 'final') {
     if (finalReviewTask?.status === 'completed') {

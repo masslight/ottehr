@@ -13,38 +13,38 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { AddCreditCardForm, loadStripe } from 'ui-components';
+import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
 import { CreditCardInfo, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
+import { useCreditCardContext } from '../hooks/useCreditCardContext';
+import { useCreditCardStore } from '../stores/useCreditCardStore';
 
 interface CreditCardVerificationProps {
+  fieldId: string;
   onChange: (event: { target: { value: boolean } }) => void;
   required: boolean;
   value?: boolean;
 }
 
-export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
-  value: validCreditCardOnFile,
-  required,
-  onChange,
-}) => {
+export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldId, onChange, required, value }) => {
   const {
     patient,
     appointment,
     paymentMethods: cards,
     refetchPaymentMethods,
+    refetchSetupData,
     stripeSetupData: setupData,
     paymentMethodStateInitializing,
     cardsAreLoading,
   } = usePaperworkContext();
+
+  useCreditCardContext({ fieldId, onChange, required, value, hasSavedCards: cards.length > 0 });
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
-
   const [pendingSelection, setPendingSelection] = useState<string | undefined>(undefined);
-
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
 
@@ -59,32 +59,34 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     }
   }, [cards, defaultCard?.id, selectedOption]);
 
-  const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(
+  const { mutateAsync: setDefaultAsync, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(
     patient?.id,
     appointment?.id
   );
 
   useEffect(() => {
-    if (selectedOption !== undefined && validCreditCardOnFile !== true) {
+    if (!onChange) return;
+    if (selectedOption !== undefined && value !== true) {
       onChange({ target: { value: true } });
-    } else if (selectedOption === undefined && validCreditCardOnFile === true) {
+    } else if (selectedOption === undefined && value === true) {
       onChange({ target: { value: false } });
     }
-  }, [onChange, selectedOption, validCreditCardOnFile]);
+  }, [onChange, selectedOption, value]);
 
   const disabled = cardsAreLoading || isSetDefaultLoading || paymentMethodStateInitializing;
 
-  const onMakePrimary = (id: string): void => {
+  const onMakePrimary = async (id: string): Promise<void> => {
     setPendingSelection(id);
-    setDefault({
+    await setDefaultAsync({
       paymentMethodId: id,
       onSuccess: async () => {
-        await refetchPaymentMethods();
-        setSelectedOption(id);
-        setPendingSelection(undefined);
-        if (validCreditCardOnFile !== true) {
+        if (value !== true && onChange) {
           onChange({ target: { value: true } });
         }
+
+        await Promise.all([refetchPaymentMethods(), refetchSetupData()]);
+        setSelectedOption(id);
+        setPendingSelection(undefined);
       },
       onError: (error) => {
         console.error('setDefault error', error);
@@ -94,8 +96,8 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     });
   };
 
-  const handleNewPaymentMethod = (id: string): void => {
-    onMakePrimary(id);
+  const handleNewPaymentMethod = async (id: string): Promise<void> => {
+    await onMakePrimary(id);
   };
 
   return (
@@ -139,25 +141,34 @@ interface CreditCardContentProps {
   errorMessage: string | undefined;
   stripePromise: Promise<Stripe | null>;
   setErrorMessage: (message: string | undefined) => void;
-  onMakePrimary: (id: string) => void;
-  handleNewPaymentMethod: (id: string) => void;
+  onMakePrimary: (id: string) => Promise<void>;
+  handleNewPaymentMethod: (id: string) => Promise<void>;
 }
 
-const CreditCardContent: FC<CreditCardContentProps> = (props) => {
-  const {
-    setupData,
-    pendingSelection,
-    cards,
-    selectedOption,
-    disabled,
-    errorMessage,
-    required,
-    stripePromise,
-    setErrorMessage,
-    onMakePrimary,
-    handleNewPaymentMethod,
-  } = props;
+const CreditCardContent: FC<CreditCardContentProps> = ({
+  setupData,
+  pendingSelection,
+  cards,
+  selectedOption,
+  disabled,
+  errorMessage,
+  required,
+  stripePromise,
+  setErrorMessage,
+  onMakePrimary,
+  handleNewPaymentMethod,
+}) => {
   const theme = useTheme();
+  const cardFormRef = useCreditCardStore((state) => state.cardFormRef);
+  const handleCardChange = useCreditCardStore((state) => state.handleCardChange);
+
+  const stripeOptions = useMemo(
+    () => ({
+      clientSecret: setupData?.clientSecret,
+    }),
+    [setupData?.clientSecret]
+  );
+
   return (
     <>
       <Box>
@@ -183,9 +194,10 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             gap: 1,
           }}
           value={selectedOption || ''}
-          onChange={(e) => onMakePrimary(e.target.value)}
+          onChange={(e) => void onMakePrimary(e.target.value)}
         >
           {cards.map((item) => {
+            const formattedBrand = item.brand ? `${item.brand.charAt(0).toUpperCase()}${item.brand.slice(1)}` : 'Card';
             return (
               <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <FormControlLabel
@@ -202,12 +214,19 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
                     <Box
                       sx={{
                         display: 'flex',
-                        // flexDirection: 'row',
-                        justifyContent: 'space-between',
+                        justifyContent: 'flex-start',
                         alignItems: 'center',
+                        gap: 1,
                       }}
                     >
-                      <Typography data-testid={dataTestIds.cardNumber}>XXXX - XXXX - XXXX - {item.lastFour}</Typography>
+                      {item.brand && (
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <CreditCardBrandIcon brand={item.brand} />
+                        </Box>
+                      )}
+                      <Typography
+                        data-testid={dataTestIds.cardNumber}
+                      >{`${formattedBrand} •••• ${item.lastFour}`}</Typography>
                     </Box>
                   }
                   sx={{
@@ -234,26 +253,19 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         </RadioGroup>
       </Box>
 
-      {/* Don't render Elements until clientSecret is available to avoid re-initialization */}
       {!setupData?.clientSecret ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
       ) : (
-        // Once Elements is mounted, keep it mounted to avoid Stripe re-initialization
-        <Elements stripe={stripePromise} options={{ clientSecret: setupData.clientSecret }}>
-          {disabled ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <AddCreditCardForm
-              clientSecret={setupData.clientSecret}
-              isLoading={disabled}
-              disabled={disabled}
-              selectPaymentMethod={handleNewPaymentMethod}
-            />
-          )}
+        <Elements stripe={stripePromise} options={stripeOptions} key={setupData.clientSecret}>
+          <AddCreditCardForm
+            ref={cardFormRef}
+            clientSecret={setupData.clientSecret}
+            disabled={disabled}
+            selectPaymentMethod={handleNewPaymentMethod}
+            onCardChange={handleCardChange}
+          />
         </Elements>
       )}
       <Snackbar

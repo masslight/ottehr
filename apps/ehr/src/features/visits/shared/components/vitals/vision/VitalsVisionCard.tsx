@@ -1,56 +1,35 @@
 import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  getVisionExtraOptionsFormattedString,
-  VitalFieldNames,
-  VitalsVisionObservationDTO,
-  VitalsVisionOption,
-} from 'utils';
+import { getVisionExtraOptionsFormattedString, VitalsVisionObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextFreeInputField } from '../components/VitalsTextInputFiled';
+import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
 
 type VitalsVisionCardProps = VitalsCardProps<VitalsVisionObservationDTO>;
-const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
-  handleSaveVital,
-  handleDeleteVital,
-  currentObs,
-  historicalObs,
-  historyElementSkeletonText,
-}): JSX.Element => {
+const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyElementSkeletonText }): JSX.Element => {
   const theme = useTheme();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  const [leftEyeSelection, setLeftEyeSelection] = useState<string>('');
-  const [rightEyeSelection, setRightEyeSelection] = useState<string>('');
-  const [bothEyesSelection, setBothEyesSelection] = useState<string>('');
-
-  const [isChildTooYoungOptionSelected, setChildTooYoungOptionSelected] = useState<boolean>(false);
-  const [isWithGlassesOptionSelected, setWithGlassesOptionSelected] = useState<boolean>(false);
-  const [isWithoutGlassesOptionSelected, setWithoutGlassesOptionSelected] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const { isLargeScreen } = useScreenDimensions();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isAddButtonDisabled = !leftEyeSelection || !rightEyeSelection;
-
-  const isCheckboxesDisabled = isSaving;
-
-  const { isLargeScreen } = useScreenDimensions();
+  const { localState } = field;
+  const isCheckboxesDisabled = field.isSaving;
 
   const latestVisionValueLabel = (() => {
-    const latestHistoryEntry = currentObs[0];
+    const latestHistoryEntry = field.current[0];
     if (!latestHistoryEntry) return;
     const visionOptionsLine = getVisionExtraOptionsFormattedString(latestHistoryEntry.extraVisionOptions);
     return `Left eye: ${latestHistoryEntry.leftEyeVisionText}; Right eye: ${latestHistoryEntry.rightEyeVisionText}; ${
@@ -58,102 +37,23 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
     }`;
   })();
 
-  const handleSaveVisionObservation = async (leftEyeVisionText: string, rightEyeVisionText: string): Promise<void> => {
-    if (!leftEyeVisionText) return;
-    if (!rightEyeVisionText) return;
-
-    const extraOptions: VitalsVisionOption[] = [];
-    if (isChildTooYoungOptionSelected) {
-      extraOptions.push('child_too_young');
-    }
-    if (isWithGlassesOptionSelected) {
-      extraOptions.push('with_glasses');
-    }
-    if (isWithoutGlassesOptionSelected) {
-      extraOptions.push('without_glasses');
-    }
-
-    try {
-      setIsSaving(true);
-      const vitalObs: VitalsVisionObservationDTO = {
-        field: VitalFieldNames.VitalVision,
-        leftEyeVisionText: leftEyeVisionText,
-        rightEyeVisionText: rightEyeVisionText,
-        extraVisionOptions: extraOptions,
-      };
-      await handleSaveVital(vitalObs);
-      setLeftEyeSelection('');
-      setRightEyeSelection('');
-      setBothEyesSelection('');
-      setChildTooYoungOptionSelected(false);
-      setWithGlassesOptionSelected(false);
-      setWithoutGlassesOptionSelected(false);
-    } catch {
-      enqueueSnackbar('Error saving Vision vital data', { variant: 'error' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleLeftEyeSelectionChange = useCallback(
-    (event: { target: { value: string } }): void => {
-      const eventValue = event.target.value;
-      const selectedLeftEye = eventValue ?? '';
-      setLeftEyeSelection(selectedLeftEye);
-      if (selectedLeftEye !== rightEyeSelection) {
-        setBothEyesSelection('');
-      }
-    },
-    [rightEyeSelection]
-  );
-
-  const handleRightEyeSelectionChange = useCallback(
-    (event: { target: { value: string } }): void => {
-      const eventValue = event.target.value;
-      const selectedRightEye = eventValue ?? '';
-      setRightEyeSelection(selectedRightEye);
-      if (selectedRightEye !== leftEyeSelection) {
-        setBothEyesSelection('');
-      }
-    },
-    [leftEyeSelection]
-  );
-
-  const handleBothEyesSelectionChange = useCallback((event: { target: { value: string } }): void => {
-    const eventValue = event.target.value;
-    const selectedBothEyes = eventValue ?? '';
-    setBothEyesSelection(selectedBothEyes);
-    setLeftEyeSelection(selectedBothEyes);
-    setRightEyeSelection(selectedBothEyes);
-  }, []);
-
-  const handleVisionOptionChanged = useCallback((isChecked: boolean, visionOption: VitalsVisionOption): void => {
-    if (visionOption === 'child_too_young') {
-      setChildTooYoungOptionSelected(isChecked);
-    }
-    if (visionOption === 'with_glasses') {
-      setWithGlassesOptionSelected(isChecked);
-      setWithoutGlassesOptionSelected(false);
-    }
-    if (visionOption === 'without_glasses') {
-      setWithoutGlassesOptionSelected(isChecked);
-      setWithGlassesOptionSelected(false);
-    }
-  }, []);
+  const { handleKeyDown } = useVitalsSaveOnEnter({
+    onSave: field.save,
+  });
 
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
-        historicalObs={historicalObs}
-        currentEncounterObs={currentObs}
+        historicalObs={field.historical}
+        currentEncounterObs={field.current}
         isLoading={false}
         historyElementSkeletonText={historyElementSkeletonText}
         historyElementCreator={(historyEntry) => {
-          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          const isCurrent = field.current.some((obs) => obs.resourceId === historyEntry.resourceId);
           return (
             <VitalHistoryElement
               historyEntry={historyEntry}
-              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              onDelete={isCurrent && !isReadOnly ? field.delete : undefined}
               dataTestId={dataTestIds.vitalsPage.visionItem}
             />
           );
@@ -178,6 +78,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
             leftColumn={
               <Grid
                 container
+                onKeyDown={handleKeyDown}
                 sx={{
                   height: 'auto',
                   width: 'auto',
@@ -187,6 +88,8 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                   mx: 2,
                   py: 2,
                   px: 2,
+                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                  transition: VITALS_FORM_BORDER_TRANSITION,
                 }}
               >
                 {/* Left eye vision selector */}
@@ -200,10 +103,10 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                   >
                     <VitalsTextFreeInputField
                       label="Left eye"
-                      value={leftEyeSelection}
-                      disabled={isSaving}
-                      isInputError={false}
-                      onChange={handleLeftEyeSelectionChange}
+                      value={localState.leftEyeSelection}
+                      disabled={field.isSaving}
+                      isInputError={localState.isLeftEyeInvalid && localState.validationError}
+                      onChange={localState.handleLeftEyeChange}
                       data-testid={dataTestIds.vitalsPage.visionLeftInput}
                     />
                   </Box>
@@ -220,10 +123,10 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                   >
                     <VitalsTextFreeInputField
                       label="Right eye"
-                      value={rightEyeSelection}
-                      disabled={isSaving}
-                      isInputError={false}
-                      onChange={handleRightEyeSelectionChange}
+                      value={localState.rightEyeSelection}
+                      disabled={field.isSaving}
+                      isInputError={localState.isRightEyeInvalid && localState.validationError}
+                      onChange={localState.handleRightEyeChange}
                       data-testid={dataTestIds.vitalsPage.visionRightInput}
                     />
                   </Box>
@@ -248,10 +151,10 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                   >
                     <VitalsTextFreeInputField
                       label="Both eyes"
-                      value={bothEyesSelection}
-                      disabled={isSaving}
+                      value={localState.bothEyesSelection}
+                      disabled={field.isSaving}
                       isInputError={false}
-                      onChange={handleBothEyesSelectionChange}
+                      onChange={localState.handleBothEyesChange}
                     />
                   </Box>
                 </Grid>
@@ -259,9 +162,9 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                 {/* Add Button column */}
                 <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 4, sm: 4, md: 4, lg: 4 }} sx={{ mt: 0 }}>
                   <RoundedButton
-                    disabled={isAddButtonDisabled}
-                    loading={isSaving}
-                    onClick={() => handleSaveVisionObservation(leftEyeSelection, rightEyeSelection)}
+                    disabled={localState.isDisabled}
+                    loading={field.isSaving}
+                    onClick={field.save}
                     color="primary"
                     sx={{
                       height: '40px',
@@ -303,8 +206,8 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                             },
                           }}
                           disabled={isCheckboxesDisabled}
-                          checked={isChildTooYoungOptionSelected}
-                          onChange={(e) => handleVisionOptionChanged(e.target.checked, 'child_too_young')}
+                          checked={localState.isChildTooYoungSelected}
+                          onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'child_too_young')}
                         />
                       }
                       label={
@@ -341,8 +244,8 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                             },
                           }}
                           disabled={isCheckboxesDisabled}
-                          checked={isWithGlassesOptionSelected}
-                          onChange={(e) => handleVisionOptionChanged(e.target.checked, 'with_glasses')}
+                          checked={localState.isWithGlassesSelected}
+                          onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'with_glasses')}
                         />
                       }
                       label={
@@ -379,8 +282,8 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                             },
                           }}
                           disabled={isCheckboxesDisabled}
-                          checked={isWithoutGlassesOptionSelected}
-                          onChange={(e) => handleVisionOptionChanged(e.target.checked, 'without_glasses')}
+                          checked={localState.isWithoutGlassesSelected}
+                          onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'without_glasses')}
                         />
                       }
                       label={
