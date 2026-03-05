@@ -1,1 +1,1 @@
-export const PROVIDER_OVERRIDES = {} as const;
+export const PROVIDER_CONFIG_OVERRIDE = {} as const;
