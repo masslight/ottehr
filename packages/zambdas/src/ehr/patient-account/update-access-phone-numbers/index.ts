@@ -36,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): 
     const input = validateRequestParameters(zambdaInput);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createOystehrClient(m2mToken, input.secrets);
-    await updateLoginPhoneNumbers(input, oystehr);
+    await updateAccessPhoneNumbers(input, oystehr);
     return {
       statusCode: 200,
       body: JSON.stringify({ result: 'success' }),
@@ -48,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): 
   }
 });
 
-const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<void> => {
+const updateAccessPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<void> => {
   const patientRef = `Patient/${input.patientId}`;
 
   const relatedPersons = (
