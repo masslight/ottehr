@@ -1,17 +1,12 @@
 import { getSpentTime, isInPersonAppointment } from 'utils';
 import { drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import {
-  ChiefComplaintAndHistoryOfPresentIllness,
-  EncounterInfo,
-  PdfSection,
-  ProgressNoteVisitDataInput,
-} from '../../types';
+import { ChiefComplaint, EncounterInfo, PdfSection, ProgressNoteVisitDataInput } from '../../types';
 
-export const composeChiefComplaintAndHistoryOfPresentIllness: DataComposer<
-  ProgressNoteVisitDataInput,
-  ChiefComplaintAndHistoryOfPresentIllness
-> = ({ allChartData, appointmentPackage }) => {
+export const composeChiefComplaint: DataComposer<ProgressNoteVisitDataInput, ChiefComplaint> = ({
+  allChartData,
+  appointmentPackage,
+}) => {
   const { chartData } = allChartData;
   const { encounter, appointment } = appointmentPackage;
   const chiefComplaint = chartData.chiefComplaint?.text;
@@ -25,15 +20,15 @@ export const composeChiefComplaintAndHistoryOfPresentIllness: DataComposer<
   };
 };
 
-export const createChiefComplaintAndHistoryOfPresentIllnessSection = <
+export const createChiefComplaintSection = <
   TData extends {
     encounter?: EncounterInfo;
-    chiefComplaintAndHistoryOfPresentIllness?: ChiefComplaintAndHistoryOfPresentIllness;
+    chiefComplaint?: ChiefComplaint;
   },
->(): PdfSection<TData, ChiefComplaintAndHistoryOfPresentIllness> => {
+>(): PdfSection<TData, ChiefComplaint> => {
   return createConfiguredSection(null, () => ({
-    title: 'Chief complaint & History of Present Illness',
-    dataSelector: (data) => data.chiefComplaintAndHistoryOfPresentIllness,
+    title: 'Chief complaint',
+    dataSelector: (data) => data.chiefComplaint,
     shouldRender: (sectionData, rootData) =>
       !rootData?.encounter?.isFollowup && (!!sectionData.chiefComplaint || !!sectionData.spentTime),
     render: (client, data, styles) => {
