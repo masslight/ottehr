@@ -19,6 +19,7 @@ import {
   ContactPoint,
   Coverage,
   DocumentReference,
+  Extension,
   FhirResource,
   Flag,
   Identifier,
@@ -33,13 +34,13 @@ import {
   QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
-  Task,
 } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
+  buildExtensionObject,
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
   ConsentSigner,
@@ -62,7 +63,6 @@ import {
   FHIR_EXTENSION,
   FileDocDataForDocReference,
   filterHiddenRemovableFields,
-  filterQuestionnaireResponseByEnableWhen,
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
@@ -74,10 +74,8 @@ import {
   getEmailForIndividual,
   getFullName,
   getMemberIdFromCoverage,
-  getPatchOperationToAddOrUpdateExtension,
   getPatchOperationToAddOrUpdatePreferredLanguage,
   getPatchOperationToAddOrUpdatePreferredName,
-  getPatchOperationToRemoveExtension,
   getPatchOperationToRemovePreferredLanguage,
   getPayerId,
   getPhoneNumberForIndividual,
@@ -107,7 +105,6 @@ import {
   PatientAccountAndCoverageResources,
   patientFieldPaths,
   PatientMasterRecordResource,
-  PatientMasterRecordResourceType,
   PHARMACY_COLLECTION_LINK_IDS,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
@@ -116,7 +113,9 @@ import {
   PREFERRED_PHARMACY_EXTENSION_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
+  prepareQuestionnaireResponseForHarvest,
   PRIVATE_EXTENSION_BASE_URL,
+  QuestionnaireResponseHarvestInput,
   relatedPersonFieldPaths,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
@@ -134,9 +133,6 @@ import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
-
-const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
-// const PATIENT_UPDATE_MAX_RETRIES = 3;
 
 export const accountMatchesType = (account: Account, type?: Account['type']): boolean => {
   if (!account?.type?.coding || !type?.coding) {
@@ -772,28 +768,14 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-relationship-to-insured': coverageFieldPaths.relationship,
 };
 
-const pathToLinkIdMap: Record<string, string> = Object.entries(paperworkToPatientFieldMap).reduce(
-  (acc, [linkId, path]) => {
-    acc[path] = linkId;
-    return acc;
-  },
-  {} as Record<string, string>
-);
-
 const BIRTH_SEX_MAP: Record<string, string> = {
   Male: 'male',
   Female: 'female',
   Intersex: 'other',
 };
 
-interface ConflictingUpdate {
-  operation: Operation;
-  resourceReference: Reference['reference'];
-}
-
 interface ResourcePatchOperations {
   patchOpsForDirectUpdate: Operation[];
-  conflictingUpdates: ConflictingUpdate[];
 }
 
 interface MasterRecordPatchOperations {
@@ -804,38 +786,19 @@ interface MasterRecordPatchOperations {
 
 const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp-number', 'pcp-active'];
 
-export interface PatientMasterRecordResources {
-  patient: Patient;
-}
-
 export function createMasterRecordPatchOperations(
-  questionnaireResponseItems: QuestionnaireResponseItem[],
-  patient: Patient,
-  questionnaireForEnableWhenFiltering?: Questionnaire
+  questionnaireResponseHarvestInput: QuestionnaireResponseHarvestInput,
+  patient: Patient
 ): MasterRecordPatchOperations {
-  let flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    questionnaireResponseItems as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-
-  // Filter out items that should be hidden based on enableWhen conditions
-  if (questionnaireForEnableWhenFiltering) {
-    flattenedPaperwork = filterQuestionnaireResponseByEnableWhen(
-      flattenedPaperwork,
-      questionnaireForEnableWhenFiltering
-    );
-  }
+  const flattenedPaperwork = prepareQuestionnaireResponseForHarvest(questionnaireResponseHarvestInput);
 
   const result: MasterRecordPatchOperations = {
-    patient: { patchOpsForDirectUpdate: [], conflictingUpdates: [] },
+    patient: { patchOpsForDirectUpdate: [] },
     coverage: {},
     relatedPerson: {},
   };
 
-  const tempOperations = {
-    patient: [] as Operation[],
-    coverage: {} as { [key: string]: Operation[] },
-    relatedPerson: {} as { [key: string]: Operation[] },
-  };
+  const tempOperations: Operation[] = [];
 
   // Define telecom configurations
   const contactTelecomConfigs: Record<string, ContactTelecomConfig> = {
@@ -850,6 +813,7 @@ export function createMasterRecordPatchOperations(
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
+  const extensionIntents: Array<{ url: string; action: 'set' | 'remove'; value?: string }> = [];
   let isUseMissedInPatientName = false;
 
   flattenedPaperwork.forEach((item) => {
@@ -882,218 +846,214 @@ export function createMasterRecordPatchOperations(
 
     const { resourceType, path } = extractResourceTypeAndPath(fullPath);
 
-    const shouldThrow = path.includes('contact') || fullPath.includes('contact');
-    if (shouldThrow) {
-      throw new Error(`SHORT CIRCUIT: trigger occurs`);
+    if (resourceType !== 'Patient') return;
+
+    // Handle telecom fields
+    const contactTelecomConfig = contactTelecomConfigs[item.linkId];
+    if (contactTelecomConfig) {
+      const operation = createPatchOperationForTelecom(
+        contactTelecomConfig,
+        patient,
+        path,
+        isAnswerEmpty ? undefined : (value as string)
+      );
+      if (operation) tempOperations.push(operation);
+      return;
     }
 
-    switch (resourceType) {
-      case 'Patient': {
-        // Handle telecom fields
-        const contactTelecomConfig = contactTelecomConfigs[item.linkId];
-        if (contactTelecomConfig) {
-          if (isAnswerEmpty) {
-            const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, undefined);
-            if (operation) tempOperations.patient.push(operation);
-            return;
+    // Collect extension intents (resolved into a single operation after the loop)
+    if (path.startsWith('/extension/')) {
+      const url = path.replace('/extension/', '');
+      const currentValue = getCurrentValue(patient, path);
+      if (value !== currentValue) {
+        if (isAnswerEmpty) {
+          if (currentValue !== undefined && currentValue !== null) {
+            extensionIntents.push({ url, action: 'remove' });
           }
-
-          const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, value as string);
-          if (operation) tempOperations.patient.push(operation);
-          return;
+        } else {
+          extensionIntents.push({ url, action: 'set', value: String(value) });
         }
+      }
+      return;
+    }
 
-        // Handle extensions
-        if (path.startsWith('/extension/')) {
-          const url = path.replace('/extension/', '');
-          const currentValue = getCurrentValue(patient, path);
-          if (value !== currentValue) {
-            let operation: Operation | undefined;
-            if (isAnswerEmpty) {
-              if (currentValue !== undefined && currentValue !== null) {
-                operation = getPatchOperationToRemoveExtension(patient, { url });
-              }
-            } else {
-              operation = getPatchOperationToAddOrUpdateExtension(patient, { url, value: String(value) }, currentValue);
-            }
-            if (operation) tempOperations.patient.push(operation);
-          }
-          return;
+    // Special handler for preferred-language
+    if (item.linkId === 'preferred-language') {
+      const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
+      const otherItem = flattenedPaperwork.find((item) => item.linkId === 'other-preferred-language');
+      const otherValue = otherItem ? extractValueFromItem(otherItem) : undefined;
+      const newValue = value === 'Other' ? otherValue : value;
+      if (!newValue || newValue === '') {
+        if (currentValue) {
+          const operation = getPatchOperationToRemovePreferredLanguage(patient);
+          if (operation) tempOperations.push(operation);
         }
+        return;
+      } else if (newValue !== currentValue) {
+        const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
+          newValue as string,
+          path,
+          patient,
+          currentValue as string | undefined
+        );
+        tempOperations.push(operation);
+      }
+      return;
+    }
 
-        // Special handler for preferred-language
-        if (item.linkId === 'preferred-language') {
-          const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-          const otherItem = flattenedPaperwork.find((item) => item.linkId === 'other-preferred-language');
-          const otherValue = otherItem ? extractValueFromItem(otherItem) : undefined;
-          const newValue = value === 'Other' ? otherValue : value;
-          if (!newValue || newValue === '') {
-            if (currentValue) {
-              const operation = getPatchOperationToRemovePreferredLanguage(patient);
-              if (operation) tempOperations.patient.push(operation);
-            }
-            return;
-          } else if (newValue !== currentValue) {
-            const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
-              newValue as string,
-              path,
-              patient,
-              currentValue as string | undefined
-            );
-            tempOperations.patient.push(operation);
-          }
-          return;
-        }
+    if (item.linkId === 'patient-ssn') {
+      const currentValue = getTaxID(patient);
+      const SSN_SYSTEM = 'http://hl7.org/fhir/sid/us-ssn';
 
-        if (item.linkId === 'patient-ssn') {
-          const currentValue = getTaxID(patient);
-          if (currentValue !== value) {
-            const ssnIdentifier = makeSSNIdentifier(value as string);
-
-            if (!patient.identifier) {
-              // Scenario 1: No identifier field exists - add new identifier array with SSN
-              tempOperations.patient.push({
-                op: 'add',
-                path: '/identifier',
-                value: ssnIdentifier, // normalization logic below will wrap this value in an array
-              });
-            } else {
-              // Find existing SSN identifier index
-              const ssnIndex = patient.identifier.findIndex((id) => id.system === ssnIdentifier.system);
-
-              if (ssnIndex === -1) {
-                // Scenario 2: Identifier exists but no SSN entry - add SSN to array
-                tempOperations.patient.push({
-                  op: 'add',
-                  path: `/identifier/-`,
-                  value: ssnIdentifier,
-                });
-              } else {
-                // Scenario 3: SSN entry exists - replace entire identifier to ensure type field is included, but only if value is provided
-                if (value) {
-                  tempOperations.patient.push({
-                    op: 'replace',
-                    path: `/identifier/${ssnIndex}`,
-                    value: ssnIdentifier,
-                  });
-                }
-              }
-            }
-          }
-          return;
-        }
-        if (item.linkId === 'patient-preferred-name') {
-          const preferredNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
-          const currentPath = path.replace(/name\/\d+/, `name/${preferredNameIndex}`);
-          const currentValue = getCurrentValue(patient, currentPath);
-
-          if (value !== currentValue) {
-            const operation = getPatchOperationToAddOrUpdatePreferredName(
-              currentPath,
-              currentValue as string,
-              value as string
-            );
-
-            if (operation) tempOperations.patient.push(operation);
-          }
-          return;
-        }
-
-        // Handle array fields
-        const { isArray, parentPath } = getArrayInfo(path);
-        if (isArray) {
-          const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient) as
-            | string[]
-            | undefined;
-
-          if (isAnswerEmpty) {
-            if (!effectiveArrayValue) return undefined;
-          }
-
-          if (effectiveArrayValue === undefined) {
-            const currentParentValue = getCurrentValue(patient, parentPath);
-            const operation = createBasicPatchOperation([value as PatchValueBase], parentPath, currentParentValue);
-            if (operation) tempOperations.patient.push(operation);
-            return;
-          }
-
-          const arrayMatch = path.match(/^(.+)\/(\d+)$/);
-
-          if (arrayMatch) {
-            const [, arrayPath, indexStr] = arrayMatch;
-            const targetIndex = parseInt(indexStr);
-            const currentArray = Array.isArray(effectiveArrayValue)
-              ? [...effectiveArrayValue]
-              : new Array(targetIndex + 1).fill(undefined);
-
-            if (value === '') {
-              currentArray[targetIndex] = undefined;
-            } else {
-              currentArray[targetIndex] = value;
-            }
-
-            const cleanArray = currentArray.filter(
-              (item, index) => item !== undefined || index < currentArray.length - 1
-            );
-            if (effectiveArrayValue === undefined || areArraysDifferent(effectiveArrayValue, cleanArray)) {
-              const operation: Operation =
-                cleanArray.length > 0
-                  ? {
-                      op: effectiveArrayValue === undefined ? 'add' : 'replace',
-                      path: arrayPath,
-                      value: cleanArray,
-                    }
-                  : {
-                      op: 'remove',
-                      path: arrayPath,
-                    };
-              tempOperations.patient.push(operation);
-            }
-          }
-          return;
-        }
-
-        // Handle regular fields
-        const currentValue = getCurrentValue(patient, path);
-        if (value !== currentValue) {
-          if (isAnswerEmpty) {
-            if (currentValue !== undefined && currentValue !== null) {
-              const removeOp: RemoveOperation = {
-                op: 'remove',
-                path,
-              };
-              tempOperations.patient.push(removeOp);
-            }
-          } else {
-            const operation = createBasicPatchOperation(value, path, currentValue);
-            if (operation) tempOperations.patient.push(operation);
+      if (isAnswerEmpty) {
+        // SSN field is enabled but empty — remove existing SSN identifier if present
+        if (patient.identifier) {
+          const ssnIndex = patient.identifier.findIndex((id) => id.system === SSN_SYSTEM);
+          if (ssnIndex !== -1) {
+            tempOperations.push({
+              op: 'remove',
+              path: `/identifier/${ssnIndex}`,
+            });
           }
         }
         return;
       }
-      default: {
+
+      if (currentValue !== value) {
+        const ssnIdentifier = makeSSNIdentifier(value as string);
+
+        if (!patient.identifier) {
+          // Scenario 1: No identifier field exists - add new identifier array with SSN
+          tempOperations.push({
+            op: 'add',
+            path: '/identifier',
+            value: ssnIdentifier, // normalization logic below will wrap this value in an array
+          });
+        } else {
+          // Find existing SSN identifier index
+          const ssnIndex = patient.identifier.findIndex((id) => id.system === ssnIdentifier.system);
+
+          if (ssnIndex === -1) {
+            // Scenario 2: Identifier exists but no SSN entry - add SSN to array
+            tempOperations.push({
+              op: 'add',
+              path: `/identifier/-`,
+              value: ssnIdentifier,
+            });
+          } else {
+            // Scenario 3: SSN entry exists - replace entire identifier to ensure type field is included
+            tempOperations.push({
+              op: 'replace',
+              path: `/identifier/${ssnIndex}`,
+              value: ssnIdentifier,
+            });
+          }
+        }
+      }
+      return;
+    }
+    if (item.linkId === 'patient-preferred-name') {
+      const preferredNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
+      const currentPath = path.replace(/name\/\d+/, `name/${preferredNameIndex}`);
+      const currentValue = getCurrentValue(patient, currentPath);
+
+      if (value !== currentValue) {
+        const operation = getPatchOperationToAddOrUpdatePreferredName(
+          currentPath,
+          currentValue as string,
+          value as string
+        );
+
+        if (operation) tempOperations.push(operation);
+      }
+      return;
+    }
+
+    // Handle array fields
+    const { isArray, parentPath } = getArrayInfo(path);
+    if (isArray) {
+      const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations) as string[] | undefined;
+
+      if (isAnswerEmpty) {
+        if (!effectiveArrayValue) return undefined;
+      }
+
+      if (effectiveArrayValue === undefined) {
+        const currentParentValue = getCurrentValue(patient, parentPath);
+        const operation = createBasicPatchOperation([value as PatchValueBase], parentPath, currentParentValue);
+        if (operation) tempOperations.push(operation);
         return;
+      }
+
+      const arrayMatch = path.match(/^(.+)\/(\d+)$/);
+
+      if (arrayMatch) {
+        const [, arrayPath, indexStr] = arrayMatch;
+        const targetIndex = parseInt(indexStr);
+        const currentArray = Array.isArray(effectiveArrayValue)
+          ? [...effectiveArrayValue]
+          : new Array(targetIndex + 1).fill(undefined);
+
+        if (value === '') {
+          currentArray[targetIndex] = undefined;
+        } else {
+          currentArray[targetIndex] = value;
+        }
+
+        const cleanArray = currentArray.filter((item, index) => item !== undefined || index < currentArray.length - 1);
+        if (effectiveArrayValue === undefined || areArraysDifferent(effectiveArrayValue, cleanArray)) {
+          const operation: Operation =
+            cleanArray.length > 0
+              ? {
+                  op: effectiveArrayValue === undefined ? 'add' : 'replace',
+                  path: arrayPath,
+                  value: cleanArray,
+                }
+              : {
+                  op: 'remove',
+                  path: arrayPath,
+                };
+          tempOperations.push(operation);
+        }
+      }
+      return;
+    }
+
+    // Handle regular fields
+    const currentValue = getCurrentValue(patient, path);
+    if (value !== currentValue) {
+      if (isAnswerEmpty) {
+        if (currentValue !== undefined && currentValue !== null) {
+          const removeOp: RemoveOperation = {
+            op: 'remove',
+            path,
+          };
+          tempOperations.push(removeOp);
+        }
+      } else {
+        const operation = createBasicPatchOperation(value, path, currentValue);
+        if (operation) tempOperations.push(operation);
       }
     }
   });
 
   if (isUseMissedInPatientName) {
-    tempOperations.patient.push({
+    tempOperations.push({
       op: 'add',
       path: '/name/0/use',
       value: 'official',
     });
   }
 
-  // Separate operations for each resource
-  // Separate Patient operations
-  result.patient = separateResourceUpdates(tempOperations.patient, patient, 'Patient');
-  result.patient.patchOpsForDirectUpdate = result.patient.patchOpsForDirectUpdate.filter((op) => {
+  result.patient.patchOpsForDirectUpdate = tempOperations.filter((op) => {
     const { path, op: innerOperation } = op;
     return path != undefined && innerOperation != undefined;
   });
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
-  // this needs to go here for now because consolidateOperations breaks it
+
+  // Extension and PCP ops are added after consolidateOperations because they are already
+  // fully resolved and would be mangled by the consolidation pipeline's grouping/normalization.
+  result.patient.patchOpsForDirectUpdate.push(...resolveExtensionIntents(extensionIntents, patient));
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
   // sanitize the patient patch ops so no SSN is leaked in logs
   const sanitizedPatchOps = result.patient.patchOpsForDirectUpdate.map((op) => {
@@ -1105,6 +1065,51 @@ export function createMasterRecordPatchOperations(
   console.log('result.patient.patchOps', JSON.stringify(sanitizedPatchOps, null, 2));
   return result;
 }
+
+const resolveExtensionIntents = (
+  intents: Array<{ url: string; action: 'set' | 'remove'; value?: string }>,
+  patient: Patient
+): Operation[] => {
+  if (intents.length === 0) return [];
+
+  const targetExtensions: Extension[] = _.cloneDeep(patient.extension ?? []);
+
+  for (const intent of intents) {
+    const existingIndex = targetExtensions.findIndex((ext) => ext.url === intent.url);
+    if (intent.action === 'remove') {
+      if (existingIndex !== -1) {
+        targetExtensions.splice(existingIndex, 1);
+      }
+    } else {
+      const extensionObj = buildExtensionObject(intent.url, intent.value!);
+      if (extensionObj) {
+        if (existingIndex !== -1) {
+          targetExtensions[existingIndex] = extensionObj;
+        } else {
+          targetExtensions.push(extensionObj);
+        }
+      }
+    }
+  }
+
+  const sortByUrl = (exts: Extension[]): Extension[] => _.sortBy(exts, 'url');
+  const originalSorted = sortByUrl(patient.extension ?? []);
+  const targetSorted = sortByUrl(targetExtensions);
+
+  if (_.isEqual(originalSorted, targetSorted)) {
+    return [];
+  }
+
+  if (!patient.extension || patient.extension.length === 0) {
+    return [{ op: 'add', path: '/extension', value: targetExtensions }];
+  }
+
+  if (targetExtensions.length === 0) {
+    return [{ op: 'remove', path: '/extension' }];
+  }
+
+  return [{ op: 'replace', path: '/extension', value: targetExtensions }];
+};
 
 const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
   const isActive = flattenedItems.find((field) => field.linkId === 'pcp-active')?.answer?.[0]?.valueBoolean;
@@ -1362,41 +1367,6 @@ export const createUpdatePharmacyPatchOps = (
   return operations;
 };
 
-function separateResourceUpdates(
-  patchOps: Operation[],
-  resource: Patient | Coverage | RelatedPerson,
-  resourceType: string
-): ResourcePatchOperations {
-  const patchOpsForDirectUpdate: Operation[] = [];
-  const conflictingUpdates: ConflictingUpdate[] = [];
-
-  patchOps.forEach((patchOp) => {
-    if (patchOp.op === 'add' || IGNORE_CREATING_TASKS_FOR_REVIEW) {
-      patchOpsForDirectUpdate.push(patchOp);
-    } else {
-      const currentValue = getCurrentValue(resource, patchOp.path);
-      if (!currentValue || currentValue === '') {
-        patchOpsForDirectUpdate.push(patchOp);
-      } else {
-        conflictingUpdates.push({
-          operation: patchOp,
-          resourceReference: `${resourceType}/${resource.id}`,
-        });
-      }
-    }
-  });
-
-  return { patchOpsForDirectUpdate, conflictingUpdates };
-}
-
-export function hasConflictingUpdates(operations: MasterRecordPatchOperations): boolean {
-  return (
-    operations.patient.conflictingUpdates.length > 0 ||
-    Object.values(operations.coverage).some((ops) => ops.conflictingUpdates.length > 0) ||
-    Object.values(operations.relatedPerson).some((ops) => ops.conflictingUpdates.length > 0)
-  );
-}
-
 type PatchValueBase = string | number | boolean | Reference;
 function createBasicPatchOperation(
   value: PatchValueBase | PatchValueBase[],
@@ -1413,11 +1383,7 @@ function createBasicPatchOperation(
   };
 }
 
-function extractValueFromItem(
-  item: QuestionnaireResponseItem
-  // insurancePlanResources?: InsurancePlan[],
-  // organizationResources?: Organization[]
-): string | boolean | Reference | undefined {
+function extractValueFromItem(item: QuestionnaireResponseItem): string | boolean | Reference | undefined {
   // Handle date components collection
   if (item?.item) {
     const hasDateComponents = item.item.some(
@@ -1473,116 +1439,6 @@ function getEffectiveValue(
   });
 
   return effectiveValue;
-}
-
-export function createConflictResolutionTask(
-  operations: MasterRecordPatchOperations,
-  resources: PatientMasterRecordResources,
-  qrId: QuestionnaireResponse['id']
-): Task {
-  // Collect all conflicts with resource context
-  const allConflicts = [
-    // Patient conflicts
-    ...operations.patient.conflictingUpdates.map((conflict) => ({
-      ...conflict,
-      resourceType: 'Patient',
-      resourceId: resources.patient.id!,
-    })),
-
-    // Coverage conflicts
-    ...Object.entries(operations.coverage).flatMap(([coverageId, ops]) =>
-      ops.conflictingUpdates.map((conflict) => ({
-        ...conflict,
-        resourceType: 'Coverage',
-        resourceId: coverageId,
-      }))
-    ),
-
-    // RelatedPerson conflicts
-    ...Object.entries(operations.relatedPerson).flatMap(([relatedPersonId, ops]) =>
-      ops.conflictingUpdates.map((conflict) => ({
-        ...conflict,
-        resourceType: 'RelatedPerson',
-        resourceId: relatedPersonId,
-      }))
-    ),
-  ];
-
-  return {
-    resourceType: 'Task',
-    status: 'ready',
-    intent: 'order',
-    description: 'Patient master record information changes',
-    requester: {
-      type: 'Patient',
-      reference: `Patient/${resources.patient.id}`,
-    },
-    input: allConflicts.map((conflict) => ({
-      type: {
-        text: getFieldNameWithResource(resources, conflict.resourceType, conflict.resourceId, conflict.operation.path),
-      },
-      valueString: JSON.stringify({
-        operation: conflict.operation,
-        resourceReference: conflict.resourceReference,
-      }),
-    })),
-    focus: {
-      type: 'QuestionnaireResponse',
-      reference: `QuestionnaireResponse/${qrId}`,
-    },
-  };
-}
-
-function getFieldNameWithResource(
-  resources: PatientMasterRecordResources,
-  resourceType: PatientMasterRecordResourceType,
-  _resourceId: string,
-  path: string
-): string {
-  let resource: PatientMasterRecordResource | undefined;
-
-  switch (resourceType) {
-    case 'Patient':
-      resource = resources.patient;
-      break;
-  }
-
-  if (!resource) {
-    return `Unknown field in ${resourceType}`;
-  }
-
-  // Get human-readable field name
-  const fullPath = `${resourceType}${path}`;
-  const fieldName = getFieldName(resource, fullPath);
-
-  // Add context about which resource it belongs to
-  switch (resourceType) {
-    case 'Patient':
-      return `Patient: ${fieldName}`;
-    case 'Coverage': {
-      const coverage = resource as Coverage;
-      const coverageContext = coverage.order === 1 ? 'Primary' : 'Secondary';
-      return `${coverageContext} Coverage: ${fieldName}`;
-    }
-    case 'RelatedPerson':
-      return `Related Person: ${fieldName}`;
-    default:
-      return fieldName;
-  }
-}
-
-function getFieldName(resource: PatientMasterRecordResource, path: string): string {
-  if (path.includes('/extension/')) {
-    const extensionIndex = path.replace('/extension/', '');
-    if (!isNaN(Number(extensionIndex))) {
-      const extension = resource.extension?.[Number(extensionIndex)];
-      if (extension?.url) {
-        path = `${resource.resourceType}/extension/${extension.url}`;
-      }
-    }
-  }
-
-  return pathToLinkIdMap[path] || 'unknown-field';
 }
 
 function areArraysDifferent(source: string[], target: string[]): boolean {
@@ -1983,19 +1839,9 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
   return undefined;
 }
 
-const buildEmergencyContactAddress = (contact: EmergencyContact, patient: Patient): Address | undefined => {
-  if (contact.addressSameAsPatient) {
-    const patientAddress = patient.address?.[0];
-    if (patientAddress) {
-      return {
-        line: patientAddress.line ? [...patientAddress.line] : undefined,
-        city: patientAddress.city,
-        state: patientAddress.state,
-        postalCode: patientAddress.postalCode,
-      };
-    }
-  }
-
+const buildEmergencyContactAddress = (contact: EmergencyContact): Address | undefined => {
+  // The frontend auto-fills the address fields when "same as patient" is selected,
+  // so we always read directly from the emergency contact's own fields.
   const { addressLine, addressLine2, city, state, zip } = contact;
   const hasAddressData = addressLine || addressLine2 || city || state || zip;
   if (!hasAddressData) {
@@ -2646,7 +2492,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const emergencyContactData = extractEmergencyContact(flattenedItems);
   const emergencyContactAddress =
-    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
+    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData) : undefined;
 
   const employerInformation = getEmployerInformation(flattenedItems);
   const occupationalMedicineEmployerInformation = getOccupationalMedicineEmployerInformation(flattenedItems);

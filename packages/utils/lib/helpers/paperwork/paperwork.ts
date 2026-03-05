@@ -37,7 +37,7 @@ import {
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
 } from '../../types';
-import { filterQuestionnaireResponseByEnableWhen } from '../../types/data/paperwork';
+import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
 import { DOB_DATE_FORMAT } from '../../utils';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
@@ -686,10 +686,11 @@ export const filterHiddenRemovableFields = (
   items: QuestionnaireResponseItem[],
   questionnaire: Questionnaire
 ): QuestionnaireResponseItem[] => {
-  const visibleRemovableFields = filterQuestionnaireResponseByEnableWhen(
-    items.filter((item: QuestionnaireResponseItem) => isRemovableField(item.linkId)),
-    questionnaire
-  );
+  const visibleRemovableFields = prepareQuestionnaireResponseForHarvest({
+    questionnaireResponseItems: items.filter((item: QuestionnaireResponseItem) => isRemovableField(item.linkId)),
+    sourceQuestionnaire: questionnaire,
+    options: { filterByEnableWhen: true },
+  });
   const visibleRemovableLinkIds = new Set(visibleRemovableFields.map((item: QuestionnaireResponseItem) => item.linkId));
 
   return items.filter(
