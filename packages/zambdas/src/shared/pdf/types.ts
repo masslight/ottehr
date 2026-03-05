@@ -462,6 +462,7 @@ export interface PdfSection<TData, TSectionData> {
 export interface VisitInfo extends PdfData {
   type: string;
   serviceCategory?: string;
+  bookingType?: string;
   time: string;
   date: string;
   location?: string;
@@ -508,6 +509,7 @@ interface VisitDetailsForInitialVisit extends PdfData {
   visitType: 'initial';
   type?: string;
   serviceCategory?: string;
+  bookingType?: string;
   dateOfService: string;
   reasonForVisit: string;
   provider: string;

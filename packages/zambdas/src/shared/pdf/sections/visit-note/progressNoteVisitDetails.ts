@@ -5,7 +5,6 @@ import {
   formatFhirEncounterToPatientFollowupDetails,
   getAdmitterPractitionerId,
   getAppointmentServiceCategoryAbbreviation,
-  getAppointmentType,
   getAttendingPractitionerId,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
@@ -18,6 +17,7 @@ import { getPatientLastFirstName } from '../../../patients';
 import { drawFieldLine, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, ProgressNoteVisitDataInput, VisitDetailsForProgressNote } from '../../types';
+import { getBookingTypeForPdf, getVisitTypeForPdf } from '../visitInfo';
 
 function getStatusRelatedDates(
   encounter: Encounter,
@@ -67,8 +67,9 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
     };
   } else {
     const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);
-    const { type } = getAppointmentType(appointment);
+    const type = getVisitTypeForPdf(appointment);
     const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+    const bookingType = getBookingTypeForPdf(appointment);
     const reasonForVisit = appointment?.description ?? '';
     let providerName: string;
     let intakePersonName: string | undefined = undefined;
@@ -100,6 +101,7 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
       visitType: 'initial',
       type,
       serviceCategory,
+      bookingType,
       dateOfService: dateOfService ?? '',
       reasonForVisit,
       provider: providerName,
@@ -138,9 +140,11 @@ export const createProgressNoteVisitDetailsSection = <
           drawFieldLine(client, styles, { label: 'Comment', value: data.message });
         }
       } else {
-        if (data.type) {
-          const typeAndServiceCategory = [data.type, data.serviceCategory].filter(Boolean).join(' | ');
-          drawFieldLine(client, styles, { label: 'Type', value: typeAndServiceCategory });
+        if (data.type || data.serviceCategory || data.bookingType) {
+          const typeAndServiceCategory = [data.type, data.serviceCategory, data.bookingType]
+            .filter(Boolean)
+            .join(' | ');
+          drawFieldLine(client, styles, { label: 'Type & Service Category', value: typeAndServiceCategory });
         }
         drawFieldLine(client, styles, { label: 'Date of Service', value: data.dateOfService });
         drawFieldLine(client, styles, { label: 'Reason for Visit', value: data.reasonForVisit });
