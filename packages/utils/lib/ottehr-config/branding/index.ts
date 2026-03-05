@@ -1,9 +1,10 @@
-import { type BrandingConfig, BrandingConfigSchema, type LogoConfig } from 'config-types';
-import _ from 'lodash';
+import { BrandingConfigSchema, type LogoConfig } from 'config-types';
 import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 
-const overrides: any = OVERRIDES || {};
-const BRANDING_DEFAULTS: BrandingConfig = {
+const overrides = OVERRIDES || {};
+
+const BRANDING_DEFAULTS = {
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',
   primaryIconAlt: 'Ottehr icon',
@@ -38,10 +39,9 @@ const BRANDING_DEFAULTS: BrandingConfig = {
     backgroundColor: '#F5F5F5',
     textColor: '#212121',
   },*/
-};
+} as const;
 
-// todo: use mergeAndFreezeConfigObjects from helpers.ts
-const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides });
+const mergedBrandingConfig = mergeAndFreezeConfigObjects(BRANDING_DEFAULTS, overrides);
 
 export const BRANDING_CONFIG = Object.freeze(BrandingConfigSchema.parse(mergedBrandingConfig));
 

@@ -236,7 +236,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             <QuickPicksButton
               quickPicks={inHouseMedicationsquickPicksList}
               getLabel={(quickPick) => {
-                const parts = [quickPick.name];
+                const parts = [quickPick.name] as string[];
                 if (quickPick.dose != null && quickPick.units != null) {
                   parts.push(`${quickPick.dose} ${quickPick.units}`);
                 } else if (quickPick.dose != null) {

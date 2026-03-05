@@ -305,7 +305,7 @@ const AddMedicalConditionField: FC = () => {
     quickPick: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks)[number]
   ): Promise<void> => {
     const quickPickAsIcdCode: IcdSearchResponseOptionalCode = {
-      code: quickPick.code,
+      code: 'code' in quickPick ? quickPick.code : undefined,
       display: quickPick.display,
     };
     await handleSelectOption(quickPickAsIcdCode);
@@ -329,7 +329,10 @@ const AddMedicalConditionField: FC = () => {
     >
       <QuickPicksButton
         quickPicks={MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks}
-        getLabel={(quickPick) => `${quickPick.code ? `${quickPick.code} ` : ''}${quickPick.display}`}
+        getLabel={(quickPick) => {
+          const code = 'code' in quickPick ? `${quickPick.code} ` : '';
+          return `${code}${quickPick.display}`;
+        }}
         onSelect={handleQuickPickSelect}
         disabled={isChartDataLoading || isLoading}
       />

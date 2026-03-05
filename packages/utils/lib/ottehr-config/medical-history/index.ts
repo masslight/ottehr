@@ -202,6 +202,8 @@ const mergedMedicalHistoryConfig = mergeAndFreezeConfigObjects(
   MEDICAL_HISTORY_OVERRIDES || {}
 );
 
-export const MEDICAL_HISTORY_CONFIG = Object.freeze(validateMedicalHistoryConfig(mergedMedicalHistoryConfig));
+export const MEDICAL_HISTORY_CONFIG = Object.freeze(
+  validateMedicalHistoryConfig(mergedMedicalHistoryConfig)
+) as typeof mergedMedicalHistoryConfig;
 
 export * from './medical-history.schema';
