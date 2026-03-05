@@ -7,26 +7,27 @@ export function validateRequestParameters(input: ZambdaInput): AISuggestionNotes
   }
 
   // no complication
-  const { type, details } = JSON.parse(input.body);
+  const { type, hpi, details } = JSON.parse(input.body);
 
   if (!type) {
     throw MISSING_REQUIRED_PARAMETERS(['type']);
   }
 
-  if (!['procedure'].includes(type)) {
+  if (!['procedure', 'missing-hpi'].includes(type)) {
     throw new Error('Invalid type');
-  }
-
-  if (!details) {
-    throw MISSING_REQUIRED_PARAMETERS(['details']);
   }
 
   if (type === 'procedure' && details.procedureDetails == undefined) {
     throw new Error('If type is procedure, procedureDetails is required');
   }
 
+  if (type === 'missing-hpi' && hpi == undefined) {
+    throw new Error('If type is missing-hpi, hpi is required');
+  }
+
   return {
     type,
+    hpi,
     details,
     secrets: input.secrets,
   };
