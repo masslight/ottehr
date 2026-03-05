@@ -204,7 +204,7 @@ export const BillingCodesContainer: FC = () => {
         {!isReadOnly && (
           <>
             <Autocomplete
-              options={PROVIDER_CONFIG.assessment.emCodes}
+              options={PROVIDER_CONFIG.assessment.emCodeOptions}
               disabled={disabledEM}
               isOptionEqualToValue={(option, value) => option.code === value.code}
               value={emCode ? { display: emCode.display, code: emCode.code } : null}

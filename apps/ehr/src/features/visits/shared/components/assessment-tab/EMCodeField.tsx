@@ -54,7 +54,7 @@ export const EMCodeField: FC = () => {
   return (
     <Autocomplete
       disabled={isSaveLoading || isDeleteLoading}
-      options={PROVIDER_CONFIG.assessment.emCodes}
+      options={PROVIDER_CONFIG.assessment.emCodeOptions}
       data-testid={dataTestIds.assessmentCard.emCodeDropdown}
       isOptionEqualToValue={(option, value) => option.code === value.code}
       value={emCode ? { display: emCode.display, code: emCode.code } : null}

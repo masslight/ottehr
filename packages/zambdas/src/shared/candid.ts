@@ -1182,7 +1182,9 @@ async function candidCreateEncounterFromAppointmentRequest(
       }
     });
 
-    const isEAndMCode = PROVIDER_CONFIG.assessment.emCodes.some((emCodeOption) => emCodeOption.code === procedureCode);
+    const isEAndMCode = PROVIDER_CONFIG.assessment.emCodeOptions.some(
+      (emCodeOption) => emCodeOption.code === procedureCode
+    );
     if (isEAndMCode && isTelemedAppointment(appointment)) {
       modifiers = ['95'];
     }

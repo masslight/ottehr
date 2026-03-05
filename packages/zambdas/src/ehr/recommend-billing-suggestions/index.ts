@@ -49,7 +49,7 @@ export const index = wrapHandler(
 
       Here are the E&M codes:
 
-      ${PROVIDER_CONFIG.assessment.emCodes.map((option) => `${option.code}: ${option.display}`).join('\n')}
+      ${PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
 
       Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level and a sample MDM paragraph that would satisfy that level.
 
@@ -193,7 +193,7 @@ export const index = wrapHandler(
       // Validate E&M codes and get the descriptions for the codes
       if (suggestions?.emCode) {
         suggestions.emCode.forEach((code) => {
-          const emCodeOption = PROVIDER_CONFIG.assessment.emCodes.find((option) => option.code === code.code);
+          const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === code.code);
           if (emCodeOption) {
             emCodeSuggestions.push({
               code: code.code,
