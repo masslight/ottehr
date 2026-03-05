@@ -110,6 +110,9 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
 
     const dedupedSentMessages = dedupeCommunications(sentCommunications);
 
+    console.log('sent messages found: ', dedupedSentMessages.length);
+    console.log('received messages found: ', receivedCommunications.length);
+
     const sentItems: ProtoConversationItem[] = dedupedSentMessages.map((comm) => ({
       id: comm.id ?? '',
       content: getMessageFromComm(comm),
@@ -130,22 +133,31 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
 
     const allMessages: ConversationItem[] = [...sentItems, ...receivedItems]
       .sort((m1, m2) => {
-        const t1 = DateTime.fromISO(m1.sentWhen);
-        const t2 = DateTime.fromISO(m2.sentWhen);
-        if (t1.equals(t2)) return 0;
-        return t1 < t2 ? -1 : 1;
+        const time1 = DateTime.fromISO(m1.sentWhen);
+        const time2 = DateTime.fromISO(m2.sentWhen);
+
+        if (time1.equals(time2)) {
+          return 0;
+        }
+        return time1 < time2 ? -1 : 1;
       })
-      .map((m) => {
-        const dt = DateTime.fromISO(m.sentWhen).setZone(timezone);
+      .map((message) => {
+        const { id, sentWhen, content, isRead, sender, isFromPatient } = message;
+        const dateTime = DateTime.fromISO(sentWhen).setZone(timezone);
+        const sentDay = dateTime.toLocaleString(
+          { day: 'numeric', month: 'numeric', year: '2-digit' },
+          { locale: 'en-us' }
+        );
+        const sentTime = dateTime.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' });
 
         return {
-          id: m.id,
-          content: m.content,
-          isRead: m.isRead,
-          sender: m.sender,
-          isFromPatient: m.isFromPatient,
-          sentDay: dt.toLocaleString({ day: 'numeric', month: 'numeric', year: '2-digit' }, { locale: 'en-us' }),
-          sentTime: dt.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' }),
+          id,
+          content,
+          isRead,
+          sender,
+          sentDay,
+          sentTime,
+          isFromPatient,
         };
       });
     console.time('structure_conversation_data');
@@ -167,10 +179,6 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error('No request body provided');
   }
 
-  if (!input.secrets) {
-    throw new Error('No secrets provided');
-  }
-
   const { patientId, timezone } = JSON.parse(input.body);
 
   if (!patientId) {
@@ -184,6 +192,10 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
   const now = DateTime.now().setZone(timezone);
   if (!now.isValid) {
     throw new Error(`Field "timezone" is invalid ${now.invalidExplanation ?? ''}`);
+  }
+
+  if (!input.secrets) {
+    throw new Error('No secrets provided');
   }
 
   return {
