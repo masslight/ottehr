@@ -1,5 +1,5 @@
 import { ProviderConfig, ProviderConfigSchema } from 'config-types/config/provider';
-import { PROVIDER_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
+import { PROVIDER_CONFIG_OVERRIDE as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const overrides: any = OVERRIDES || {};
