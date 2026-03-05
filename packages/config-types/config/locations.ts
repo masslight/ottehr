@@ -19,6 +19,13 @@ export const SupportScheduleGroupSchema = z.object({
 
 export type SupportScheduleGroup = z.infer<typeof SupportScheduleGroupSchema>;
 
+export const SupportDisplaySchema = z.object({
+  phoneLabel: z.string().min(1).optional(),
+  hours: z.array(z.string().min(1)),
+});
+
+export type SupportDisplay = z.infer<typeof SupportDisplaySchema>;
+
 /**
  * LocationConfig - Configuration for clinic locations
  * Defines in-person and telemed locations, support phone numbers, and schedule groups
@@ -29,6 +36,7 @@ export const LocationConfigSchema = z.object({
   supportPhoneNumber: z.string().optional(),
   locationSupportPhoneNumberMap: z.record(z.string().min(1), z.string().min(1)).optional(),
   supportScheduleGroups: z.array(SupportScheduleGroupSchema).optional(),
+  supportDisplay: SupportDisplaySchema.optional(),
 });
 
 export type LocationConfig = z.infer<typeof LocationConfigSchema>;

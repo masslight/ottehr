@@ -15,8 +15,15 @@ import { FC, useState } from 'react';
 import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod';
 import { useSetupStripe } from 'src/hooks/useSetupStripe';
-import { AddCreditCardForm, loadStripe } from 'ui-components';
+import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
 import { CreditCardInfo } from 'utils';
+
+interface CardOption {
+  id: string;
+  label: string;
+  brand?: CreditCardInfo['brand'];
+  isNew?: boolean;
+}
 
 interface CreditCardContentProps {
   patient: Patient;
@@ -27,7 +34,8 @@ interface CreditCardContentProps {
 }
 
 const labelForCard = (card: CreditCardInfo): string => {
-  return `XXXX - XXXX - XXXX - ${card.lastFour}${card.default ? ' (Primary)' : ''}`;
+  const formattedBrand = card.brand ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1) : 'Card';
+  return `${formattedBrand} •••• ${card.lastFour}${card.default ? ' (Primary)' : ''}`;
 };
 
 const NEW_CARD = { id: 'new', label: 'Add new card' };
@@ -78,9 +86,9 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
 
   const initializing = isSetupDataFetching || isSetupDataLoading;
 
-  const cardOptions = [
-    ...cards.map((card) => ({ id: card.id, label: labelForCard(card) })),
-    { id: 'new', label: 'Add new card' },
+  const cardOptions: CardOption[] = [
+    ...cards.map((card) => ({ id: card.id, label: labelForCard(card), brand: card.brand })),
+    { id: NEW_CARD.id, label: NEW_CARD.label, isNew: true },
   ];
 
   const selectedCard = cardOptions.find((card) => card.id === selectedCardId);
@@ -137,6 +145,11 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         options={cardOptions}
         renderOption={(props, option) => (
           <li {...props} key={option.id}>
+            {option.brand && (
+              <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                <CreditCardBrandIcon brand={option.brand} />
+              </Box>
+            )}
             {option.label}
           </li>
         )}
@@ -152,6 +165,19 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
                 variant="outlined"
                 error={Boolean(error)}
                 InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: currentValue?.brand ? (
+                    <>
+                      <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                        <CreditCardBrandIcon brand={currentValue.brand} />
+                      </Box>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ) : (
+                    params.InputProps.startAdornment
+                  ),
+                }}
                 inputProps={{
                   ...params.inputProps,
                   autoComplete: 'off',

@@ -285,7 +285,7 @@ const getInHouseLabResultResources = async (
   const diagnosticReports: DiagnosticReport[] = [];
 
   labOrderResources.forEach((resource) => {
-    if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
+    if (resource.resourceType === 'ServiceRequest' && resource.status !== 'revoked') serviceRequests.push(resource);
     if (resource.resourceType === 'Patient') patients.push(resource);
     if (resource.resourceType === 'Specimen') specimens.push(resource);
     if (resource.resourceType === 'Encounter') encounters.push(resource);

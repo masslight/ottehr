@@ -1,4 +1,4 @@
-import { type LocationConfig, LocationConfigSchema } from 'config-types';
+import { type LocationConfig, LocationConfigSchema, type SupportDisplay } from 'config-types';
 import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
@@ -10,6 +10,7 @@ const LOCATION_DEFAULTS: LocationConfig = {
   supportPhoneNumber: '(202) 555-1212',
   locationSupportPhoneNumberMap: {},
   supportScheduleGroups: [],
+  supportDisplay: undefined,
 };
 
 function getLocationConfig(testOverrides: Partial<LocationConfig> = overrides): LocationConfig {
@@ -70,4 +71,8 @@ export function getSupportHoursFor(locationName?: string): string | undefined {
   }
 
   return scheduleGroups[0]?.hours;
+}
+
+export function getSupportDisplay(): SupportDisplay | undefined {
+  return LOCATION_CONFIG.supportDisplay;
 }

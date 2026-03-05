@@ -13,7 +13,7 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { AddCreditCardForm, loadStripe } from 'ui-components';
+import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
 import { CreditCardInfo, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
@@ -197,6 +197,7 @@ const CreditCardContent: FC<CreditCardContentProps> = ({
           onChange={(e) => void onMakePrimary(e.target.value)}
         >
           {cards.map((item) => {
+            const formattedBrand = item.brand ? `${item.brand.charAt(0).toUpperCase()}${item.brand.slice(1)}` : 'Card';
             return (
               <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <FormControlLabel
@@ -213,12 +214,19 @@ const CreditCardContent: FC<CreditCardContentProps> = ({
                     <Box
                       sx={{
                         display: 'flex',
-                        // flexDirection: 'row',
-                        justifyContent: 'space-between',
+                        justifyContent: 'flex-start',
                         alignItems: 'center',
+                        gap: 1,
                       }}
                     >
-                      <Typography data-testid={dataTestIds.cardNumber}>XXXX - XXXX - XXXX - {item.lastFour}</Typography>
+                      {item.brand && (
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <CreditCardBrandIcon brand={item.brand} />
+                        </Box>
+                      )}
+                      <Typography
+                        data-testid={dataTestIds.cardNumber}
+                      >{`${formattedBrand} •••• ${item.lastFour}`}</Typography>
                     </Box>
                   }
                   sx={{

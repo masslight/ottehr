@@ -231,10 +231,13 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
   if (
     paymentMethod !== 'card' &&
     paymentMethod !== 'card-reader' &&
+    paymentMethod !== 'external-card-reader' &&
     paymentMethod !== 'cash' &&
     paymentMethod !== 'check'
   ) {
-    throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethod" must be "card", "card-reader", "cash", or "check".');
+    throw INVALID_INPUT_ERROR(
+      '"paymentDetails.paymentMethod" must be "card", "card-reader", "external-card-reader", "cash", or "check".'
+    );
   }
   if (paymentMethod === 'card' && !paymentMethodId) {
     throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethodId" is required for card payments.');
