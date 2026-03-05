@@ -5,7 +5,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
-import { AccidentDTO } from 'utils';
+import { AccidentDTO, AllStates } from 'utils';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDeleteChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
@@ -25,7 +25,7 @@ export const AccidentField: FC<Props> = (_p) => {
   const {
     data: chartDataFields,
     refetch,
-    isLoading: _isChartDataLoading,
+    isLoading: isChartDataLoading,
   } = useChartFields({
     requestedFields: {
       accident: {
@@ -55,8 +55,6 @@ export const AccidentField: FC<Props> = (_p) => {
     });
   }, [chartDataFields, methods]);
 
-  const formValues = methods.getValues();
-
   useEffect(() => {
     const callback = methods.subscribe({
       formState: {
@@ -80,8 +78,12 @@ export const AccidentField: FC<Props> = (_p) => {
           return;
         }
         if (values.autoAccident && !values.state) {
-          // todo show error
+          methods.setError('state', {
+            message: 'State is required for Auto Accident',
+          });
           return;
+        } else {
+          methods.clearErrors();
         }
         const accidentToSave = {
           resourceId: chartDataFields?.accident?.resourceId,
@@ -112,22 +114,17 @@ export const AccidentField: FC<Props> = (_p) => {
       <FormProvider {...methods}>
         <Stack spacing={2} padding={2}>
           <Stack spacing={2} direction="row" justifyContent="flex-start">
-            <CheckboxInput name="autoAccident" label="Auto Accident" />
-            <CheckboxInput name="employmentAccident" label="Employment" />
-            <CheckboxInput name="otherAccident" label="Other Accident" />
+            <CheckboxInput name="autoAccident" label="Auto Accident" disabled={isChartDataLoading} />
+            <CheckboxInput name="employmentAccident" label="Employment" disabled={isChartDataLoading} />
+            <CheckboxInput name="otherAccident" label="Other Accident" disabled={isChartDataLoading} />
           </Stack>
           <Stack spacing={2} direction="row">
-            <DateInput name="date" label="Date of accident" />
+            <DateInput name="date" label="Date of accident" disabled={isChartDataLoading} />
             <SelectInput
               name="state"
               label="State"
-              options={[]}
-              validate={(value: string | undefined): boolean | string => {
-                if (formValues.autoAccident && value == null) {
-                  return 'State is required for Auto Accident';
-                }
-                return true;
-              }}
+              options={AllStates.map((state) => state.value)}
+              disabled={isChartDataLoading}
             />
           </Stack>
         </Stack>
