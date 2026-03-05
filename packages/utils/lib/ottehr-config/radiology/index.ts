@@ -1,7 +1,5 @@
-import { Coding } from 'fhir/r4b';
+import { RadiologyStudy } from 'config-types';
 import { customRadiologyStudiesConfig } from '../../../ottehr-config-overrides/radiology';
-
-export type RadiologyStudy = Pick<Coding, 'code' | 'display'>;
 
 export const baseRadiologyStudiesConfig: RadiologyStudy[] = [
   { code: '71045', display: 'X-ray of chest, 1 view' },

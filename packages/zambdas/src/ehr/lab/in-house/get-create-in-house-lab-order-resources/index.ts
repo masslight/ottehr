@@ -132,6 +132,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           await sendErrors(errorMessage, ENVIRONMENT);
         }
       }
+    } else {
+      // patient record case, no params are passed - just need to fetch available tests for filter
+      const activeActivityDefinitions = await fetchActiveInHouseLabActivityDefinitions(oystehr);
+
+      for (const activeDefinition of activeActivityDefinitions) {
+        const testItem = convertActivityDefinitionToTestItem(activeDefinition);
+        testItems.push(testItem);
+      }
     }
 
     const response: GetCreateInHouseLabOrderResourcesOutput = {

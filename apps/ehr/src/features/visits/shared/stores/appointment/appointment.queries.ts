@@ -595,7 +595,16 @@ export const useGetCPTHCPCSSearch = ({
           let combinedCodes = [...cptResponse.codes, ...hcpcsResponse.codes].filter(
             (codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code)
           );
-          combinedCodes = combinedCodes.sort((a, b) => a.code.localeCompare(b.code));
+
+          // Put the exact code first
+          combinedCodes = combinedCodes.sort((a, b) => {
+            const aExact = a.code.toLowerCase() === search.toLowerCase();
+            const bExact = b.code.toLowerCase() === search.toLowerCase();
+            if (aExact && !bExact) return -1;
+            if (!aExact && bExact) return 1;
+            return a.code.localeCompare(b.code);
+          });
+
           return { codes: combinedCodes };
         }
       }
@@ -955,7 +964,7 @@ export const useCreateUpdateMedicationOrder = () => {
 
 export const useGetMedicationOrders = (
   searchBy: GetMedicationOrdersInput['searchBy']
-): UseQueryResult<GetMedicationOrdersResponse | undefined, Error> => {
+): UseQueryResult<GetMedicationOrdersResponse | null, Error> => {
   const apiClient = useOystehrAPIClient();
 
   const encounterIdIsDefined = searchBy.field === 'encounterId' && searchBy.value;
@@ -969,7 +978,7 @@ export const useGetMedicationOrders = (
         if (encounterIdIsDefined || encounterIdsHasLen) {
           return await apiClient.getMedicationOrders({ searchBy });
         } else {
-          return;
+          return null;
         }
       }
       throw new Error('api client not defined');

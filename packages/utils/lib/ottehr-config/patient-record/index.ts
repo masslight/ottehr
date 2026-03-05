@@ -1,6 +1,11 @@
+import {
+  type FormFieldTrigger,
+  type PatientRecordConfig,
+  PatientRecordConfigSchema,
+  type QuestionnaireBase,
+} from 'config-types';
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import _ from 'lodash';
-import { z } from 'zod';
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import {
   getTaxID,
@@ -10,14 +15,7 @@ import {
   ServiceMode,
 } from '../../main';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-import {
-  createQuestionnaireFromConfig,
-  FormFieldTrigger,
-  FormSectionArraySchema,
-  FormSectionSimpleSchema,
-  QuestionnaireBase,
-  QuestionnaireConfigSchema,
-} from '../shared-questionnaire';
+import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
@@ -1003,20 +1001,6 @@ const FormFields = {
   },
 };
 
-const FormFieldsSchema = z.object({
-  patientSummary: FormSectionSimpleSchema,
-  patientDetails: FormSectionSimpleSchema,
-  patientContactInformation: FormSectionSimpleSchema,
-  insurance: FormSectionArraySchema,
-  primaryCarePhysician: FormSectionSimpleSchema,
-  responsibleParty: FormSectionSimpleSchema,
-  emergencyContact: FormSectionSimpleSchema,
-  preferredPharmacy: FormSectionSimpleSchema,
-  employerInformation: FormSectionSimpleSchema,
-  occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
-  attorneyInformation: FormSectionSimpleSchema,
-});
-
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults = {
@@ -1036,11 +1020,7 @@ const PATIENT_RECORD_DEFAULTS = {
 
 const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(PATIENT_RECORD_DEFAULTS, OVERRIDES);
 
-const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
-  FormFields: FormFieldsSchema,
-});
-
-export const PATIENT_RECORD_CONFIG = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
+export const PATIENT_RECORD_CONFIG: PatientRecordConfig = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
 
 const prepopulateLogicalFields = (
   questionnaire: Questionnaire,
@@ -1126,5 +1106,6 @@ export const prepopulatePatientRecordItems = (
 
   return patientRecordItems;
 };
+
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

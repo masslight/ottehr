@@ -13,7 +13,7 @@ if (!isCI) {
     await setup.loadEnvFilesFromRepo('git@github.com:masslight/ottehr-secrets.git', [
       {
         localEnvFolder: './env/',
-        repoEnvFolder: './ottehr-secrets/intake/app/',
+        repoEnvFolder: './ottehr-secrets/ottehr/apps/intake/env/',
         envsToCopy: [
           '.env.demo',
           '.env.local',
@@ -29,7 +29,7 @@ if (!isCI) {
       },
       {
         localEnvFolder: '../../packages/zambdas/.env',
-        repoEnvFolder: './ottehr-secrets/zambdas/',
+        repoEnvFolder: './ottehr-secrets/ottehr/zambdas/.env',
         envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json'],
       },
     ]);

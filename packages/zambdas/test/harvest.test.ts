@@ -1,7 +1,8 @@
-import { Patient, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Patient, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
-import { expect } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { createMasterRecordPatchOperations, PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
+import intakeQuestionnaire from './data/intake-paperwork-questionnaire.json';
 import patient1 from './data/patient-1.json';
 import patient2 from './data/patient-2.json';
 import patient3 from './data/patient-3.json';
@@ -14,6 +15,8 @@ import QR5 from './data/questionnaire-response-5.json';
 import QR6 from './data/questionnaire-response-6.json';
 import QR7 from './data/questionnaire-response-7.json';
 import QR8 from './data/questionnaire-response-8.json';
+
+const questionnaire = intakeQuestionnaire as Questionnaire;
 
 describe('Patient Master Record Tests', () => {
   test('should generate correct JSON patch operations for a new patient', () => {
@@ -41,36 +44,6 @@ describe('Patient Master Record Tests', () => {
           {
             system: 'phone',
             value: '+12027139680',
-          },
-        ],
-      },
-      {
-        op: 'add',
-        path: '/extension',
-        value: [
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity',
-            valueCodeableConcept: {
-              coding: [
-                {
-                  system: 'http://terminology.hl7.org/CodeSystem/v3-Ethnicity',
-                  code: '2135-2',
-                  display: 'Hispanic or Latino',
-                },
-              ],
-            },
-          },
-          {
-            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/race',
-            valueCodeableConcept: {
-              coding: [
-                {
-                  system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
-                  code: '1002-5',
-                  display: 'American Indian or Alaska Native',
-                },
-              ],
-            },
           },
         ],
       },
@@ -112,23 +85,67 @@ describe('Patient Master Record Tests', () => {
         path: '/gender',
         value: 'female',
       },
+      {
+        op: 'add',
+        path: '/extension',
+        value: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity',
+            valueCodeableConcept: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/v3-Ethnicity',
+                  code: '2135-2',
+                  display: 'Hispanic or Latino',
+                },
+              ],
+            },
+          },
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/race',
+            valueCodeableConcept: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
+                  code: '1002-5',
+                  display: 'American Indian or Alaska Native',
+                },
+              ],
+            },
+          },
+        ],
+      },
     ];
 
-    const result = createMasterRecordPatchOperations((QR1 as QuestionnaireResponse).item ?? [], patient1 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR1 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient1 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: patientPatchOperations },
+      patient: { patchOpsForDirectUpdate: patientPatchOperations },
       relatedPerson: {},
     });
   });
 
   test('should not generate patch operations for a patient with already processed paperwork with the same answers', () => {
-    const result = createMasterRecordPatchOperations((QR1 as QuestionnaireResponse).item ?? [], patient2 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR1 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient2 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: [] },
+      patient: { patchOpsForDirectUpdate: [] },
       relatedPerson: {},
     });
   });
@@ -162,20 +179,34 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations((QR3 as QuestionnaireResponse).item ?? [], patient2 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR3 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient2 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: patientPatchOperations },
+      patient: { patchOpsForDirectUpdate: patientPatchOperations },
       relatedPerson: {},
     });
   });
   test('should generate correct JSON patch operation to remove patient birth sex value', () => {
-    const result = createMasterRecordPatchOperations((QR2 as QuestionnaireResponse).item ?? [], patient3 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR2 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient3 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: [{ op: 'remove', path: '/gender' }] },
+      patient: { patchOpsForDirectUpdate: [{ op: 'remove', path: '/gender' }] },
       relatedPerson: {},
     });
   });
@@ -214,17 +245,28 @@ describe('Patient Master Record Tests', () => {
               ],
             },
           },
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery',
+            valueString: 'Been there with another family member',
+          },
         ],
       },
       { op: 'remove', path: '/generalPractitioner' },
       { op: 'remove', path: '/contained' },
     ];
 
-    const result = createMasterRecordPatchOperations((QR4 as QuestionnaireResponse).item ?? [], patient4 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR4 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient4 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: patientPatchOperations },
+      patient: { patchOpsForDirectUpdate: patientPatchOperations },
       relatedPerson: {},
     });
   });
@@ -249,11 +291,18 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations((QR5 as QuestionnaireResponse).item ?? [], patient4 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR5 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient4 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: patientPatchOperations },
+      patient: { patchOpsForDirectUpdate: patientPatchOperations },
       relatedPerson: {},
     });
   });
@@ -278,20 +327,34 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations((QR6 as QuestionnaireResponse).item ?? [], patient4 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR6 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient4 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: patientPatchOperations },
+      patient: { patchOpsForDirectUpdate: patientPatchOperations },
       relatedPerson: {},
     });
   });
   test('should not generate JSON patch operations in case with no PCP data but active flag set to true', () => {
-    const result = createMasterRecordPatchOperations((QR7 as QuestionnaireResponse).item ?? [], patient1 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR7 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient1 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: [] },
+      patient: { patchOpsForDirectUpdate: [] },
       relatedPerson: {},
     });
   });
@@ -307,11 +370,18 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations((QR8 as QuestionnaireResponse).item ?? [], patient4 as Patient);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: (QR8 as QuestionnaireResponse).item ?? [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patient4 as Patient
+    );
 
     expect(result).toEqual({
       coverage: {},
-      patient: { conflictingUpdates: [], patchOpsForDirectUpdate: patientPatchOperations },
+      patient: { patchOpsForDirectUpdate: patientPatchOperations },
       relatedPerson: {},
     });
   });
@@ -341,12 +411,18 @@ describe('Patient Master Record Tests', () => {
       { linkId: 'pcp-last', answer: [{ valueString: 'Doe' }] },
     ];
 
-    const result = createMasterRecordPatchOperations(pcpItems, patientWithPharmacy);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: pcpItems,
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patientWithPharmacy
+    );
 
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
         patchOpsForDirectUpdate: [
           {
             op: 'replace',
@@ -390,12 +466,18 @@ describe('Patient Master Record Tests', () => {
 
     const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '123-45-6789' }] }];
 
-    const result = createMasterRecordPatchOperations(ssnItems, patientNoIdentifier);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: ssnItems,
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patientNoIdentifier
+    );
 
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
         patchOpsForDirectUpdate: [
           {
             op: 'add',
@@ -436,12 +518,18 @@ describe('Patient Master Record Tests', () => {
 
     const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '987-65-4321' }] }];
 
-    const result = createMasterRecordPatchOperations(ssnItems, patientWithOtherIdentifier);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: ssnItems,
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patientWithOtherIdentifier
+    );
 
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
         patchOpsForDirectUpdate: [
           {
             op: 'add',
@@ -488,12 +576,18 @@ describe('Patient Master Record Tests', () => {
 
     const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '222-22-2222' }] }];
 
-    const result = createMasterRecordPatchOperations(ssnItems, patientWithExistingSSN);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: ssnItems,
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patientWithExistingSSN
+    );
 
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
         patchOpsForDirectUpdate: [
           {
             op: 'replace',
@@ -540,13 +634,124 @@ describe('Patient Master Record Tests', () => {
 
     const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn', answer: [{ valueString: '333-33-3333' }] }];
 
-    const result = createMasterRecordPatchOperations(ssnItems, patientWithMatchingSSN);
+    const result = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: ssnItems,
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true },
+      },
+      patientWithMatchingSSN
+    );
 
     expect(result).toEqual({
       coverage: {},
       patient: {
-        conflictingUpdates: [],
         patchOpsForDirectUpdate: [],
+      },
+      relatedPerson: {},
+    });
+  });
+
+  test('should handle empty SSN answer, produce no patch operations', () => {
+    const patientWithOtherIdentifier: Patient = {
+      id: 'patient-with-other-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+      identifier: [
+        {
+          system: 'http://example.org/mrn',
+          value: 'MRN-12345',
+        },
+      ],
+    };
+    const ssnItems: QuestionnaireResponseItem[] = [{ linkId: 'patient-ssn' }];
+
+    // Patient with a non-SSN identifier: empty SSN should NOT remove the other identifier
+    let result = createMasterRecordPatchOperations(
+      { questionnaireResponseItems: ssnItems },
+      patientWithOtherIdentifier
+    );
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        patchOpsForDirectUpdate: [],
+      },
+      relatedPerson: {},
+    });
+
+    // Patient with no identifiers: empty SSN is a no-op
+    const patientWithNoIdentifier: Patient = {
+      id: 'patient-with-no-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+    };
+    result = createMasterRecordPatchOperations({ questionnaireResponseItems: ssnItems }, patientWithNoIdentifier);
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        patchOpsForDirectUpdate: [],
+      },
+      relatedPerson: {},
+    });
+
+    // Patient with an existing SSN identifier (only identifier): empty SSN should remove /identifier entirely
+    const patientWithSSNIdentifier: Patient = {
+      id: 'patient-with-ssn-identifier',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+      identifier: [
+        {
+          system: 'http://hl7.org/fhir/sid/us-ssn',
+          type: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                code: 'SS',
+              },
+            ],
+          },
+          value: '444-44-4444',
+        },
+      ],
+    };
+    result = createMasterRecordPatchOperations({ questionnaireResponseItems: ssnItems }, patientWithSSNIdentifier);
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        patchOpsForDirectUpdate: [{ op: 'remove', path: '/identifier' }],
+      },
+      relatedPerson: {},
+    });
+
+    // Patient with SSN + non-SSN identifiers: empty SSN should remove only the SSN, preserving the other
+    const patientWithMixedIdentifiers: Patient = {
+      id: 'patient-with-mixed-identifiers',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+      identifier: [
+        {
+          system: 'http://example.org/mrn',
+          value: 'MRN-12345',
+        },
+        {
+          system: 'http://hl7.org/fhir/sid/us-ssn',
+          type: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                code: 'SS',
+              },
+            ],
+          },
+          value: '444-44-4444',
+        },
+      ],
+    };
+    result = createMasterRecordPatchOperations({ questionnaireResponseItems: ssnItems }, patientWithMixedIdentifiers);
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        patchOpsForDirectUpdate: [{ op: 'remove', path: '/identifier/1' }],
       },
       relatedPerson: {},
     });

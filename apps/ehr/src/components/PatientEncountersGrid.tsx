@@ -4,7 +4,6 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import {
   Box,
-  ButtonOwnProps,
   capitalize,
   Checkbox,
   Chip,
@@ -21,13 +20,11 @@ import {
   TablePagination,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Patient, Task } from 'fhir/r4b';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { enqueueSnackbar } from 'notistack';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
@@ -40,18 +37,14 @@ import {
   AppointmentType,
   FollowUpVisitHistoryRow,
   formatMinutes,
-  GetPatientAndResponsiblePartyInfoEndpointOutput,
   PatientVisitListResponse,
-  PrefilledInvoiceInfo,
   ServiceMode,
   TelemedAppointmentStatus,
   TelemedCallStatusesArr,
   visitStatusArray,
 } from 'utils';
-import { updateInvoiceTask } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
-import { SendInvoiceToPatientDialog } from './dialogs';
 import { RoundedButton } from './RoundedButton';
 import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
@@ -136,7 +129,6 @@ const columns: TableColumn[] = [
   { id: 'los', label: 'LOS', width: 100 },
   { id: 'info', label: 'Visit Info', width: 120, align: 'center' },
   { id: 'note', label: 'Progress Note', width: 150 },
-  { id: 'invoice', label: 'Invoice', width: 100, align: 'center' },
 ];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
@@ -152,19 +144,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [selectedInvoiceTask, setSelectedInvoiceTask] = useState<Task | undefined>(undefined);
-  const [additionalDataForInvoiceDialog, setAdditionalDataForInvoiceDialog] = useState<
-    { visitDate?: string; location?: string } | undefined
-  >();
 
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
-  const {
-    data: visitHistory,
-    isLoading: visitHistoryIsLoading,
-    refetch: refetchVisitHistory,
-  } = useQuery({
+  const { data: visitHistory, isLoading: visitHistoryIsLoading } = useQuery({
     queryKey: [`get-patient-visit-history`, { patientId, status, type, period }],
     queryFn: async (): Promise<PatientVisitListResponse> => {
       let from: string | undefined;
@@ -189,22 +173,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           sortDirection,
         });
         return result.output as PatientVisitListResponse;
-      }
-
-      throw new Error('api client not defined or patient id is not provided');
-    },
-    enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
-  });
-
-  const { data: patientAndRpForInvoiceData, isLoading: patientAndRPLoading } = useQuery({
-    queryKey: [`get-patient-and-responsible-party-info`, { patientId }],
-    queryFn: async (): Promise<GetPatientAndResponsiblePartyInfoEndpointOutput> => {
-      if (oystehrZambda && patient?.id) {
-        const result = await oystehrZambda.zambda.execute({
-          id: 'get-patient-and-responsible-party-info',
-          patientId: patient.id,
-        });
-        return result.output as GetPatientAndResponsiblePartyInfoEndpointOutput;
       }
 
       throw new Error('api client not defined or patient id is not provided');
@@ -238,25 +206,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     const startIndex = page * rowsPerPage;
     return filtered.slice(startIndex, startIndex + rowsPerPage);
   }, [filtered, page, rowsPerPage]);
-
-  const sendInvoice = async (taskId: string, prefilledInvoiceInfo: PrefilledInvoiceInfo): Promise<void> => {
-    try {
-      if (oystehrZambda) {
-        await updateInvoiceTask(oystehrZambda, {
-          taskId,
-          status: 'requested',
-          prefilledInvoiceInfo,
-          userTimezone: DateTime.local().zoneName,
-        });
-        setSelectedInvoiceTask(undefined);
-        setAdditionalDataForInvoiceDialog(undefined);
-        void refetchVisitHistory();
-        enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
-      }
-    } catch {
-      enqueueSnackbar('Error occurred during invoice creation, please try again', { variant: 'error' });
-    }
-  };
 
   const handleSort = (field: SortField): void => {
     if (sortField === field) {
@@ -356,62 +305,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             Progress Note
           </RoundedButton>
         );
-      case 'invoice': {
-        const lastEncounterTask = row.sendInvoiceTask;
-
-        let buttonColor: ButtonOwnProps['color'] = 'secondary';
-        let tooltipText = '---';
-        let buttonDisabled = true;
-        if (lastEncounterTask !== undefined) {
-          switch (lastEncounterTask?.status) {
-            case 'ready':
-              buttonColor = 'primary';
-              tooltipText = 'Invoice can be sent for this visit.';
-              buttonDisabled = false;
-              break;
-            case 'completed':
-              buttonColor = 'success';
-              tooltipText =
-                'Invoice has been sent and processed for this visit successfully. You can resend it by pressing this button';
-              buttonDisabled = false;
-              break;
-            case 'failed':
-              buttonColor = 'error';
-              tooltipText = 'Invoice has been sent but failed to process for this visit.';
-              buttonDisabled = false;
-              break;
-            default:
-              buttonColor = 'secondary';
-              tooltipText = "Invoice can't be sent for this visit yet.";
-              buttonDisabled = true;
-          }
-        } else {
-          buttonColor = 'inherit';
-          tooltipText = "Invoice can't be sent for this visit yet.";
-          buttonDisabled = true;
-        }
-        return (
-          <Tooltip title={tooltipText} placement="top">
-            <Box>
-              <RoundedButton
-                disabled={buttonDisabled || patientAndRPLoading}
-                color={buttonColor}
-                onClick={() => {
-                  const visitDateTime = row.dateTime ? DateTime.fromISO(row.dateTime) : null;
-                  const visitDate = visitDateTime && visitDateTime.isValid ? visitDateTime.toFormat('MM/dd/yyyy') : '';
-                  setAdditionalDataForInvoiceDialog({
-                    visitDate,
-                    location: row.office,
-                  });
-                  setSelectedInvoiceTask(lastEncounterTask);
-                }}
-              >
-                Send Invoice
-              </RoundedButton>
-            </Box>
-          </Tooltip>
-        );
-      }
       default:
         return '-';
     }
@@ -621,19 +514,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
-      />
-      <SendInvoiceToPatientDialog
-        title="Send invoice"
-        modalOpen={selectedInvoiceTask !== undefined}
-        handleClose={() => {
-          setSelectedInvoiceTask(undefined);
-          setAdditionalDataForInvoiceDialog(undefined);
-        }}
-        submitButtonName="Send Invoice"
-        onSubmit={sendInvoice}
-        invoiceTask={selectedInvoiceTask}
-        patientAndRP={patientAndRpForInvoiceData}
-        additionalData={additionalDataForInvoiceDialog}
       />
     </Paper>
   );

@@ -32,7 +32,7 @@ import {
 } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
-import { SelectFromFavoritesButton } from '../SelectFromFavoritesButton';
+import { QuickPicksButton } from '../QuickPicksButton';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
@@ -317,14 +317,14 @@ const AddAllergyField: FC = () => {
     }
   };
 
-  const handleFavoriteSelect = async (
-    favorite: (typeof MEDICAL_HISTORY_CONFIG.allergies.favorites)[number]
+  const handleQuickPickSelect = async (
+    quickPick: (typeof MEDICAL_HISTORY_CONFIG.allergies.quickPicks)[number]
   ): Promise<void> => {
-    const favoriteAsAllergy: ExtractObjectType<ErxSearchAllergensResponse> = {
-      name: favorite.name,
-      id: favorite.id,
+    const quickPickAsAllergy = {
+      name: quickPick.name,
+      id: 'id' in quickPick ? quickPick.id : undefined,
     } as ExtractObjectType<ErxSearchAllergensResponse>;
-    await handleSelectOption(favoriteAsAllergy);
+    await handleSelectOption(quickPickAsAllergy);
   };
 
   const onSubmitForm = async (data: {
@@ -353,10 +353,10 @@ const AddAllergyField: FC = () => {
           gap: 2,
         }}
       >
-        <SelectFromFavoritesButton
-          favorites={MEDICAL_HISTORY_CONFIG.allergies.favorites}
-          getLabel={(favorite) => favorite.name}
-          onSelect={handleFavoriteSelect}
+        <QuickPicksButton
+          quickPicks={MEDICAL_HISTORY_CONFIG.allergies.quickPicks}
+          getLabel={(quickPick) => quickPick.name}
+          onSelect={handleQuickPickSelect}
           disabled={isChartDataLoading || isLoading}
         />
         <Controller

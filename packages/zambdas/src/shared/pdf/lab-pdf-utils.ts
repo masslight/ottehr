@@ -208,7 +208,7 @@ export const drawFieldLineRight = (
   fieldName: string,
   fieldValue: string
 ): PdfClient => {
-  pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
+  pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 225);
   pdfClient.drawTextSequential(' ', textStyles.textBold);
   pdfClient.drawTextSequential(fieldValue, textStyles.textBold, {
     leftBound: pdfClient.getX(),
@@ -227,47 +227,52 @@ export const drawFourColumnText = (
   color?: Color
 ): PdfClient => {
   const fontSize = STANDARD_FONT_SIZE;
-  const fontStyleTemp = { fontSize: fontSize, color: color };
+
+  const baseStyle = { fontSize, color };
 
   const startingY = pdfClient.getY();
-  let maxYReached = startingY;
+  const startingPageIndex = pdfClient.getCurrentPageIndex();
 
-  const drawColumn = (text: string, style: TextStyle, startX: number, rightBound: number): void => {
-    pdfClient.setY(startingY);
-    const result = pdfClient.drawStartXPosSpecifiedText(text, style, startX, { leftBound: startX, rightBound });
-    maxYReached = Math.min(maxYReached, result.endYPos);
-  };
+  const columns = [
+    {
+      content: columnOne.name,
+      startXPos: columnOne.startXPos,
+      width: columnTwo.startXPos - columnOne.startXPos,
+      textStyle: {
+        ...(columnOne.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+    {
+      content: columnTwo.name,
+      startXPos: columnTwo.startXPos,
+      width: columnThree.startXPos - columnTwo.startXPos,
+      textStyle: {
+        ...(columnTwo.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+    {
+      content: columnThree.name,
+      startXPos: columnThree.startXPos,
+      width: columnFour.startXPos - columnThree.startXPos,
+      textStyle: {
+        ...(columnThree.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+    {
+      content: columnFour.name,
+      startXPos: columnFour.startXPos,
+      width: pdfClient.getRightBound() - columnFour.startXPos,
+      textStyle: {
+        ...(columnFour.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+  ];
 
-  drawColumn(
-    columnOne.name,
-    { ...(columnOne.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnOne.startXPos,
-    columnTwo.startXPos
-  );
-
-  drawColumn(
-    columnTwo.name,
-    { ...(columnTwo.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnTwo.startXPos,
-    columnThree.startXPos
-  );
-
-  drawColumn(
-    columnThree.name,
-    { ...(columnThree.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnThree.startXPos,
-    columnFour.startXPos
-  );
-
-  drawColumn(
-    columnFour.name,
-    { ...(columnFour.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnFour.startXPos,
-    pdfClient.getRightBound()
-  );
-
-  // After all columns, move cursor to lowest Y reached
-  pdfClient.setY(maxYReached);
+  pdfClient.drawVariableWidthColumns(columns, startingY, startingPageIndex);
 
   return pdfClient;
 };

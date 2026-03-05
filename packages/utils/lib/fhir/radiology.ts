@@ -40,6 +40,24 @@ export const SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
 export const SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-has-been-sent-to-teleradiology';
 
+// do not adjust modifierDescription, this is mapped to fhir resources
+export const LATERALITY_SELECTORS = {
+  '50': {
+    modifierDescription: 'Bilateral Procedure',
+    uiDisplay: 'Both sides - bilateral',
+  },
+  LT: {
+    modifierDescription: 'Left side',
+    uiDisplay: 'Left side',
+  },
+  RT: {
+    modifierDescription: 'Right side',
+    uiDisplay: 'Right side',
+  },
+} as const;
+
+export type LateralityValue = keyof typeof LATERALITY_SELECTORS;
+
 /**
  * Fetches a ServiceRequest from AdvaPACS using the accession number
  * @param accessionNumber The accession number to search for
@@ -95,8 +113,14 @@ export const fetchServiceRequestFromAdvaPACS = async (
 export const createOurDiagnosticReport = async (
   serviceRequest: ServiceRequest,
   pacsDiagnosticReport: DiagnosticReport,
+  preliminaryReport: string | undefined,
   oystehr: Oystehr
 ): Promise<void> => {
+  let preliminaryReportAsBase64: string | undefined = undefined;
+  if (preliminaryReport !== undefined) {
+    preliminaryReportAsBase64 = Buffer.from(preliminaryReport.replace(/\n/g, '<br>')).toString('base64');
+  }
+
   const diagnosticReportToCreate: DiagnosticReport = {
     resourceType: 'DiagnosticReport',
     status: pacsDiagnosticReport.status,
@@ -122,7 +146,12 @@ export const createOurDiagnosticReport = async (
         },
       ],
     },
-    presentedForm: pacsDiagnosticReport.presentedForm,
+    presentedForm: pacsDiagnosticReport.presentedForm ?? [
+      {
+        contentType: 'text/html',
+        data: preliminaryReportAsBase64,
+      },
+    ],
   };
 
   if (pacsDiagnosticReport.status === 'preliminary') {

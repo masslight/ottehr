@@ -4,6 +4,7 @@ import { PatientInfo } from './create-appointment.types';
 export interface CancelAppointmentRequestParams {
   appointmentID: string;
   cancellationReason: string;
+  cancellationReasonAdditional?: string;
 }
 
 export interface UpdateAppointmentRequestParams {

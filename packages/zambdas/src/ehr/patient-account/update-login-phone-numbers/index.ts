@@ -92,7 +92,7 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
       return [];
     });
 
-  const personsToLink = (
+  const existingPersons = (
     await oystehr.fhir.search<Person>({
       resourceType: 'Person',
       params: [
@@ -102,8 +102,9 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
         },
       ],
     })
-  )
-    .unbundle()
+  ).unbundle();
+
+  const personsToLink = existingPersons
     .filter((person) => person.link?.find((link) => link.target?.reference === userRelatedPersonReference) == null)
     .map((person) => {
       if (!person.link) {
@@ -115,9 +116,9 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
       return person;
     });
 
-  const personsToCreate = input.phoneNumbers.flatMap<Person>((phone) => {
-    const personToLink = personsToLink.find((person) => getPersonPhone(person) === phone);
-    if (!personToLink) {
+  const personsToCreate = input.phoneNumbers
+    .filter((phone) => existingPersons.find((person) => getPersonPhone(person) === phone) == null)
+    .map<Person>((phone) => {
       return {
         resourceType: 'Person',
         telecom: [{ system: 'phone', value: phone }],
@@ -127,9 +128,7 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
           },
         ],
       };
-    }
-    return [];
-  });
+    });
 
   const updateOperations: BatchInputPutRequest<Person>[] = [...personsToLink, ...personsToUnlink].map((person) => {
     return {
@@ -152,9 +151,11 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
 
   console.log('transactionOperations:', JSON.stringify(transactionOperations, null, 2));
 
-  await oystehr.fhir.transaction<Person>({
-    requests: transactionOperations,
-  });
+  if (transactionOperations.length > 0) {
+    await oystehr.fhir.transaction<Person>({
+      requests: transactionOperations,
+    });
+  }
 };
 
 const validateRequestParameters = (input: ZambdaInput): Input => {
@@ -170,7 +171,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
   return {
     patientId,
-    phoneNumbers,
+    phoneNumbers: Array.from(new Set(phoneNumbers)),
     secrets: input.secrets,
   };
 };

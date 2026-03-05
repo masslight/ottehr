@@ -1,4 +1,4 @@
-import { isValidUUID, Secrets } from 'utils';
+import { INVALID_INPUT_ERROR, isValidUUID, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 import { ValidatedInput } from '.';
 
@@ -7,7 +7,7 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
-    throw new Error('Caller access token is required');
+    throw MISSING_REQUIRED_PARAMETERS(['callerAccessToken']);
   }
 
   return {
@@ -24,35 +24,35 @@ const validateBody = async (input: ZambdaInput): Promise<ValidatedInput['body']>
     (encounterIds && (patientId || serviceRequestId)) ||
     (serviceRequestId && (patientId || encounterIds))
   ) {
-    throw new Error('Only one of patientId, encounterIds, serviceRequestId may be sent at a time');
+    throw INVALID_INPUT_ERROR('Only one of patientId, encounterIds, serviceRequestId may be sent at a time');
   }
 
   if (!patientId && !encounterIds && !serviceRequestId) {
-    throw new Error('One of patientId, encounterIds, serviceRequestId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['patientId or encounterIds or serviceRequestId']);
   }
 
   if (encounterIds && !Array.isArray(encounterIds) && !isValidUUID(encounterIds)) {
-    throw new Error('encounterIds must be a valid uuid');
+    throw INVALID_INPUT_ERROR('"encounterIds" must be a valid uuid');
   }
 
   if (encounterIds && Array.isArray(encounterIds) && encounterIds.some((id: any) => !isValidUUID(id))) {
-    throw new Error('all strings within encounterIds must be valid uuids');
+    throw INVALID_INPUT_ERROR('all strings within "encounterIds" must be valid uuids');
   }
 
   if (patientId && !isValidUUID(patientId)) {
-    throw new Error('patientId must be a uuid');
+    throw INVALID_INPUT_ERROR('"patientId" must be a uuid');
   }
 
   if (serviceRequestId && !isValidUUID(serviceRequestId)) {
-    throw new Error('serviceRequestId must be a uuid');
+    throw INVALID_INPUT_ERROR('"serviceRequestId" must be a uuid');
   }
 
   if (itemsPerPage && (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1)) {
-    throw new Error('Invalid parameter: If itemsPerPage is included then it must be a number greater than 0');
+    throw INVALID_INPUT_ERROR('If "itemsPerPage" is included then it must be a number greater than 0');
   }
 
   if (pageIndex && (typeof pageIndex !== 'number' || isNaN(pageIndex) || pageIndex < 0)) {
-    throw new Error('Invalid parameter: If pageIndex is included then it must be a number greater than or equal to 0');
+    throw INVALID_INPUT_ERROR('If "pageIndex" is included then it must be a number greater than or equal to 0');
   }
 
   let encounterIdsArr: string[] | undefined;
@@ -63,7 +63,7 @@ const validateBody = async (input: ZambdaInput): Promise<ValidatedInput['body']>
   if (encounterIdsArr) {
     // Ensure there is at least one item in the array
     if (encounterIdsArr.length === 0) {
-      throw new Error('if encounterIds is specified then it must have at least one valid uuid');
+      throw INVALID_INPUT_ERROR('if "encounterIds" is specified then it must have at least one valid uuid');
     }
   }
 

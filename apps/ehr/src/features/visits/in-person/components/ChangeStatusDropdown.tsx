@@ -18,42 +18,42 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 
-const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
-  ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({
-    height: '32px',
-    borderRadius: '4px',
-    paddingLeft: '12px',
-    paddingRight: '12px',
-    boxShadow: 'none',
-    '& .MuiSelect-select': {
-      paddingRight: '32px !important',
+const StyledSelect = styled(Select, {
+  shouldForwardProp: (prop) => prop !== 'hasDropdown' && prop !== 'arrowColor',
+})<{ hasDropdown?: string; arrowColor: string }>(({ hasDropdown, arrowColor }) => ({
+  height: '32px',
+  borderRadius: '4px',
+  paddingLeft: '12px',
+  paddingRight: '12px',
+  boxShadow: 'none',
+  '& .MuiSelect-select': {
+    paddingRight: '32px !important',
+  },
+  '& .MuiOutlinedInput-notchedOutline': {
+    border: 'none',
+  },
+  '& .MuiSvgIcon-root': {
+    display: 'none',
+  },
+  ...(hasDropdown && {
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      right: '12px',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      width: '10px',
+      height: '7px',
+      // cSpell:disable-next %3C svg
+      backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='7' viewBox='0 0 10 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 6.83317L0 1.83317L1.16667 0.666504L5 4.49984L8.83333 0.666504L10 1.83317L5 6.83317Z' fill='${encodeURIComponent(
+        arrowColor
+      )}'/%3E%3C/svg%3E")`,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      pointerEvents: 'none',
     },
-    '& .MuiOutlinedInput-notchedOutline': {
-      border: 'none',
-    },
-    '& .MuiSvgIcon-root': {
-      display: 'none',
-    },
-    ...(hasDropdown && {
-      '&::after': {
-        content: '""',
-        position: 'absolute',
-        right: '12px',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        width: '10px',
-        height: '7px',
-        // cSpell:disable-next %3C svg
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='7' viewBox='0 0 10 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 6.83317L0 1.83317L1.16667 0.666504L5 4.49984L8.83333 0.666504L10 1.83317L5 6.83317Z' fill='${encodeURIComponent(
-          arrowColor
-        )}'/%3E%3C/svg%3E")`,
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        pointerEvents: 'none',
-      },
-    }),
-  })
-);
+  }),
+}));
 
 export const ChangeStatusDropdown = ({
   appointmentID,
@@ -153,7 +153,7 @@ export const ChangeStatusDropdown = ({
             data-testid={dataTestIds.inPersonHeader.appointmentStatus}
             id="appointment-status"
             value={status}
-            {...(hasDropdown ? { hasDropdown: 'true' } : {})}
+            hasDropdown={hasDropdown ? 'true' : undefined}
             arrowColor={IN_PERSON_CHIP_STATUS_MAP[status].color.primary}
             onChange={updateInPersonVisitStatus}
             sx={{

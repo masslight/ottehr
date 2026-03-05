@@ -14,6 +14,7 @@ import {
   SecretsKeys,
   TaskAlertCode,
 } from 'utils';
+import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
 import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
@@ -101,16 +102,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? appointmentRef?.replace('Appointment/', '')
       : undefined;
 
+    const testName = getTestNameOrCodeFromDr(diagnosticReport);
+    const labName = labOrg?.name ?? 'missing';
+    const patientResource = patient ? patient : getContainedPatientFromDiagnosticReport(diagnosticReport);
+    const patientName = patientResource ? getFullestAvailableName(patientResource) : 'missing';
+
     const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
       : [
           {
             type: LAB_ORDER_TASK.input.testName,
-            valueString: getTestNameOrCodeFromDr(diagnosticReport),
+            valueString: testName,
           },
           {
             type: LAB_ORDER_TASK.input.labName,
-            valueString: labOrg?.name,
+            valueString: labName,
           },
           {
             type: LAB_ORDER_TASK.input.receivedDate,
@@ -118,7 +124,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           },
           {
             type: LAB_ORDER_TASK.input.patientName,
-            valueString: patient ? getFullestAvailableName(patient) : undefined,
+            valueString: patientName,
           },
           {
             type: LAB_ORDER_TASK.input.appointmentId,
@@ -151,20 +157,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // copied and adjusted from /apps/ehr/src/features/visits/in-person/hooks/useTasks.ts:fhirTaskToTask
     let title = '';
-    const testName = taskInput.find((input) => input.type === LAB_ORDER_TASK.input.testName)?.valueString;
-    const labName = taskInput.find((input) => input.type === LAB_ORDER_TASK.input.labName)?.valueString;
     const fullTestName = testName + (labName ? ' / ' + labName : '');
-    const patientName = taskInput.find((input) => input.type === LAB_ORDER_TASK.input.patientName)?.valueString;
     const labTypeString = specificDrTypeFromTag || '';
 
     if (
       serviceRequestId &&
-      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+      (code === LAB_ORDER_TASK.code.reviewFinalResult ||
+        code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+        code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
     ) {
       title = `Review results for “${fullTestName}” for ${patientName}`;
     }
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
-      title = 'Match unsolicited test results';
+      title = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
+        patientName ? ` for ${patientName}` : ''
+      }`;
     }
     if (
       code === LAB_ORDER_TASK.code.reviewFinalResult ||
@@ -177,6 +184,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (labTypeString === LabType.reflex) {
         title = `Review reflex results for “${fullTestName}” for ${patientName}`;
       }
+    }
+    if (code === LAB_ORDER_TASK.code.reviewCancelledResult) {
+      title = `Review cancelled results for “${fullTestName}” for ${patientName}`;
     }
 
     const newTask = createTask(

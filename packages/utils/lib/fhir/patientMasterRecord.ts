@@ -79,6 +79,10 @@ export const patientFieldPaths = {
   responsiblePartyEmail: 'Patient/contact/0/telecom/1/value',
   releaseOfInfo: `Patient/extension/${PATIENT_RELEASE_OF_INFO_URL}`,
   rxHistoryConsentStatus: `Patient/extension/${PATIENT_RX_HISTORY_CONSENT_STATUS_URL}`,
+  // TODO: This positional path assumes SSN is at index 0. Currently safe because the SSN-specific
+  // handler in harvest/index.ts finds the identifier by system URL, but if we ever need to harvest
+  // multiple identifier types, this should be refactored to use system-based lookup instead of
+  // positional indexing.
   ssn: 'Patient/identifier/0/value',
   active: 'Patient/active',
   deceased: 'Patient/deceasedBoolean',
@@ -217,12 +221,12 @@ const PRONOUNS_MAPPING = {
 
 const GENDER_IDENTITY_MAPPING = {
   'Female gender identity': {
-    code: '446151000124109',
+    code: '446141000124107',
     display: 'Female gender identity',
     system: 'http://snomed.info/sct',
   },
   'Male gender identity': {
-    code: '446141000124107',
+    code: '446151000124109',
     display: 'Male gender identity',
     system: 'http://snomed.info/sct',
   },
@@ -320,24 +324,21 @@ const CODEABLE_CONCEPT_MAPPINGS = {
   [PATIENT_ETHNICITY_URL]: ETHNICITY_MAPPING,
 };
 
-export function getPatchOperationToAddOrUpdateExtension(
-  resource: PatientMasterRecordResource,
-  extension: {
-    url: string;
-    value: string;
-    valueType?: string;
-  },
-  currentValue?: any
-): Operation {
-  const config = Object.values(EXTENSION_CONFIGS).find((config) => config.url === extension.url);
-  if (!config) return {} as Operation;
+/**
+ * Builds a complete FHIR Extension object from a URL and string value,
+ * using EXTENSION_CONFIGS to determine the correct value type and
+ * CODEABLE_CONCEPT_MAPPINGS for coded values.
+ */
+export function buildExtensionObject(url: string, value: string): Extension | undefined {
+  const config = Object.values(EXTENSION_CONFIGS).find((config) => config.url === url);
+  if (!config) return undefined;
 
   let extensionValue;
   switch (config.valueType) {
     case 'valueCodeableConcept': {
-      const mapping = CODEABLE_CONCEPT_MAPPINGS[extension.url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
+      const mapping = CODEABLE_CONCEPT_MAPPINGS[url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
       if (mapping) {
-        const valueMapping = mapping[extension.value as keyof typeof mapping] as Coding;
+        const valueMapping = mapping[value as keyof typeof mapping] as Coding;
         extensionValue = {
           valueCodeableConcept: {
             coding: [
@@ -354,45 +355,27 @@ export function getPatchOperationToAddOrUpdateExtension(
     }
     case 'valueBoolean':
       extensionValue = {
-        valueBoolean: extension.value === 'true',
+        valueBoolean: value === 'true',
       };
       break;
 
     case 'valueDateTime':
       extensionValue = {
-        valueDateTime: extension.value,
+        valueDateTime: value,
       };
       break;
 
     case 'valueString':
     default:
       extensionValue = {
-        valueString: extension.value,
+        valueString: value,
       };
       break;
   }
 
-  const existingExtensionIndex = resource.extension?.findIndex((ext) => ext.url === extension.url);
+  if (!extensionValue) return undefined;
 
-  if (currentValue !== undefined && existingExtensionIndex !== undefined && existingExtensionIndex >= 0) {
-    return {
-      op: 'replace',
-      path: `/extension/${existingExtensionIndex}`,
-      value: {
-        url: extension.url,
-        ...extensionValue,
-      },
-    };
-  }
-
-  return {
-    op: 'add',
-    path: '/extension/-',
-    value: {
-      url: extension.url,
-      ...extensionValue,
-    },
-  };
+  return { url, ...extensionValue };
 }
 
 export function getCurrentValue(

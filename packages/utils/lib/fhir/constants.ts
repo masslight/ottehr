@@ -11,14 +11,10 @@ import {
 } from 'fhir/r4b';
 import {
   AppointmentType,
+  CanonicalUrl,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
-  LAB_ORDER_DOC_REF_CODING_CODE,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  OYSTEHR_ABN_DOC_REF_CODING_UNIQUE,
-  PAPERWORK_CONSENT_CODE_UNIQUE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -396,7 +392,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   {
     title: BUCKET_NAMES.CONSENT_FORMS,
     display: 'Consent Forms',
-    documentTypeCode: PAPERWORK_CONSENT_CODE_UNIQUE.code!,
+    documentTypeCode: 'patient-registration', // PAPERWORK_CONSENT_CODE_UNIQUE.code
   },
   {
     title: BUCKET_NAMES.PRIVACY_POLICY,
@@ -432,10 +428,10 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.LABS,
     display: 'Labs',
     documentTypeCode: [
-      LAB_ORDER_DOC_REF_CODING_CODE.code, // external lab ottehr generated order form and eReqs
-      LAB_RESULT_DOC_REF_CODING_CODE.code, // lab results -- includes lab-generated and ottehr generated for external, as well as internal results
-      EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
-      OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
+      '51991-8', // LAB_ORDER_DOC_REF_CODING_CODE.code - external lab ottehr generated order form and eReqs
+      '11502-2', // LAB_RESULT_DOC_REF_CODING_CODE.code - lab results -- includes lab-generated and ottehr generated for external, as well as internal results
+      'specimen-container-label', // EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
+      'external-lab-abn', // OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code
     ],
   },
   {
@@ -578,6 +574,8 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
 export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
+export const SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/stripe-terminal-location-id';
 export const SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/advapacs-location-id';
 
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
@@ -641,6 +639,28 @@ export const makeBookingOriginExtensionEntry = (url: string): { url: string; val
     url: SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
     valueString: url,
   };
+};
+
+// Extension for specifying which questionnaire should be used for appointments booked on this slot
+export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
+
+export const makeQuestionnaireCanonicalExtensionEntry = (
+  canonical: CanonicalUrl
+): { url: string; valueString: string } => {
+  // Store as "url|version" format (standard FHIR canonical with version)
+  const canonicalString = `${canonical.url}|${canonical.version}`;
+  return {
+    url: SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+    valueString: canonicalString,
+  };
+};
+
+export const parseQuestionnaireCanonicalExtension = (valueString: string): CanonicalUrl => {
+  const [url, version] = valueString.split('|');
+  if (!version) {
+    throw new Error(`Invalid questionnaire canonical extension value: "${valueString}" - missing version`);
+  }
+  return { url, version };
 };
 
 // this is the time in minutes after which a busy-tentative slot will be considered expired and will no longer

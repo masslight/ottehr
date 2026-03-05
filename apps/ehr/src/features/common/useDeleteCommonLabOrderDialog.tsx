@@ -33,8 +33,10 @@ const defaultLocalesConstants = {
       Are you sure you want to delete this order <strong>{testItemName}</strong>?
       <br />
       <br />
-      {testItemStatus ? 'Deleting this order will also remove any additional associated diagnoses. ' : ''}Any results
-      associated with this order will also be deleted.
+      {testItemStatus
+        ? 'Deleting this order will not remove any associated diagnoses; please review the Assessment. '
+        : ''}
+      Any results associated with this order will also be deleted.
       {testItemStatus && ['sent', 'received', 'reviewed'].includes(testItemStatus) && (
         <>
           <br />

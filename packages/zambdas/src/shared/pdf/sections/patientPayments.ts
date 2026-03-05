@@ -10,10 +10,19 @@ export const composePatientPaymentsData: DataComposer<PatientPaymentsDataInput, 
     const date = formatDateForDisplay(payment.dateISO);
 
     let label = '';
-    if (payment.paymentMethod === 'card') {
-      label = `XXXX - XXXX - XXXX - ${payment.cardLast4}`;
+    if (
+      (payment.paymentMethod === 'card' ||
+        payment.paymentMethod === 'card-reader' ||
+        payment.paymentMethod === 'external-card-reader') &&
+      payment.cardLast4
+    ) {
+      const formattedBrand = payment.cardBrand ? capitalize(payment.cardBrand) : 'Card';
+      label = `${formattedBrand} •••• ${payment.cardLast4}`;
     } else {
-      label = capitalize(payment.paymentMethod);
+      label =
+        payment.paymentMethod === 'card-reader' || payment.paymentMethod === 'external-card-reader'
+          ? 'Card Reader'
+          : capitalize(payment.paymentMethod);
     }
 
     const amount = `$${payment.amountInCents / 100}`;
