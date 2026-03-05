@@ -76,14 +76,22 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
           });
           return;
         }
+        if (!values.date) {
+          methods.setError('date', {
+            message: 'Date is required',
+          });
+          return;
+        }
+
         if (values.autoAccident && !values.state) {
           methods.setError('state', {
             message: 'State is required for Auto Accident',
           });
           return;
-        } else {
-          methods.clearErrors();
         }
+
+        methods.clearErrors();
+
         saveChartData(
           {
             accident: {
