@@ -1779,6 +1779,7 @@ export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): Acc
     return undefined;
   }
   return {
+    resourceId: accidentCondition.id,
     type:
       accidentCondition.code?.coding
         ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)

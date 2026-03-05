@@ -521,7 +521,7 @@ export interface ProcedureDTO extends SaveableDTO {
 }
 
 export interface AccidentDTO extends SaveableDTO {
-  type: ('AA' | 'EM' | 'OA')[];
+  type: string[];
   date?: string;
   state?: string;
 }
