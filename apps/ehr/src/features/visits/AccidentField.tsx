@@ -1,11 +1,11 @@
 import { Box, CircularProgress, Stack } from '@mui/material';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
-import { AccidentDTO, AllStates } from 'utils';
+import { AllStates } from 'utils';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDeleteChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
@@ -35,8 +35,6 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
   });
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-
-  const [lastSavedAccident, setLastSavedAccident] = useState<AccidentDTO | undefined>();
 
   const methods = useForm<FormData>({
     defaultValues: {
@@ -86,29 +84,23 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
         } else {
           methods.clearErrors();
         }
-        const accidentToSave = {
-          resourceId: chartDataFields?.accident?.resourceId,
-          type: types,
-          date: values.date,
-          state: values.state,
-        };
-        if (lastSavedAccident !== accidentToSave) {
-          saveChartData(
-            {
-              accident: accidentToSave,
+        saveChartData(
+          {
+            accident: {
+              resourceId: chartDataFields?.accident?.resourceId,
+              type: types,
+              date: values.date,
+              state: values.state,
             },
-            {
-              onSuccess: () => {
-                setLastSavedAccident(accidentToSave);
-                void refetch();
-              },
-            }
-          );
-        }
+          },
+          {
+            onSuccess: () => void refetch(),
+          }
+        );
       },
     });
     return () => callback();
-  }, [methods, chartDataFields, lastSavedAccident, deleteChartData, saveChartData, refetch]);
+  }, [methods, chartDataFields, deleteChartData, saveChartData, refetch]);
 
   const disabled = isChartDataLoading || readOnly;
 
