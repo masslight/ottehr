@@ -11,7 +11,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
-  UpdatePatientAccessPhoneNumbersInput,
+  UpdatePatientLoginPhoneNumbersInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -21,13 +21,13 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { getPersonPhone } from '../get-access-phone-numbers';
+import { getPersonPhone } from '../get-login-phone-numbers';
 
-const ZAMBDA_NAME = 'update-access-phone-numbers';
+const ZAMBDA_NAME = 'update-login-phone-numbers';
 
 let m2mToken: string;
 
-interface Input extends UpdatePatientAccessPhoneNumbersInput {
+interface Input extends UpdatePatientLoginPhoneNumbersInput {
   secrets: Secrets | null;
 }
 
@@ -36,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): 
     const input = validateRequestParameters(zambdaInput);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createOystehrClient(m2mToken, input.secrets);
-    await updateAccessPhoneNumbers(input, oystehr);
+    await updateLoginPhoneNumbers(input, oystehr);
     return {
       statusCode: 200,
       body: JSON.stringify({ result: 'success' }),
@@ -48,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): 
   }
 });
 
-const updateAccessPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<void> => {
+const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<void> => {
   const patientRef = `Patient/${input.patientId}`;
 
   const relatedPersons = (

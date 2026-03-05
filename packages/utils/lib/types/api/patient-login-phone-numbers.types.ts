@@ -1,12 +1,12 @@
-export interface GetPatientAccessPhoneNumbersInput {
+export interface GetPatientLoginPhoneNumbersInput {
   patientId: string;
 }
 
-export interface GetPatientAccessPhoneNumbersOutput {
+export interface GetPatientLoginPhoneNumbersOutput {
   phoneNumbers: string[];
 }
 
-export interface UpdatePatientAccessPhoneNumbersInput {
+export interface UpdatePatientLoginPhoneNumbersInput {
   patientId: string;
   phoneNumbers: string[];
 }

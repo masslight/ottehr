@@ -1526,7 +1526,7 @@ export const getPatientAccessPhoneNumbers = async (
 ): Promise<GetPatientAccessPhoneNumbersOutput> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'get-access-phone-numbers',
+      id: 'get-login-phone-numbers',
       ...parameters,
     });
     return chooseJson(response);
@@ -1542,7 +1542,7 @@ export const updatePatientAccessPhoneNumbers = async (
 ): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'update-access-phone-numbers',
+      id: 'update-login-phone-numbers',
       ...parameters,
     });
     return chooseJson(response);

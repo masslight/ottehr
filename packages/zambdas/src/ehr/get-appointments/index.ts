@@ -55,7 +55,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getPersonPhone } from '../patient-account/get-access-phone-numbers';
+import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,
   getTimezoneResourceIdFromAppointment,

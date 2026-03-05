@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 import {
   getCoding,
-  GetPatientAccessPhoneNumbersInput,
+  GetPatientLoginPhoneNumbersInput,
   getSecret,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -20,11 +20,11 @@ import {
   ZambdaInput,
 } from '../../../shared';
 
-const ZAMBDA_NAME = 'get-access-phone-numbers';
+const ZAMBDA_NAME = 'get-login-phone-numbers';
 
 let m2mToken: string;
 
-interface Input extends GetPatientAccessPhoneNumbersInput {
+interface Input extends GetPatientLoginPhoneNumbersInput {
   secrets: Secrets | null;
 }
 
@@ -33,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): 
     const input = validateRequestParameters(zambdaInput);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createOystehrClient(m2mToken, input.secrets);
-    const phoneNumbers = await getAccessPhoneNumbers(input, oystehr);
+    const phoneNumbers = await getLoginPhoneNumbers(input, oystehr);
     return {
       statusCode: 200,
       body: JSON.stringify({ phoneNumbers }),
@@ -45,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): 
   }
 });
 
-const getAccessPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<string[]> => {
+const getLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<string[]> => {
   const resources = (
     await oystehr.fhir.search<Patient | RelatedPerson>({
       resourceType: 'Patient',
