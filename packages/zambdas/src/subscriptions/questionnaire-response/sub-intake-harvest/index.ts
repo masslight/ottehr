@@ -11,6 +11,7 @@ import {
   Observation,
   Patient,
   QuestionnaireResponseItem,
+  Task,
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -23,6 +24,7 @@ import {
   IntakeQuestionnaireItem,
   PaymentVariant,
   SecretsKeys,
+  TaskIndicator,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
@@ -134,6 +136,9 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   if (appointmentResource === undefined || appointmentResource.id === undefined) {
     throw new Error('Appointment resource not found');
   }
+
+  // Wait for page-level harvest Tasks to finish before finalization
+  await waitForPageHarvestTasks(qr.id!, oystehr);
 
   // ── Stripe customer sync ──────────────────────────────────────────────
   let updatedAccount: Account | undefined;
@@ -363,3 +368,35 @@ export const mergeEncounterAccounts = (
     changed,
   };
 };
+
+async function waitForPageHarvestTasks(qrId: string, oystehr: Oystehr): Promise<void> {
+  const maxAttempts = 30;
+  const delayMs = 2_000;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const activeTasks = (
+      await oystehr.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [
+          { name: 'code', value: `${TaskIndicator.harvestPaperwork.system}|${TaskIndicator.harvestPaperwork.code}` },
+          { name: 'focus', value: `QuestionnaireResponse/${qrId}` },
+          { name: 'status', value: 'requested,in-progress' },
+        ],
+      })
+    ).unbundle();
+
+    if (activeTasks.length === 0) {
+      console.log(`All page harvest tasks complete for QR ${qrId} (after ${i} polls)`);
+      return;
+    }
+
+    console.log(`Waiting for ${activeTasks.length} page harvest task(s) for QR ${qrId}...`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  console.warn(
+    `Timed out waiting for page harvest tasks for QR ${qrId} after ${
+      (maxAttempts * delayMs) / 1000
+    }s — proceeding with finalization`
+  );
+}
