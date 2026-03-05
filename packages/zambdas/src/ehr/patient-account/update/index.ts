@@ -91,6 +91,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     patientResource,
     questionnaireForEnableWhenFiltering
   );
+  console.log('Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
