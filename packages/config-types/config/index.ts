@@ -260,3 +260,7 @@ export type { PrepopulationValue, PrepopulationEntry, ProceduresConfig } from '.
 
 // Radiology config types
 export type { RadiologyStudy, RadiologyConfig } from './radiology';
+
+// Provider config types
+export { ProviderConfigSchema, EmCodeOptionsSchema, EmCodeOptionSchema } from './provider';
+export type { ProviderConfig } from './provider';

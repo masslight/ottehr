@@ -1,4 +1,4 @@
-import { ProviderConfig, ProviderConfigSchema } from 'config-types/config/provider';
+import { ProviderConfig, ProviderConfigSchema } from 'config-types';
 import { PROVIDER_CONFIG_OVERRIDE as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
