@@ -1,5 +1,5 @@
 import DownloadIcon from '@mui/icons-material/Download';
-import { Box, Button, CircularProgress, Divider, Link, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Divider, Link, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { VisitFiles, VisitFileType, visitFileTypes } from 'src/types/types';
@@ -63,33 +63,33 @@ const VisitDetailsContent = ({
 
   return (
     <>
-      {FILE_SECTIONS.map(({ key, label }, index) => {
-        const file = typedFiles?.[key];
-        if (!file) return null;
+      <Stack spacing={2} divider={<Divider />}>
+        {FILE_SECTIONS.map(({ key, label }) => {
+          const file = typedFiles?.[key];
+          if (!file) return null;
 
-        const url = file.presignedUrl;
+          const url = file.presignedUrl;
 
-        return (
-          <Box key={key}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-              <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
-                {label}
-              </Typography>
+          return (
+            <Box key={key}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+                  {label}
+                </Typography>
 
-              <Button
-                variant="text"
-                startIcon={<DownloadIcon />}
-                onClick={() => url && openExternalLink(url)}
-                disabled={!url}
-              >
-                Download PDF
-              </Button>
+                <Button
+                  variant="text"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => url && openExternalLink(url)}
+                  disabled={!url}
+                >
+                  Download PDF
+                </Button>
+              </Box>
             </Box>
-
-            {index < FILE_SECTIONS.length - 1 && <Divider sx={{ my: 3 }} />}
-          </Box>
-        );
-      })}
+          );
+        })}
+      </Stack>
 
       {!!(data?.medications && data.medications.length > 0) && (
         <Box>
@@ -162,8 +162,6 @@ const VisitDetailsContent = ({
           </Box>
         </>
       )}
-
-      <Divider />
     </>
   );
 };
