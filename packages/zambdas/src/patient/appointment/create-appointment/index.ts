@@ -86,6 +86,7 @@ interface CreateAppointmentInput {
 let oystehrToken: string;
 export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.log('hello from HOB!!');
     console.group('validateRequestParameters');
     // Step 1: Validate input
     console.log('getting user');
