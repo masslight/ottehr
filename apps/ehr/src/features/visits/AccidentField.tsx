@@ -37,8 +37,6 @@ export const AccidentField: FC<Props> = (_p) => {
   const { mutate: deleteChartData, isPending: _isDeleteLoading } = useDeleteChartData();
   const [lastSavedAccident, setLastSavedAccident] = useState<AccidentDTO | undefined>();
 
-  console.log('chartDataFields', chartDataFields);
-
   const methods = useForm<FormData>({
     defaultValues: {
       autoAccident: false,
@@ -65,7 +63,6 @@ export const AccidentField: FC<Props> = (_p) => {
         values: true,
       },
       callback: ({ values }) => {
-        console.log(values);
         const types: string[] = [];
         if (values.autoAccident) {
           types.push('AA');
@@ -93,11 +90,17 @@ export const AccidentField: FC<Props> = (_p) => {
           state: values.state,
         };
         if (lastSavedAccident !== accidentToSave) {
-          saveChartData({
-            accident: accidentToSave,
-          });
-          setLastSavedAccident(accidentToSave);
-          void refetch();
+          saveChartData(
+            {
+              accident: accidentToSave,
+            },
+            {
+              onSuccess: () => {
+                setLastSavedAccident(accidentToSave);
+                void refetch();
+              },
+            }
+          );
         }
       },
     });
