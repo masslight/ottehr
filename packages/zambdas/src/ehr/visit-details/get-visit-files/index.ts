@@ -5,6 +5,7 @@ import {
   DocumentInfo,
   DocumentType,
   FHIR_RESOURCE_NOT_FOUND,
+  getPatchBinary,
   getPaymentVariantFromEncounter,
   getPresignedURL,
   getSecret,
@@ -168,6 +169,8 @@ export async function searchDocumentReferencesForVisit(
   appointmentId: string
 ): Promise<DocumentReference[]> {
   const documentReferenceResources: DocumentReference[] = [];
+  const duplicateResources: DocumentReference[] = [];
+
   const docRefBundle = await oystehr.fhir.batch<DocumentReference>({
     requests: [
       {
@@ -189,14 +192,48 @@ export async function searchDocumentReferencesForVisit(
   });
 
   const bundleEntries = docRefBundle?.entry;
+
+  // clean up duplicates
+  const z3UrlToDocRef = new Map<string, DocumentReference>();
   bundleEntries?.forEach((bundleEntry: BundleEntry) => {
     const bundleResource = bundleEntry.resource as Bundle;
     bundleResource.entry?.forEach((entry) => {
       const docRefResource = entry.resource as DocumentReference;
-      if (docRefResource) {
+      if (!docRefResource) return;
+      const hasDuplicate = docRefResource.content.some((content) => {
+        const z3Url = content.attachment.url;
+        if (!z3Url) return false;
+        if (z3UrlToDocRef.has(z3Url)) {
+          console.warn(
+            `Duplicate DocumentReference found for z3Url ${z3Url}. DocumentReference IDs: ${z3UrlToDocRef.get(z3Url)
+              ?.id} and ${docRefResource.id}. Marking ${docRefResource.id} as duplicate and superseded.`
+          );
+          return true;
+        }
+        z3UrlToDocRef.set(z3Url, docRefResource);
+        return false;
+      });
+      if (hasDuplicate) {
+        duplicateResources.push(docRefResource);
+      } else {
         documentReferenceResources.push(docRefResource);
       }
     });
+  });
+  await oystehr.fhir.batch({
+    requests: duplicateResources.map((docRef) =>
+      getPatchBinary({
+        resourceType: 'DocumentReference',
+        resourceId: docRef.id!,
+        patchOperations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'superseded',
+          },
+        ],
+      })
+    ),
   });
 
   return documentReferenceResources;
