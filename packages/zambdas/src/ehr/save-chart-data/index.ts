@@ -27,6 +27,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
+  createAccidentCondition,
   createDispositionServiceRequest,
   createOystehrClient,
   createProcedureServiceRequest,
@@ -110,6 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       userToken,
       procedures,
       reasonForVisit,
+      accident,
     } = validateRequestParameters(input);
 
     console.time('time');
@@ -494,6 +496,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
       });
       additionalResourcesForResponse.push(encounter);
+    }
+
+    if (accident) {
+      saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
     }
 
     console.log('Starting a transaction update of chart data...');
