@@ -35,6 +35,7 @@ export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER =
 export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology.zapehr.com/rcm/cms1500/revenue-code';
 
 export const emCodeOptions: CPTCodeOption[] = [
+  { display: '99080 Preparation of special reports beyond what is found in the medical record', code: '99080' },
   { display: '99202 New Patient - E/M Level 2', code: '99202' },
   { display: '99203 New Patient - E/M Level 3', code: '99203' },
   { display: '99204 New Patient - E/M Level 4', code: '99204' },
