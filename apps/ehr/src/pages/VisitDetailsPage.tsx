@@ -13,6 +13,7 @@ import {
   CircularProgress,
   FormControl,
   Grid,
+  IconButton,
   Link as MUILink,
   MenuItem,
   Paper,
@@ -1776,7 +1777,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                 xs={5.5}
                 position={'relative'}
                 sx={{
-                  '&:hover .card-cancel-icon': {
+                  '&:hover .card-cancel-icon, &:focus-within .card-cancel-icon': {
                     visibility: 'visible',
                   },
                 }}
@@ -1789,8 +1790,10 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                   handleClick={() => handleImageClick(card.type)}
                   isLoading={key === 'front' ? isDeletingFront : isDeletingBack}
                 />
-                <CancelIcon
+                <IconButton
                   className="card-cancel-icon"
+                  aria-label={`Delete ${key} card`}
+                  size="small"
                   sx={{
                     position: 'absolute',
                     inset: '-4px -12px auto auto',
@@ -1798,10 +1801,14 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     backgroundColor: theme.palette.background.paper,
                     borderRadius: '50%',
                     cursor: 'pointer',
+                    '&:hover, &:focus-within': { backgroundColor: theme.palette.background.paper },
+                    padding: 0,
                     visibility: 'hidden',
                   }}
                   onClick={() => setDeleteDialogOpen(key as 'front' | 'back')}
-                />
+                >
+                  <CancelIcon />
+                </IconButton>
                 <CustomDialog
                   open={deleteDialogOpen === key}
                   handleClose={() => setDeleteDialogOpen(null)}
