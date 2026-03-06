@@ -3,7 +3,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Appointment, Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
+import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -48,8 +48,9 @@ export class ClaudeClient {
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
-function getPrompt(fields: string): string {
+function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
+Patient details: ${patientInfoDetails} 
 Please generate ${fields} with ICD-10 codes for the patient. 
 Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
 Use a single string property in JSON for each section except potential diagnoses. 
@@ -72,41 +73,57 @@ const AI_RESPONSE_KEY_TO_FIELD = {
 };
 
 export async function invokeChatbotVertexAI(input: MessageContentComplex[], secrets: Secrets | null): Promise<string> {
+  async function fetchWithRetry(url: RequestInfo, options: RequestInit, retries: number): Promise<Response> {
+    while (retries >= 0) {
+      try {
+        const response = await fetch(url, options);
+
+        if (!response.ok) {
+          console.log(`Error: ${response.status}: ${response.statusText}`);
+          throw new Error(`Error: ${response.status}: ${response.statusText}`);
+        }
+
+        return response;
+      } catch (error) {
+        if (retries === 0) {
+          throw error;
+        }
+
+        console.log(`Retrying... Attempts left: ${retries}`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        retries--;
+      }
+    }
+
+    throw new Error('Error with fetching');
+  }
+
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
-  const FIRST_DELAY_MS = 3000;
-  const JITTER = 0.01;
 
-  const backoffTimes = Array.from({ length: RETRY_COUNT }, (_, i) =>
-    // This ends up with an array of exponential backoff times with small perturbations like [ 0, 3002, 5964, 12077, 24109 ]
-    // for more information about this approach see https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
-    i === 0 ? 0 : 2 ** (i - 1) * FIRST_DELAY_MS * (1 - JITTER + Math.random() * JITTER * 2)
-  );
-  const requests = backoffTimes.map(async (backoffTime) => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, backoffTime));
-      return fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [input] }],
-            generationConfig: {
-              temperature: 0,
-            },
-          }),
-        }
-      );
-    } catch (error) {
-      console.error('Error invoking Vertex AI:', error);
-      captureException(error);
-      throw error;
-    }
-  });
-  const response = await (await Promise.any(requests)).json();
-
+  let request;
+  try {
+    request = await fetchWithRetry(
+      `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [input] }],
+          generationConfig: {
+            temperature: 0,
+          },
+        }),
+      },
+      RETRY_COUNT
+    );
+  } catch (error) {
+    console.error('Error invoking Vertex AI:', error);
+    captureException(error);
+    throw error;
+  }
+  const response = await request.json();
   console.log(JSON.stringify(response));
   return response.candidates[0].content.parts[0].text;
 }
@@ -140,7 +157,7 @@ export async function createResourcesFromAiInterview(
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
   // if there is a provider user profile, it is a recording
   const resources = (
-    await oystehr.fhir.search<Encounter | Appointment>({
+    await oystehr.fhir.search<Encounter | Appointment | Patient>({
       resourceType: 'Encounter',
       params: [
         {
@@ -151,12 +168,33 @@ export async function createResourcesFromAiInterview(
           name: '_include',
           value: 'Encounter:appointment',
         },
+        {
+          name: '_include',
+          value: 'Encounter:subject',
+        },
       ],
     })
   ).unbundle();
 
   const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
   const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+  const patient = resources.find((resource) => resource.resourceType === 'Patient');
+
+  let patientInfoDetails = undefined;
+
+  if (patient) {
+    let patientAge = undefined;
+    let patientSex = undefined;
+    if (patient.birthDate) {
+      const birthDate = DateTime.fromISO(patient.birthDate);
+      const now = DateTime.now();
+      patientAge = Math.floor(now.diff(birthDate, 'years').years);
+    }
+    if (patient.gender) {
+      patientSex = patient.gender;
+    }
+    patientInfoDetails = `Age: ${patientAge || 'unknown'} year old, Sex: ${patientSex || 'unknown'}`;
+  }
 
   if (
     appointment?.serviceCategory?.find(
@@ -174,9 +212,10 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  const aiResponseString = (
-    await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
-  ).content.toString();
+  const aiResponseString = await invokeChatbotVertexAI(
+    [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
+    secrets
+  );
   console.log(`AI response: "${aiResponseString}"`);
   let aiResponse;
   try {

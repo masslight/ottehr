@@ -1,43 +1,14 @@
-import { z } from 'zod';
+import {
+  type ConsentFormConfig,
+  type ConsentFormsConfig,
+  ConsentFormsConfigSchema,
+  type PathConfig,
+  type ResolvedConsentFormConfig,
+} from 'config-types';
 import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
-import { PRIVACY_POLICY_CODE } from '../../types';
+// Import directly from the specific file to avoid circular dependency through types barrel
+import { PRIVACY_POLICY_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-
-const CodingSchema = z.object({
-  system: z.string().optional(),
-  code: z.string().optional(),
-  display: z.string().optional(),
-});
-
-const PathConfigSchema = z.union([
-  z.string(),
-  z.object({
-    default: z.string(),
-    byState: z.record(z.string(), z.string()).optional(),
-  }),
-]);
-
-type PathConfig = z.infer<typeof PathConfigSchema>;
-
-const ConsentFormSchema = z.object({
-  id: z.string(),
-  formTitle: z.string(),
-  resourceTitle: z.string(),
-  type: z.object({
-    coding: z.array(CodingSchema).min(1),
-    text: z.string().optional(),
-  }),
-  createsConsentResource: z.boolean(),
-  assetPath: PathConfigSchema,
-  publicUrl: PathConfigSchema,
-});
-
-const ConsentFormsConfigSchema = z.object({
-  forms: z.array(ConsentFormSchema).min(1),
-});
-
-export type ConsentFormConfig = z.infer<typeof ConsentFormSchema>;
-export type ConsentFormsConfig = z.infer<typeof ConsentFormsConfigSchema>;
 
 const DEFAULT_CONSENT_FORMS = {
   forms: [
@@ -90,9 +61,11 @@ const DEFAULT_CONSENT_FORMS = {
   ],
 } as const satisfies ConsentFormsConfig;
 
-const mergedConsentFormsConfig = mergeAndFreezeConfigObjects(DEFAULT_CONSENT_FORMS, CONSENT_FORMS_OVERRIDE);
+// Merge defaults with instance-specific overrides (from ottehr-config-overrides)
+// Config is baked in at deploy time, no runtime injection needed
+const mergedConsentForms = mergeAndFreezeConfigObjects(DEFAULT_CONSENT_FORMS, CONSENT_FORMS_OVERRIDE);
 
-export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentFormsConfig);
+export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentForms) as typeof mergedConsentForms;
 
 const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
   if (typeof path === 'string') {
@@ -106,15 +79,23 @@ const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
   return path.default;
 };
 
-export type ResolvedConsentFormConfig = Omit<ConsentFormConfig, 'assetPath' | 'publicUrl'> & {
-  assetPath: string;
-  publicUrl: string;
-};
+// ResolvedConsentFormConfig is now imported from config-types
 
-export const getConsentFormsForLocation = (locationState?: string): ResolvedConsentFormConfig[] => {
-  return CONSENT_FORMS_CONFIG.forms.map((form) => ({
+/**
+ * Resolve state-conditional paths for a given array of consent forms.
+ * Use this when you already have the forms array and need to resolve the paths.
+ */
+export const resolveConsentFormsPaths = (
+  forms: ConsentFormConfig[],
+  locationState?: string
+): ResolvedConsentFormConfig[] => {
+  return forms.map((form) => ({
     ...form,
     assetPath: resolveAssetPath(form.assetPath, locationState),
     publicUrl: resolveAssetPath(form.publicUrl, locationState),
   }));
+};
+
+export const getConsentFormsForLocation = (locationState?: string): ResolvedConsentFormConfig[] => {
+  return resolveConsentFormsPaths(CONSENT_FORMS_CONFIG.forms, locationState);
 };

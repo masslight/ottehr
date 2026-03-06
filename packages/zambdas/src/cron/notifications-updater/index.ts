@@ -479,9 +479,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const { practitioner, communications } = sendSMSPractitionerCommunications[id];
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
         if (
-          (practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
-            notificationSettings?.method === ProviderNotificationMethod.phone) ||
-          notificationSettings?.method === ProviderNotificationMethod['phone and computer']
+          practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
+          (notificationSettings?.method === ProviderNotificationMethod.phone ||
+            notificationSettings?.method === ProviderNotificationMethod['phone and computer'])
         ) {
           communications.forEach((comm) => {
             if (comm.payload?.[0].contentString) {

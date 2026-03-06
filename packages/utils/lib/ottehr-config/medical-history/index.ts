@@ -1,10 +1,10 @@
+import { MedicalHistoryConfig, MedicalHistoryConfigSchema } from 'config-types';
 import { MEDICAL_HISTORY_OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-import { MedicalHistoryConfig, validateMedicalHistoryConfig } from './medical-history.schema';
 
 const MEDICAL_HISTORY_DEFAULTS = {
   medicalConditions: {
-    favorites: [
+    quickPicks: [
       {
         display: 'Arthritis',
       },
@@ -106,47 +106,24 @@ const MEDICAL_HISTORY_DEFAULTS = {
     ],
   },
   allergies: {
-    favorites: [
-      {
-        name: 'Amoxicillin',
-      },
-      {
-        name: 'Augmentin',
-      },
-      {
-        name: 'Azithromycin',
-      },
-      {
-        name: 'Sulfa/Bactrim',
-      },
-      {
-        name: 'Codeine',
-      },
-      {
-        name: 'Nsaids',
-      },
-      {
-        name: 'Tylenol',
-      },
-      {
-        name: 'Levaquin',
-      },
-      {
-        name: 'Ciprofloxacin',
-      },
-      {
-        name: 'Zofran',
-      },
-      {
-        name: 'Keflex',
-      },
-      {
-        name: 'Clindamycin',
-      },
+    quickPicks: [
+      { name: 'Acetaminophen', id: 26 },
+      { name: 'Amoxicillin', id: 138 },
+      { name: 'Amoxicillin / Clavulanate', id: 250 },
+      { name: 'Aspirin', id: 229 },
+      { name: 'Azithromycin', id: 285 },
+      { name: 'Cephalexin', id: 545 },
+      { name: 'Ciprofloxacin', id: 605 },
+      { name: 'Clindamycin', id: 622 },
+      { name: 'Codeine', id: 647 },
+      { name: 'Levofloxacin', id: 1717 },
+      { name: 'Ibuprofen', id: 1469 },
+      { name: 'Naproxen', id: 2047 },
+      { name: 'Sulfamethoxazole / Trimethoprim', id: 293 },
     ],
   },
   medications: {
-    favorites: [
+    quickPicks: [
       {
         name: 'Toradol',
         strength: '60 mg',
@@ -180,7 +157,7 @@ const MEDICAL_HISTORY_DEFAULTS = {
     ],
   },
   inHouseMedications: {
-    favorites: [
+    quickPicks: [
       {
         name: 'Acetaminophen - Adult',
         dose: 650,
@@ -224,6 +201,8 @@ const mergedMedicalHistoryConfig = mergeAndFreezeConfigObjects(
   MEDICAL_HISTORY_OVERRIDES || {}
 );
 
-export const MEDICAL_HISTORY_CONFIG = Object.freeze(validateMedicalHistoryConfig(mergedMedicalHistoryConfig));
+const validateMedicalHistoryConfig = (config: unknown): MedicalHistoryConfig => {
+  return MedicalHistoryConfigSchema.parse(config);
+};
 
-export * from './medical-history.schema';
+export const MEDICAL_HISTORY_CONFIG = Object.freeze(validateMedicalHistoryConfig(mergedMedicalHistoryConfig));

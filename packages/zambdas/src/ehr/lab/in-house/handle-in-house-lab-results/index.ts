@@ -1,4 +1,9 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputPatchRequest,
+  BatchInputPostRequest,
+  BatchInputPutRequest,
+  BatchInputRequest,
+} from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
@@ -64,7 +69,11 @@ import {
 } from '../../../../shared';
 import { createInHouseLabResultPDF } from '../../../../shared/pdf/labs-results-form-pdf';
 import { createOwnerReference } from '../../../../shared/tasks';
-import { getRelatedServiceRequests, getUrlAndVersionForADFromServiceRequest } from '../../shared/in-house-labs';
+import {
+  getRelatedServiceRequests,
+  getUrlAndVersionForADFromServiceRequest,
+  provenanceIsInHouseLabResultEntry,
+} from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -97,6 +106,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       schedule,
       location,
       relatedServiceRequests,
+      existingDiagnosticReport,
+      resultEntryMode,
     } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
 
     const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
@@ -110,24 +121,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       resultsEntryData,
       { id: curUserPractitionerId, name: currentUserPractitionerName },
       { id: attendingPractitioner.id || '', name: attendingPractitionerName },
-      relatedServiceRequests
+      relatedServiceRequests,
+      existingDiagnosticReport,
+      resultEntryMode
     );
 
     console.log(`These are the fhir requests getting made: ${JSON.stringify(requests)}`);
     const res = await oystehr.fhir.transaction({ requests });
-    console.log('check the res', JSON.stringify(res));
 
     let diagnosticReport: DiagnosticReport | undefined;
-    let updatedInputResultTask: Task | undefined;
+    let resultEntryProvenance: Provenance | undefined;
     const observations: Observation[] = [];
     res.entry?.forEach((entry) => {
       if (entry.resource?.resourceType === 'DiagnosticReport') {
         diagnosticReport = entry.resource as DiagnosticReport;
       }
-      if (entry.resource?.resourceType === 'Task') {
-        const task = entry.resource as Task;
-        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)) {
-          updatedInputResultTask = task;
+      if (entry.resource?.resourceType === 'Provenance') {
+        const provenance = entry.resource;
+        if (provenanceIsInHouseLabResultEntry(provenance)) {
+          resultEntryProvenance = provenance;
         }
       }
       if (entry.resource?.resourceType === 'Observation') {
@@ -138,9 +150,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error(
         `There was an issue creating and/or parsing the diagnostic report for this service request: ${serviceRequest.id}`
       );
-    if (!updatedInputResultTask)
+    if (!resultEntryProvenance)
       throw new Error(
-        `There was an issue updating and/or parsing the input result task for this service request: ${serviceRequest.id}`
+        `There was an issue updating and/or parsing the provenance for this action, related to result entry for ServiceRequest/${serviceRequest.id}`
       );
     if (!observations.length) {
       throw new Error(
@@ -158,7 +170,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         schedule,
         attendingPractitioner,
         attendingPractitionerName,
-        updatedInputResultTask,
+        resultEntryProvenance,
         observations,
         diagnosticReport,
         secrets,
@@ -185,7 +197,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-// todo better errors
 const getInHouseLabResultResources = async (
   serviceRequestId: string,
   curUserPractitionerId: string,
@@ -194,7 +205,7 @@ const getInHouseLabResultResources = async (
   serviceRequest: ServiceRequest;
   encounter: Encounter;
   patient: Patient;
-  inputResultTask: Task;
+  inputResultTask: Task | undefined; // will only be returned for initial entry, we won't do anything with it for edits
   specimen: Specimen;
   activityDefinition: ActivityDefinition;
   currentUserPractitioner: Practitioner;
@@ -202,9 +213,13 @@ const getInHouseLabResultResources = async (
   location: Location | undefined;
   schedule: Schedule;
   relatedServiceRequests: ServiceRequest[] | undefined;
+  existingDiagnosticReport: DiagnosticReport | undefined;
+  resultEntryMode: 'initial' | 'edit';
 }> => {
   const labOrderResources = (
-    await oystehr.fhir.search<ServiceRequest | Patient | Encounter | Specimen | Task | Schedule | Location>({
+    await oystehr.fhir.search<
+      ServiceRequest | Patient | Encounter | Specimen | Task | Schedule | Location | DiagnosticReport
+    >({
       resourceType: 'ServiceRequest',
       params: [
         {
@@ -249,6 +264,11 @@ const getInHouseLabResultResources = async (
           name: '_revinclude:iterate',
           value: 'ServiceRequest:based-on',
         },
+        // Include existing diagnostic reports in case results are being updated/corrected
+        {
+          name: '_revinclude',
+          value: 'DiagnosticReport:based-on',
+        },
       ],
     })
   ).unbundle();
@@ -262,9 +282,10 @@ const getInHouseLabResultResources = async (
   const encounters: Encounter[] = [];
   const schedules: Schedule[] = [];
   const locations: Location[] = [];
+  const diagnosticReports: DiagnosticReport[] = [];
 
   labOrderResources.forEach((resource) => {
-    if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
+    if (resource.resourceType === 'ServiceRequest' && resource.status !== 'revoked') serviceRequests.push(resource);
     if (resource.resourceType === 'Patient') patients.push(resource);
     if (resource.resourceType === 'Specimen') specimens.push(resource);
     if (resource.resourceType === 'Encounter') encounters.push(resource);
@@ -276,9 +297,42 @@ const getInHouseLabResultResources = async (
     ) {
       inputResultTasks.push(resource);
     }
+    if (resource.resourceType === 'DiagnosticReport') {
+      diagnosticReports.push(resource);
+    }
   });
 
   const serviceRequest = serviceRequests.find((sr) => sr.id === serviceRequestId);
+  let existingDiagnosticReport: DiagnosticReport | undefined;
+
+  let resultEntryMode: 'initial' | 'edit' = 'initial';
+  if (serviceRequest?.status === 'completed' && diagnosticReports.length > 0) {
+    console.log(
+      'result entry mode has been flagged as edit since the service request is completed and a diagnostic report already exists'
+    );
+
+    existingDiagnosticReport = diagnosticReports.find((dr) => {
+      const statusIsValid = !['entered-in-error', 'cancelled'].includes(dr.status);
+
+      const isBasedOnServiceRequest = dr.basedOn?.some(
+        (ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`
+      );
+
+      return isBasedOnServiceRequest && statusIsValid;
+    });
+
+    if (!existingDiagnosticReport) {
+      throw new Error(
+        `Something is misconfigured with existing results, we could not find the correct existing diagnostic report for this in-house lab. Related resources: ServiceRequest/${
+          serviceRequest.id
+        } ${diagnosticReports.map((dr) => `DiagnosticReport/${dr.id}`)}`
+      );
+    }
+
+    resultEntryMode = 'edit';
+  } else {
+    console.log(`result entry mode has been flagged as initial, related ServiceRequest/${serviceRequest?.id}`);
+  }
 
   if (!serviceRequest) throw new Error(`service request not found for id ${serviceRequestId}`);
   if (patients.length !== 1) throw new Error('Only one patient should be returned');
@@ -286,21 +340,25 @@ const getInHouseLabResultResources = async (
   if (specimens.length !== 1)
     throw new Error(`Only one specimen should be returned - specimen ids: ${specimens.map((s) => s.id)}`);
 
-  console.log('These are the inputResultTasks', JSON.stringify(inputResultTasks));
-  if (inputResultTasks.length !== 1) {
-    console.log('inputResultTasks', inputResultTasks);
-    throw new Error(`Found multiple IRT tasks for ServiceRequest/${serviceRequestId}. Expected one`);
-  }
+  let inputResultTask: Task | undefined;
 
-  const inputResultTask = inputResultTasks[0];
+  if (resultEntryMode === 'initial') {
+    console.log('These are the inputResultTasks', JSON.stringify(inputResultTasks));
+    if (inputResultTasks.length !== 1) {
+      console.log('inputResultTasks', inputResultTasks);
+      throw new Error(`Found multiple IRT tasks for ServiceRequest/${serviceRequestId}. Expected one`);
+    }
 
-  if (inputResultTask.status === 'completed') {
-    console.log(`Task is completed: Task/${inputResultTask.id}`);
-    throw new Error('Result has already been entered. Refresh the page to continue.');
-  }
-  if (inputResultTask.status !== 'ready' && inputResultTask.status !== 'in-progress') {
-    console.log(`Task is in unexpected state. Task/${inputResultTask.id} status: ${inputResultTask.status}`);
-    throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
+    inputResultTask = inputResultTasks[0];
+
+    if (inputResultTask.status === 'completed') {
+      console.log(`Task is completed: Task/${inputResultTask.id}`);
+      throw new Error('Result has already been entered. Refresh the page to continue.');
+    }
+    if (inputResultTask.status !== 'ready' && inputResultTask.status !== 'in-progress') {
+      console.log(`Task is in unexpected state. Task/${inputResultTask.id} status: ${inputResultTask.status}`);
+      throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
+    }
   }
 
   const relatedServiceRequests =
@@ -356,6 +414,8 @@ const getInHouseLabResultResources = async (
     location,
     schedule,
     relatedServiceRequests,
+    existingDiagnosticReport,
+    resultEntryMode,
   };
 };
 
@@ -366,33 +426,38 @@ interface PractitionerConfig {
 
 const makeResultEntryRequests = (
   serviceRequest: ServiceRequest,
-  irtTask: Task,
+  irtTask: Task | undefined, // will only be returned for initial entry, we won't do anything with it for edits
   specimen: Specimen,
   activityDefinition: ActivityDefinition,
   resultsEntryData: ResultEntryInput,
   curUser: PractitionerConfig,
   attendingPractitioner: PractitionerConfig,
-  relatedServiceRequests: ServiceRequest[] | undefined
+  relatedServiceRequests: ServiceRequest[] | undefined,
+  existingDiagnosticReport: DiagnosticReport | undefined,
+  resultEntryMode: 'initial' | 'edit'
 ): BatchInputRequest<FhirResource>[] => {
   const requests: BatchInputRequest<FhirResource>[] = [];
-
-  const serviceRequestPatchOperations: Operation[] = [
-    {
-      path: '/status',
-      op: 'replace',
-      value: 'completed',
-    },
-  ];
+  const serviceRequestPatchOperations: Operation[] = [];
 
   const { provenancePostRequest, provenanceFullUrl } = makeProvenancePostRequest(
     serviceRequest.id || '',
     curUser,
-    attendingPractitioner
+    attendingPractitioner,
+    resultEntryMode
   );
   requests.push(provenancePostRequest);
 
-  const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl, curUser);
-  requests.push(irtTaskPatchRequest);
+  // we do work in the resource fetch to make sure there is always a input result task ready to be completed when the result entry mode is initial
+  if (resultEntryMode === 'initial' && irtTask) {
+    serviceRequestPatchOperations.push({
+      path: '/status',
+      op: 'replace',
+      value: 'completed',
+    });
+
+    const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl, curUser);
+    requests.push(irtTaskPatchRequest);
+  }
 
   const { obsRefs, obsPostRequests, nonNormalResultRecorded, reflexTestTriggered } = makeObservationPostRequests(
     serviceRequest,
@@ -403,14 +468,15 @@ const makeResultEntryRequests = (
   );
   requests.push(...obsPostRequests);
 
-  const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(
+  const diagnosticReportRequest = makeDiagnosticReportRequest(
     serviceRequest,
     activityDefinition,
     obsRefs,
     nonNormalResultRecorded,
-    reflexTestTriggered
+    reflexTestTriggered,
+    existingDiagnosticReport
   );
-  requests.push(diagnosticReportPostRequest);
+  requests.push(diagnosticReportRequest);
 
   const isReflex = activityDefinitionIsReflexTest(activityDefinition);
 
@@ -466,12 +532,14 @@ const makeResultEntryRequests = (
     }
   }
 
-  const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
-    method: 'PATCH',
-    url: `ServiceRequest/${serviceRequest.id}`,
-    operations: serviceRequestPatchOperations,
-  };
-  requests.push(serviceRequestPatchRequest);
+  if (serviceRequestPatchOperations.length > 0) {
+    const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
+      method: 'PATCH',
+      url: `ServiceRequest/${serviceRequest.id}`,
+      operations: serviceRequestPatchOperations,
+    };
+    requests.push(serviceRequestPatchRequest);
+  }
 
   return requests;
 };
@@ -666,13 +734,14 @@ const determineCodeableConceptInterpretation = (
   }
 };
 
-const makeDiagnosticReportPostRequest = (
+const makeDiagnosticReportRequest = (
   serviceRequest: ServiceRequest,
   activityDefinition: ActivityDefinition,
   obsRefs: Reference[],
   nonNormalResultRecorded: NonNormalResult[],
-  reflexTestTriggered: Extension | undefined
-): BatchInputPostRequest<DiagnosticReport> => {
+  reflexTestTriggered: Extension | undefined,
+  existingDiagnosticReport: DiagnosticReport | undefined
+): BatchInputPostRequest<DiagnosticReport> | BatchInputPutRequest<DiagnosticReport> => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
   const diagnosticReportConfig: DiagnosticReport = {
@@ -722,19 +791,35 @@ const makeDiagnosticReportPostRequest = (
     diagnosticReportConfig.extension = extension;
   }
 
-  const diagnosticReportPostRequest: BatchInputPostRequest<DiagnosticReport> = {
-    method: 'POST',
-    url: '/DiagnosticReport',
-    resource: diagnosticReportConfig,
-  };
+  if (existingDiagnosticReport && existingDiagnosticReport.id) {
+    const updatedDiagnosticReport = {
+      ...existingDiagnosticReport,
+      ...diagnosticReportConfig,
+    };
 
-  return diagnosticReportPostRequest;
+    const diagnosticReportPutRequest: BatchInputPutRequest<DiagnosticReport> = {
+      method: 'PUT',
+      url: `DiagnosticReport/${existingDiagnosticReport.id}`,
+      resource: updatedDiagnosticReport,
+    };
+
+    return diagnosticReportPutRequest;
+  } else {
+    const diagnosticReportPostRequest: BatchInputPostRequest<DiagnosticReport> = {
+      method: 'POST',
+      url: '/DiagnosticReport',
+      resource: diagnosticReportConfig,
+    };
+
+    return diagnosticReportPostRequest;
+  }
 };
 
 const makeProvenancePostRequest = (
   serviceRequestId: string,
   curUser: PractitionerConfig,
-  attendingPractitioner: PractitionerConfig
+  attendingPractitioner: PractitionerConfig,
+  resultEntryMode: 'initial' | 'edit'
 ): { provenancePostRequest: BatchInputPostRequest<Provenance>; provenanceFullUrl: string } => {
   const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
   const provenanceConfig: Provenance = {
@@ -745,7 +830,11 @@ const makeProvenancePostRequest = (
       },
     ],
     activity: {
-      coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults],
+      coding: [
+        resultEntryMode === 'initial'
+          ? PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults
+          : PROVENANCE_ACTIVITY_CODING_ENTITY.editResults,
+      ],
     },
     recorded: DateTime.now().toISO(),
     agent: [

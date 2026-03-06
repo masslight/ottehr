@@ -38,6 +38,7 @@ import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/ty
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
+import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { Operation } from 'fast-json-patch';
 import {
@@ -56,6 +57,8 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCIDENT_STATE_EXTENSION,
+  ACCIDENT_TYPE_SYSTEM,
   createReference,
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
@@ -133,6 +136,7 @@ interface CreateEncounterInput {
   diagnoses: Condition[];
   procedures: Procedure[];
   insuranceResources?: InsuranceResources;
+  accident?: Condition;
 }
 
 const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
@@ -213,29 +217,28 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
+  const conditions = (
+    await oystehr.fhir.search<Condition>({
+      resourceType: 'Condition',
+      params: [
+        {
+          name: 'encounter',
+          value: `Encounter/${encounterId}`,
+        },
+      ],
+    })
+  ).unbundle();
+
   return {
     appointment: appointment,
     location,
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
     practitioner: assertDefined(practitioner, `Practitioner on encounter ${encounterId}`),
-    diagnoses: (
-      await oystehr.fhir.search<Condition>({
-        resourceType: 'Condition',
-        params: [
-          {
-            name: 'encounter',
-            value: `Encounter/${encounterId}`,
-          },
-        ],
-      })
-    )
-      .unbundle()
-      .filter(
-        (condition) =>
-          encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) !=
-          null
-      ),
+    diagnoses: conditions.filter(
+      (condition) =>
+        encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) != null
+    ),
     procedures: (
       await oystehr.fhir.search<Procedure>({
         resourceType: 'Procedure',
@@ -264,6 +267,7 @@ const createCandidCreateEncounterInput = async (
           payor: coveragePayor!,
         }
       : undefined,
+    accident: conditions.find((condition) => chartDataResourceHasMetaTagByCode(condition, 'accident')),
   };
 };
 
@@ -1084,7 +1088,17 @@ async function candidCreateEncounterFromAppointmentRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreateFromPreEncounter> {
-  const { appointment, encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location } = input;
+  const {
+    appointment,
+    encounter,
+    patient,
+    practitioner,
+    diagnoses,
+    procedures,
+    insuranceResources,
+    location,
+    accident,
+  } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
@@ -1178,6 +1192,11 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_OCCUPATIONAL_MEDICINE));
   }
 
+  const accidentTypes =
+    accident?.code?.coding
+      ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
+      ?.map((coding) => coding.code as string) ?? [];
+
   // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
@@ -1221,6 +1240,16 @@ async function candidCreateEncounterFromAppointmentRequest(
       'Location place of service code'
     ),
     diagnoses: candidDiagnoses,
+    accidentDate: accident?.onsetDateTime,
+    relatedCausesInformation:
+      accident != null
+        ? {
+            relatedCausesCode1: accidentTypes[0] as RelatedCausesCode,
+            relatedCausesCode2: accidentTypes[1] as RelatedCausesCode,
+            stateOrProvinceCode: accident?.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)
+              ?.valueString,
+          }
+        : undefined,
     serviceLines,
     tagIds: tags,
   };
@@ -1257,7 +1286,9 @@ export const makeCptModifierExtension = (input: { code: string; display: string 
   };
 };
 
-export const getCptModifierCodeFromProcedure = (fhirProcedure: Procedure): string[] | undefined => {
+export const getCptModifierCodeFromProcedure = (
+  fhirProcedure: Procedure
+): { code: string; display: string }[] | undefined => {
   const coding = fhirProcedure.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   if (!coding) return;
 
@@ -1265,7 +1296,7 @@ export const getCptModifierCodeFromProcedure = (fhirProcedure: Procedure): strin
     (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept
   )?.valueCodeableConcept;
   const modifier = modifierCodableConcept?.coding?.flatMap((c) =>
-    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [c.code] : []
+    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [{ code: c.code, display: c.display ?? '' }] : []
   );
 
   return modifier;

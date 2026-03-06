@@ -6,7 +6,7 @@ export function validateRequestParameters(input: ZambdaInput): MakeMedicationHis
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patient, appointment, medicationHistory, encounter, location } = JSON.parse(input.body);
+  const { patient, appointment, medicationHistory, encounter, location, timezone } = JSON.parse(input.body);
 
   const missingResources = [];
   if (!patient) missingResources.push('patient');
@@ -18,5 +18,5 @@ export function validateRequestParameters(input: ZambdaInput): MakeMedicationHis
     throw MISSING_REQUIRED_PARAMETERS(missingResources);
   }
 
-  return { patient, appointment, medicationHistory, encounter, location, secrets: input.secrets };
+  return { patient, appointment, medicationHistory, encounter, location, timezone, secrets: input.secrets };
 }

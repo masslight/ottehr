@@ -40,6 +40,24 @@ export const SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
 export const SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-has-been-sent-to-teleradiology';
 
+// do not adjust modifierDescription, this is mapped to fhir resources
+export const LATERALITY_SELECTORS = {
+  '50': {
+    modifierDescription: 'Bilateral Procedure',
+    uiDisplay: 'Both sides - bilateral',
+  },
+  LT: {
+    modifierDescription: 'Left side',
+    uiDisplay: 'Left side',
+  },
+  RT: {
+    modifierDescription: 'Right side',
+    uiDisplay: 'Right side',
+  },
+} as const;
+
+export type LateralityValue = keyof typeof LATERALITY_SELECTORS;
+
 /**
  * Fetches a ServiceRequest from AdvaPACS using the accession number
  * @param accessionNumber The accession number to search for

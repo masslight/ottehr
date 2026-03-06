@@ -42,6 +42,7 @@ export const visitFileTypes = {
   statement: 'statement',
   school: 'school',
   work: 'work',
+  receipt: 'receipt',
 } as const;
 
 export type VisitFileType = (typeof visitFileTypes)[keyof typeof visitFileTypes];

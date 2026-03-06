@@ -280,10 +280,13 @@ export async function convertSearchResultsToResponse(
   };
 }
 
-export const configProceduresRequestsForGetChartData = (encounterId: string): BatchInputGetRequest => {
+export const configProceduresRequestsForGetChartData = (encounterIds: string | string[]): BatchInputGetRequest => {
+  const encounterRefs = Array.isArray(encounterIds)
+    ? encounterIds.map((id) => `Encounter/${id}`).join(',')
+    : `Encounter/${encounterIds}`;
   return {
     method: 'GET',
-    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=completed`,
+    url: `/ServiceRequest?encounter=${encounterRefs}&status=completed`,
   };
 };
 

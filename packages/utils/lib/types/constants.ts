@@ -1,12 +1,13 @@
 import { Coding } from 'fhir/r4b';
 import { ottehrExtensionUrl } from '../fhir/systemUrls';
-import { BRANDING_CONFIG } from '../ottehr-config/branding';
+
+// NOTE: PROJECT_WEBSITE was moved to ottehr-config/branding to avoid circular dependencies.
+// Import it from 'utils' or 'utils/lib/ottehr-config/branding' directly.
+// Do NOT re-export here as it triggers the circular dependency during module loading.
 
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
-
-export const PROJECT_WEBSITE = `https://${BRANDING_CONFIG.projectDomain}`;
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
