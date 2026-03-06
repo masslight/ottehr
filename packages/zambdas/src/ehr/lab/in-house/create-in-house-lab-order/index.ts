@@ -148,6 +148,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 params: [
                   { name: 'encounter', value: `Encounter/${encounterId}` },
                   { name: 'instantiates-canonical', value: `${item.adUrl}|${item.adVersion}` },
+                  { name: 'status:not', value: 'revoked' },
                 ],
               })
               .then((result) => result.unbundle() as ServiceRequest[]);
@@ -170,6 +171,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                     name: '_sort',
                     value: '-_lastUpdated',
                   },
+                  { name: 'status:not', value: 'revoked' },
                 ],
               })
             ).unbundle();

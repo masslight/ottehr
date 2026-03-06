@@ -1106,5 +1106,6 @@ export const prepopulatePatientRecordItems = (
 
   return patientRecordItems;
 };
+
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

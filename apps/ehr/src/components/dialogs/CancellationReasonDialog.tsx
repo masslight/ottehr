@@ -11,6 +11,7 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  TextField,
   Typography,
 } from '@mui/material';
 import { Appointment, Encounter } from 'fhir/r4b';
@@ -40,6 +41,7 @@ export default function CancellationReasonDialog({
 }: CancellationReasonDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [cancellationReason, setCancellationReason] = useState<string>('');
+  const [cancellationReasonAdditional, setCancellationReasonAdditional] = useState<string>('');
   const [cancelLoading, setCancelLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const buttonSx = {
@@ -76,6 +78,7 @@ export default function CancellationReasonDialog({
     const zambdaParams: CancelAppointmentZambdaInput = {
       appointmentID: appointment.id || '',
       cancellationReason: cancellationReason,
+      cancellationReasonAdditional: cancellationReason === 'Other' ? cancellationReasonAdditional : undefined,
     };
 
     let response;
@@ -110,6 +113,9 @@ export default function CancellationReasonDialog({
     const value = event.target.value as string;
     if (value && setCancellationReason) {
       setCancellationReason(value);
+    }
+    if (value !== 'Other') {
+      setCancellationReasonAdditional('');
     }
   };
 
@@ -155,6 +161,16 @@ export default function CancellationReasonDialog({
                   </MenuItem>
                 ))}
               </Select>
+              {cancellationReason === 'Other' && (
+                <TextField
+                  fullWidth
+                  sx={{ mt: 2 }}
+                  label="Please specify"
+                  value={cancellationReasonAdditional}
+                  onChange={(e) => setCancellationReasonAdditional(e.target.value)}
+                  inputProps={{ maxLength: 200 }}
+                />
+              )}
             </FormControl>
           </div>
         </DialogContent>
@@ -162,6 +178,7 @@ export default function CancellationReasonDialog({
           <LoadingButton
             data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
             loading={cancelLoading}
+            disabled={!cancellationReason}
             type="submit"
             variant="contained"
             color="primary"

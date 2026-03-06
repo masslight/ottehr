@@ -42,7 +42,6 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
   const { allChartData, appointmentPackage } = input;
   const { appointment, location, timezone } = appointmentPackage;
   const visit = composeVisitData({ appointment, location, timezone });
-  visit.serviceCategory = undefined;
   const workSchoolExcuse = composeWorkSchoolExcuseSection({ allChartData });
   return {
     patient: composePatientInformationForDischargeSummary({ appointmentPackage }),

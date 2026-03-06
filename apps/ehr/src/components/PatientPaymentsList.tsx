@@ -23,12 +23,13 @@ import { useMutation } from '@tanstack/react-query';
 import { Appointment, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, Fragment, ReactElement, useState } from 'react';
+import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
+import { CreditCardBrandIcon } from 'ui-components';
 import {
   APIError,
   APIErrorCode,
@@ -51,6 +52,7 @@ import {
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
+import { GenericToolTip } from './GenericToolTip';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
@@ -80,6 +82,20 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const formatUsd = (amount: number | string | undefined | null): string | null => {
+  if (amount === undefined || amount === null) return null;
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return null;
+  return usdFormatter.format(numericAmount);
+};
+
 export default function PatientPaymentList({
   loading,
   patient,
@@ -97,6 +113,8 @@ export default function PatientPaymentList({
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
+  const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean>(false);
+  const [cardOnFileKnown, setCardOnFileKnown] = useState<boolean>(false);
 
   const {
     data: encounter,
@@ -145,6 +163,112 @@ export default function PatientPaymentList({
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
+  const cardOnFileStatusStroke = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#2E7D32' : '#8A1538') : '#90A4AE';
+  const cardOnFileStatusFill = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#E8F5E9' : '#FBE9E7') : '#D9D9D9';
+  const cardOnFileStatusLabel = cardOnFileKnown
+    ? hasCreditCardOnFileFromList
+      ? 'card on file'
+      : 'no card on file'
+    : 'checking card on file';
+  const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
+  const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const getBooleanFlag = (candidate: unknown): boolean | undefined => {
+      if (typeof candidate === 'boolean') {
+        return candidate;
+      }
+      return undefined;
+    };
+
+    const deriveCardOnFileStatus = (output: unknown): boolean => {
+      if (!output || typeof output !== 'object') {
+        return false;
+      }
+
+      const response = output as Record<string, unknown>;
+      if (!Array.isArray(response.cards)) {
+        return false;
+      }
+
+      const allCards = response.cards as unknown[];
+      if (allCards.length === 0) {
+        return false;
+      }
+
+      let hasAnyDefaultFlag = false;
+      let hasDefaultOrPrimary = false;
+
+      allCards.forEach((card) => {
+        if (!card || typeof card !== 'object') {
+          return;
+        }
+
+        const cardObj = card as Record<string, unknown>;
+        const possibleFlags = [
+          cardObj.default,
+          cardObj.isDefault,
+          cardObj.is_default,
+          cardObj.primary,
+          cardObj.isPrimary,
+          cardObj.is_primary,
+        ];
+
+        possibleFlags.forEach((flag) => {
+          const boolFlag = getBooleanFlag(flag);
+          if (boolFlag !== undefined) {
+            hasAnyDefaultFlag = true;
+            if (boolFlag) {
+              hasDefaultOrPrimary = true;
+            }
+          }
+        });
+      });
+
+      if (hasAnyDefaultFlag) {
+        return hasDefaultOrPrimary;
+      }
+
+      return true;
+    };
+
+    const fetchCardStatus = async (): Promise<void> => {
+      if (!oystehrZambda || !patient?.id) {
+        setCardOnFileKnown(false);
+        setHasCreditCardOnFileFromList(false);
+        return;
+      }
+
+      try {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'payment-methods-list',
+          beneficiaryPatientId: patient.id,
+          appointmentId: appointment?.id,
+        });
+
+        const derivedStatus = deriveCardOnFileStatus(result.output);
+        if (!cancelled) {
+          setHasCreditCardOnFileFromList(derivedStatus);
+          setCardOnFileKnown(true);
+        }
+      } catch (error) {
+        console.error('Failed to determine card-on-file status from payment-methods-list', error);
+        if (!cancelled) {
+          setCardOnFileKnown(false);
+          setHasCreditCardOnFileFromList(false);
+        }
+      }
+    };
+
+    void fetchCardStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [oystehrZambda, patient?.id, appointment?.id]);
+
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
       ? (paymentListError as APIError).code === APIErrorCode.STRIPE_CUSTOMER_ID_DOES_NOT_EXIST
@@ -170,10 +294,26 @@ export default function PatientPaymentList({
   };
 
   const getLabelForPayment = (payment: PatientPaymentDTO): string | ReactElement => {
-    if (payment.paymentMethod === 'card') {
+    if (
+      payment.paymentMethod === 'card' ||
+      payment.paymentMethod === 'card-reader' ||
+      payment.paymentMethod === 'external-card-reader'
+    ) {
       if (payment.cardLast4) {
-        return `XXXX - XXXX - XXXX - ${payment.cardLast4}`;
-      } else {
+        const formattedBrand = payment.cardBrand ? capitalize(payment.cardBrand) : 'Card';
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {payment.cardBrand && (
+              <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                <CreditCardBrandIcon brand={payment.cardBrand} />
+              </Box>
+            )}
+            <Typography variant="body1">{`${formattedBrand} •••• ${payment.cardLast4}`}</Typography>
+          </Box>
+        );
+      }
+
+      if (payment.paymentMethod === 'card') {
         return (
           <RefreshableStatusChip
             status={'processing...'}
@@ -195,9 +335,11 @@ export default function PatientPaymentList({
           />
         );
       }
-    } else {
-      return capitalize(payment.paymentMethod);
+
+      return 'Card Reader';
     }
+
+    return capitalize(payment.paymentMethod);
   };
 
   const createNewPayment = useMutation({
@@ -321,6 +463,8 @@ export default function PatientPaymentList({
   const isUrgentCare = serviceCategory === 'urgent-care';
   const isOccupationalMedicine = serviceCategory === 'occupational-medicine';
   const isWorkmansComp = serviceCategory === 'workers-comp';
+  const formattedCopayAmount = formatUsd(copayAmount?.amountInUSD);
+  const formattedRemainingDeductibleAmount = formatUsd(remainingDeductibleAmount?.amountInUSD);
 
   return (
     <Paper
@@ -329,9 +473,11 @@ export default function PatientPaymentList({
         padding: 3,
       }}
     >
-      <Typography variant="h4" color="primary.dark">
-        Payer/Responsible for Claim
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Typography variant="h4" color="primary.dark">
+          Payer/Responsible for Claim
+        </Typography>
+      </Box>
       <RadioGroup
         row
         name="options"
@@ -392,13 +538,15 @@ export default function PatientPaymentList({
                 <TableRow>
                   <TableCell style={{ fontSize: '16px' }}>Copay</TableCell>
                   <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
-                    {copayAmount ? `$${copayAmount?.amountInUSD} / ${copayAmount?.periodDescription}` : 'Unknown'}
+                    {formattedCopayAmount && copayAmount?.periodDescription
+                      ? `${formattedCopayAmount} / ${copayAmount.periodDescription}`
+                      : 'Unknown'}
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ '&:last-child td': { borderBottom: 'none' } }}>
                   <TableCell style={{ fontSize: '16px' }}>Remaining Deductible</TableCell>
                   <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
-                    {remainingDeductibleAmount ? `$${remainingDeductibleAmount?.amountInUSD}` : 'Unknown'}
+                    {formattedRemainingDeductibleAmount ?? 'Unknown'}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -429,9 +577,89 @@ export default function PatientPaymentList({
       {stripeCustomerDeletedError && <StripeErrorAlert />}
       {!stripeCustomerDeletedError && (
         <>
-          <Typography variant="h5" color="primary.dark" sx={{ mt: 2 }}>
-            Patient Payments
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 2 }}>
+            <Typography variant="h5" color="primary.dark">
+              Patient Payments
+            </Typography>
+            <GenericToolTip
+              disableHoverListener={!cardOnFileKnown}
+              customWidth={220}
+              title={
+                cardOnFileKnown ? (
+                  <Box
+                    sx={{
+                      px: 1,
+                      py: 0.75,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      backgroundColor: 'transparent',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        px: 0.75,
+                        py: 0.25,
+                        borderRadius: 1,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.3px',
+                        color: hasCreditCardOnFileFromList === true ? '#2E7D32' : '#8A1538',
+                        backgroundColor: hasCreditCardOnFileFromList === true ? '#C8E6C9' : '#FFCDD2',
+                      }}
+                    >
+                      {cardOnFileChipLabel}
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#000000',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {cardOnFileTooltipText}
+                    </Typography>
+                  </Box>
+                ) : (
+                  ''
+                )
+              }
+            >
+              <Box sx={{ ml: 'auto', display: 'inline-flex', alignItems: 'center' }} aria-label={cardOnFileStatusLabel}>
+                <svg width="38" height="38" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect
+                    x="10"
+                    y="12"
+                    width="36"
+                    height="30"
+                    rx="5"
+                    fill={cardOnFileStatusFill}
+                    stroke={cardOnFileStatusStroke}
+                    strokeWidth="2"
+                  />
+                  <rect x="15" y="18" width="26" height="5" rx="1" fill={cardOnFileStatusStroke} opacity="0.7" />
+                  <rect x="15" y="27" width="12" height="4" rx="1" fill={cardOnFileStatusStroke} opacity="0.45" />
+                  {cardOnFileKnown && hasCreditCardOnFileFromList === true ? (
+                    <path
+                      d="M31 31L34.5 34.5L41 28"
+                      stroke={cardOnFileStatusStroke}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ) : null}
+                  {cardOnFileKnown && hasCreditCardOnFileFromList === false ? (
+                    <>
+                      <path d="M32 28L40 36" stroke={cardOnFileStatusStroke} strokeWidth="2" strokeLinecap="round" />
+                      <path d="M40 28L32 36" stroke={cardOnFileStatusStroke} strokeWidth="2" strokeLinecap="round" />
+                    </>
+                  ) : null}
+                </svg>
+              </Box>
+            </GenericToolTip>
+          </Box>
           <Table size="small" style={{ tableLayout: 'fixed' }}>
             <TableBody>
               {payments.length === 0 && !loading && (
@@ -445,6 +673,7 @@ export default function PatientPaymentList({
               )}
               {payments.map((payment) => {
                 const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
+                const formattedPaymentAmount = formatUsd(payment.amountInCents / 100) ?? '$0.00';
                 return (
                   <Fragment key={idForPaymentDTO(payment)}>
                     <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
@@ -485,7 +714,7 @@ export default function PatientPaymentList({
                             {loading ? (
                               <Skeleton aria-busy="true" width={200} />
                             ) : (
-                              <Typography variant="body1">{`$${payment.amountInCents / 100}`}</Typography>
+                              <Typography variant="body1">{formattedPaymentAmount}</Typography>
                             )}
                           </Box>
                         </TableCell>
@@ -522,9 +751,13 @@ export default function PatientPaymentList({
         <PaymentDialog
           open={paymentDialogOpen}
           patient={patient}
+          encounterId={encounterId}
           appointmentId={appointment?.id}
           handleClose={() => setPaymentDialogOpen(false)}
           isSubmitting={createNewPayment.isPending}
+          onTerminalPaymentSuccess={async () => {
+            await refetchPaymentList();
+          }}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
               patientId: patient.id ?? '',

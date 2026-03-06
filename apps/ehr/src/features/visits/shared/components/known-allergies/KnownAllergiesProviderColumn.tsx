@@ -320,9 +320,9 @@ const AddAllergyField: FC = () => {
   const handleQuickPickSelect = async (
     quickPick: (typeof MEDICAL_HISTORY_CONFIG.allergies.quickPicks)[number]
   ): Promise<void> => {
-    const quickPickAsAllergy: ExtractObjectType<ErxSearchAllergensResponse> = {
+    const quickPickAsAllergy = {
       name: quickPick.name,
-      id: quickPick.id,
+      id: 'id' in quickPick ? quickPick.id : undefined,
     } as ExtractObjectType<ErxSearchAllergensResponse>;
     await handleSelectOption(quickPickAsAllergy);
   };

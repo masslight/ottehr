@@ -84,18 +84,37 @@ export { TextWithLinkCompositionSchema, LegalConfigSchema } from './legal';
 export type { LegalConfig } from './legal';
 
 // Location config types
-export { LocationItemSchema, SupportScheduleGroupSchema, LocationConfigSchema } from './locations';
-export type { LocationItem, SupportScheduleGroup, LocationConfig } from './locations';
+export {
+  LocationItemSchema,
+  SupportScheduleGroupSchema,
+  SupportDisplaySchema,
+  LocationConfigSchema,
+} from './locations';
+export type { LocationItem, SupportScheduleGroup, SupportDisplay, LocationConfig } from './locations';
 
 // Branding config types
 export {
   EmailPaletteSchema,
   EmailConfigSchema,
   LogoConfigSchema,
+  IntakeAssetsSchema,
+  IntakeThemePaletteSchema,
+  IntakeThemeOtherColorsSchema,
+  IntakeThemeSchema,
   IntakeBrandingSchema,
   BrandingConfigSchema,
 } from './branding';
-export type { EmailPalette, EmailConfig, LogoConfig, IntakeBranding, BrandingConfig } from './branding';
+export type {
+  EmailPalette,
+  EmailConfig,
+  LogoConfig,
+  IntakeAssets,
+  IntakeThemePalette,
+  IntakeThemeOtherColors,
+  IntakeTheme,
+  IntakeBranding,
+  BrandingConfig,
+} from './branding';
 
 // Consent forms config types
 export {
@@ -113,8 +132,8 @@ export type {
 } from './consent-forms';
 
 // Paperwork config types (used by both in-person and virtual intake)
-export { PaperworkFormFieldsSchema, PaperworkConfigSchema } from './intake-paperwork';
-export type { PaperworkFormFields, PaperworkConfig } from './intake-paperwork';
+export { PaperworkFormFieldsSchema, PaperworkConfigSchema, pageHarvestStrategy } from './intake-paperwork';
+export type { PaperworkFormFields, PaperworkConfig, HarvestStrategy } from './intake-paperwork';
 
 // Patient record config types
 export { PatientRecordFormFieldsSchema, PatientRecordConfigSchema } from './patient-record';
@@ -260,6 +279,10 @@ export type { PrepopulationValue, PrepopulationEntry, ProceduresConfig } from '.
 
 // Radiology config types
 export type { RadiologyStudy, RadiologyConfig } from './radiology';
+
+// Prompts config types
+export { PromptsConfigSchema } from './prompts';
+export type { PromptsConfig } from './prompts';
 
 // Provider config types
 export { ProviderConfigSchema, EmCodeOptionsSchema, EmCodeOptionSchema } from './provider';

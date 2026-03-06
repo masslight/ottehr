@@ -37,7 +37,7 @@ import {
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
 } from '../../types';
-import { filterQuestionnaireResponseByEnableWhen } from '../../types/data/paperwork';
+import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
 import { DOB_DATE_FORMAT } from '../../utils';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
@@ -643,10 +643,26 @@ export const makeQRResponseItem = (
 };
 
 /**
- * List of field linkIds that support explicit clearing (deletion) when set to null by user.
- * These fields will send empty answer array [] to backend to trigger DELETE operations.
+ * List of field linkIds that support explicit clearing (deletion) when set to an empty value by user.
+ * These fields will send empty answer array [] to backend to trigger clear/delete operations.
  */
-const REMOVABLE_FIELDS = ['occupational-medicine-employer'];
+const REMOVABLE_FIELDS = [
+  'occupational-medicine-employer',
+  'workers-comp-insurance-name',
+  'workers-comp-insurance-member-id',
+  'employer-name',
+  'employer-address',
+  'employer-address-2',
+  'employer-city',
+  'employer-state',
+  'employer-zip',
+  'employer-contact-first-name',
+  'employer-contact-last-name',
+  'employer-contact-title',
+  'employer-contact-email',
+  'employer-contact-phone',
+  'employer-contact-fax',
+];
 
 /**
  * Checks if a field supports explicit clearing (deletion).
@@ -686,10 +702,11 @@ export const filterHiddenRemovableFields = (
   items: QuestionnaireResponseItem[],
   questionnaire: Questionnaire
 ): QuestionnaireResponseItem[] => {
-  const visibleRemovableFields = filterQuestionnaireResponseByEnableWhen(
-    items.filter((item: QuestionnaireResponseItem) => isRemovableField(item.linkId)),
-    questionnaire
-  );
+  const visibleRemovableFields = prepareQuestionnaireResponseForHarvest({
+    questionnaireResponseItems: items.filter((item: QuestionnaireResponseItem) => isRemovableField(item.linkId)),
+    sourceQuestionnaire: questionnaire,
+    options: { filterByEnableWhen: true },
+  });
   const visibleRemovableLinkIds = new Set(visibleRemovableFields.map((item: QuestionnaireResponseItem) => item.linkId));
 
   return items.filter(
@@ -699,7 +716,7 @@ export const filterHiddenRemovableFields = (
 
 export const itemContainsAnyAnswer = (item: QuestionnaireResponseItem): boolean => {
   if (item.answer !== undefined) {
-    // Empty answer array [] is a valid answer (explicit clear) for occupational-medicine-employer
+    // Empty answer array [] is a valid answer for removable fields that were explicitly cleared
     if (isFieldExplicitlyCleared(item)) {
       return true;
     }

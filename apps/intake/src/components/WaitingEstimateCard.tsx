@@ -1,8 +1,8 @@
 import { Skeleton } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { BRANDING_CONFIG } from 'utils';
+import { primaryIcon } from '../branding/assets';
 import { otherColors } from '../IntakeThemeProvider';
-import { primaryIcon } from '../themes/ottehr/icons';
 import CardWithDescription from './CardWithDescription';
 
 interface WaitingEstimateCardProps {

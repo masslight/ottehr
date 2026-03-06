@@ -1338,7 +1338,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       'Results Date:',
       labResult.finalResultDateTime.setZone(data.timezone).toFormat(LABS_DATE_STRING_FORMAT)
     );
-    pdfClient.newLine(24);
+    pdfClient.newLine(30);
   }
 
   pdfClient.numberPages(textStyles.pageNumber);
