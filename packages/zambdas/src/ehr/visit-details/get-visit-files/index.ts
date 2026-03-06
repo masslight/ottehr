@@ -74,17 +74,6 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
     consentPdfUrls: [],
   };
 
-  function compareCards(
-    cardBackType: DocumentType.PhotoIdBack | DocumentType.InsuranceBack | DocumentType.InsuranceBackSecondary
-  ) {
-    return (a: DocumentInfo, b: DocumentInfo) => {
-      if (a && b) {
-        return a.type === cardBackType ? 1 : -1;
-      }
-      return 0;
-    };
-  }
-
   const documentReferenceResources = await searchDocumentReferencesForVisit(oystehr, patientId, appointmentId);
 
   // Get document info
@@ -136,18 +125,18 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
   }
 
   if (z3Documents.length) {
-    documents.photoIdCards = z3Documents
-      .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
-      .slice(0, 2) // we're slicing all these because somewhere we're failing to mark the DR as no longer current and are getting multiples
-      .sort(compareCards(DocumentType.PhotoIdBack));
-    documents.insuranceCards = z3Documents
-      .filter((doc) => [DocumentType.InsuranceFront, DocumentType.InsuranceBack].includes(doc.type))
-      .slice(0, 2)
-      .sort(compareCards(DocumentType.InsuranceBack));
-    documents.insuranceCardsSecondary = z3Documents
-      .filter((doc) => [DocumentType.InsuranceFrontSecondary, DocumentType.InsuranceBackSecondary].includes(doc.type))
-      .slice(0, 2)
-      .sort(compareCards(DocumentType.InsuranceBackSecondary));
+    documents.photoIdCards = [
+      z3Documents.find((doc) => doc.type === DocumentType.PhotoIdFront),
+      z3Documents.find((doc) => doc.type === DocumentType.PhotoIdBack),
+    ].filter((doc): doc is DocumentInfo => doc !== undefined);
+    documents.insuranceCards = [
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceFront),
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceBack),
+    ].filter((doc): doc is DocumentInfo => doc !== undefined);
+    documents.insuranceCardsSecondary = [
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceFrontSecondary),
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceBackSecondary),
+    ].filter((doc): doc is DocumentInfo => doc !== undefined);
     documents.fullCardPdfs = z3Documents.filter((doc) =>
       [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
     );
