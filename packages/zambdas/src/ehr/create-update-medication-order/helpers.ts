@@ -1,9 +1,9 @@
 import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_HCPCS,
   CPTCodeOption,
+  getAllCptCodesFromInHouseMedication,
+  getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
   getLocationCodeFromMedicationAdministration,
   getResourcesFromBatchInlineRequests,
@@ -159,26 +159,6 @@ export async function getCptHcpcsCodesToAddToChartData(
   });
 
   return codesOptionsToAdd;
-}
-
-export function getAllHcpcsCodesFromInHouseMedication(medication: Medication): string[] {
-  const resultCodes: string[] = [];
-  medication.code?.coding?.forEach((coding) => {
-    if (coding.system === CODE_SYSTEM_HCPCS && coding.code) {
-      resultCodes.push(coding.code);
-    }
-  });
-  return resultCodes;
-}
-
-export function getAllCptCodesFromInHouseMedication(medication: Medication): string[] {
-  const resultCodes: string[] = [];
-  medication.code?.coding?.forEach((coding) => {
-    if (coding.system === CODE_SYSTEM_CPT && coding.code) {
-      resultCodes.push(coding.code);
-    }
-  });
-  return resultCodes;
 }
 
 export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {

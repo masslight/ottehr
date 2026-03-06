@@ -29,6 +29,11 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
     // Verify that the delete button is enabled to ensure the code is saved
     await expect(this.#page.getByTestId(dataTestIds.billingContainer.deleteButton)).toBeEnabled();
   }
+
+  async verifyCptCode(code: string): Promise<void> {
+    const value = await this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code)).textContent();
+    expect(value).toContain(code);
+  }
 }
 
 export async function expectAssessmentPage(page: Page): Promise<InPersonAssessmentPage> {
