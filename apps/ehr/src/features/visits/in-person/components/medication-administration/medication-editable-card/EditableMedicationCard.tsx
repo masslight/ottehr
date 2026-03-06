@@ -152,7 +152,10 @@ export const EditableMedicationCard: React.FC<{
 
   const handleQuickPickSelect = useCallback(
     (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]): void => {
-      const medicationId = selectsOptions.medicationId.medispanCodeToMedicationId?.[String(quickPick.dosespotId)];
+      const { ndcToMedicationId, medispanCodeToMedicationId } = selectsOptions.medicationId;
+      const medicationId: string | undefined =
+        (quickPick.ndc && ndcToMedicationId?.[quickPick.ndc]) ??
+        (quickPick.dosespotId != null ? medispanCodeToMedicationId?.[String(quickPick.dosespotId)] : undefined);
       setLocalValues((prev) => ({
         ...prev,
         medicationId,
@@ -163,7 +166,7 @@ export const EditableMedicationCard: React.FC<{
       }));
       setErxEnabled(true);
     },
-    [selectsOptions.medicationId.medispanCodeToMedicationId]
+    [selectsOptions.medicationId]
   );
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
