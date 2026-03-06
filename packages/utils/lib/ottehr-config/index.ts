@@ -16,6 +16,7 @@ export * from './legal';
 export * from './locations';
 export * from './medical-history';
 export * from './patient-record';
+export * from './prompts';
 export * from './radiology';
 export * from './sendgrid';
 export * from './texting';
