@@ -10,13 +10,24 @@ type ActionsListProps<T extends unknown[], K = T[0]> = {
   divider?: boolean;
   alignItems?: CSSProperties['alignItems'];
   itemDataTestId?: string;
+  dataTestId?: string;
 };
 
 export const ActionsList = <T extends unknown[]>(props: ActionsListProps<T>): ReactElement => {
-  const { data, getKey, renderItem, renderActions, gap = 1, divider, alignItems = 'center', itemDataTestId } = props;
+  const {
+    data,
+    getKey,
+    renderItem,
+    renderActions,
+    gap = 1,
+    divider,
+    alignItems = 'center',
+    itemDataTestId,
+    dataTestId,
+  } = props;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: gap }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: gap }} data-testid={dataTestId}>
       {data.map((item, index, arr) => (
         <Box key={getKey(item, index)} data-testid={itemDataTestId}>
           <Box sx={{ display: 'flex', alignItems, justifyContent: 'space-between', gap: 2 }}>

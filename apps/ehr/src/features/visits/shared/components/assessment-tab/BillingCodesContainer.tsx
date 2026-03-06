@@ -290,6 +290,7 @@ export const BillingCodesContainer: FC = () => {
           <AssessmentTitle>Additional CPT codes</AssessmentTitle>
           <ActionsList
             data={cptCodes}
+            dataTestId={dataTestIds.billingContainer.container}
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
               <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>

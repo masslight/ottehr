@@ -1,4 +1,6 @@
 import { expect, Page } from '@playwright/test';
+import { waitForResponseWithData } from 'test-utils';
+import { DeleteChartDataResponse } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseAssessmentPage } from '../abstract/BaseAssessmentPage';
 
@@ -33,6 +35,20 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
   async verifyCptCode(code: string): Promise<void> {
     const value = await this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code)).textContent();
     expect(value).toContain(code);
+  }
+
+  async verifyCptCodeAbsent(code: string): Promise<void> {
+    const value = await this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code));
+    await expect(value).toBeHidden();
+  }
+
+  async deleteCptCode(code: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(code)).click();
+    await waitForResponseWithData<DeleteChartDataResponse>(this.#page, '/delete-chart-data', () => true);
+  }
+
+  async expectBillingCodesElement(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.billingContainer.container).waitFor();
   }
 }
 

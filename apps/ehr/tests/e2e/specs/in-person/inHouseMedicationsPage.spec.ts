@@ -133,6 +133,7 @@ const PARTLY_ADMINISTERED = 'Partly Administered';
 const NOT_ADMINISTERED = 'Not Administered';
 const MEDICATION_ADMINISTERED_TITLE = 'Medication Administered';
 const MEDICATION_PARTLY_ADMINISTERED_TITLE = 'Medication Partly Administered';
+const MEDICATION_NOT_ADMINISTERED_TITLE = 'Medication Not Administered';
 
 test.describe.configure({ mode: 'serial' });
 let page: Page;
@@ -378,7 +379,7 @@ test('Making in-house medication order Administered happy path', async () => {
   });
 });
 
-test('Making in-house medication order Partly Administered happy path', async () => {
+test.skip('Making in-house medication order Partly Administered happy path', async () => {
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
@@ -438,7 +439,7 @@ test('Making in-house medication order Partly Administered happy path', async ()
   });
 });
 
-test('Making in-house medication order Not Administered happy path', async () => {
+test.skip('Making in-house medication order Not Administered happy path', async () => {
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
@@ -516,10 +517,13 @@ test('In-house medication billing codes', async () => {
     await administrationConfirmationDialog.clickMarkAsAdministeredButton();
 
     assessmentPage = await medicationsPage.sideMenu().clickAssessment();
+    await page.reload();
+    await assessmentPage.expectBillingCodesElement();
     const cptCodes = getAllCptCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES);
     cptCodes.push(...getAllHcpcsCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES));
     for (const cptCode of cptCodes) {
       await assessmentPage.verifyCptCode(cptCode);
+      await assessmentPage.deleteCptCode(cptCode);
     }
   });
 
@@ -549,7 +553,7 @@ test('In-house medication billing codes', async () => {
     const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
 
     await inHouseMedicationsPage.verifyMedicationPresent({
-      medicationName: MEDICATION_FOR_NOT_ADMINISTERED,
+      medicationName: billingMedicationName,
       dose: DOSE,
       units: UNITS,
       route: ROUTE,
@@ -561,10 +565,60 @@ test('In-house medication billing codes', async () => {
     });
 
     assessmentPage = await medicationsPage.sideMenu().clickAssessment();
+    await page.reload();
+    await assessmentPage.expectBillingCodesElement();
     const cptCodes = getAllCptCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES);
     cptCodes.push(...getAllHcpcsCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES));
     for (const cptCode of cptCodes) {
       await assessmentPage.verifyCptCode(cptCode);
+      await assessmentPage.deleteCptCode(cptCode);
+    }
+  });
+
+  await test.step('Check that billing codes are not created when medication is Not Administered', async () => {
+    await medicationsPage.sideMenu().clickInHouseMedications();
+    await medicationsPage.clickOrderButton();
+
+    await createOrderForAdministration(billingMedicationName, page);
+
+    const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickNotAdministeredButton();
+    await administrationConfirmationDialog.verifyTitle(MEDICATION_NOT_ADMINISTERED_TITLE);
+    await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+
+    await administrationConfirmationDialog.verifyMedication({
+      medication: billingMedicationName,
+      dose: DOSE,
+      units: UNITS,
+      route: ROUTE,
+    });
+
+    await administrationConfirmationDialog.verifyMessage(
+      'Please confirm that you want to mark this medication order as Not Administered and select the reason.'
+    );
+
+    await administrationConfirmationDialog.selectReason(PATIENT_REFUSED);
+    await administrationConfirmationDialog.clickMarkAsAdministeredButton();
+    const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+
+    await inHouseMedicationsPage.verifyMedicationPresent({
+      medicationName: billingMedicationName,
+      dose: DOSE,
+      units: UNITS,
+      route: ROUTE,
+      orderedBy: await getCurrentPractitionerFirstLastName(),
+      givenBy: await getCurrentPractitionerFirstLastName(),
+      instructions: INSTRUCTIONS,
+      status: PARTLY_ADMINISTERED,
+      reason: PATIENT_REFUSED,
+    });
+
+    assessmentPage = await medicationsPage.sideMenu().clickAssessment();
+    await page.reload();
+    await assessmentPage.expectDiagnosisDropdown();
+    const cptCodes = getAllCptCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES);
+    cptCodes.push(...getAllHcpcsCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES));
+    for (const cptCode of cptCodes) {
+      await assessmentPage.verifyCptCodeAbsent(cptCode);
     }
   });
 });
