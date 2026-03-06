@@ -1,3 +1,5 @@
+import { otherColors } from '@ehrTheme/colors';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 import { Box, Divider, Paper, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
@@ -125,6 +127,27 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
             {testDetails.labDetails.components.groupedComponents.length > 0 && (
               <ResultEntryTable testItemComponents={testDetails.labDetails.components.groupedComponents} />
             )}
+
+            {testDetails.labDetails.reflexAlert && (
+              <Box
+                key={`reflex-alert`}
+                sx={{
+                  p: '6px 16px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  background: otherColors.warningBackground,
+                  mt: '16px',
+                  alignItems: 'center',
+                }}
+                gap={'4px'}
+              >
+                <WarningAmberOutlined sx={{ height: '22px', width: '22px', my: '7px', mr: '12px' }} color="warning" />
+                <Typography variant="h6" color={otherColors.warningText}>
+                  {testDetails.labDetails.reflexAlert.alert}
+                </Typography>
+              </Box>
+            )}
+
             <InHouseLabsDetailsCard
               testDetails={testDetails}
               page={PageName.performEnterResults}
