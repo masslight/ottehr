@@ -124,7 +124,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const hasInsurance = !!(coverageInfo?.length && coverageInfo.length > 0);
   const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
   const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
-  const additionalCptCodesToAdd = createExternalLabResources?.additionalCptCodes;
+  const cptCodesToAddPerEncounter = createExternalLabResources?.cptCodesToAddPerEncounter;
   const isWorkersComp = !!createExternalLabResources?.appointmentIsWorkersComp;
   const labSets = createExternalLabResources?.labSets;
 
@@ -199,7 +199,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       selectedPaymentMethod !== '';
     if (oystehrZambda && paramsSatisfied) {
       try {
-        if (additionalCptCodesToAdd && additionalCptCodesToAdd.length > 0) {
+        if (!psc && cptCodesToAddPerEncounter && cptCodesToAddPerEncounter.length > 0) {
           await addAdditionalCptCodesToEncounter();
         }
         await addAdditionalDxToEncounter();
@@ -285,12 +285,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     const chartCptCodes = chartData?.cptCodes || [];
     const existingCodes = chartCptCodes.map((cptCode) => cptCode.code);
     // per product each of these codes will only be added once per encounter
-    const filteredCodesToAdd = additionalCptCodesToAdd?.filter((codeToAdd) => !existingCodes.includes(codeToAdd.code));
+    const codesToAdd = cptCodesToAddPerEncounter?.filter((codeToAdd) => !existingCodes.includes(codeToAdd.code));
 
-    if (filteredCodesToAdd && filteredCodesToAdd.length > 0) {
+    if (codesToAdd && codesToAdd.length > 0) {
       saveCPTChartData(
         {
-          cptCodes: filteredCodesToAdd,
+          cptCodes: codesToAdd,
         },
         {
           onSuccess: (data) => {

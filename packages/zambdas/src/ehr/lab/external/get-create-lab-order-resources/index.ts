@@ -72,11 +72,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       labs = allLabsResults.flat();
     }
 
-    // not every instance will have values for this
-    let additionalCptCodes: CPTCodeOption[] | undefined = undefined;
-    const additionalCptCodeToInclude = VALUE_SETS.externalLabAdditionalCptCodesToAdd;
-    if (additionalCptCodeToInclude && additionalCptCodeToInclude.length > 0) {
-      additionalCptCodes = additionalCptCodeToInclude.map((coding) => {
+    let cptCodesToAddPerEncounter: CPTCodeOption[] | undefined = undefined;
+    const additionalCptCodes = VALUE_SETS.externalLabCptCodesToAddPerEncounter;
+    if (additionalCptCodes && additionalCptCodes.length > 0) {
+      cptCodesToAddPerEncounter = additionalCptCodes.map((coding) => {
         const cpt: CPTCodeOption = {
           code: coding.value,
           display: coding.label,
@@ -88,7 +87,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const response: LabOrderResourcesRes = {
       coverages: coverageInfo,
       labs,
-      additionalCptCodes,
+      cptCodesToAddPerEncounter, // the front end will handle deciding if these should be added based on whats already added and if order is psc or not
       appointmentIsWorkersComp,
       ...orderingLocationDetails,
       labSets: formatLabListDTOs(labLists),
