@@ -118,6 +118,11 @@ export function updateMedicationAdministrationData(data: {
   return newMA;
 }
 
+/*
+ * This function is filtering all CPT and HCPCS codes from in-house medication
+ * and comparing it with billing codes from chart data.
+ * If there are codes that are not in chart data, it returns code options ready to be saved in chart-data.
+ * **/
 export async function getCptHcpcsCodesToAddToChartData(
   oystehr: Oystehr,
   medication: Medication,

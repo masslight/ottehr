@@ -379,7 +379,7 @@ test('Making in-house medication order Administered happy path', async () => {
   });
 });
 
-test.skip('Making in-house medication order Partly Administered happy path', async () => {
+test('Making in-house medication order Partly Administered happy path', async () => {
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
@@ -439,7 +439,7 @@ test.skip('Making in-house medication order Partly Administered happy path', asy
   });
 });
 
-test.skip('Making in-house medication order Not Administered happy path', async () => {
+test('Making in-house medication order Not Administered happy path', async () => {
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
