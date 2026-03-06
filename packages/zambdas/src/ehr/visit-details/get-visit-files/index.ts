@@ -209,21 +209,27 @@ export async function searchDocumentReferencesForVisit(
       }
     });
   });
-  await oystehr.fhir.batch({
-    requests: duplicateResources.map((docRef) =>
-      getPatchBinary({
-        resourceType: 'DocumentReference',
-        resourceId: docRef.id!,
-        patchOperations: [
-          {
-            op: 'replace',
-            path: '/status',
-            value: 'superseded',
-          },
-        ],
-      })
-    ),
-  });
+  if (duplicateResources.length > 0) {
+    try {
+      await oystehr.fhir.batch({
+        requests: duplicateResources.map((docRef) =>
+          getPatchBinary({
+            resourceType: 'DocumentReference',
+            resourceId: docRef.id!,
+            patchOperations: [
+              {
+                op: 'replace',
+                path: '/status',
+                value: 'superseded',
+              },
+            ],
+          })
+        ),
+      });
+    } catch (error) {
+      console.error('Failed to mark duplicate DocumentReferences as superseded:', error);
+    }
+  }
 
   return documentReferenceResources;
 }
