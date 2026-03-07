@@ -5,7 +5,8 @@ import { flattenQuestionnaireAnswers, IntakeQuestionnaireItem } from './paperwor
 
 const filterQuestionnaireResponseByEnableWhen = (
   responseItems: QuestionnaireResponseItem[],
-  questionnaire: Questionnaire
+  questionnaire: Questionnaire,
+  allResponseItems?: QuestionnaireResponseItem[]
 ): QuestionnaireResponseItem[] => {
   if (!questionnaire.item) {
     return responseItems;
@@ -13,8 +14,10 @@ const filterQuestionnaireResponseByEnableWhen = (
 
   const questionnaireItemsMap = createQuestionnaireItemsMap(questionnaire.item);
 
+  // Build values map from all response items (not just the section being harvested)
+  // so that cross-section enableWhen references can be resolved.
   const values: Record<string, QuestionnaireResponseItem> = {};
-  responseItems.forEach((item) => {
+  (allResponseItems ?? responseItems).forEach((item) => {
     values[item.linkId] = item;
   });
 
@@ -81,7 +84,9 @@ export const prepareQuestionnaireResponseForHarvest = (
   let flattened = flattenQuestionnaireAnswers(filteredSections);
 
   if (sourceQuestionnaire && filterByEnableWhen) {
-    flattened = filterQuestionnaireResponseByEnableWhen(flattened, sourceQuestionnaire);
+    // Flatten all items to build a complete values map for cross-section enableWhen evaluation
+    const allFlattened = includeSections ? flattenQuestionnaireAnswers(questionnaireResponseItems) : undefined;
+    flattened = filterQuestionnaireResponseByEnableWhen(flattened, sourceQuestionnaire, allFlattened);
   }
 
   return flattened;
