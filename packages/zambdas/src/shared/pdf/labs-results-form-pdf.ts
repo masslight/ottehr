@@ -1679,6 +1679,7 @@ const getAdditionalResultsForRelated = async (
       (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${srId}`)
     );
 
+    // todo labs i don't think this additional work is necessary anymore, the query has been updated to only grab observations from diagnostic report results
     const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
 
     const config = await getFormattedInHouseLabResults(
