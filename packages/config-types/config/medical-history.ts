@@ -49,25 +49,32 @@ export const MedicationQuickPickSchema: z.ZodType<MedicationQuickPick, z.ZodType
 });
 
 /**
- * In-house medication quick pick item
+ * In-house medication quick pick item.
+ * Must have either dosespotId or ndc or both (enforced by InHouseMedicationQuickPickSchema).
  */
 export interface InHouseMedicationQuickPick {
   name: string;
-  dosespotId: number;
+  dosespotId?: number;
+  ndc?: string;
   dose?: number;
   units?: string;
   route?: string;
   instructions?: string;
 }
 
-export const InHouseMedicationQuickPickSchema: z.ZodType<InHouseMedicationQuickPick, z.ZodTypeDef, unknown> = z.object({
-  name: z.string().min(1),
-  dosespotId: z.number(),
-  dose: z.number().optional(),
-  units: z.string().optional(),
-  route: z.string().optional(),
-  instructions: z.string().optional(),
-});
+export const InHouseMedicationQuickPickSchema: z.ZodType<InHouseMedicationQuickPick, z.ZodTypeDef, unknown> = z
+  .object({
+    name: z.string().min(1),
+    dosespotId: z.number().optional(),
+    ndc: z.string().optional(),
+    dose: z.number().optional(),
+    units: z.string().optional(),
+    route: z.string().optional(),
+    instructions: z.string().optional(),
+  })
+  .refine((data) => data.dosespotId !== undefined || data.ndc !== undefined, {
+    message: 'Must have either dosespotId or ndc or both',
+  });
 
 /**
  * Medical conditions section
