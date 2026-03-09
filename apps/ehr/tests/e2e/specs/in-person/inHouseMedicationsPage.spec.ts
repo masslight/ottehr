@@ -517,7 +517,6 @@ test('In-house medication billing codes', async () => {
     await administrationConfirmationDialog.clickMarkAsAdministeredButton();
 
     assessmentPage = await medicationsPage.sideMenu().clickAssessment();
-    await page.reload();
     await assessmentPage.expectBillingCodesElement();
     const cptCodes = getAllCptCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES);
     cptCodes.push(...getAllHcpcsCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES));
@@ -565,7 +564,6 @@ test('In-house medication billing codes', async () => {
     });
 
     assessmentPage = await medicationsPage.sideMenu().clickAssessment();
-    await page.reload();
     await assessmentPage.expectBillingCodesElement();
     const cptCodes = getAllCptCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES);
     cptCodes.push(...getAllHcpcsCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES));
@@ -613,7 +611,6 @@ test('In-house medication billing codes', async () => {
     });
 
     assessmentPage = await medicationsPage.sideMenu().clickAssessment();
-    await page.reload();
     await assessmentPage.expectDiagnosisDropdown();
     const cptCodes = getAllCptCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES);
     cptCodes.push(...getAllHcpcsCodesFromInHouseMedication(MEDICATION_WITH_BILLING_CODES));
