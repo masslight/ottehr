@@ -645,13 +645,12 @@ export const getProviderNotificationSettingsForPractitioner = (
   const telemedNotificationsExtension = notifyExtension?.extension?.find(
     (extension) => extension.url === PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL
   );
-  const hasNewExtensions = taskNotificationsExtension !== undefined && telemedNotificationsExtension !== undefined;
-  const taskNotificationsEnabled = hasNewExtensions
-    ? taskNotificationsExtension!.valueBoolean === true
-    : notificationsEnabled;
-  const telemedNotificationsEnabled = hasNewExtensions
-    ? telemedNotificationsExtension!.valueBoolean === true
-    : notificationsEnabled;
+  const taskNotificationsEnabled =
+    taskNotificationsExtension !== undefined ? taskNotificationsExtension.valueBoolean === true : notificationsEnabled;
+  const telemedNotificationsEnabled =
+    telemedNotificationsExtension !== undefined
+      ? telemedNotificationsExtension.valueBoolean === true
+      : notificationsEnabled;
 
   return {
     method: notificationValue,
