@@ -23,14 +23,14 @@ test.describe('Complete Encounters Report', () => {
     await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible({ timeout: 15000 });
 
     // The tile should be present
-    await expect(page.getByText('Complete Encounters')).toBeVisible();
+    await expect(page.getByText('Complete Encounters', { exact: true })).toBeVisible();
   });
 
   test('Clicking Complete Encounters tile navigates to the report page', async () => {
     await page.goto('/reports');
 
     // Click the tile
-    await page.getByText('Complete Encounters').click();
+    await page.getByText('Complete Encounters', { exact: true }).click();
 
     // Should navigate to the correct URL
     await expect(page).toHaveURL('/reports/complete-encounters');
@@ -78,7 +78,7 @@ test.describe('Complete Encounters Report', () => {
     await page.getByRole('combobox').click();
 
     // Select "Custom Date"
-    await page.getByRole('option', { name: 'Custom Date' }).click();
+    await page.getByRole('option', { name: 'Custom Date', exact: true }).click();
 
     // Start Date / End Date should NOT be visible — a single date input should appear
     await expect(page.getByLabel('Start Date')).not.toBeVisible({ timeout: 3000 });
