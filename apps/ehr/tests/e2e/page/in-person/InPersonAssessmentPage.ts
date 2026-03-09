@@ -4,6 +4,8 @@ import { DeleteChartDataResponse } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseAssessmentPage } from '../abstract/BaseAssessmentPage';
 
+const DEFAULT_TIMEOUT = { timeout: 15000 };
+
 export class InPersonAssessmentPage extends BaseAssessmentPage {
   #page: Page;
   constructor(page: Page) {
@@ -48,7 +50,9 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
   }
 
   async expectBillingCodesElement(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.billingContainer.container).waitFor();
+    await this.#page.getByTestId(dataTestIds.billingContainer.container).waitFor({ state: 'visible' });
+    const billingCodesContainer = this.#page.getByTestId(dataTestIds.billingContainer.container);
+    await expect(billingCodesContainer).toBeVisible(DEFAULT_TIMEOUT);
   }
 }
 
