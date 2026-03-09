@@ -44,6 +44,7 @@ export default function EmployeeProfilePage(): JSX.Element {
       notificationMethod: params.method,
       taskNotificationsEnabled: params.taskNotificationsEnabled,
       telemedNotificationsEnabled: params.telemedNotificationsEnabled,
+      phoneNumber: params.phoneNumber,
     });
     setNotificationDirty(false);
     enqueueSnackbar('Notification settings saved', { variant: 'success' });

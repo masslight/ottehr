@@ -5,6 +5,7 @@ interface ProviderNotificationsState {
   notificationMethod?: ProviderNotificationMethod;
   taskNotificationsEnabled?: boolean;
   telemedNotificationsEnabled?: boolean;
+  phoneNumber?: string;
 }
 
 export const useProviderNotificationsStore = create<ProviderNotificationsState>()(() => ({}));
