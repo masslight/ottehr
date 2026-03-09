@@ -1551,3 +1551,45 @@ export const updatePatientLoginPhoneNumbers = async (
     throw apiErrorToThrow(error);
   }
 };
+
+// ── Legacy Records ─────────────────────────────────────────────────────────────
+
+export interface SearchLegacyRecordsInput {
+  lastName: string;
+  firstName?: string;
+  dateOfBirth?: string;
+}
+
+export interface LegacyFile {
+  key: string;
+  fileName: string;
+  fileType: 'medical-summary' | 'progress-note' | 'other';
+  presignedUrl: string;
+}
+
+export interface LegacyPatientRecord {
+  patientFolder: string;
+  patientId: string;
+  displayName: string;
+  files: LegacyFile[];
+}
+
+export interface SearchLegacyRecordsOutput {
+  results: LegacyPatientRecord[];
+}
+
+export const searchLegacyRecords = async (
+  oystehr: Oystehr,
+  parameters: SearchLegacyRecordsInput
+): Promise<SearchLegacyRecordsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'ehr-search-legacy-records',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};

@@ -911,7 +911,7 @@ export default function VisitDetailsPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <Grid item container xs={6} justifyContent="flex-end">
+              <Grid item container xs={6} justifyContent="flex-end" gap={1}>
                 <LoadingButton
                   variant="outlined"
                   sx={{
@@ -925,6 +925,22 @@ export default function VisitDetailsPage(): ReactElement {
                 >
                   Visit Details PDF
                 </LoadingButton>
+                <Button
+                  variant="outlined"
+                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  disabled={!patient}
+                  onClick={() => {
+                    const patientLastName = patient?.name?.[0]?.family ?? '';
+                    const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
+                    const rawDob = patient?.birthDate ?? '';
+                    // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
+                    const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
+                    const params = new URLSearchParams({ lastName: patientLastName, firstName: patientFirstName, dob });
+                    navigate(`/legacy-data?${params.toString()}`);
+                  }}
+                >
+                  Legacy Data
+                </Button>
               </Grid>
             </Grid>
             {/* page title row */}

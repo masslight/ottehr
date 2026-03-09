@@ -32,6 +32,7 @@ import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
+import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
@@ -241,6 +242,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  <Route path="/legacy-data" element={<LegacyDataPage />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
@@ -286,6 +288,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  <Route path="/legacy-data" element={<LegacyDataPage />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>

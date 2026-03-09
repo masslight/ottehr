@@ -1190,6 +1190,13 @@
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
     },
+    "EHR-SEARCH-LEGACY-RECORDS": {
+      "name": "ehr-search-legacy-records",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/search-legacy-records/index",
+      "zip": ".dist/zips/ehr-search-legacy-records.zip"
+    },
     "CREATE-MANUAL-TASK": {
       "name": "create-manual-task",
       "type": "http_auth",

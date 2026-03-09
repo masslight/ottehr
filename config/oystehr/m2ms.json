@@ -17,7 +17,12 @@
         },
         {
           "resource": ["App:User"],
-          "action": ["App:CreateUser", "App:GetUser", "App:UpdateUser", "App:ListAllUsers"],
+          "action": [
+            "App:CreateUser",
+            "App:GetUser",
+            "App:UpdateUser",
+            "App:ListAllUsers"
+          ],
           "effect": "Allow"
         },
         {
@@ -37,7 +42,12 @@
         },
         {
           "resource": ["IAM:Role"],
-          "action": ["IAM:GetRole", "IAM:ListAllRoles", "IAM:CreateRole", "IAM:UpdateRole"],
+          "action": [
+            "IAM:GetRole",
+            "IAM:ListAllRoles",
+            "IAM:CreateRole",
+            "IAM:UpdateRole"
+          ],
           "effect": "Allow"
         },
         {
@@ -60,9 +70,10 @@
             "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
             "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
             "Z3:#{var/PROJECT_ID}-labs/*",
-            "Z3:#{var/PROJECT_ID}-statements/*"
+            "Z3:#{var/PROJECT_ID}-statements/*",
+            "Z3:#{var/PROJECT_ID}-legacy-data/*"
           ],
-          "action": ["Z3:PutObject", "Z3:GetObject"],
+          "action": ["Z3:PutObject", "Z3:GetObject", "Z3:ListObjects"],
           "effect": "Allow"
         },
         {
