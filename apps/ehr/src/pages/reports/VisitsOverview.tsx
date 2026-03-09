@@ -136,22 +136,12 @@ export default function VisitsOverview(): React.ReactElement {
   );
 
   useEffect(() => {
-    void fetchReport(dateFilter);
+    // Only auto-fetch for preset date filters (today, yesterday, etc.)
+    // Custom date/range selections require the user to click Refresh
+    if (dateFilter !== 'custom' && dateFilter !== 'customRange') {
+      void fetchReport(dateFilter);
+    }
   }, [dateFilter, fetchReport]);
-
-  // Trigger fetch when custom date changes
-  useEffect(() => {
-    if (dateFilter === 'custom') {
-      void fetchReport('custom');
-    }
-  }, [customDate, dateFilter, fetchReport]);
-
-  // Trigger fetch when custom date range changes
-  useEffect(() => {
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
-  }, [customStartDate, customEndDate, dateFilter, fetchReport]);
 
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
