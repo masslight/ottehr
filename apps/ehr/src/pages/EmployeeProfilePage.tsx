@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { useUpdateProviderNotificationSettingsMutation } from 'src/features/notifications/notifications.queries';
 import { useProviderNotificationsStore } from 'src/features/notifications/notifications.store';
-import { getProviderNotificationSettingsForPractitioner, ProviderNotificationMethod } from 'utils';
+import { getProviderNotificationSettingsForPractitioner, isPhoneNumberValid, ProviderNotificationMethod } from 'utils';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 
@@ -61,11 +61,22 @@ export default function EmployeeProfilePage(): JSX.Element {
   }, [user?.profileResource?.telecom]);
 
   async function handleApplyNotifications(): Promise<void> {
+    if (!notificationSettings) return;
+    const isValidPhoneNumber = isPhoneNumberValid(phoneNumber);
+    if (
+      [ProviderNotificationMethod['phone'], ProviderNotificationMethod['phone and computer']].includes(
+        notificationSettings.method
+      ) &&
+      (!phoneNumber || !isValidPhoneNumber)
+    ) {
+      enqueueSnackbar('Please enter a valid phone number to receive notifications via phone', { variant: 'error' });
+      return;
+    }
     const params = {
       taskNotificationsEnabled,
       telemedNotificationsEnabled,
       method: notificationMethod,
-      phoneNumber: phoneNumber !== '' ? phoneNumber : undefined,
+      phoneNumber: isValidPhoneNumber ? phoneNumber : undefined,
     };
     try {
       await updateNotificationSettingsMutation.mutateAsync(params);

@@ -4,6 +4,7 @@ import { Communication, Encounter, Extension, FhirResource } from 'fhir/r4b';
 import {
   AppointmentProviderNotificationTypes,
   getPatchBinary,
+  isPhoneNumberValid,
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
@@ -142,7 +143,11 @@ export const useUpdateProviderNotificationSettingsMutation = (
         });
       }
 
-      if (phoneNumber !== undefined) {
+      const isValidPhoneNumber = isPhoneNumberValid(phoneNumber);
+      if (
+        [ProviderNotificationMethod['phone'], ProviderNotificationMethod['phone and computer']].includes(method) &&
+        isValidPhoneNumber
+      ) {
         const telecoms = user.profileResource.telecom;
         const smsIndex = telecoms?.findIndex((t) => t.system === 'sms');
         if (smsIndex !== undefined && smsIndex >= 0) {
