@@ -1,0 +1,575 @@
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import {
+  Box,
+  Button,
+  Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  SelectChangeEvent,
+  TextField,
+  Typography,
+} from '@mui/material';
+import {
+  DataGridPro,
+  GridColDef,
+  GridRenderCellParams,
+  GridToolbarContainer,
+  GridToolbarExport,
+} from '@mui/x-data-grid-pro';
+import { useQuery } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
+import { getCompleteEncountersReport } from '../../api/api';
+import { useApiClients } from '../../hooks/useAppClients';
+import PageContainer from '../../layout/PageContainer';
+
+interface CompleteEncounterRow {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  dateOfBirth: string;
+  visitStatus: VisitStatusLabel;
+  appointmentTime: string;
+  appointmentStart: string;
+  location?: string;
+  locationId?: string;
+  attendingProvider?: string;
+  visitType?: string;
+  reason?: string;
+}
+
+type DateRangeFilter =
+  | 'today'
+  | 'yesterday'
+  | 'last-7-days'
+  | 'last-7-days-excluding-today'
+  | 'last-30-days'
+  | 'custom'
+  | 'customRange';
+
+const getStatusColor = (
+  status: VisitStatusLabel
+): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  switch (status) {
+    case 'pending':
+      return 'default';
+    case 'arrived':
+      return 'info';
+    case 'intake':
+      return 'primary';
+    case 'ready':
+    case 'ready for provider':
+      return 'warning';
+    case 'provider':
+      return 'secondary';
+    case 'discharged':
+      return 'success';
+    case 'awaiting supervisor approval':
+      return 'warning';
+    default:
+      return 'error';
+  }
+};
+
+const useCompleteEncounters = (
+  dateRange: DateRangeFilter,
+  start: string,
+  end: string
+): ReturnType<typeof useQuery<CompleteEncounterRow[], Error>> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['complete-encounters', dateRange, start, end],
+    queryFn: async (): Promise<CompleteEncounterRow[]> => {
+      if (!oystehrZambda) {
+        throw new Error('Oystehr client not available');
+      }
+
+      // Calculate the date range in days
+      const startDate = DateTime.fromISO(start);
+      const endDate = DateTime.fromISO(end);
+      const daysDifference = endDate.diff(startDate, 'days').days;
+
+      console.log(`Date range is ${daysDifference.toFixed(2)} days`);
+
+      // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
+      if (daysDifference <= DEFAULT_BATCH_DAYS) {
+        console.log('Making single request for date range');
+        const response = await getCompleteEncountersReport(oystehrZambda, {
+          dateRange: { start, end },
+        });
+
+        // Transform the response to match our display requirements
+        const processedEncounters: CompleteEncounterRow[] = response.encounters.map((encounter) => {
+          const appointmentTime = encounter.appointmentStart
+            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+            : 'Unknown';
+
+          return {
+            id: encounter.appointmentId,
+            appointmentId: encounter.appointmentId,
+            patientId: encounter.patientId,
+            patientName: encounter.patientName,
+            dateOfBirth: encounter.dateOfBirth,
+            visitStatus: encounter.visitStatus as VisitStatusLabel,
+            appointmentTime,
+            appointmentStart: encounter.appointmentStart,
+            location: encounter.location,
+            locationId: encounter.locationId,
+            attendingProvider: encounter.attendingProvider,
+            visitType: encounter.visitType,
+            reason: encounter.reason,
+          };
+        });
+
+        return processedEncounters.sort((a, b) => {
+          const aTime = a.appointmentStart;
+          const bTime = b.appointmentStart;
+          return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
+        });
+      }
+
+      // Split the date range into DEFAULT_BATCH_DAYS-day batches
+      const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+      console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
+
+      // Fetch data for each batch in parallel
+      const batchPromises = batches.map(async (batch, index) => {
+        console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
+        const response = await getCompleteEncountersReport(oystehrZambda, {
+          dateRange: batch,
+        });
+        console.log(`Batch ${index + 1} returned ${response.encounters.length} encounters`);
+        return response.encounters;
+      });
+
+      // Wait for all batches to complete
+      const batchResults = await Promise.all(batchPromises);
+
+      // Combine all encounters from all batches
+      const allEncounters = batchResults.flat();
+      console.log(`Total encounters across all batches: ${allEncounters.length}`);
+
+      // Transform the combined response to match our display requirements
+      const processedEncounters: CompleteEncounterRow[] = allEncounters.map((encounter) => {
+        const appointmentTime = encounter.appointmentStart
+          ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+          : 'Unknown';
+
+        return {
+          id: encounter.appointmentId,
+          appointmentId: encounter.appointmentId,
+          patientId: encounter.patientId,
+          patientName: encounter.patientName,
+          dateOfBirth: encounter.dateOfBirth,
+          visitStatus: encounter.visitStatus as VisitStatusLabel,
+          appointmentTime,
+          appointmentStart: encounter.appointmentStart,
+          location: encounter.location,
+          locationId: encounter.locationId,
+          attendingProvider: encounter.attendingProvider,
+          visitType: encounter.visitType,
+          reason: encounter.reason,
+        };
+      });
+
+      // Deduplicate by appointmentId (in case there are overlaps at batch boundaries)
+      const uniqueEncounters = Array.from(new Map(processedEncounters.map((enc) => [enc.appointmentId, enc])).values());
+
+      return uniqueEncounters.sort((a, b) => {
+        const aTime = a.appointmentStart;
+        const bTime = b.appointmentStart;
+        return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
+      });
+    },
+    enabled: Boolean(oystehrZambda),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+export default function CompleteEncounters(): React.ReactElement {
+  const navigate = useNavigate();
+  const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
+  const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+
+  const getDateRange = useCallback(
+    (filter: DateRangeFilter): { start: string; end: string } => {
+      const now = DateTime.now().setZone('America/New_York');
+      const today = now.startOf('day');
+
+      switch (filter) {
+        case 'today': {
+          return {
+            start: today.toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'yesterday': {
+          const yesterday = today.minus({ days: 1 });
+          return {
+            start: yesterday.toISO() ?? '',
+            end: yesterday.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last-7-days': {
+          return {
+            start: today.minus({ days: 6 }).toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last-7-days-excluding-today': {
+          return {
+            start: today.minus({ days: 6 }).toISO() ?? '',
+            end: today.minus({ days: 1 }).endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last-30-days': {
+          return {
+            start: today.minus({ days: 29 }).toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'custom': {
+          const customDateTime = DateTime.fromISO(customDate).setZone('America/New_York');
+          return {
+            start: customDateTime.startOf('day').toISO() ?? '',
+            end: customDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'customRange': {
+          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
+          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          return {
+            start: startDateTime.startOf('day').toISO() ?? '',
+            end: endDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        default: {
+          return {
+            start: today.toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
+      }
+    },
+    [customDate, customStartDate, customEndDate]
+  );
+
+  const { start, end } = getDateRange(dateRange);
+  const { data: encounters = [], isLoading, error, refetch } = useCompleteEncounters(dateRange, start, end);
+
+  const handleBack = (): void => {
+    navigate('/reports');
+  };
+
+  const handleDateRangeChange = (event: SelectChangeEvent<DateRangeFilter>): void => {
+    setDateRange(event.target.value as DateRangeFilter);
+  };
+
+  const handleCustomDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setCustomDate(event.target.value);
+  };
+
+  const handleCustomStartDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setCustomStartDate(event.target.value);
+  };
+
+  const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setCustomEndDate(event.target.value);
+  };
+
+  const handleRefresh = (): void => {
+    void refetch();
+  };
+
+  // Custom toolbar component with export functionality
+  const CustomToolbar = (): React.ReactElement => {
+    return (
+      <GridToolbarContainer>
+        <GridToolbarExport csvOptions={{ fileName: 'complete-encounters-report' }} />
+      </GridToolbarContainer>
+    );
+  };
+
+  const columns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'appointmentId',
+        headerName: 'Appointment ID',
+        width: 320,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const visitType = params.row.visitType;
+          const appointmentId = params.value;
+
+          const linkPath =
+            visitType === 'Telemed'
+              ? `/telemed/appointments/${appointmentId}?tab=sign`
+              : `/in-person/${appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
+
+          return (
+            <Link
+              to={linkPath}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: '#1976d2',
+                textDecoration: 'underline',
+                fontFamily: 'monospace',
+              }}
+            >
+              {appointmentId}
+            </Link>
+          );
+        },
+      },
+      {
+        field: 'visitStatus',
+        headerName: 'Status',
+        width: 160,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => (
+          <Chip
+            label={params.value}
+            color={getStatusColor(params.value as VisitStatusLabel)}
+            size="small"
+            variant="outlined"
+          />
+        ),
+      },
+      {
+        field: 'appointmentTime',
+        headerName: 'Appointment Time',
+        width: 180,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const visitType = params.row.visitType;
+          const locationId = params.row.locationId;
+          const appointmentTime = params.value;
+
+          // Extract date from appointment start for the search date parameter
+          const appointmentStart = params.row.appointmentStart;
+          const searchDate = appointmentStart
+            ? DateTime.fromISO(appointmentStart).toFormat('yyyy-MM-dd')
+            : DateTime.now().toFormat('yyyy-MM-dd');
+
+          // Handle different visit types
+          if (visitType === 'In-Person' && locationId) {
+            // cSpell:disable-next %2C
+            const trackingBoardPath = `/visits?locationID=${locationId}&visitType=walk-in%2Cpre-booked%2Cpost-telemed&groups=&searchDate=${searchDate}`;
+
+            return (
+              <Link
+                to={trackingBoardPath}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#1976d2',
+                  textDecoration: 'underline',
+                }}
+              >
+                {appointmentTime}
+              </Link>
+            );
+          }
+
+          if (visitType === 'Telemed') {
+            return (
+              <Link
+                to="/telemed/appointments"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#1976d2',
+                  textDecoration: 'underline',
+                }}
+              >
+                {appointmentTime}
+              </Link>
+            );
+          }
+
+          // For visits without location or unknown type, just show the time without link
+          return <span>{appointmentTime}</span>;
+        },
+      },
+      {
+        field: 'location',
+        headerName: 'Location',
+        width: 150,
+        sortable: true,
+      },
+      {
+        field: 'attendingProvider',
+        headerName: 'Attending Provider',
+        width: 200,
+        sortable: true,
+      },
+      {
+        field: 'visitType',
+        headerName: 'Visit Type',
+        width: 120,
+        sortable: true,
+      },
+      {
+        field: 'patientName',
+        headerName: 'Patient Name',
+        width: 200,
+        sortable: true,
+      },
+      {
+        field: 'reason',
+        headerName: 'Reason',
+        width: 200,
+        sortable: true,
+      },
+    ],
+    []
+  );
+
+  return (
+    <PageContainer>
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <IconButton onClick={handleBack} sx={{ mr: 2 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <AssignmentTurnedInIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
+              Complete Encounters
+            </Typography>
+          </Box>
+        </Box>
+
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+          This report shows encounters that have been completed. Click an appointment ID to navigate to the specific
+          appointment chart. Click an appointment time to navigate to the appropriate tracking board.
+        </Typography>
+
+        {/* Date Filter */}
+        <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Date Range</InputLabel>
+            <Select value={dateRange} label="Date Range" onChange={handleDateRangeChange}>
+              <MenuItem value="today">Today</MenuItem>
+              <MenuItem value="yesterday">Yesterday</MenuItem>
+              <MenuItem value="last-7-days">Last 7 Days</MenuItem>
+              <MenuItem value="last-7-days-excluding-today">Last 7 Days (Excluding Today)</MenuItem>
+              <MenuItem value="last-30-days">Last 30 Days</MenuItem>
+              <MenuItem value="custom">Custom Date</MenuItem>
+              <MenuItem value="customRange">Custom Date Range</MenuItem>
+            </Select>
+          </FormControl>
+
+          {dateRange === 'custom' && (
+            <TextField
+              type="date"
+              size="small"
+              value={customDate}
+              onChange={handleCustomDateChange}
+              sx={{ minWidth: 160 }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          )}
+
+          {dateRange === 'customRange' && (
+            <>
+              <TextField
+                type="date"
+                size="small"
+                label="Start Date"
+                value={customStartDate}
+                onChange={handleCustomStartDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="End Date"
+                value={customEndDate}
+                onChange={handleCustomEndDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </>
+          )}
+
+          <Button variant="outlined" onClick={handleRefresh} disabled={isLoading} startIcon={<RefreshIcon />}>
+            Refresh
+          </Button>
+        </Box>
+
+        <Paper sx={{ height: 600, width: '100%' }}>
+          <DataGridPro
+            rows={encounters}
+            columns={columns}
+            getRowId={(row) => row.appointmentId}
+            loading={isLoading}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 25 },
+              },
+              sorting: {
+                sortModel: [{ field: 'appointmentTime', sort: 'desc' }],
+              },
+            }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            slots={{
+              toolbar: CustomToolbar,
+            }}
+            disableRowSelectionOnClick
+            sx={{
+              '& .MuiDataGrid-cell': {
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              },
+              '& .MuiDataGrid-columnHeaderTitle': {
+                fontWeight: 600,
+              },
+            }}
+          />
+        </Paper>
+
+        {error && (
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
+            <Typography color="error">
+              Error loading encounters: {error instanceof Error ? error.message : 'Unknown error'}
+            </Typography>
+          </Box>
+        )}
+
+        {!isLoading && encounters.length === 0 && !error && (
+          <Box sx={{ mt: 2, p: 4, textAlign: 'center' }}>
+            <Typography variant="h6" color="text.secondary">
+              No complete encounters found for the selected date range
+            </Typography>
+            <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+              Try selecting a different date range or check if there are any completed encounters
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    </PageContainer>
+  );
+}

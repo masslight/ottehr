@@ -21,6 +21,8 @@ import {
   chooseJson,
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
+  CompleteEncountersReportZambdaInput,
+  CompleteEncountersReportZambdaOutput,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateDischargeSummaryInput,
@@ -137,6 +139,7 @@ const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
+const COMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID = 'complete-encounters-report';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
@@ -306,6 +309,26 @@ export const getAppointments = async (
 
     const response = await oystehr.zambda.execute({
       id: GET_APPOINTMENTS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getCompleteEncountersReport = async (
+  oystehr: Oystehr,
+  parameters: CompleteEncountersReportZambdaInput
+): Promise<CompleteEncountersReportZambdaOutput> => {
+  try {
+    if (COMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('complete encounters report environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: COMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
