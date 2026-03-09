@@ -188,6 +188,7 @@ const getStatusColor = (
     case 'provider':
       return 'secondary';
     case 'discharged':
+    case 'completed':
       return 'success';
     case 'awaiting supervisor approval':
       return 'warning';
@@ -227,7 +228,7 @@ const useCompleteEncounters = (
         // Transform the response to match our display requirements
         const processedEncounters: CompleteEncounterRow[] = response.encounters.map((encounter) => {
           const appointmentTime = encounter.appointmentStart
-            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy hh:mm a')
             : 'Unknown';
 
           return {
@@ -278,7 +279,7 @@ const useCompleteEncounters = (
       // Transform the combined response to match our display requirements
       const processedEncounters: CompleteEncounterRow[] = allEncounters.map((encounter) => {
         const appointmentTime = encounter.appointmentStart
-          ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+          ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy hh:mm a')
           : 'Unknown';
 
         return {
@@ -475,7 +476,7 @@ export default function CompleteEncounters(): React.ReactElement {
           const visitType = params.row.visitType;
           const locationId = params.row.locationId;
           const appointmentTime = params.value
-            ? DateTime.fromISO(params.value as string).toFormat('MM/dd/yyyy HH:mm a')
+            ? DateTime.fromISO(params.value as string).toFormat('MM/dd/yyyy hh:mm a')
             : 'Unknown';
 
           // Extract date from appointment start for the search date parameter
