@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to run tests on'
+        description: "Environment to run tests on"
         required: false
         type: choice
         options:
@@ -24,18 +24,21 @@ on:
           - development
           - staging
           - demo
-        default: 'local'
+        default: "local"
       mode:
-        description: 'Tests running mode'
+        description: "Tests running mode"
         required: false
         type: choice
         options:
           - normal
           - smoke
-        default: 'normal'
+        default: "normal"
   workflow_call:
     inputs:
       environment:
+        required: false
+        type: string
+      aws_deploy_role:
         required: false
         type: string
 
@@ -89,7 +92,7 @@ jobs:
             echo "skip-reason=" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Check for force run command in PR description
           if [ "${{ contains(github.event.pull_request.body || '', '/run-intake-e2e') }}" == "true" ]; then
              echo "Force run enabled via PR command /run-intake-e2e"
@@ -105,7 +108,7 @@ jobs:
              echo "skip-reason=Skipped via /skip-intake-e2e command" >> $GITHUB_OUTPUT
              exit 0
           fi
-          
+
           # For other events, check changed files
           TRACKED_FILES=$(node -e "
             const config = require('./.github/trigger-paths.js');
@@ -137,11 +140,11 @@ jobs:
             echo "No user.json found, login required"
             exit 0
           fi
-          
+
           echo "=== FILE EXISTS, CHECKING CONTENT ==="
           echo "File size: $(wc -c < "${{ env.USER_JSON_PATH }}")"
           echo "=================================="
-          
+
           if node -e '
           const fs = require("fs");
           try {
@@ -168,20 +171,20 @@ jobs:
               !item.name?.includes("@@user@@") &&
               item.value?.includes("expiresAt")
             );
-          
+
             if (!authItem) {
               console.error("ERROR: No Auth0 token found");
               process.exit(1);
             }
-          
+
             console.log("Found Auth0 token item");
             
             const tokenData = JSON.parse(authItem.value);
             const expiresAt = tokenData.expiresAt * 1000;
             const timeLeft = (expiresAt - Date.now()) / (1000 * 60);
-          
+
             console.log(`Time left: ${timeLeft.toFixed(1)} minutes`);
-          
+
             if (timeLeft > ${{ env.TOKEN_VALIDITY_THRESHOLD_MINUTES }}) {
               console.log("Token valid, skip login");
               process.exit(0);
@@ -200,7 +203,7 @@ jobs:
             NEEDS_LOGIN="true" 
             echo "Token invalid or expired, login required"
           fi
-          
+
           echo "needs-login=$NEEDS_LOGIN" >> $GITHUB_OUTPUT
 
   intake-login:
@@ -211,6 +214,9 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 18 # Sometimes SMS takes ~5 minutes to deliver, and with other timeouts, all login tests can take ~9 minutes. Playwright has 2 retries for intake CI, so we need a login job timeout of 18 minutes.
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -240,7 +246,7 @@ jobs:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-         
+            ${{ runner.os }}-playwright-
 
       - name: Check out secrets repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -248,21 +254,7 @@ jobs:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           ref: develop
-          path: 'secrets'
-
-      - name: Setup environment
-        run: |
-          setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp  -r secrets/ottehr/zambdas/.env/* "packages/zambdas/.env"
-            mkdir -p "apps/$app/env"
-            cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
-            cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"
-          }
-      
-          for app in ehr intake; do
-            setup_env "$app"
-          done
+          path: "secrets"
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
@@ -270,6 +262,70 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
+
+      - name: HashiCorp - Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.12.2"
+
+      - name: Setup terraform config
+        shell: /usr/bin/bash -x {0}
+        run: |
+          ENV="${{ needs.check-changes.outputs.environment }}"
+          mkdir -p "packages/zambdas/.env"
+          cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
+          cp secrets/ottehr/terraform/backend.config deploy/backend.config
+          cp "secrets/ottehr/terraform/$ENV.tfvars" "deploy/$ENV.tfvars"
+          if [ -f "secrets/ottehr/terraform/${ENV}_import.tf" ]; then
+            cp "secrets/ottehr/terraform/${ENV}_import.tf" "deploy/${ENV}_import.tf"
+          fi
+
+      - name: Configure AWS Credentials
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+        with:
+          role-to-assume: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          aws-region: us-east-1
+          output-credentials: true
+
+      - name: Configure AWS CLI
+        run: |
+          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          if [ -z "$aws_profile" ]; then
+            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+          fi
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
+          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
+          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
+          aws configure --profile "${profile}" set region us-east-1
+
+      - name: Setup app environment
+        run: |
+          set -xeo pipefail
+          ENV="${{ needs.check-changes.outputs.environment }}"
+          pushd deploy
+          npm run terraform-init
+          terraform workspace select "$ENV"
+          popd
+
+          setup_env() {
+            mkdir -p "apps/$app/env"
+            cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
+            address="module.ottehr_apps.local_sensitive_file.${app}_env"
+            if [ "$app" = "intake" ]; then
+              address="module.ottehr_apps.local_sensitive_file.patient_portal_env"
+            fi
+            pushd deploy
+            pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
+            terraform show --json | jq -r "$pattern" > "../apps/$app/env/.env.$ENV"
+            popd
+          }
+
+          for app in ehr intake; do
+            setup_env "$app"
+          done
 
       - name: Run login
         id: login
@@ -288,19 +344,19 @@ jobs:
             console.log(`File ${path} does not exist`);
             process.exit(1);
           }
-          
+
           const data = JSON.parse(fs.readFileSync(path, "utf8"));
-          
+
           const hasAuth0Token = data.origins?.some(origin => 
             origin.localStorage && 
             origin.localStorage.some(item => item.name?.includes?.("auth0"))
           );
-          
+
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
           }
-          
+
           console.log("User.json validated successfully");
           '
 
@@ -319,7 +375,7 @@ jobs:
           path: |
             apps/intake/playwright-report-login/
             apps/intake/test-results-login/
-          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}      
+          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}
 
   intake-e2e-tests-run:
     needs: [check-changes, check-token-validity, intake-login]
@@ -332,6 +388,9 @@ jobs:
       )
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 30
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -369,6 +428,11 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
+      - name: HashiCorp - Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.12.2"
+
       - name: Restore user.json cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -383,26 +447,71 @@ jobs:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           ref: develop
-          path: 'secrets'
+          path: "secrets"
 
-      - name: Setup environment
+      - name: Setup terraform config
+        shell: /usr/bin/bash -x {0}
         run: |
+          ENV="${{ needs.check-changes.outputs.environment }}"
+          mkdir -p "packages/zambdas/.env"
+          cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
+          cp secrets/ottehr/terraform/backend.config deploy/backend.config
+          cp "secrets/ottehr/terraform/$ENV.tfvars" "deploy/$ENV.tfvars"
+          if [ -f "secrets/ottehr/terraform/${ENV}_import.tf" ]; then
+            cp "secrets/ottehr/terraform/${ENV}_import.tf" "deploy/${ENV}_import.tf"
+          fi
+
+      - name: Configure AWS Credentials
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+        with:
+          role-to-assume: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          aws-region: us-east-1
+          output-credentials: true
+
+      - name: Configure AWS CLI
+        run: |
+          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          if [ -z "$aws_profile" ]; then
+            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+          fi
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
+          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
+          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
+          aws configure --profile "${profile}" set region us-east-1
+
+      - name: Setup app environment
+        run: |
+          set -xeo pipefail
+          ENV="${{ needs.check-changes.outputs.environment }}"
+          pushd deploy
+          npm run terraform-init
+          terraform workspace select "$ENV"
+          popd
+
           setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
             mkdir -p "apps/$app/env"
             cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
-            cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"
+            address="module.ottehr_apps.local_sensitive_file.${app}_env"
+            if [ "$app" = "intake" ]; then
+              address="module.ottehr_apps.local_sensitive_file.patient_portal_env"
+            fi
+            pushd deploy
+            pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
+            terraform show --json | jq -r "$pattern" > "../apps/$app/env/.env.$ENV"
+            popd
           }
-      
+
           for app in ehr intake; do
             setup_env "$app"
           done
-      
+
       - name: Run E2E tests
         run: |
           ENV="${{ needs.check-changes.outputs.environment }}"
-          
+
           if [ "$ENV" == "local" ]; then
             npm run intake:e2e:local:specs
           else
@@ -428,7 +537,8 @@ jobs:
 
   # This job always runs and satisfies branch protection rules
   intake-e2e-tests:
-    needs: [check-changes, check-token-validity, intake-login, intake-e2e-tests-run]
+    needs:
+      [check-changes, check-token-validity, intake-login, intake-e2e-tests-run]
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:

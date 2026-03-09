@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to run tests on'
+        description: "Environment to run tests on"
         required: true
         type: choice
         options:
@@ -22,18 +22,21 @@ on:
           - development
           - staging
           - demo
-        default: 'local'
+        default: "local"
       mode:
-        description: 'Tests running mode'
+        description: "Tests running mode"
         required: false
         type: choice
         options:
           - normal
           - smoke
-        default: 'normal'
+        default: "normal"
   workflow_call:
     inputs:
       environment:
+        required: false
+        type: string
+      aws_deploy_role:
         required: false
         type: string
 
@@ -73,7 +76,7 @@ jobs:
             echo "skip-reason=" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Check for force run command in PR description
           if [ "${{ contains(github.event.pull_request.body || '', '/run-ehr-e2e') }}" == "true" ]; then
              echo "Force run enabled via PR command /run-ehr-e2e"
@@ -89,7 +92,7 @@ jobs:
              echo "skip-reason=Skipped via /skip-ehr-e2e command" >> $GITHUB_OUTPUT
              exit 0
           fi
-          
+
           # For other events, check changed files
           TRACKED_FILES=$(node -e "
             const config = require('./.github/trigger-paths.js');
@@ -102,6 +105,9 @@ jobs:
     if: always() && !cancelled() && needs.check-changes.outputs.should-run == 'true'
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 40
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -140,22 +146,72 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
+      - name: HashiCorp - Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.12.2"
+
       - name: Check out secrets repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           ref: develop
-          path: 'secrets'
+          path: "secrets"
 
-      - name: Setup environment
+      - name: Setup terraform config
+        shell: /usr/bin/bash -x {0}
         run: |
+          ENV="${{ needs.check-changes.outputs.environment }}"
+          mkdir -p "packages/zambdas/.env"
+          cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
+          cp secrets/ottehr/terraform/backend.config deploy/backend.config
+          cp "secrets/ottehr/terraform/$ENV.tfvars" "deploy/$ENV.tfvars"
+          if [ -f "secrets/ottehr/terraform/${ENV}_import.tf" ]; then
+            cp "secrets/ottehr/terraform/${ENV}_import.tf" "deploy/${ENV}_import.tf"
+          fi
+
+      - name: Configure AWS Credentials
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+        with:
+          role-to-assume: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          aws-region: us-east-1
+          output-credentials: true
+
+      - name: Configure AWS CLI
+        run: |
+          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          if [ -z "$aws_profile" ]; then
+            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+          fi
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
+          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
+          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
+          aws configure --profile "${profile}" set region us-east-1
+
+      - name: Setup app environment
+        run: |
+          set -xeo pipefail
+          ENV="${{ needs.check-changes.outputs.environment }}"
+          pushd deploy
+          npm run terraform-init
+          terraform workspace select "$ENV"
+          popd
+
           setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
             mkdir -p "apps/$app/env"
             cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
-            cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"
+            address="module.ottehr_apps.local_sensitive_file.${app}_env"
+            if [ "$app" = "intake" ]; then
+              address="module.ottehr_apps.local_sensitive_file.patient_portal_env"
+            fi
+            pushd deploy
+            pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
+            terraform show --json | jq -r "$pattern" > "../apps/$app/env/.env.$ENV"
+            popd
           }
 
           for app in ehr intake; do
@@ -169,11 +225,11 @@ jobs:
           path: apps/ehr/tests/e2e-utils/seed-data/resources/
           key: seed-data-${{ needs.check-changes.outputs.environment }}-${{ github.sha }}-${{ github.run_id }}
           fail-on-cache-miss: true
-      
+
       - name: Run E2E tests
         run: |
           ENV="${{ needs.check-changes.outputs.environment }}"
-          
+
           if [ "$ENV" == "local" ] || [ "$ENV" == "e2e" ] || [ "$ENV" == "e2e2" ] || [ "$ENV" == "e2e3" ]; then
             npm run ehr:e2e:$ENV:integration
           else
