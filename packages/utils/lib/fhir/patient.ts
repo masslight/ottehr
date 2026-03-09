@@ -652,10 +652,13 @@ export const getProviderNotificationSettingsForPractitioner = (
       ? telemedNotificationsExtension.valueBoolean === true
       : notificationsEnabled;
 
+  const phoneNumber = getSMSNumberForIndividual(practitioner);
+
   return {
     method: notificationValue,
     taskNotificationsEnabled,
     telemedNotificationsEnabled,
+    phoneNumber,
   };
 };
 

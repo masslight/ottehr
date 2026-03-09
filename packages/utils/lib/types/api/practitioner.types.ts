@@ -302,6 +302,7 @@ export interface ProviderNotificationSettings {
   method: ProviderNotificationMethod;
   taskNotificationsEnabled: boolean;
   telemedNotificationsEnabled: boolean;
+  phoneNumber?: string;
 }
 
 const FHIR_BASE_URL = 'https://fhir.ottehr.com';

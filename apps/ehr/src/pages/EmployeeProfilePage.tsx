@@ -1,6 +1,7 @@
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
-  Button,
+  CircularProgress,
   FormControl,
   FormControlLabel,
   FormGroup,
@@ -19,7 +20,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { useUpdateProviderNotificationSettingsMutation } from 'src/features/notifications/notifications.queries';
 import { useProviderNotificationsStore } from 'src/features/notifications/notifications.store';
-import { getProviderNotificationSettingsForPractitioner, isPhoneNumberValid, ProviderNotificationMethod } from 'utils';
+import {
+  formatPhoneNumber,
+  getProviderNotificationSettingsForPractitioner,
+  isPhoneNumberValid,
+  ProviderNotificationMethod,
+} from 'utils';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 
@@ -36,6 +42,7 @@ export default function EmployeeProfilePage(): JSX.Element {
     ProviderNotificationMethod['phone and computer']
   );
   const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [isPhoneInitialized, setIsPhoneInitialized] = useState<boolean>(false);
   const [phoneDirty, setPhoneDirty] = useState<boolean>(false);
   const [notificationDirty, setNotificationDirty] = useState<boolean>(false);
 
@@ -55,12 +62,11 @@ export default function EmployeeProfilePage(): JSX.Element {
     setTaskNotificationsEnabled(notificationSettings.taskNotificationsEnabled);
     setTelemedNotificationsEnabled(notificationSettings.telemedNotificationsEnabled);
     setNotificationMethod(notificationSettings.method ?? ProviderNotificationMethod['phone and computer']);
+    if (notificationSettings.phoneNumber) {
+      setPhoneNumber(notificationSettings.phoneNumber.split('+1')[1]);
+      setIsPhoneInitialized(true);
+    }
   }, [notificationSettings]);
-
-  useEffect(() => {
-    const smsPhone = user?.profileResource?.telecom?.find((t) => t.system === 'sms')?.value ?? '';
-    setPhoneNumber(smsPhone);
-  }, [user?.profileResource?.telecom]);
 
   async function handleApplyNotifications(): Promise<void> {
     if (!notificationSettings) return;
@@ -78,7 +84,7 @@ export default function EmployeeProfilePage(): JSX.Element {
       taskNotificationsEnabled,
       telemedNotificationsEnabled,
       method: notificationMethod,
-      phoneNumber: isValidPhoneNumber ? phoneNumber : undefined,
+      phoneNumber: isValidPhoneNumber ? formatPhoneNumber(phoneNumber) : undefined,
     };
     try {
       await updateNotificationSettingsMutation.mutateAsync(params);
@@ -106,118 +112,127 @@ export default function EmployeeProfilePage(): JSX.Element {
                   Notification Settings
                 </Typography>
                 <Grid container spacing={2} sx={{ alignItems: 'flex-end' }}>
-                  <Grid item xs={12}>
-                    <FormControl>
-                      <FormGroup>
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              value={taskNotificationsEnabled}
-                              disabled={updateNotificationSettingsMutation.isPending}
-                              checked={taskNotificationsEnabled}
-                              onChange={(e) => {
-                                setTaskNotificationsEnabled(e.target.checked);
-                                setNotificationDirty(true);
-                              }}
+                  {notificationSettings && isPhoneInitialized ? (
+                    <>
+                      <Grid item xs={12}>
+                        <FormControl>
+                          <FormGroup>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  value={taskNotificationsEnabled}
+                                  disabled={updateNotificationSettingsMutation.isPending}
+                                  checked={taskNotificationsEnabled}
+                                  onChange={(e) => {
+                                    setTaskNotificationsEnabled(e.target.checked);
+                                    setNotificationDirty(true);
+                                  }}
+                                />
+                              }
+                              label="Task notifications"
+                              componentsProps={{ typography: { fontWeight: 500, variant: 'body1', ml: 1 } }}
+                              labelPlacement="end"
                             />
-                          }
-                          label="Task notifications"
-                          componentsProps={{ typography: { fontWeight: 500, variant: 'body1', ml: 1 } }}
-                          labelPlacement="end"
-                        />
-                      </FormGroup>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl>
-                      <FormGroup>
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              value={telemedNotificationsEnabled}
-                              disabled={updateNotificationSettingsMutation.isPending}
-                              checked={telemedNotificationsEnabled}
-                              onChange={(e) => {
-                                setTelemedNotificationsEnabled(e.target.checked);
-                                setNotificationDirty(true);
-                              }}
+                          </FormGroup>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <FormControl>
+                          <FormGroup>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  value={telemedNotificationsEnabled}
+                                  disabled={updateNotificationSettingsMutation.isPending}
+                                  checked={telemedNotificationsEnabled}
+                                  onChange={(e) => {
+                                    setTelemedNotificationsEnabled(e.target.checked);
+                                    setNotificationDirty(true);
+                                  }}
+                                />
+                              }
+                              label="Telemed notifications"
+                              componentsProps={{ typography: { fontWeight: 500, variant: 'body1', ml: 1 } }}
+                              labelPlacement="end"
                             />
-                          }
-                          label="Telemed notifications"
-                          componentsProps={{ typography: { fontWeight: 500, variant: 'body1', ml: 1 } }}
-                          labelPlacement="end"
-                        />
-                      </FormGroup>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                      <InputLabel id="alert-setting-label">Notify me by</InputLabel>
-                      <Select
-                        labelId="alert-setting-label"
-                        id="alert-setting"
-                        value={notificationMethod || ProviderNotificationMethod['phone and computer']}
-                        label="Notify me by"
-                        disabled={
-                          updateNotificationSettingsMutation.isPending ||
-                          (!taskNotificationsEnabled && !telemedNotificationsEnabled)
-                        }
-                        onChange={(e) => {
-                          setNotificationMethod(e.target.value as ProviderNotificationMethod);
-                          setNotificationDirty(true);
-                        }}
-                      >
-                        {Object.keys(ProviderNotificationMethod).map((key) => (
-                          <MenuItem
-                            key={key}
-                            value={ProviderNotificationMethod[key as keyof typeof ProviderNotificationMethod]}
+                          </FormGroup>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth>
+                          <InputLabel id="alert-setting-label">Notify me by</InputLabel>
+                          <Select
+                            labelId="alert-setting-label"
+                            id="alert-setting"
+                            value={notificationMethod || ProviderNotificationMethod['phone and computer']}
+                            label="Notify me by"
+                            disabled={
+                              updateNotificationSettingsMutation.isPending ||
+                              (!taskNotificationsEnabled && !telemedNotificationsEnabled)
+                            }
+                            onChange={(e) => {
+                              setNotificationMethod(e.target.value as ProviderNotificationMethod);
+                              setNotificationDirty(true);
+                            }}
                           >
-                            {ProviderNotificationMethod[key as keyof typeof ProviderNotificationMethod]}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <PatternFormat
-                      customInput={TextField}
-                      value={phoneNumber}
-                      format="(###) ###-####"
-                      label="Phone"
-                      InputLabelProps={{ shrink: true }}
-                      fullWidth
-                      onValueChange={(values) => {
-                        const newNumber = values.value;
-                        if (newNumber !== user?.profileResource?.telecom?.find((t) => t.system === 'sms')?.value) {
-                          setPhoneDirty(true);
-                        }
-                        setPhoneNumber(newNumber);
-                        setNotificationDirty(true);
-                      }}
-                      placeholder="(XXX) XXX-XXXX"
-                      readOnly={
-                        updateNotificationSettingsMutation.isPending ||
-                        (!taskNotificationsEnabled && !telemedNotificationsEnabled) ||
-                        notificationMethod === ProviderNotificationMethod['computer']
-                      }
-                      disabled={
-                        updateNotificationSettingsMutation.isPending ||
-                        (!taskNotificationsEnabled && !telemedNotificationsEnabled) ||
-                        notificationMethod === ProviderNotificationMethod['computer']
-                      }
-                    />
-                  </Grid>
+                            {Object.keys(ProviderNotificationMethod).map((key) => (
+                              <MenuItem
+                                key={key}
+                                value={ProviderNotificationMethod[key as keyof typeof ProviderNotificationMethod]}
+                              >
+                                {ProviderNotificationMethod[key as keyof typeof ProviderNotificationMethod]}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <PatternFormat
+                          customInput={TextField}
+                          value={phoneNumber}
+                          format="(###) ###-####"
+                          label="Phone"
+                          InputLabelProps={{ shrink: true }}
+                          fullWidth
+                          onValueChange={(values) => {
+                            const newNumber = values.value;
+                            if (newNumber !== user?.profileResource?.telecom?.find((t) => t.system === 'sms')?.value) {
+                              setPhoneDirty(true);
+                            }
+                            setPhoneNumber(newNumber);
+                            setNotificationDirty(true);
+                          }}
+                          placeholder="(XXX) XXX-XXXX"
+                          readOnly={
+                            updateNotificationSettingsMutation.isPending ||
+                            (!taskNotificationsEnabled && !telemedNotificationsEnabled) ||
+                            notificationMethod === ProviderNotificationMethod['computer']
+                          }
+                          disabled={
+                            updateNotificationSettingsMutation.isPending ||
+                            (!taskNotificationsEnabled && !telemedNotificationsEnabled) ||
+                            notificationMethod === ProviderNotificationMethod['computer']
+                          }
+                        />
+                      </Grid>
+                    </>
+                  ) : (
+                    <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <CircularProgress />
+                    </Grid>
+                  )}
                 </Grid>
 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                  <Button
+                  <LoadingButton
                     variant="contained"
                     sx={{ borderRadius: 28, textTransform: 'none', fontWeight: 'bold', px: 4 }}
                     onClick={handleApplyNotifications}
                     disabled={!notificationDirty || !phoneDirty || updateNotificationSettingsMutation.isPending}
+                    loading={updateNotificationSettingsMutation.isPending}
                   >
                     Save changes
-                  </Button>
+                  </LoadingButton>
                 </Box>
               </Paper>
             </Box>
