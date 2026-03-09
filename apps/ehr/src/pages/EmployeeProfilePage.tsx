@@ -36,6 +36,7 @@ export default function EmployeeProfilePage(): JSX.Element {
     ProviderNotificationMethod['phone and computer']
   );
   const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [phoneDirty, setPhoneDirty] = useState<boolean>(false);
   const [notificationDirty, setNotificationDirty] = useState<boolean>(false);
 
   const updateNotificationSettingsMutation = useUpdateProviderNotificationSettingsMutation((params) => {
@@ -185,7 +186,11 @@ export default function EmployeeProfilePage(): JSX.Element {
                       InputLabelProps={{ shrink: true }}
                       fullWidth
                       onValueChange={(values) => {
-                        setPhoneNumber(values.value);
+                        const newNumber = values.value;
+                        if (newNumber !== user?.profileResource?.telecom?.find((t) => t.system === 'sms')?.value) {
+                          setPhoneDirty(true);
+                        }
+                        setPhoneNumber(newNumber);
                         setNotificationDirty(true);
                       }}
                       placeholder="(XXX) XXX-XXXX"
@@ -208,7 +213,7 @@ export default function EmployeeProfilePage(): JSX.Element {
                     variant="contained"
                     sx={{ borderRadius: 28, textTransform: 'none', fontWeight: 'bold', px: 4 }}
                     onClick={handleApplyNotifications}
-                    disabled={!notificationDirty || updateNotificationSettingsMutation.isPending}
+                    disabled={!notificationDirty || !phoneDirty || updateNotificationSettingsMutation.isPending}
                   >
                     Save changes
                   </Button>
