@@ -85,7 +85,10 @@ export const prepareQuestionnaireResponseForHarvest = (
 
   if (sourceQuestionnaire && filterByEnableWhen) {
     // Flatten all items to build a complete values map for cross-section enableWhen evaluation
-    const allFlattened = includeSections ? flattenQuestionnaireAnswers(questionnaireResponseItems) : undefined;
+    const allFlattened =
+      includeSections && includeSections.length > 0
+        ? flattenQuestionnaireAnswers(questionnaireResponseItems)
+        : undefined;
     flattened = filterQuestionnaireResponseByEnableWhen(flattened, sourceQuestionnaire, allFlattened);
   }
 
