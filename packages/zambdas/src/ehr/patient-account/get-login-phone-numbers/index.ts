@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 import {
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getCoding,
   GetPatientLoginPhoneNumbersInput,
   getSecret,
@@ -48,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): 
 
 const getLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<string[]> => {
   const resources = (
-    await oystehr.fhir.search<Person | RelatedPerson | Patient>({
+    await oystehr.fhir.search<Patient | RelatedPerson>({
       resourceType: 'Patient',
       params: [
         {
@@ -59,31 +58,23 @@ const getLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<str
           name: '_revinclude',
           value: 'RelatedPerson:patient',
         },
-        {
-          name: '_revinclude:iterate',
-          value: 'Person:relatedperson',
-        },
       ],
     })
   ).unbundle();
 
-  const userRelatedPerson = resources.find(
-    (resource) =>
+  const relatedPersons = resources.filter(
+    (resource): resource is RelatedPerson =>
       resource.resourceType === 'RelatedPerson' &&
       getCoding(resource.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
   );
 
-  if (!userRelatedPerson) {
-    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Patient user RelatedPerson not found');
+  if (relatedPersons.length === 0) {
+    return [];
   }
 
-  const userRelatedPersonReference = 'RelatedPerson/' + userRelatedPerson.id;
-
-  return resources
-    .filter((resource) => resource.resourceType === 'Person')
-    .filter((person) => person.link?.find((link) => link.target?.reference === userRelatedPersonReference) != null)
-    .map((person) => getPersonPhone(person))
-    .filter((value) => value != null);
+  return relatedPersons
+    .map((rp) => rp.telecom?.find((t) => t.system === 'sms')?.value)
+    .filter((value): value is string => Boolean(value));
 };
 
 const validateRequestParameters = (input: ZambdaInput): Input => {
