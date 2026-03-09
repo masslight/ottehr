@@ -283,3 +283,7 @@ export type { RadiologyStudy, RadiologyConfig } from './radiology';
 // Prompts config types
 export { PromptsConfigSchema } from './prompts';
 export type { PromptsConfig } from './prompts';
+
+// Provider config types
+export { ProviderConfigSchema, EmCodeOptionsSchema, EmCodeOptionSchema } from './provider';
+export type { ProviderConfig } from './provider';

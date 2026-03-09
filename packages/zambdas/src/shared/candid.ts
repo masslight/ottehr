@@ -85,6 +85,7 @@ import {
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
+  PROVIDER_CONFIG,
   Secrets,
   SecretsKeys,
   TIMEZONES,
@@ -93,7 +94,6 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
-  emCodeOptions,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
@@ -1187,7 +1187,9 @@ async function candidCreateEncounterFromAppointmentRequest(
       }
     });
 
-    const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+    const isEAndMCode = PROVIDER_CONFIG.assessment.emCodeOptions.some(
+      (emCodeOption) => emCodeOption.code === procedureCode
+    );
     if (isEAndMCode && isTelemedAppointment(appointment)) {
       modifiers = ['95'];
     }

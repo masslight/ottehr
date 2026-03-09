@@ -100,8 +100,16 @@ function copyConfiguration(project?: string): void {
 
   // Clear and create target directories for configuration
   const configPaths = [
-    { source: path.join(secretsPath, 'configuration', 'oystehr'), target: path.join(repoRoot, 'config', 'oystehr'), type: 'full' },
-    { source: path.join(secretsPath, 'configuration', 'sendgrid'), target: path.join(repoRoot, 'config', 'sendgrid'), type: 'full' },
+    {
+      source: path.join(secretsPath, 'configuration', 'oystehr'),
+      target: path.join(repoRoot, 'config', 'oystehr'),
+      type: 'full',
+    },
+    {
+      source: path.join(secretsPath, 'configuration', 'sendgrid'),
+      target: path.join(repoRoot, 'config', 'sendgrid'),
+      type: 'full',
+    },
     {
       source: path.join(secretsPath, 'configuration', 'ottehr-config-overrides'),
       target: path.join(repoRoot, 'packages', 'utils', 'ottehr-config-overrides'),
@@ -141,8 +149,8 @@ function copyConfiguration(project?: string): void {
 
       // Read all items in target directory (working copy)
       const targetItems = fs.readdirSync(target, { withFileTypes: true });
-      
-      targetItems.forEach(item => {
+
+      targetItems.forEach((item) => {
         const sourcePath = path.join(source, item.name);
         const targetPath = path.join(target, item.name);
 
@@ -155,9 +163,12 @@ function copyConfiguration(project?: string): void {
           console.log(`⚠ Skipping directory (not in secrets): ${item.name}`);
         }
       });
-      
+
       console.log(
-        `✓ Selectively copied ottehr-config-overrides from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
+        `✓ Selectively copied ottehr-config-overrides from ${path.relative(repoRoot, source)} to ${path.relative(
+          repoRoot,
+          target
+        )}`
       );
     }
   });
@@ -264,7 +275,7 @@ function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
   const project = process.argv[4];
-  
+
   if (!environment) {
     console.error('Error: environment parameter is required');
     console.error('Usage: tsx scripts/secrets.ts <command> <environment> [project]');
