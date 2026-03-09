@@ -44,6 +44,7 @@ export const emCodeOptions: CPTCodeOption[] = [
   { display: '99214 Established Patient - E/M Level 4', code: '99214' },
   { display: '99215 Established Patient - E/M Level 5', code: '99215' },
   { display: '99499 - Unlisted E&M Service', code: '99499' },
+  { display: '99080 Preparation of special reports beyond what is found in the medical record', code: '99080' },
 ];
 
 export const EXTENSION_URL_CPT_MODIFIER = 'https://fhir.ottehr.com/Extension/cpt-code-modifier';

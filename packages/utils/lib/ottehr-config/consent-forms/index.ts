@@ -63,11 +63,9 @@ const DEFAULT_CONSENT_FORMS = {
 
 // Merge defaults with instance-specific overrides (from ottehr-config-overrides)
 // Config is baked in at deploy time, no runtime injection needed
-const mergedConsentForms = mergeAndFreezeConfigObjects(
-  DEFAULT_CONSENT_FORMS,
-  CONSENT_FORMS_OVERRIDE as Partial<ConsentFormsConfig>
-);
-export const CONSENT_FORMS_CONFIG: ConsentFormsConfig = ConsentFormsConfigSchema.parse(mergedConsentForms);
+const mergedConsentForms = mergeAndFreezeConfigObjects(DEFAULT_CONSENT_FORMS, CONSENT_FORMS_OVERRIDE);
+
+export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentForms) as typeof mergedConsentForms;
 
 const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
   if (typeof path === 'string') {

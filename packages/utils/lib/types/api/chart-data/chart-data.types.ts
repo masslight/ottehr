@@ -69,6 +69,7 @@ export interface AllChartValues {
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
   reasonForVisit?: FreeTextNoteDTO;
+  accident?: AccidentDTO;
 }
 
 export type RequestedFields =
@@ -94,7 +95,8 @@ export type RequestedFields =
   | 'procedures'
   | 'observations'
   | 'preferredPharmacies'
-  | 'reasonForVisit';
+  | 'reasonForVisit'
+  | 'accident';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -518,4 +520,10 @@ export interface ProcedureDTO extends SaveableDTO {
   timeSpent?: string;
   documentedBy?: string;
   consentObtained?: boolean;
+}
+
+export interface AccidentDTO extends SaveableDTO {
+  type: string[];
+  date?: string;
+  state?: string;
 }
