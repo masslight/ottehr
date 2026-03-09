@@ -185,6 +185,14 @@
             {
               "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
               "code": "29518"
+            },
+            {
+              "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              "code": "J7609"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "94640"
             }
           ]
         }

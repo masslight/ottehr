@@ -1,4 +1,4 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 // cSpell:ignore Providerid
 import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import {
@@ -39,7 +39,7 @@ import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resourc
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
-import { MeasurementUnitCode, ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -49,7 +49,6 @@ import {
   Extension,
   Identifier,
   Location,
-  MedicationAdministration,
   Organization,
   Patient,
   Practitioner,
@@ -64,11 +63,6 @@ import {
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
-  getCptCodeFromMedication,
-  getDosageFromMA,
-  getHcpcsCodeFromMedication,
-  getMedicationFromMA,
-  getNdcCodeFromMedication,
   getOptionalSecret,
   getPayerId,
   getPaymentVariantFromEncounter,
@@ -78,10 +72,6 @@ import {
   isAppointmentOccupationalMedicine,
   isAppointmentWorkersComp,
   isTelemedAppointment,
-  mapOrderStatusToFhir,
-  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
-  MedicationOrderStatusesType,
-  MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
@@ -146,7 +136,6 @@ interface CreateEncounterInput {
   diagnoses: Condition[];
   procedures: Procedure[];
   insuranceResources?: InsuranceResources;
-  medications?: MedicationAdministration[];
   accident?: Condition;
 }
 
@@ -228,10 +217,6 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
-  const medications = await getMedicationAdministrationsForEncounter(oystehr, encounter.id, {
-    statuses: ['administered', 'administered-partly'],
-  });
-
   const conditions = (
     await oystehr.fhir.search<Condition>({
       resourceType: 'Condition',
@@ -282,7 +267,6 @@ const createCandidCreateEncounterInput = async (
           payor: coveragePayor!,
         }
       : undefined,
-    medications,
     accident: conditions.find((condition) => chartDataResourceHasMetaTagByCode(condition, 'accident')),
   };
 };
@@ -1113,7 +1097,6 @@ async function candidCreateEncounterFromAppointmentRequest(
     procedures,
     insuranceResources,
     location,
-    medications,
     accident,
   } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
@@ -1204,45 +1187,6 @@ async function candidCreateEncounterFromAppointmentRequest(
     });
   });
 
-  if (medications) {
-    console.log(`Adding medications to service lines, medications: ${medications.length}`);
-    medications.forEach((medicationAdministration) => {
-      const medication = getMedicationFromMA(medicationAdministration);
-      if (!medication) return;
-      const ndc = getNdcCodeFromMedication(medication);
-      const cpt = getCptCodeFromMedication(medication);
-      const hcpcs = getHcpcsCodeFromMedication(medication);
-      const procedureCode = cpt || hcpcs;
-
-      const dosageFromMA = getDosageFromMA(medicationAdministration);
-      if (dosageFromMA === undefined) return;
-      const candidMeasurement = mapMedicationToCandidMeasurement(dosageFromMA.units);
-      console.log(
-        `medication: ${medicationAdministration?.id}, ndc: ${ndc}, procedureCode: ${procedureCode}, dose: ${dosageFromMA.dose}`
-      );
-      if (procedureCode && ndc && dosageFromMA && candidMeasurement) {
-        serviceLines.push({
-          procedureCode,
-          quantity: Decimal('1'), // ???
-          units: ServiceLineUnits.Un,
-          diagnosisPointers: [primaryDiagnosisIndex],
-          drugIdentification: {
-            serviceIdQualifier: 'N4',
-            nationalDrugCode: ndc, // this ndc code has to be 5-4-2 format to match N4 code
-            nationalDrugUnitCount: Decimal(dosageFromMA.dose.toString()),
-            measurementUnitCode: candidMeasurement,
-          },
-          dateOfService:
-            dateOfServiceString ||
-            assertDefined(
-              getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
-              'Service line date'
-            ),
-        });
-      }
-    });
-  }
-
   const tags: CandidApi.TagId[] = [];
   if (isAppointmentWorkersComp(appointment)) {
     tags.push(TagId(CANDID_TAG_WORKERS_COMP));
@@ -1323,52 +1267,6 @@ export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string):
 
 export function getCandidEncounterIdFromEncounter(encounter: Encounter): string | undefined {
   return encounter.identifier?.find((idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM)?.value;
-}
-
-async function getMedicationAdministrationsForEncounter(
-  oystehr: Oystehr,
-  encounterId: string,
-  filterParams?: { statuses: MedicationOrderStatusesType[] }
-): Promise<MedicationAdministration[] | undefined> {
-  const params: SearchParam[] = [
-    {
-      name: 'context',
-      value: `Encounter/${encounterId}`,
-    },
-    {
-      name: '_tag',
-      value: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
-    },
-  ];
-  if (filterParams?.statuses?.length && filterParams.statuses.length > 0) {
-    params.push({
-      name: 'status',
-      value: filterParams.statuses.map((status) => mapOrderStatusToFhir(status)).join(','),
-    });
-  }
-  const resources = (
-    await oystehr.fhir.search<MedicationAdministration>({
-      resourceType: 'MedicationAdministration',
-      params: params,
-    })
-  ).unbundle();
-  if (!resources || resources.length === 0) return undefined;
-  return resources as MedicationAdministration[];
-}
-
-export function mapMedicationToCandidMeasurement(units: MedicationUnitOptions): MeasurementUnitCode | undefined {
-  switch (units) {
-    case 'mg':
-      return MeasurementUnitCode.Milligram;
-    case 'ml':
-      return MeasurementUnitCode.Milliliters;
-    case 'unit':
-      return MeasurementUnitCode.Units;
-    case 'g':
-      return MeasurementUnitCode.Grams;
-    default:
-      return MeasurementUnitCode.InternationalUnit; // todo ??? i have unhandled 'cc' and 'application' cases
-  }
 }
 
 const procedureModifierValues = new Set(Object.values(ProcedureModifier));
