@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { ExtendedMedicationDataForResponse, GetMedicationOrdersInput, UpdateMedicationOrderInput } from 'utils';
 import {
   useCreateUpdateMedicationOrder,
@@ -52,7 +52,10 @@ export const useMedicationAPI = (): MedicationAPI => {
     await queryClient.invalidateQueries({
       predicate: (query) => {
         const [prefix, encId] = query.queryKey;
-        return prefix === CHART_FIELDS_QUERY_KEY && encId === encounterId;
+        return (
+          (prefix === CHART_FIELDS_QUERY_KEY && encId === encounterId) ||
+          (prefix === CHART_DATA_QUERY_KEY && encId === encounterId)
+        );
       },
     });
   };
