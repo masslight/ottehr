@@ -49,6 +49,8 @@ export const useMedicationAPI = (): MedicationAPI => {
 
     // Invalidate medication history data (chart-data-fields)
     // This ensures the medication history updates when a medication is cancelled/deleted
+    // Also since in create-update-medication-order we are now adding medications billing codes
+    // we are updating chart-data to update assessment tab billing codes
     await queryClient.invalidateQueries({
       predicate: (query) => {
         const [prefix, encId] = query.queryKey;
