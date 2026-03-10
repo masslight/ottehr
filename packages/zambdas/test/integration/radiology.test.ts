@@ -50,6 +50,7 @@ describe('radiology integration tests', () => {
         lateralityModifier: undefined,
         stat: true,
         clinicalHistory: 'Took an arrow to the knee',
+        consentObtained: true,
       };
       let orderOutput: any;
       try {
