@@ -459,16 +459,16 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
       value: 'ServiceRequest:specimen',
     });
 
-    // Include observations for lab details
-    searchParams.push({
-      name: '_revinclude',
-      value: 'Observation:based-on',
-    });
-
     // Include the DR for grabbing pdf url
     searchParams.push({
       name: '_revinclude',
       value: 'DiagnosticReport:based-on',
+    });
+
+    // Include observations for lab details
+    searchParams.push({
+      name: '_include:iterate',
+      value: 'DiagnosticReport:result',
     });
 
     // Include any related repeat test SRs
@@ -566,6 +566,7 @@ export const extractInHouseResources = (
     }
   }
 
+  // todo labs i don't think this additional work is necessary anymore, the query has been updated to only grab observations from diagnostic report results
   const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
 
   return {

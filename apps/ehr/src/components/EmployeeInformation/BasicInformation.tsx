@@ -246,7 +246,7 @@ export function BasicInformation({ control, existingUser, isActive }: BasicInfor
         rules={{
           pattern: {
             value: zipRegex,
-            message: 'Zip code must be 5 digits',
+            message: 'ZIP Code must be 5 or 9 numbers',
           },
         }}
         render={({ field: { onChange, value }, fieldState: { error } }) => (

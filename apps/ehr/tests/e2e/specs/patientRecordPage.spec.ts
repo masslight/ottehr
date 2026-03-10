@@ -704,10 +704,10 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         test.skip(ContactInformationHidden, 'contact information section is hidden');
         await patientInformationPage.enterTextFieldValue(contactInformation.zip.key, '11');
         await patientInformationPage.clickSaveChangesButton();
-        await patientInformationPage.verifyFieldError(contactInformation.zip.key, 'Must be 5 digits');
+        await patientInformationPage.verifyFieldError(contactInformation.zip.key, 'Must be 5 or 9 digits');
         await patientInformationPage.enterTextFieldValue(contactInformation.zip.key, '11223344');
         await patientInformationPage.clickSaveChangesButton();
-        await patientInformationPage.verifyFieldError(contactInformation.zip.key, 'Must be 5 digits');
+        await patientInformationPage.verifyFieldError(contactInformation.zip.key, 'Must be 5 or 9 digits');
         await patientInformationPage.enterTextFieldValue(contactInformation.email.key, 'testEmailGetMaxListeners.com');
         await patientInformationPage.clickSaveChangesButton();
         await patientInformationPage.verifyFieldError(

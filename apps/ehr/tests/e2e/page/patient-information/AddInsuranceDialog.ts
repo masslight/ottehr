@@ -116,7 +116,7 @@ export class AddInsuranceDialog {
 
   async verifyValidationErrorZipFieldFromAddInsurance(): Promise<void> {
     await expect(
-      this.#container.getByTestId(dataTestIds.addInsuranceDialog.zip).locator('p:text("Must be 5 digits")')
+      this.#container.getByTestId(dataTestIds.addInsuranceDialog.zip).locator('p:text("Must be 5 or 9 digits")')
     ).toBeVisible();
   }
 
