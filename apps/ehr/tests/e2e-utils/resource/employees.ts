@@ -62,7 +62,7 @@ export const testEmployeeGivenNamePattern = 'employeeTestE2E';
 export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
   givenName: `${testEmployeeGivenNamePattern}1`,
   middleName: 'middle',
-  familyName: 'familyName',
+  // familyName: 'familyName',
   telecomPhone: '0734324300',
   npi: '1111111111',
   providerType: 'other',
@@ -89,7 +89,7 @@ export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
 export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
   givenName: `new ${testEmployeeGivenNamePattern}`,
   middleName: 'new middle',
-  familyName: 'new family',
+  // familyName: 'new family',
   telecomPhone: '0734324301',
   providerType: 'other',
   providerTypeText: 'new credentials',
@@ -245,7 +245,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
 
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);
   if (!npi) throw new Error(`No npi for this user: ${user.id}`);
-  if (!providerType || isProviderTypeCode(providerType)) throw new Error(`No providerType for this user: ${user.id}`);
+  if (!providerType || !isProviderTypeCode(providerType)) throw new Error(`No providerType for this user: ${user.id}`);
 
   return {
     id: user.id,
