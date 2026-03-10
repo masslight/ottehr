@@ -13,6 +13,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
+import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
@@ -244,7 +245,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
-                  <Route path="/legacy-data" element={<LegacyDataPage />} />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
@@ -290,7 +291,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
-                  <Route path="/legacy-data" element={<LegacyDataPage />} />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
