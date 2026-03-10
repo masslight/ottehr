@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  FHIR_EXTENSION,
   formatDate,
   getExtension,
   GetRadiologyOrderListZambdaInput,
@@ -302,6 +303,9 @@ const parseResultsToOrder = (
 
   const clinicalHistory = extractClinicalHistory(serviceRequest);
 
+  const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
+    ?.valueBoolean;
+
   return {
     serviceRequestId: serviceRequest.id,
     appointmentId,
@@ -317,6 +321,7 @@ const parseResultsToOrder = (
     clinicalHistory,
     history,
     task: formattedFinalReviewTask,
+    consentObtained,
   };
 };
 

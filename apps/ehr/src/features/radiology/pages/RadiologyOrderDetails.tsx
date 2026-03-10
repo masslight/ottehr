@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Chip, CircularProgress, TextField, Typography } from '@mui/material';
+import { Button, Checkbox, Chip, CircularProgress, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -212,6 +212,17 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               ) : (
                 <div />
               )}
+
+              <Box sx={{ mt: 1 }}>
+                <Box style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    sx={{ paddingLeft: 0, pointerEvents: 'none' }}
+                    inputProps={{ readOnly: true }}
+                    checked={order.consentObtained}
+                  />
+                  <Typography>I have obtained the Consent for X-ray</Typography>
+                </Box>
+              </Box>
             </Box>
           </Box>
 

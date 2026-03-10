@@ -3,6 +3,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   FormControl,
   FormControlLabel,
   Grid,
@@ -60,6 +61,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [stat, setStat] = useState<boolean>(false);
   const [clinicalHistory, setClinicalHistory] = useState<string | undefined>();
   const [laterality, setLaterality] = useState<LateralityValue | ''>('');
+  const [consentObtained, setConsentObtained] = useState<boolean>(false);
 
   const cptCodes = chartData?.cptCodes || [];
 
@@ -111,6 +113,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           encounterId: encounter.id,
           stat: stat,
           clinicalHistory: clinicalHistory,
+          consentObtained,
         });
 
         if (res.cptCodesSaved && res.cptCodesSaved?.length > 0) {
@@ -310,6 +313,13 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                         : `${clinicalHistory?.length || 0}/255 characters`
                     }
                   />
+                </Grid>
+                <Grid item xs={12}>
+                  <Box style={{ display: 'flex', alignItems: 'center' }}>
+                    <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
+                    {/* todo sarah what should this link to ? */}
+                    <Typography>I have obtained the Consent for X-ray</Typography>
+                  </Box>
                 </Grid>
                 <Grid item xs={12}>
                   <FormControlLabel
