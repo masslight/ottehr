@@ -158,8 +158,8 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 !busyPractitionerIds.has(comm.recipient?.[0].reference)
             );
             postponedCommunications.forEach((communication) => {
-              const communicationPractitionerUri = communication.recipient![0].reference!;
-              const practitioner = activeProvidersMap[communicationPractitionerUri];
+              const communicationPractitionerId = communication.recipient![0].reference!.split('/')[1];
+              const practitioner = activeProvidersMap[communicationPractitionerId];
               const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
               if (notificationSettings && notificationSettings.enabled) {
                 const newStatus = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
