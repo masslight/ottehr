@@ -124,9 +124,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       getAllActiveProviders(oystehr),
       getRecentlyAssignedTasksMap(oystehr, DateTime.utc().minus({ hours: 1 })),
     ]);
-    console.log('--- Ready or unsigned: ' + JSON.stringify(readyOrUnsignedVisitPackages));
-    console.log('--- In progress: ' + JSON.stringify(assignedOrInProgressVisitPackages));
-    console.log('--- Recently assigned tasks map: ' + JSON.stringify(recentlyAssignedTasksMap));
+    // these logs produce far too much detail so reducing them to counts
+    console.log('--- Ready or unsigned visits count: ' + Object.keys(readyOrUnsignedVisitPackages).length);
+    console.log('--- In progress visits count: ' + Object.keys(assignedOrInProgressVisitPackages).length);
+    console.log('--- Active providers count: ' + Object.keys(activeProvidersMap).length);
+    console.log('--- Recently assigned tasks: ' + JSON.stringify(recentlyAssignedTasksMap));
 
     // Going through arrived or in-progress visits to determine busy practitioners that should not receive a notification
     Object.keys(assignedOrInProgressVisitPackages).forEach((appointmentId) => {
