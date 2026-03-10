@@ -37,6 +37,7 @@ export default function SendStatementToPatientDialog({
 }: SendStatementToPatientDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const { patient, responsibleParty } = report ?? {};
+  const encounterId = report?.task?.encounter?.reference?.split('/')[1];
   const patientCityStateZip = formatCityStateZip(patient?.city, patient?.state, patient?.fullAddress);
   const responsiblePartyCityStateZip = formatCityStateZip(
     responsibleParty?.city,
@@ -58,7 +59,7 @@ export default function SendStatementToPatientDialog({
 
   useEffect(() => {
     const loadTemplateAndPreview = async (): Promise<void> => {
-      if (!modalOpen || !oystehrZambda) return;
+      if (!modalOpen || !oystehrZambda || !encounterId) return;
 
       setIsPreviewLoading(true);
       setPreviewError('');
@@ -69,7 +70,12 @@ export default function SendStatementToPatientDialog({
         });
 
         const templateResponse = chooseJson(response) as { template: string; fileName: string; logoBase64: string };
-        const statementDetails = createStubStatementDetails(templateResponse.logoBase64, statementType);
+        const statementDetailsResponse = await oystehrZambda.zambda.execute({
+          id: 'get-statement-details',
+          statementType,
+          encounterId,
+        });
+        const statementDetails = chooseJson(statementDetailsResponse) as StatementDetails;
         const html = generateStatement(templateResponse.template, statementDetails);
         setGeneratedHtml(html);
       } catch (error) {
@@ -82,7 +88,7 @@ export default function SendStatementToPatientDialog({
     };
 
     void loadTemplateAndPreview();
-  }, [modalOpen, oystehrZambda, statementType]);
+  }, [encounterId, modalOpen, oystehrZambda, statementType]);
 
   return (
     <Dialog
@@ -139,9 +145,12 @@ export default function SendStatementToPatientDialog({
             </Typography>
           </Box>
 
-          <Box sx={{ flexShrink: 0 }}>
+          <Box sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
+            <RoundedButton variant="contained" color="primary" onClick={() => {}}>
+              Generate PDF
+            </RoundedButton>
             <RoundedButton variant="contained" color="primary" onClick={onSubmit}>
-              Send
+              Send by Mail
             </RoundedButton>
           </Box>
         </Box>
@@ -245,75 +254,4 @@ function formatCityStateZip(city?: string, state?: string, fullAddress?: string)
   const zipPart = zip ? ` ${zip}` : '';
 
   return `${cityPart}, ${statePart}${zipPart}`;
-}
-
-function createStubStatementDetails(
-  logoBase64: string,
-  statementType: 'standard' | 'past-due' | 'final-notice'
-): StatementDetails {
-  const pastDue = statementType === 'past-due' || statementType === 'final-notice';
-  const finalNotice = statementType === 'final-notice';
-
-  const mergeVariables = {
-    respParty: {
-      firstName: 'Jonathan',
-      lastName: 'Mercer',
-      addressLine1: '1122 Elmwood Drive',
-      addressLine2: 'Apt 4B',
-      city: 'Springfield',
-      provinceOrState: 'IL',
-      postalOrZip: '62701',
-      countryCode: 'US',
-    },
-    pastDue,
-    finalNotice,
-    statement: {
-      number: '2026-00847',
-      issueDate: 'March 5, 2026',
-      dueDate: 'April 4, 2026',
-    },
-    patient: {
-      firstName: 'Sophia',
-      lastName: 'Mercer',
-      dob: '09 / 14 / 2018',
-    },
-    insurance: {
-      payerName: 'BlueCross BlueShield of Illinois',
-      memberId: 'BCB-774-002918',
-    },
-    visit: {
-      date: 'Feb 18, 2026',
-      time: '10:30 AM',
-    },
-    facility: {
-      name: 'Ottehr Clinic — Washington DC',
-    },
-    service:
-      '[{"cpt":"99214","description":"Office or other outpatient visit for the evaluation and management of an established patient, which requires a medically appropriate history and/or examination and moderate level of medical decision making","charged":"$225.00","insurancePaid":"$160.00","patientPaid":"$25.00","patientOwes":"$40.00"},{"cpt":"93000","description":"Electrocardiogram, routine ECG with at least 12 leads including interpretation and report, performed as a standalone diagnostic procedure during an office visit","charged":"$95.00","insurancePaid":"$70.00","patientPaid":"$0.00","patientOwes":"$25.00"},{"cpt":"85025","description":"Complete blood count with differential white blood cell count, automated, including red blood cell indices, hemoglobin, hematocrit, and platelet count","charged":"$68.00","insurancePaid":"$50.00","patientPaid":"$0.00","patientOwes":"$18.00"},{"cpt":"80053","description":"Comprehensive metabolic panel including glucose, calcium, albumin, total protein, sodium, potassium, carbon dioxide, chloride, creatinine, BUN, and liver function tests","charged":"$74.00","insurancePaid":"$55.00","patientPaid":"$0.00","patientOwes":"$19.00"},{"cpt":"71046","description":"Radiologic examination of the chest, two views, posteroanterior and lateral projections, with interpretation and written report by a licensed radiologist","charged":"$110.00","insurancePaid":"$82.00","patientPaid":"$0.00","patientOwes":"$28.00"},{"cpt":"36415","description":"Collection of venous blood by venipuncture from a peripheral vein for laboratory analysis, performed by trained clinical staff in an outpatient setting","charged":"$22.00","insurancePaid":"$15.00","patientPaid":"$0.00","patientOwes":"$7.00"},{"cpt":"90714","description":"Tetanus and diphtheria toxoids adsorbed, preservative free, when administered to individuals 7 years or older, for intramuscular use, single-dose injection","charged":"$52.00","insurancePaid":"$52.00","patientPaid":"$0.00","patientOwes":"$0.00"}]',
-    totals: {
-      charged: '$646.00',
-      insurancePaid: '$484.00',
-      patientPaid: '$25.00',
-      deductible: '$137.00',
-      balanceDue: '$137.00',
-    },
-    payment: {
-      url: 'patient.oystehr.com/visit',
-    },
-    biller: {
-      addressLine1: '200 Massachusetts Ave NW',
-      addressLine2: '',
-      city: 'Washington',
-      provinceOrState: 'DC',
-      postalOrZip: '20001',
-      website: 'oystehr.com',
-      email: 'billing@oystehr.com',
-      logoBase64,
-    },
-  };
-
-  return {
-    ...mergeVariables,
-    service: JSON.parse(mergeVariables.service) as StatementDetails['service'],
-  };
 }
