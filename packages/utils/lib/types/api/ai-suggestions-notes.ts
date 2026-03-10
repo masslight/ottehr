@@ -4,7 +4,8 @@ export interface ProcedureDetails {
 
 export interface AISuggestionNotesInput {
   type: string;
-  details: ProcedureDetails;
+  hpi?: string;
+  details?: ProcedureDetails;
 }
 
 export interface AISuggestionNotes {
