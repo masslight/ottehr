@@ -261,22 +261,24 @@ async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<
     throw new Error('Failed to get itemization response');
   }
 
-  const serviceLines = itemizationResponse.serviceLineItemization.map((serviceLine) => {
-    const chargeAfterAdjustments =
-      serviceLine.chargeAmountCents - serviceLine.insuranceAdjustments.totalAdjustmentCents;
-    const insurancePaid = serviceLine.insurancePayments.totalPaymentCents;
-    const patientPaid = serviceLine.patientPayments.totalPaymentCents;
-    const patientOwes = serviceLine.patientBalanceCents;
+  const serviceLines = await Promise.all(
+    itemizationResponse.serviceLineItemization.map(async (serviceLine) => {
+      const chargeAfterAdjustments =
+        serviceLine.chargeAmountCents - serviceLine.insuranceAdjustments.totalAdjustmentCents;
+      const insurancePaid = serviceLine.insurancePayments.totalPaymentCents;
+      const patientPaid = serviceLine.patientPayments.totalPaymentCents;
+      const patientOwes = serviceLine.patientBalanceCents;
 
-    return {
-      cpt: serviceLine.procedureCode,
-      description: serviceLine.procedureCode,
-      charged: formatMoney(chargeAfterAdjustments),
-      insurancePaid: formatMoney(insurancePaid),
-      patientPaid: formatMoney(patientPaid),
-      patientOwes: formatMoney(patientOwes),
-    };
-  });
+      return {
+        cpt: serviceLine.procedureCode,
+        description: await getProcedureCodeTitle(serviceLine.procedureCode, secrets),
+        charged: formatMoney(chargeAfterAdjustments),
+        insurancePaid: formatMoney(insurancePaid),
+        patientPaid: formatMoney(patientPaid),
+        patientOwes: formatMoney(patientOwes),
+      };
+    })
+  );
 
   const totalsCents = itemizationResponse.serviceLineItemization.reduce(
     (acc, serviceLine) => {
@@ -308,6 +310,31 @@ async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<
       balanceDue: formatMoney(totalsCents.balanceDue),
     },
   };
+}
+
+async function getProcedureCodeTitle(code: string, secrets: Secrets): Promise<string> {
+  const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+  const names = await Promise.all([searchCodeName(code, 'HCPT', apiKey), searchCodeName(code, 'HCPCS', apiKey)]);
+  const name = names.find((entry) => entry != null);
+  return name ? `${code} - ${name}` : code;
+}
+
+async function searchCodeName(code: string, sabs: string, apiKey: string): Promise<string | undefined> {
+  const response = await fetch(
+    `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&returnIdType=code&inputType=code&string=${code}&sabs=${sabs}&partialSearch=true&searchType=rightTruncation`
+  );
+  if (!response.ok) {
+    return undefined;
+  }
+  const responseBody = (await response.json()) as {
+    result: {
+      results: {
+        ui: string;
+        name: string;
+      }[];
+    };
+  };
+  return responseBody.result.results.find((entry) => entry)?.name;
 }
 
 function createStubStatementDetails(
