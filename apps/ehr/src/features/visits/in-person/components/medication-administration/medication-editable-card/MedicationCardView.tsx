@@ -98,10 +98,13 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
 
   const inHouseMedicationsquickPicksList = useMemo(() => {
     const medispanCodeSet = selectsOptions.medicationId.medispanCodeSet ?? new Set<string>();
-    return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter((f) =>
-      medispanCodeSet.has(String(f.dosespotId))
-    );
-  }, [selectsOptions.medicationId.medispanCodeSet]);
+    const ndcCodeSet = selectsOptions.medicationId.ndcCodeSet ?? new Set<string>();
+    type QuickPick = (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number];
+    const hasNdc = (pick: QuickPick): boolean => pick.ndc != null && ndcCodeSet.has(pick.ndc);
+    const hasMedispan = (pick: QuickPick): boolean =>
+      pick.dosespotId != null && medispanCodeSet.has(String(pick.dosespotId));
+    return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter((f) => hasNdc(f) || hasMedispan(f));
+  }, [selectsOptions.medicationId.medispanCodeSet, selectsOptions.medicationId.ndcCodeSet]);
 
   const showAddFromQuickPicks =
     (type === 'order-new' || type === 'order-edit') && onQuickPickSelect && inHouseMedicationsquickPicksList.length > 0;

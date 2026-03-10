@@ -1,7 +1,6 @@
-import { MedicalHistoryConfig } from 'config-types';
+import { MedicalHistoryConfig, MedicalHistoryConfigSchema } from 'config-types';
 import { MEDICAL_HISTORY_OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-import { validateMedicalHistoryConfig } from './medical-history.schema';
 
 const MEDICAL_HISTORY_DEFAULTS = {
   medicalConditions: {
@@ -202,8 +201,8 @@ const mergedMedicalHistoryConfig = mergeAndFreezeConfigObjects(
   MEDICAL_HISTORY_OVERRIDES || {}
 );
 
-export const MEDICAL_HISTORY_CONFIG = Object.freeze(
-  validateMedicalHistoryConfig(mergedMedicalHistoryConfig)
-) as typeof mergedMedicalHistoryConfig;
+const validateMedicalHistoryConfig = (config: unknown): MedicalHistoryConfig => {
+  return MedicalHistoryConfigSchema.parse(config);
+};
 
-export * from './medical-history.schema';
+export const MEDICAL_HISTORY_CONFIG = Object.freeze(validateMedicalHistoryConfig(mergedMedicalHistoryConfig));

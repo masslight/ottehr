@@ -32,11 +32,16 @@ export const ProviderNotifications: FC = memo(() => {
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
   const [notificationsElement, setNotificationsElement] = useState<undefined | HTMLElement>(undefined);
 
-  const { enabled: notificationsEnabled, method: notificationMethod }: ProviderNotificationSettings = useMemo(
+  const {
+    method: notificationMethod,
+    taskNotificationsEnabled,
+    telemedNotificationsEnabled,
+  }: ProviderNotificationSettings = useMemo(
     () =>
       getProviderNotificationSettingsForPractitioner(user?.profileResource) || {
         method: ProviderNotificationMethod['phone and computer'],
-        enabled: false,
+        taskNotificationsEnabled: false,
+        telemedNotificationsEnabled: false,
       },
     [user?.profileResource]
   );
@@ -62,8 +67,12 @@ export const ProviderNotifications: FC = memo(() => {
   const hasUnread = notifications.some((notification) => notification.isUnread);
 
   useEffect(() => {
-    useProviderNotificationsStore.setState({ notificationsEnabled, notificationMethod: notificationMethod });
-  }, [notificationsEnabled, notificationMethod]);
+    useProviderNotificationsStore.setState({
+      notificationMethod,
+      taskNotificationsEnabled,
+      telemedNotificationsEnabled,
+    });
+  }, [notificationMethod, taskNotificationsEnabled, telemedNotificationsEnabled]);
 
   const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = (event) => {
     setNotificationsOpen(true);

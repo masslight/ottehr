@@ -1,9 +1,11 @@
+import { otherColors } from '@ehrTheme/colors';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 import { Box, Divider, Paper, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
 import { handleInHouseLabResults } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -29,7 +31,6 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
   const [submittingResults, setSubmittingResults] = useState<boolean>(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
 
-  const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
   const { oystehrZambda: oystehr } = useApiClients();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -63,15 +64,16 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
 
   const handleResultEntrySubmit: SubmitHandler<ResultEntryInput> = async (data): Promise<void> => {
     setSubmittingResults(true);
+
     if (!oystehr) {
-      console.log('no oystehr client! :o'); // todo add error handling
+      console.log('oystehr client is undefined :o');
+      enqueueSnackbar('Error getting information needed to save, please try re-loading the page', { variant: 'error' });
       return;
     }
-    if (!serviceRequestID) return; // todo better error handling
-    console.log('data being submitted', data);
+
     try {
       await handleInHouseLabResults(oystehr, {
-        serviceRequestId: serviceRequestID,
+        serviceRequestId: testDetails.serviceRequestId,
         data: data,
       });
       // reset(data);
@@ -125,6 +127,27 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
             {testDetails.labDetails.components.groupedComponents.length > 0 && (
               <ResultEntryTable testItemComponents={testDetails.labDetails.components.groupedComponents} />
             )}
+
+            {testDetails.labDetails.reflexAlert && (
+              <Box
+                key={`reflex-alert`}
+                sx={{
+                  p: '6px 16px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  background: otherColors.warningBackground,
+                  mt: '16px',
+                  alignItems: 'center',
+                }}
+                gap={'4px'}
+              >
+                <WarningAmberOutlined sx={{ height: '22px', width: '22px', my: '7px', mr: '12px' }} color="warning" />
+                <Typography variant="h6" color={otherColors.warningText}>
+                  {testDetails.labDetails.reflexAlert.alert}
+                </Typography>
+              </Box>
+            )}
+
             <InHouseLabsDetailsCard
               testDetails={testDetails}
               page={PageName.performEnterResults}
