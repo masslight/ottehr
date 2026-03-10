@@ -47,6 +47,7 @@ import {
   IncompleteEncounters,
   InvoiceablePatients,
   PracticeKpis,
+  ProviderCoding,
   RecentPatients,
   VisitsOverview,
 } from './pages/reports/index';
@@ -192,6 +193,7 @@ function App(): ReactElement {
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
+                  <Route path="/reports/provider-kpis" element={<ProviderCoding />} />
                   <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
                   <Route path="/reports/practice-kpis" element={<PracticeKpis />} />

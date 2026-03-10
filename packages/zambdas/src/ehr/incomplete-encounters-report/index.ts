@@ -1,16 +1,19 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, Procedure } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   getAttendingPractitionerId,
   getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
   getSecret,
+  getVisitStatusHistory,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
   isInPersonAppointment,
   isTelemedAppointment,
   OTTEHR_MODULE,
+  PRIVATE_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -32,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.group('validateRequestParameters');
     validatedParameters = validateRequestParameters(input);
-    const { dateRange, encounterStatus = 'incomplete', secrets } = validatedParameters;
+    const { dateRange, encounterStatus = 'incomplete', includeEmCodes = false, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -208,6 +211,53 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log(`Found ${filteredEncounters.length} ${encounterStatus} encounters`);
 
+    // Fetch E&M codes via a separate Procedure search by tag
+    const emCodeMap = new Map<string, string>(); // encounterId -> E&M code
+    if (includeEmCodes && filteredEncounters.length > 0) {
+      const emCodeTagValue = `${PRIVATE_EXTENSION_BASE_URL}/em-code|em-code`;
+      const filteredEncounterIds = new Set(filteredEncounters.map((e) => e.id).filter(Boolean));
+
+      // Search all Procedures with the em-code tag, paginated
+      let procOffset = 0;
+      const procPageSize = 1000;
+      let totalProcedures = 0;
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const procedureBundle = await oystehr.fhir.search<Procedure>({
+          resourceType: 'Procedure',
+          params: [
+            { name: '_tag', value: emCodeTagValue },
+            { name: '_count', value: procPageSize.toString() },
+            { name: '_offset', value: procOffset.toString() },
+          ],
+        });
+
+        const procedures = procedureBundle.unbundle();
+        totalProcedures += procedures.length;
+
+        for (const procedure of procedures) {
+          const encounterRef = procedure.encounter?.reference;
+          const encounterId = encounterRef?.replace('Encounter/', '');
+          const code = procedure.code?.coding?.[0]?.code;
+          // Only include if this encounter is in our filtered set
+          if (encounterId && code && filteredEncounterIds.has(encounterId)) {
+            emCodeMap.set(encounterId, code);
+          }
+        }
+
+        // Check for more pages
+        if (procedures.length < procPageSize || !procedureBundle.link?.find((l) => l.relation === 'next')) {
+          break;
+        }
+        procOffset += procPageSize;
+      }
+
+      console.log(
+        `Searched ${totalProcedures} em-code Procedures, matched ${emCodeMap.size} to ${filteredEncounters.length} filtered encounters`
+      );
+    }
+
     // Build the response data
     const encounterItems = filteredEncounters.map((encounter) => {
       const appointmentRef = encounter.appointment?.[0]?.reference;
@@ -251,6 +301,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         attendingProvider: attendingProviderName,
         visitType,
         reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
+        ...(includeEmCodes && encounter.id ? { emCode: emCodeMap.get(encounter.id) } : {}),
+        ...(includeEmCodes ? { providerToDischargedMinutes: getProviderToDischargedDuration(encounter) } : {}),
       };
     });
 
@@ -268,3 +320,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
+
+function getProviderToDischargedDuration(encounter: Encounter): number | null {
+  const statusHistory = getVisitStatusHistory(encounter);
+
+  const providerEntry = statusHistory.findLast((entry) => entry.status === 'provider');
+  if (!providerEntry?.period.start) return null;
+
+  const dischargedEntry = statusHistory.findLast((entry) => entry.status === 'discharged');
+  if (!dischargedEntry?.period.start) return null;
+
+  return DateTime.fromISO(dischargedEntry.period.start).diff(DateTime.fromISO(providerEntry.period.start), 'minutes')
+    .minutes;
+}

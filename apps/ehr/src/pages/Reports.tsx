@@ -2,6 +2,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import CodeIcon from '@mui/icons-material/Code';
 import InsightsIcon from '@mui/icons-material/Insights';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -99,6 +100,12 @@ export default function Reports(): React.ReactElement {
       description: 'View encounters that have been completed',
       icon: <AssignmentTurnedInIcon />,
       path: '/reports/complete-encounters',
+    },
+    {
+      title: 'Provider KPIs',
+      description: 'View E&M coding distribution and average coding level by attending provider',
+      icon: <CodeIcon />,
+      path: '/reports/provider-kpis',
     },
     {
       title: 'AI-Assisted Encounters',
