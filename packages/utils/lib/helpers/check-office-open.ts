@@ -37,12 +37,7 @@ export function getOpeningTime(
   if (!currentHoursOfOperation.workingDay) {
     return undefined;
   }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.open });
-  return dt.set({
-    year: currentDate.year,
-    month: currentDate.month,
-    day: currentDate.day,
-  });
+  return currentDate.setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.open });
 }
 
 export function getClosingTime(
@@ -65,12 +60,10 @@ export function getClosingTime(
   if (!currentHoursOfOperation.workingDay) {
     return undefined;
   }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.close });
-  const formattedClosingTime = dt.set({
-    year: currentDate.year,
-    month: currentDate.month,
-    day: currentDate.day,
-  });
+  const formattedClosingTime = currentDate
+    .setZone(timezone)
+    .startOf('day')
+    .plus({ hours: currentHoursOfOperation.close });
   // if time is midnight, add 1 day to closing time
   if (
     formattedClosingTime !== undefined &&

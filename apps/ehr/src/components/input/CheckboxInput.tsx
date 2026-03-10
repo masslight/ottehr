@@ -9,9 +9,10 @@ type Props = {
   required?: boolean;
   validate?: (value: string) => boolean | string;
   dataTestId?: string;
+  disabled?: boolean;
 };
 
-export const CheckboxInput: React.FC<Props> = ({ name, label, required, validate, dataTestId }) => {
+export const CheckboxInput: React.FC<Props> = ({ name, label, required, validate, dataTestId, disabled }) => {
   const { control } = useFormContext();
   return (
     <Controller
@@ -25,6 +26,7 @@ export const CheckboxInput: React.FC<Props> = ({ name, label, required, validate
               checked={field.value}
               onChange={(event) => field.onChange(event.target.checked)}
               data-testid={dataTestId}
+              disabled={disabled}
             />
             <Typography>{label}</Typography>
           </Stack>
