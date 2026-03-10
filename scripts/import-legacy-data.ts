@@ -8,10 +8,10 @@
  *
  * Usage:
  *   npx env-cmd -f packages/zambdas/.env/{ENV}.json \
- *   npx tsx local/core/scripts/import-legacy-data.ts [--dry-run] [--data-dir <path>]
+ *   npx tsx scripts/import-legacy-data.ts [--dry-run] [--data-dir <path>]
  *
  * Example:
- *   npx env-cmd -f packages/zambdas/.env/local.json tsx local/core/scripts/import-legacy-data.ts --dry-run
+ *   npx env-cmd -f packages/zambdas/.env/local.json tsx scripts/import-legacy-data.ts --dry-run
  *
  * The env file must contain: AUTH0_CLIENT, AUTH0_SECRET, AUTH0_ENDPOINT, AUTH0_AUDIENCE,
  * PROJECT_ID, PROJECT_API. The zambdas .env files already include all of these.
@@ -38,7 +38,7 @@ const args = process.argv.slice(2);
 const isDryRun = args.includes('--dry-run');
 
 const dataDirFlagIdx = args.indexOf('--data-dir');
-const defaultDataDir = join(__dirname, '..', 'sample-legacy-export', 'Patient_Export');
+const defaultDataDir = join(__dirname, 'data', 'sample-legacy-data', 'Patient_Export');
 const dataDir = dataDirFlagIdx !== -1 && args[dataDirFlagIdx + 1] ? args[dataDirFlagIdx + 1] : defaultDataDir;
 
 // ── Environment validation ────────────────────────────────────────────────────

@@ -1558,6 +1558,9 @@ export interface SearchLegacyRecordsInput {
   lastName: string;
   firstName?: string;
   dateOfBirth?: string;
+  page?: number;
+  pageSize?: number;
+  maxFilesPerRecord?: number;
 }
 
 export interface LegacyFile {
@@ -1576,6 +1579,9 @@ export interface LegacyPatientRecord {
 
 export interface SearchLegacyRecordsOutput {
   results: LegacyPatientRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export const searchLegacyRecords = async (

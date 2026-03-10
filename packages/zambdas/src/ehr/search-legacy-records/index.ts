@@ -11,12 +11,24 @@ import {
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
 
+const PAGE_SIZE_DEFAULT = 20;
+const PAGE_SIZE_MAX = 50;
+const MAX_FILES_PER_RECORD_DEFAULT = 50;
+const MAX_FILES_PER_RECORD_MAX = 200;
+const PRESIGNED_URL_CONCURRENCY = 10;
+
 let m2mToken: string;
 
 export interface SearchLegacyRecordsInput {
   lastName: string;
   firstName?: string;
   dateOfBirth?: string;
+  /** 1-based page index (default: 1) */
+  page?: number;
+  /** Patient folders per page (default: 20, max: 50) */
+  pageSize?: number;
+  /** Max files returned per patient record (default: 50, max: 200) */
+  maxFilesPerRecord?: number;
 }
 
 export interface LegacyFile {
@@ -35,11 +47,16 @@ export interface LegacyPatientRecord {
 
 export interface SearchLegacyRecordsOutput {
   results: LegacyPatientRecord[];
+  /** Total number of matching patient folders (for pagination) */
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { secrets, lastName, firstName, dateOfBirth } = validateRequestParameters(input);
+    const { secrets, lastName, firstName, dateOfBirth, page, pageSize, maxFilesPerRecord } =
+      validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -68,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!objects || objects.length === 0) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ results: [] } satisfies SearchLegacyRecordsOutput),
+        body: JSON.stringify({ results: [], total: 0, page, pageSize } satisfies SearchLegacyRecordsOutput),
       };
     }
 
@@ -91,8 +108,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (segments[segments.length - 1] === '') continue;
 
       const patientFolder = segments[0];
-      // In the nested structure segment[1] is the patientId (a numeric-looking string),
-      // not a filename. In the flat structure it is the filename itself.
       const isNested = segments.length > 2;
       const patientId = isNested ? segments[1] : '';
 
@@ -102,53 +117,51 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       byFolder[patientFolder].keys.push(objectPath);
     }
 
-    // Build result with presigned download URLs
-    const results: LegacyPatientRecord[] = await Promise.all(
-      Object.entries(byFolder).map(async ([patientFolder, { patientId, keys }]) => {
-        const folderParts = patientFolder.split('_');
-        // folder format: lastName_firstName_dob
-        const displayLastName = folderParts[0] ? capitalize(folderParts[0]) : '';
-        const displayFirstName = folderParts[1] ? capitalize(folderParts[1]) : '';
-        const displayDob = folderParts.slice(2).join('-');
-        const displayName = `${displayLastName}, ${displayFirstName}${displayDob ? ` (DOB: ${displayDob})` : ''}`;
+    // Paginate patient folders
+    const allFolderEntries = Object.entries(byFolder);
+    const total = allFolderEntries.length;
+    const offset = (page - 1) * pageSize;
+    const pageFolderEntries = allFolderEntries.slice(offset, offset + pageSize);
 
-        const files: LegacyFile[] = await Promise.all(
-          keys.map(async (key) => {
+    // Build results for this page, generating presigned URLs in bounded batches
+    const results: LegacyPatientRecord[] = [];
+    for (const [patientFolder, { patientId, keys }] of pageFolderEntries) {
+      const folderParts = patientFolder.split('_');
+      const displayLastName = folderParts[0] ? capitalize(folderParts[0]) : '';
+      const displayFirstName = folderParts[1] ? capitalize(folderParts[1]) : '';
+      const displayDob = folderParts.slice(2).join('-');
+      const displayName = `${displayLastName}, ${displayFirstName}${displayDob ? ` (DOB: ${displayDob})` : ''}`;
+
+      const cappedKeys = keys.slice(0, maxFilesPerRecord);
+      const files: LegacyFile[] = [];
+      for (let i = 0; i < cappedKeys.length; i += PRESIGNED_URL_CONCURRENCY) {
+        const batch = cappedKeys.slice(i, i + PRESIGNED_URL_CONCURRENCY);
+        const batchResults = await Promise.all(
+          batch.map(async (key) => {
             const fileName = key.split('/').pop() ?? key;
             const lowerKey = key.toLowerCase();
             const fileType: LegacyFile['fileType'] = lowerKey.includes('medical_summary')
               ? 'medical-summary'
-              : lowerKey.includes('progressnotes') || lowerKey.includes('enc')
+              : lowerKey.includes('progressnotes') || lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')
               ? 'progress-note'
               : 'other';
-
             const presignedResponse = await oystehr.z3.getPresignedUrl({
               action: 'download',
               bucketName,
               'objectPath+': key,
             });
-
-            return {
-              key,
-              fileName,
-              fileType,
-              presignedUrl: presignedResponse.signedUrl,
-            };
+            return { key, fileName, fileType, presignedUrl: presignedResponse.signedUrl };
           })
         );
+        files.push(...batchResults);
+      }
 
-        return {
-          patientFolder,
-          patientId,
-          displayName,
-          files,
-        };
-      })
-    );
+      results.push({ patientFolder, patientId, displayName, files });
+    }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ results } satisfies SearchLegacyRecordsOutput),
+      body: JSON.stringify({ results, total, page, pageSize } satisfies SearchLegacyRecordsOutput),
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
@@ -167,6 +180,9 @@ interface ValidatedParameters {
   lastName: string;
   firstName?: string;
   dateOfBirth?: string;
+  page: number;
+  pageSize: number;
+  maxFilesPerRecord: number;
 }
 
 function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
@@ -181,16 +197,36 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     throw new Error('Invalid JSON body');
   }
 
-  const { lastName, firstName, dateOfBirth } = body;
+  const {
+    lastName,
+    firstName,
+    dateOfBirth,
+    page: rawPage,
+    pageSize: rawPageSize,
+    maxFilesPerRecord: rawMaxFiles,
+  } = body;
 
   if (!lastName?.trim()) {
     throw MISSING_REQUIRED_PARAMETERS(['lastName']);
   }
+
+  const page = Math.max(1, typeof rawPage === 'number' ? Math.floor(rawPage) : 1);
+  const pageSize = Math.min(
+    PAGE_SIZE_MAX,
+    Math.max(1, typeof rawPageSize === 'number' ? Math.floor(rawPageSize) : PAGE_SIZE_DEFAULT)
+  );
+  const maxFilesPerRecord = Math.min(
+    MAX_FILES_PER_RECORD_MAX,
+    Math.max(1, typeof rawMaxFiles === 'number' ? Math.floor(rawMaxFiles) : MAX_FILES_PER_RECORD_DEFAULT)
+  );
 
   return {
     secrets: input.secrets,
     lastName,
     firstName,
     dateOfBirth,
+    page,
+    pageSize,
+    maxFilesPerRecord,
   };
 }

@@ -12,6 +12,8 @@ export * from './sendgrid';
 export * from './texting';
 export * from './value-sets';
 export * from './vitals';
+export * from './provider';
+export * from './prompts';
 
 // Export intake paperwork overrides with unique names to avoid conflicts
 export { INTAKE_PAPERWORK_CONFIG as INTAKE_PAPERWORK_OVERRIDES } from './intake-paperwork';

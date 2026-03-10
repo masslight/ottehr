@@ -15,13 +15,16 @@ export default function LegacyDataPage(): ReactElement {
   const [dateOfBirth, setDateOfBirth] = useState(searchParams.get('dob') ?? '');
   const [lastNameError, setLastNameError] = useState('');
 
-  const searchMutation = useMutation<SearchLegacyRecordsOutput, Error, void>({
-    mutationFn: async () => {
+  const [page, setPage] = useState(1);
+
+  const searchMutation = useMutation<SearchLegacyRecordsOutput, Error, number>({
+    mutationFn: async (requestedPage: number) => {
       if (!oystehrZambda) throw new Error('Oystehr client not available');
       return searchLegacyRecords(oystehrZambda, {
         lastName,
         firstName: firstName || undefined,
         dateOfBirth: dateOfBirth || undefined,
+        page: requestedPage,
       });
     },
   });
@@ -29,7 +32,7 @@ export default function LegacyDataPage(): ReactElement {
   // Auto-fire search if lastName param is present on mount
   useEffect(() => {
     if (searchParams.get('lastName')) {
-      searchMutation.mutate();
+      searchMutation.mutate(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -40,7 +43,8 @@ export default function LegacyDataPage(): ReactElement {
       return;
     }
     setLastNameError('');
-    searchMutation.mutate();
+    setPage(1);
+    searchMutation.mutate(1);
   };
 
   const fileTypeLabel = (fileType: LegacyPatientRecord['files'][number]['fileType']): string => {
@@ -49,18 +53,16 @@ export default function LegacyDataPage(): ReactElement {
     return 'Other';
   };
 
-  const fileTypeColor = (
-    fileType: LegacyPatientRecord['files'][number]['fileType']
-  ): 'primary' | 'secondary' | 'default' => {
-    if (fileType === 'medical-summary') return 'primary';
-    if (fileType === 'progress-note') return 'secondary';
-    return 'default';
+  const fileTypeColor = (fileType: LegacyPatientRecord['files'][number]['fileType']): { bg: string; text: string } => {
+    if (fileType === 'medical-summary') return { bg: '#B2EBF2', text: '#006064' };
+    if (fileType === 'progress-note') return { bg: '#C8E6C9', text: '#1B5E20' };
+    return { bg: '#E6E8EE', text: '#616161' };
   };
 
   return (
     <PageContainer>
       <Box sx={{ p: 3 }}>
-        <Typography variant="h4" sx={{ mb: 3 }}>
+        <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
           Legacy Data
         </Typography>
 
@@ -117,7 +119,7 @@ export default function LegacyDataPage(): ReactElement {
                 variant="contained"
                 onClick={handleSearch}
                 disabled={searchMutation.isPending}
-                sx={{ mt: 0.25 }}
+                sx={{ mt: 0.25, borderRadius: '20px', textTransform: 'none' }}
                 fullWidth
               >
                 Search
@@ -147,10 +149,46 @@ export default function LegacyDataPage(): ReactElement {
               <Typography color="text.secondary">No legacy records found.</Typography>
             ) : (
               <>
-                <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                  Found {searchMutation.data.results.length} patient record
-                  {searchMutation.data.results.length !== 1 ? 's' : ''}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="subtitle1">
+                    {searchMutation.data.total} patient record{searchMutation.data.total !== 1 ? 's' : ''} found
+                    {searchMutation.data.total > searchMutation.data.pageSize &&
+                      ` — page ${searchMutation.data.page} of ${Math.ceil(
+                        searchMutation.data.total / searchMutation.data.pageSize
+                      )}`}
+                  </Typography>
+                  {searchMutation.data.total > searchMutation.data.pageSize && (
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={page <= 1 || searchMutation.isPending}
+                        onClick={() => {
+                          const prev = page - 1;
+                          setPage(prev);
+                          searchMutation.mutate(prev);
+                        }}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={
+                          page >= Math.ceil(searchMutation.data.total / searchMutation.data.pageSize) ||
+                          searchMutation.isPending
+                        }
+                        onClick={() => {
+                          const next = page + 1;
+                          setPage(next);
+                          searchMutation.mutate(next);
+                        }}
+                      >
+                        Next
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
                 {searchMutation.data.results.map((record) => (
                   <Paper key={record.patientFolder} sx={{ p: 3, mb: 2 }}>
                     <Typography variant="h6" sx={{ mb: 1 }}>
@@ -175,9 +213,15 @@ export default function LegacyDataPage(): ReactElement {
                           >
                             <Chip
                               label={fileTypeLabel(file.fileType)}
-                              color={fileTypeColor(file.fileType)}
                               size="small"
-                              sx={{ flexShrink: 0 }}
+                              sx={{
+                                flexShrink: 0,
+                                backgroundColor: fileTypeColor(file.fileType).bg,
+                                color: fileTypeColor(file.fileType).text,
+                                fontWeight: 500,
+                                borderRadius: '4px',
+                                border: 'none',
+                              }}
                             />
                             <Link
                               href={file.presignedUrl}
