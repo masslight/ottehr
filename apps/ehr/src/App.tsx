@@ -41,6 +41,7 @@ import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
+  CompleteEncounters,
   DailyPayments,
   DataExports,
   IncompleteEncounters,
@@ -190,6 +191,7 @@ function App(): ReactElement {
                   <Route path="/tasks-observability" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
+                  <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
                   <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
                   <Route path="/reports/practice-kpis" element={<PracticeKpis />} />

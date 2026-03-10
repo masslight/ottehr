@@ -1,6 +1,9 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
+  CPTCodeOption,
+  getAllCptCodesFromInHouseMedication,
+  getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
   getLocationCodeFromMedicationAdministration,
   getResourcesFromBatchInlineRequests,
@@ -13,7 +16,7 @@ import {
   searchRouteByCode,
   Secrets,
 } from 'utils';
-import { createOystehrClient, ZambdaInput } from '../../shared';
+import { createOystehrClient } from '../../shared';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -42,8 +45,7 @@ export function createMedicationCopy(
   return resourceCopy;
 }
 
-export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets: Secrets | null): Promise<string> {
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
+export async function practitionerIdFromZambdaInput(userToken: string, secrets: Secrets | null): Promise<string> {
   const oystehr = createOystehrClient(userToken, secrets);
   const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
   if (!myPractitionerId) throw new Error('No practitioner id was found for token provided');
@@ -114,4 +116,58 @@ export function updateMedicationAdministrationData(data: {
   });
   newMA.id = orderResources.medicationAdministration.id;
   return newMA;
+}
+
+/*
+ * This function is filtering all CPT and HCPCS codes from in-house medication
+ * and comparing it with billing codes from chart data.
+ * If there are codes that are not in chart data, it returns code options ready to be saved in chart-data.
+ * **/
+export async function getCptHcpcsCodesToAddToChartData(
+  oystehr: Oystehr,
+  medication: Medication,
+  chartDataCptCodes: string[]
+): Promise<CPTCodeOption[]> {
+  const cptMedicationCodes = getAllCptCodesFromInHouseMedication(medication);
+  const hcpcsMedicationCodes = getAllHcpcsCodesFromInHouseMedication(medication);
+
+  const filteredCptCodesToAdd = new Set(
+    cptMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd))
+  );
+  const filteredHcpcsCodesToAdd = new Set(
+    hcpcsMedicationCodes?.filter((codeToAdd) => !chartDataCptCodes?.includes(codeToAdd))
+  );
+
+  const cptTerminologyPromises: Promise<TerminologySearchCptResponse>[] = [];
+  const hcpcsTerminologyPromises: Promise<TerminologySearchHcpcsResponse>[] = [];
+  filteredCptCodesToAdd?.forEach((codeToAdd) => {
+    cptTerminologyPromises.push(
+      oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: codeToAdd })
+    );
+  });
+  filteredHcpcsCodesToAdd?.forEach((codeToAdd) => {
+    hcpcsTerminologyPromises.push(
+      oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: codeToAdd })
+    );
+  });
+  const cptTerminologyCodes = (await Promise.all(cptTerminologyPromises)).flatMap((terminology) => terminology.codes);
+  const hcpcsTerminologyCodes = (await Promise.all(hcpcsTerminologyPromises)).flatMap(
+    (terminology) => terminology.codes
+  );
+  const terminologyCodesMerged = [...cptTerminologyCodes, ...hcpcsTerminologyCodes];
+
+  const codesOptionsToAdd: CPTCodeOption[] = [];
+
+  [...filteredCptCodesToAdd, ...filteredHcpcsCodesToAdd].forEach((codeToAdd) => {
+    const terminologyResponse = terminologyCodesMerged.find((terminology) => terminology.code === codeToAdd);
+    if (terminologyResponse) codesOptionsToAdd.push({ code: codeToAdd, display: terminologyResponse.display });
+  });
+
+  return codesOptionsToAdd;
+}
+
+export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {
+  const maContext = medicationAdministration.context?.reference;
+  if (maContext?.includes('Encounter/')) return maContext?.replace('Encounter/', '');
+  return undefined;
 }
