@@ -62,10 +62,8 @@ export default function EmployeeProfilePage(): JSX.Element {
     setTaskNotificationsEnabled(notificationSettings.taskNotificationsEnabled);
     setTelemedNotificationsEnabled(notificationSettings.telemedNotificationsEnabled);
     setNotificationMethod(notificationSettings.method ?? ProviderNotificationMethod['phone and computer']);
-    if (notificationSettings.phoneNumber) {
-      setPhoneNumber(notificationSettings.phoneNumber.split('+1')[1]);
-      setIsPhoneInitialized(true);
-    }
+    setPhoneNumber(notificationSettings.phoneNumber?.split('+1')[1] ?? '');
+    setIsPhoneInitialized(true);
   }, [notificationSettings]);
 
   async function handleApplyNotifications(): Promise<void> {
