@@ -30,6 +30,7 @@ import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
+import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
 import Logout from './pages/Logout';
@@ -215,6 +216,7 @@ function App(): ReactElement {
                   <Route path="/employees" element={<EmployeesPage />} />
                   <Route path="/employees/add" element={<AddEmployeePage />} />
                   <Route path="/employee/:id" element={<EditEmployeePage />} />
+                  <Route path="/profile" element={<EmployeeProfilePage />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
@@ -254,6 +256,7 @@ function App(): ReactElement {
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
+                  <Route path="/profile" element={<EmployeeProfilePage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />

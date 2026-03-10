@@ -125,6 +125,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
         });
       }
 
+      const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
       return {
         id: employee.id,
         profile: employee.profile,
@@ -139,7 +140,8 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
         phoneNumber: phone ? standardizePhoneNumber(phone)! : '',
         licenses: licenses,
         seenPatientRecently: recentlyActivePractitioners.includes(employee.profile),
-        gettingAlerts: getProviderNotificationSettingsForPractitioner(practitioner)?.enabled || false,
+        gettingAlerts:
+          notificationSettings?.taskNotificationsEnabled || notificationSettings?.telemedNotificationsEnabled || false,
       };
     });
 
