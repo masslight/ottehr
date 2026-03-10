@@ -1,5 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Box,
@@ -17,7 +17,10 @@ import {
 } from '@mui/material';
 import {
   DataGridPro,
+  GridCellParams,
   GridColDef,
+  GridFilterItem,
+  GridFilterOperator,
   GridRenderCellParams,
   GridToolbarContainer,
   GridToolbarExport,
@@ -32,7 +35,7 @@ import { getEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
-interface IncompleteEncounterRow {
+interface CompleteEncounterRow {
   id: string;
   appointmentId: string;
   patientId: string;
@@ -57,6 +60,118 @@ type DateRangeFilter =
   | 'custom'
   | 'customRange';
 
+function SingleDateFilterInput({
+  item,
+  applyValue,
+}: {
+  item: GridFilterItem;
+  applyValue: (value: GridFilterItem) => void;
+}): React.ReactElement {
+  return (
+    <TextField
+      type="date"
+      size="small"
+      label="Value"
+      value={item.value ?? ''}
+      onChange={(e) => applyValue({ ...item, value: e.target.value })}
+      InputLabelProps={{ shrink: true }}
+      sx={{ mt: 1 }}
+    />
+  );
+}
+
+function DateRangeFilterInput({
+  item,
+  applyValue,
+}: {
+  item: GridFilterItem;
+  applyValue: (value: GridFilterItem) => void;
+}): React.ReactElement {
+  const [start, end] = Array.isArray(item.value) ? item.value : ['', ''];
+  return (
+    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+      <TextField
+        type="date"
+        size="small"
+        label="From"
+        value={start}
+        onChange={(e) => applyValue({ ...item, value: [e.target.value, end] })}
+        InputLabelProps={{ shrink: true }}
+      />
+      <TextField
+        type="date"
+        size="small"
+        label="To"
+        value={end}
+        onChange={(e) => applyValue({ ...item, value: [start, e.target.value] })}
+        InputLabelProps={{ shrink: true }}
+      />
+    </Box>
+  );
+}
+
+const appointmentDateFilterOperators: GridFilterOperator[] = [
+  {
+    label: 'is',
+    value: 'dateIs',
+    getApplyFilterFn: (filterItem: GridFilterItem) => {
+      if (!filterItem.value) return null;
+      return (params: GridCellParams) => {
+        const iso = params.value as string;
+        if (!iso) return false;
+        return DateTime.fromISO(iso).toFormat('yyyy-MM-dd') === filterItem.value;
+      };
+    },
+    InputComponent: SingleDateFilterInput,
+    getValueAsString: (value: string) => value,
+  },
+  {
+    label: 'is before',
+    value: 'dateBefore',
+    getApplyFilterFn: (filterItem: GridFilterItem) => {
+      if (!filterItem.value) return null;
+      return (params: GridCellParams) => {
+        const iso = params.value as string;
+        if (!iso) return false;
+        return DateTime.fromISO(iso) < DateTime.fromISO(filterItem.value).startOf('day');
+      };
+    },
+    InputComponent: SingleDateFilterInput,
+    getValueAsString: (value: string) => value,
+  },
+  {
+    label: 'is after',
+    value: 'dateAfter',
+    getApplyFilterFn: (filterItem: GridFilterItem) => {
+      if (!filterItem.value) return null;
+      return (params: GridCellParams) => {
+        const iso = params.value as string;
+        if (!iso) return false;
+        return DateTime.fromISO(iso) > DateTime.fromISO(filterItem.value).endOf('day');
+      };
+    },
+    InputComponent: SingleDateFilterInput,
+    getValueAsString: (value: string) => value,
+  },
+  {
+    label: 'is between',
+    value: 'dateBetween',
+    getApplyFilterFn: (filterItem: GridFilterItem) => {
+      const [start, end] = Array.isArray(filterItem.value) ? filterItem.value : [null, null];
+      if (!start || !end) return null;
+      return (params: GridCellParams) => {
+        const iso = params.value as string;
+        if (!iso) return false;
+        const cell = DateTime.fromISO(iso);
+        return cell >= DateTime.fromISO(start).startOf('day') && cell <= DateTime.fromISO(end).endOf('day');
+      };
+    },
+    InputComponent: DateRangeFilterInput,
+    getValueAsString: (value: [string, string]) =>
+      Array.isArray(value) ? `${value[0] ?? ''} – ${value[1] ?? ''}` : '',
+  },
+];
+
 const getStatusColor = (
   status: VisitStatusLabel
 ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -73,6 +188,7 @@ const getStatusColor = (
     case 'provider':
       return 'secondary';
     case 'discharged':
+    case 'completed':
       return 'success';
     case 'awaiting supervisor approval':
       return 'warning';
@@ -81,16 +197,16 @@ const getStatusColor = (
   }
 };
 
-const useIncompleteEncounters = (
+const useCompleteEncounters = (
   dateRange: DateRangeFilter,
   start: string,
   end: string
-): ReturnType<typeof useQuery<IncompleteEncounterRow[], Error>> => {
+): ReturnType<typeof useQuery<CompleteEncounterRow[], Error>> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['incomplete-encounters', dateRange, start, end],
-    queryFn: async (): Promise<IncompleteEncounterRow[]> => {
+    queryKey: ['complete-encounters', dateRange, start, end],
+    queryFn: async (): Promise<CompleteEncounterRow[]> => {
       if (!oystehrZambda) {
         throw new Error('Oystehr client not available');
       }
@@ -107,12 +223,13 @@ const useIncompleteEncounters = (
         console.log('Making single request for date range');
         const response = await getEncountersReport(oystehrZambda, {
           dateRange: { start, end },
+          encounterStatus: 'complete',
         });
 
         // Transform the response to match our display requirements
-        const processedEncounters: IncompleteEncounterRow[] = response.encounters.map((encounter) => {
+        const processedEncounters: CompleteEncounterRow[] = response.encounters.map((encounter) => {
           const appointmentTime = encounter.appointmentStart
-            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy hh:mm a')
             : 'Unknown';
 
           return {
@@ -148,6 +265,7 @@ const useIncompleteEncounters = (
         console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
         const response = await getEncountersReport(oystehrZambda, {
           dateRange: batch,
+          encounterStatus: 'complete',
         });
         console.log(`Batch ${index + 1} returned ${response.encounters.length} encounters`);
         return response.encounters;
@@ -161,9 +279,9 @@ const useIncompleteEncounters = (
       console.log(`Total encounters across all batches: ${allEncounters.length}`);
 
       // Transform the combined response to match our display requirements
-      const processedEncounters: IncompleteEncounterRow[] = allEncounters.map((encounter) => {
+      const processedEncounters: CompleteEncounterRow[] = allEncounters.map((encounter) => {
         const appointmentTime = encounter.appointmentStart
-          ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+          ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy hh:mm a')
           : 'Unknown';
 
         return {
@@ -198,7 +316,7 @@ const useIncompleteEncounters = (
   });
 };
 
-export default function IncompleteEncounters(): React.ReactElement {
+export default function CompleteEncounters(): React.ReactElement {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
@@ -269,7 +387,7 @@ export default function IncompleteEncounters(): React.ReactElement {
   );
 
   const { start, end } = getDateRange(dateRange);
-  const { data: encounters = [], isLoading, error, refetch } = useIncompleteEncounters(dateRange, start, end);
+  const { data: encounters = [], isLoading, error, refetch } = useCompleteEncounters(dateRange, start, end);
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -295,11 +413,11 @@ export default function IncompleteEncounters(): React.ReactElement {
     void refetch();
   };
 
-  // Custom toolbar component with export functionality
+  // Custom toolbar component with export and filter functionality
   const CustomToolbar = (): React.ReactElement => {
     return (
       <GridToolbarContainer>
-        <GridToolbarExport csvOptions={{ fileName: 'incomplete-encounters-report' }} />
+        <GridToolbarExport csvOptions={{ fileName: 'complete-encounters-report' }} />
       </GridToolbarContainer>
     );
   };
@@ -351,17 +469,20 @@ export default function IncompleteEncounters(): React.ReactElement {
         ),
       },
       {
-        field: 'appointmentTime',
+        field: 'appointmentStart',
         headerName: 'Appointment Time',
         width: 180,
         sortable: true,
+        filterOperators: appointmentDateFilterOperators,
         renderCell: (params: GridRenderCellParams) => {
           const visitType = params.row.visitType;
           const locationId = params.row.locationId;
-          const appointmentTime = params.value;
+          const appointmentTime = params.value
+            ? DateTime.fromISO(params.value as string).toFormat('MM/dd/yyyy hh:mm a')
+            : 'Unknown';
 
           // Extract date from appointment start for the search date parameter
-          const appointmentStart = params.row.appointmentStart;
+          const appointmentStart = params.value as string;
           const searchDate = appointmentStart
             ? DateTime.fromISO(appointmentStart).toFormat('yyyy-MM-dd')
             : DateTime.now().toFormat('yyyy-MM-dd');
@@ -448,17 +569,16 @@ export default function IncompleteEncounters(): React.ReactElement {
             <ArrowBackIcon />
           </IconButton>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <AssignmentLateIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <AssignmentTurnedInIcon sx={{ fontSize: 32, color: 'primary.main' }} />
             <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
-              Incomplete Encounters
+              Complete Encounters
             </Typography>
           </Box>
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          This report shows encounters that are not in a terminal state (completed, cancelled, or no show). Click an
-          appointment ID to navigate to the specific appointment chart. Click an appointment time to navigate to the
-          appropriate tracking board.
+          This report shows encounters that have been completed. Click an appointment ID to navigate to the specific
+          appointment chart. Click an appointment time to navigate to the appropriate tracking board.
         </Typography>
 
         {/* Date Filter */}
@@ -532,7 +652,7 @@ export default function IncompleteEncounters(): React.ReactElement {
                 paginationModel: { pageSize: 25 },
               },
               sorting: {
-                sortModel: [{ field: 'appointmentTime', sort: 'desc' }],
+                sortModel: [{ field: 'appointmentStart', sort: 'desc' }],
               },
             }}
             pageSizeOptions={[10, 25, 50, 100]}
@@ -563,10 +683,10 @@ export default function IncompleteEncounters(): React.ReactElement {
         {!isLoading && encounters.length === 0 && !error && (
           <Box sx={{ mt: 2, p: 4, textAlign: 'center' }}>
             <Typography variant="h6" color="text.secondary">
-              No incomplete encounters found for the selected date range
+              No complete encounters found for the selected date range
             </Typography>
             <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
-              Try selecting a different date range or check if there are any active encounters
+              Try selecting a different date range or check if there are any completed encounters
             </Typography>
           </Box>
         )}
