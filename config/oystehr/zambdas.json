@@ -36,13 +36,6 @@
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
     },
-    "COMPLETE-ENCOUNTERS-REPORT": {
-      "name": "complete-encounters-report",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/complete-encounters-report/index",
-      "zip": ".dist/zips/complete-encounters-report.zip"
-    },
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
       "type": "http_auth",

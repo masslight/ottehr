@@ -31,7 +31,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
-import { getCompleteEncountersReport } from '../../api/api';
+import { getEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
@@ -221,8 +221,9 @@ const useCompleteEncounters = (
       // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
       if (daysDifference <= DEFAULT_BATCH_DAYS) {
         console.log('Making single request for date range');
-        const response = await getCompleteEncountersReport(oystehrZambda, {
+        const response = await getEncountersReport(oystehrZambda, {
           dateRange: { start, end },
+          encounterStatus: 'complete',
         });
 
         // Transform the response to match our display requirements
@@ -262,8 +263,9 @@ const useCompleteEncounters = (
       // Fetch data for each batch in parallel
       const batchPromises = batches.map(async (batch, index) => {
         console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
-        const response = await getCompleteEncountersReport(oystehrZambda, {
+        const response = await getEncountersReport(oystehrZambda, {
           dateRange: batch,
+          encounterStatus: 'complete',
         });
         console.log(`Batch ${index + 1} returned ${response.encounters.length} encounters`);
         return response.encounters;
