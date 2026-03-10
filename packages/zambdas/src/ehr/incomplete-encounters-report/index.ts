@@ -221,9 +221,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       let procOffset = 0;
       const procPageSize = 1000;
       let totalProcedures = 0;
+      let procPageCount = 0;
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
+        procPageCount++;
         const procedureBundle = await oystehr.fhir.search<Procedure>({
           resourceType: 'Procedure',
           params: [
@@ -248,6 +250,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
         // Check for more pages
         if (procedures.length < procPageSize || !procedureBundle.link?.find((l) => l.relation === 'next')) {
+          break;
+        }
+
+        // Safety check to prevent infinite loops
+        if (procPageCount >= 100) {
+          console.warn('Reached maximum Procedure pagination limit (100 pages). Stopping search.');
           break;
         }
         procOffset += procPageSize;
@@ -330,6 +338,11 @@ function getProviderToDischargedDuration(encounter: Encounter): number | null {
   const dischargedEntry = statusHistory.findLast((entry) => entry.status === 'discharged');
   if (!dischargedEntry?.period.start) return null;
 
-  return DateTime.fromISO(dischargedEntry.period.start).diff(DateTime.fromISO(providerEntry.period.start), 'minutes')
-    .minutes;
+  const providerDateTime = DateTime.fromISO(providerEntry.period.start);
+  const dischargedDateTime = DateTime.fromISO(dischargedEntry.period.start);
+
+  // Guard against invalid data where discharged occurs before provider
+  if (dischargedDateTime < providerDateTime) return null;
+
+  return dischargedDateTime.diff(providerDateTime, 'minutes').minutes;
 }
