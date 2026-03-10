@@ -315,7 +315,7 @@ export class InsuranceCard {
   async verifyValidationErrorZipFieldFromInsurance(): Promise<void> {
     const inputLocator = this.inputByName(this.#insuranceItems.zip.key);
     const formControlLocator = inputLocator.locator('xpath=ancestor::div[contains(@class, "MuiFormControl")]');
-    await expect(formControlLocator.locator('p:text("Must be 5 digits")')).toBeVisible();
+    await expect(formControlLocator.locator('p:text("Must be 5 or 9 digits")')).toBeVisible();
   }
 
   async selectInsuranceType(type: string): Promise<void> {
