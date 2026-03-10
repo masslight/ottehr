@@ -14,7 +14,6 @@ import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
-import DateSearch from 'src/components/DateSearch';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AddVisitErrorState, AddVisitFormState, AddVisitPatientInfo } from 'src/pages/AddPatient';
@@ -22,7 +21,7 @@ import { getFirstName, getLastName, getMiddleName, PersonSex } from 'utils';
 import { AddVisitPatientSearchDialog } from './AddVisitPatientSearchDialog';
 import { AddVisitPatientSearchFields } from './AddVisitPatientSearchFields';
 
-const defaultSearchFilters = { givenNames: '', lastName: '', phone: '' };
+const defaultSearchFilters = { givenNames: '', lastName: '', phone: '', dateOfBirth: '' };
 const readOnlyTextFieldProps: TextFieldProps = {
   InputProps: {
     readOnly: true,
@@ -126,6 +125,12 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
         value: 'false',
       });
     }
+    if (searchFilters.dateOfBirth) {
+      params.push({
+        name: 'birthdate',
+        value: searchFilters.dateOfBirth,
+      });
+    }
     const resources = (
       await oystehr.fhir.search<Patient | Person | RelatedPerson>({
         resourceType: 'Patient',
@@ -171,7 +176,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
 
   // handlers
   const handlePatientSearch = async (): Promise<void> => {
-    if (!searchFilters.phone && !searchFilters.givenNames && !searchFilters.lastName) {
+    if (!searchFilters.phone && !searchFilters.givenNames && !searchFilters.lastName && !searchFilters.dateOfBirth) {
       setErrors({ searchEntry: true });
       return;
     } else {
@@ -246,7 +251,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
           <>
             <Grid item>
               <Typography variant="body1">
-                Please enter name or phone to search for existing patients before proceeding.
+                Please enter name, date of birth or phone to search for existing patients before proceeding.
               </Typography>
             </Grid>
             <Grid item>
@@ -278,6 +283,18 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                       }
                     },
                     dataTestId: dataTestIds.addPatientPage.mobilePhoneInput,
+                  }}
+                  dateOfBirth={{
+                    displayPlaceholder: false,
+                    required: false,
+                    value: '',
+                    birthDate,
+                    setBirthDate: (date) => {
+                      setBirthDate(date);
+                      setSearchField({ field: 'dateOfBirth', value: date?.toISODate() || '' });
+                    },
+                    setValidDate,
+                    readOnly: false,
                   }}
                 />
                 <Grid item xs={12} display="flex" justifyContent="flex-end">
@@ -323,16 +340,15 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                         error: !!errors.phone,
                         inputProps: readOnlyTextFieldProps.InputProps,
                       }}
+                      dateOfBirth={{
+                        displayPlaceholder: false,
+                        required: false,
+                        value: formattedDOB,
+                        additionalProps: readOnlyTextFieldProps,
+                        dataTestId: dataTestIds.addPatientPage.prefilledPatientBirthday,
+                        readOnly: true,
+                      }}
                     />
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Date of birth"
-                        value={formattedDOB}
-                        {...readOnlyTextFieldProps}
-                        data-testid={dataTestIds.addPatientPage.prefilledPatientBirthday}
-                      />
-                    </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
@@ -381,17 +397,16 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                           }
                         },
                       }}
+                      dateOfBirth={{
+                        displayPlaceholder: false,
+                        required: true,
+                        value: '',
+                        birthDate,
+                        setBirthDate,
+                        setValidDate,
+                        readOnly: false,
+                      }}
                     />
-                    <Grid item xs={12} sm={6}>
-                      <DateSearch
-                        date={birthDate}
-                        setDate={setBirthDate}
-                        defaultValue={null}
-                        label="Date of birth"
-                        required
-                        setIsValidDate={setValidDate}
-                      ></DateSearch>
-                    </Grid>
                     <Grid item xs={12} sm={6}>
                       <FormControl fullWidth>
                         <InputLabel id="sex-at-birth-label">Sex at birth *</InputLabel>
