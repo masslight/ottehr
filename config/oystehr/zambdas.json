@@ -1266,6 +1266,13 @@
       "src": "src/ehr/get-invoices-tasks/index",
       "zip": ".dist/zips/get-invoices-tasks.zip"
     },
+    "GET-STATEMENT-TEMPLATE": {
+      "name": "get-statement-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/get-template/index",
+      "zip": ".dist/zips/get-statement-template.zip"
+    },
     "SUB-REFRESH-INVOICE-TASK": {
       "name": "sub-refresh-invoice-task",
       "type": "subscription",

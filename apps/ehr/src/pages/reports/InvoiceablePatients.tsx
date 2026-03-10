@@ -23,7 +23,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { SendInvoiceToPatientDialog } from 'src/components/dialogs';
+import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
 import {
   chooseJson,
   formatDateConfigurable,
@@ -107,6 +107,7 @@ export default function InvoiceablePatients(): React.ReactElement {
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReportToSend, setSelectedReportToSend] = useState<InvoiceablePatientReport | undefined>();
+  const [selectedReportForStatement, setSelectedReportForStatement] = useState<InvoiceablePatientReport | undefined>();
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
   const pageSP = Number(searchParams.get('page') ?? '0');
@@ -422,6 +423,15 @@ export default function InvoiceablePatients(): React.ReactElement {
                         >
                           Invoice
                         </Button>
+                        <Button
+                          sx={{ ml: 1 }}
+                          variant="outlined"
+                          onClick={() => {
+                            setSelectedReportForStatement(report);
+                          }}
+                        >
+                          Statement
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -448,6 +458,17 @@ export default function InvoiceablePatients(): React.ReactElement {
           submitButtonName="Send Invoice"
           onSubmit={sendInvoice}
           report={selectedReportToSend}
+        />
+        <SendStatementToPatientDialog
+          modalOpen={selectedReportForStatement !== undefined}
+          handleClose={() => {
+            setSelectedReportForStatement(undefined);
+          }}
+          onSubmit={() => {
+            // TODO: implement send statement
+            setSelectedReportForStatement(undefined);
+          }}
+          report={selectedReportForStatement}
         />
       </Box>
     </PageContainer>

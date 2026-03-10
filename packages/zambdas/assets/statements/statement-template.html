@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Patient Statement — Ottehr</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:#1e2d4a; --blue:#2b5fa8; --ink:#1a1a2e; --mid:#4a5a72; --faint:#8a96a8;
+      --red:#c0392b; --white:#ffffff; --font:'Rubik',sans-serif;
+      --margin:24px; --addr-right:360px; --addr-bottom:269px; --page-w:816px;
+    }
+    @media print {
+      html,body{margin:0;padding:0;background:#fff;}
+      .page{box-shadow:none;margin:0;width:var(--page-w);max-width:var(--page-w);}
+      .addr-guide{display:none;}
+    }
+    body { background:#fff; font-family:var(--font); color:var(--ink); font-size:12px; line-height:1.4; padding:0; }
+    .page { background:var(--white); width:var(--page-w); max-width:var(--page-w); margin:0 auto; position:relative; min-height:1056px; }
+
+    /* address zone guide - screen only */
+    .addr-guide { position:absolute; top:19px; left:48px; width:312px; height:250px; z-index:20; pointer-events:none; }
+    .addr-guide-label { display:none; }
+
+    /* header: spacer = address zone col, clinic right-justified */
+    .header { display:flex; min-height:var(--addr-bottom); padding:var(--margin) var(--margin) 10px var(--margin); align-items:flex-start; }
+    .header-spacer { flex:0 0 var(--addr-right); }
+    .header-clinic { flex:1; padding-left:20px; display:flex; flex-direction:column; gap:7px; align-items:flex-end; text-align:right; }
+    .clinic-logo { min-height:44px; display:flex; justify-content:flex-end; }
+    .clinic-logo img { height:44px; width:auto; display:block; }
+    .clinic-contact { font-size:10.5px; color:var(--mid); line-height:1.6; }
+    .clinic-contact a { color:var(--blue); text-decoration:none; }
+
+    /* statement meta block — sits below the header, right-aligned */
+    .statement-meta-block { text-align:right; margin-top:8px; }
+    .statement-badge { font-size:15px; font-weight:700; color:var(--navy); letter-spacing:-.2px; }
+    .statement-sub   { font-size:10px; color:var(--faint); margin-top:2px; }
+    /* due date + amount due highlight */
+    .statement-due-row {
+      display:flex; justify-content:flex-end; align-items:baseline;
+      gap:24px; margin-top:6px;
+    }
+    .due-item { display:flex; flex-direction:column; align-items:flex-end; }
+    .due-label  { font-size:8px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--faint); margin-bottom:2px; }
+    .due-value  { font-size:12px; font-weight:600; color:var(--navy); }
+    .due-amount { font-size:18px; font-weight:700; color:var(--red); }
+
+    /* info row */
+    .info-row { display:flex; padding:14px var(--margin) 10px; gap:0; }
+    .info-col { flex:1; padding-right:18px; }
+    .info-col+.info-col { padding-left:18px; }
+    .info-col:last-child { padding-right:0; }
+    .col-label  { font-size:8.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--blue); margin-bottom:3px; }
+    .col-name   { font-size:12px; font-weight:600; color:var(--navy); margin-bottom:2px; }
+    .col-detail { font-size:10.5px; color:var(--mid); line-height:1.55; }
+
+    /* services */
+    .services-section { padding:8px var(--margin) 0; }
+    table.services { width:100%; border-collapse:collapse; }
+    table.services thead tr { border-top:1px solid var(--navy); border-bottom:1px solid var(--navy); }
+    table.services th { font-size:8px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--navy); padding:4px 5px; text-align:right; white-space:normal; line-height:1.3; }
+    table.services th:first-child, table.services th:nth-child(2) { text-align:left; }
+    table.services td { padding:5px 5px; font-size:11px; border-bottom:1px solid #eef1f6; text-align:right; color:var(--ink); }
+    table.services td:first-child { text-align:left; font-weight:600; color:var(--blue); font-size:10.5px; font-family:'Courier New',monospace; letter-spacing:.3px; }
+    table.services td:nth-child(2){ text-align:left; color:var(--mid); font-size:10.5px; }
+    table.services tbody tr:last-child td { border-bottom:none; }
+
+    /* balance line */
+    .balance-row { display:flex; justify-content:space-between; align-items:baseline; padding:6px var(--margin); border-top:1.5px solid var(--navy); }
+    .balance-inline { display:flex; gap:22px; align-items:baseline; font-size:10px; color:var(--mid); }
+    .balance-inline .val { font-weight:600; color:var(--ink); }
+    .balance-due-label  { font-size:13px; font-weight:700; color:var(--navy); }
+    .balance-due-amount { font-size:16px; font-weight:700; color:var(--navy); margin-left:6px; }
+    .past-due-badge     { display:none; background:#8b0000; color:#fff; font-size:16px; font-weight:900; letter-spacing:2px; text-transform:uppercase; padding:5px 14px; border-radius:3px; margin-left:14px; vertical-align:middle; }
+    .past-due-badge.final-notice { font-size:26px; letter-spacing:3px; padding:8px 20px; }
+
+    /* footer — pinned to bottom third (top: 728px = 704px zone + 24px margin) */
+    .page-footer {
+      position:absolute;
+      top:728px; left:var(--margin); right:var(--margin); bottom:var(--margin);
+      display:flex; flex-direction:column; justify-content:flex-end; gap:8px;
+    }
+    /* pay online strip */
+    .pay-online { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .pay-url-label { font-size:8px; font-weight:700; letter-spacing:.9px; text-transform:uppercase; color:var(--faint); margin-bottom:3px; }
+    .pay-url       { font-size:16px; font-weight:700; color:var(--blue); }
+    .pay-url-sub   { font-size:9.5px; color:var(--faint); margin-top:2px; }
+    .qr-block { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .qr-label { font-size:7.5px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--faint); }
+    .qr-box   { width:72px; height:72px; border:1.5px solid #e0e6f0; border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .qr-box canvas, .qr-box img { width:62px !important; height:62px !important; display:block; }
+    /* footer note */
+    .footer-note { font-size:9px; color:var(--faint); text-align:center; }
+    .footer-note a { color:var(--blue); text-decoration:none; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div class="page">
+
+  <div class="addr-guide" aria-hidden="true"><div class="addr-guide-label"></div></div>
+
+  <!-- HEADER: empty left col (address zone) + right-justified clinic -->
+  <div class="header">
+    <div class="header-spacer"></div>
+    <div class="header-clinic">
+      <div class="clinic-logo"><img id="practice-logo" alt="Practice Logo" /></div>
+            <div class="clinic-contact">
+        {{biller.addressLine1}}<span id="biller-line2-inline"></span><br />
+        {{biller.city}}, {{biller.provinceOrState}}&nbsp;{{biller.postalOrZip}}<br />
+        <a href="https://{{biller.website}}">{{biller.website}}</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="mailto:{{biller.email}}">{{biller.email}}</a>
+      </div>
+      <!-- statement meta lives here, right-aligned under clinic address -->
+      <div class="statement-meta-block">
+        <div class="statement-sub">Statement&nbsp;#&nbsp;{{statement.number}}&nbsp;&middot;&nbsp;Issued&nbsp;{{statement.issueDate}}</div>
+        <div class="statement-due-row">
+          <div class="due-item">
+            <span class="due-label">Payment Due</span>
+            <span class="due-value">{{statement.dueDate}}</span>
+          </div>
+          <div class="due-item">
+            <span class="due-label">Amount Due</span>
+            <span class="due-amount">{{totals.balanceDue}}</span>
+            <span class="past-due-badge" id="past-due-badge">Past Due</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PATIENT STATEMENT heading — left side -->
+  <div style="padding:42px var(--margin) 0;">
+    <span class="statement-badge">Patient Statement</span>
+  </div>
+
+  <!-- INFO ROW -->
+  <div class="info-row">
+    <div class="info-col">
+      <div class="col-label">Responsible Party</div>
+      <div class="col-name">{{respParty.firstName}} {{respParty.lastName}}</div>
+      <div class="col-detail">
+        {{respParty.addressLine1}}<br />
+        <span id="resp-line2" data-val="{{respParty.addressLine2}}"></span>
+        {{respParty.city}}, {{respParty.provinceOrState}}&nbsp;{{respParty.postalOrZip}}
+      </div>
+    </div>
+    <div class="info-col">
+      <div class="col-label">Insurance</div>
+      <div class="col-name">{{insurance.payerName}}</div>
+      <div class="col-detail">Member ID:&nbsp;{{insurance.memberId}}</div>
+    </div>
+    <div class="info-col">
+      <div class="col-label">Patient &amp; Visit</div>
+      <div class="col-name">{{patient.firstName}} {{patient.lastName}}</div>
+      <div class="col-detail">
+        DOB&nbsp;{{patient.dob}}&nbsp;&middot;&nbsp;{{visit.date}}&nbsp;{{visit.time}}<br />
+        {{facility.name}}
+      </div>
+    </div>
+  </div>
+
+  <!-- SERVICES TABLE -->
+  <div class="services-section">
+    <table class="services" id="services-table">
+      <thead>
+        <tr>
+          <th>Code</th><th>Procedure Description</th>
+          <th>Amount<br/>Charged</th><th>Insurance<br/>Paid</th><th>Patient<br/>Paid</th><th>Patient<br/>Owes</th>
+        </tr>
+      </thead>
+      <tbody id="services-tbody">
+        <!-- rows injected by JS below -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BALANCE LINE -->
+  <div class="balance-row">
+    <div class="balance-inline">
+      <span>Charged:&nbsp;<span class="val">{{totals.charged}}</span></span>
+      <span>Ins.&nbsp;Paid:&nbsp;<span class="val">{{totals.insurancePaid}}</span></span>
+      <span>Pt.&nbsp;Paid:&nbsp;<span class="val">{{totals.patientPaid}}</span></span>
+      <span id="deductible-item" style="display:none">Applied to Deductible:&nbsp;<span class="val" id="deductible-val">{{totals.deductible}}</span></span>
+    </div>
+    <div style="display:flex;align-items:baseline;">
+      <span class="balance-due-label">Balance Due</span>
+      <span class="balance-due-amount">{{totals.balanceDue}}</span>
+    </div>
+  </div>
+
+  <!-- FOOTER: pinned to bottom third, pay online + QR + footer note -->
+  <div class="page-footer">
+    <div class="pay-online">
+      <div>
+        <div class="pay-url-label">Pay online</div>
+        <div class="pay-url">{{payment.url}}</div>
+      </div>
+      <div class="qr-block">
+        <div class="qr-label">Scan to pay</div>
+        <div class="qr-box" id="qr-code"></div>
+      </div>
+    </div>
+    <div class="footer-note">
+      Questions?&nbsp;<a href="mailto:{{biller.email}}">{{biller.email}}</a>&nbsp;&middot;&nbsp;<a href="https://{{biller.website}}">{{biller.website}}</a>&nbsp;&middot;&nbsp;Payment due&nbsp;{{statement.dueDate}}.
+    </div>
+  </div><!-- /.page-footer -->
+
+</div>
+
+<script>
+// Render addressLine2 only if supplied and non-blank
+(function() {
+  var el  = document.getElementById('resp-line2');
+  if (!el) return;
+  var val = el.getAttribute('data-val') || '';
+  if (val && val.charAt(0) !== '{' && val.trim() !== '') {
+    el.innerHTML = val + '<br />';
+  }
+})();
+
+// Render service lines from JSON merge variable
+(function() {
+  var raw = '{{service}}';
+  // If PostGrid hasn't substituted yet, bail out
+  if (!raw || raw.charAt(0) === '{') return;
+  try {
+    var lines = JSON.parse(raw);
+    var tbody = document.getElementById('services-tbody');
+    var html = '';
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i];
+      html += '<tr>' +
+        '<td>' + l.cpt + '</td>' +
+        '<td>' + l.description + '</td>' +
+        '<td>' + l.charged + '</td>' +
+        '<td>' + l.insurancePaid + '</td>' +
+        '<td>' + l.patientPaid + '</td>' +
+        '<td>' + l.patientOwes + '</td>' +
+        '</tr>';
+    }
+    tbody.innerHTML = html;
+  } catch(e) {}
+})();
+
+// Show PAST DUE / PAST DUE - FINAL NOTICE badge
+(function() {
+  var finalVal = '{{finalNotice}}';
+  var pastVal  = '{{pastDue}}';
+  var isFinal  = finalVal && finalVal.trim().toLowerCase() === 'true';
+  var isPast   = pastVal  && pastVal.trim().toLowerCase()  === 'true';
+  if (isFinal || isPast) {
+    var badge = document.getElementById('past-due-badge');
+    if (badge) {
+      badge.style.display = 'inline-block';
+      if (isFinal) {
+        badge.textContent = 'Final Notice';
+        badge.classList.add('final-notice');
+      }
+    }
+  }
+})();
+
+// Show "Applied to Deductible" only if the variable was supplied and is not zero
+(function() {
+  var item = document.getElementById('deductible-item');
+  var val  = document.getElementById('deductible-val');
+  if (!item || !val) return;
+  var text = val.textContent.trim();
+  // Hide if placeholder was never filled (starts with "{{") or is zero / empty
+  var isPlaceholder = text.charAt(0) === '{';
+  var isZero = !isPlaceholder && (text === '0' || text === '$0' || text === '$0.00' || text === '0.00');
+  if (!isPlaceholder && !isZero) {
+    item.style.display = '';
+  }
+})();
+</script>
+<script>
+(function() {
+  var urlEl = document.querySelector('.pay-url');
+  var url = urlEl ? urlEl.textContent.trim() : '';
+  // Ensure it has a scheme for QR scanners
+  if (url && url.indexOf('://') === -1) url = 'https://' + url;
+  if (url && url.charAt(0) !== '{') {
+    new QRCode(document.getElementById('qr-code'), {
+      text:          url,
+      width:         62,
+      height:        62,
+      colorDark:     '#1e2d4a',
+      colorLight:    '#ffffff',
+      correctLevel:  QRCode.CorrectLevel.M
+    });
+  }
+})();
+</script>
+<script>
+// Render biller addressLine2 inline if supplied
+(function() {
+  var el  = document.getElementById('biller-line2-inline');
+  if (!el) return;
+  var val = '{{biller.addressLine2}}';
+  if (val && val.charAt(0) !== '{' && val.trim() !== '') {
+    el.innerHTML = ', ' + val;
+  }
+})();
+</script>
+<script>
+// Set logo from base64 merge variable
+(function() {
+  var data = '{{biller.logoBase64}}';
+  if (data && data.trim() !== '' && data.indexOf('{{') === -1) {
+    var img = document.getElementById('practice-logo');
+    if (img) img.src = data;
+  }
+})();
+</script>
+</body>
+</html>
