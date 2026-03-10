@@ -2,7 +2,7 @@ import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
+import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
@@ -257,6 +257,16 @@ const useFormData = (
     reValidateMode: 'onChange',
     resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
+
+  // Populate form when data first loads (defaultValues only applies at mount time,
+  // and the form mounts before data is available)
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (defaultFormVals && !initializedRef.current) {
+      methods.reset(defaultFormVals);
+      initializedRef.current = true;
+    }
+  }, [defaultFormVals, methods]);
 
   const { coveragesFormValues } = useMemo(() => {
     let coveragesFormValues: any;
