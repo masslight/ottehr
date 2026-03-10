@@ -14,6 +14,7 @@ export default function LegacyDataPage(): ReactElement {
   const [firstName, setFirstName] = useState(searchParams.get('firstName') ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(searchParams.get('dob') ?? '');
   const [lastNameError, setLastNameError] = useState('');
+  const [firstNameError, setFirstNameError] = useState('');
 
   const [page, setPage] = useState(1);
 
@@ -38,11 +39,20 @@ export default function LegacyDataPage(): ReactElement {
   }, []);
 
   const handleSearch = (): void => {
+    let hasError = false;
     if (!lastName.trim()) {
       setLastNameError('Last name is required');
-      return;
+      hasError = true;
+    } else {
+      setLastNameError('');
     }
-    setLastNameError('');
+    if (dateOfBirth.trim() && !firstName.trim()) {
+      setFirstNameError('First name is required when date of birth is provided');
+      hasError = true;
+    } else {
+      setFirstNameError('');
+    }
+    if (hasError) return;
     setPage(1);
     searchMutation.mutate(1);
   };
@@ -97,7 +107,8 @@ export default function LegacyDataPage(): ReactElement {
                 }}
                 fullWidth
                 size="small"
-                helperText=" "
+                error={!!firstNameError}
+                helperText={firstNameError || ' '}
               />
             </Grid>
             <Grid item xs={12} sm={3}>

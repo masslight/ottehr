@@ -210,6 +210,10 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     throw MISSING_REQUIRED_PARAMETERS(['lastName']);
   }
 
+  if (dateOfBirth?.trim() && !firstName?.trim()) {
+    throw MISSING_REQUIRED_PARAMETERS(['firstName (required when dateOfBirth is provided)']);
+  }
+
   const page = Math.max(1, typeof rawPage === 'number' ? Math.floor(rawPage) : 1);
   const pageSize = Math.min(
     PAGE_SIZE_MAX,
