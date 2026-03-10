@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Extension, FhirResource } from 'fhir/r4b';
-import { useSuccessQuery } from 'utils';
+import { DateTime } from 'luxon';
 import {
   AppointmentProviderNotificationTypes,
   getPatchBinary,
@@ -10,6 +10,7 @@ import {
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   ProviderNotificationMethod,
+  useSuccessQuery,
 } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
@@ -71,6 +72,24 @@ export const useGetProviderNotifications = (
         const encounterID = communicationResource.encounter?.reference?.replace('Encounter/', '');
         const encounter = encounterResources.find((encounterTemp) => encounterID === encounterTemp.id);
         const appointmentID = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
+
+        communicationResource.payload = communicationResource.payload?.map((payloadItem) => {
+          const contentString = payloadItem.contentString;
+          // looking for `Virtual visit with ${patientName} at ${appointmentTime}` but not "Virtual visit with patient soon"
+          if (contentString?.startsWith('Virtual visit with ') && !contentString.endsWith('patient soon')) {
+            // we save time in utc in the back end without knowing which provider in which timezone will receive it
+            const time = contentString.split('at ')[1];
+            const newTime = DateTime.fromFormat(`${time} +0`, 'h:mm a Z')
+              .setZone(DateTime.local().zoneName)
+              .toFormat('h:mm a');
+            const newMessage = contentString.replace(time, newTime);
+            return {
+              ...payloadItem,
+              contentString: newMessage,
+            };
+          }
+          return payloadItem;
+        });
 
         const notification: ProviderNotification = {
           appointmentID: appointmentID || '',
