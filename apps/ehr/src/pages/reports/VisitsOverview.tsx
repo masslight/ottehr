@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbarContainer, GridToolbarExport } from '@mui/x-data-grid';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   BarElement,
   CategoryScale,
@@ -29,7 +30,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { DateTime } from 'luxon';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import { useNavigate } from 'react-router-dom';
 import type { VisitsOverviewReportZambdaOutput } from 'utils';
@@ -43,9 +44,6 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 export default function VisitsOverview(): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reportData, setReportData] = useState<VisitsOverviewReportZambdaOutput | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('today');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
@@ -56,7 +54,7 @@ export default function VisitsOverview(): React.ReactElement {
   };
 
   const getDateRange = useCallback(
-    (filter: string, selectedDate?: string): { start: string; end: string } => {
+    (filter: string): { start: string; end: string } => {
       const now = DateTime.now();
 
       switch (filter) {
@@ -83,8 +81,7 @@ export default function VisitsOverview(): React.ReactElement {
             end: now.endOf('day').toISO() ?? '',
           };
         case 'custom': {
-          if (!selectedDate) return { start: '', end: '' };
-          const customDateTime = DateTime.fromISO(selectedDate);
+          const customDateTime = DateTime.fromISO(customDate);
           return {
             start: customDateTime.startOf('day').toISO() ?? '',
             end: customDateTime.endOf('day').toISO() ?? '',
@@ -105,53 +102,33 @@ export default function VisitsOverview(): React.ReactElement {
           };
       }
     },
-    [customStartDate, customEndDate]
+    [customDate, customStartDate, customEndDate]
   );
 
-  const fetchReport = useCallback(
-    async (filter: string): Promise<void> => {
-      setLoading(true);
-      setError(null);
-      setReportData(null);
+  const { start, end } = getDateRange(dateFilter);
 
-      try {
-        const { start, end } = getDateRange(filter, customDate);
-        if (!oystehrZambda) {
-          throw new Error('Oystehr client not available');
-        }
-
-        const response = await getVisitsOverviewReport(oystehrZambda, {
-          dateRange: { start, end },
-        });
-
-        setReportData(response);
-      } catch (err) {
-        console.error('Error fetching visits overview report:', err);
-        setError('Failed to load visits overview report. Please try again.');
-      } finally {
-        setLoading(false);
+  const {
+    data: reportData,
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ['visits-overview', dateFilter, start, end],
+    queryFn: async (): Promise<VisitsOverviewReportZambdaOutput> => {
+      if (!oystehrZambda) {
+        throw new Error('Oystehr client not available');
       }
+      return getVisitsOverviewReport(oystehrZambda, {
+        dateRange: { start, end },
+      });
     },
-    [getDateRange, oystehrZambda, customDate]
-  );
+    enabled: Boolean(oystehrZambda),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5,
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    void fetchReport(dateFilter);
-  }, [dateFilter, fetchReport]);
-
-  // Trigger fetch when custom date changes
-  useEffect(() => {
-    if (dateFilter === 'custom') {
-      void fetchReport('custom');
-    }
-  }, [customDate, dateFilter, fetchReport]);
-
-  // Trigger fetch when custom date range changes
-  useEffect(() => {
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
-  }, [customStartDate, customEndDate, dateFilter, fetchReport]);
+  const error = queryError ? 'Failed to load visits overview report. Please try again.' : null;
 
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
@@ -462,7 +439,7 @@ export default function VisitsOverview(): React.ReactElement {
         <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel>Date Range</InputLabel>
-            <Select value={dateFilter} label="Date Range" onChange={handleDateFilterChange} disabled={loading}>
+            <Select value={dateFilter} label="Date Range" onChange={handleDateFilterChange} disabled={isLoading}>
               <MenuItem value="today">Today</MenuItem>
               <MenuItem value="yesterday">Yesterday</MenuItem>
               <MenuItem value="last7days">Last 7 days</MenuItem>
@@ -478,7 +455,6 @@ export default function VisitsOverview(): React.ReactElement {
               size="small"
               value={customDate}
               onChange={handleCustomDateChange}
-              disabled={loading}
               sx={{ minWidth: 160 }}
               InputLabelProps={{
                 shrink: true,
@@ -494,7 +470,6 @@ export default function VisitsOverview(): React.ReactElement {
                 label="Start Date"
                 value={customStartDate}
                 onChange={handleCustomStartDateChange}
-                disabled={loading}
                 sx={{ minWidth: 160 }}
                 InputLabelProps={{
                   shrink: true,
@@ -506,7 +481,6 @@ export default function VisitsOverview(): React.ReactElement {
                 label="End Date"
                 value={customEndDate}
                 onChange={handleCustomEndDateChange}
-                disabled={loading}
                 sx={{ minWidth: 160 }}
                 InputLabelProps={{
                   shrink: true,
@@ -515,7 +489,7 @@ export default function VisitsOverview(): React.ReactElement {
             </>
           )}
 
-          <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
+          <Button variant="outlined" onClick={() => void refetch()} disabled={isLoading}>
             Refresh
           </Button>
         </Box>
@@ -526,13 +500,13 @@ export default function VisitsOverview(): React.ReactElement {
           </Alert>
         )}
 
-        {loading && (
+        {isLoading && !reportData && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         )}
 
-        {!loading && reportData && (
+        {reportData && (
           <Box>
             {/* Summary and Statistics Cards Row */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2, mb: 4 }}>
