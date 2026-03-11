@@ -5,7 +5,7 @@ import {
   composeAdditionalQuestions,
   composeAllergies,
   composeAssessment,
-  composeChiefComplaintAndHistoryOfPresentIllness,
+  composeChiefComplaint,
   composeCptCodes,
   composeEmCode,
   composeEncounterData,
@@ -32,7 +32,7 @@ import {
   createAdditionalQuestionsSection,
   createAllergiesSection,
   createAssessmentSection,
-  createChiefComplaintAndHistoryOfPresentIllnessSection,
+  createChiefComplaintSection,
   createCptCodesSection,
   createEmCodeSection,
   createExaminationSection,
@@ -56,6 +56,10 @@ import {
   createSurgicalHistorySection,
   createVitalsSection,
 } from './sections';
+import {
+  composeHistoryOfPresentIllness,
+  createHistoryOfPresentIllnessSection,
+} from './sections/visit-note/historyOfPresentIllness';
 import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
 
 const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
@@ -65,9 +69,12 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     patient: composePatientInformation({ patient, questionnaireResponse }),
     encounter: composeEncounterData({ encounter }),
     visit: composeProgressNoteVisitDetails({ allChartData, appointmentPackage }),
-    chiefComplaintAndHistoryOfPresentIllness: composeChiefComplaintAndHistoryOfPresentIllness({
+    chiefComplaint: composeChiefComplaint({
       allChartData,
       appointmentPackage,
+    }),
+    historyOfPresentIllness: composeHistoryOfPresentIllness({
+      allChartData,
     }),
     mechanismOfInjury: composeMechanismOfInjury({
       allChartData,
@@ -294,7 +301,8 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
   sections: [
     createProgressNotePatientInfoSection(),
     createProgressNoteVisitDetailsSection(),
-    createChiefComplaintAndHistoryOfPresentIllnessSection(),
+    createChiefComplaintSection(),
+    createHistoryOfPresentIllnessSection(),
     createMechanismOfInjurySection(),
     createReviewOfSystemsSection(),
     createMedicationsSection(),

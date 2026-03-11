@@ -35,7 +35,7 @@ export const HPISection: FC = () => {
 
             <ReasonForVisitFieldReadOnly valueSource="intake" />
 
-            <ChiefComplaintFieldReadOnly label="Chief Complaint on intake" />
+            <ChiefComplaintFieldReadOnly label="Additional information on intake" />
 
             <AiHpiSuggestion />
           </Stack>

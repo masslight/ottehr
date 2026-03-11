@@ -39,7 +39,6 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
-  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -57,7 +56,7 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  if (primaryDiagnosis && medicalDecision && emCode && hpi && (!isInPerson || chiefComplaint) && !suggestionNote) {
+  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote) {
     return null;
   }
 
@@ -95,16 +94,6 @@ export const MissingCard: FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {!chiefComplaint && isInPerson && (
-            <Link
-              sx={{ cursor: 'pointer' }}
-              color="error"
-              onClick={() => navigateTo('chief-complaint')}
-              data-testid={dataTestIds.progressNotePage.ccLink}
-            >
-              Chief Complaint
-            </Link>
-          )}
           {!hpi && (
             <Link
               sx={{ cursor: 'pointer' }}

@@ -524,10 +524,14 @@ interface VisitDetailsForInitialVisit extends PdfData {
 
 export type VisitDetailsForProgressNote = VisitDetailsForFollowUpVisit | VisitDetailsForInitialVisit;
 
-export interface ChiefComplaintAndHistoryOfPresentIllness extends PdfData {
+export interface ChiefComplaint extends PdfData {
   chiefComplaint?: string;
   spentTime: string;
   isInPerson: boolean;
+}
+
+export interface HistoryOfPresentIllness extends PdfData {
+  historyOfPresentIllness?: string;
 }
 
 export interface MechanismOfInjury extends PdfData {
@@ -1031,7 +1035,8 @@ export interface ProgressNoteData extends PdfData {
   visit: VisitDetailsForProgressNote;
   patient: PatientInfoForProgressNote;
   encounter: EncounterInfo;
-  chiefComplaintAndHistoryOfPresentIllness: ChiefComplaintAndHistoryOfPresentIllness;
+  chiefComplaint: ChiefComplaint;
+  historyOfPresentIllness: HistoryOfPresentIllness;
   mechanismOfInjury: MechanismOfInjury;
   reviewOfSystems: ReviewOfSystems;
   medications: MedicationsData;

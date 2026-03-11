@@ -76,7 +76,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;
   const hpi = chartFields?.chiefComplaint?.text;
-  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
@@ -127,7 +126,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi || (isInPerson && !chiefComplaint)) {
+    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi) {
       messages.push('You need to fill in the missing data');
     }
 
@@ -153,7 +152,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     primaryDiagnosis,
     medicalDecision,
     hpi,
-    chiefComplaint,
     emCode,
     patientInfoConfirmed,
     appointmentAccessibility.status,
