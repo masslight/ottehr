@@ -43,7 +43,7 @@ const zambdasList = (): ZambdaSpec[] => {
   return baseZambdas;
 };
 
-const BUNDLE_CHUNK_SIZE = 50;
+const BUNDLE_CHUNK_SIZE = 35;
 const ZIP_CHUNK_SIZE = 20;
 
 const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
