@@ -9,6 +9,7 @@ import {
   Organization,
   Patient,
   Practitioner,
+  Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
 import {
@@ -184,7 +185,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const allBatchRequests: BatchInputGetRequest[] = encounterIds.map((encounterId) => ({
       method: 'GET',
-      url: `/ServiceRequest?encounter=Encounter/${encounterId}&_include=ServiceRequest:performer:Organization&_count=100`,
+      url: `/ServiceRequest?encounter=Encounter/${encounterId}&_include=ServiceRequest:performer:Organization&_include=ServiceRequest:supporting-info:Procedure&_count=100`,
     }));
 
     const BATCH_SIZE = 50;
@@ -205,6 +206,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Parse batch results
     const serviceRequests: ServiceRequest[] = [];
     const organizations: Organization[] = [];
+    const procedures: Procedure[] = [];
 
     allBatchResults.forEach((batchResult) => {
       batchResult.entry?.forEach((entry) => {
@@ -220,6 +222,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               serviceRequests.push(innerEntry.resource as ServiceRequest);
             } else if (innerEntry.resource?.resourceType === 'Organization') {
               organizations.push(innerEntry.resource as Organization);
+            } else if (innerEntry.resource?.resourceType === 'Procedure') {
+              procedures.push(innerEntry.resource as Procedure);
             }
           });
         }
@@ -239,6 +243,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const orgMap = new Map<string, Organization>();
     organizations.forEach((org) => {
       if (org.id) orgMap.set(`Organization/${org.id}`, org);
+    });
+
+    // Create procedure lookup (for CPT codes linked via supportingInfo)
+    const procedureMap = new Map<string, Procedure>();
+    procedures.forEach((proc) => {
+      if (proc.id) procedureMap.set(`Procedure/${proc.id}`, proc);
     });
 
     // Build encounter-to-appointment map
@@ -300,18 +310,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             orderName = sr.code.coding[0].display || sr.code.coding[0].code || 'Unknown';
           }
         } else if (orderCategory === 'procedure') {
-          // Procedure: type from SR.category with procedure-type system
+          // Procedure: type name from SR.category
           const procedureTypeCoding = sr.category
             ?.flatMap((cat) => cat.coding || [])
             .find((c) => c.system === PROCEDURE_TYPE_SYSTEM);
           if (procedureTypeCoding) {
             orderName = procedureTypeCoding.display || procedureTypeCoding.code || 'Unknown';
-            orderCode = procedureTypeCoding.code;
           }
-          // Also check SR.code for CPT
-          if (sr.code?.coding?.[0] && orderName === 'Unknown') {
-            orderCode = sr.code.coding[0].code;
-            orderName = sr.code.coding[0].display || sr.code.coding[0].code || 'Unknown';
+          // CPT codes from linked Procedure resources via supportingInfo
+          const cptCodes = (sr.supportingInfo || [])
+            .map((ref) => (ref.reference ? procedureMap.get(ref.reference) : undefined))
+            .filter((proc): proc is Procedure => proc !== undefined)
+            .map((proc) => proc.code?.coding?.[0])
+            .filter((coding) => coding?.code);
+          if (cptCodes.length > 0) {
+            orderCode = cptCodes.map((c) => c!.code).join(', ');
           }
         }
 
