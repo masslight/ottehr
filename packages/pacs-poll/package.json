@@ -1,6 +1,6 @@
 {
   "name": "pacs-poll",
-  "version": "1.29.11",
+  "version": "1.29.12",
   "private": true,
   "scripts": {
     "start": "tsx src/index.ts",
