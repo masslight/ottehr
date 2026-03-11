@@ -1,7 +1,6 @@
 // Note: Export order matters due to module initialization dependencies
-// Dependencies flow: helpers -> value-sets -> branding -> consent-forms -> intake configs
+// Dependencies flow: value-sets -> branding -> consent-forms -> intake configs
 // The types barrel imports from branding, so branding must come before anything that imports from types
-export * from './helpers';
 export * from './value-sets';
 export * from './branding';
 export * from './consent-forms';

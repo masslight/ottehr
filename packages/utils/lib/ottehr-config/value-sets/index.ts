@@ -1,16 +1,14 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
 import { NetworkType } from 'candidhealth/api';
 import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'config-types';
-import z from 'zod';
-import { VALUE_SET_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides/value-sets';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { deepFreezeObject } from '../../utils/objects';
 
 // Extend InsurancePlanType to use the specific Candid NetworkType
 export interface InsurancePlanType extends Omit<BaseInsurancePlanType, 'candidCode'> {
   candidCode: NetworkType;
 }
 
-const insuranceTypeOptions: InsurancePlanType[] = z.array(z.custom<InsurancePlanType>()).parse([
+export const insuranceTypeOptionsData = [
   {
     candidCode: '09',
     label: 'Self Pay',
@@ -194,22 +192,13 @@ const insuranceTypeOptions: InsurancePlanType[] = z.array(z.custom<InsurancePlan
     candidCode: 'ZZ',
     label: 'Mutually Defined',
   },
-]);
+];
 
-const formValueSets = {
+export const formValueSetsData = {
   birthSexOptions: [
-    {
-      label: 'Male',
-      value: 'Male',
-    },
-    {
-      label: 'Female',
-      value: 'Female',
-    },
-    {
-      label: 'Intersex',
-      value: 'Intersex',
-    },
+    { label: 'Male', value: 'Male' },
+    { label: 'Female', value: 'Female' },
+    { label: 'Intersex', value: 'Intersex' },
   ],
   cancelReasonOptionsInPersonPatient: [
     { label: 'Patient improved', value: 'Patient improved' },
@@ -230,14 +219,8 @@ const formValueSets = {
     { label: 'Financial responsibility concern', value: 'Financial responsibility concern' },
     { label: 'Insurance issue', value: 'Insurance issue' },
     { label: 'Service never offered', value: 'Service never offered' },
-    {
-      label: 'Duplicate visit or account error',
-      value: 'Duplicate visit or account error',
-    },
-    {
-      label: 'Provider deems acuity too high for clinic',
-      value: 'Provider deems acuity too high for clinic',
-    },
+    { label: 'Duplicate visit or account error', value: 'Duplicate visit or account error' },
+    { label: 'Provider deems acuity too high for clinic', value: 'Provider deems acuity too high for clinic' },
     { label: 'Other', value: 'Other' },
   ],
   cancelReasonOptionsVirtualPatient: [
@@ -282,7 +265,6 @@ const formValueSets = {
     { label: 'Primary', value: 'Primary' },
     { label: 'Secondary', value: 'Secondary' },
   ],
-  insuranceTypeOptions,
   languageOptions: [
     { label: 'English', value: 'English' },
     { label: 'Spanish', value: 'Spanish' },
@@ -330,22 +312,10 @@ const formValueSets = {
     { label: 'Mail', value: 'Mail' },
   ],
   pronounOptions: [
-    {
-      label: 'He/him',
-      value: 'He/him',
-    },
-    {
-      label: 'She/her',
-      value: 'She/her',
-    },
-    {
-      label: 'They/them',
-      value: 'They/them',
-    },
-    {
-      label: 'My pronouns are not listed',
-      value: 'My pronouns are not listed',
-    },
+    { label: 'He/him', value: 'He/him' },
+    { label: 'She/her', value: 'She/her' },
+    { label: 'They/them', value: 'They/them' },
+    { label: 'My pronouns are not listed', value: 'My pronouns are not listed' },
   ],
   raceOptions: [
     { label: 'American Indian or Alaska Native', value: 'American Indian or Alaska Native' },
@@ -672,20 +642,14 @@ const formValueSets = {
     { label: 'Email', value: 'Email' },
     { label: 'Phone', value: 'Phone' },
   ],
-  externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
+  externalLabAdditionalCptCodesToAdd: [] as string[],
 };
 
-// ValueSetsConfig type is now imported and re-exported from config-types
+const insuranceTypeOptions = insuranceTypeOptionsData as unknown as InsurancePlanType[];
 
-/**
- * Get value sets configuration with optional test overrides
- *
- * @param testOverrides - Optional overrides for testing purposes
- * @returns Merged configuration
- */
-// Merge defaults with instance-specific overrides (from ottehr-config-overrides)
-// Config is baked in at deploy time, no runtime injection needed
-export const VALUE_SETS: ValueSetsConfig = mergeAndFreezeConfigObjects(
-  formValueSets,
-  OVERRIDES as Partial<ValueSetsConfig>
-);
+const formValueSets = {
+  ...formValueSetsData,
+  insuranceTypeOptions,
+};
+
+export const VALUE_SETS = deepFreezeObject(formValueSets) as unknown as ValueSetsConfig;

@@ -1,10 +1,6 @@
-import { BrandingConfigSchema, type LogoConfig } from 'config-types';
-import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import type { BrandingConfig, LogoConfig } from 'config-types';
 
-const overrides = OVERRIDES || {};
-
-const BRANDING_DEFAULTS = {
+const BRANDING_DATA: BrandingConfig = {
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',
   primaryIconAlt: 'Ottehr icon',
@@ -31,19 +27,9 @@ const BRANDING_DEFAULTS = {
       logoutButtonTextColor: '#FFFFFF',
     },
   },
-  /*
-  palette: {
-    // these are dummy values, but ottehr theme defaults should come from here eventually
-    primaryColor: '#4CAF50',
-    secondaryColor: '#FFC107',
-    backgroundColor: '#F5F5F5',
-    textColor: '#212121',
-  },*/
-} as const;
+};
 
-const mergedBrandingConfig = mergeAndFreezeConfigObjects(BRANDING_DEFAULTS, overrides);
-
-export const BRANDING_CONFIG = Object.freeze(BrandingConfigSchema.parse(mergedBrandingConfig));
+export const BRANDING_CONFIG = Object.freeze(BRANDING_DATA);
 
 // Derived constant - defined here to avoid circular dependencies
 // (types/constants.ts cannot import from ottehr-config without creating a cycle)

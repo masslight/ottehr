@@ -16,10 +16,10 @@ This architecture enables e2e tests to automatically adapt to configuration chan
 
 ## How Instance-Specific Testing Works
 
-The test framework uses the `ottehr-config-overrides` folder to customize test behavior:
+The test framework uses `ottehr-config` to customize test behavior:
 
-1. **Upstream repo:** `ottehr-config-overrides` contains empty stub objects (`{}`)
-2. **Downstream deployment:** A private CI repo clones ottehr, then overwrites `ottehr-config-overrides` with instance-specific values
+1. **Upstream repo:** `ottehr-config` contains default configuration values
+2. **Downstream deployment:** A private CI repo overlays instance-specific `defaults.ts` files into `ottehr-config` modules
 3. **Tests run:** The same test suite runs against the instance-specific configuration
 
 This means:
@@ -29,18 +29,18 @@ This means:
 
 ## Architecture Layers
 
-### 1. Instance-Specific Overrides
-**Location:** `packages/utils/ottehr-config-overrides/`
+### 1. Instance-Specific Config
+**Location:** `packages/utils/lib/ottehr-config/`
 
-Contains instance-specific configuration overrides. In the upstream repo, these are empty stubs. For downstream testing, a private CI repo overwrites these files with actual instance configurations.
+Contains configuration modules. Each module has `defaults.ts` (data) and `index.ts` (validation + exports). Downstream instances customize by overlaying their own `defaults.ts` files.
 
-Key exports:
+Key config exports:
 ```typescript
-- INTAKE_PAPERWORK_OVERRIDES: In-person paperwork config
-- INTAKE_PAPERWORK_VIRTUAL_OVERRIDES: Virtual paperwork config
+- INTAKE_PAPERWORK_CONFIG: In-person paperwork config
+- VIRTUAL_INTAKE_PAPERWORK_CONFIG: Virtual paperwork config
 - BOOKING_CONFIG: Booking flow config
-- LOCATIONS_CONFIG: Location settings
-- VALUE_SETS_OVERRIDES: Dropdown/select options
+- LOCATION_CONFIG: Location settings
+- VALUE_SETS: Dropdown/select options
 ```
 
 ### 2. Config Injection
@@ -374,7 +374,7 @@ packages/utils/
 │       ├── intake-paperwork-virtual/      # getIntakePaperworkVirtualConfig()
 │       ├── booking/index.ts               # getBookingConfig()
 │       └── legal/index.ts                 # getLegalCompositionForLocation()
-└── ottehr-config-overrides/
+└── ottehr-config/
     ├── intake-paperwork/index.ts          # Instance-specific in-person overrides
     ├── intake-paperwork-virtual/index.ts  # Instance-specific virtual overrides
     ├── legal/index.ts                     # Instance-specific legal text overrides
@@ -440,7 +440,7 @@ apps/intake/tests/
 - Resource cleanup prevents pollution
 
 ### 5. **Simple Instance Testing**
-- Overwrite `ottehr-config-overrides` with instance-specific values
+- Overwrite `ottehr-config` with instance-specific values
 - Run the same test suite
 - No code changes needed
 

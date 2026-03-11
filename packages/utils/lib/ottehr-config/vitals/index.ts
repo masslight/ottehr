@@ -1,35 +1,34 @@
 import * as z from 'zod';
-import { VITALS_OVERRIDES } from '../../../ottehr-config-overrides';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
-// Re-export config contract types from config-types
+// Re-export config contract types from config-helpers/vitals (already aliased there)
 export {
-  AgeSchema as VitalsAgeSchema,
-  AgeUnitSchema as VitalsAgeUnitSchema,
-  ConstraintTypeSchema as VitalsConstraintTypeSchema,
+  VitalsAgeSchema,
+  VitalsAgeUnitSchema,
+  VitalsConstraintTypeSchema,
   VitalAlertCriticalitySchema,
   VitalBloodPressureComponentSchema,
   VitalTypeSchema,
   VitalVisionComponentSchema,
-  type Age as VitalsAge,
-  type AgeUnit as VitalsAgeUnit,
-  type AlertConstraint as VitalsAlertConstraint,
-  type AlertThreshold as VitalsAlertThreshold,
-  type BaseConstraint as VitalsBaseConstraint,
-  type ConstraintType as VitalsConstraintType,
-  type VitalAlertCriticality as VitalsAlertCriticalityType,
+  type VitalsAge,
+  type VitalsAgeUnit,
+  type VitalsAlertConstraint,
+  type VitalsAlertThreshold,
+  type VitalsBaseConstraint,
+  type VitalsConstraintType,
+  type VitalsAlertCriticalityType,
   type VitalBloodPressureComponent,
   type VitalType,
   type VitalVisionComponent,
   type VitalsBloodPressure,
   type VitalsConfig,
-  type VitalsObject as VitalsObjectType,
+  type VitalsObjectType,
   type VitalsVision,
   type VitalsWeight,
   type VitalsWithComponents,
-} from 'config-types';
+} from '../../config-helpers/vitals';
 
-const VitalsConfig = {
+export const VitalsConfigData = {
   'vital-temperature': {
     alertThresholds: [
       {
@@ -703,7 +702,7 @@ export const VitalsMap = z.object({
   'vital-vision': VitalsVisionSchema.optional(),
 });
 
-export const DefaultVitalsConfig = Object.freeze(VitalsMap.parse(VitalsConfig));
+export const DefaultVitalsConfig = Object.freeze(VitalsMap.parse(VitalsConfigData));
 
 export type VitalsSchema = z.infer<typeof VitalsMap>;
 
@@ -718,4 +717,4 @@ export type AlertThreshold = z.infer<typeof AlertThresholdSchema>;
 
 export type AlertRule = ReturnType<typeof ConstraintSchema.parse>;
 
-export const vitalsConfig = VitalsDef(VITALS_OVERRIDES);
+export const vitalsConfig = VitalsDef();

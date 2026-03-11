@@ -1,14 +1,13 @@
-import { TextingConfigSchema } from 'config-types';
+import type { TextingConfig } from 'config-types';
 import { BRANDING_CONFIG, replaceTemplateVariablesArrows } from 'utils';
-import { TEXTING_OVERRIDES } from '../../../ottehr-config-overrides';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { deepFreezeObject } from '../../utils/objects';
 
-const TEXTING_DEFAULTS_BASE = Object.freeze({
+const TEXTING_DATA: TextingConfig = {
   invoicing: {
     smsMessage:
-      "Thank you, <patient-full-name>, for visiting <clinic> at <location> on <visit-date>! 💳 If we have your card on file, it will be billed on <due-date>, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: <invoice-link>",
+      "Thank you, <patient-full-name>, for visiting <clinic> at <location> on <visit-date>! \u{1F4B3} If we have your card on file, it will be billed on <due-date>, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: <invoice-link>",
     stripeMemoMessage:
-      "Thank you, <patient-full-name>, for visiting <clinic> at <location> on <visit-date>! 💳 If we have your card on file, it will be billed on <due-date>, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, <url-to-patient-portal>",
+      "Thank you, <patient-full-name>, for visiting <clinic> at <location> on <visit-date>! \u{1F4B3} If we have your card on file, it will be billed on <due-date>, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, <url-to-patient-portal>",
     dueDateInDays: 30,
   },
   telemed: {
@@ -16,7 +15,7 @@ const TEXTING_DEFAULTS_BASE = Object.freeze({
     quickTexts: [
       `Hello from <projectName> Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone><supportPhone></phone>`,
       `Hello from <projectName> Telemedicine. Due to high volumes our providers are busier than usual. A provider will message you when they have an update or are ready to see you. We apologize for the delay. Questions? Call <phone><supportPhone></phone>`,
-      `Hello from <projectName> Telemedicine. We tried connecting, you seem to be having trouble connecting. If you still want a visit, log out then log back in. Click “Return to call” and we will connect with you in 5-10 minutes. If you are still having trouble, call <phone><supportPhone></phone>`,
+      `Hello from <projectName> Telemedicine. We tried connecting, you seem to be having trouble connecting. If you still want a visit, log out then log back in. Click "Return to call" and we will connect with you in 5-10 minutes. If you are still having trouble, call <phone><supportPhone></phone>`,
       `Hello from <projectName> Telemedicine. We are sorry you canceled your visit. If accidental, please request a new visit. We will be sure to see you. If you are experiencing technical difficulties, call <phone><supportPhone></phone>`,
     ],
   },
@@ -60,11 +59,9 @@ const TEXTING_DEFAULTS_BASE = Object.freeze({
       },
     ],
   },
-} as const);
+};
 
-const mergedTextingConfig = mergeAndFreezeConfigObjects(TEXTING_DEFAULTS_BASE, TEXTING_OVERRIDES);
-
-export const TEXTING_CONFIG = TextingConfigSchema.parse(mergedTextingConfig);
+export const TEXTING_CONFIG = deepFreezeObject(TEXTING_DATA);
 
 type InPersonQuickTextContext = {
   patientAppUrl?: string;

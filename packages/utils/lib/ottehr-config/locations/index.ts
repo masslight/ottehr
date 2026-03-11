@@ -1,10 +1,6 @@
-import { type LocationConfig, LocationConfigSchema, type SupportDisplay } from 'config-types';
-import { LOCATIONS_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import type { LocationConfig, SupportDisplay } from 'config-types';
 
-const overrides = OVERRIDES || {};
-
-const LOCATION_DEFAULTS: LocationConfig = {
+const LOCATION_DATA: LocationConfig = {
   inPersonLocations: [{ name: 'New York' }, { name: 'Los Angeles' }],
   telemedLocations: [{ name: 'Telemed New Jersey' }, { name: 'Telemed Ohio' }],
   supportPhoneNumber: '(202) 555-1212',
@@ -13,13 +9,7 @@ const LOCATION_DEFAULTS: LocationConfig = {
   supportDisplay: undefined,
 };
 
-function getLocationConfig(testOverrides: Partial<LocationConfig> = overrides): LocationConfig {
-  const mergedLocationConfig = mergeAndFreezeConfigObjects(LOCATION_DEFAULTS, testOverrides);
-  return LocationConfigSchema.parse(mergedLocationConfig);
-}
-
-// Export the config directly (no proxy needed - static config for support contact display)
-export const LOCATION_CONFIG = getLocationConfig();
+export const LOCATION_CONFIG = Object.freeze(LOCATION_DATA);
 
 export const ALL_LOCATIONS = [...LOCATION_CONFIG.inPersonLocations, ...LOCATION_CONFIG.telemedLocations] as const;
 

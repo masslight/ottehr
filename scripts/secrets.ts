@@ -111,9 +111,9 @@ function copyConfiguration(project?: string): void {
       type: 'full',
     },
     {
-      source: path.join(secretsPath, 'configuration', 'ottehr-config-overrides'),
-      target: path.join(repoRoot, 'packages', 'utils', 'ottehr-config-overrides'),
-      type: 'selective',
+      source: path.join(secretsPath, 'configuration', 'ottehr-config'),
+      target: path.join(repoRoot, 'packages', 'utils', 'lib', 'ottehr-config'),
+      type: 'overlay',
     },
   ];
 
@@ -134,41 +134,16 @@ function copyConfiguration(project?: string): void {
       } else {
         console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
       }
-    } else if (type === 'selective') {
-      // For ottehr-config-overrides: only replace directories that exist in both target and source
+    } else if (type === 'overlay') {
+      // Overlay source onto target without deleting existing files
       if (!fs.existsSync(source)) {
         console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
         return;
       }
 
-      // Ensure target directory exists
-      if (!fs.existsSync(target)) {
-        console.log(`⚠ Target directory not found: ${path.relative(repoRoot, target)}`);
-        return;
-      }
-
-      // Read all items in target directory (working copy)
-      const targetItems = fs.readdirSync(target, { withFileTypes: true });
-
-      targetItems.forEach((item) => {
-        const sourcePath = path.join(source, item.name);
-        const targetPath = path.join(target, item.name);
-
-        if (item.isDirectory() && fs.existsSync(sourcePath)) {
-          // Only replace if the directory also exists in source
-          fs.rmSync(targetPath, { recursive: true, force: true });
-          fs.cpSync(sourcePath, targetPath, { recursive: true });
-          console.log(`✓ Replaced override directory: ${item.name}`);
-        } else if (item.isDirectory()) {
-          console.log(`⚠ Skipping directory (not in secrets): ${item.name}`);
-        }
-      });
-
+      fs.cpSync(source, target, { recursive: true });
       console.log(
-        `✓ Selectively copied ottehr-config-overrides from ${path.relative(repoRoot, source)} to ${path.relative(
-          repoRoot,
-          target
-        )}`
+        `✓ Overlaid configuration from ${path.relative(repoRoot, source)} onto ${path.relative(repoRoot, target)}`
       );
     }
   });

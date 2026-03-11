@@ -40,10 +40,10 @@ The e2e tests use a **config-driven test generation** approach. Instead of writi
 
 ### Instance-Specific Testing
 
-The test framework uses the `ottehr-config-overrides` folder to customize test behavior:
+The test framework uses `ottehr-config` to customize test behavior:
 
-1. **Upstream repo:** `ottehr-config-overrides` contains empty stub objects (`{}`)
-2. **Downstream deployment:** A private CI repo clones ottehr, then overwrites `ottehr-config-overrides` with instance-specific values
+1. **Upstream repo:** `ottehr-config` contains default configuration values
+2. **Downstream deployment:** A private CI repo overlays instance-specific `defaults.ts` files into `ottehr-config` modules
 3. **Tests run:** The same test suite runs against the instance-specific configuration
 
 This means:

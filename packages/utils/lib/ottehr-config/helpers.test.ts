@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeAndFreezeConfigObjects } from './helpers';
+import { mergeAndFreezeConfigObjects } from '../config-helpers/helpers';
 
 describe('mergeAndFreezeConfigObjects', () => {
   describe('array handling', () => {

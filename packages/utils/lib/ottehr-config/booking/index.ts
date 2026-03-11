@@ -1,29 +1,41 @@
 import { HomepageOptions } from 'config-types';
-import {
-  Coding,
-  Patient,
-  Questionnaire,
-  QuestionnaireItem,
-  QuestionnaireResponseItem,
-  QuestionnaireResponseItemAnswer,
-  Slot,
-} from 'fhir/r4b';
-import _ from 'lodash';
+import { Coding, Patient, Questionnaire, QuestionnaireResponseItem, Slot } from 'fhir/r4b';
 import z from 'zod';
-import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides/booking';
-import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';
-import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
-import { CanonicalUrl, flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
-import { BRANDING_CONFIG } from '../branding';
-import { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from '../helpers';
 import {
-  createQuestionnaireFromConfig,
-  FormFieldTrigger,
-  FormSectionSimpleSchema,
-  QuestionnaireBase,
-  QuestionnaireConfigSchema,
-} from '../shared-questionnaire';
+  FIELDS_TO_TRACK_CLEARING as _FIELDS_TO_TRACK_CLEARING,
+  mapBookingQRItemToPatientInfo as _mapBookingQRItemToPatientInfo,
+  normalizeFormDataToQRItems as _normalizeFormDataToQRItems,
+  prepopulateBookingForm as _prepopulateBookingForm,
+} from '../../config-helpers/booking';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
+import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
+import { CanonicalUrl } from '../../types';
+import { BRANDING_CONFIG } from '../branding';
+import type { QuestionnaireConfigType } from '../shared-questionnaire';
+import { createQuestionnaireFromConfig, type FormFieldTrigger, type QuestionnaireBase } from '../shared-questionnaire';
 import { VALUE_SETS } from '../value-sets';
+
+// Re-export extracted helpers for backward compatibility
+export const FIELDS_TO_TRACK_CLEARING = _FIELDS_TO_TRACK_CLEARING;
+export const normalizeFormDataToQRItems = _normalizeFormDataToQRItems;
+export const mapBookingQRItemToPatientInfo = _mapBookingQRItemToPatientInfo;
+
+// --- Data inlined from defaults.ts ---
+
+export interface StrongCoding extends Coding {
+  code: string;
+  display: string;
+  system: string;
+}
+
+export interface BookingOption {
+  id: string;
+  label: string;
+}
 
 const PatientDoesntExistTriggerEnableAndRequire: FormFieldTrigger = {
   targetQuestionLinkId: 'existing-patient-id',
@@ -232,10 +244,6 @@ const FormFields = {
   },
 };
 
-const FormFieldsSchema = z.object({
-  patientInfo: FormSectionSimpleSchema,
-});
-
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults: QuestionnaireBase = {
@@ -253,28 +261,7 @@ const FORM_DEFAULTS = {
   FormFields,
 };
 
-const mergedBookingQConfig = mergeAndFreezeConfigObjects(FORM_DEFAULTS, {
-  FormFields: (BOOKING_OVERRIDES as any)?.FormFields ?? {},
-  questionnaireBase: (BOOKING_OVERRIDES as any).questionnaireBase ?? {},
-  hiddenFormSections: (BOOKING_OVERRIDES as any).hiddenFormSections ?? [],
-});
-
-const BookingPaperworkConfigSchema = QuestionnaireConfigSchema.extend({
-  FormFields: FormFieldsSchema,
-});
-
-const formConfig = BookingPaperworkConfigSchema.parse(mergedBookingQConfig);
-
-const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
-
-export interface StrongCoding extends Coding {
-  code: string;
-  display: string;
-  system: string;
-}
-
-const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
+export const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
   { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
   {
     display: 'Occupational Medicine',
@@ -284,121 +271,10 @@ const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
   { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
 ];
 
-interface BookingContext {
-  serviceMode: 'in-person' | 'virtual';
-  serviceCategoryCode: string;
-}
-interface BookingFormPrePopulationInput {
-  questionnaire: Questionnaire;
-  context: BookingContext;
-  patient?: Patient;
-}
-
-// Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
-// Cleared fields trigger FHIR resource removal in harvest/update-visit-details zambdas
-export const FIELDS_TO_TRACK_CLEARING = ['patient-preferred-name', 'authorized-non-legal-guardian'] as const;
-
-// Helper to normalize form data by converting empty objects to proper questionnaire response format
-// react-hook-form returns {} for conditionally hidden fields with disabled-display extension
-export const normalizeFormDataToQRItems = (data: Record<string, unknown>): QuestionnaireResponseItem[] => {
-  return Object.entries(data)
-    .map(([key, value]) => {
-      // Skip empty objects that are not tracked fields
-      if (value && typeof value === 'object' && Object.keys(value).length === 0) {
-        return FIELDS_TO_TRACK_CLEARING.includes(key as (typeof FIELDS_TO_TRACK_CLEARING)[number])
-          ? { linkId: key, answer: [] }
-          : null;
-      }
-      return value;
-    })
-    .filter((item): item is QuestionnaireResponseItem => item !== null) as QuestionnaireResponseItem[];
-};
-
-export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
-  const items = flattenQuestionnaireAnswers(qrItem);
-  const patientInfo: PatientInfo = {};
-  items.forEach((item) => {
-    switch (item.linkId) {
-      case 'existing-patient-id':
-        patientInfo.id = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-first-name':
-        patientInfo.firstName = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-middle-name':
-        patientInfo.middleName = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-last-name':
-        patientInfo.lastName = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-birthdate':
-        patientInfo.dateOfBirth = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'authorized-non-legal-guardian':
-        patientInfo.authorizedNonLegalGuardians = pickFirstValueFromAnswerItem(item, 'string') || '';
-        break;
-      case 'patient-email':
-        patientInfo.email = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-phone-number':
-        patientInfo.phoneNumber = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'reason-for-visit':
-      case 'reason-for-visit-om':
-      case 'reason-for-visit-wc':
-        patientInfo.reasonForVisit = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'tell-us-more':
-        patientInfo.reasonAdditional = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-preferred-name':
-        patientInfo.chosenName = pickFirstValueFromAnswerItem(item, 'string') || '';
-        break;
-      case 'patient-ssn':
-        patientInfo.ssn = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-birth-sex':
-        patientInfo.sex = PersonSex[pickFirstValueFromAnswerItem(item, 'string') as keyof typeof PersonSex];
-        break;
-      case 'patient-weight':
-        // eslint-disable-next-line no-case-declarations
-        const weight = parseFloat(pickFirstValueFromAnswerItem(item, 'string') || '');
-        patientInfo.weight = Number.isNaN(weight) ? undefined : weight;
-        break;
-      case 'return-patient-check':
-        patientInfo.patientBeenSeenBefore =
-          (pickFirstValueFromAnswerItem(item, 'string') ?? 'no').toLowerCase() === 'yes';
-        break;
-      default:
-        break;
-    }
-  });
-  return patientInfo;
-};
-
-export const selectBookingQuestionnaire: (_slot?: Slot) => {
-  url: string;
-  version: string;
-  templateQuestionnaire: Questionnaire;
-} = (_slot?: Slot): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
-  // can read properties of slot to determine which questionnaire to return
-  // if desired. by default, we return just a single questionnaire regardless of slot
-  const Q = BOOKING_QUESTIONNAIRE();
-  if (!Q.url || !Q.version) {
-    throw new Error('Booking questionnaire is missing url or version');
-  }
-  return { url: Q.url, version: Q.version, templateQuestionnaire: Q };
-};
-
-const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
+export const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'bookingOn', value: 'visit-followup-group' },
   { key: 'scheduleType', value: 'group' },
 ];
-
-export interface BookingOption {
-  id: string;
-  label: string;
-}
 
 enum VisitType {
   InPersonWalkIn = 'in-person-walk-in',
@@ -407,29 +283,8 @@ enum VisitType {
   VirtualOnDemand = 'virtual-on-demand',
   VirtualScheduled = 'virtual-scheduled',
 }
-export interface BookingConfig {
-  serviceCategoriesEnabled: {
-    serviceModes: string[];
-    visitType: string[];
-  };
-  homepageOptions: BookingOption[];
-  ehrBookingOptions: BookingOption[];
-  serviceCategories: StrongCoding[];
-  formConfig: z.infer<typeof QuestionnaireConfigSchema>;
-  inPersonPrebookRoutingParams: { key: string; value: string }[];
-  defaultWalkinLocationName?: string;
-  // Questionnaire-related fields used for building the form
-  FormFields?: Record<string, unknown>;
-  questionnaireBase?: QuestionnaireBase;
-  hiddenFormSections?: string[];
-  // Optional questionnaire canonical URLs for slot creation
-  // When set, these are passed to create-slot and stored on the Slot extension
-  // Used by e2e tests to inject isolated test questionnaires
-  virtualQuestionnaireCanonical?: CanonicalUrl;
-  inPersonQuestionnaireCanonical?: CanonicalUrl;
-}
 
-const BOOKING_DEFAULTS: BookingConfig = {
+const BOOKING_DEFAULTS_DATA = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
@@ -439,7 +294,7 @@ const BOOKING_DEFAULTS: BookingConfig = {
     { id: HomepageOptions.ScheduleInPersonVisit, label: 'Schedule In-Person Visit' },
     { id: HomepageOptions.StartVirtualVisit, label: 'Start Virtual Visit' },
     { id: HomepageOptions.ScheduleVirtualVisit, label: 'Schedule Virtual Visit' },
-  ],
+  ] as BookingOption[],
   defaultWalkinLocationName: 'New_York',
   ehrBookingOptions: [
     {
@@ -462,10 +317,77 @@ const BOOKING_DEFAULTS: BookingConfig = {
       id: VisitType.InPersonPostTelemed,
       label: 'Post Telemed Lab Only',
     },
-  ],
+  ] as BookingOption[],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
-  formConfig,
   inPersonPrebookRoutingParams,
+};
+
+// --- End inlined data ---
+
+const formConfig = FORM_DEFAULTS as unknown as QuestionnaireConfigType;
+
+const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
+
+interface BookingContext {
+  serviceMode: 'in-person' | 'virtual';
+  serviceCategoryCode: string;
+}
+
+// Backward-compatible interface (without patientInfoHiddenFields)
+interface BookingFormPrePopulationInput {
+  questionnaire: Questionnaire;
+  context: BookingContext;
+  patient?: Patient;
+}
+
+// Backward-compatible wrapper that passes hiddenFields from the module's own config
+export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
+  return _prepopulateBookingForm({
+    ...input,
+    patientInfoHiddenFields: FormFields.patientInfo.hiddenFields,
+  });
+};
+
+export const selectBookingQuestionnaire: (_slot?: Slot) => {
+  url: string;
+  version: string;
+  templateQuestionnaire: Questionnaire;
+} = (_slot?: Slot): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
+  // can read properties of slot to determine which questionnaire to return
+  // if desired. by default, we return just a single questionnaire regardless of slot
+  const Q = BOOKING_QUESTIONNAIRE();
+  if (!Q.url || !Q.version) {
+    throw new Error('Booking questionnaire is missing url or version');
+  }
+  return { url: Q.url, version: Q.version, templateQuestionnaire: Q };
+};
+
+export interface BookingConfig {
+  serviceCategoriesEnabled: {
+    serviceModes: string[];
+    visitType: string[];
+  };
+  homepageOptions: BookingOption[];
+  ehrBookingOptions: BookingOption[];
+  serviceCategories: StrongCoding[];
+  formConfig: QuestionnaireConfigType;
+  inPersonPrebookRoutingParams: { key: string; value: string }[];
+  defaultWalkinLocationName?: string;
+  // Questionnaire-related fields used for building the form
+  FormFields?: Record<string, unknown>;
+  questionnaireBase?: QuestionnaireBase;
+  hiddenFormSections?: string[];
+  // Optional questionnaire canonical URLs for slot creation
+  // When set, these are passed to create-slot and stored on the Slot extension
+  // Used by e2e tests to inject isolated test questionnaires
+  virtualQuestionnaireCanonical?: CanonicalUrl;
+  inPersonQuestionnaireCanonical?: CanonicalUrl;
+}
+
+const BOOKING_DEFAULTS: BookingConfig = {
+  ...BOOKING_DEFAULTS_DATA,
+  formConfig,
 };
 
 /**
@@ -474,9 +396,10 @@ const BOOKING_DEFAULTS: BookingConfig = {
  * @param testOverrides - Optional overrides for testing purposes
  * @returns Merged configuration
  */
-export function getBookingConfig(
-  testOverrides: Partial<BookingConfig> = BOOKING_OVERRIDES as Partial<BookingConfig>
-): BookingConfig {
+export function getBookingConfig(testOverrides?: Partial<BookingConfig>): BookingConfig {
+  if (!testOverrides) {
+    return BOOKING_DEFAULTS;
+  }
   // Type assertion needed: DeepMerge with Partial<T> produces T | undefined properties,
   // but lodash merge skips undefined values so the base config properties are preserved.
   return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides) as BookingConfig;
@@ -505,107 +428,6 @@ export const HomepageOptionSchema = z.enum(
 );
 
 export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
-
-export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
-  const {
-    patient,
-    questionnaire,
-    context: { serviceMode, serviceCategoryCode },
-  } = input;
-  console.log(
-    'making prepopulated items for booking form with serviceMode, serviceCategoryCode',
-    serviceMode,
-    serviceCategoryCode
-  );
-
-  let patientSex: string | undefined;
-  if (patient?.gender === 'male') {
-    patientSex = 'Male';
-  } else if (patient?.gender === 'female') {
-    patientSex = 'Female';
-  } else if (patient?.gender !== undefined) {
-    patientSex = 'Intersex';
-  }
-  const patientPreferredName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
-  const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
-
-  const authorizedNLG = patient?.extension?.find(
-    (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
-  )?.valueString;
-
-  const ssn = patient?.identifier?.find(
-    (id) =>
-      id.type?.coding?.some((c) => c.system === 'http://terminology.hl7.org/CodeSystem/v2-0203' && c.code === 'SS') &&
-      id.period?.end === undefined
-  )?.value;
-
-  // assuming here we never need to collect this when we already have it
-  const shouldShowSSNField = !ssn && !formConfig.FormFields.patientInfo.hiddenFields?.includes('patient-ssn');
-  const ssnRequired = serviceCategoryCode === 'workers-comp' && shouldShowSSNField;
-
-  const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
-    const populatedItem: QuestionnaireResponseItem[] = (() => {
-      const itemItems = (item.item ?? [])
-        .filter((i: QuestionnaireItem) => i.type !== 'display')
-        .map((subItem) => {
-          const { linkId } = subItem;
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          if (linkId === 'existing-patient-id' && patient?.id) {
-            answer = makeAnswer(patient.id);
-          }
-          if (linkId === 'should-display-ssn-field') {
-            answer = makeAnswer(shouldShowSSNField, 'Boolean');
-          }
-          if (linkId === 'ssn-field-required') {
-            answer = makeAnswer(ssnRequired, 'Boolean');
-          }
-          if (linkId === 'appointment-service-category') {
-            answer = makeAnswer(serviceCategoryCode);
-          }
-          if (linkId === 'appointment-service-mode') {
-            answer = makeAnswer(serviceMode);
-          }
-          if (linkId === 'patient-first-name' && patient) {
-            answer = makeAnswer(getFirstName(patient) ?? '');
-          }
-          if (linkId === 'patient-last-name' && patient) {
-            answer = makeAnswer(getLastName(patient) ?? '');
-          }
-
-          if (linkId === 'patient-middle-name' && patient) {
-            answer = makeAnswer(getMiddleName(patient) ?? '');
-          }
-          if (linkId === 'patient-preferred-name' && patientPreferredName) {
-            answer = makeAnswer(patientPreferredName);
-          }
-          if (linkId === 'patient-birthdate' && patient?.birthDate) {
-            answer = makeAnswer(patient.birthDate);
-          }
-          if (linkId === 'patient-birth-sex' && patientSex) {
-            answer = makeAnswer(patientSex);
-          }
-          if (linkId === 'patient-email' && patientEmail) {
-            answer = makeAnswer(patientEmail);
-          }
-          if (linkId === 'authorized-non-legal-guardian' && authorizedNLG) {
-            answer = makeAnswer(authorizedNLG);
-          }
-
-          return {
-            linkId,
-            answer,
-          };
-        });
-      return itemItems;
-    })();
-    return {
-      linkId: item.linkId,
-      item: populatedItem,
-    };
-  });
-
-  return item;
-};
 
 export const getReasonForVisitOptionsForServiceCategory = (
   serviceCategory: string

@@ -1,19 +1,19 @@
 import {
   type PaperworkConfig,
-  PaperworkConfigSchema,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
   type ResolvedConsentFormConfig,
   type ValueSetsConfig,
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
-import { camelCase } from 'lodash-es';
-import z from 'zod';
-import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
+import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
+import {
+  buildConsentFormCheckboxItems,
+  checkFieldHidden as _checkFieldHidden,
+} from '../../config-helpers/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
-import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
   HAS_ATTORNEY_OPTION,
@@ -24,39 +24,16 @@ import {
 } from '../shared-questionnaire';
 import { VALUE_SETS } from '../value-sets';
 
-/**
- * Build consent form checkbox items dynamically from consent forms config.
- * This is called at config creation time so it picks up any test overrides.
- */
-function buildConsentFormCheckboxItems(consentForms: ResolvedConsentFormConfig[]): Record<string, any> {
-  return Object.fromEntries(
-    consentForms.map((form) => [
-      camelCase(form.id),
-      {
-        key: form.id,
-        label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-        disabledDisplay: 'disabled',
-      },
-    ])
-  );
-}
+const hiddenFormSections: string[] = [];
+
+const questionnaireBaseDefaults = {
+  resourceType: 'Questionnaire',
+  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
+  version: '1.1.6',
+  name: 'in-person_pre-visit_paperwork',
+  title: 'in-person pre-visit paperwork',
+  status: 'active',
+} as const satisfies QuestionnaireBase;
 
 /**
  * Build FormFields dynamically with the given value sets.
@@ -1978,28 +1955,14 @@ function buildFormFields(valueSets: ValueSetsConfig) {
   };
 }
 
-const hiddenFormSections: string[] = [];
-
-const questionnaireBaseDefaults = {
-  resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.6',
-  name: 'in-person_pre-visit_paperwork',
-  title: 'in-person pre-visit paperwork',
-  status: 'active',
-} as const satisfies QuestionnaireBase;
 // note: the order of the fields on this object are what determines the order they appear in the form
 /**
- * Get intake paperwork configuration with optional test overrides
+ * Get intake paperwork configuration
  *
- * @param overrides - Optional overrides (the overrides can be overridden to facilitate testing)
  * @param consentFormsConfig - Optional pre-resolved consent forms (for use in Node.js test context where proxy doesn't work)
- * @returns Parsed and merged configuration
+ * @returns Parsed configuration
  */
-export function getIntakePaperworkConfig(
-  overrides: any = OVERRIDES,
-  consentFormsConfig?: ResolvedConsentFormConfig[]
-): PaperworkConfig {
+export function getIntakePaperworkConfig(consentFormsConfig?: ResolvedConsentFormConfig[]): PaperworkConfig {
   // Use pre-merged value sets (baked in at deploy time)
   // Use provided consent forms if available (for Node.js test context), otherwise read from config
   const valueSets = VALUE_SETS;
@@ -2029,11 +1992,10 @@ export function getIntakePaperworkConfig(
     },
   };
 
-  // Merge: defaults -> consent forms -> user overrides
-  const withConsentForms = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
-  const mergedConfig = mergeAndFreezeConfigObjects(withConsentForms, overrides);
+  // Merge: defaults -> consent forms
+  const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
 
-  return PaperworkConfigSchema.parse(mergedConfig);
+  return mergedConfig as unknown as PaperworkConfig;
 }
 
 // Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
@@ -2043,25 +2005,8 @@ export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)));
 
 export const checkFieldHidden = (fieldKey: string): boolean => {
-  const config = INTAKE_PAPERWORK_CONFIG;
-  return Object.values(config.FormFields)
-    .flatMap((section: any) => section.hiddenFields || [])
-    .includes(fieldKey);
+  return _checkFieldHidden(INTAKE_PAPERWORK_CONFIG, fieldKey);
 };
 
-const GetPageSubtitleSchema = z.function().args(z.string(), z.string()).returns(z.string());
-
-let parsedGetPageSubtitle: z.infer<typeof GetPageSubtitleSchema> | undefined;
-
-if ((OVERRIDES as any).getIntakeFormPageSubtitle != undefined) {
-  parsedGetPageSubtitle = GetPageSubtitleSchema.parse((OVERRIDES as any).getIntakeFormPageSubtitle);
-}
-
-export const getIntakeFormPageSubtitle =
-  parsedGetPageSubtitle ??
-  ((pageLinkId: string, patientName: string): string => {
-    if (pageLinkId === 'photo-id-page') {
-      return `Adult Guardian for ${patientName}`;
-    }
-    return patientName;
-  });
+// Re-export helpers from config-helpers for backward compatibility
+export { getIntakeFormPageSubtitle, buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
