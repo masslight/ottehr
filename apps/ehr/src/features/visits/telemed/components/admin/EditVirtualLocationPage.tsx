@@ -134,6 +134,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
+                { link: '/admin', children: 'Admin' },
                 { link: VIRTUAL_LOCATIONS_URL, children: 'Virtual Locations' },
                 { link: '#', children: fullLabel || <Skeleton width={150} /> },
               ]}

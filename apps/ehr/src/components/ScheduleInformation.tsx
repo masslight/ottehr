@@ -141,7 +141,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             margin="dense"
             size="small"
           />
-          <Link to={`/schedule/${scheduleType}/add`}>
+          <Link to={`/admin/schedule/${scheduleType}/add`}>
             <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
               Add {scheduleType}
             </Button>
@@ -235,11 +235,13 @@ const getLinkForItem = (item: SchedulesAndOwnerListItem): string => {
     itemPathSegment = 'group';
   }
 
+  console.log(item);
+
   if (item.owner.resourceType === 'HealthcareService') {
-    return `/group/id/${item.owner.id}`;
+    return `/admin/group/id/${item.owner.id}`;
   }
   if (item.schedules.length) {
-    return `/schedule/id/${item.schedules[0].id}`;
+    return `/admin/schedule/id/${item.schedules[0].id}`;
   }
-  return `/schedule/new/${itemPathSegment}/${item.owner.id}`;
+  return `/admin/schedule/new/${itemPathSegment}/${item.owner.id}`;
 };

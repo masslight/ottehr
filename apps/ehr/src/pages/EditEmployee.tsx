@@ -113,7 +113,8 @@ export default function EditEmployeePage(): JSX.Element {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
-                { link: '/employees', children: 'Employees' },
+                { link: '/admin', children: 'Admin' },
+                { link: '/admin/employees', children: 'Employees' },
                 { link: '#', children: user?.name || <Skeleton width={150} /> },
               ]}
             />
