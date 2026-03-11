@@ -97,8 +97,8 @@ export async function performEffect(
     operations: [
       {
         op: 'add',
-        path: appointment.meta != null ? '/meta/-' : '/meta',
-        value: appointment.meta != null ? notificationSentTag : [notificationSentTag],
+        path: appointment.meta?.tag != null ? '/meta/tag/-' : '/meta/tag',
+        value: appointment.meta?.tag != null ? notificationSentTag : [notificationSentTag],
       },
     ],
   });
@@ -180,6 +180,16 @@ const createNewTask = ({
           ],
         },
         valueString: patientName,
+      },
+      {
+        type: {
+          coding: [
+            {
+              system: ottehrCodeSystemUrl('task-input'),
+              code: 'reference',
+            },
+          ],
+        },
         valueReference: { reference: `Patient/${patient.id}` },
       },
     ],
