@@ -37,7 +37,8 @@ export type ObservationTextFieldDTO =
   | ObservationHistoryObtainedFromDTO
   | ObservationSeenInLastThreeYearsDTO
   | ASQObservationDTO
-  | PatientVaccinationDTO;
+  | PatientVaccinationDTO
+  | ObservationDateFieldDTO;
 
 export type ObservationHistoryObtainedFromDTO =
   | CustomOptionObservationHistoryObtainedFromDTO
