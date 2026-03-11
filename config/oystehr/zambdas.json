@@ -71,12 +71,12 @@
       "src": "src/ehr/recent-patients-report/index",
       "zip": ".dist/zips/recent-patients-report.zip"
     },
-    "EXTERNAL-LAB-ORDERS-REPORT": {
-      "name": "external-lab-orders-report",
+    "EXTERNAL-ORDERS-REPORT": {
+      "name": "external-orders-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/external-lab-orders-report/index",
-      "zip": ".dist/zips/external-lab-orders-report.zip"
+      "src": "src/ehr/external-orders-report/index",
+      "zip": ".dist/zips/external-orders-report.zip"
     },
     "GET-TELEMED-APPOINTMENTS": {
       "name": "get-telemed-appointments",

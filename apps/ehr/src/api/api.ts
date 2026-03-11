@@ -144,7 +144,7 @@ const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const RECENT_PATIENTS_REPORT_ZAMBDA_ID = 'recent-patients-report';
-const EXTERNAL_LAB_ORDERS_REPORT_ZAMBDA_ID = 'external-lab-orders-report';
+const EXTERNAL_ORDERS_REPORT_ZAMBDA_ID = 'external-orders-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
@@ -443,12 +443,12 @@ export const getLabsRadsProdsReport = async (
   parameters: LabsRadsProdsReportZambdaInput
 ): Promise<LabsRadsProdsReportZambdaOutput> => {
   try {
-    if (EXTERNAL_LAB_ORDERS_REPORT_ZAMBDA_ID == null) {
+    if (EXTERNAL_ORDERS_REPORT_ZAMBDA_ID == null) {
       throw new Error('external lab orders report environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
-      id: EXTERNAL_LAB_ORDERS_REPORT_ZAMBDA_ID,
+      id: EXTERNAL_ORDERS_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
