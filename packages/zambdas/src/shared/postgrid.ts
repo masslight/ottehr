@@ -3,7 +3,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils';
 // PostGrid Print & Mail API
 // Docs: https://docs.postgrid.com
 
-const POSTGRID_BASE_URL = 'https://print.postgrid.com/print-mail/v1';
+const POSTGRID_BASE_URL = 'https://api.postgrid.com/print-mail/v1';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,25 +88,46 @@ async function postgridRequest<T>(
     'Content-Type': 'application/json',
     ...headers,
   };
+  const requestBodyJson = body ? JSON.stringify(body) : undefined;
 
-  const response = await fetch(url, {
-    method,
-    headers: requestHeaders,
-    body: body ? JSON.stringify(body) : undefined,
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: requestBodyJson,
+    });
+  } catch (error: unknown) {
+    console.error(`PostGrid fetch failed to ${url} (${method})`, error);
+    throw error;
+  }
+
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
   });
-
-  const json = await response.json();
+  const responseText = await response.text();
+  let responseJson: unknown;
+  try {
+    responseJson = responseText ? JSON.parse(responseText) : undefined;
+  } catch {
+    responseJson = undefined;
+  }
 
   if (!response.ok) {
-    const pgError = json as PostGridError;
+    const pgError = responseJson as PostGridError | undefined;
     throw new Error(
-      `PostGrid API error (${response.status}): ${pgError.error?.type ?? 'unknown'} — ${
-        pgError.error?.message ?? response.statusText
+      `PostGrid API error (${response.status}): ${pgError?.error?.type ?? 'unknown'} — ${
+        pgError?.error?.message ?? response.statusText
       }`
     );
   }
 
-  return json as T;
+  if (responseJson == null) {
+    throw new Error('PostGrid response could not be parsed as JSON');
+  }
+
+  return responseJson as T;
 }
 
 // ---------------------------------------------------------------------------

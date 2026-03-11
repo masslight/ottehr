@@ -3,6 +3,7 @@ import {
   Box,
   CircularProgress,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
@@ -49,6 +50,8 @@ export default function SendStatementToPatientDialog({
   const [previewError, setPreviewError] = useState<string>('');
   const [statementType, setStatementType] = useState<'standard' | 'past-due' | 'final-notice'>('past-due');
   const [applyGreyscalePreview, setApplyGreyscalePreview] = useState(false);
+  const [confirmMailOpen, setConfirmMailOpen] = useState(false);
+  const [isSendingMail, setIsSendingMail] = useState(false);
 
   useEffect(() => {
     if (modalOpen) {
@@ -90,159 +93,218 @@ export default function SendStatementToPatientDialog({
     void loadTemplateAndPreview();
   }, [encounterId, modalOpen, oystehrZambda, statementType]);
 
+  const statementTypeLabel = getStatementTypeLabel(statementType);
+  const printModeLabel = applyGreyscalePreview ? 'color' : 'black & white';
+
+  const handleSendByMailClick = (): void => {
+    if (!encounterId) {
+      enqueueSnackbar('Missing encounter id for statement mailing', { variant: 'error' });
+      return;
+    }
+    setConfirmMailOpen(true);
+  };
+
+  const handleConfirmSendByMail = async (): Promise<void> => {
+    if (!oystehrZambda || !encounterId) return;
+
+    setIsSendingMail(true);
+    try {
+      await oystehrZambda.zambda.execute({
+        id: 'mail-statement',
+        encounterId,
+        statementType,
+        color: applyGreyscalePreview,
+      });
+
+      enqueueSnackbar('Statement sent to mail queue', { variant: 'success' });
+      setConfirmMailOpen(false);
+      onSubmit();
+    } catch (error) {
+      console.error('Error sending statement by mail:', error);
+      enqueueSnackbar('Error sending statement by mail', { variant: 'error' });
+    } finally {
+      setIsSendingMail(false);
+    }
+  };
+
   return (
-    <Dialog
-      open={modalOpen}
-      maxWidth="xl"
-      fullWidth
-      PaperProps={{
-        sx: {
-          width: '74vw',
-          maxWidth: '1080px',
-          height: '92vh',
-        },
-      }}
-    >
-      <IconButton onClick={handleClose} size="medium" sx={{ position: 'absolute', right: 12, top: 12 }}>
-        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
-      </IconButton>
+    <>
+      <Dialog
+        open={modalOpen}
+        maxWidth="xl"
+        fullWidth
+        PaperProps={{
+          sx: {
+            width: '74vw',
+            maxWidth: '1080px',
+            height: '92vh',
+          },
+        }}
+      >
+        <IconButton onClick={handleClose} size="medium" sx={{ position: 'absolute', right: 12, top: 12 }}>
+          <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
+        </IconButton>
 
-      <Grid container direction="column" sx={{ padding: 1 }} spacing={0.5}>
-        <DialogTitle variant="h4" color="primary.dark">
-          Send Statement
-        </DialogTitle>
+        <Grid container direction="column" sx={{ padding: 1 }} spacing={0.5}>
+          <DialogTitle variant="h4" color="primary.dark">
+            Send Statement
+          </DialogTitle>
 
-        <Box
-          sx={{
-            pl: 3,
-            pr: 2,
-            pt: 0,
-            pb: 1,
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: 2,
-          }}
-        >
           <Box
             sx={{
-              minWidth: 0,
-              overflow: 'hidden',
+              pl: 3,
+              pr: 2,
+              pt: 0,
+              pb: 1,
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 2,
             }}
           >
-            <Typography
-              variant="body2"
-              sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+            <Box
+              sx={{
+                minWidth: 0,
+                overflow: 'hidden',
+              }}
             >
-              <strong>Patient:</strong> {patient?.fullName ?? '-'}, DOB {patient?.dob ?? '-'}, {patient?.gender ?? '-'}{' '}
-              - {patientCityStateZip}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
-            >
-              <strong>Responsible Party:</strong> {responsibleParty?.fullName ?? '-'} - {responsiblePartyCityStateZip}
-            </Typography>
-          </Box>
-
-          <Box sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
-            <RoundedButton variant="contained" color="primary" onClick={() => {}}>
-              Generate PDF
-            </RoundedButton>
-            <RoundedButton variant="contained" color="primary" onClick={onSubmit}>
-              Send by Mail
-            </RoundedButton>
-          </Box>
-        </Box>
-
-        <DialogContent sx={{ flex: 1, overflow: 'auto' }}>
-          {report !== undefined ? (
-            <Box>
-              <Box
-                sx={{
-                  mb: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  flexWrap: 'wrap',
-                }}
+              <Typography
+                variant="body2"
+                sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
               >
-                <FormControl size="small" sx={{ minWidth: 260, flex: '1 1 260px', maxWidth: 360 }}>
-                  <InputLabel id="statement-type-label">Statement Type</InputLabel>
-                  <Select
-                    labelId="statement-type-label"
-                    label="Statement Type"
-                    value={statementType}
-                    onChange={(event) => {
-                      setStatementType(event.target.value as 'standard' | 'past-due' | 'final-notice');
-                    }}
-                  >
-                    <MenuItem value="standard">Standard</MenuItem>
-                    <MenuItem value="past-due">Past Due</MenuItem>
-                    <MenuItem value="final-notice">Final Notice</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControlLabel
-                  sx={{ m: 0, flexShrink: 0 }}
-                  control={
-                    <Switch
-                      checked={applyGreyscalePreview}
-                      onChange={(event) => {
-                        setApplyGreyscalePreview(event.target.checked);
-                      }}
-                      size="small"
-                    />
-                  }
-                  label="Color"
-                />
-              </Box>
-
-              <Box
-                sx={{
-                  border: '1px solid',
-                  borderColor: '#2B3440',
-                  borderRadius: 1,
-                  minHeight: 700,
-                  backgroundColor: '#1E2630',
-                  p: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}
+                <strong>Patient:</strong> {patient?.fullName ?? '-'}, DOB {patient?.dob ?? '-'},{' '}
+                {patient?.gender ?? '-'} - {patientCityStateZip}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
               >
-                {isPreviewLoading ? (
-                  <CircularProgress size={28} />
-                ) : previewError ? (
-                  <Typography color="error">{previewError}</Typography>
-                ) : generatedHtml ? (
-                  <Box
-                    component="iframe"
-                    title="Statement Preview"
-                    sandbox="allow-same-origin allow-scripts"
-                    srcDoc={generatedHtml}
-                    sx={{
-                      width: '100%',
-                      minHeight: 800,
-                      border: 'none',
-                      backgroundColor: '#fff',
-                      borderRadius: 1,
-                      filter: applyGreyscalePreview ? 'none' : 'grayscale(100%)',
-                    }}
-                  />
-                ) : (
-                  <Typography color="text.secondary">Statement HTML preview will go here</Typography>
-                )}
-              </Box>
+                <strong>Responsible Party:</strong> {responsibleParty?.fullName ?? '-'} - {responsiblePartyCityStateZip}
+              </Typography>
             </Box>
-          ) : (
-            <Skeleton variant="rectangular" animation="wave" height={400} />
-          )}
+
+            <Box sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
+              <RoundedButton variant="contained" color="primary" onClick={() => {}}>
+                Generate PDF
+              </RoundedButton>
+              <RoundedButton variant="contained" color="primary" onClick={handleSendByMailClick}>
+                Send by Mail
+              </RoundedButton>
+            </Box>
+          </Box>
+
+          <DialogContent sx={{ flex: 1, overflow: 'auto' }}>
+            {report !== undefined ? (
+              <Box>
+                <Box
+                  sx={{
+                    mb: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <FormControl size="small" sx={{ minWidth: 260, flex: '1 1 260px', maxWidth: 360 }}>
+                    <InputLabel id="statement-type-label">Statement Type</InputLabel>
+                    <Select
+                      labelId="statement-type-label"
+                      label="Statement Type"
+                      value={statementType}
+                      onChange={(event) => {
+                        setStatementType(event.target.value as 'standard' | 'past-due' | 'final-notice');
+                      }}
+                    >
+                      <MenuItem value="standard">Standard</MenuItem>
+                      <MenuItem value="past-due">Past Due</MenuItem>
+                      <MenuItem value="final-notice">Final Notice</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <FormControlLabel
+                    sx={{ m: 0, flexShrink: 0 }}
+                    control={
+                      <Switch
+                        checked={applyGreyscalePreview}
+                        onChange={(event) => {
+                          setApplyGreyscalePreview(event.target.checked);
+                        }}
+                        size="small"
+                      />
+                    }
+                    label="Color"
+                  />
+                </Box>
+
+                <Box
+                  sx={{
+                    border: '1px solid',
+                    borderColor: '#2B3440',
+                    borderRadius: 1,
+                    minHeight: 700,
+                    backgroundColor: '#1E2630',
+                    p: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {isPreviewLoading ? (
+                    <CircularProgress size={28} />
+                  ) : previewError ? (
+                    <Typography color="error">{previewError}</Typography>
+                  ) : generatedHtml ? (
+                    <Box
+                      component="iframe"
+                      title="Statement Preview"
+                      sandbox="allow-same-origin allow-scripts"
+                      srcDoc={generatedHtml}
+                      sx={{
+                        width: '100%',
+                        minHeight: 800,
+                        border: 'none',
+                        backgroundColor: '#fff',
+                        borderRadius: 1,
+                        filter: applyGreyscalePreview ? 'none' : 'grayscale(100%)',
+                      }}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">Statement HTML preview will go here</Typography>
+                  )}
+                </Box>
+              </Box>
+            ) : (
+              <Skeleton variant="rectangular" animation="wave" height={400} />
+            )}
+          </DialogContent>
+        </Grid>
+      </Dialog>
+      <Dialog open={confirmMailOpen} onClose={() => setConfirmMailOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Confirm Send by Mail</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Send {statementTypeLabel} statement for {patient?.fullName ?? 'this patient'} to{' '}
+            {responsibleParty?.fullName ?? 'the responsible party'}, printed in {printModeLabel}?
+          </Typography>
         </DialogContent>
-      </Grid>
-    </Dialog>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <RoundedButton variant="outlined" color="primary" onClick={() => setConfirmMailOpen(false)}>
+            Cancel
+          </RoundedButton>
+          <RoundedButton variant="contained" color="primary" onClick={() => void handleConfirmSendByMail()}>
+            {isSendingMail ? 'Sending...' : 'OK'}
+          </RoundedButton>
+        </DialogActions>
+      </Dialog>
+    </>
   );
+}
+
+function getStatementTypeLabel(statementType: 'standard' | 'past-due' | 'final-notice'): string {
+  if (statementType === 'past-due') return 'past due';
+  if (statementType === 'final-notice') return 'final notice';
+  return 'standard';
 }
 
 function formatCityStateZip(city?: string, state?: string, fullAddress?: string): string {

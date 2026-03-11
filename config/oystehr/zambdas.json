@@ -1280,6 +1280,13 @@
       "src": "src/ehr/statements/get-details/index",
       "zip": ".dist/zips/get-statement-details.zip"
     },
+    "MAIL-STATEMENT": {
+      "name": "mail-statement",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/mail-statement/index",
+      "zip": ".dist/zips/mail-statement.zip"
+    },
     "SUB-REFRESH-INVOICE-TASK": {
       "name": "sub-refresh-invoice-task",
       "type": "subscription",

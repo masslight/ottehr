@@ -45,6 +45,7 @@ interface StatementInsuranceDetails {
 }
 
 interface StatementBillerDetails {
+  name: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -161,6 +162,7 @@ function getBillerDetails(billingResource: BillingProviderResource): StatementBi
   const email = billingResource.telecom?.find((contact) => contact.system === 'email')?.value ?? '';
 
   return {
+    name: getBillerName(billingResource),
     addressLine1: address?.line?.[0] ?? '',
     addressLine2: address?.line?.[1] ?? '',
     city: address?.city ?? '',
@@ -173,6 +175,7 @@ function getBillerDetails(billingResource: BillingProviderResource): StatementBi
 
 function getUnknownBillerDetails(): StatementBillerDetails {
   return {
+    name: UNKNOWN_BILLER_VALUE,
     addressLine1: UNKNOWN_BILLER_VALUE,
     addressLine2: UNKNOWN_BILLER_VALUE,
     city: UNKNOWN_BILLER_VALUE,
@@ -181,6 +184,34 @@ function getUnknownBillerDetails(): StatementBillerDetails {
     website: UNKNOWN_BILLER_VALUE,
     email: UNKNOWN_BILLER_VALUE,
   };
+}
+
+function getBillerName(billingResource: BillingProviderResource): string {
+  const displayName = (billingResource as { displayName?: string }).displayName;
+  if (displayName) {
+    return displayName;
+  }
+
+  const display = (billingResource as { display?: string }).display;
+  if (display) {
+    return display;
+  }
+
+  if (billingResource.resourceType === 'Practitioner') {
+    const practitionerName = billingResource.name?.[0];
+    if (practitionerName?.text) {
+      return practitionerName.text;
+    }
+
+    const fullName = `${practitionerName?.given?.join(' ') ?? ''} ${practitionerName?.family ?? ''}`.trim();
+    return fullName || UNKNOWN_BILLER_VALUE;
+  }
+
+  if (billingResource.resourceType === 'Organization' || billingResource.resourceType === 'Location') {
+    return billingResource.name ?? UNKNOWN_BILLER_VALUE;
+  }
+
+  return UNKNOWN_BILLER_VALUE;
 }
 
 function formatMoney(cents: number | undefined): string {
@@ -361,6 +392,7 @@ function createStatementDetails(
       url: paymentUrl,
     },
     biller: {
+      name: billerDetails.name,
       addressLine1: billerDetails.addressLine1,
       addressLine2: billerDetails.addressLine2,
       city: billerDetails.city,
