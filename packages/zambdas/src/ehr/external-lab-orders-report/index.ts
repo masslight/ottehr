@@ -185,7 +185,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const allBatchRequests: BatchInputGetRequest[] = encounterIds.map((encounterId) => ({
       method: 'GET',
-      url: `/ServiceRequest?encounter=Encounter/${encounterId}&_include=ServiceRequest:performer:Organization&_include=ServiceRequest:supporting-info:Procedure&_count=100`,
+      url: `/ServiceRequest?encounter=Encounter/${encounterId}&_include=ServiceRequest:performer:Organization&_count=100`,
     }));
 
     const BATCH_SIZE = 50;
@@ -206,7 +206,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Parse batch results
     const serviceRequests: ServiceRequest[] = [];
     const organizations: Organization[] = [];
-    const procedures: Procedure[] = [];
 
     allBatchResults.forEach((batchResult) => {
       batchResult.entry?.forEach((entry) => {
@@ -222,8 +221,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               serviceRequests.push(innerEntry.resource as ServiceRequest);
             } else if (innerEntry.resource?.resourceType === 'Organization') {
               organizations.push(innerEntry.resource as Organization);
-            } else if (innerEntry.resource?.resourceType === 'Procedure') {
-              procedures.push(innerEntry.resource as Procedure);
             }
           });
         }
@@ -245,11 +242,47 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (org.id) orgMap.set(`Organization/${org.id}`, org);
     });
 
-    // Create procedure lookup (for CPT codes linked via supportingInfo)
-    const procedureMap = new Map<string, Procedure>();
-    procedures.forEach((proc) => {
-      if (proc.id) procedureMap.set(`Procedure/${proc.id}`, proc);
+    // Fetch Procedure resources for CPT codes (linked via supportingInfo on procedure ServiceRequests)
+    const procedureRefs = new Set<string>();
+    serviceRequests.forEach((sr) => {
+      if (classifyServiceRequest(sr) === 'procedure') {
+        sr.supportingInfo?.forEach((ref) => {
+          if (ref.reference?.startsWith('Procedure/')) {
+            procedureRefs.add(ref.reference);
+          }
+        });
+      }
     });
+
+    const procedureMap = new Map<string, Procedure>();
+    if (procedureRefs.size > 0) {
+      const procBatchRequests: BatchInputGetRequest[] = Array.from(procedureRefs).map((ref) => ({
+        method: 'GET',
+        url: `/${ref}`,
+      }));
+
+      const procBatches: BatchInputGetRequest[][] = [];
+      for (let i = 0; i < procBatchRequests.length; i += BATCH_SIZE) {
+        procBatches.push(procBatchRequests.slice(i, i + BATCH_SIZE));
+      }
+
+      console.log(`Fetching ${procedureRefs.size} Procedure resources for CPT codes`);
+
+      const procBatchResults = await Promise.all(
+        procBatches.map((batch) => oystehr.fhir.batch<FhirResource>({ requests: batch }))
+      );
+
+      procBatchResults.forEach((batchResult) => {
+        batchResult.entry?.forEach((entry) => {
+          if (entry.resource?.resourceType === 'Procedure') {
+            const proc = entry.resource as Procedure;
+            if (proc.id) procedureMap.set(`Procedure/${proc.id}`, proc);
+          }
+        });
+      });
+
+      console.log(`Fetched ${procedureMap.size} Procedure resources`);
+    }
 
     // Build encounter-to-appointment map
     const encounterToAppointment = new Map<string, Appointment>();
