@@ -135,7 +135,7 @@ export default function Reports(): React.ReactElement {
       title: 'Labs, Rads, and Procs',
       description: 'View lab orders, radiology orders, and procedures from completed encounters',
       icon: <ScienceIcon />,
-      path: '/reports/external-lab-orders',
+      path: '/reports/lab-rad-proc-orders',
     },
     {
       title: 'Invoiceable patients',
