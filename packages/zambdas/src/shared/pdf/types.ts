@@ -662,7 +662,7 @@ export interface Procedures extends PdfData {
     medicationUsed?: string;
     bodySite?: string;
     bodySide?: string;
-    technique?: string;
+    technique?: string[];
     suppliesUsed?: string;
     procedureDetails?: string;
     specimenSent?: string;
