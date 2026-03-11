@@ -123,7 +123,7 @@ jobs:
       - name: Copy secrets to appropriate locations
         run: |
           shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          npm exec -- tsx ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}
+          npm exec -- tsx ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}${{ github.event.repository.name == 'ottehr' && format(' {0}', github.event.repository.name) || '' }}
           npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 
       # TODO: Remove this step and references to it once transition to TF is complete

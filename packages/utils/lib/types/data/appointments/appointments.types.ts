@@ -6,6 +6,7 @@ import {
   HealthcareService,
   Location,
   Patient,
+  Person,
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
@@ -192,7 +193,8 @@ export type AppointmentRelatedResources =
   | QuestionnaireResponse
   | Practitioner
   | RelatedPerson
-  | HealthcareService;
+  | HealthcareService
+  | Person;
 
 export const PendingSupervisorApprovalInputSchema = z.object({
   encounterId: z.string().uuid(),

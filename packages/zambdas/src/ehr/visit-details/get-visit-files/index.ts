@@ -5,6 +5,7 @@ import {
   DocumentInfo,
   DocumentType,
   FHIR_RESOURCE_NOT_FOUND,
+  getPatchBinary,
   getPaymentVariantFromEncounter,
   getPresignedURL,
   getSecret,
@@ -73,17 +74,6 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
     consentPdfUrls: [],
   };
 
-  function compareCards(
-    cardBackType: DocumentType.PhotoIdBack | DocumentType.InsuranceBack | DocumentType.InsuranceBackSecondary
-  ) {
-    return (a: DocumentInfo, b: DocumentInfo) => {
-      if (a && b) {
-        return a.type === cardBackType ? 1 : -1;
-      }
-      return 0;
-    };
-  }
-
   const documentReferenceResources = await searchDocumentReferencesForVisit(oystehr, patientId, appointmentId);
 
   // Get document info
@@ -135,18 +125,18 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
   }
 
   if (z3Documents.length) {
-    documents.photoIdCards = z3Documents
-      .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
-      .slice(0, 2) // we're slicing all these because somewhere we're failing to mark the DR as no longer current and are getting multiples
-      .sort(compareCards(DocumentType.PhotoIdBack));
-    documents.insuranceCards = z3Documents
-      .filter((doc) => [DocumentType.InsuranceFront, DocumentType.InsuranceBack].includes(doc.type))
-      .slice(0, 2)
-      .sort(compareCards(DocumentType.InsuranceBack));
-    documents.insuranceCardsSecondary = z3Documents
-      .filter((doc) => [DocumentType.InsuranceFrontSecondary, DocumentType.InsuranceBackSecondary].includes(doc.type))
-      .slice(0, 2)
-      .sort(compareCards(DocumentType.InsuranceBackSecondary));
+    documents.photoIdCards = [
+      z3Documents.find((doc) => doc.type === DocumentType.PhotoIdFront),
+      z3Documents.find((doc) => doc.type === DocumentType.PhotoIdBack),
+    ].filter((doc): doc is DocumentInfo => doc !== undefined);
+    documents.insuranceCards = [
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceFront),
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceBack),
+    ].filter((doc): doc is DocumentInfo => doc !== undefined);
+    documents.insuranceCardsSecondary = [
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceFrontSecondary),
+      z3Documents.find((doc) => doc.type === DocumentType.InsuranceBackSecondary),
+    ].filter((doc): doc is DocumentInfo => doc !== undefined);
     documents.fullCardPdfs = z3Documents.filter((doc) =>
       [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
     );
@@ -168,6 +158,8 @@ export async function searchDocumentReferencesForVisit(
   appointmentId: string
 ): Promise<DocumentReference[]> {
   const documentReferenceResources: DocumentReference[] = [];
+  const duplicateResources: DocumentReference[] = [];
+
   const docRefBundle = await oystehr.fhir.batch<DocumentReference>({
     requests: [
       {
@@ -189,15 +181,55 @@ export async function searchDocumentReferencesForVisit(
   });
 
   const bundleEntries = docRefBundle?.entry;
+
+  // clean up duplicates
+  const z3UrlToDocRef = new Map<string, DocumentReference>();
   bundleEntries?.forEach((bundleEntry: BundleEntry) => {
     const bundleResource = bundleEntry.resource as Bundle;
     bundleResource.entry?.forEach((entry) => {
       const docRefResource = entry.resource as DocumentReference;
-      if (docRefResource) {
+      if (!docRefResource) return;
+      const hasDuplicate = docRefResource.content.some((content) => {
+        const z3Url = content.attachment.url;
+        if (!z3Url) return false;
+        if (z3UrlToDocRef.has(z3Url)) {
+          console.warn(
+            `Duplicate DocumentReference found for z3Url ${z3Url}. DocumentReference IDs: ${z3UrlToDocRef.get(z3Url)
+              ?.id} and ${docRefResource.id}. Marking ${docRefResource.id} as duplicate and superseded.`
+          );
+          return true;
+        }
+        z3UrlToDocRef.set(z3Url, docRefResource);
+        return false;
+      });
+      if (hasDuplicate) {
+        duplicateResources.push(docRefResource);
+      } else {
         documentReferenceResources.push(docRefResource);
       }
     });
   });
+  if (duplicateResources.length > 0) {
+    try {
+      await oystehr.fhir.batch({
+        requests: duplicateResources.map((docRef) =>
+          getPatchBinary({
+            resourceType: 'DocumentReference',
+            resourceId: docRef.id!,
+            patchOperations: [
+              {
+                op: 'replace',
+                path: '/status',
+                value: 'superseded',
+              },
+            ],
+          })
+        ),
+      });
+    } catch (error) {
+      console.error('Failed to mark duplicate DocumentReferences as superseded:', error);
+    }
+  }
 
   return documentReferenceResources;
 }
