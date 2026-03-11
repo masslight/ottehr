@@ -10,7 +10,7 @@ import { IntakeNotes } from '../hooks/useIntakeNotes';
 export const ChiefComplaintAndIntakeNotes: React.FC = () => {
   return (
     <Stack spacing={1}>
-      <PageTitle label="Chief Complaint & Intake Notes" showIntakeNotesButton={false} />
+      <PageTitle label="Chief Complaint" showIntakeNotesButton={false} />
 
       <GeneralInfoCard />
 
