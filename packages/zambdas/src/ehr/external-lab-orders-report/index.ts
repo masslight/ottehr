@@ -419,6 +419,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           patientId: patient?.id || '',
           patientName,
           encounterId,
+          appointmentId: appointment?.id || '',
           encounterDate: appointment?.start || '',
           orderingProvider,
           location: locationName,

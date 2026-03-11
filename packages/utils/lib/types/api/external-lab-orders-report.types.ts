@@ -17,6 +17,7 @@ export interface OrderReportItem {
   patientId: string;
   patientName: string;
   encounterId: string;
+  appointmentId: string;
   encounterDate: string; // Appointment start ISO date string
   orderingProvider: string;
   location: string;

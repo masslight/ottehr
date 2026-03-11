@@ -437,6 +437,20 @@ export default function ExternalLabOrders(): React.ReactElement {
         headerName: 'Order Name',
         width: 250,
         sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const appointmentId = params.row.appointmentId;
+          if (!appointmentId) return params.value;
+          return (
+            <Link
+              to={`/in-person/${appointmentId}/review-and-sign`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#1976d2', textDecoration: 'underline' }}
+            >
+              {params.value}
+            </Link>
+          );
+        },
       },
       {
         field: 'status',
