@@ -293,7 +293,7 @@ const useLabsRadsProds = (
   });
 };
 
-export default function ExternalLabOrders(): React.ReactElement {
+export default function LabRadProcOrders(): React.ReactElement {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('last-7-days');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
@@ -551,8 +551,8 @@ export default function ExternalLabOrders(): React.ReactElement {
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          This report shows external lab orders, radiology orders, and procedures from completed encounters. Use the
-          Type column filter to narrow by order category.
+          This report shows lab orders, radiology orders, and procedures from completed encounters. Use the Type column
+          filter to narrow by order category.
         </Typography>
 
         {/* Date Filter */}

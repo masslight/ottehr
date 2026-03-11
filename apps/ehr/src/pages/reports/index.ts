@@ -1,7 +1,7 @@
 export { default as AiAssistedEncounters } from './AiAssistedEncounters';
 export { default as CompleteEncounters } from './CompleteEncounters';
 export { default as DailyPayments } from './DailyPayments';
-export { default as ExternalLabOrders } from './ExternalLabOrders';
+export { default as LabRadProcOrders } from './LabRadProcOrders';
 export { default as DataExports } from './DataExports';
 export { default as IncompleteEncounters } from './IncompleteEncounters';
 export { default as PracticeKpis } from './PracticeKpis';

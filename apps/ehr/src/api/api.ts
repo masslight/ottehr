@@ -444,7 +444,7 @@ export const getLabsRadsProdsReport = async (
 ): Promise<LabsRadsProdsReportZambdaOutput> => {
   try {
     if (EXTERNAL_ORDERS_REPORT_ZAMBDA_ID == null) {
-      throw new Error('external lab orders report environment variable could not be loaded');
+      throw new Error('external orders report environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
