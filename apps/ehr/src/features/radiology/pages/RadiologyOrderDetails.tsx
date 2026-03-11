@@ -220,7 +220,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     inputProps={{ readOnly: true }}
                     checked={order.consentObtained}
                   />
-                  <Typography>I have obtained the Consent for X-ray</Typography>
+                  <Typography>I have obtained the consent for X-ray</Typography>
                 </Box>
               </Box>
             </Box>

@@ -317,8 +317,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <Grid item xs={12}>
                   <Box style={{ display: 'flex', alignItems: 'center' }}>
                     <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
-                    {/* todo sarah what should this link to ? */}
-                    <Typography>I have obtained the Consent for X-ray</Typography>
+                    <Typography>I have obtained the consent for X-ray</Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12}>
