@@ -159,17 +159,14 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Setup terraform config
+      - name: Set up terraform config
         shell: /usr/bin/bash -x {0}
         run: |
           ENV="${{ needs.check-changes.outputs.environment }}"
           mkdir -p "packages/zambdas/.env"
-          cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
-          cp secrets/ottehr/terraform/backend.config deploy/backend.config
-          cp "secrets/ottehr/terraform/$ENV.tfvars" "deploy/$ENV.tfvars"
-          if [ -f "secrets/ottehr/terraform/${ENV}_import.tf" ]; then
-            cp "secrets/ottehr/terraform/${ENV}_import.tf" "deploy/${ENV}_import.tf"
-          fi
+          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
+          npm exec -- tsx ./scripts/secrets.ts populate ${{ inputs.environment }}
+          npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials
@@ -192,9 +189,9 @@ jobs:
           aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
           aws configure --profile "${profile}" set region us-east-1
 
-      - name: Setup app environment
+      - name: Set up app environment
+        shell: /usr/bin/bash -xeo pipefail {0}
         run: |
-          set -xeo pipefail
           ENV="${{ needs.check-changes.outputs.environment }}"
           pushd deploy
           npm run terraform-init
@@ -203,7 +200,7 @@ jobs:
 
           setup_env() {
             mkdir -p "apps/$app/env"
-            cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
+            cp "secrets/apps/$app/env/tests."*.json "apps/$app/env/"
             address="module.ottehr_apps.local_sensitive_file.${app}_env"
             if [ "$app" = "intake" ]; then
               address="module.ottehr_apps.local_sensitive_file.patient_portal_env"
