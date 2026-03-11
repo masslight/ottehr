@@ -472,6 +472,7 @@ export default function ExternalLabOrders(): React.ReactElement {
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
           const patientId = params.row.patientId;
+          if (!patientId) return params.value;
           return (
             <Link
               to={`/patient/${patientId}`}

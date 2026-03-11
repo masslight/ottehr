@@ -25,6 +25,10 @@ export function validateRequestParameters(input: ZambdaInput): LabsRadsProdsRepo
     throw new Error('dateRange.end must be a valid ISO date string');
   }
 
+  if (new Date(dateRange.start).getTime() > new Date(dateRange.end).getTime()) {
+    throw new Error('dateRange.start must be less than or equal to dateRange.end');
+  }
+
   if (!input.secrets) {
     throw new Error('Input did not have any secrets');
   }

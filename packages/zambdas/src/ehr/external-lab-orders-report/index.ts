@@ -17,12 +17,14 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getSecret,
+  isPSCOrder,
   LabsRadsProdsReportZambdaOutput,
   OrderCategory,
   OrderReportItem,
   OrderSummaryItem,
   OTTEHR_MODULE,
-  PSC_HOLD_CONFIG,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import {
@@ -36,12 +38,12 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-const ZAMBDA_NAME = 'external-lab-orders-report';
+const ZAMBDA_NAME = 'external-orders-report';
 
 const ORDER_TYPE_CODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/order-type-tag';
 const PROCEDURE_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/Procedure/procedure-type';
 
-/** Classify a ServiceRequest as lab, radiology, or procedure based on meta tags */
+/** Classify a ServiceRequest as lab, radiology, or procedure based on identifiers and meta tags */
 function classifyServiceRequest(sr: ServiceRequest): OrderCategory | null {
   const tags = sr.meta?.tag || [];
 
@@ -55,8 +57,8 @@ function classifyServiceRequest(sr: ServiceRequest): OrderCategory | null {
     return 'procedure';
   }
 
-  // Lab: has contained ActivityDefinition (external lab order pattern)
-  if (sr.contained?.some((c) => c.resourceType === 'ActivityDefinition')) {
+  // Lab: identified by the lab order placer ID system on the identifier
+  if (sr.identifier?.some((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)) {
     return 'lab';
   }
 
@@ -185,7 +187,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const allBatchRequests: BatchInputGetRequest[] = encounterIds.map((encounterId) => ({
       method: 'GET',
-      url: `/ServiceRequest?encounter=Encounter/${encounterId}&_include=ServiceRequest:performer:Organization&_count=100`,
+      url: `/ServiceRequest?encounter=Encounter/${encounterId}&_include=ServiceRequest:performer:Organization&_count=1000`,
     }));
 
     const BATCH_SIZE = 50;
@@ -229,12 +231,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log(`Found ${serviceRequests.length} total ServiceRequests`);
 
-    // Debug: log classification of each ServiceRequest
-    serviceRequests.forEach((sr) => {
-      const category = classifyServiceRequest(sr);
-      const tags = sr.meta?.tag?.map((t) => `${t.system}|${t.code}`).join(', ') || 'no tags';
-      console.log(`SR ${sr.id}: status=${sr.status}, intent=${sr.intent}, category=${category}, tags=[${tags}]`);
+    // Filter out revoked/entered-in-error and unclassifiable ServiceRequests early
+    const filteredServiceRequests = serviceRequests.filter((sr) => {
+      if (sr.status === 'entered-in-error' || sr.status === 'revoked') return false;
+      return classifyServiceRequest(sr) !== null;
     });
+
+    console.log(`${filteredServiceRequests.length} ServiceRequests after filtering`);
 
     // Create organization lookup
     const orgMap = new Map<string, Organization>();
@@ -244,7 +247,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Fetch Procedure resources for CPT codes (linked via supportingInfo on procedure ServiceRequests)
     const procedureRefs = new Set<string>();
-    serviceRequests.forEach((sr) => {
+    filteredServiceRequests.forEach((sr) => {
       if (classifyServiceRequest(sr) === 'procedure') {
         sr.supportingInfo?.forEach((ref) => {
           if (ref.reference?.startsWith('Procedure/')) {
@@ -294,17 +297,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     });
 
-    // Step 3: Classify and build report items
-    const orders: OrderReportItem[] = serviceRequests
+    // Step 3: Build report items from pre-filtered ServiceRequests
+    const orders: OrderReportItem[] = filteredServiceRequests
       .map((sr): OrderReportItem | null => {
         if (!sr.id) return null;
 
-        // Classify the order
         const orderCategory = classifyServiceRequest(sr);
         if (!orderCategory) return null;
-
-        // Skip entered-in-error and revoked
-        if (sr.status === 'entered-in-error' || sr.status === 'revoked') return null;
 
         // Get encounter reference
         const encounterRef = sr.encounter?.reference;
@@ -325,16 +324,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         let orderCode: string | undefined;
 
         if (orderCategory === 'lab') {
-          // Lab: name from contained ActivityDefinition, code from SR.code
-          const activityDef = sr.contained?.find((c) => c.resourceType === 'ActivityDefinition');
-          if (activityDef && 'title' in activityDef) {
-            orderName = (activityDef as { title?: string }).title || 'Unknown';
-          }
-          if (sr.code?.coding?.[0]) {
+          // Lab: name from SR.code using the oystehr lab local codes system
+          const labCoding = sr.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+          if (labCoding) {
+            orderName = labCoding.display || labCoding.code || 'Unknown';
+            orderCode = labCoding.code;
+          } else if (sr.code?.coding?.[0]) {
             orderCode = sr.code.coding[0].code;
-            if (orderName === 'Unknown') {
-              orderName = sr.code.coding[0].display || sr.code.coding[0].code || 'Unknown';
-            }
+            orderName = sr.code.coding[0].display || sr.code.coding[0].code || 'Unknown';
           }
         } else if (orderCategory === 'radiology') {
           // Radiology: CPT code from SR.code
@@ -401,7 +398,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             const org = orgMap.get(performerRef);
             if (org) labOrganization = org.name || 'Unknown';
           }
-          isPSC = sr.category?.some((cat) => cat.coding?.some((c) => c.code === PSC_HOLD_CONFIG.code)) || false;
+          isPSC = isPSCOrder(sr);
         }
 
         // Radiology-specific fields
