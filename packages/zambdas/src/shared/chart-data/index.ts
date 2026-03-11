@@ -1599,7 +1599,9 @@ export function makeProceduresDTOFromFhirResources(
       medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
       bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
       bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
-      technique: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)?.valueString,
+      technique: getExtensions(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)
+        .map((extension) => extension.valueString)
+        .filter((value) => value != null),
       suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
       procedureDetails: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
       specimenSent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
@@ -1627,10 +1629,12 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.bodySide.url,
       valueString: procedure.bodySide,
     },
-    {
-      url: FHIR_EXTENSION.ServiceRequest.technique.url,
-      valueString: procedure.technique,
-    },
+    ...(procedure.technique?.map((technique) => {
+      return {
+        url: FHIR_EXTENSION.ServiceRequest.technique.url,
+        valueString: technique,
+      };
+    }) ?? []),
     {
       url: FHIR_EXTENSION.ServiceRequest.suppliesUsed.url,
       valueString: procedure.suppliesUsed,
@@ -1745,6 +1749,10 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+function getExtensions(resource: DomainResource, url: string): Extension[] {
+  return resource.extension?.filter((extension) => extension.url === url) ?? [];
 }
 
 function getMedicationDosage(medication: MedicationStatement, medicationType: string): string | undefined {
