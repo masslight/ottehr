@@ -30,6 +30,7 @@ export type ObservationDTO =
   | ObservationTextFieldDTO
   | ObservationBooleanFieldDTO
   | VitalsObservationDTO
+  | ObservationDateFieldDTO
   | ObservationDateRangeFieldDTO;
 
 export type ObservationTextFieldDTO =
@@ -62,6 +63,11 @@ export type PatientVaccinationDTO = {
   field: typeof PATIENT_VACCINATION_STATUS;
   value: PatientVaccinationKeys;
   note?: string;
+} & SaveableDTO;
+
+export type ObservationDateFieldDTO = {
+  field: string;
+  value: string;
 } & SaveableDTO;
 
 export type ObservationDateRangeFieldDTO = {
