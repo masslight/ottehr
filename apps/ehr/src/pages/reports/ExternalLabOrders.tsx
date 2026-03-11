@@ -400,12 +400,6 @@ export default function ExternalLabOrders(): React.ReactElement {
         sortable: true,
       },
       {
-        field: 'orderCode',
-        headerName: 'Code',
-        width: 150,
-        sortable: true,
-      },
-      {
         field: 'count',
         headerName: 'Count',
         width: 100,
