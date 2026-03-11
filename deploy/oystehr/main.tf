@@ -8,13 +8,15 @@ terraform {
 }
 
 resource "oystehr_secret" "sendgrid_template_ids" {
-  for_each = var.sendgrid_template_ids
+  for_each = var.sendgrid_template_ids != null ? var.sendgrid_template_ids : {}
 
   name  = each.key
   value = each.value
 }
 
 resource "oystehr_secret" "sendgrid_send_email_api_key" {
+  count = var.sendgrid_send_email_api_key != null ? 1 : 0
+
   name  = "SENDGRID_SEND_EMAIL_API_KEY"
   value = var.sendgrid_send_email_api_key
 }

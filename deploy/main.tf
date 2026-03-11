@@ -1,10 +1,5 @@
 terraform {
-  backend "s3" {
-    bucket  = "YOUR_TF_BUCKET_NAME"
-    region  = "us-east-1"
-    profile = "YOUR_AWS_PROFILE_NAME"
-    key     = "terraform.tfstate"
-  }
+  backend "local" {}
   required_version = ">= 1.12.0"
   required_providers {
     sendgrid = {
@@ -23,16 +18,6 @@ terraform {
   }
 }
 
-provider "sendgrid" {
-  api_key = var.sendgrid_api_key
-}
-
-provider "oystehr" {
-  project_id    = var.project_id
-  client_id     = var.client_id
-  client_secret = var.client_secret
-}
-
 locals {
   # DEBUG: set to `1` to run non-local modules
   # `1` is the magic number to run a module that checks this local variable.
@@ -41,6 +26,20 @@ locals {
   is_local                     = contains(["local", "e2e", "e2e2", "e2e3"], var.environment)
   not_local_env_resource_count = local.is_local ? 0 : 1
   # not_local_env_resource_count = 1
+
+  sendgrid_config          = jsondecode(file("../config/sendgrid/sendgrid.json"))
+  sendgrid_enabled         = try(local.sendgrid_config.featureFlag, false)
+  sendgrid_resource_count  = local.sendgrid_enabled ? 1 : 0
+}
+
+provider "sendgrid" {
+  api_key = local.sendgrid_enabled ? var.sendgrid_api_key : "sendgrid-disabled"
+}
+
+provider "oystehr" {
+  project_id    = var.project_id
+  client_id     = var.client_id
+  client_secret = var.client_secret
 }
 
 module "infra" {
@@ -56,6 +55,7 @@ module "infra" {
 }
 
 module "sendgrid" {
+  count  = local.sendgrid_resource_count
   source = "./sendgrid"
   providers = {
     sendgrid = sendgrid
@@ -68,8 +68,8 @@ module "oystehr" {
   providers = {
     oystehr = oystehr
   }
-  sendgrid_template_ids       = module.sendgrid.template_ids
-  sendgrid_send_email_api_key = module.sendgrid.sendgrid_api_key
+  sendgrid_template_ids       = one(module.sendgrid[*].template_ids)
+  sendgrid_send_email_api_key = one(module.sendgrid[*].sendgrid_api_key)
   ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : one(module.infra[*].ehr_domain) : var.ehr_domain
   patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.infra[*].patient_portal_domain) : var.patient_portal_domain
 }
