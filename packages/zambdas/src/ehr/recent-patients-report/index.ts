@@ -7,6 +7,7 @@ import {
   getPhoneNumberForIndividual,
   getSecret,
   OTTEHR_MODULE,
+  PATIENT_POINT_OF_DISCOVERY_URL,
   RecentPatientRecord,
   RecentPatientsReportZambdaOutput,
   SecretsKeys,
@@ -336,6 +337,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const hasHistoricalAppointments = patientHistoryMap.get(patientId) || false;
       const patientStatus: 'new' | 'existing' = hasHistoricalAppointments ? 'existing' : 'new';
 
+      // Get "How did you hear about us?" value
+      const pointOfDiscovery = patient.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString;
+
       patientRecords.push({
         patientId,
         firstName,
@@ -348,6 +352,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           serviceCategory,
         },
         patientStatus,
+        pointOfDiscovery,
       });
     }
 
