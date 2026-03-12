@@ -1617,11 +1617,11 @@
         ]
       }
     },
-    "SUB_GENERATE_STATEMENT_SUBSCRIPTION": {
+    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "Generate statement",
+        "reason": "Generate statement on invoice creation",
         "criteria": "Task?code=|send-invoice-to-patient&status=completed",
         "channel": {
           "type": "rest-hook",
@@ -1639,6 +1639,28 @@
         ]
       }
     },
+    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_DEMAND": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate statement on demand",
+        "criteria": "Task?code=|generate-statement&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },    
     "SUB_SEND_PATIENT_STATEMENT_BY_MAIL_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
