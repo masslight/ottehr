@@ -1039,7 +1039,10 @@ export const useGetMedicationList = () => {
       }
       const data = await oystehr.fhir.search<Medication>({
         resourceType: 'Medication',
-        params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
+        params: [
+          { name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE },
+          { name: 'status:not', value: 'inactive' },
+        ],
       });
 
       return buildMedicationListData(data.unbundle());

@@ -26,6 +26,7 @@ import EditVirtualLocationPage from './features/visits/telemed/components/admin/
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
+import AddMedicationPage from './pages/AddMedicationPage';
 import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import { AdminPage } from './pages/AdminPage';
@@ -52,6 +53,7 @@ import {
 } from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
+import UpdateMedicationPage from './pages/UpdateMedicationPage';
 import VisitDetailsPage from './pages/VisitDetailsPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
@@ -221,6 +223,8 @@ function App(): ReactElement {
                   <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
                   <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
+                  <Route path="/admin/medications/add" element={<AddMedicationPage />} />
+                  <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
                   {/** telemed */}
