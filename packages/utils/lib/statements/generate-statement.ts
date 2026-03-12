@@ -55,6 +55,7 @@ export interface StatementDetails {
     city: string;
     provinceOrState: string;
     postalOrZip: string;
+    countryCode: string;
     website: string;
     email: string;
     logoBase64: string;

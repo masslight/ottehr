@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter } from 'fhir/r4b';
+import { Communication, Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   generateStatement,
   getSecret,
@@ -66,16 +67,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       })}`
     );
 
+    const description = `${statementDetails.biller.name} - Statement - ${statementDetails.patient.firstName} ${statementDetails.patient.lastName} - Visit on ${statementDetails.visit.date}`;
+
     const postGridLetter = await sendPostGridLetter(
       {
+        description,
         from: {
-          companyName: 'Ottehr', //statementDetails.biller.name,
-          addressLine1: '200 Massachusetts Ave NW', //statementDetails.biller.addressLine1,
-          addressLine2: '', //statementDetails.biller.addressLine2,
-          city: 'Washington', //statementDetails.biller.city,
-          provinceOrState: 'DC', //statementDetails.biller.provinceOrState,
-          postalOrZip: '20001', //statementDetails.biller.postalOrZip,
-          countryCode: 'US',
+          companyName: statementDetails.biller.name,
+          addressLine1: statementDetails.biller.addressLine1,
+          addressLine2: statementDetails.biller.addressLine2,
+          city: statementDetails.biller.city,
+          provinceOrState: statementDetails.biller.provinceOrState,
+          postalOrZip: statementDetails.biller.postalOrZip,
+          countryCode: statementDetails.biller.countryCode,
         },
         to: {
           firstName: statementDetails.respParty.firstName,
@@ -104,18 +108,84 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       `Mailed statement ${JSON.stringify({
         encounterId: validatedInput.encounterId,
         color: validatedInput.color,
-        postGridLetterId: postGridLetter.id,
-        postGridLetterStatus: postGridLetter.status,
+        mailId: postGridLetter.id,
+        mailStatus: postGridLetter.status,
       })}`
     );
+
+    const billingOrganizationRef = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, validatedInput.secrets);
+
+    const communication = await oystehr.fhir.create<Communication>({
+      resourceType: 'Communication',
+      status: 'in-progress',
+      medium: [
+        {
+          coding: [
+            {
+              system: 'https://terminology.hl7.org/6.0.2/ValueSet-v3-ParticipationMode.html',
+              code: 'MAILWRIT',
+              display: 'mail',
+            },
+          ],
+          text: 'mail',
+        },
+      ],
+      subject: {
+        reference: `Patient/${patientId}`,
+      },
+      encounter: {
+        reference: `Encounter/${validatedInput.encounterId}`,
+      },
+      sender: {
+        reference: billingOrganizationRef,
+      },
+      recipient: [
+        {
+          display: `${statementDetails.respParty.firstName} ${statementDetails.respParty.lastName}`,
+        },
+      ],
+      payload: [
+        {
+          contentString: description,
+        },
+      ],
+      sent: DateTime.now().toUTC().toISO() ?? undefined,
+      extension: [
+        {
+          url: 'https://extensions.fhir.ottehr.com/mail-vendor',
+          extension: [
+            {
+              url: 'vendor',
+              valueString: 'postgrid',
+            },
+            {
+              url: 'vendor-letter-id',
+              valueString: postGridLetter.id,
+            },
+            {
+              url: 'vendor-letter-status',
+              valueString: postGridLetter.status,
+            },
+            {
+              url: 'vendor-letter-url',
+              valueString: postGridLetter.url ?? '',
+            },
+            {
+              url: 'vendor-send-date',
+              valueString: postGridLetter.sendDate ?? '',
+            },
+          ],
+        },
+      ],
+    });
+
+    console.log(`Created Communication/${communication.id} for mail tracking`);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        encounterId: validatedInput.encounterId,
-        color: validatedInput.color,
-        postGridLetterId: postGridLetter.id,
-        postGridLetterStatus: postGridLetter.status,
+        mailId: postGridLetter.id,
+        mailStatus: postGridLetter.status,
       }),
     };
   } catch (error: unknown) {

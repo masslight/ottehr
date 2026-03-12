@@ -16,7 +16,6 @@ import fs from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 import {
-  BillingProviderResource,
   createCandidApiClient,
   formatDateToMDYWithTime,
   getMemberIdFromCoverage,
@@ -47,10 +46,11 @@ interface StatementInsuranceDetails {
 interface StatementBillerDetails {
   name: string;
   addressLine1: string;
-  addressLine2: string;
+  addressLine2: string | undefined;
   city: string;
   provinceOrState: string;
   postalOrZip: string;
+  countryCode: string | 'US';
   website: string;
   email: string;
 }
@@ -68,6 +68,7 @@ interface GetStatementDetailsInput {
 }
 
 const UNKNOWN_BILLER_VALUE = 'unknown';
+const ORGANIZATION_DISPLAY_NAME_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/organization-display-name';
 
 function getLogo(): string {
   const logoPath = path.resolve(process.cwd(), 'assets', 'logo.png');
@@ -151,67 +152,48 @@ function getInsuranceDetails(
   };
 }
 
-function getBillerDetails(billingResource: BillingProviderResource): StatementBillerDetails {
-  const billingAddress = [billingResource.address]
-    .flatMap((address) => address ?? [])
-    .find((address) => address.use === 'billing');
-  const fallbackAddress = [billingResource.address].flatMap((address) => address ?? [])[0];
-  const address = billingAddress ?? fallbackAddress;
-
-  const website = billingResource.telecom?.find((contact) => contact.system === 'url')?.value ?? '';
-  const email = billingResource.telecom?.find((contact) => contact.system === 'email')?.value ?? '';
-
-  return {
-    name: getBillerName(billingResource),
-    addressLine1: address?.line?.[0] ?? '',
-    addressLine2: address?.line?.[1] ?? '',
-    city: address?.city ?? '',
-    provinceOrState: address?.state ?? '',
-    postalOrZip: address?.postalCode ?? '',
-    website,
-    email,
-  };
-}
-
-function getUnknownBillerDetails(): StatementBillerDetails {
-  return {
+function getBillerDetails(billingResource: Organization): StatementBillerDetails {
+  const fallback: StatementBillerDetails = {
     name: UNKNOWN_BILLER_VALUE,
     addressLine1: UNKNOWN_BILLER_VALUE,
-    addressLine2: UNKNOWN_BILLER_VALUE,
+    addressLine2: undefined,
     city: UNKNOWN_BILLER_VALUE,
     provinceOrState: UNKNOWN_BILLER_VALUE,
     postalOrZip: UNKNOWN_BILLER_VALUE,
+    countryCode: 'US',
     website: UNKNOWN_BILLER_VALUE,
     email: UNKNOWN_BILLER_VALUE,
   };
+
+  const billingAddress = [billingResource.address]
+    .flatMap((address) => address ?? [])
+    .find((address) => address.type === 'postal' && address.use === 'work');
+  const fallbackAddress = [billingResource.address].flatMap((address) => address ?? [])[0];
+  const address = billingAddress ?? fallbackAddress;
+
+  const website = billingResource.telecom?.find((contact) => contact.system === 'url')?.value;
+  const email = billingResource.telecom?.find((contact) => contact.system === 'email')?.value;
+
+  return {
+    name: getBillerName(billingResource) ?? fallback.name,
+    addressLine1: address?.line?.[0] ?? fallback.addressLine1,
+    addressLine2: address?.line?.[1] ?? fallback.addressLine2,
+    city: address?.city ?? fallback.city,
+    provinceOrState: address?.state ?? fallback.provinceOrState,
+    postalOrZip: address?.postalCode ?? fallback.postalOrZip,
+    countryCode: address?.country ?? fallback.countryCode,
+    website: website ?? fallback.website,
+    email: email ?? fallback.email,
+  };
 }
 
-function getBillerName(billingResource: BillingProviderResource): string {
-  const displayName = (billingResource as { displayName?: string }).displayName;
-  if (displayName) {
-    return displayName;
-  }
+function getBillerName(billingResource: Organization): string {
+  const displayNameExtension = billingResource.extension?.find(
+    (ext) => ext.url === ORGANIZATION_DISPLAY_NAME_EXTENSION_URL
+  );
+  const displayName = displayNameExtension?.valueString;
 
-  const display = (billingResource as { display?: string }).display;
-  if (display) {
-    return display;
-  }
-
-  if (billingResource.resourceType === 'Practitioner') {
-    const practitionerName = billingResource.name?.[0];
-    if (practitionerName?.text) {
-      return practitionerName.text;
-    }
-
-    const fullName = `${practitionerName?.given?.join(' ') ?? ''} ${practitionerName?.family ?? ''}`.trim();
-    return fullName || UNKNOWN_BILLER_VALUE;
-  }
-
-  if (billingResource.resourceType === 'Organization' || billingResource.resourceType === 'Location') {
-    return billingResource.name ?? UNKNOWN_BILLER_VALUE;
-  }
-
-  return UNKNOWN_BILLER_VALUE;
+  return displayName ?? billingResource.name ?? UNKNOWN_BILLER_VALUE;
 }
 
 function formatMoney(cents: number | undefined): string {
@@ -398,6 +380,7 @@ function createStatementDetails(
       city: billerDetails.city,
       provinceOrState: billerDetails.provinceOrState,
       postalOrZip: billerDetails.postalOrZip,
+      countryCode: billerDetails.countryCode,
       website: billerDetails.website,
       email: billerDetails.email,
       logoBase64,
@@ -421,13 +404,38 @@ export async function getStatementDetails(input: GetStatementDetailsInput): Prom
   const { serviceLines, totals } = await getServiceLines(resources.encounter, secrets);
   const paymentUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
 
-  let billerDetails = getUnknownBillerDetails();
+  let billerDetails: StatementBillerDetails = {
+    name: UNKNOWN_BILLER_VALUE,
+    addressLine1: UNKNOWN_BILLER_VALUE,
+    addressLine2: UNKNOWN_BILLER_VALUE,
+    city: UNKNOWN_BILLER_VALUE,
+    provinceOrState: UNKNOWN_BILLER_VALUE,
+    postalOrZip: UNKNOWN_BILLER_VALUE,
+    countryCode: 'US',
+    website: UNKNOWN_BILLER_VALUE,
+    email: UNKNOWN_BILLER_VALUE,
+  };
   try {
     const defaultBillingResource = await getDefaultBillingProviderResource(secrets, oystehr);
+    if (defaultBillingResource.resourceType !== 'Organization') {
+      throw new Error(
+        `DEFAULT_BILLING_RESOURCE must reference an Organization for statements. Received ${defaultBillingResource.resourceType}.`
+      );
+    }
+
     billerDetails = getBillerDetails(defaultBillingResource);
+
+    console.log(
+      `Resolved billing provider for statement details: Organization/${defaultBillingResource.id} - ${
+        billerDetails.name
+      } \n\n ${JSON.stringify(billerDetails, null, 2)}`
+    );
   } catch (error: unknown) {
     captureException(error);
-    console.error('Failed to resolve default billing resource for statement details; using unknown biller fields');
+    console.error(
+      'Failed to resolve default billing resource for statement details; using unknown biller fields',
+      error
+    );
   }
 
   return createStatementDetails(
