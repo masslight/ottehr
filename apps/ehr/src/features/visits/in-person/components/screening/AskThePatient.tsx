@@ -433,18 +433,10 @@ const AskThePatient = (): React.ReactElement => {
                         disabled={isFieldDisabled}
                         onChange={(newValue: DateTime | null) => {
                           formField.onChange(newValue);
-                          const saveChange = (): void => {
-                            if (newValue && newValue.isValid) {
-                              handleFieldChange?.(field.id, newValue.toISO());
-                            } else if (newValue === null) {
-                              handleFieldChange?.(field.id, null);
-                            }
-                          };
-
-                          if (field.debounced) {
-                            debounce(saveChange, field.id);
-                          } else {
-                            saveChange();
+                          if (newValue && newValue.isValid) {
+                            handleFieldChange?.(field.id, newValue.toISO());
+                          } else if (newValue === null) {
+                            handleFieldChange?.(field.id, null);
                           }
                         }}
                         format="MM/dd/yyyy"
@@ -764,13 +756,7 @@ const AskThePatient = (): React.ReactElement => {
                     disabled={isFieldDisabled}
                     onChange={(e) => {
                       formField.onChange(e);
-                      if (field.debounced) {
-                        debounce(() => {
-                          handleFieldChange?.(field.id, e.target.value);
-                        }, field.id);
-                      } else {
-                        handleFieldChange?.(field.id, e.target.value);
-                      }
+                      handleFieldChange?.(field.id, e.target.value);
                     }}
                   />
                 )}
