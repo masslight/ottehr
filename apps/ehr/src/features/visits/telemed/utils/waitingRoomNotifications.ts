@@ -52,15 +52,17 @@ export const assignWaitingRoomTasksToProvider = async (
     }
     const tasks = await getWaitingRoomTasksForAppointment(oystehr, appointmentId);
     if (tasks.length && user && user.profileResource) {
-      tasks.forEach(async (task) => {
-        await assignTask({
-          taskId: task.id!,
-          assignee: {
-            id: user.profileResource!.id!,
-            name: user.userName,
-          },
-        });
-      });
+      await Promise.all(
+        tasks.map((task) =>
+          assignTask({
+            taskId: task.id!,
+            assignee: {
+              id: user.profileResource!.id!,
+              name: user.userName,
+            },
+          })
+        )
+      );
     }
   } catch (error) {
     console.error('Failed to assign waiting room tasks to provider', error);
@@ -82,11 +84,13 @@ export const unassignWaitingRoomTasksFromProvider = async (
     }
     const tasks = await getWaitingRoomTasksForAppointment(oystehr, appointmentId);
     if (tasks.length) {
-      tasks.forEach(async (task) => {
-        await unassignTask({
-          taskId: task.id!,
-        });
-      });
+      await Promise.all(
+        tasks.map((task) =>
+          unassignTask({
+            taskId: task.id!,
+          })
+        )
+      );
     }
   } catch (error) {
     console.error('Failed to unassign waiting room tasks from provider', error);
