@@ -235,8 +235,6 @@ const getLinkForItem = (item: SchedulesAndOwnerListItem): string => {
     itemPathSegment = 'group';
   }
 
-  console.log(item);
-
   if (item.owner.resourceType === 'HealthcareService') {
     return `/admin/group/id/${item.owner.id}`;
   }

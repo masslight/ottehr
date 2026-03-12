@@ -244,7 +244,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
 
               {getVirtualLocationDataQueryResult.data?.schedule && (
                 <Box sx={{ marginTop: '10px' }}>
-                  <Link to={`/schedule/id/${getVirtualLocationDataQueryResult.data.schedule.id}`}>
+                  <Link to={`/admin/schedule/id/${getVirtualLocationDataQueryResult.data.schedule.id}`}>
                     <Button variant="contained" sx={{ marginTop: 1, marginBottom: 1 }}>
                       Edit schedule
                     </Button>
