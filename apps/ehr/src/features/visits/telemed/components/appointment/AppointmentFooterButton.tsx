@@ -7,6 +7,7 @@ import { FC, useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetMeetingData } from 'src/features/visits/shared/stores/appointment/appointment.queries';
@@ -18,10 +19,15 @@ import {
   useChangeTelemedAppointmentStatusMutation,
   useInitTelemedSessionMutation,
 } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getTelemedVisitStatus, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { updateEncounterStatusHistory } from '../../utils/appointments';
+import {
+  assignWaitingRoomTasksToProvider,
+  unassignWaitingRoomTasksFromProvider,
+} from '../../utils/waitingRoomNotifications';
 
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',
@@ -58,6 +64,9 @@ export const AppointmentFooterButton: FC = () => {
       });
     }
   );
+  const { oystehr } = useApiClients();
+  const { mutateAsync: assignTask } = useAssignTask();
+  const { mutateAsync: unassignTask } = useUnassignTask();
 
   const [buttonType, setButtonType] = useState<'assignMe' | 'connectUnassign' | 'reconnect' | null>(null);
 
@@ -89,10 +98,12 @@ export const AppointmentFooterButton: FC = () => {
 
   const onAssignMe = async (): Promise<void> => {
     await changeStatus(TelemedAppointmentStatusEnum['pre-video'], true);
+    await assignWaitingRoomTasksToProvider(oystehr, appointment?.id, user, assignTask);
   };
 
   const onUnassign = async (): Promise<void> => {
     await changeStatus(TelemedAppointmentStatusEnum.ready);
+    await unassignWaitingRoomTasksFromProvider(oystehr, appointment?.id, unassignTask);
     navigate('/telemed/appointments');
   };
 
