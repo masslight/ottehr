@@ -87,13 +87,7 @@
     "DEFAULT_BILLING_RESOURCE": {
       "resource": {
         "resourceType": "Organization",
-        "name": "Default Billing Provider",
-        "extension": [
-          {
-            "url": "https://fhir.ottehr.com/Extension/organization-display-name",
-            "valueString": "Ottehr Clinic"
-          }
-        ],
+        "name": "Ottehr Clinic",
         "identifier": [
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
@@ -122,7 +116,7 @@
         "telecom": [
           {
             "system": "phone",
-            "value": "+1-206-555-0100",
+            "value": "+1-206-555-1212",
             "use": "work"
           },
           {
