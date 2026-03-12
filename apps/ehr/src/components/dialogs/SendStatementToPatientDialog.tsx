@@ -52,6 +52,7 @@ export default function SendStatementToPatientDialog({
   const [applyGreyscalePreview, setApplyGreyscalePreview] = useState(false);
   const [confirmMailOpen, setConfirmMailOpen] = useState(false);
   const [isSendingMail, setIsSendingMail] = useState(false);
+  const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
 
   useEffect(() => {
     if (modalOpen) {
@@ -102,6 +103,29 @@ export default function SendStatementToPatientDialog({
       return;
     }
     setConfirmMailOpen(true);
+  };
+
+  const handleGenerateStatement = async (): Promise<void> => {
+    if (!oystehrZambda || !encounterId) {
+      enqueueSnackbar('Missing encounter id for statement generation', { variant: 'error' });
+      return;
+    }
+
+    setIsGeneratingStatement(true);
+    try {
+      await oystehrZambda.zambda.execute({
+        id: 'create-generate-statement-task',
+        encounterId,
+      });
+
+      enqueueSnackbar('Statement generation started', { variant: 'success' });
+      onSubmit();
+    } catch (error) {
+      console.error('Error creating generate statement task:', error);
+      enqueueSnackbar('Error starting statement generation', { variant: 'error' });
+    } finally {
+      setIsGeneratingStatement(false);
+    }
   };
 
   const handleConfirmSendByMail = async (): Promise<void> => {
@@ -184,8 +208,13 @@ export default function SendStatementToPatientDialog({
             </Box>
 
             <Box sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
-              <RoundedButton variant="contained" color="primary" onClick={() => {}}>
-                Generate PDF
+              <RoundedButton
+                variant="contained"
+                color="primary"
+                onClick={() => void handleGenerateStatement()}
+                disabled={isGeneratingStatement}
+              >
+                {isGeneratingStatement ? 'Generating...' : 'Generate PDF'}
               </RoundedButton>
               <RoundedButton variant="contained" color="primary" onClick={handleSendByMailClick}>
                 Send by Mail
