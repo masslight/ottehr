@@ -40,7 +40,7 @@ const WaitingRoom = (): JSX.Element => {
   const [isAppointmentJustCanceled, setIsAppointmentJustCanceled] = useState<boolean>(false);
   const [isCallSettingsOpen, setIsCallSettingsOpen] = useState(false);
   const [appointmentType, setAppointmentType] = useState<AppointmentType | undefined>(undefined);
-  const waitingRoomNotificationSent = useRef(false);
+  const waitingRoomNotificationSent = useRef('');
 
   useEffect(() => {
     if (urlAppointmentID && urlAppointmentID !== persistedAppointmentId) {
@@ -51,9 +51,9 @@ const WaitingRoom = (): JSX.Element => {
   const currentAppointmentId = urlAppointmentID || persistedAppointmentId || '';
 
   useEffect(() => {
-    if (!currentAppointmentId || !zambdaClient || waitingRoomNotificationSent.current) return;
+    if (!currentAppointmentId || !zambdaClient || waitingRoomNotificationSent.current === currentAppointmentId) return;
 
-    waitingRoomNotificationSent.current = true;
+    waitingRoomNotificationSent.current = currentAppointmentId;
     ottehrApi
       .createWaitingRoomNotification(
         {
