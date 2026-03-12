@@ -134,7 +134,7 @@ export default function SendStatementToPatientDialog({
     setIsSendingMail(true);
     try {
       await oystehrZambda.zambda.execute({
-        id: 'mail-statement',
+        id: 'create-mail-statement-task',
         encounterId,
         statementType,
         color: applyGreyscalePreview,

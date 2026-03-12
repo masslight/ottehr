@@ -1,18 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, Encounter } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { generateStatement, getSecret, RCM_TASK_SYSTEM, Secrets, SecretsKeys, TaskIndicator } from 'utils';
 import {
-  generateStatement,
-  getSecret,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
+  checkOrCreateM2MClientToken,
   createOystehrClient,
-  getAuth0Token,
   getStatementDetails,
   getStatementTemplate,
   sendPostGridLetter,
@@ -21,47 +15,59 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { validateRequestParameters } from '../validateRequestParameters';
 
-const ZAMBDA_NAME = 'mail-statement';
+const ZAMBDA_NAME = 'sub-send-patient-statement-by-mail';
+const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';
+const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
 
-interface MailStatementInput {
+let m2mToken: string;
+
+interface ParsedTaskInput {
   encounterId: string;
   statementType: StatementType;
   color: boolean;
+  task: Task;
   secrets: Secrets;
 }
 
-const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
-let oystehrToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  let oystehr: Oystehr | undefined;
+  let task: Task | undefined;
+
   try {
-    const validatedInput = validateRequestParameters(input);
-    const oystehr = await createOystehr(validatedInput.secrets);
+    const validatedInput = validateInput(input);
+    const { encounterId, statementType, color, secrets } = validatedInput;
+    task = validatedInput.task;
+
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    oystehr = createOystehrClient(m2mToken, secrets);
+
+    await patchTaskStatus(oystehr, task.id!, 'in-progress');
 
     const templatePayload = getStatementTemplate('statement-template');
     const statementDetails = await getStatementDetails({
-      encounterId: validatedInput.encounterId,
-      statementType: validatedInput.statementType,
-      secrets: validatedInput.secrets,
+      encounterId,
+      statementType,
+      secrets,
       oystehr,
     });
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
-      id: validatedInput.encounterId,
+      id: encounterId,
     });
 
     const html = generateStatement(templatePayload.template, statementDetails);
     const patientId = encounter.subject?.reference?.split('/')[1];
     if (!patientId) {
-      throw new Error(`Patient id not found in "Encounter/${validatedInput.encounterId}"`);
+      throw new Error(`Patient id not found in "Encounter/${encounterId}"`);
     }
 
-    const projectId = getSecret(SecretsKeys.PROJECT_ID, validatedInput.secrets);
+    const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
 
     console.log(
       `Preparing to mail statement ${JSON.stringify({
-        encounterId: validatedInput.encounterId,
+        encounterId,
         patientId,
         projectId,
       })}`
@@ -93,27 +99,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         html,
         addressPlacement: 'top_first_page',
-        color: validatedInput.color,
+        color,
         doubleSided: true,
         metadata: {
           oyster_patient_id: patientId,
-          oystehr_encounter_id: validatedInput.encounterId,
+          oystehr_encounter_id: encounterId,
           oystehr_project_id: projectId,
         },
       },
-      validatedInput.secrets
+      secrets
     );
 
     console.log(
       `Mailed statement ${JSON.stringify({
-        encounterId: validatedInput.encounterId,
-        color: validatedInput.color,
+        encounterId,
+        color,
         mailId: postGridLetter.id,
         mailStatus: postGridLetter.status,
       })}`
     );
 
-    const billingOrganizationRef = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, validatedInput.secrets);
+    const billingOrganizationRef = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets);
 
     const communication = await oystehr.fhir.create<Communication>({
       resourceType: 'Communication',
@@ -134,7 +140,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         reference: `Patient/${patientId}`,
       },
       encounter: {
-        reference: `Encounter/${validatedInput.encounterId}`,
+        reference: `Encounter/${encounterId}`,
       },
       sender: {
         reference: billingOrganizationRef,
@@ -181,6 +187,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log(`Created Communication/${communication.id} for mail tracking`);
 
+    await patchTaskStatus(oystehr, task.id!, 'completed');
+
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -189,53 +197,100 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }),
     };
   } catch (error: unknown) {
+    if (oystehr && task?.id) {
+      try {
+        await patchTaskStatus(oystehr, task.id, 'failed', error instanceof Error ? error.message : String(error));
+      } catch (patchError: unknown) {
+        console.error('Failed to patch task to failed status:', patchError);
+      }
+    }
+
     const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch(ZAMBDA_NAME, error, environment);
   }
 });
 
-function validateRequestParameters(input: ZambdaInput): MailStatementInput {
-  if (!input.body) throw MISSING_REQUEST_BODY;
-  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
+function getTaskInputValue(task: Task, code: string): string | undefined {
+  return task.input?.find(
+    (input) =>
+      input.type.coding?.find((coding) => coding.system === MAIL_STATEMENT_TASK_INPUT_SYSTEM && coding.code === code)
+  )?.valueString;
+}
 
-  const body = JSON.parse(input.body) as Record<string, unknown>;
+function parseBooleanInput(value: string | undefined, fieldName: string): boolean {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`${fieldName} must be provided as true or false`);
+}
 
-  const encounterId = body.encounterId;
-  if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+function validateInput(input: ZambdaInput): ParsedTaskInput {
+  const { task, secrets } = validateRequestParameters(input);
+
+  const isMailStatementTask = task.code?.coding?.some(
+    (coding) =>
+      coding.system === TaskIndicator.sendPatientStatementByMail.system &&
+      coding.code === TaskIndicator.sendPatientStatementByMail.code
+  );
+
+  if (!isMailStatementTask) {
+    throw new Error(
+      `Task code must be ${TaskIndicator.sendPatientStatementByMail.system}|${TaskIndicator.sendPatientStatementByMail.code}`
+    );
   }
 
-  const statementType = body.statementType;
-  const color = body.color;
-
-  if (typeof color !== 'boolean') {
-    throw new Error('color must be a boolean (true or false)');
+  const encounterId = task.encounter?.reference?.split('/')[1];
+  if (!encounterId) {
+    throw new Error('encounterId is required in task.encounter.reference');
   }
 
-  if (statementType == null) {
-    return {
-      encounterId,
-      statementType: 'standard',
-      color,
-      secrets: input.secrets,
-    };
+  const statementTypeRaw = getTaskInputValue(task, 'statementType') ?? 'standard';
+  if (!validStatementTypes.has(statementTypeRaw as StatementType)) {
+    throw new Error('statementType task input must be one of: standard, past-due, final-notice');
   }
 
-  if (typeof statementType !== 'string' || !validStatementTypes.has(statementType as StatementType)) {
-    throw new Error('statementType must be one of: standard, past-due, final-notice');
-  }
+  const color = parseBooleanInput(getTaskInputValue(task, 'color'), 'color');
 
   return {
     encounterId,
-    statementType: statementType as StatementType,
+    statementType: statementTypeRaw as StatementType,
     color,
-    secrets: input.secrets,
+    task,
+    secrets,
   };
 }
 
-async function createOystehr(secrets: Secrets): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
+async function patchTaskStatus(
+  oystehr: Oystehr,
+  taskId: string,
+  status: Task['status'],
+  reason?: string
+): Promise<void> {
+  const operations: Operation[] = [
+    {
+      op: 'replace',
+      path: '/status',
+      value: status,
+    },
+  ];
+
+  if (reason) {
+    operations.push({
+      op: 'add',
+      path: '/statusReason',
+      value: {
+        coding: [
+          {
+            system: RCM_TASK_SYSTEM,
+            code: reason,
+          },
+        ],
+      },
+    });
   }
-  return createOystehrClient(oystehrToken, secrets);
+
+  await oystehr.fhir.patch<Task>({
+    resourceType: 'Task',
+    id: taskId,
+    operations,
+  });
 }
