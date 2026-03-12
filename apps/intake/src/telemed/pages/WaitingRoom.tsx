@@ -3,7 +3,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ottehrApi } from 'src/api';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
@@ -40,6 +40,7 @@ const WaitingRoom = (): JSX.Element => {
   const [isAppointmentJustCanceled, setIsAppointmentJustCanceled] = useState<boolean>(false);
   const [isCallSettingsOpen, setIsCallSettingsOpen] = useState(false);
   const [appointmentType, setAppointmentType] = useState<AppointmentType | undefined>(undefined);
+  const waitingRoomNotificationSent = useRef(false);
 
   useEffect(() => {
     if (urlAppointmentID && urlAppointmentID !== persistedAppointmentId) {
@@ -50,8 +51,9 @@ const WaitingRoom = (): JSX.Element => {
   const currentAppointmentId = urlAppointmentID || persistedAppointmentId || '';
 
   useEffect(() => {
-    if (!currentAppointmentId || !zambdaClient) return;
+    if (!currentAppointmentId || !zambdaClient || waitingRoomNotificationSent.current) return;
 
+    waitingRoomNotificationSent.current = true;
     ottehrApi
       .createWaitingRoomNotification(
         {

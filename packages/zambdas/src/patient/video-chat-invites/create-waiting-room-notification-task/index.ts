@@ -94,13 +94,7 @@ export async function performEffect(
   await oystehr.fhir.patch({
     resourceType: 'Appointment',
     id: appointment.id,
-    operations: [
-      {
-        op: 'add',
-        path: appointment.meta?.tag != null ? '/meta/tag/-' : '/meta/tag',
-        value: appointment.meta?.tag != null ? notificationSentTag : [notificationSentTag],
-      },
-    ],
+    operations: [getPatchOperationForNewMetaTag(appointment, notificationSentTag)],
   });
 
   return { taskCreated: true };
