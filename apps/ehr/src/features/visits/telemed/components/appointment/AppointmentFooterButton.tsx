@@ -19,7 +19,7 @@ import {
   useInitTelemedSessionMutation,
 } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getTelemedVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
+import { getTelemedVisitStatus, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { updateEncounterStatusHistory } from '../../utils/appointments';
 
@@ -88,15 +88,23 @@ export const AppointmentFooterButton: FC = () => {
   }, [appointmentAccessibility]);
 
   const onAssignMe = async (): Promise<void> => {
+    await changeStatus(TelemedAppointmentStatusEnum['pre-video'], true);
+  };
+
+  const onUnassign = async (): Promise<void> => {
+    await changeStatus(TelemedAppointmentStatusEnum.ready);
+    navigate('/telemed/appointments');
+  };
+
+  const changeStatus = async (newStatus: TelemedAppointmentStatus, invalidate?: boolean): Promise<void> => {
     if (!apiClient || !appointment?.id) {
       throw new Error('api client not defined or appointment id not provided');
     }
-    await changeTelemedAppointmentStatusEnum.mutateAsync(
-      { apiClient, appointmentId: appointment.id, newStatus: TelemedAppointmentStatusEnum['pre-video'] },
-      {}
-    );
+    await changeTelemedAppointmentStatusEnum.mutateAsync({ apiClient, appointmentId: appointment.id, newStatus }, {});
 
-    await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
+    if (invalidate) {
+      await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
+    }
   };
 
   const onConnect = useCallback(async (): Promise<void> => {
@@ -160,17 +168,6 @@ export const AppointmentFooterButton: FC = () => {
     navigate,
     onConnect,
   ]);
-
-  const onUnassign = async (): Promise<void> => {
-    if (!apiClient || !appointment?.id) {
-      throw new Error('api client not defined or appointment id not provided');
-    }
-    await changeTelemedAppointmentStatusEnum.mutateAsync(
-      { apiClient, appointmentId: appointment.id, newStatus: TelemedAppointmentStatusEnum.ready },
-      {}
-    );
-    navigate('/telemed/appointments');
-  };
 
   switch (buttonType) {
     case 'assignMe': {
