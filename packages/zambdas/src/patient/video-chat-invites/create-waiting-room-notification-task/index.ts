@@ -84,10 +84,21 @@ export async function performEffect(
   )?.individual?.reference;
   let provider: Practitioner | undefined;
   if (providerReference !== undefined) {
-    provider = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: providerReference.split('/')[1],
-    });
+    try {
+      provider = await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: providerReference.split('/')[1],
+      });
+    } catch (error: any) {
+      const status = error?.statusCode ?? error?.status;
+      if (status === 404 || status === 403) {
+        console.warn(
+          `Practitioner not found or access forbidden for reference ${providerReference}; continuing without provider.`
+        );
+      } else {
+        throw error;
+      }
+    }
   }
 
   console.group('createNewTask');
