@@ -43,6 +43,7 @@ const zambdasList = (): ZambdaSpec[] => {
   return baseZambdas;
 };
 
+const BUNDLE_CHUNK_SIZE = 35;
 const ZIP_CHUNK_SIZE = 20;
 
 const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
@@ -73,8 +74,7 @@ const getSentryPlugins = (isSentryEnabled: boolean): esbuild.Plugin[] => {
   ];
 };
 
-const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
-  console.log(`Bundling ${zambdas.length} zambdas in a single esbuild call...`);
+const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
   try {
     await esbuild.build({
       entryPoints: zambdas.map((z) => ({
@@ -92,6 +92,15 @@ const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEn
   } catch (error) {
     console.log('Error bundling zambdas:', error);
     process.exit(1);
+  }
+};
+
+const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
+  const chunks = chunkArray(zambdas, BUNDLE_CHUNK_SIZE);
+  console.log(`Bundling ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${BUNDLE_CHUNK_SIZE}...`);
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`Bundling chunk ${i + 1}/${chunks.length} (${chunks[i].length} zambdas)...`);
+    await buildZambdaChunk(chunks[i], outdir, isSentryEnabled);
   }
 };
 
