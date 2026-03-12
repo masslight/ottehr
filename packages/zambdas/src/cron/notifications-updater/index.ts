@@ -157,7 +157,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               (comm) =>
                 comm.status === 'preparation' &&
                 comm.recipient?.[0].reference &&
-                !busyPractitionerIds.has(comm.recipient?.[0].reference)
+                !busyPractitionerIds.has(comm.recipient?.[0].reference.split('/')[1])
             );
             postponedCommunications.forEach((communication) => {
               const communicationPractitionerId = communication.recipient![0].reference!.split('/')[1];
