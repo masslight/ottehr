@@ -11,6 +11,8 @@ import {
   getErxUrl,
   getExternalLabOrderEditUrl,
   getExternalLabOrdersUrl,
+  getImmunizationMARUrl,
+  getImmunizationVaccineDetailsUrl,
   getInHouseLabOrderDetailsUrl,
   getInHouseLabsUrl,
   getInHouseMedicationDetailsUrl,
@@ -60,6 +62,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     radiologyOrders,
     erxOrders,
     procedures,
+    immunizationOrders,
   } = orders;
 
   const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
@@ -200,6 +203,27 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       })),
     };
     orderConfigs.push(proceduresConfig);
+  }
+
+  if (immunizationOrders?.length) {
+    const config: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Immunization'],
+      title: 'Immunization',
+      tableUrl: getImmunizationMARUrl(appointment.id),
+      orders: immunizationOrders.map((order) => {
+        const isPending = order.status === 'pending';
+        const targetUrl = isPending
+          ? `${getImmunizationVaccineDetailsUrl(appointment.id)}?scrollTo=${order.id}`
+          : `${getImmunizationMARUrl(appointment.id)}?scrollTo=${order.id}`;
+        return {
+          fhirResourceId: order.id ?? '',
+          itemDescription: order.details.medication.name,
+          detailPageUrl: targetUrl,
+          statusChip: <></>,
+        };
+      }),
+    };
+    orderConfigs.push(config);
   }
 
   return (
