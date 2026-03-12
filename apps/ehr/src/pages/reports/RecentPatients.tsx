@@ -342,6 +342,13 @@ export default function RecentPatients(): React.ReactElement {
           ),
         },
         {
+          field: 'pointOfDiscovery',
+          headerName: 'Source',
+          flex: 1,
+          minWidth: 150,
+          sortable: true,
+        },
+        {
           field: 'mostRecentVisitDate',
           headerName: 'Most Recent Visit',
           flex: 1,
