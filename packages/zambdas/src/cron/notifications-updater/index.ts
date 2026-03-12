@@ -352,6 +352,12 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (notificationSettings?.enabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
 
+            let title = task.description;
+            // workaround to have waiting room notifications sent without "new task" prefix
+            if (!title!.endsWith('is ready to begin their virtual visit.')) {
+              title = 'A new task has been assigned to you: ' + title;
+            }
+
             const request: BatchInputPostRequest<Communication> = {
               method: 'POST',
               url: '/Communication',
@@ -371,7 +377,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 status: status,
                 basedOn: [{ reference: `Task/${task.id}` }],
                 recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-                payload: [{ contentString: `A new task has been assigned to you: ${task.description}` }],
+                payload: [{ contentString: title }],
               },
             };
 
