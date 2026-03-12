@@ -1,10 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BRANDING_CONFIG,
   getFullestAvailableName,
+  getPatchOperationForNewMetaTag,
   OttehrTaskSystem,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE,
   VideoChatNotificationResponse,
@@ -79,9 +82,16 @@ export async function performEffect(
   const providerReference = encounter.participant?.find(
     (participant) => participant.individual?.reference?.startsWith('Practitioner/')
   )?.individual?.reference;
+  let provider: Practitioner | undefined;
+  if (providerReference !== undefined) {
+    provider = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: providerReference.split('/')[1],
+    });
+  }
 
   console.group('createNewTask');
-  const newTask = createNewTask({ appointment, encounter, patient, providerReference });
+  const newTask = createNewTask({ appointment, encounter, patient, provider });
   console.groupEnd();
   console.debug('createNewTask success');
 
@@ -142,8 +152,8 @@ const createNewTask = ({
   appointment,
   encounter,
   patient,
-  providerReference,
-}: ReturnedResources & { providerReference?: string }): Task => {
+  provider,
+}: ReturnedResources & { provider?: Practitioner }): Task => {
   const patientName = getFullestAvailableName(patient);
   const locationReference = appointment.participant?.find(
     (participant) => participant.actor?.reference?.startsWith('Location/')
@@ -196,7 +206,20 @@ const createNewTask = ({
       type: 'Appointment',
       reference: `Appointment/${appointment.id}`,
     },
-    ...(providerReference && { owner: { reference: providerReference } }),
+    // if a provider has been assigned before the patient joins the waiting room
+    // add owner so notification is sent asap
+    ...(provider && {
+      owner: {
+        reference: `Practitioner/${provider.id}`,
+        display: getFullestAvailableName(provider) ?? `${BRANDING_CONFIG.projectName} Team`,
+        extension: [
+          {
+            url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+            valueDateTime: DateTime.now().toISO(),
+          },
+        ],
+      },
+    }),
   };
   return newTask;
 };
