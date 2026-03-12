@@ -6,7 +6,6 @@ import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { TELEMED_APPOINTMENT_QUERY_KEY } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useChangeTelemedAppointmentStatusMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -58,7 +57,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
     await mutation.mutateAsync({ apiClient, appointmentId: appointment.id, newStatus }, {});
 
     if (invalidate) {
-      await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
+      await queryClient.invalidateQueries({ queryKey: ['telemed-appointments'] });
     }
   };
 
