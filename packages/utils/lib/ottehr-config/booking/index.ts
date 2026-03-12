@@ -207,6 +207,25 @@ const FormFields = {
         ],
         disabledDisplay: 'hidden',
       },
+      ...(VALUE_SETS.reasonForVisitOptionsPreOp
+        ? {
+            reasonForVisitPreOp: {
+              key: 'reason-for-visit-po',
+              label: 'Reason for visit',
+              type: 'choice',
+              options: VALUE_SETS.reasonForVisitOptionsPreOp,
+              triggers: [
+                {
+                  targetQuestionLinkId: 'appointment-service-category',
+                  effect: ['enable', 'require'],
+                  operator: '=',
+                  answerString: 'pre-op',
+                },
+              ],
+              disabledDisplay: 'hidden',
+            },
+          }
+        : {}),
       tellUsMore: {
         key: 'tell-us-more',
         label: 'Tell us more',
@@ -346,6 +365,7 @@ export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[
       case 'reason-for-visit':
       case 'reason-for-visit-om':
       case 'reason-for-visit-wc':
+      case 'reason-for-visit-po':
         patientInfo.reasonForVisit = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'tell-us-more':
@@ -615,6 +635,9 @@ export const getReasonForVisitOptionsForServiceCategory = (
   }
   if (serviceCategory === 'workers-comp') {
     return [...VALUE_SETS.reasonForVisitOptionsWorkersComp];
+  }
+  if (serviceCategory === 'pre-op') {
+    return VALUE_SETS.reasonForVisitOptionsPreOp ? [...VALUE_SETS.reasonForVisitOptionsPreOp] : [];
   }
   if (serviceCategory === 'urgent-care') {
     return [...VALUE_SETS.reasonForVisitOptions];
