@@ -352,9 +352,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (notificationSettings?.enabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
 
-            let title = task.description;
+            let title = task.description ?? `task ID ${task.id}`;
             // workaround to have waiting room notifications sent without "new task" prefix
-            if (!title!.endsWith('is ready to begin their virtual visit.')) {
+            if (!title.endsWith('is ready to begin their virtual visit.')) {
               title = 'A new task has been assigned to you: ' + title;
             }
 
