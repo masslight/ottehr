@@ -8,7 +8,7 @@
 /**
  * Field types for screening questions
  */
-export type ScreeningFieldType = 'radio' | 'text' | 'textarea' | 'select' | 'dateRange';
+export type ScreeningFieldType = 'radio' | 'text' | 'textarea' | 'select' | 'dateRange' | 'date';
 
 /**
  * Option for select/radio fields

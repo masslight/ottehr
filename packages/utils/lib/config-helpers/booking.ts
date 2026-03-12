@@ -61,6 +61,7 @@ export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[
       case 'reason-for-visit':
       case 'reason-for-visit-om':
       case 'reason-for-visit-wc':
+      case 'reason-for-visit-po':
         patientInfo.reasonForVisit = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'tell-us-more':

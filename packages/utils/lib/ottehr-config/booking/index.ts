@@ -219,6 +219,25 @@ const FormFields = {
         ],
         disabledDisplay: 'hidden',
       },
+      ...(VALUE_SETS.reasonForVisitOptionsPreOp
+        ? {
+            reasonForVisitPreOp: {
+              key: 'reason-for-visit-po',
+              label: 'Reason for visit',
+              type: 'choice',
+              options: VALUE_SETS.reasonForVisitOptionsPreOp,
+              triggers: [
+                {
+                  targetQuestionLinkId: 'appointment-service-category',
+                  effect: ['enable', 'require'],
+                  operator: '=',
+                  answerString: 'pre-op',
+                },
+              ],
+              disabledDisplay: 'hidden',
+            },
+          }
+        : {}),
       tellUsMore: {
         key: 'tell-us-more',
         label: 'Tell us more',
@@ -437,6 +456,9 @@ export const getReasonForVisitOptionsForServiceCategory = (
   }
   if (serviceCategory === 'workers-comp') {
     return [...VALUE_SETS.reasonForVisitOptionsWorkersComp];
+  }
+  if (serviceCategory === 'pre-op') {
+    return VALUE_SETS.reasonForVisitOptionsPreOp ? [...VALUE_SETS.reasonForVisitOptionsPreOp] : [];
   }
   if (serviceCategory === 'urgent-care') {
     return [...VALUE_SETS.reasonForVisitOptions];

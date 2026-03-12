@@ -73,7 +73,7 @@ const makeValidatableItem = (
   }
   if (ZIP_CODE_FIELDS.includes(item.linkId) || item.dataType === 'ZIP') {
     regex = zipRegex;
-    regexError = 'ZIP Code must be 5 numbers';
+    regexError = 'ZIP Code must be 5 or 9 numbers';
   }
   if (item.dataType === 'SSN') {
     regex = ssnRegex;
