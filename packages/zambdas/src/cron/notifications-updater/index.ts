@@ -245,6 +245,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                       encounter: { reference: `Encounter/${encounter.id}` },
                       recipient: [{ reference: `Practitioner/${provider.id}` }],
                       payload: [{ contentString: message }],
+                      ...(appointment.start ? { note: [{ text: appointment.start }] } : {}),
                     },
                   };
                   createCommunicationRequests.push(request);
