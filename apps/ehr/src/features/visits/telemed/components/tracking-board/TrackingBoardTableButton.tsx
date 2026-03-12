@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { TELEMED_APPOINTMENT_QUERY_KEY } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useChangeTelemedAppointmentStatusMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { TelemedAppointmentInformation, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { useTrackingBoardTableButtonType } from '../../hooks/useTrackingBoardTableButtonType';
@@ -28,6 +29,15 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
     navigate(`/telemed/appointments/${appointment.id}`, { state });
   };
 
+  const onAssign = async (): Promise<void> => {
+    await changeStatus(TelemedAppointmentStatusEnum['pre-video']);
+    goToAppointment();
+  };
+
+  const onUnassign = async (): Promise<void> => {
+    await changeStatus(TelemedAppointmentStatusEnum.ready, true);
+  };
+
   const changeStatus = async (newStatus: TelemedAppointmentStatus, invalidate?: boolean): Promise<void> => {
     if (!apiClient) {
       throw new Error('api client not defined');
@@ -35,13 +45,8 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
     await mutation.mutateAsync({ apiClient, appointmentId: appointment.id, newStatus }, {});
 
     if (invalidate) {
-      await queryClient.invalidateQueries({ queryKey: ['telemed-appointments'] });
+      await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
     }
-  };
-
-  const changeStatusAndGoTo = async (newStatus: TelemedAppointmentStatus): Promise<void> => {
-    await changeStatus(newStatus);
-    goToAppointment();
   };
 
   const { type } = useTrackingBoardTableButtonType({ appointment });
@@ -64,7 +69,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
       return (
         <ConfirmationDialog
           title="Do you want to assign this appointment?"
-          response={() => changeStatusAndGoTo(TelemedAppointmentStatusEnum['pre-video'])}
+          response={onAssign}
           actionButtons={{
             proceed: {
               text: 'Assign me',
@@ -90,7 +95,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
       return (
         <ConfirmationDialog
           title="Do you want to unassign this appointment?"
-          response={() => changeStatus(TelemedAppointmentStatusEnum.ready, true)}
+          response={onUnassign}
           actionButtons={{
             proceed: {
               text: 'Unassign',
