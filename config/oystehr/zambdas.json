@@ -1280,6 +1280,13 @@
       "src": "src/ehr/statements/get-details/index",
       "zip": ".dist/zips/get-statement-details.zip"
     },
+    "GET-STATEMENT-STATUS": {
+      "name": "get-statement-status",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/get-status/index",
+      "zip": ".dist/zips/get-statement-status.zip"
+    },
     "CREATE-MAIL-STATEMENT-TASK": {
       "name": "create-mail-statement-task",
       "type": "http_auth",

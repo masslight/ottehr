@@ -68,7 +68,6 @@ interface GetStatementDetailsInput {
 }
 
 const UNKNOWN_BILLER_VALUE = 'unknown';
-const ORGANIZATION_DISPLAY_NAME_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/organization-display-name';
 
 function getLogo(): string {
   const logoPath = path.resolve(process.cwd(), 'assets', 'logo.png');
@@ -188,12 +187,7 @@ function getBillerDetails(billingResource: Organization): StatementBillerDetails
 }
 
 function getBillerName(billingResource: Organization): string {
-  const displayNameExtension = billingResource.extension?.find(
-    (ext) => ext.url === ORGANIZATION_DISPLAY_NAME_EXTENSION_URL
-  );
-  const displayName = displayNameExtension?.valueString;
-
-  return displayName ?? billingResource.name ?? UNKNOWN_BILLER_VALUE;
+  return billingResource.name ?? UNKNOWN_BILLER_VALUE;
 }
 
 function formatMoney(cents: number | undefined): string {

@@ -30,6 +30,14 @@ interface SendStatementToPatientDialogProps {
   report?: InvoiceablePatientReport;
 }
 
+interface StatementStatusResponse {
+  mailProcessor?: {
+    found: boolean;
+    status?: string;
+    sendDate?: string;
+  };
+}
+
 export default function SendStatementToPatientDialog({
   modalOpen,
   handleClose,
@@ -53,6 +61,9 @@ export default function SendStatementToPatientDialog({
   const [confirmMailOpen, setConfirmMailOpen] = useState(false);
   const [isSendingMail, setIsSendingMail] = useState(false);
   const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
+  const [isMailStatusLoading, setIsMailStatusLoading] = useState(false);
+  const [mailStatusText, setMailStatusText] = useState('No mailed statement found yet');
+  const [hasMailedStatement, setHasMailedStatement] = useState(false);
 
   useEffect(() => {
     if (modalOpen) {
@@ -93,6 +104,32 @@ export default function SendStatementToPatientDialog({
 
     void loadTemplateAndPreview();
   }, [encounterId, modalOpen, oystehrZambda, statementType]);
+
+  useEffect(() => {
+    const loadMailStatus = async (): Promise<void> => {
+      if (!modalOpen || !oystehrZambda || !encounterId) return;
+
+      setIsMailStatusLoading(true);
+      try {
+        const response = await oystehrZambda.zambda.execute({
+          id: 'get-statement-status',
+          encounterId,
+        });
+
+        const statementStatus = chooseJson(response) as StatementStatusResponse;
+        setHasMailedStatement(Boolean(statementStatus.mailProcessor?.found));
+        setMailStatusText(getMailStatusText(statementStatus.mailProcessor));
+      } catch (error) {
+        console.error('Error loading statement mail status:', error);
+        setHasMailedStatement(false);
+        setMailStatusText('Unable to load mail status');
+      } finally {
+        setIsMailStatusLoading(false);
+      }
+    };
+
+    void loadMailStatus();
+  }, [encounterId, modalOpen, oystehrZambda]);
 
   const statementTypeLabel = getStatementTypeLabel(statementType);
   const printModeLabel = applyGreyscalePreview ? 'color' : 'black & white';
@@ -207,18 +244,46 @@ export default function SendStatementToPatientDialog({
               </Typography>
             </Box>
 
-            <Box sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
-              <RoundedButton
-                variant="contained"
-                color="primary"
-                onClick={() => void handleGenerateStatement()}
-                disabled={isGeneratingStatement}
-              >
-                {isGeneratingStatement ? 'Generating...' : 'Generate PDF'}
-              </RoundedButton>
-              <RoundedButton variant="contained" color="primary" onClick={handleSendByMailClick}>
-                Send by Mail
-              </RoundedButton>
+            <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <RoundedButton
+                  variant="contained"
+                  color="primary"
+                  onClick={() => void handleGenerateStatement()}
+                  disabled={isGeneratingStatement}
+                >
+                  {isGeneratingStatement ? 'Generating...' : 'Generate PDF'}
+                </RoundedButton>
+                <RoundedButton
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSendByMailClick}
+                  sx={
+                    hasMailedStatement
+                      ? {
+                          backgroundColor: '#8B1E1E',
+                          '&:hover': {
+                            backgroundColor: '#6E1717',
+                          },
+                        }
+                      : undefined
+                  }
+                >
+                  {hasMailedStatement ? 'Resend by Mail' : 'Send by Mail'}
+                </RoundedButton>
+              </Box>
+              {(isMailStatusLoading || hasMailedStatement || mailStatusText === 'Unable to load mail status') && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    lineHeight: 1.35,
+                    textAlign: 'right',
+                    color: hasMailedStatement ? '#8B1E1E' : 'inherit',
+                  }}
+                >
+                  {isMailStatusLoading ? 'Loading...' : mailStatusText}
+                </Typography>
+              )}
             </Box>
           </Box>
 
@@ -345,4 +410,56 @@ function formatCityStateZip(city?: string, state?: string, fullAddress?: string)
   const zipPart = zip ? ` ${zip}` : '';
 
   return `${cityPart}, ${statePart}${zipPart}`;
+}
+
+function getMailStatusText(mailProcessor?: StatementStatusResponse['mailProcessor']): string {
+  if (!mailProcessor?.found) {
+    return '';
+  }
+
+  const status = (mailProcessor.status ?? '').toLowerCase();
+  const statusText =
+    status === 'completed'
+      ? 'Mailed'
+      : status === 'printing' || status === 'processed_for_delivery'
+      ? 'Printing mail'
+      : status === 'ready'
+      ? 'Preparing to mail'
+      : status === 'cancelled'
+      ? 'Mail cancelled'
+      : status
+      ? `Mail Status: ${mailProcessor.status}`
+      : 'Unknown Mail Status';
+
+  const formattedSendDate = formatLocalDateTime(mailProcessor.sendDate);
+  if (formattedSendDate) {
+    return `${statusText} (as of ${formattedSendDate})`;
+  }
+
+  return statusText;
+}
+
+function formatLocalDateTime(dateValue?: string): string | undefined {
+  if (!dateValue) return undefined;
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) return undefined;
+
+  const parts = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(parsedDate);
+
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const hour = parts.find((part) => part.type === 'hour')?.value;
+  const minute = parts.find((part) => part.type === 'minute')?.value;
+
+  if (!month || !day || !year || !hour || !minute) return undefined;
+  return `${month} ${day}, ${year} ${hour}:${minute}`;
 }

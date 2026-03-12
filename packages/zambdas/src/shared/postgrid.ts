@@ -157,3 +157,15 @@ export async function sendPostGridLetter(input: SendLetterInput, secrets: Secret
     extraHeaders
   );
 }
+
+/**
+ * Get a letter by id from PostGrid.
+ * GET /letters/{id}
+ */
+export async function getPostGridLetter(letterId: string, secrets: Secrets | null): Promise<PostGridLetter> {
+  if (!letterId || letterId.trim().length === 0) {
+    throw new Error('PostGrid letterId is required');
+  }
+
+  return postgridRequest<PostGridLetter>('GET', `/letters/${encodeURIComponent(letterId)}`, secrets);
+}

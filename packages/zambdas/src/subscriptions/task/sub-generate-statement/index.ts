@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Encounter, List, Task } from 'fhir/r4b';
+import { DocumentReference, Encounter, List, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import type { Browser } from 'puppeteer';
 import puppeteer from 'puppeteer';
@@ -105,6 +105,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       })
     ).unbundle();
 
+    await supersedeCurrentStatementDocumentReferences(oystehr, encounterReference, patientReference);
+
     const { docRefs } = await createFilesDocumentReferences({
       files: [
         {
@@ -184,6 +186,54 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
+}
+
+async function supersedeCurrentStatementDocumentReferences(
+  oystehr: Oystehr,
+  encounterReference: string,
+  patientReference: string
+): Promise<void> {
+  const currentStatementDocRefs = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        {
+          name: 'status',
+          value: 'current',
+        },
+        {
+          name: 'encounter',
+          value: encounterReference,
+        },
+        {
+          name: 'subject',
+          value: patientReference,
+        },
+        {
+          name: 'type',
+          value: STATEMENT_CODE,
+        },
+      ],
+    })
+  ).unbundle();
+
+  await Promise.all(
+    currentStatementDocRefs
+      .filter((docRef) => docRef.id)
+      .map((docRef) =>
+        oystehr.fhir.patch({
+          resourceType: 'DocumentReference',
+          id: docRef.id!,
+          operations: [
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'superseded',
+            },
+          ],
+        })
+      )
+  );
 }
 
 async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
