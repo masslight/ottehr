@@ -42,7 +42,7 @@ jobs:
       GITHUB_APP_ID: ${{ secrets.OTTEHR_GITHUB_APP_ID }} # Ottehr GitHub App ID
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }} # Ottehr GitHub App Private Key
 
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest-4-cores
     timeout-minutes: 25
 
     permissions:
