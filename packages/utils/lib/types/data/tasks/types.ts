@@ -1,7 +1,28 @@
+export interface Task {
+  id: string;
+  category: string;
+  createdDate: string;
+  title: string;
+  subtitle: string;
+  details?: string;
+  status: string;
+  action?: {
+    name: string;
+    link: string;
+  };
+  assignee?: {
+    id: string;
+    name: string;
+    date: string;
+  };
+  alert?: TaskAlertCode;
+  completable: boolean;
+}
 export interface CreateManualTaskRequest {
   category: string;
   appointmentId?: string;
   orderId?: string;
+  encounterId?: string;
   taskTitle: string;
   taskDetails?: string;
   assignee?: {
@@ -39,6 +60,7 @@ export const MANUAL_TASK = {
     providerName: 'provider-name',
     appointmentId: 'appointment-id',
     orderId: 'order-id',
+    encounterId: 'encounter-id',
     patient: 'patient',
   },
 } as const;
@@ -49,3 +71,19 @@ export enum TaskAlertCode {
 export const TaskAlertDisplay = {
   [TaskAlertCode.abnormalLabResult]: 'This result contains an abnormal result',
 };
+
+export const RADIOLOGY_TASK = {
+  category: 'radiology',
+  system: 'radiology-task',
+  code: {
+    reviewFinalResultTask: 'review-final',
+  },
+  input: {
+    patientName: 'patient-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
+    providerName: 'provider-name',
+    studyTypeDisplay: 'study-type-display',
+    studyTypeCode: 'study-type-code',
+  },
+} as const;

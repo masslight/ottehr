@@ -3,21 +3,28 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   AppointmentTypeCount,
+  BOOKING_CONFIG,
   DailyVisitCount,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  getCoding,
+  getInPersonVisitStatus,
   getSecret,
+  isFollowupEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
   LocationVisitCount,
   OTTEHR_MODULE,
   PractitionerVisitCount,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
+  VisitsByTypeCount,
   VisitsOverviewReportZambdaOutput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fetchAllPages,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -27,6 +34,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'visits-overview-report';
+const INITIAL_PAGE_SIZE = 1000;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let validatedParameters;
@@ -43,85 +51,48 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Search for appointments within the date range
     // Fetch all appointments, locations, encounters, and practitioners with proper FHIR pagination
     let allResources: (Appointment | Location | Encounter | Practitioner)[] = [];
-    let offset = 0;
-    const pageSize = 1000;
 
-    const baseSearchParams = [
-      {
-        name: 'date',
-        value: `ge${dateRange.start}`,
-      },
-      {
-        name: 'date',
-        value: `le${dateRange.end}`,
-      },
-      {
-        name: '_tag',
-        value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}`,
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_include:iterate',
-        value: 'Encounter:participant:Practitioner',
-      },
-      {
-        name: '_count',
-        value: pageSize.toString(),
-      },
-    ];
-
-    let searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-
-    let pageCount = 1;
-    console.log(`Fetching page ${pageCount} of appointments and locations...`);
-
-    // Get resources from first page
-    let pageResources = searchBundle.unbundle();
-    allResources = allResources.concat(pageResources);
-    const pageAppointments = pageResources.filter(
-      (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    );
-    console.log(
-      `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointments.length} appointments)`
-    );
-
-    // Follow pagination links to get all pages
-    while (searchBundle.link?.find((link) => link.relation === 'next')) {
-      offset += pageSize;
-      pageCount++;
-      console.log(`Fetching page ${pageCount} of appointments and locations...`);
-
-      searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
+    await fetchAllPages(async (offset, count) => {
+      console.log(`Fetching resources with offset=${offset}, count=${count} of appointments and locations...`);
+      const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
         resourceType: 'Appointment',
-        params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+        params: [
+          { name: 'date', value: `ge${dateRange.start}` },
+          { name: 'date', value: `le${dateRange.end}` },
+          { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+          { name: '_include', value: 'Appointment:location' },
+          { name: '_revinclude', value: 'Encounter:appointment' },
+          { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
+          {
+            name: '_elements',
+            value: [
+              'id',
+              'status',
+              'serviceCategory',
+              'Location.id',
+              'Location.name',
+              'Practitioner.id',
+              'Practitioner.name',
+              'Encounter.id',
+              'Encounter.type',
+              'Encounter.status',
+              'Encounter.appointment',
+              'Encounter.participant',
+              'Encounter.extension',
+            ].join(','),
+          },
+          { name: '_offset', value: offset.toString() },
+          { name: '_count', value: count.toString() },
+        ],
       });
-
-      pageResources = searchBundle.unbundle();
+      const pageResources = searchBundle?.unbundle() ?? [];
       allResources = allResources.concat(pageResources);
       const pageAppointmentsCount = pageResources.filter(
         (resource): resource is Appointment => resource.resourceType === 'Appointment'
       ).length;
-
-      console.log(
-        `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`
-      );
-
-      // Safety check to prevent infinite loops
-      if (pageCount > 100) {
-        console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-        break;
-      }
-    }
+      console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
+      return searchBundle;
+    }, INITIAL_PAGE_SIZE);
 
     // Separate resources by type
     const appointments = allResources.filter(
@@ -134,12 +105,38 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     console.log(
-      `Total resources found across ${pageCount} pages: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations, ${encounters.length} encounters, ${practitioners.length} practitioners)`
+      `Total resources found: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations, ${encounters.length} encounters, ${practitioners.length} practitioners)`
     );
 
-    if (appointments.length === 0) {
+    // Create encounter map for quick lookups to determine visit status
+    const encounterMap = new Map<string, Encounter>();
+    encounters
+      .filter((encounter) => !isFollowupEncounter(encounter))
+      .forEach((encounter) => {
+        const appointmentRef = encounter.appointment?.[0]?.reference;
+        if (appointmentRef && encounter.id) {
+          encounterMap.set(appointmentRef, encounter);
+        }
+      });
+
+    // Filter out cancelled and no show visits
+    const activeAppointments = appointments.filter((appointment) => {
+      if (!appointment.id) return false;
+      const encounter = encounterMap.get(`Appointment/${appointment.id}`);
+      if (!encounter) return false;
+      const visitStatus = getInPersonVisitStatus(appointment, encounter);
+      return visitStatus !== 'cancelled' && visitStatus !== 'no show';
+    });
+
+    console.log(
+      `Filtered appointments: ${appointments.length} total, ${activeAppointments.length} active (excluded ${
+        appointments.length - activeAppointments.length
+      } cancelled/no show visits)`
+    );
+
+    if (activeAppointments.length === 0) {
       const response: VisitsOverviewReportZambdaOutput = {
-        message: 'No appointments found for the specified date range',
+        message: 'No active appointments found for the specified date range',
         totalAppointments: 0,
         appointmentTypes: [
           { type: 'In-Person', count: 0, percentage: 0 },
@@ -148,6 +145,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         dailyVisits: [],
         locationVisits: [],
         practitionerVisits: [],
+        visitsByTypeCount: [],
         dateRange,
       };
 
@@ -166,21 +164,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Group appointments by date and type for chart data
     const dailyVisitsMap = new Map<string, { inPerson: number; telemed: number }>();
 
-    appointments.forEach((appointment) => {
+    activeAppointments.forEach((appointment) => {
       // Determine appointment type based on meta tags
       const isTelemedicine = isTelemedAppointment(appointment);
       const isInPerson = isInPersonAppointment(appointment);
 
-      // Extract date from appointment start time in local timezone (America/New_York)
+      // Extract date from appointment
       let appointmentDate = 'unknown';
       if (appointment.start) {
         try {
-          // Convert UTC appointment time to America/New_York timezone and extract date
+          // extract date and format as YYYY-MM-DD
           const appointmentDateTime = new Date(appointment.start);
-          const localDate = appointmentDateTime.toLocaleDateString('en-CA', {
-            timeZone: 'America/New_York',
-          }); // en-CA gives YYYY-MM-DD format
-          appointmentDate = localDate;
+          const year = appointmentDateTime.getFullYear();
+          const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+          const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+          appointmentDate = `${year}-${month}-${day}`;
         } catch (error) {
           console.warn('Failed to parse appointment date:', appointment.start, error);
           captureException(error);
@@ -205,12 +203,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Note: Skip appointments that don't have a clear type - they won't be counted
     });
 
-    const totalAppointments = appointments.length;
+    const totalAppointments = activeAppointments.length;
 
     // Process location-based visit counts
     const locationVisitsMap = new Map<string, { locationId: string; inPerson: number; telemed: number }>();
 
-    appointments.forEach((appointment) => {
+    activeAppointments.forEach((appointment) => {
       // Get location reference from appointment
       const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
 
@@ -265,15 +263,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { practitionerId: string; role: 'Attending Provider' | 'Intake Performer'; inPerson: number; telemed: number }
     >();
 
-    // Create maps for quick lookups
-    const encounterMap = new Map<string, Encounter>();
-    encounters.forEach((encounter) => {
-      const appointmentRef = encounter.appointment?.[0]?.reference;
-      if (appointmentRef && encounter.id) {
-        encounterMap.set(appointmentRef, encounter);
-      }
-    });
-
+    // Create practitioner map for quick lookups
     const practitionerMap = new Map<string, Practitioner>();
     practitioners.forEach((practitioner) => {
       if (practitioner.id) {
@@ -281,7 +271,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     });
 
-    appointments.forEach((appointment) => {
+    activeAppointments.forEach((appointment) => {
       if (!appointment.id) return;
 
       // Check if appointment is telemedicine or in-person (using same logic as daily visits)
@@ -402,6 +392,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       percentage: totalAppointments > 0 ? Math.round((count / totalAppointments) * 100) : 0,
     }));
 
+    const visitsByTypeCount = Array.from(
+      activeAppointments
+        .reduce<Map<string, VisitsByTypeCount>>((acc: Map<string, VisitsByTypeCount>, appointment: Appointment) => {
+          const location = findLocation(appointment, locations);
+          const serviceCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+          const serviceCategoryName =
+            BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategoryCode)?.display ??
+            serviceCategoryCode ??
+            'Unknown';
+          const key = location.id + '-' + serviceCategoryName;
+          const entry = acc.get(key) ?? {
+            locationName: location.name,
+            locationId: location.id,
+            serviceCategory: serviceCategoryName,
+            inPerson: 0,
+            telemed: 0,
+            total: 0,
+          };
+          if (isInPersonAppointment(appointment)) {
+            entry.inPerson++;
+          }
+          if (isTelemedAppointment(appointment)) {
+            entry.telemed++;
+          }
+          entry.total++;
+          acc.set(key, entry);
+          return acc;
+        }, new Map<string, VisitsByTypeCount>())
+        .values()
+    );
+
     const response: VisitsOverviewReportZambdaOutput = {
       message: `Found ${totalAppointments} appointments: ${typeCounts['In-Person']} in-person, ${typeCounts.Telemed} telemed`,
       totalAppointments,
@@ -409,6 +430,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       dailyVisits,
       locationVisits,
       practitionerVisits,
+      visitsByTypeCount,
       dateRange,
     };
 
@@ -421,3 +443,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
+
+function findLocation(appointment: Appointment, locations: Location[]): { id: string; name: string } {
+  const locationId =
+    appointment.participant
+      ?.find((p) => p.actor?.reference?.startsWith('Location/'))
+      ?.actor?.reference?.replace('Location/', '') ?? 'unknown';
+  const location = locations.find((loc) => loc.id === locationId);
+  return {
+    id: locationId,
+    name: location?.name ?? 'Unknown Location',
+  };
+}

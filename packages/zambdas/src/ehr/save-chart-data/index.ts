@@ -3,9 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
-  ClinicalImpression,
   CodeableConcept,
-  Condition,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -23,13 +21,13 @@ import {
   getPatchBinary,
   isInPersonAppointment,
   PATIENT_VITALS_META_SYSTEM,
-  PRIVATE_EXTENSION_BASE_URL,
   SCHOOL_WORK_NOTE,
   Secrets,
   userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
+  createAccidentCondition,
   createDispositionServiceRequest,
   createOystehrClient,
   createProcedureServiceRequest,
@@ -58,12 +56,11 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { generateIcdTenCodesFromNotes } from '../../shared/ai';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import {
   createExamObservationComments,
-  createExamObservations,
+  getAllExamFieldsMetadata,
 } from '../../subscriptions/appointment/appointment-chart-data-prefilling/helpers';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
@@ -86,6 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounterId,
       chiefComplaint,
       historyOfPresentIllness,
+      mechanismOfInjury,
       ros,
       conditions,
       medications,
@@ -113,6 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       userToken,
       procedures,
       reasonForVisit,
+      accident,
     } = validateRequestParameters(input);
 
     console.time('time');
@@ -168,6 +167,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
           makeConditionResource(encounterId, patient.id, historyOfPresentIllness, 'history-of-present-illness')
+        )
+      );
+    }
+
+    if (mechanismOfInjury) {
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(
+          makeConditionResource(encounterId, patient.id, mechanismOfInjury, 'mechanism-of-injury')
         )
       );
     }
@@ -262,10 +269,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
-      const examObservations = createExamObservations(isInPerson);
+      const allExamFields = getAllExamFieldsMetadata(isInPerson);
       const examObservationComments = createExamObservationComments(isInPerson);
 
-      const observation = examObservations.find((observation) => observation.field === element.field);
+      const observation = allExamFields.find((observation) => observation.field === element.field);
       const comment = examObservationComments.find((comment) => comment.field === element.field);
 
       if (!observation && !comment) {
@@ -291,85 +298,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
         )
       );
-    }
-
-    // 9.1 Generate AI ICD codes when HPI or MDM is updated
-    const hpiText = chiefComplaint?.text;
-    const mdmText = medicalDecision?.text;
-
-    // If either HPI or MDM is being updated and has meaningful content, generate AI suggestions
-    if (
-      (hpiText || mdmText) &&
-      (chiefComplaint?.createICDRecommendations || medicalDecision?.createICDRecommendations)
-    ) {
-      let hpiTextUpdated = hpiText;
-      let mdmTextUpdated = mdmText;
-      if (!hpiText) {
-        // If HPI text is not provided in this request, try to get it from existing chart data
-        const existingChiefComplaint = allResources.find(
-          (resource) =>
-            resource.resourceType === 'Condition' && resource.meta?.tag?.find((tag) => tag.code === 'chief-complaint')
-        ) as Condition | undefined;
-        if (existingChiefComplaint?.note?.[0].text) {
-          console.log('Using existing chief complaint text');
-          hpiTextUpdated = existingChiefComplaint.note?.[0].text;
-        }
-      }
-      if (!mdmText) {
-        // If MDM text is not provided in this request, try to get it from existing chart data
-        const existingMedicalDecision = allResources.find(
-          (resource) =>
-            resource.resourceType === 'ClinicalImpression' &&
-            resource.meta?.tag?.find((tag) => tag.code === 'medical-decision')
-        ) as ClinicalImpression | undefined;
-        if (existingMedicalDecision?.summary) {
-          console.log('Using existing medical decision text');
-          mdmTextUpdated = existingMedicalDecision.summary;
-        }
-      }
-      try {
-        console.log('Generating ICD-10 codes from clinical notes');
-        const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiTextUpdated, mdmTextUpdated, secrets);
-        const existingAiDiagnoses: Condition[] = allResources.filter(
-          (resource) =>
-            resource.resourceType === 'Condition' &&
-            resource.meta?.tag?.find((tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/ai-potential-diagnosis`)
-              ?.code === 'ai-potential-diagnosis'
-        ) as Condition[];
-        // suggestions that are not suggested any more
-        existingAiDiagnoses.forEach((existingDiagnosis) => {
-          if (
-            existingDiagnosis.id &&
-            !potentialDiagnoses.some((diagnosis) => diagnosis.icd10 === existingDiagnosis.code?.coding?.[0]?.code)
-          ) {
-            saveOrUpdateRequests.push(deleteResourceRequest('Condition', existingDiagnosis.id));
-          }
-        });
-
-        potentialDiagnoses.forEach((diagnosis) => {
-          // Try to not create duplicate suggestions
-          if (existingAiDiagnoses.some((temp) => temp.code?.coding?.[0]?.code === diagnosis.icd10)) {
-            return;
-          }
-          saveOrUpdateRequests.push(
-            saveOrUpdateResourceRequest(
-              makeDiagnosisConditionResource(
-                encounterId,
-                patient.id!,
-                {
-                  code: diagnosis.icd10,
-                  display: diagnosis.diagnosis,
-                  isPrimary: false,
-                },
-                'ai-potential-diagnosis',
-                'hpi-mdm'
-              )
-            )
-          );
-        });
-      } catch (error) {
-        console.log('Error generating ICD-10 codes', error);
-      }
     }
 
     // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
@@ -568,6 +496,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
       });
       additionalResourcesForResponse.push(encounter);
+    }
+
+    if (accident) {
+      saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
     }
 
     console.log('Starting a transaction update of chart data...');

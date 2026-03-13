@@ -10,11 +10,11 @@ import {
   CreateAppointmentResponse,
   CreateSlotParams,
   GetAppointmentDetailsResponse,
+  GetBookingQuestionnaireParams,
+  GetBookingQuestionnaireResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
-  GetQuestionnaireParams,
-  GetQuestionnaireResponse,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetSlotDetailsParams,
@@ -25,12 +25,16 @@ import {
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
+  SearchPlacesInput,
+  SearchPlacesOutput,
   ServiceMode,
   StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentParameters,
   UpdateAppointmentZambdaOutput,
+  VideoChatNotificationInput,
+  VideoChatNotificationResponse,
   WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
 } from 'utils';
@@ -170,10 +174,11 @@ class API {
       if (PATCH_PAPERWORK_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('update appointment environment variable could not be loaded');
       }
-      const { answers, questionnaireResponseId } = parameters;
+      const { answers, questionnaireResponseId, appointmentId } = parameters;
       const response = await zambdaClient.executePublic(PATCH_PAPERWORK_ZAMBDA_ID, {
         answers,
         questionnaireResponseId,
+        appointmentId,
       });
 
       const jsonToUse = chooseJson(response);
@@ -448,17 +453,42 @@ class API {
     }
   }
 
-  async getQuestionnaire(input: GetQuestionnaireParams, zambdaClient: ZambdaClient): Promise<GetQuestionnaireResponse> {
+  async getBookingQuestionnaire(
+    input: GetBookingQuestionnaireParams,
+    zambdaClient: ZambdaClient
+  ): Promise<GetBookingQuestionnaireResponse> {
     try {
-      const response = await zambdaClient.execute('get-questionnaire-patient', input);
+      const response = await zambdaClient.execute('get-booking-questionnaire', input);
       const jsonToUse = chooseJson(response);
-      return jsonToUse as GetQuestionnaireResponse;
+      return jsonToUse as GetBookingQuestionnaireResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async searchPlaces(input: SearchPlacesInput, zambdaClient: ZambdaClient): Promise<SearchPlacesOutput> {
+    try {
+      const response = await zambdaClient.execute('search-places', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as SearchPlacesOutput;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async createWaitingRoomNotification(
+    input: VideoChatNotificationInput,
+    zambdaClient: ZambdaClient
+  ): Promise<VideoChatNotificationResponse> {
+    try {
+      const response = await zambdaClient.execute('video-chat-waiting-room-notification', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as VideoChatNotificationResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }
   }
 }
-
 const api = new API();
 
 export default api;

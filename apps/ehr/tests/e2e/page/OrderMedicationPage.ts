@@ -31,7 +31,9 @@ export class OrderMedicationPage {
   }
 
   async clickOrderMedicationButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton).click();
+    const button = this.#page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton);
+    await expect(button).toBeEnabled({ timeout: 30000 });
+    await button.click();
   }
 
   async clickBackButton(): Promise<InHouseMedicationsPage> {
@@ -47,6 +49,7 @@ export class OrderMedicationPage {
 
 export async function expectOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {
   await page.waitForURL(new RegExp('/in-person/.*/in-house-medication/order/new'));
+  await expect(page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton)).toBeVisible({ timeout: 10000 });
   return new OrderMedicationPage(page);
 }
 

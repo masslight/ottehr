@@ -1,30 +1,27 @@
-import { Box, CircularProgress, TextField, Typography } from '@mui/material';
-import { FC, useEffect } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import Placeholder from '@tiptap/extension-placeholder';
+import TaskItem from '@tiptap/extension-task-item';
+import TaskList from '@tiptap/extension-task-list';
+import { Markdown } from '@tiptap/markdown';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { FC, useEffect, useRef, useState } from 'react';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { cleanUncheckedFromMarkdown, hasUncheckedInMarkdown, normalizeMarkdown } from 'src/helpers/rosMarkdown';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 export const RosField: FC = () => {
-  const { data: chartDataFields } = useChartFields({
+  const {
+    data: chartDataFields,
+    isFetching,
+    isFetched,
+  } = useChartFields({
     requestedFields: {
       ros: { _tag: 'ros' },
     },
   });
-
-  const methods = useForm({
-    defaultValues: {
-      ros: chartDataFields?.ros?.text || '',
-    },
-  });
-
-  useEffect(() => {
-    if (chartDataFields?.ros?.text !== undefined) {
-      methods.setValue('ros', chartDataFields.ros.text);
-    }
-  }, [chartDataFields?.ros?.text, methods]);
-
-  const { control } = methods;
 
   const {
     onValueChange: onRosChange,
@@ -32,32 +29,244 @@ export const RosField: FC = () => {
     isChartDataLoading: isRosChartDataLoading,
   } = useDebounceNotesField('ros');
 
+  const isUpdatingFromServer = useRef(false);
+  const isInitialized = useRef(false);
+  const lastContent = useRef<string>('');
+  const hadServerValue = useRef(false);
+
+  const [hasUnchecked, setHasUnchecked] = useState(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Markdown,
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
+      Placeholder.configure({
+        placeholder: 'ROS (Optional) - Type [ ] for checklist items, or just type notes...',
+      }),
+    ],
+    editorProps: {
+      handlePaste(_, event) {
+        const text = event.clipboardData?.getData('text/plain');
+        if (!text) return false;
+
+        event.preventDefault();
+
+        editor?.commands.insertContent(text, {
+          contentType: 'markdown',
+        });
+
+        return true;
+      },
+    },
+    content: chartDataFields?.ros?.text || '',
+    editable: !isRosChartDataLoading,
+    onUpdate: ({ editor }) => {
+      if (isUpdatingFromServer.current || !isInitialized.current) return;
+
+      const { raw, normalized } = normalizeMarkdown(editor.getMarkdown());
+
+      if (normalized === '' && raw !== '' && !hadServerValue.current) {
+        return;
+      }
+
+      if (normalized !== lastContent.current) {
+        lastContent.current = normalized;
+        onRosChange(normalized);
+      }
+
+      const markdown = editor.getMarkdown();
+      setHasUnchecked(hasUncheckedInMarkdown(markdown));
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) return;
+    if (!isFetched) return;
+
+    if (!isInitialized.current) {
+      const markdown = chartDataFields?.ros?.text;
+      hadServerValue.current = markdown !== undefined && markdown !== '';
+      const content = markdown || '';
+      isUpdatingFromServer.current = true;
+      editor.commands.setContent(content, {
+        contentType: 'markdown',
+        emitUpdate: false,
+      });
+      if (markdown) setHasUnchecked(hasUncheckedInMarkdown(markdown));
+      lastContent.current = content;
+
+      isUpdatingFromServer.current = false;
+      isInitialized.current = true;
+
+      return;
+    }
+
+    if (!isFetching) {
+      const rosMarkdown = chartDataFields?.ros?.text || '';
+      const markdown = editor.getMarkdown();
+      const { normalized: currentMarkdown } = normalizeMarkdown(markdown);
+
+      if (currentMarkdown !== rosMarkdown) {
+        isUpdatingFromServer.current = true;
+        editor.commands.setContent(rosMarkdown, {
+          contentType: 'markdown',
+          emitUpdate: false,
+        });
+        setHasUnchecked(hasUncheckedInMarkdown(rosMarkdown));
+        lastContent.current = rosMarkdown;
+
+        isUpdatingFromServer.current = false;
+      }
+    }
+  }, [chartDataFields?.ros?.text, editor, isFetched, isFetching]);
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!isRosChartDataLoading);
+    }
+  }, [isRosChartDataLoading, editor]);
+
+  const handleRemoveUnchecked = (): void => {
+    if (!editor) return;
+
+    const current = editor.getMarkdown();
+    const cleaned = cleanUncheckedFromMarkdown(current);
+
+    if (cleaned !== current) {
+      editor.commands.setContent(cleaned, {
+        contentType: 'markdown',
+      });
+      const markdown = editor.getMarkdown();
+      setHasUnchecked(hasUncheckedInMarkdown(markdown));
+    }
+  };
+
   return (
-    <Controller
-      name="ros"
-      control={control}
-      render={({ field: { value, onChange } }) => (
-        <TextField
-          value={value}
-          onChange={(e) => {
-            onChange(e);
-            onRosChange(e.target.value);
+    <>
+      <Box
+        sx={{
+          position: 'relative',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          minHeight: '120px',
+          '&:hover': {
+            borderColor: 'text.primary',
+          },
+          '&:focus-within': {
+            borderColor: 'primary.main',
+            borderWidth: '2px',
+            margin: '-1px', // Prevent layout shift when border width changes
+          },
+        }}
+        data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos}
+      >
+        <Box
+          sx={{
+            p: 2,
+            '& .ProseMirror': {
+              outline: 'none',
+              minHeight: '80px',
+              '& p.is-editor-empty:first-of-type::before': {
+                color: 'text.disabled',
+                content: 'attr(data-placeholder)',
+                float: 'left',
+                height: 0,
+                pointerEvents: 'none',
+              },
+              '& ul[data-type="taskList"]': {
+                listStyle: 'none',
+                padding: 0,
+                '& li': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  marginBottom: '0.5rem',
+                  '& > label': {
+                    flex: '0 0 auto',
+                    marginRight: '0.5rem',
+                    userSelect: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                  },
+                  '& > div': {
+                    flex: '1 1 auto',
+                    '& > p': {
+                      margin: 0,
+                    },
+                  },
+                  '& input[type="checkbox"]': {
+                    width: '18px',
+                    height: '18px',
+                    margin: 0,
+                    cursor: 'pointer',
+                  },
+                },
+              },
+              '& ul, & ol': {
+                paddingLeft: '1.5rem',
+              },
+              '& h1, & h2, & h3, & h4, & h5, & h6': {
+                fontWeight: 600,
+                marginTop: '1rem',
+                marginBottom: '0.5rem',
+              },
+              '& code': {
+                backgroundColor: 'action.hover',
+                borderRadius: '0.25rem',
+                padding: '0.125rem 0.25rem',
+                fontFamily: 'monospace',
+              },
+              '& pre': {
+                backgroundColor: 'action.hover',
+                borderRadius: '0.5rem',
+                padding: '0.75rem',
+                overflow: 'auto',
+                '& code': {
+                  backgroundColor: 'transparent',
+                  padding: 0,
+                },
+              },
+              '& blockquote': {
+                borderLeft: '3px solid',
+                borderColor: 'divider',
+                paddingLeft: '1rem',
+                marginLeft: 0,
+              },
+            },
           }}
-          disabled={isRosChartDataLoading}
-          label="ROS (Optional)"
-          fullWidth
-          multiline
-          data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos}
-          InputProps={{
-            endAdornment: isRosLoading && (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CircularProgress size="20px" />
-              </Box>
-            ),
-          }}
-        />
-      )}
-    />
+        >
+          <EditorContent editor={editor} />
+        </Box>
+        {isRosLoading && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <CircularProgress size="20px" />
+          </Box>
+        )}
+      </Box>
+      <Box sx={{ mt: 2 }}>
+        <RoundedButton
+          variant="contained"
+          onClick={handleRemoveUnchecked}
+          disabled={isRosChartDataLoading || !editor || !hasUnchecked}
+        >
+          Clean up unchecked
+        </RoundedButton>
+      </Box>
+    </>
   );
 };
 
@@ -77,7 +286,9 @@ export const RosFieldReadOnly: FC = () => {
       <Typography variant="subtitle2" color="primary.dark">
         ROS provider notes
       </Typography>
-      <Typography variant="body2">{ros}</Typography>
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+        {ros}
+      </Typography>
     </Box>
   );
 };

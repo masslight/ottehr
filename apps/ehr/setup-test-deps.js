@@ -10,24 +10,26 @@ if (!isCI) {
     await setup.loadEnvFilesFromRepo('git@github.com:masslight/ottehr-secrets.git', [
       {
         localEnvFolder: './env/',
-        repoEnvFolder: './ottehr-secrets/ehr/app/',
+        repoEnvFolder: './ottehr-secrets/ottehr/apps/ehr/env/',
         envsToCopy: [
           '.env.demo',
           '.env.local',
           '.env.development',
           '.env.staging',
           '.env.testing',
+          '.env.e2e',
           'tests.local.json',
           'tests.demo.json',
           'tests.development.json',
           'tests.staging.json',
           'tests.testing.json',
+          'tests.e2e.json',
         ],
       },
       {
         localEnvFolder: '../../packages/zambdas/.env',
-        repoEnvFolder: './ottehr-secrets/zambdas/',
-        envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json'],
+        repoEnvFolder: './ottehr-secrets/ottehr/zambdas/.env',
+        envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json', 'e2e.json'],
       },
     ]);
   })();

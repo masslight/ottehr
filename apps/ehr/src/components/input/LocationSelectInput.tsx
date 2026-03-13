@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { isLocationVirtual } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
-import { Option } from './Option';
 
 type Props = {
   name: string;
@@ -14,7 +13,7 @@ type Props = {
 export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) => {
   const { oystehr } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [options, setOptions] = useState<Option[] | undefined>(undefined);
+  const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
   useEffect(() => {
     if (!oystehr) {
       return;
@@ -34,10 +33,10 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
           .unbundle()
           .filter((location: Location) => !isLocationVirtual(location))
           .map((location: Location) => ({
-            value: location.id ?? '',
-            label: getLocationLabel(location),
+            id: location.id ?? '',
+            name: getLocationLabel(location),
           }));
-        options.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+        options.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
         setOptions(options);
       } catch (e) {
         console.error('error loading locations', e);
@@ -54,18 +53,9 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
       options={options}
       loading={isLoading}
       required={required}
-      valueToOption={(value: any) => {
-        return {
-          label: value.name,
-          value: value.id,
-        };
-      }}
-      optionToValue={(option: Option) => {
-        return {
-          name: option.label,
-          id: option.value,
-        };
-      }}
+      getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
+      getOptionKey={(option) => option.id}
+      isOptionEqualToValue={(option, value) => option.id === value.id}
     />
   );
 };

@@ -37,6 +37,7 @@ import {
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
 } from '../../types';
+import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
 import { DOB_DATE_FORMAT } from '../../utils';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
@@ -112,51 +113,54 @@ const getPreferredElement = (extension: Extension[]): FormElement | undefined =>
   return undefined;
 };
 
-const getConditionalExtension = (
-  extension: Extension[],
+const getConditionalExtensions = (
+  extensions: Extension[],
   keys: ConditionKeyObject
-): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition | undefined } => {
-  const baseExtension = extension.find((ext) => {
-    return ext.url === keys.extension;
-  })?.extension;
-
-  if (baseExtension) {
-    const question = baseExtension.find((ext) => {
-      return ext.url === keys.question;
-    })?.valueString;
-    const operator = baseExtension.find((ext) => {
-      return ext.url === keys.operator;
-    })?.valueString;
-    const answerObj = baseExtension.find((ext) => {
-      return ext.url === keys.answer;
+): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition }[] => {
+  return extensions
+    .filter((ext) => {
+      return ext.url === keys.extension;
+    })
+    ?.flatMap((ext) => {
+      const baseExtension = ext.extension;
+      if (baseExtension) {
+        const question = baseExtension.find((ext) => {
+          return ext.url === keys.question;
+        })?.valueString;
+        const operator = baseExtension.find((ext) => {
+          return ext.url === keys.operator;
+        })?.valueString;
+        const answerObj = baseExtension.find((ext) => {
+          return ext.url === keys.answer;
+        });
+        const answerString = answerObj?.valueString;
+        const answerBoolean = answerObj?.valueBoolean;
+        const answerInteger = answerObj?.valueInteger;
+        const answerDate = answerObj?.valueDate;
+        if (
+          operator !== undefined &&
+          ['exists', '=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+          question !== undefined &&
+          (answerString !== undefined ||
+            answerBoolean !== undefined ||
+            answerInteger !== undefined ||
+            answerDate !== undefined)
+        ) {
+          return {
+            extension: baseExtension,
+            baseConditionDef: {
+              question,
+              operator: operator as QuestionnaireItemConditionDefinition['operator'],
+              answerString,
+              answerBoolean,
+              answerInteger,
+              answerDate,
+            },
+          };
+        }
+      }
+      return [];
     });
-    const answerString = answerObj?.valueString;
-    const answerBoolean = answerObj?.valueBoolean;
-    const answerInteger = answerObj?.valueInteger;
-    const answerDate = answerObj?.valueDate;
-    if (
-      operator !== undefined &&
-      ['=', '!=', '>', '<', '>=', '<='].includes(operator) &&
-      question !== undefined &&
-      (answerString !== undefined ||
-        answerBoolean !== undefined ||
-        answerInteger !== undefined ||
-        answerDate !== undefined)
-    ) {
-      return {
-        extension: baseExtension,
-        baseConditionDef: {
-          question,
-          operator: operator as QuestionnaireItemConditionDefinition['operator'],
-          answerString,
-          answerBoolean,
-          answerInteger,
-          answerDate,
-        },
-      };
-    }
-  }
-  return { extension: [], baseConditionDef: undefined };
 };
 
 const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
@@ -168,33 +172,31 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     disabledDisplay = undefined;
   }
 
-  const { baseConditionDef: requireWhen } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen
-  );
+  const requireWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen)[0]
+    ?.baseConditionDef;
 
-  const { extension: textWhenExt, baseConditionDef: textWhenPartial } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen
-  );
-  let textWhen: QuestionnaireItemTextWhen | undefined;
-  if (textWhenPartial) {
-    const substituteText = textWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
-    })?.valueString;
+  const textWhenExtensions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen);
+  const textWhen: QuestionnaireItemTextWhen[] | undefined =
+    textWhenExtensions.length > 0
+      ? textWhenExtensions.flatMap(({ extension: textWhenExt, baseConditionDef: textWhenPartial }) => {
+          if (textWhenPartial) {
+            const substituteText = textWhenExt.find((ext) => {
+              return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
+            })?.valueString;
 
-    if (substituteText) {
-      textWhen = {
-        ...textWhenPartial,
-        substituteText,
-      };
-    }
-  }
+            if (substituteText) {
+              return {
+                ...textWhenPartial,
+                substituteText,
+              };
+            }
+          }
+          return [];
+        })
+      : undefined;
 
-  const { baseConditionDef: filterWhen } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen
-  );
+  const filterWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen)[0]
+    ?.baseConditionDef;
 
   const attachmentText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
@@ -300,10 +302,10 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.extension;
   })?.extension;
   if (complexValidationExtension) {
-    const { baseConditionDef: complexValidationTriggerWhen } = getConditionalExtension(
+    const complexValidationTriggerWhen = getConditionalExtensions(
       complexValidationExtension,
       OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen
-    );
+    )[0].baseConditionDef;
     const complexValidationType = complexValidationExtension.find((ext) => {
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.type;
     })?.valueString;
@@ -531,14 +533,14 @@ export const getComponentKeysFromDateGroup = (item: QuestionnaireItem): DateKeys
 
 export const pickFirstValueFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
-  type: 'string' | 'boolean' | 'attachment' | 'reference' = 'string'
+  type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'
 ): any => {
   const valString = `value${capitalizeFirstLetter(type)}` as keyof QuestionnaireResponseItemAnswer;
   return item?.answer?.[0]?.[valString];
 };
 export const pickValueAsStringListFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
-  type: 'string' | 'boolean' | 'attachment' | 'reference' = 'string'
+  type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'
 ): any => {
   const valString = `value${capitalizeFirstLetter(type)}` as keyof QuestionnaireResponseItemAnswer;
   return (item?.answer ?? []).map((ent) => {
@@ -596,7 +598,7 @@ export const makeQRResponseItem = (
         });
         return { ...base, answer };
       }
-      let valueString = value.trimStart();
+      let valueString = value?.trimStart();
       // restrict user from ever entering non-numeric digits
       if (item.dataType === 'ZIP') {
         valueString = valueString.replace(/[^0-9]/g, '');
@@ -640,8 +642,84 @@ export const makeQRResponseItem = (
   return base;
 };
 
+/**
+ * List of field linkIds that support explicit clearing (deletion) when set to an empty value by user.
+ * These fields will send empty answer array [] to backend to trigger clear/delete operations.
+ */
+const REMOVABLE_FIELDS = [
+  'occupational-medicine-employer',
+  'workers-comp-insurance-name',
+  'workers-comp-insurance-member-id',
+  'employer-name',
+  'employer-address',
+  'employer-address-2',
+  'employer-city',
+  'employer-state',
+  'employer-zip',
+  'employer-contact-first-name',
+  'employer-contact-last-name',
+  'employer-contact-title',
+  'employer-contact-email',
+  'employer-contact-phone',
+  'employer-contact-fax',
+];
+
+/**
+ * Checks if a field supports explicit clearing (deletion).
+ *
+ * This function should be used everywhere there is an intent to delete/clear a field.
+ * It can be extended in the future to:
+ * - Support additional fields by adding them to REMOVABLE_FIELDS
+ * - Enable deletion for all optional fields by checking field requirements
+ * - Implement more complex deletion logic based on field type or context
+ *
+ * @param linkId - Field linkId to check
+ * @returns true if the field can be explicitly cleared
+ */
+export const isRemovableField = (linkId: string): boolean => {
+  return REMOVABLE_FIELDS.includes(linkId);
+};
+
+/**
+ * Checks if a field was explicitly cleared by the user.
+ * A field is considered explicitly cleared if it has an empty answer array.
+ * @param item - QuestionnaireResponseItem to check
+ * @returns true if the field was explicitly cleared
+ */
+export const isFieldExplicitlyCleared = (item: QuestionnaireResponseItem): boolean => {
+  return isRemovableField(item.linkId) && Array.isArray(item.answer) && item.answer.length === 0;
+};
+
+/**
+ * Filters out hidden removable fields from QuestionnaireResponse items.
+ * This prevents accidental deletion when a removable field is just hidden (not explicitly cleared).
+ *
+ * @param items - QuestionnaireResponse items to filter
+ * @param questionnaire - Questionnaire with enableWhen conditions
+ * @returns Filtered items with hidden removable fields removed
+ */
+export const filterHiddenRemovableFields = (
+  items: QuestionnaireResponseItem[],
+  questionnaire: Questionnaire
+): QuestionnaireResponseItem[] => {
+  const visibleRemovableFields = prepareQuestionnaireResponseForHarvest({
+    questionnaireResponseItems: items.filter((item: QuestionnaireResponseItem) => isRemovableField(item.linkId)),
+    sourceQuestionnaire: questionnaire,
+    options: { filterByEnableWhen: true },
+  });
+  const visibleRemovableLinkIds = new Set(visibleRemovableFields.map((item: QuestionnaireResponseItem) => item.linkId));
+
+  return items.filter(
+    (item: QuestionnaireResponseItem) => !isRemovableField(item.linkId) || visibleRemovableLinkIds.has(item.linkId)
+  );
+};
+
 export const itemContainsAnyAnswer = (item: QuestionnaireResponseItem): boolean => {
-  if (item.answer) {
+  if (item.answer !== undefined) {
+    // Empty answer array [] is a valid answer for removable fields that were explicitly cleared
+    if (isFieldExplicitlyCleared(item)) {
+      return true;
+    }
     return item.answer.some((answer) => {
       return Object.values(answer).some((val) => {
         return val !== undefined;

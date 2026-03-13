@@ -1,6 +1,8 @@
 import { Medication } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERX, ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -9,6 +11,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   ExtendedMedicationDataForResponse,
   getMedicationName,
+  MEDICAL_HISTORY_CONFIG,
   MedicationData,
   medicationExtendedToMedicationData,
   MedicationInteractions,
@@ -19,7 +22,7 @@ import {
 import { useReactNavigationBlocker } from '../../../../shared/hooks/useReactNavigationBlocker';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
-import { getEditOrderUrl } from '../../../routing/helpers';
+import { getEditOrderUrl, getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesInPerson } from '../../../routing/routesInPerson';
 import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
@@ -87,18 +90,49 @@ export const EditableMedicationCard: React.FC<{
       : {}
   );
 
-  const { updateMedication, getMedicationFieldValue, getIsMedicationEditable } = useMedicationManagement();
+  const { updateMedication, getMedicationFieldValue, getIsMedicationEditable, deleteMedication } =
+    useMedicationManagement();
   const [currentStatus, setCurrentStatus] = useState<MedicationOrderStatusesType>(medication?.status || 'pending');
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const handleStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
     setCurrentStatus(newStatus);
+  };
+
+  const handleDeleteClick = (): void => {
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = (): void => {
+    setIsDeleteDialogOpen(false);
+  };
+
+  const handleDeleteConfirm = async (): Promise<void> => {
+    if (!medication?.id) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteMedication(medication.id);
+      void refetchHistory();
+      enqueueSnackbar('Medication deleted successfully', { variant: 'success' });
+      setIsDeleteDialogOpen(false);
+      isSavedRef.current = true;
+      if (appointmentId) {
+        navigate(getInHouseMedicationMARUrl(appointmentId));
+      }
+    } catch {
+      enqueueSnackbar('Failed to delete medication. Please try again.', { variant: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleFieldValueChange = <Field extends keyof MedicationData>(
@@ -115,6 +149,25 @@ export const EditableMedicationCard: React.FC<{
       setErxEnabled(true);
     }
   };
+
+  const handleQuickPickSelect = useCallback(
+    (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]): void => {
+      const { ndcToMedicationId, medispanCodeToMedicationId } = selectsOptions.medicationId;
+      const medicationId: string | undefined =
+        (quickPick.ndc && ndcToMedicationId?.[quickPick.ndc]) ??
+        (quickPick.dosespotId != null ? medispanCodeToMedicationId?.[String(quickPick.dosespotId)] : undefined);
+      setLocalValues((prev) => ({
+        ...prev,
+        medicationId,
+        ...(quickPick.dose != null && { dose: quickPick.dose }),
+        ...(quickPick.units != null && { units: quickPick.units }),
+        ...(quickPick.route != null && { route: quickPick.route }),
+        ...(quickPick.instructions != null && { instructions: quickPick.instructions }),
+      }));
+      setErxEnabled(true);
+    },
+    [selectsOptions.medicationId]
+  );
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
     // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
@@ -461,6 +514,11 @@ export const EditableMedicationCard: React.FC<{
             setShowInteractionAlerts(true);
           }
         }}
+        onDelete={medication?.id && medication?.status !== 'cancelled' ? handleDeleteClick : undefined}
+        isReadOnly={isReadOnly}
+        onQuickPickSelect={
+          typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
+        }
       />
       <InPersonModal
         icon={null}
@@ -500,6 +558,7 @@ export const EditableMedicationCard: React.FC<{
             setInteractionsCheckState({
               status: 'done',
               medicationId: localValues.medicationId,
+              medicationName: interactionsCheckState.medicationName,
               interactions,
             });
           }}
@@ -509,6 +568,18 @@ export const EditableMedicationCard: React.FC<{
       {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
         <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
       ) : null}
+      {medication?.id && (
+        <DeleteDialog
+          open={isDeleteDialogOpen}
+          handleClose={handleDeleteCancel}
+          handleDelete={handleDeleteConfirm}
+          title="Delete Medication"
+          description={`Are you sure you want to delete "${medication?.medicationName || 'this medication'}"?`}
+          closeButtonText="Keep"
+          deleteButtonText="Delete Medication"
+          loadingDelete={isDeleting}
+        />
+      )}
     </>
   );
 };

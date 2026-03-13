@@ -62,7 +62,7 @@ export const getAppointmentAndRelatedResources = async (
         },
         {
           name: '_include:iterate',
-          value: 'Appointment:location',
+          value: 'Encounter:location',
         },
         {
           name: '_revinclude:iterate',

@@ -134,6 +134,7 @@ const ChatModal = memo(
 
     const { isFetching: isMessagesFetching, refetch: refetchMessages } = useFetchChatMessagesQuery(
       timezone,
+      patientFromAppointment.id,
       numbersToSendTo,
       (messages) => {
         if (!messages) {
@@ -285,7 +286,7 @@ const ChatModal = memo(
                 data-testid={dataTestIds.telemedEhrFlow.chatModalDescription}
                 sx={{ fontWeight: 600, color: theme.palette.primary.dark }}
               >
-                {numbersToSendTo ? numbersToSendTo.join(',') : ''}
+                {numbersToSendTo ? numbersToSendTo.join(', ') : ''}
               </Typography>
               <IconButton
                 aria-label="Close"
@@ -332,7 +333,7 @@ const ChatModal = memo(
             </Grid>
           )}
           <Divider />
-          <Grid container sx={{ margin: '16px 0 16px 24px' }}>
+          <Grid container sx={{ margin: '16px 0 16px 24px', width: 'auto' }}>
             <Grid item xs={8.35}>
               <TextField
                 id="patient-message"
@@ -569,7 +570,7 @@ const MessageBody: React.FC<MessageBodyProps> = (props) => {
           }}
         >
           <Grid item xs={11}>
-            <Typography variant="body1" sx={{ whiteSpace: 'pre-line', paddingBottom: '20px' }}>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-line', paddingBottom: '20px', wordWrap: 'break-word' }}>
               {message.content}
             </Typography>
           </Grid>

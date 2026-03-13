@@ -1,10 +1,10 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import mixpanel from 'mixpanel-browser';
 import React, { useCallback } from 'react';
-import { PROJECT_NAME, PROJECT_WEBSITE } from 'utils';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils';
+import { intakeLogo } from '../branding/assets';
 import { useClearStores } from '../features';
 import { useIntakeCommonStore } from '../features/common';
-import { ottehrLogo as logo } from '../themes/ottehr';
 import { ContainerProps, CustomContainer } from './CustomContainerFactory';
 import Footer from './Footer';
 
@@ -27,8 +27,8 @@ export const PageContainer: React.FC<PageContainerProps> = (props) => {
     ...props,
     logoutHandler,
     footer: <Footer />,
-    logo,
-    alt: `${PROJECT_NAME} In Person`,
+    logo: intakeLogo,
+    alt: `${BRANDING_CONFIG.projectName} In Person`,
   };
   return <CustomContainer showLanguagePicker={true} {...passThroughProps} />;
 };

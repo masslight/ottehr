@@ -6,6 +6,7 @@ import {
   HealthcareService,
   Location,
   Patient,
+  Person,
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
@@ -126,6 +127,7 @@ export interface InPersonAppointmentInformation
   room?: string;
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
+  serviceCategory?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {
@@ -133,6 +135,7 @@ export interface TelemedAppointmentInformation extends Omit<AppointmentInformati
   telemedStatusHistory: TelemedStatusHistoryElement[];
   provider?: string[];
   group?: string[];
+  serviceCategory?: string;
 }
 
 export interface GetAppointmentsRequest {
@@ -190,7 +193,8 @@ export type AppointmentRelatedResources =
   | QuestionnaireResponse
   | Practitioner
   | RelatedPerson
-  | HealthcareService;
+  | HealthcareService
+  | Person;
 
 export const PendingSupervisorApprovalInputSchema = z.object({
   encounterId: z.string().uuid(),

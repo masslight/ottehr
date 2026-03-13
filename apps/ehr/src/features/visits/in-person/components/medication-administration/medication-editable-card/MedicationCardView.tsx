@@ -5,17 +5,20 @@ import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
 import { Box, CircularProgress, Grid, Paper, Typography, useTheme } from '@mui/material';
 import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';
+import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   makeMedicationOrderUpdateRequestInput,
+  MEDICAL_HISTORY_CONFIG,
   MedicationData,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { Loader } from '../../../../shared/components/Loader';
+import { QuickPicksButton } from '../../../../shared/components/QuickPicksButton';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ButtonRounded } from '../../RoundedButton';
@@ -60,6 +63,9 @@ type MedicationCardViewProps = {
   selectsOptions: OrderFieldsSelectsOptions;
   interactionsMessage?: InteractionsMessage;
   onInteractionsMessageClick: () => void;
+  onDelete?: () => void;
+  isReadOnly?: boolean;
+  onQuickPickSelect?: (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => void;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -82,24 +88,47 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   selectsOptions,
   interactionsMessage,
   onInteractionsMessageClick,
+  onDelete,
+  isReadOnly,
+  onQuickPickSelect,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const theme = useTheme();
 
+  const inHouseMedicationsquickPicksList = useMemo(() => {
+    const medispanCodeSet = selectsOptions.medicationId.medispanCodeSet ?? new Set<string>();
+    const ndcCodeSet = selectsOptions.medicationId.ndcCodeSet ?? new Set<string>();
+    type QuickPick = (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number];
+    const hasNdc = (pick: QuickPick): boolean => pick.ndc != null && ndcCodeSet.has(pick.ndc);
+    const hasMedispan = (pick: QuickPick): boolean =>
+      pick.dosespotId != null && medispanCodeSet.has(String(pick.dosespotId));
+    return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter((f) => hasNdc(f) || hasMedispan(f));
+  }, [selectsOptions.medicationId.medispanCodeSet, selectsOptions.medicationId.ndcCodeSet]);
+
+  const showAddFromQuickPicks =
+    (type === 'order-new' || type === 'order-edit') && onQuickPickSelect && inHouseMedicationsquickPicksList.length > 0;
+
   const OrderFooter = (): React.ReactElement => {
     return (
       <Box sx={{ minHeight: '40px' }} display="flex" justifyContent="space-between" alignItems="center">
-        <ButtonRounded
-          data-testid={dataTestIds.orderMedicationPage.backButton}
-          variant="outlined"
-          onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
-          color="primary"
-          size="large"
-          startIcon={<ArrowBackIcon />}
-        >
-          Back
-        </ButtonRounded>
+        <Box display="flex" gap={2}>
+          <ButtonRounded
+            data-testid={dataTestIds.orderMedicationPage.backButton}
+            variant="outlined"
+            onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
+            color="primary"
+            size="large"
+            startIcon={<ArrowBackIcon />}
+          >
+            Back
+          </ButtonRounded>
+          {!isReadOnly && onDelete && type !== 'order-new' && (
+            <ButtonRounded onClick={onDelete} variant="outlined" color="error" size="large">
+              Delete Order
+            </ButtonRounded>
+          )}
+        </Box>
         {isEditable && (
           <ButtonRounded
             data-testid={dataTestIds.orderMedicationPage.fillOrderToSaveButton}
@@ -127,12 +156,19 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   const DispenseFooter = (): React.ReactElement => {
     return (
       <Box sx={{ minHeight: '40px' }} display="flex" justifyContent="space-between" alignItems="center">
-        <MedicationStatusChip
-          isEditable={false}
-          medication={medication}
-          onClick={onStatusSelect}
-          status={selectedStatus}
-        />
+        <Box display="flex" gap={2}>
+          <MedicationStatusChip
+            isEditable={false}
+            medication={medication}
+            onClick={onStatusSelect}
+            status={selectedStatus}
+          />
+          {!isReadOnly && onDelete && (
+            <ButtonRounded onClick={onDelete} variant="outlined" color="error" size="large">
+              Delete Order
+            </ButtonRounded>
+          )}
+        </Box>
         {isEditable && (
           <Box display="flex" flexDirection="row" gap={2}>
             <ButtonRounded
@@ -198,6 +234,29 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <Grid container spacing={2}>
+        {showAddFromQuickPicks && (
+          <Grid item xs={12}>
+            <QuickPicksButton
+              quickPicks={inHouseMedicationsquickPicksList}
+              getLabel={(quickPick) => {
+                const parts = [quickPick.name] as string[];
+                if (quickPick.dose != null && quickPick.units != null) {
+                  parts.push(`${quickPick.dose} ${quickPick.units}`);
+                } else if (quickPick.dose != null) {
+                  parts.push(String(quickPick.dose));
+                }
+                if (quickPick.route != null) {
+                  const routeLabel =
+                    selectsOptions.route.options.find((o) => o.value === quickPick.route)?.label ?? quickPick.route;
+                  parts.push(routeLabel);
+                }
+                return parts.join(', ');
+              }}
+              onSelect={onQuickPickSelect}
+              disabled={isUpdating}
+            />
+          </Grid>
+        )}
         <Grid
           item
           xs={12}

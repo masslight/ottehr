@@ -61,10 +61,22 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
   return groupedOptions;
 };
 
+export type MedicationIdSelectOptions = {
+  options: Option[];
+  status: 'loading' | 'loaded';
+  defaultOption?: Option;
+  medispanCodeSet?: Set<string>;
+  medispanCodeToMedicationId?: Record<string, string>;
+  ndcCodeSet?: Set<string>;
+  ndcToMedicationId?: Record<string, string>;
+};
+
 export type OrderFieldsSelectsOptions = Record<
-  'medicationId' | 'location' | 'route' | 'units' | 'associatedDx' | 'providerId',
+  'location' | 'route' | 'units' | 'associatedDx' | 'providerId',
   { options: Option[]; status: 'loading' | 'loaded'; defaultOption?: Option }
->;
+> & {
+  medicationId: MedicationIdSelectOptions;
+};
 
 // fast fix to prevent multiple requests to get locations
 const cacheLocations = {} as any;
@@ -174,12 +186,37 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     void getProvidersResults();
   }, [oystehrZambda, encounterId]);
 
-  const medicationListOptions: Option[] = Object.entries(medicationList || {})
-    .map(([id, value]) => ({
-      value: id,
-      label: value,
-    }))
+  const medicationListOptions: Option[] = Object.entries(medicationList?.idToName || {})
+    .map(([id, label]) => ({ value: id, label }))
     .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  const medispanCodeSet = useMemo(() => {
+    if (!medicationList?.idToMedispanCode) return new Set<string>();
+    return new Set(Object.values(medicationList.idToMedispanCode));
+  }, [medicationList?.idToMedispanCode]);
+
+  const medispanCodeToMedicationId = useMemo(() => {
+    if (!medicationList?.idToMedispanCode) return {};
+    const map: Record<string, string> = {};
+    for (const [id, code] of Object.entries(medicationList.idToMedispanCode)) {
+      if (code && !(code in map)) map[code] = id;
+    }
+    return map;
+  }, [medicationList?.idToMedispanCode]);
+
+  const ndcCodeSet = useMemo(() => {
+    if (!medicationList?.idToNdc) return new Set<string>();
+    return new Set(Object.values(medicationList.idToNdc));
+  }, [medicationList?.idToNdc]);
+
+  const ndcToMedicationId = useMemo(() => {
+    if (!medicationList?.idToNdc) return {};
+    const map: Record<string, string> = {};
+    for (const [id, ndc] of Object.entries(medicationList.idToNdc)) {
+      if (ndc && !(ndc in map)) map[ndc] = id;
+    }
+    return map;
+  }, [medicationList?.idToNdc]);
 
   // Determine default provider (current user for Provider role)
   const currentUserProviderId = currentUser?.profile?.replace('Practitioner/', '');
@@ -193,6 +230,10 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     medicationId: {
       options: medicationListOptions,
       status: isMedicationLoading ? 'loading' : 'loaded',
+      medispanCodeSet,
+      medispanCodeToMedicationId,
+      ndcCodeSet,
+      ndcToMedicationId,
     },
     location: {
       options: locationsOptions,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useGetIcd10Search } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPTCodeDTO } from 'utils';
+import { useGetCPTHCPCSSearch } from '../../features/visits/shared/stores/appointment/appointment.queries';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Props = {
@@ -13,11 +13,11 @@ type Props = {
 
 export const SingleCptCodeInput: React.FC<Props> = ({ name, label, required, dataTestId }) => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
+  const { isFetching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const options = ((data as { codes?: CPTCodeDTO[] })?.codes || []).map((cptCodeDto) => {
     return {
       label: `${cptCodeDto.code} ${cptCodeDto.display}`,
-      value: cptCodeDto.code,
+      code: cptCodeDto.code,
     };
   });
   const { debounce } = useDebounce(800);
@@ -30,12 +30,13 @@ export const SingleCptCodeInput: React.FC<Props> = ({ name, label, required, dat
     <AutocompleteInput
       name={name}
       label={label}
-      options={options}
+      options={options.map((option) => option.code)}
       loading={isFetching}
       required={required}
       onInputTextChanged={debouncedHandleInputChange}
       noOptionsText={debouncedSearchTerm.length === 0 ? 'Start typing to load results' : undefined}
       dataTestId={dataTestId}
+      getOptionLabel={(option) => options.find((opt) => opt.code === option)?.label ?? option}
     />
   );
 };

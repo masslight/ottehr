@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { Secrets } from '../../../secrets';
-import { ExtendedMedicationDataForResponse, GetRadiologyOrderListZambdaOrder } from '../../api';
+import {
+  ExtendedMedicationDataForResponse,
+  GetRadiologyOrderListZambdaOrder,
+  PrescribedMedicationDTO,
+} from '../../api';
+import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
+import { ImmunizationOrder } from '../immunization';
 import { InHouseOrderListPageItemDTO } from '../in-house';
 import { LabOrderListPageDTO } from '../labs';
 import { NursingOrdersStatus } from './constants';
@@ -52,6 +58,7 @@ export type NursingOrdersSearchBy = z.infer<typeof NursingOrdersSearchBySchema>;
 
 export const GetNursingOrdersInputSchema = z.object({
   searchBy: NursingOrdersSearchBySchema,
+  refreshKey: z.number().optional(),
 });
 
 export type GetNursingOrdersInput = z.infer<typeof GetNursingOrdersInputSchema>;
@@ -86,6 +93,7 @@ export interface OrderToolTipConfig {
   icon: JSX.Element;
   title: string;
   tableUrl: string;
+  unreadBadge?: boolean;
   orders: {
     // lab orders & nursing orders use ServiceRequests
     // inHouse Medications use MedicationAdministration
@@ -93,6 +101,7 @@ export interface OrderToolTipConfig {
     itemDescription: string;
     detailPageUrl: string;
     statusChip: JSX.Element;
+    unreadBadge?: boolean;
   }[];
 }
 
@@ -102,6 +111,9 @@ export interface OrdersForTrackingBoardTable {
   nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
   inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
   radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]>;
+  erxOrdersByEncounterId: Record<string, PrescribedMedicationDTO[]>;
+  proceduresByEncounterId: Record<string, ProcedureDTO[]>;
+  immunizationOrdersByEncounterId: Record<string, ImmunizationOrder[]>;
 }
 
 export interface OrdersForTrackingBoardRow {
@@ -110,4 +122,7 @@ export interface OrdersForTrackingBoardRow {
   nursingOrders: NursingOrder[] | undefined;
   inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
   radiologyOrders: GetRadiologyOrderListZambdaOrder[] | undefined;
+  erxOrders: PrescribedMedicationDTO[] | undefined;
+  procedures: ProcedureDTO[] | undefined;
+  immunizationOrders: ImmunizationOrder[] | undefined;
 }

@@ -117,7 +117,6 @@ export const filterAppointmentsAndCreatePackages = ({
           console.error('No location for appointment', appointment.id);
           return;
         }
-
         resultAppointments.push({
           appointment,
           paperwork,

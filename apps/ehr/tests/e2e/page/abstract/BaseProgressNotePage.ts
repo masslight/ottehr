@@ -152,5 +152,100 @@ export abstract class BaseProgressNotePage {
     }
   }
 
+  async verifyMedication(medication: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
+        hasText: medication,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyMedicationNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
+        hasText: note,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyMedicationNoteNotShown(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
+        hasText: note,
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyMedicationNotShown(medication: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
+        hasText: medication,
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyHospitalization(hospitalization: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: hospitalization,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyHospitalizationNotShown(hospitalization: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: hospitalization,
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyHospitalizationNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: note,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyHospitalizationNoteNotShown(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.hospitalizationContainer).filter({
+        hasText: note,
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyVitalIsShown(vitals: string, abnormal = false): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer)).toBeVisible();
+    const itemLocator = this.#page.getByTestId(dataTestIds.progressNotePage.vitalsItem).filter({ hasText: vitals });
+    await expect(itemLocator).toBeVisible();
+    await expect(itemLocator.getByTestId(dataTestIds.progressNotePage.alertIcon)).toBeVisible({ visible: abnormal });
+  }
+
+  async verifyVitalNotShown(vitals: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer).filter({
+        hasText: new RegExp(vitals, 'i'),
+      })
+    ).not.toBeVisible();
+  }
+
+  async verifyVitalsNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer).filter({
+        hasText: note,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyVitalsNoteNotShown(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vitalsContainer).filter({
+        hasText: note,
+      })
+    ).not.toBeVisible();
+  }
+
   abstract expectLoaded(): Promise<void>;
 }

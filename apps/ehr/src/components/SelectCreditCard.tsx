@@ -15,25 +15,33 @@ import { FC, useState } from 'react';
 import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod';
 import { useSetupStripe } from 'src/hooks/useSetupStripe';
-import { AddCreditCardForm } from 'ui-components';
+import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
 import { CreditCardInfo } from 'utils';
-import { stripePromise } from '../index';
+
+interface CardOption {
+  id: string;
+  label: string;
+  brand?: CreditCardInfo['brand'];
+  isNew?: boolean;
+}
 
 interface CreditCardContentProps {
   patient: Patient;
+  appointmentId: string | undefined;
   selectedCardId: string;
   handleCardSelected: (newVal: string | undefined) => void;
   error?: string;
 }
 
 const labelForCard = (card: CreditCardInfo): string => {
-  return `XXXX - XXXX - XXXX - ${card.lastFour}${card.default ? ' (Primary)' : ''}`;
+  const formattedBrand = card.brand ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1) : 'Card';
+  return `${formattedBrand} •••• ${card.lastFour}${card.default ? ' (Primary)' : ''}`;
 };
 
 const NEW_CARD = { id: 'new', label: 'Add new card' };
 
 const CreditCardContent: FC<CreditCardContentProps> = (props) => {
-  const { patient, selectedCardId, handleCardSelected, error } = props;
+  const { patient, appointmentId, selectedCardId, handleCardSelected, error } = props;
   const [cards, setCards] = useState<CreditCardInfo[]>([]);
 
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
@@ -44,9 +52,11 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     isLoading: isSetupDataLoading,
     refetch: refetchSetupData,
     isRefetching: isSetupDataRefetching,
-  } = useSetupStripe(patient?.id);
+  } = useSetupStripe(patient?.id, appointmentId);
 
-  const { mutate: setDefault } = useSetDefaultPaymentMethod(patient?.id);
+  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount);
+
+  const { mutate: setDefault } = useSetDefaultPaymentMethod(patient?.id, appointmentId);
 
   const {
     isFetching: cardsAreLoading,
@@ -54,6 +64,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     refetch: refetchPaymentMethods,
   } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
+    appointmentId,
     setupCompleted: Boolean(setupData),
     onSuccess: (data) => {
       if (!data) return;
@@ -75,9 +86,9 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
 
   const initializing = isSetupDataFetching || isSetupDataLoading;
 
-  const cardOptions = [
-    ...cards.map((card) => ({ id: card.id, label: labelForCard(card) })),
-    { id: 'new', label: 'Add new card' },
+  const cardOptions: CardOption[] = [
+    ...cards.map((card) => ({ id: card.id, label: labelForCard(card), brand: card.brand })),
+    { id: NEW_CARD.id, label: NEW_CARD.label, isNew: true },
   ];
 
   const selectedCard = cardOptions.find((card) => card.id === selectedCardId);
@@ -134,6 +145,11 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         options={cardOptions}
         renderOption={(props, option) => (
           <li {...props} key={option.id}>
+            {option.brand && (
+              <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                <CreditCardBrandIcon brand={option.brand} />
+              </Box>
+            )}
             {option.label}
           </li>
         )}
@@ -149,6 +165,19 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
                 variant="outlined"
                 error={Boolean(error)}
                 InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: currentValue?.brand ? (
+                    <>
+                      <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                        <CreditCardBrandIcon brand={currentValue.brand} />
+                      </Box>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ) : (
+                    params.InputProps.startAdornment
+                  ),
+                }}
                 inputProps={{
                   ...params.inputProps,
                   autoComplete: 'off',
@@ -163,7 +192,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         }}
       />
 
-      <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
+      <Elements stripe={stripePromise} options={{ clientSecret: setupData?.clientSecret }}>
         <Box
           sx={{
             width: '100%',
@@ -175,13 +204,13 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
           }}
         >
           <AddCreditCardForm
-            clientSecret={setupData ?? ''}
-            isLoading={false}
+            clientSecret={setupData?.clientSecret ?? ''}
             disabled={false}
             selectPaymentMethod={(id) => {
               void handleNewPaymentMethod(id, !someDefault);
             }}
             condition="I have obtained the consent to add a card on file from the patient"
+            showAddButton={true}
           />
           {error && !showCardList && <FormHelperText error={Boolean(error)}>{error}</FormHelperText>}
         </Box>

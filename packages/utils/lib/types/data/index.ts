@@ -18,3 +18,4 @@ export * from './list-template.types';
 export * from './screening-questions';
 export * from './visit-details.types';
 export * from './tasks';
+export * from './search-places';

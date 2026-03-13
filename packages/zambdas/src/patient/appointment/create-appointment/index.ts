@@ -33,6 +33,8 @@ import {
   formatPhoneNumberDisplay,
   getAppointmentDurationFromSlot,
   getCanonicalQuestionnaire,
+  getCoding,
+  getFullestAvailableName,
   getSecret,
   getTaskResource,
   isValidUUID,
@@ -40,9 +42,11 @@ import {
   OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
+  RETURNING_PATIENT_META_TAG,
   ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
   TaskIndicator,
   User,
@@ -116,7 +120,19 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     console.log('effectInput', effectInput);
     console.timeEnd('performing-complex-validation');
 
-    const appointmentMetadata = injectMetadataIfNeeded(maybeMetadata);
+    let appointmentMetadata = injectMetadataIfNeeded(maybeMetadata);
+
+    if (patient.patientBeenSeenBefore) {
+      if (!appointmentMetadata) {
+        appointmentMetadata = {
+          tag: [RETURNING_PATIENT_META_TAG()],
+        };
+      } else if (!appointmentMetadata.tag) {
+        appointmentMetadata.tag = [RETURNING_PATIENT_META_TAG()];
+      } else {
+        appointmentMetadata.tag.push(RETURNING_PATIENT_META_TAG());
+      }
+    }
 
     console.log('creating appointment with metadata: ', JSON.stringify(appointmentMetadata));
 
@@ -551,6 +567,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     newPatientDob,
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
+    appointmentServiceCategory: getCoding(slot?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code ?? '',
+    reasonForVisit,
     questionnaire,
     documents,
     accountInfo,
@@ -598,7 +616,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     patientRequests.push(createPatientRequest);
   }
 
-  const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, apptUrl);
+  const confirmationTextTask = getTaskResource(
+    TaskIndicator.confirmationMessages,
+    `Send confirmation text to ${getFullestAvailableName(patientToUse)}`,
+    apptUrl
+  );
   const taskRequest: BatchInputPostRequest<Task> = {
     method: 'POST',
     url: '/Task',
@@ -716,7 +738,7 @@ const injectMetadataIfNeeded = (maybeMetadata: Appointment['meta']): Appointment
       tag: [
         {
           system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-          code: `failsafe-${process.env.PLAYWRIGHT_SUITE_ID}`,
+          code: process.env.PLAYWRIGHT_SUITE_ID,
         },
       ],
     };

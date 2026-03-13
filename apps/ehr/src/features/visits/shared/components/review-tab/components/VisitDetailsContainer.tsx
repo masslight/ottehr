@@ -12,11 +12,18 @@ import { VisitNoteItem } from '../../VisitNoteItem';
 import { PatientInfoConfirmedCheckbox } from './PatientInfoConfirmedCheckbox';
 
 export const VisitDetailsContainer: FC = () => {
-  const { appointment, practitioner, locationVirtual, encounter, questionnaireResponse, reviewAndSignData } =
+  const { appointment, practitioners, locationVirtual, encounter, questionnaireResponse, reviewAndSignData } =
     useAppointmentData();
 
   const state = locationVirtual?.address?.state;
-  const provider = practitioner ? getProviderNameWithProfession(practitioner) : '';
+  const provider = practitioners?.find(
+    (p) =>
+      encounter?.participant?.some(
+        (ep) =>
+          typeof ep?.individual?.reference === 'string' && ep.individual.reference.includes(`Practitioner/${p.id}`)
+      )
+  );
+  const providerName = provider ? getProviderNameWithProfession(provider) : '';
 
   const address = getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]
     .valueString;
@@ -50,7 +57,7 @@ export const VisitDetailsContainer: FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <VisitNoteItem label="Date of Service" value={dateOfService} />
         <VisitNoteItem label="Reason for Visit" value={appointment?.description ?? ''} />
-        <VisitNoteItem label="Provider" value={provider} />
+        <VisitNoteItem label="Provider" value={providerName} />
         <VisitNoteItem label="Signed On" value={signedOnDate} />
         <VisitNoteItem label="Visit ID" value={appointment?.id} />
         <VisitNoteItem label="Visit State" value={state} />

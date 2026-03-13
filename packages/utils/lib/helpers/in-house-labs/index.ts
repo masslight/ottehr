@@ -1,8 +1,21 @@
-import { ActivityDefinition, Observation, ObservationDefinition, ServiceRequest, ValueSet } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  DiagnosticReport,
+  Extension,
+  Observation,
+  ObservationDefinition,
+  ServiceRequest,
+  ValueSet,
+} from 'fhir/r4b';
+import { evaluate } from 'fhirpath';
 import {
   CODE_SYSTEM_CPT,
+  CODE_SYSTEM_CPT_MODIFIER,
   CodeableConceptComponent,
+  CPTCodeDTO,
   DiagnosisDTO,
+  EXTENSION_URL_CPT_MODIFIER,
+  IN_HOUSE_LAB_DISPLAY_TYPES,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
@@ -10,11 +23,24 @@ import {
   OBSERVATION_INTERPRETATION_SYSTEM,
   ObservationCode,
   OD_DISPLAY_CONFIG,
+  OD_VALUE_VALIDATION_CONFIG,
   QuantityComponent,
+  REFLEX_ARTIFACT_DISPLAY,
+  REFLEX_TEST_ALERT_URL,
+  REFLEX_TEST_CONDITION_LANGUAGES,
+  REFLEX_TEST_CONDITION_URL,
+  REFLEX_TEST_LOGIC_URL,
+  REFLEX_TEST_TO_RUN_NAME_URL,
+  REFLEX_TEST_TO_RUN_URL,
+  REFLEX_TEST_TRIGGERED_URL,
+  REPEAT_TEST_CPT_CODE_MODIFIER,
+  REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
+  StringComponent,
   TestComponentResult,
   TestItem,
   TestItemComponent,
+  Validation,
 } from 'utils';
 
 export const extractAbnormalValueSetValues = (
@@ -70,7 +96,7 @@ export const extractQuantityRange = (
   };
 };
 
-const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Radio' | 'Select' | 'Numeric' => {
+const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): IN_HOUSE_LAB_DISPLAY_TYPES => {
   const ext = obsDef.extension;
   const display = ext?.find((e) => e.url === OD_DISPLAY_CONFIG.url)?.valueString;
   if (!display) throw Error(`no display type set for this observation definition: ${obsName}`);
@@ -78,7 +104,8 @@ const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Ra
   if (
     display !== OD_DISPLAY_CONFIG.valueString.radio &&
     display !== OD_DISPLAY_CONFIG.valueString.select &&
-    display !== OD_DISPLAY_CONFIG.valueString.numeric
+    display !== OD_DISPLAY_CONFIG.valueString.numeric &&
+    display !== OD_DISPLAY_CONFIG.valueString.freeText
   )
     throw Error(
       `unknown display cast to this observation definition: ${obsName} (display should be one of the follow ${Object.values(
@@ -108,14 +135,29 @@ const extractNullOption = (
   return;
 };
 
+const extractValidations = (obsDef: ObservationDefinition): Validation | undefined => {
+  const validationExtensions = obsDef.extension?.filter((ext) => ext.url === OD_VALUE_VALIDATION_CONFIG.url);
+  if (!validationExtensions || !validationExtensions.length) return undefined;
+
+  // labs todo: in the future if we need additional validation types, we should grab them here
+  const formatValidation = validationExtensions.find(
+    (ext) => ext.valueCoding?.system === OD_VALUE_VALIDATION_CONFIG.formatValidation.url
+  );
+  if (!formatValidation || !formatValidation.valueCoding?.code) return undefined;
+
+  const format = { value: formatValidation.valueCoding.code, display: formatValidation.valueCoding.display };
+
+  return format ? { format } : undefined;
+};
+
 const processObservationDefinition = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[],
   observation?: Observation
-): TestItemComponent => {
+): TestItemComponent | undefined => {
   const componentName = obsDef.code?.text || '';
   const observationDefinitionId = obsDef.id || '';
-  const dataType = obsDef.permittedDataType?.[0] as 'Quantity' | 'CodeableConcept';
+  const dataType = obsDef.permittedDataType?.[0] as 'Quantity' | 'CodeableConcept' | 'string';
   const loincCode =
     obsDef.code?.coding?.filter((coding) => coding.system === 'http://loinc.org').map((coding) => coding.code || '') ||
     [];
@@ -142,14 +184,13 @@ const processObservationDefinition = (
         ?.code ?? undefined;
 
     const displayType = extractDisplayType(obsDef, componentName);
-    if (displayType === 'Numeric')
+    if (displayType === 'Numeric' || displayType === 'Free Text')
       throw Error(
-        'Observation definition is flagged as Numeric, currently we are only configured to support Select or Radio for CodeableConcept observation definitions '
+        'Observation definition is flagged as Numeric or Free Text, currently we are only configured to support Select or Radio for CodeableConcept observation definitions '
       );
     const nullOption = extractNullOption(obsDef);
 
     const result = getResult(observation, dataType);
-
     const component: CodeableConceptComponent = {
       componentName,
       observationDefinitionId,
@@ -182,9 +223,27 @@ const processObservationDefinition = (
       result,
     };
     return component;
+  } else if (dataType === 'string') {
+    const displayType = extractDisplayType(obsDef, componentName);
+    if (displayType !== 'Free Text') {
+      throw Error('String type observation definition is misconfigured, display type should be Free Text');
+    }
+    const validations = extractValidations(obsDef);
+    const result = getResult(observation, dataType);
+    const component: StringComponent = {
+      componentName,
+      loincCode,
+      observationDefinitionId,
+      dataType,
+      displayType,
+      validations,
+      result,
+    };
+    return component;
   }
 
-  throw Error('Invalid data type');
+  console.log('Invalid data type');
+  return;
 };
 
 export function quantityRangeFormat(quantity: QuantityComponent): string {
@@ -194,14 +253,10 @@ export function quantityRangeFormat(quantity: QuantityComponent): string {
 export const convertActivityDefinitionToTestItem = (
   activityDef: ActivityDefinition,
   observations?: Observation[],
-  serviceRequest?: ServiceRequest
+  serviceRequest?: ServiceRequest,
+  diagnosticReport?: DiagnosticReport
 ): TestItem => {
   const name = activityDef.name || '';
-
-  const cptCode =
-    activityDef.code?.coding
-      ?.filter((coding) => coding.system === CODE_SYSTEM_CPT)
-      .map((coding) => coding.code || '') || [];
 
   const repeatable = !!activityDef?.extension?.find((ext) => ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url);
 
@@ -231,7 +286,7 @@ export const convertActivityDefinitionToTestItem = (
   const observationMap: { [obsDefId: string]: Observation } = {};
   if (observations) {
     observations.forEach((obs) => {
-      const observationIsBasedOnSr = serviceRequest ? observationIsBasedOnServiceRequest(obs, serviceRequest) : true;
+      const observationIsBasedOnSr = serviceRequest ? resourceIsBasedOnServiceRequest(obs, serviceRequest) : true;
       if (observationIsBasedOnSr) {
         const obsDefIdFromExt = obs.extension?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)?.valueString;
         if (obsDefIdFromExt) observationMap[obsDefIdFromExt] = obs;
@@ -254,9 +309,16 @@ export const convertActivityDefinitionToTestItem = (
         containedResources as (ObservationDefinition | ValueSet)[],
         resultObs
       );
-      if (componentInfo.displayType === 'Select' || componentInfo.displayType === 'Numeric')
-        groupedComponents.push(componentInfo);
-      if (componentInfo.displayType === 'Radio') radioComponents.push(componentInfo);
+      console.log('this is the componentInfo', componentInfo);
+      if (componentInfo) {
+        if (
+          componentInfo.displayType === 'Select' ||
+          componentInfo.displayType === 'Numeric' ||
+          componentInfo.displayType === 'Free Text'
+        )
+          groupedComponents.push(componentInfo);
+        if (componentInfo.displayType === 'Radio') radioComponents.push(componentInfo);
+      }
     }
   }
 
@@ -266,42 +328,118 @@ export const convertActivityDefinitionToTestItem = (
     );
   }
 
+  let reflexAlert: TestItem['reflexAlert'];
+  // validate service request and diagnostic report are indeed related
+  const srIsRelatedToDr =
+    diagnosticReport && serviceRequest ? resourceIsBasedOnServiceRequest(diagnosticReport, serviceRequest) : false;
+  if (srIsRelatedToDr) {
+    reflexAlert = checkDiagnosticReportForReflexAlert(diagnosticReport);
+  }
+
+  const orderedAsRepeat = serviceRequest
+    ? !!serviceRequest.meta?.tag?.some(
+        (t) =>
+          t.system === REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.system && t.code === REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.code
+      )
+    : false;
+
+  const cptCodes = makeCptCodeDTOsFromActivityDefinition(activityDef, orderedAsRepeat);
+
+  const isReflexTest = activityDefinitionIsReflexTest(activityDef);
+
+  const orderMode: TestItem['orderMode'] = (() => {
+    if (orderedAsRepeat) return 'repeat';
+    if (isReflexTest) return 'reflex';
+    return 'standard';
+  })();
+
   const testItem: TestItem = {
     name,
     methods,
     repeatable,
+    orderMode,
     method: Object.keys(methods).join(' or '),
     device: Object.values(methods)
       .map((m) => m.device)
       .join(' or '),
-    cptCode,
+    cptCode: cptCodes,
     components: {
       groupedComponents,
       radioComponents,
     },
+    reflexAlert,
     adUrl: activityDef.url,
     adVersion: activityDef.version,
+    adId: activityDef.id ?? 'unknown',
   };
 
   console.log('successfully converted activity ActivityDefinition to testItem format for', testItem.name);
   return testItem;
 };
 
-export const observationIsBasedOnServiceRequest = (
-  observation: Observation,
+const makeCptCodeDTOsFromActivityDefinition = (
+  activityDefinition: ActivityDefinition,
+  isRepeat: boolean
+): CPTCodeDTO[] => {
+  const cptCodeDTOs: CPTCodeDTO[] = [];
+
+  const cptCodeCodings = activityDefinition.code?.coding?.filter((coding) => coding.system === CODE_SYSTEM_CPT);
+
+  cptCodeCodings?.forEach((coding) => {
+    const modifierExts = coding.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER);
+    const modifiers = configModifiersArrayFromExtension(modifierExts);
+
+    const dto: CPTCodeDTO = {
+      code: coding.code || 'unknown',
+      display: activityDefinition.name || 'unknown',
+      modifier: modifiers,
+    };
+
+    cptCodeDTOs.push(dto);
+  });
+
+  if (isRepeat) {
+    cptCodeDTOs.push(REPEAT_TEST_CPT_CODE_MODIFIER);
+  }
+
+  return cptCodeDTOs;
+};
+
+const configModifiersArrayFromExtension = (
+  modifierExtension: Extension[] | undefined
+): { code: string; display: string }[] | undefined => {
+  if (modifierExtension === undefined || modifierExtension.length === 0) return;
+
+  const modifiers: { code: string; display: string }[] = [];
+  modifierExtension.forEach((ext) => {
+    ext.valueCodeableConcept?.coding?.forEach((c) => {
+      if (c.system === CODE_SYSTEM_CPT_MODIFIER && typeof c.code === 'string') {
+        const mod = { code: c.code, display: c.display ?? '' };
+        modifiers.push(mod);
+      }
+    });
+  });
+
+  if (modifiers.length === 0) return;
+
+  return modifiers;
+};
+
+export const resourceIsBasedOnServiceRequest = (
+  resource: Observation | DiagnosticReport,
   serviceRequest: ServiceRequest
 ): boolean => {
-  return !!observation.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
+  return !!resource.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
 };
 
 const getResult = (
   observation: Observation | undefined,
-  dataType: 'CodeableConcept' | 'Quantity'
+  dataType: 'CodeableConcept' | 'Quantity' | 'string'
 ): TestComponentResult | undefined => {
   if (!observation) return;
   let result: TestComponentResult | undefined;
   let entry: string | undefined;
-  if (dataType === 'CodeableConcept') {
+  if (dataType === 'CodeableConcept' || dataType === 'string') {
     entry = observation.valueString;
   } else {
     const entryValue = observation?.valueQuantity?.value;
@@ -324,6 +462,130 @@ const getResult = (
   return result;
 };
 
+// todo labs i suspect this function will need some tweaking if we add more types of conditions/expressions
+export const checkIfReflexIsTriggered = (
+  activityDefinition: ActivityDefinition,
+  observation: Observation | undefined
+): Extension | undefined => {
+  if (!observation) return;
+  console.log(`checking if observation triggers reflex test: ${JSON.stringify(observation)}`);
+
+  const reflexLogicExtensions = checkActivityDefinitionForReflexLogic(activityDefinition);
+  if (!reflexLogicExtensions) return;
+
+  const {
+    reflexTestToRunCanonicalUrlExt,
+    reflexTestToRunNameExt,
+    reflexAlertExt,
+    reflexConditionLanguage,
+    reflexConditionExpression,
+  } = reflexLogicExtensions;
+
+  if (reflexConditionLanguage === REFLEX_TEST_CONDITION_LANGUAGES.fhirPath) {
+    const result = evaluate(observation, reflexConditionExpression, { resource: observation });
+    if (result && Array.isArray(result) && result.some((res) => res === true)) {
+      const reflexTestTriggeredExt: Extension = {
+        url: REFLEX_TEST_TRIGGERED_URL,
+        extension: [reflexTestToRunCanonicalUrlExt, reflexTestToRunNameExt, reflexAlertExt],
+      };
+      return reflexTestTriggeredExt;
+    } else {
+      console.log('result returned:', JSON.stringify(result));
+      return;
+    }
+  } else {
+    throw new Error(
+      `Reflex test logic has been added for a condition language we do not currently support. Language parsed: ${reflexConditionLanguage}. Languages supported: ${JSON.stringify(
+        REFLEX_TEST_CONDITION_LANGUAGES
+      )}. Offending ActivityDefinition: ${activityDefinition.id}.`
+    );
+  }
+};
+
+export const checkActivityDefinitionForReflexLogic = (
+  activityDefinition: ActivityDefinition
+):
+  | {
+      reflexTestToRunCanonicalUrlExt: Extension;
+      reflexTestToRunNameExt: Extension;
+      reflexAlertExt: Extension;
+      reflexConditionLanguage: string;
+      reflexConditionExpression: string;
+    }
+  | undefined => {
+  const reflexLogic = activityDefinition.extension?.find((ext) => ext.url === REFLEX_TEST_LOGIC_URL)?.extension;
+  if (!reflexLogic) return;
+
+  const reflexCondition = reflexLogic.find((ext) => ext.url === REFLEX_TEST_CONDITION_URL)?.valueExpression;
+  if (!reflexCondition) {
+    throw new Error(
+      `Reflex logic is misconfigured. Condition valueExpression is missing. ActivityDefinition/${activityDefinition.id}`
+    );
+  }
+
+  console.log(`Evaluating reflex logic for ActivityDefinition/${activityDefinition.id}`);
+
+  // todo labs, could reduce iterations here by using reduce
+  const reflexTestToRunCanonicalUrlExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_URL);
+  const reflexTestToRunNameExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL);
+  const reflexAlertExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_ALERT_URL);
+  const reflexConditionLanguage = reflexCondition.language;
+  const reflexConditionExpression = reflexCondition.expression;
+
+  if (
+    !reflexConditionLanguage ||
+    !reflexConditionExpression ||
+    !reflexAlertExt ||
+    !reflexTestToRunNameExt ||
+    !reflexTestToRunCanonicalUrlExt
+  ) {
+    throw new Error(
+      `Reflex logic is misconfigured. One of the following is missing: reflexConditionLanguage, reflexConditionExpression, reflexAlertExt, reflexTestToRunCanonicalUrlExt, reflexTestToRunNameExt on ActivityDefinition/${activityDefinition.id}`
+    );
+  }
+
+  return {
+    reflexTestToRunCanonicalUrlExt,
+    reflexTestToRunNameExt,
+    reflexAlertExt,
+    reflexConditionLanguage,
+    reflexConditionExpression,
+  };
+};
+
+export const checkDiagnosticReportForReflexAlert = (
+  diagnosticReport: DiagnosticReport | undefined
+): TestItem['reflexAlert'] | undefined => {
+  if (!diagnosticReport) return;
+  const reflexLogic = diagnosticReport.extension?.find((ext) => ext.url === REFLEX_TEST_TRIGGERED_URL)?.extension;
+  if (!reflexLogic) return;
+
+  console.log(`Evaluating reflex logic for DiagnosticReport/${diagnosticReport.id}`);
+
+  const reflexTestToRunName = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL)?.valueString;
+  const reflexAlert = reflexLogic.find((ext) => ext.url === REFLEX_TEST_ALERT_URL)?.valueString;
+  const reflexCanonicalUrl = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_URL)?.valueCanonical;
+
+  if (!reflexAlert || !reflexTestToRunName || !reflexCanonicalUrl) {
+    throw new Error(
+      `Reflex test information on diagnostic report is misconfigured. reflexAlert or reflexTestToRunName is missing on DiagnosticReport/${diagnosticReport.id}`
+    );
+  }
+
+  return { testName: reflexTestToRunName, alert: reflexAlert, canonicalUrl: reflexCanonicalUrl };
+};
+
 export const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): string => {
   return diagnoses.map((d) => `${d.code} ${d.display}`).join(', ');
+};
+
+export const activityDefinitionIsReflexTest = (activityDefinition: ActivityDefinition): boolean => {
+  const isReflex = !!activityDefinition.relatedArtifact?.some((artifact) => {
+    const isDependent = artifact.type === 'depends-on';
+    const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
+
+    return isDependent && isRelatedViaReflex;
+  });
+
+  return isReflex;
 };

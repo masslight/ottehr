@@ -1,10 +1,34 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
+import {
+  DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  Practitioner,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_BASE_URL,
+  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
+  CODE_SYSTEM_ICD_10,
+  createOurDiagnosticReport,
+  getFullestAvailableName,
+  getSecret,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  ORDER_TYPE_CODE_SYSTEM,
+  RADIOLOGY_TASK,
+  Secrets,
+  SecretsKeys,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -12,16 +36,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import {
-  ACCESSION_NUMBER_CODE_SYSTEM,
-  ADVAPACS_FHIR_BASE_URL,
-  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
-  ORDER_TYPE_CODE_SYSTEM,
-  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-} from '../shared';
+import { createTask } from '../../../shared/tasks';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -31,6 +46,14 @@ export interface PacsWebhookBody {
 
 export interface ValidatedInput {
   resource: ServiceRequest | DiagnosticReport | ImagingStudyR5;
+}
+
+interface HandleDrAdditionalResources {
+  serviceRequest: ServiceRequest;
+  patient: Patient;
+  encounter: Encounter;
+  requestingProvider: Practitioner;
+  location: Location | undefined;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -122,7 +145,9 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oyst
   ).unbundle();
 
   if (srResults.length === 0) {
-    throw new Error('No ServiceRequest found with the given accession number');
+    console.log('No matching ServiceRequest found in Oystehr. Doing nothing for accession number: ', accessionNumber);
+    return;
+    // throw new Error('No ServiceRequest found with the given accession number');
   }
 
   if (srResults.length > 1) {
@@ -184,7 +209,7 @@ const handleDiagnosticReport = async (
   console.log('processing DiagnosticReport');
   // First we want to figure out if we need to create or update, so we search for the DR in our FHIR store
   const drSearchResults = (
-    await oystehr.fhir.search<DiagnosticReport>({
+    await oystehr.fhir.search<DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner | Location>({
       resourceType: 'DiagnosticReport',
       params: [
         {
@@ -192,18 +217,69 @@ const handleDiagnosticReport = async (
           // TODO can we include also the type.coding.system & code to be super exact here?
           value: `${ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM}|${advaPacsDiagnosticReport.id}`,
         },
+        {
+          name: '_include',
+          value: 'DiagnosticReport:based-on', // service request
+        },
+        {
+          name: '_include',
+          value: 'DiagnosticReport:subject', // patient
+        },
+        {
+          name: '_include:iterate',
+          value: 'ServiceRequest:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'ServiceRequest:requester',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:location', // to get location name to record on task for displays
+        },
       ],
     })
   ).unbundle();
 
-  if (drSearchResults.length > 1) {
+  const { diagnosticReports, serviceRequests, patients, encounters, practitioners, locations } = drSearchResults.reduce(
+    (
+      acc: {
+        diagnosticReports: DiagnosticReport[];
+        serviceRequests: ServiceRequest[];
+        patients: Patient[];
+        encounters: Encounter[];
+        practitioners: Practitioner[];
+        locations: Location[];
+      },
+      resource
+    ) => {
+      if (resource.resourceType === 'DiagnosticReport') acc.diagnosticReports.push(resource);
+      if (resource.resourceType === 'ServiceRequest') acc.serviceRequests.push(resource);
+      if (resource.resourceType === 'Patient') acc.patients.push(resource);
+      if (resource.resourceType === 'Encounter') acc.encounters.push(resource);
+      if (resource.resourceType === 'Practitioner') acc.practitioners.push(resource);
+      if (resource.resourceType === 'Location') acc.locations.push(resource);
+      return acc;
+    },
+    { diagnosticReports: [], serviceRequests: [], patients: [], encounters: [], practitioners: [], locations: [] }
+  );
+
+  if (diagnosticReports.length > 1) {
     throw new Error('Multiple DiagnosticReports found with the given ID');
-  } else if (drSearchResults.length === 1) {
-    const drToUpdate = drSearchResults[0];
+  } else if (diagnosticReports.length === 1) {
+    const drToUpdate = diagnosticReports[0];
     if (drToUpdate.id == null) {
       throw new Error('DiagnosticReport ID is required');
     }
-    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, oystehr);
+    const additionalResources = validateAdditionalResources(
+      drToUpdate,
+      serviceRequests,
+      patients,
+      encounters,
+      practitioners,
+      locations
+    );
+    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, additionalResources, oystehr);
   } else if (drSearchResults.length === 0) {
     await handleCreateDiagnosticReport(advaPacsDiagnosticReport, oystehr, secrets);
   }
@@ -231,19 +307,21 @@ const handleCreateDiagnosticReport = async (
   }
   const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
   console.log('Found our ServiceRequest: ', pacsServiceRequest);
-  await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, oystehr);
+  await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
 const handleUpdateDiagnosticReport = async (
   advaPacsDiagnosticReport: DiagnosticReport,
   ourDiagnosticReport: DiagnosticReport,
+  additionalResources: HandleDrAdditionalResources,
   oystehr: Oystehr
 ): Promise<void> => {
   console.log('processing DiagnosticReport update');
 
   console.log('Updating our DiagnosticReport with ID: ', ourDiagnosticReport.id);
 
-  const operations: Operation[] = [
+  const requests: BatchInputRequest<FhirResource>[] = [];
+  const diagnosticReportPathOps: Operation[] = [
     {
       op: 'replace',
       path: '/status',
@@ -257,13 +335,13 @@ const handleUpdateDiagnosticReport = async (
   ];
 
   if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued == null) {
-    operations.push({
+    diagnosticReportPathOps.push({
       op: 'add',
       path: '/issued',
       value: advaPacsDiagnosticReport.issued,
     });
   } else if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued) {
-    operations.push({
+    diagnosticReportPathOps.push({
       op: 'replace',
       path: '/issued',
       value: advaPacsDiagnosticReport.issued,
@@ -272,21 +350,147 @@ const handleUpdateDiagnosticReport = async (
     ourDiagnosticReport.status !== advaPacsDiagnosticReport.status &&
     advaPacsDiagnosticReport.status === 'final'
   ) {
-    operations.push({
+    diagnosticReportPathOps.push({
       op: 'add',
       path: '/issued',
       value: DateTime.now().toISO(),
     });
   }
 
-  console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(operations, null, 2));
+  if (ourDiagnosticReport.status !== advaPacsDiagnosticReport.status && advaPacsDiagnosticReport.status === 'final') {
+    const reviewTaskPostRequest = configReviewResultTask(ourDiagnosticReport, additionalResources);
+    console.log('task config to be made', JSON.stringify(reviewTaskPostRequest.resource));
+    requests.push(reviewTaskPostRequest);
+  }
 
-  const patchResult = await oystehr.fhir.patch<DiagnosticReport>({
-    resourceType: 'DiagnosticReport',
-    id: ourDiagnosticReport.id!,
-    operations,
+  console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(diagnosticReportPathOps, null, 2));
+
+  requests.push({
+    method: 'PATCH',
+    url: `DiagnosticReport/${ourDiagnosticReport.id}`,
+    operations: diagnosticReportPathOps,
   });
-  console.log('DiagnosticReport Patch succeeded: ', JSON.stringify(patchResult, null, 2));
+
+  console.log(`making transaction request for handleUpdateDiagnosticReport`);
+  await oystehr.fhir.transaction({ requests });
+};
+
+const configReviewResultTask = (
+  diagnosticReport: DiagnosticReport,
+  additionalResources: HandleDrAdditionalResources
+): BatchInputPostRequest<Task> => {
+  console.log('configuring review radiology final results task for', diagnosticReport.id);
+  const { encounter, serviceRequest, patient, requestingProvider, location } = additionalResources;
+  const serviceRequestRef = diagnosticReport.basedOn?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
+    ?.reference;
+  const appointmentId = encounter.appointment?.[0].reference?.replace('Appointment/', '');
+
+  let locationInput:
+    | {
+        id: string;
+        name?: string;
+      }
+    | undefined = undefined;
+  if (location?.id) {
+    locationInput = { id: location.id };
+    if (location.name) locationInput.name = location.name;
+  }
+
+  const providerFirstName = requestingProvider?.name?.[0]?.given?.[0];
+  const providerLastName = requestingProvider?.name?.[0]?.family;
+
+  const studyTypeCoding = serviceRequest.code?.coding?.find((c) => c.system === CODE_SYSTEM_ICD_10);
+  const studyTypeCode = studyTypeCoding?.code;
+  const studyTypeDisplay = studyTypeCoding?.display;
+
+  const newTask = createTask({
+    category: RADIOLOGY_TASK.category,
+    title: 'Review Radiology Final Results',
+    code: {
+      system: RADIOLOGY_TASK.system,
+      code: RADIOLOGY_TASK.code.reviewFinalResultTask,
+    },
+    encounterId: encounter.id,
+    basedOn: [`DiagnosticReport/${diagnosticReport.id}`, ...(serviceRequestRef ? [serviceRequestRef] : [])],
+    location: locationInput,
+    input: [
+      {
+        type: RADIOLOGY_TASK.input.appointmentId,
+        valueString: appointmentId,
+      },
+      {
+        type: RADIOLOGY_TASK.input.orderDate,
+        valueString: serviceRequest.authoredOn,
+      },
+      {
+        type: RADIOLOGY_TASK.input.patientName,
+        valueString: getFullestAvailableName(patient),
+      },
+      {
+        type: RADIOLOGY_TASK.input.providerName,
+        valueString: `${providerFirstName} ${providerLastName}`,
+      },
+      {
+        type: RADIOLOGY_TASK.input.studyTypeCode,
+        valueString: studyTypeCode,
+      },
+      {
+        type: RADIOLOGY_TASK.input.studyTypeDisplay,
+        valueString: studyTypeDisplay,
+      },
+    ],
+  });
+
+  const taskPostRequest: BatchInputPostRequest<Task> = {
+    method: 'POST',
+    url: 'Task/',
+    resource: newTask,
+  };
+  return taskPostRequest;
+};
+
+const validateAdditionalResources = (
+  diagnosticReport: DiagnosticReport,
+  serviceRequests: ServiceRequest[],
+  patients: Patient[],
+  encounters: Encounter[],
+  practitioners: Practitioner[],
+  locations: Location[]
+): HandleDrAdditionalResources => {
+  if (serviceRequests.length !== 1) {
+    throw new Error(
+      `Unexpected number of serviceRequests found for diagnostic report: ${diagnosticReport.id}. SR Len: ${serviceRequests.length}`
+    );
+  }
+  if (patients.length !== 1) {
+    throw new Error(
+      `Unexpected number of patients found for diagnostic report: ${diagnosticReport.id}. Patients Len: ${patients.length}`
+    );
+  }
+  if (encounters.length !== 1) {
+    throw new Error(
+      `Unexpected number of encounters found for diagnostic report: ${diagnosticReport.id}. Encounters Len: ${encounters.length}`
+    );
+  }
+  if (practitioners.length !== 1) {
+    throw new Error(
+      `Unexpected number of practitioners found for diagnostic report: ${diagnosticReport.id}. Practitioners Len: ${practitioners.length}`
+    );
+  }
+
+  const encounter = encounters[0];
+  const locationId = encounter?.location
+    ?.find((loc) => loc.location.reference?.startsWith('Location/'))
+    ?.location.reference?.replace('Location/', '');
+  const locationFromEncounter = locations.find((loc) => loc.id === locationId);
+
+  return {
+    patient: patients[0],
+    serviceRequest: serviceRequests[0],
+    encounter,
+    requestingProvider: practitioners[0],
+    location: locationFromEncounter,
+  };
 };
 
 const handleImagingStudy = async (
@@ -372,52 +576,6 @@ const getOurServiceRequestByAccessionNumber = async (
   }
 
   return srResults[0];
-};
-
-const createOurDiagnosticReport = async (
-  serviceRequest: ServiceRequest,
-  pacsDiagnosticReport: DiagnosticReport,
-  oystehr: Oystehr
-): Promise<void> => {
-  const diagnosticReportToCreate: DiagnosticReport = {
-    resourceType: 'DiagnosticReport',
-    status: pacsDiagnosticReport.status,
-    subject: serviceRequest.subject,
-    basedOn: [
-      {
-        reference: `ServiceRequest/${serviceRequest.id}`,
-      },
-    ],
-    identifier: [
-      {
-        system: ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-        value: pacsDiagnosticReport.id,
-      },
-    ],
-    code: pacsDiagnosticReport.code ?? {
-      // Advapacs does not send a code even though it is required in the FHIR spec
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '18748-4',
-          display: 'Radiology Report',
-        },
-      ],
-    },
-    presentedForm: pacsDiagnosticReport.presentedForm,
-  };
-
-  if (pacsDiagnosticReport.status === 'preliminary') {
-    diagnosticReportToCreate.extension = [
-      {
-        url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-        valueDateTime: DateTime.now().toISO(),
-      },
-    ];
-  }
-
-  const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
-  console.log('Created our DiagnosticReport: ', JSON.stringify(createResult, null, 2));
 };
 
 const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string, secrets: Secrets): Promise<void> => {

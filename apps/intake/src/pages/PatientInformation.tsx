@@ -9,18 +9,19 @@ import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork/co
 import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import {
-  BOOKING_CONFIG,
   convertQRItemToLinkIdMap,
   convertQuestionnaireItemToQRLinkIdMap,
+  mapBookingQRItemToPatientInfo,
   mdyStringFromISOString,
+  normalizeFormDataToQRItems,
   PatientInfo,
   QuestionnaireFormFields,
 } from 'utils';
-import { bookingBasePath } from '../App';
+import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog } from '../components/ErrorDialog';
 import { PatientInformationKnownPatientFieldsDisplay } from '../features/patients';
-import { useBookingContext } from './BookingHome';
+import { ACTIVE_SLOT_ID_KEY, PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 interface ErrorDialogConfig {
   title: string;
@@ -34,21 +35,22 @@ export const PatientInfoCollection: FC = () => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [saveButtonDisabled, setSaveButtonDisabled] = useState<boolean>(false);
 
   const { slotId } = useParams<{ slotId: string }>();
   const bookingContext = useBookingContext();
   const { patientInfo } = bookingContext;
-  console.log('Fetching paperwork for slotId:', slotId, 'and patientInfo:', patientInfo);
   const {
     data: questionnaireData,
     isLoading,
+    isRefetching,
     isSuccess,
   } = useQuery({
-    queryKey: ['get-employees', { zambdaClient }],
+    queryKey: ['get-booking-questionnaire', { zambdaClient, slotId, patientId: patientInfo?.id }],
     queryFn: async () => {
       if (!zambdaClient) throw new Error('Zambda client not initialized');
       if (!slotId) throw new Error('slotId is required');
-      const response = await api.getQuestionnaire(
+      const response = await api.getBookingQuestionnaire(
         {
           slotId: slotId,
           patientId: patientInfo?.id === 'new-patient' ? undefined : patientInfo?.id,
@@ -62,6 +64,18 @@ export const PatientInfoCollection: FC = () => {
 
   const { allItems, questionnaireResponse: prepopulatedQuestionnaire } = questionnaireData || {};
 
+  // Clear sessionStorage when slotId changes to prevent stale data
+  useEffect(() => {
+    const activeSlotId = sessionStorage.getItem(ACTIVE_SLOT_ID_KEY);
+
+    if (!slotId || activeSlotId === slotId) {
+      return;
+    }
+
+    sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
+    sessionStorage.setItem(ACTIVE_SLOT_ID_KEY, slotId);
+  }, [slotId]);
+
   const pages = useMemo(() => {
     return (allItems ?? []).filter((item) => {
       return item.linkId;
@@ -74,6 +88,7 @@ export const PatientInfoCollection: FC = () => {
   const { contextItems, questionnaireResponse, defaultValues } = useMemo(() => {
     const contextItems = allItems?.[currentPageIndex]?.item ?? [];
     const currentPageEntries = prepopulatedQuestionnaire?.item?.[currentPageIndex]?.item;
+
     let defaultValues: { [key: string]: QuestionnaireResponseItem } =
       convertQuestionnaireItemToQRLinkIdMap(contextItems);
 
@@ -87,7 +102,6 @@ export const PatientInfoCollection: FC = () => {
       defaultValues,
     };
   }, [allItems, currentPageIndex, prepopulatedQuestionnaire]);
-
   const currentPageId = allItems?.[currentPageIndex]?.linkId;
 
   const outletContext: PaperworkContext = useMemo(() => {
@@ -98,12 +112,10 @@ export const PatientInfoCollection: FC = () => {
       allItems: contextItems,
       pages,
       questionnaireResponse,
-      saveButtonDisabled: false,
-      setSaveButtonDisabled: (_newVal: boolean): void => {
-        // todo
-      },
+      saveButtonDisabled,
+      setSaveButtonDisabled,
       findAnswerWithLinkId: (_linkId: string): QuestionnaireResponseItem | undefined => {
-        // todo
+        // todo: can this be removed from the context as well?
         return undefined;
       },
       // things we don't need and shouldn't be on the base context
@@ -117,8 +129,11 @@ export const PatientInfoCollection: FC = () => {
       refetchPaymentMethods: () => {
         throw new Error('Function not implemented.');
       },
+      refetchSetupData: () => {
+        throw new Error('Function not implemented.');
+      },
     };
-  }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse]);
+  }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse, saveButtonDisabled]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -128,12 +143,12 @@ export const PatientInfoCollection: FC = () => {
 
   return (
     <PageContainer title={t('aboutPatient.title')} description={t('aboutPatient.subtitle')}>
-      {isLoading ? <CircularProgress /> : <Outlet context={{ ...outletContext, ...bookingContext }} />}
+      {isLoading || isRefetching ? <CircularProgress /> : <Outlet context={{ ...outletContext, ...bookingContext }} />}
     </PageContainer>
   );
 };
 
-const PROGRESS_STORAGE_KEY = 'patient-information-progress';
+// export const PROGRESS_STORAGE_KEY = 'patient-information-progress';
 const PatientInformation = (): JSX.Element => {
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
   const navigate = useNavigate();
@@ -170,8 +185,8 @@ const PatientInformation = (): JSX.Element => {
 
   const onSubmit = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
-      console.log('Submitting Patient Information data:', data);
-      const postedPatientInfo: PatientInfo = BOOKING_CONFIG.mapBookingQRItemToPatientInfo(Object.values(data));
+      const formValues = normalizeFormDataToQRItems(data);
+      const postedPatientInfo: PatientInfo = mapBookingQRItemToPatientInfo(formValues);
       let foundDuplicate: PatientInfo | undefined;
       // check if a patient with the same data already exists for this user
       let idx = patients?.length ? patients.length - 1 : -1;
@@ -196,8 +211,10 @@ const PatientInformation = (): JSX.Element => {
       }
       if (foundDuplicate) {
         setErrorDialog({
-          title: `${t('aboutPatient.errors.foundDuplicate.title')} ${data.firstName}`,
-          description: `${t('aboutPatient.errors.foundDuplicate.description1')} ${data.firstName} ${data.lastName}, 
+          title: `${t('aboutPatient.errors.foundDuplicate.title')} ${postedPatientInfo.firstName}`,
+          description: `${t('aboutPatient.errors.foundDuplicate.description1')} ${postedPatientInfo.firstName} ${
+            postedPatientInfo.lastName
+          }, 
            ${postedPatientInfo?.dateOfBirth ? mdyStringFromISOString(postedPatientInfo?.dateOfBirth) : ''}. ${t(
              'aboutPatient.errors.foundDuplicate.description2'
            )}`,
@@ -214,12 +231,15 @@ const PatientInformation = (): JSX.Element => {
         };
         payload.id = payload.id === 'new-patient' ? undefined : payload.id;
 
+        // todo: we are duplicating state in booking context and session storage here
+        // this data shouldn't be needed in booking context
         setPatientInfo(payload);
+        sessionStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({ [pageId]: data }));
         navigate(window.location.pathname.replace('patient-information/form', 'review'));
       }
     },
 
-    [confirmDuplicate, navigate, patientInfo, patients, setPatientInfo, t]
+    [confirmDuplicate, navigate, pageId, patientInfo, patients, setPatientInfo, t]
   );
 
   const defaultValues = (() => {
@@ -250,7 +270,19 @@ const PatientInformation = (): JSX.Element => {
         <PagedQuestionnaire
           onSubmit={onSubmit}
           pageId={pageId}
-          options={{ controlButtons: { backButton: false, loading: false } }}
+          options={{
+            controlButtons: {
+              backButton: true,
+              loading: false,
+              onBack: () => {
+                if (!slotId) {
+                  navigate(intakeFlowPageRoute.Homepage.path);
+                  return;
+                }
+                navigate(intakeFlowPageRoute.ChoosePatient.path.replace(':slotId', slotId));
+              },
+            },
+          }}
           items={allItems || []}
           defaultValues={defaultValues}
           isSaving={false}

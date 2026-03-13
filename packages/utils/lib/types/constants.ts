@@ -1,12 +1,13 @@
+import { Coding } from 'fhir/r4b';
+import { ottehrExtensionUrl } from '../fhir/systemUrls';
+
+// NOTE: PROJECT_WEBSITE was moved to ottehr-config/branding to avoid circular dependencies.
+// Import it from 'utils' or 'utils/lib/ottehr-config/branding' directly.
+// Do NOT re-export here as it triggers the circular dependency during module loading.
+
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
-
-export const PROJECT_NAME = 'Ottehr';
-export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
-export const PROJECT_DOMAIN = 'ottehr.com';
-export const PROJECT_WEBSITE = `https://${PROJECT_DOMAIN}`;
-export const SUPPORT_EMAIL = 'support@ottehr.com';
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
@@ -28,6 +29,7 @@ export const PATIENT_RELEASE_OF_INFO_URL = 'https://fhir.zapehr.com/r4/Structure
 export const PATIENT_RX_HISTORY_CONSENT_STATUS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/rx-history-consent-status';
 export const PATIENT_DECEASED_NOTE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/deceased-note';
+export const PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL = ottehrExtensionUrl('preferred-communication-method');
 export const COVERAGE_ADDITIONAL_INFORMATION_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information';
 export const RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL =
@@ -49,6 +51,18 @@ export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organ
 // export const INSURANCE_ORG_TYPE_INSURANCE_COMPANY = 'ins';
 export const ORG_TYPE_PAYER_CODE = 'pay';
 
+export const ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE = 'occupational-medicine-employer';
+
 export const AI_QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 
 export const REASON_FOR_VISIT_SEPARATOR = ' - ';
+
+export const USER_TIMEZONE_EXTENSION_URL = ottehrExtensionUrl('user-timezone');
+
+export const PATIENT_INFO_META_DATA_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-info-meta-data';
+export const PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE = 'returning-patient';
+
+export const RETURNING_PATIENT_META_TAG = (): Coding => ({
+  system: PATIENT_INFO_META_DATA_SYSTEM,
+  code: PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
+});

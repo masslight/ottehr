@@ -5,6 +5,8 @@ import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import {
+  BRANDING_CONFIG,
+  formatDateForDisplay,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
@@ -13,12 +15,10 @@ import {
   isPhysician,
   isPhysicianProviderType,
   OrdersForTrackingBoardRow,
-  PROJECT_NAME,
   ProviderTypeCode,
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
-import { formatDateUsingSlashes } from './formatDateTime';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -117,7 +117,7 @@ export const formatLastModifiedTag = (
     const codeJson = JSON.parse(codeString) as any;
     const date = DateTime.fromISO(codeJson.lastModifiedDate).setZone(locationTimeZone);
     const timeFormatted = date.toLocaleString(DateTime.TIME_SIMPLE);
-    const dateFormatted = formatDateUsingSlashes(date.toISO() || '');
+    const dateFormatted = formatDateForDisplay(date.toISO() || '');
     const timezone = date.offsetNameShort;
     return `${dateFormatted} ${timeFormatted} ${timezone ?? ''} By ${codeJson.lastModifiedBy}`;
   }
@@ -147,7 +147,10 @@ export const patchAppointmentComment = async (
     resourceType: 'Appointment',
     id: appointment.id,
   });
-  const updateTag = getCriticalUpdateTagOp(fhirAppointment, user?.name || `${PROJECT_NAME} Team Member (${user?.id})`);
+  const updateTag = getCriticalUpdateTagOp(
+    fhirAppointment,
+    user?.name || `${BRANDING_CONFIG.projectName} Team Member (${user?.id})`
+  );
   patchOperations.push(updateTag);
   console.log('patchOperations', patchOperations);
   const updatedAppointment = await oystehr.fhir.patch<Appointment>({

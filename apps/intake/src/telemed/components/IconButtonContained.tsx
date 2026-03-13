@@ -1,4 +1,5 @@
 import { alpha, IconButton, styled } from '@mui/material';
+import { palette } from '@theme/colors';
 import { otherColors } from '../../IntakeThemeProvider';
 
 export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ variant }) => {
@@ -7,8 +8,8 @@ export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ v
   switch (variant) {
     case 'disabled': {
       colors = {
-        backgroundColor: otherColors.white,
-        '&:hover': { backgroundColor: alpha(otherColors.white, 0.9) },
+        backgroundColor: palette.primary.main,
+        '&:hover': { backgroundColor: alpha(palette.primary.main, 0.5) },
       };
       break;
     }
@@ -21,8 +22,8 @@ export const IconButtonContained = styled(IconButton)<{ variant?: string }>(({ v
     }
     default: {
       colors = {
-        backgroundColor: alpha(otherColors.coachingVisit, 0.2),
-        '&:hover': { backgroundColor: alpha(otherColors.coachingVisit, 0.1) },
+        backgroundColor: palette.primary.main,
+        '&:hover': { backgroundColor: alpha(palette.primary.main, 0.5) },
       };
       break;
     }

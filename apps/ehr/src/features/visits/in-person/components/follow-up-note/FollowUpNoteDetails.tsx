@@ -22,11 +22,10 @@ export const FollowUpNoteDetails: FC = () => {
   const { encounter } = useAppointmentData();
   const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
   const { chartData } = useChartData();
-  const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
-  const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
+  const { medications: inHouseMedications } = useMedicationAPI();
 
   const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
-    encounterId: encounter.id,
+    encounterIds: [encounter.id!],
   });
 
   const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>

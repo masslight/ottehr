@@ -3,6 +3,7 @@ import {
   Backdrop,
   Checkbox,
   CircularProgress,
+  Container,
   Divider,
   FormControl,
   FormControlLabel,
@@ -20,15 +21,17 @@ import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
-import { keepPreviousData, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
@@ -36,6 +39,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
+  AISuggestionNotes,
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
@@ -46,6 +50,7 @@ import {
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
+  PROCEDURES_CONFIG,
   ProcedureSuggestion,
   REQUIRED_FIELD_ERROR_MESSAGE,
   SUPPLIES_VALUE_SET_URL,
@@ -55,8 +60,13 @@ import {
 } from 'utils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useGetIcd10Search, useRecommendBillingCodes } from '../../shared/stores/appointment/appointment.queries';
+import {
+  useAiSuggestionNotes,
+  useGetCPTHCPCSSearch,
+  useRecommendBillingCodes,
+} from '../../shared/stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
 import { useAppFlags } from '../../shared/stores/contexts/useAppFlags';
 import AiSuggestion from '../components/AiSuggestion';
@@ -70,7 +80,6 @@ const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
 
 interface PageState {
   consentObtained?: boolean;
-  procedureType?: string;
   cptCodes?: CPTCodeDTO[];
   diagnoses?: DiagnosisDTO[];
   procedureDate?: DateTime | null;
@@ -96,6 +105,7 @@ interface PageState {
 
 interface ProcedureType {
   name: string;
+  code: string;
   cpt?: {
     code: string;
     display: string;
@@ -158,7 +168,10 @@ export default function ProceduresNew(): ReactElement {
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { isInPerson } = useAppFlags();
   const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
+  const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
+  const queryClient = useQueryClient();
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
+  const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
   const isReadOnly = useMemo(() => {
     if (isInPerson) {
@@ -173,18 +186,16 @@ export default function ProceduresNew(): ReactElement {
   const { mutateAsync: saveChartData } = useSaveChartData();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
 
+  const methods = useForm();
+  const formValues = methods.watch();
+
   const [state, setState] = useState<PageState>({
     procedureDate: DateTime.now(),
     procedureTime: DateTime.now(),
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
   const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
-
-  const sortedProcedureTypes = useMemo(() => {
-    return (selectOptions?.procedureTypes ?? [])
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  }, [selectOptions?.procedureTypes]);
+  const [suggestionNote, setSuggestionNote] = useState<AISuggestionNotes | null>(null);
 
   const updateState = (stateMutator: (draft: PageState) => void): void => {
     setState((prev) => {
@@ -212,12 +223,12 @@ export default function ProceduresNew(): ReactElement {
 
   useEffect(() => {
     const fetchRecommendedBillingCodes = async (): Promise<void> => {
-      if (!state.procedureType) {
+      if (!formValues.procedureType) {
         return;
       }
       setLoadingSuggestions(true);
       const codes = await recommendBillingCodes({
-        procedureType: state.procedureType,
+        procedureType: formValues.procedureType,
         diagnoses: state.diagnoses,
         medicationUsed: state.medicationUsed,
         bodySite: state.bodySite,
@@ -227,14 +238,23 @@ export default function ProceduresNew(): ReactElement {
         procedureDetails: state.procedureDetails,
         timeSpent: state.timeSpent,
       });
-      setRecommendedBillingCodes(codes);
       setLoadingSuggestions(false);
+      setRecommendedBillingCodes(codes);
+      if (formValues.procedureType.toLowerCase().includes('laceration')) {
+        setLoadingSuggestionNote(true);
+        const suggestions = await aiSuggestionNotes({
+          type: 'procedure',
+          details: { procedureDetails: state.procedureDetails || '' },
+        });
+        setLoadingSuggestionNote(false);
+        setSuggestionNote(suggestions);
+      }
     };
 
     fetchRecommendedBillingCodes().catch((error) => console.log(error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    state.procedureType,
+    formValues.procedureType,
     state.diagnoses,
     state.medicationUsed,
     state.bodySite,
@@ -243,12 +263,15 @@ export default function ProceduresNew(): ReactElement {
     state.suppliesUsed,
     // state.procedureDetails,
     state.timeSpent,
+    aiSuggestionNotes,
     recommendBillingCodes,
   ]);
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
+  const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
+  const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
+
   useEffect(() => {
-    const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
     if (procedure == null || initialValuesSet || isSelectOptionsLoading) {
       return;
     }
@@ -260,7 +283,6 @@ export default function ProceduresNew(): ReactElement {
       selectOptions?.postProcedureInstructions
     );
     setState({
-      procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
       procedureDate: procedureDateTime,
@@ -285,7 +307,7 @@ export default function ProceduresNew(): ReactElement {
       consentObtained: procedure.consentObtained,
     });
     setInitialValuesSet(true);
-  }, [procedureId, chartData?.procedures, setState, initialValuesSet, isSelectOptionsLoading, selectOptions]);
+  }, [procedure, setState, initialValuesSet, isSelectOptionsLoading, selectOptions]);
 
   const onCancel = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
@@ -341,7 +363,7 @@ export default function ProceduresNew(): ReactElement {
         procedures: [
           {
             resourceId: procedureId,
-            procedureType: state.procedureType,
+            procedureType: formValues.procedureType,
             cptCodes: cptCodesToUse,
             diagnoses: diagnosesToUse,
             procedureDateTime: state.procedureDate
@@ -391,6 +413,12 @@ export default function ProceduresNew(): ReactElement {
           ],
         });
       }
+
+      void queryClient.invalidateQueries({
+        queryKey: ['procedures-for-tracking-board'],
+        refetchType: 'active',
+      });
+
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
       navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
@@ -401,7 +429,7 @@ export default function ProceduresNew(): ReactElement {
   };
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
+  const { isFetching: isSearching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = (data as { codes?: CPTCodeDTO[] })?.codes || [];
   const { debounce } = useDebounce(800);
   const debouncedHandleInputChange = (data: string): void => {
@@ -639,8 +667,88 @@ export default function ProceduresNew(): ReactElement {
     );
   };
 
+  useEffect(() => {
+    if (procedureId && !initialFormStateSet) {
+      return;
+    }
+    const callback = methods.subscribe({
+      name: 'procedureType',
+      formState: {
+        values: true,
+      },
+      callback: ({ values }) => {
+        updateState((state) => {
+          const selected = selectOptions?.procedureTypes.find(
+            (procedureType) => procedureType.name === values.procedureType
+          );
+          const newCodes: CPTCodeDTO[] = [];
+          if (selected?.cpt) {
+            newCodes.push({
+              code: selected.cpt.code,
+              display: selected.cpt.display,
+            });
+          }
+          if (selected?.hcpcs) {
+            newCodes.push({
+              code: selected.hcpcs.code,
+              display: selected.hcpcs.display,
+            });
+          }
+          state.cptCodes = newCodes;
+
+          if (selected) {
+            Object.entries(PROCEDURES_CONFIG.prepopulation[selected.code] ?? []).forEach(([field, value]) => {
+              const currentValue = (state as any)[field];
+              if (currentValue == null || currentValue === '') {
+                (state as any)[field] = value;
+              }
+            });
+          }
+        });
+      },
+    });
+    return () => callback();
+  }, [methods, selectOptions, procedureId, initialFormStateSet]);
+
+  useEffect(() => {
+    if (procedure == null) {
+      return;
+    }
+    methods.reset({
+      procedureType: procedure.procedureType,
+    });
+    setInitialFormStateSet(true);
+  }, [methods, procedure]);
+
+  const onQuickPickSelect = (quickPick: (typeof PROCEDURES_CONFIG.quickPicks)[number]): void => {
+    updateState((state) => {
+      if (quickPick.procedureType) {
+        methods.reset({
+          ...formValues,
+          procedureType: selectOptions?.procedureTypes.find(
+            (procedureType) => procedureType.code === quickPick.procedureType
+          )?.name,
+        });
+      }
+      Object.entries(quickPick).forEach(([key, value]) => {
+        if (key !== 'name' && key !== 'procedureType') {
+          (state as any)[key] = value;
+        }
+      });
+      Object.entries(state).forEach(([key, _value]) => {
+        if ((quickPick as any)[key] == null) {
+          (state as any)[key] = undefined;
+        }
+      });
+    });
+  };
+
+  const selectedProcedureTypeCode = selectOptions?.procedureTypes?.find(
+    (procedureType) => procedureType.name === formValues.procedureType
+  )?.code;
+
   return (
-    <>
+    <FormProvider {...methods}>
       <Stack spacing={1}>
         <PageTitle
           label="Document Procedure"
@@ -664,39 +772,30 @@ export default function ProceduresNew(): ReactElement {
               </Typography>
             </Box>
 
+            {!procedureId && PROCEDURES_CONFIG.quickPicks.length > 0 ? (
+              <QuickPicksButton
+                quickPicks={PROCEDURES_CONFIG.quickPicks.filter(
+                  (quickPick) =>
+                    selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
+                )}
+                getLabel={(quickPick) => quickPick.name}
+                onSelect={onQuickPickSelect}
+              />
+            ) : null}
+
             <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
             </Box>
 
-            {dropdown(
-              'Procedure type',
-              sortedProcedureTypes.map((procedureType) => procedureType.name),
-              state.procedureType,
-              (value, state) => {
-                state.procedureType = value;
+            <AutocompleteInput
+              name="procedureType"
+              label="Procedure type"
+              options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
+              disabled={isReadOnly}
+              loading={isSelectOptionsLoading}
+              dataTestId={dataTestIds.documentProcedurePage.procedureType}
+            />
 
-                const selected = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value);
-
-                const newCodes: CPTCodeDTO[] = [];
-
-                if (selected?.cpt) {
-                  newCodes.push({
-                    code: selected.cpt.code,
-                    display: selected.cpt.display,
-                  });
-                }
-
-                if (selected?.hcpcs) {
-                  newCodes.push({
-                    code: selected.hcpcs.code,
-                    display: selected.hcpcs.display,
-                  });
-                }
-
-                state.cptCodes = newCodes;
-              },
-              dataTestIds.documentProcedurePage.procedureType
-            )}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
             </Typography>
@@ -872,6 +971,23 @@ export default function ProceduresNew(): ReactElement {
                 loading={loadingSuggestions}
               />
             )}
+            {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
+              <Container
+                style={{
+                  background: '#FFF3E0',
+                  borderRadius: '8px',
+                  padding: '4px 8px 4px 8px',
+                }}
+              >
+                <Container style={{ display: 'flex', alignItems: 'center', padding: 0 }}>
+                  <Typography variant="body1" style={{ fontWeight: 700 }}>
+                    Procedure Details AI Suggestions
+                  </Typography>
+                  {loadingSuggestionNote && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
+                </Container>
+                <Typography variant="body1">{suggestionNote?.suggestions?.join(', ')}</Typography>
+              </Container>
+            )}
             {cptWidget()}
             <Divider orientation="horizontal" />
             <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -894,7 +1010,7 @@ export default function ProceduresNew(): ReactElement {
       <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
         <CircularProgress color="inherit" />
       </Backdrop>
-    </>
+    </FormProvider>
   );
 }
 
@@ -996,7 +1112,7 @@ function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
 
   return latest.expansion.contains
     .map((item): ProcedureType | null => {
-      if (!item.display) return null;
+      if (!item.display || !item.code) return null;
 
       const getCode = (urlPart: string): { code: string; display: string; system?: string } | undefined => {
         const coding = item.extension?.find((ext) => ext.url?.includes(urlPart))?.valueCodeableConcept?.coding?.[0];
@@ -1008,9 +1124,11 @@ function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
 
       return {
         name: item.display,
+        code: item.code,
         cpt: getCode('procedure-type-cpt'),
         hcpcs: getCode('procedure-type-hcpcs'),
       };
     })
-    .filter((p): p is ProcedureType => p !== null);
+    .filter((p): p is ProcedureType => p !== null)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }

@@ -8,6 +8,7 @@ import {
   Encounter,
   HealthcareService,
   Patient,
+  Person,
   Practitioner,
   Provenance,
   QuestionnaireResponse,
@@ -18,6 +19,7 @@ import { DateTime } from 'luxon';
 import {
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
+  CONSENT_FORMS_CONFIG,
   flattenItems,
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
@@ -39,6 +41,7 @@ import {
   ROOM_EXTENSION_URL,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   SMSModel,
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
@@ -52,6 +55,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,
   getTimezoneResourceIdFromAppointment,
@@ -213,7 +217,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     }
 
     console.time('parse_search_results');
-    // const persons = getPersonsFromResourceList(searchResultsForSelectedDate);
 
     const patientIds: string[] = [];
     const practitionerIds: string[] = [];
@@ -226,6 +229,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     const patientRefToQRMap: Record<string, QuestionnaireResponse> = {};
     const rpToCommMap: Record<string, Communication[]> = {};
     const rpPhoneNumbers = new Set<string>();
+    const relatedPersonToPersonsMap: Record<string, Person[]> = {};
     const phoneNumberToRpMap: Record<string, string[]> = {};
     const rpIdToResourceMap: Record<string, RelatedPerson> = {};
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
@@ -274,18 +278,42 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           }
         }
       } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
-        rpIdToResourceMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
+        const rpRef = `RelatedPerson/${resource.id}`;
+        rpIdToResourceMap[rpRef] = resource as RelatedPerson;
+
         const pn = getSMSNumberForIndividual(resource as RelatedPerson);
         if (pn) {
           rpPhoneNumbers.add(pn);
           const mapVal = phoneNumberToRpMap[pn] ?? [];
-          mapVal.push(`RelatedPerson/${resource.id}`);
+          mapVal.push(rpRef);
           phoneNumberToRpMap[pn] = mapVal;
         }
       } else if (resource.resourceType === 'Practitioner' && resource.id) {
         practitionerIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
       } else if (resource.resourceType === 'HealthcareService' && resource.id) {
         healthcareServiceIdToResourceMap[`HealthcareService/${resource.id}`] = resource as HealthcareService;
+      } else if (resource.resourceType === 'Person') {
+        const person = resource as Person;
+
+        const phone = getPersonPhone(person);
+        if (!phone) return;
+
+        person.link?.forEach((link) => {
+          const rpRef = link.target?.reference;
+
+          if (!rpRef?.startsWith('RelatedPerson/')) return;
+
+          if (!relatedPersonToPersonsMap[rpRef]) {
+            relatedPersonToPersonsMap[rpRef] = [];
+          }
+          relatedPersonToPersonsMap[rpRef].push(person);
+
+          rpPhoneNumbers.add(phone);
+
+          const mapVal = phoneNumberToRpMap[phone] ?? [];
+          mapVal.push(rpRef);
+          phoneNumberToRpMap[phone] = mapVal;
+        });
       }
     });
 
@@ -423,6 +451,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         apptRefToEncounterMap,
         patientIdMap,
         rpToCommMap,
+        relatedPersonToPersonsMap,
         practitionerIdToResourceMap,
         healthcareServiceIdToResourceMap,
         next: false,
@@ -527,6 +556,7 @@ interface AppointmentInformationInputs {
   patientRefToQRMap: Record<string, QuestionnaireResponse>;
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
+  relatedPersonToPersonsMap: Record<string, Person[]>;
   practitionerIdToResourceMap: Record<string, Practitioner>;
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
@@ -550,6 +580,7 @@ const makeAppointmentInformation = (
     practitionerIdToResourceMap,
     next,
     patientToRPMap,
+    relatedPersonToPersonsMap,
     group,
     supervisorApprovalEnabled,
     encounterSignatures,
@@ -579,14 +610,28 @@ const makeAppointmentInformation = (
       }
 
       rps = patientToRPMap[patientRef];
-      const recipients = rps
-        .map((rp) => {
-          return {
-            recipientResourceUri: rp.id ? `RelatedPerson/${rp.id}` : undefined,
-            smsNumber: getSMSNumberForIndividual(rp),
-          };
-        })
-        .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
+      const recipientsMap = new Map<string, SMSRecipient>();
+
+      rps.forEach((rp) => {
+        const rpRef = `RelatedPerson/${rp.id}`;
+        const linkedPersons = relatedPersonToPersonsMap[rpRef] ?? [];
+
+        linkedPersons.forEach((person) => {
+          const phone = getPersonPhone(person);
+          if (!phone) return;
+
+          const key = `${rpRef}|${phone}`;
+
+          if (!recipientsMap.has(key)) {
+            recipientsMap.set(key, {
+              recipientResourceUri: rpRef,
+              smsNumber: phone,
+            });
+          }
+        });
+      });
+
+      const recipients = Array.from(recipientsMap.values());
       if (recipients.length) {
         const allCommunications = recipients.flatMap((recipient) => {
           return rpToCommMap[recipient.recipientResourceUri] ?? [];
@@ -607,10 +652,10 @@ const makeAppointmentInformation = (
 
   const flattenedItems = flattenItems(questionnaireResponse?.item ?? []);
   const consentComplete =
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'hipaa-acknowledgement')?.answer?.[0]
-      .valueBoolean === true &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-to-treat')?.answer?.[0].valueBoolean ===
-      true &&
+    CONSENT_FORMS_CONFIG.forms.every(
+      (form) =>
+        flattenedItems.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
+    ) &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'signature') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
@@ -695,5 +740,8 @@ const makeAppointmentInformation = (
     visitStatusHistory: getVisitStatusHistory(encounter),
     needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
+    serviceCategory: appointment.serviceCategory
+      ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+      ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
   };
 };

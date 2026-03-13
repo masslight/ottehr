@@ -2,12 +2,46 @@ import { expect, Page } from '@playwright/test';
 import axios from 'axios';
 import { DateTime } from 'luxon';
 
+async function maybeSelectPatient(page: Page, timeoutMs = 5000): Promise<void> {
+  try {
+    console.log('[INFO] Checking for patient selection step...');
+    const patientRadioGroup = page.getByRole('radiogroup', { name: 'Choose a patient to see their past visits' });
+    await patientRadioGroup.waitFor({ state: 'visible', timeout: timeoutMs });
+    console.log('[INFO] Patient selection step found, selecting first patient...');
+    await page.getByRole('radio').first().click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    console.log('[INFO] Patient selected and continued...');
+  } catch {
+    console.log('[INFO] No patient selection step found, continuing...');
+  }
+}
+
 // timeouts: for sms 24 attempts * 15 seconds = 6 minutes, + 45 seconds for setting local storage in login function
 export async function login(page: Page, phone?: string, text_username?: string, text_password?: string): Promise<void> {
   if (!phone || !text_username || !text_password)
     throw new Error('Either phone, text_username or text_password was not provided');
 
   console.log('Starting authentication flow...');
+
+  // If we're already authenticated, the app may show an intermediate "My patients" selection screen.
+  // In that case we should not attempt the Auth0/SMS flow at all.
+  const logoutButton = page.getByRole('button', { name: 'Logout' });
+  const patientRadioGroup = page.getByRole('radiogroup', { name: 'Choose a patient to see their past visits' });
+  const authenticatedHeader = page.locator(`[data-testid="header-for-authenticated-user"]`);
+
+  const alreadyAuthenticated =
+    (await logoutButton.isVisible({ timeout: 1500 }).catch(() => false)) ||
+    (await patientRadioGroup.isVisible({ timeout: 1500 }).catch(() => false)) ||
+    (await authenticatedHeader.isVisible({ timeout: 1500 }).catch(() => false));
+
+  if (alreadyAuthenticated) {
+    console.log('[INFO] Already authenticated, skipping SMS login...');
+    await maybeSelectPatient(page, 3000);
+
+    await expect(authenticatedHeader).toBeVisible({ timeout: 10_000 });
+    console.log('[SUCCESS] Already authenticated');
+    return;
+  }
 
   const continueButton = page.getByRole('button', { name: 'Continue' });
   await continueButton.click();
@@ -46,6 +80,8 @@ export async function login(page: Page, phone?: string, text_username?: string, 
   } catch {
     console.log('[INFO] No accept button found, continuing...');
   }
+
+  await maybeSelectPatient(page, 5000);
 
   // todo: fix import from packages to import dataTestIds from ui-components
   await expect(page.locator(`[data-testid="header-for-authenticated-user"]`)).toBeVisible({

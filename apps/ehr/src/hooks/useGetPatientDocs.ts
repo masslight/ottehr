@@ -83,6 +83,7 @@ export type UseGetPatientDocsReturn = {
   documentsFolders: PatientDocumentsFolder[];
   searchDocuments: (filters: PatientDocumentsFilters) => void;
   downloadDocument: (documentId: string) => Promise<void>;
+  renameDocument: (documentId: string, newName: string) => Promise<void>;
   documentActions: UsePatientDocsActionsReturn;
 };
 
@@ -240,6 +241,52 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     [documents, getAccessTokenSilently, getDocumentById, oystehr, setDocuments]
   );
 
+  const renameDocument = useCallback(
+    async (documentId: string, newName: string): Promise<void> => {
+      if (!oystehr) throw new Error('oystehr client not defined');
+
+      const docRef = (
+        await oystehr.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [{ name: '_id', value: documentId }],
+        })
+      ).unbundle()[0];
+
+      if (!docRef) {
+        throw new Error(`DocumentReference not found id=${documentId}`);
+      }
+
+      const currentTitle = docRef.content?.[0]?.attachment?.title ?? '';
+      if (currentTitle === newName) return;
+
+      const updated: DocumentReference = {
+        ...docRef,
+        content: docRef.content?.map((c, index) => ({
+          ...c,
+          attachment: {
+            ...c.attachment,
+            title: index === 0 ? newName : c.attachment.title,
+          },
+        })),
+      };
+
+      await oystehr.fhir.update(updated);
+
+      setDocuments(
+        (prev) =>
+          prev?.map((doc) =>
+            doc.id === documentId
+              ? {
+                  ...doc,
+                  docName: newName,
+                }
+              : doc
+          )
+      );
+    },
+    [oystehr]
+  );
+
   return {
     isLoadingDocuments: isLoadingDocuments,
     documents: documents,
@@ -248,6 +295,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     documentsFolders: documentsFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,
+    renameDocument,
     documentActions: documentActions,
   };
 };

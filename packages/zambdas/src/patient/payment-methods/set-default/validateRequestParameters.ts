@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { NOT_AUTHORIZED, PaymentMethodSetDefaultParameters, Secrets } from 'utils';
+import { isValidUUID, NOT_AUTHORIZED, PaymentMethodSetDefaultParameters, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 import { getStripeCustomerId } from '../helpers';
 
@@ -14,10 +14,22 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { beneficiaryPatientId, paymentMethodId } = JSON.parse(input.body);
+  const { beneficiaryPatientId, paymentMethodId, appointmentId } = JSON.parse(input.body);
 
   if (!beneficiaryPatientId) {
     throw new Error('beneficiaryPatientId is not defined');
+  }
+
+  if (!isValidUUID(beneficiaryPatientId)) {
+    throw new Error('beneficiaryPatientId is not a valid UUID');
+  }
+
+  if (!appointmentId) {
+    throw new Error('appointmentId is not defined');
+  }
+
+  if (!isValidUUID(appointmentId)) {
+    throw new Error('appointmentId is not a valid UUID');
   }
 
   if (!paymentMethodId) {
@@ -26,6 +38,7 @@ export function validateRequestParameters(
 
   return {
     beneficiaryPatientId,
+    appointmentId,
     paymentMethodId,
     secrets: input.secrets,
   };
@@ -33,6 +46,7 @@ export function validateRequestParameters(
 
 interface ComplexValidationInput {
   patientId: string;
+  appointmentId: string;
   oystehrClient: Oystehr;
 }
 export async function complexValidation(input: ComplexValidationInput): Promise<{ stripeCustomerId: string }> {

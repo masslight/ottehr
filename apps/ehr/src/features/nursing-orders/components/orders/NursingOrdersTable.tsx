@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { getNursingOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { NursingOrdersSearchBy } from 'utils';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
@@ -45,7 +46,9 @@ export const NursingOrdersTable = ({
   if (loading) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1">Loading nursing orders...</Typography>
+        <Typography variant="body1" data-testid={dataTestIds.nursingOrdersPage.loading}>
+          Loading nursing orders...
+        </Typography>
       </Paper>
     );
   }
@@ -106,7 +109,7 @@ export const NursingOrdersTable = ({
         </Box>
       ) : (
         <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
-          <Table>
+          <Table data-testid={dataTestIds.nursingOrdersPage.table}>
             <TableHead>
               <TableRow>
                 {columns.map((column) => (

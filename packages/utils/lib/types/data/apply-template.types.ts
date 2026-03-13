@@ -1,4 +1,4 @@
-import { ExamType } from '../../configuration/examination';
+import { ExamType } from '../../ottehr-config/examination';
 
 export interface ApplyTemplateZambdaInput {
   encounterId: string;

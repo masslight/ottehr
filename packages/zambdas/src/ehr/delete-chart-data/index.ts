@@ -15,17 +15,21 @@ import {
   Patient,
   Procedure,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import {
   AllergyDTO,
   CommunicationDTO,
   CPTCodeDTO,
+  createCancellationTagOperations,
   ExamObservationDTO,
+  FHIR_RESOURCE_IS_GONE,
   getPatchBinary,
   getSecret,
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
+  ProcedureDTO,
   SecretsKeys,
 } from 'utils';
 import {
@@ -59,7 +63,8 @@ type ChartData =
   | MedicationStatement
   | Observation
   | Procedure
-  | ServiceRequest;
+  | ServiceRequest
+  | Task;
 
 export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -69,6 +74,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       encounterId,
       chiefComplaint,
       historyOfPresentIllness,
+      mechanismOfInjury,
       ros,
       conditions,
       medications,
@@ -89,6 +95,8 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       addendumNote,
       notes,
       vitalsObservations,
+      procedures,
+      accident,
     } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -120,6 +128,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     }
     if (historyOfPresentIllness) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', historyOfPresentIllness.resourceId!));
+    }
+    if (mechanismOfInjury) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', mechanismOfInjury.resourceId!));
     }
     if (ros) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
@@ -201,8 +212,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 14. delete school-work excuse note DocumentReference resource
     schoolWorkNotes?.forEach((element) => {
       const documentReference = allResources.find((resource) => resource.id === element.id);
-      if (documentReference)
+      if (documentReference) {
         deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', documentReference.id!));
+      }
     });
 
     // 15. delete notes
@@ -215,9 +227,41 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
     });
 
+    // 18. mark procedures as entered-in-error (cancel)
+    procedures?.forEach((procedure: ProcedureDTO) => {
+      // Find the ServiceRequest for this procedure
+      const procedureServiceRequest = allResources.find(
+        (resource) => resource.resourceType === 'ServiceRequest' && resource.id === procedure.resourceId
+      ) as ServiceRequest | undefined;
+
+      if (procedureServiceRequest) {
+        const currentStatus = procedureServiceRequest.status;
+        console.log(`Cancelling procedure ${procedure.resourceId}, saving previous status '${currentStatus}'`);
+
+        // Use helper to create cancellation tag operations and status update
+        const patchOperations = [
+          ...createCancellationTagOperations(currentStatus, procedureServiceRequest.meta),
+          { op: 'replace' as const, path: '/status', value: 'entered-in-error' },
+        ];
+
+        // Mark as entered-in-error instead of deleting
+        deleteOrUpdateRequests.push(
+          getPatchBinary({
+            resourceId: procedure.resourceId!,
+            resourceType: 'ServiceRequest',
+            patchOperations,
+          })
+        );
+      }
+    });
+
     episodeOfCare?.forEach((element) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('EpisodeOfCare', element.resourceId!));
     });
+
+    if (accident) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', accident.resourceId!));
+    }
 
     if (updateEncounterOperations.length > 0) {
       deleteOrUpdateRequests.push(
@@ -301,8 +345,12 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       }),
       statusCode: 200,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
-    return topLevelCatch('delete-chart-data', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    let errorToUse = error;
+    if (error.name === 'OystehrFHIRError' && error.code === 410) {
+      errorToUse = FHIR_RESOURCE_IS_GONE();
+    }
+    return topLevelCatch('delete-chart-data', errorToUse, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

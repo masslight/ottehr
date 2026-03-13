@@ -1,6 +1,7 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { Box, Button, Collapse, List, ListItem, ListItemButton, ListItemText, Typography } from '@mui/material';
 import { Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
@@ -16,7 +17,12 @@ export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { setInteractionMode } = useInPersonNavigationContext();
 
-  const allEncounters = [followUpOriginEncounter, ...(followupEncounters || [])].filter(Boolean) as Encounter[];
+  const sortedFollowupEncounters = [...(followupEncounters || [])].filter(Boolean).sort((a, b) => {
+    return DateTime.fromISO(a.period?.start ?? '').diff(DateTime.fromISO(b.period?.start ?? ''), 'milliseconds')
+      .milliseconds;
+  });
+
+  const allEncounters = [followUpOriginEncounter, ...sortedFollowupEncounters].filter(Boolean) as Encounter[];
 
   const handleEncounterSelect = (encounterId: string): void => {
     setSelectedEncounter(encounterId);

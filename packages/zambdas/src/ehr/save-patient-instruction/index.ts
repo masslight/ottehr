@@ -12,7 +12,7 @@ const ZAMBDA_NAME = 'save-patient-instruction';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { instructionId, text, secrets, userToken } = validateRequestParameters(input);
+    const { instructionId, text, title, secrets, userToken } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
@@ -21,9 +21,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (instructionId) {
       await checkIfProvidersInstruction(instructionId, myUserProfile, oystehr);
-      communication = await updateCommunicationResource(instructionId, text, oystehr);
+      communication = await updateCommunicationResource({ communicationId: instructionId, oystehr, text, title });
     } else {
-      communication = await createCommunicationResource(text, myUserProfile, oystehr);
+      communication = await createCommunicationResource({ practitionerProfile: myUserProfile, oystehr, text, title });
     }
     return {
       body: JSON.stringify(makeCommunicationDTO(communication)),

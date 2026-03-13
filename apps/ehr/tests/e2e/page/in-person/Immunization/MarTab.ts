@@ -61,7 +61,7 @@ export class MarTab {
         text: input.reason,
       },
     ];
-    let matchedLocator = this.#page.getByTestId(dataTestIds.immunizationPage.marTableRow);
+    let matchedLocator = this.#page.locator(`[data-testid^="${dataTestIds.immunizationPage.marTableRowPrefix}"]`);
     for (const testIdToText of testIdToTextArray) {
       if (testIdToText.text == null) {
         continue;
@@ -75,7 +75,7 @@ export class MarTab {
 
   async clickEditOrderButton(vaccineName: string): Promise<EditVaccineOrderPage> {
     await this.#page
-      .getByTestId(dataTestIds.immunizationPage.marTableRow)
+      .locator(`[data-testid^="${dataTestIds.immunizationPage.marTableRowPrefix}"]`)
       .filter({
         hasText: vaccineName,
       })
@@ -86,7 +86,7 @@ export class MarTab {
 
   async clickDeleteButton(vaccineName: string): Promise<Dialog> {
     await this.#page
-      .getByTestId(dataTestIds.immunizationPage.marTableRow)
+      .locator(`[data-testid^="${dataTestIds.immunizationPage.marTableRowPrefix}"]`)
       .filter({
         hasText: vaccineName,
       })

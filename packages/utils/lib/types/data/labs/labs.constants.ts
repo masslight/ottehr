@@ -9,6 +9,9 @@ export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 // recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
 export const ORDER_NUMBER_LEN = 20;
 
+// currently using for PID level NTEs (order level notes) & OBR-13
+export const HL7_NOTE_CHAR_LIMIT = 300;
+
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
   code: 'psc',
@@ -81,12 +84,10 @@ export const LAB_DR_TYPE_TAG = {
   code: {
     reflex: LabType.reflex,
     unsolicited: LabType.unsolicited,
-    attachment: LabType.pdfAttachment,
   },
   display: {
     reflex: 'reflex',
     unsolicited: 'unsolicited',
-    attachment: 'PDF Attachment',
   },
 } as const;
 
@@ -163,7 +164,7 @@ export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
 export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.com/obr-note';
 
 export const OYSTEHR_LAB_DOC_CATEGORY_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents';
-export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
+export const OYSTEHR_ABN_DOC_CATEGORY_CODING = {
   system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
   code: 'abn-document',
   display: 'Lab ABN Document',
@@ -207,8 +208,10 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
+  editResults: 'EDIT RESULTS',
   completePstTask: 'COMPLETE PST TASK',
   abnRejected: 'ABN REJECTED',
+  deleteOrder: 'DELETE LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -216,8 +219,10 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   submit: 'submit',
   createOrder: 'create order',
   inputResults: 'input results',
+  editResults: 'edit results',
   completePstTask: 'complete pst task',
   abnRejected: 'ABN marked rejected',
+  deleteOrder: 'Delete lab order and related resources', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -241,6 +246,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     display: PROVENANCE_ACTIVITY_CODES.inputResults,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
+  editResults: {
+    code: PROVENANCE_ACTIVITY_CODES.editResults,
+    display: PROVENANCE_ACTIVITY_CODES.editResults,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
   // specimen collection & aoe entry if applicable
   completePstTask: {
     code: PROVENANCE_ACTIVITY_CODES.completePstTask,
@@ -252,6 +262,12 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     display: PROVENANCE_ACTIVITY_DISPLAY.abnRejected,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
+  // this is a soft delete, resources are marked as cancelled or entered-in-error
+  deleteOrder: {
+    code: PROVENANCE_ACTIVITY_CODES.deleteOrder,
+    display: PROVENANCE_ACTIVITY_DISPLAY.deleteOrder,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
 } as const;
 
 const LAB_DOC_REF_TAG_SYSTEM = 'lab-doc-type';
@@ -259,6 +275,15 @@ export const LAB_DOC_REF_TAG_hl7_TRANSMISSION = {
   system: LAB_DOC_REF_TAG_SYSTEM,
   code: 'original-hl7-transmission',
   display: 'Original HL7 Transmission',
+};
+
+export const LAB_DOC_REF_DETAIL_TAGS = {
+  testName: { system: 'test-name' }, // code will be dynamic to the test name
+  fillerLab: { system: 'filler-lab' }, // code will be dynamic to the filler lab name
+  labType: {
+    system: 'lab-type',
+    code: LabType,
+  },
 };
 
 export const PERFORMING_SITE_INFO_EXTENSION_URLS = {
@@ -310,3 +335,46 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
 };
 
 export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';
+
+export const LABS_COMMUNICATION_CATEGORY_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-communication-type';
+export const LAB_ORDER_LEVEL_NOTE_CATEGORY = {
+  system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  code: 'order-level-note',
+  display: 'Lab Order Note',
+};
+export const LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY = {
+  system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  code: 'clinical-info',
+  display: 'Relevant clinical information',
+};
+
+export const DEFAULT_OYSTEHR_LABS_HL7_SYSTEM = '(HL7_V2)';
+
+export const LAB_SERVICE_REQUEST_CATEGORY_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-servicerequest-category';
+export const WORKERS_COMP_SERVICE_REQUEST_CATEGORY = {
+  system: LAB_SERVICE_REQUEST_CATEGORY_SYSTEM,
+  code: 'workers-comp',
+  display: `Worker's compensation`,
+};
+
+export const LAB_LIST_CODING_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/lab-test-item-set';
+export const LAB_LIST_CODE_CODING = {
+  external: {
+    system: LAB_LIST_CODING_SYSTEM,
+    code: 'external-labs',
+  },
+  inHouse: {
+    system: LAB_LIST_CODING_SYSTEM,
+    code: 'in-house-labs',
+  },
+};
+
+export const LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/orderable-item-search-fields';
+export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {
+  labGuid: 'https://fhir.ottehr.com/Extension/search-field-labGuid',
+  itemCode: 'https://fhir.ottehr.com/Extension/search-field-itemCode',
+} as const;
+export type LabListSearchFieldKey = keyof typeof LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL;

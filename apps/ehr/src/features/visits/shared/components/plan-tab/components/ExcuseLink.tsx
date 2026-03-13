@@ -10,10 +10,11 @@ type ExcuseCardProps = {
   to: string;
   onDelete?: () => void;
   disabled?: boolean;
+  'data-testid'?: string;
 };
 
 export const ExcuseLink: FC<ExcuseCardProps> = (props) => {
-  const { label, to, onDelete, disabled } = props;
+  const { label, to, onDelete, disabled, 'data-testid': dataTestId } = props;
   const theme = useTheme();
 
   return (
@@ -45,6 +46,7 @@ export const ExcuseLink: FC<ExcuseCardProps> = (props) => {
             onDelete();
           }}
           disabled={disabled}
+          dataTestId={`${dataTestId}-delete-button`}
         />
       )}
     </Card>

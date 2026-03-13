@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
@@ -17,6 +18,8 @@ import { ChiefComplaintContainer } from 'src/features/visits/shared/components/r
 import { CPTCodesContainer } from 'src/features/visits/shared/components/review-tab/components/CPTCodesContainer';
 import { EMCodeContainer } from 'src/features/visits/shared/components/review-tab/components/EMCodeContainer';
 import { ExaminationContainer } from 'src/features/visits/shared/components/review-tab/components/ExaminationContainer';
+import { HistoryOfPresentIllnessContainer } from 'src/features/visits/shared/components/review-tab/components/HistoryOfPresentIllnessContainer';
+import { MechanismOfInjuryContainer } from 'src/features/visits/shared/components/review-tab/components/MechanismOfInjuryContainer';
 import { MedicalConditionsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalConditionsContainer';
 import { MedicalDecisionMakingContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalDecisionMakingContainer';
 import { MedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicationsContainer';
@@ -46,7 +49,6 @@ import {
   progressNoteChartDataRequestedFields,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from './HospitalizationContainer';
@@ -68,11 +70,10 @@ export const ProgressNoteDetails: FC = () => {
 
   const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
   const { chartData } = useChartData();
-  const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
-  const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
+  const { medications: inHouseMedications } = useMedicationAPI();
 
   const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
-    encounterId: encounter.id,
+    encounterIds: [encounter.id!],
   });
 
   const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>
@@ -92,7 +93,9 @@ export const ProgressNoteDetails: FC = () => {
   const vitalsObservations = chartFields?.vitalsObservations;
   const externalLabResults = chartFields?.externalLabResults;
   const inHouseLabResults = chartFields?.inHouseLabResults;
-  const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
+  const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
+  const hpi = chartFields?.chiefComplaint?.text;
   const ros = chartFields?.ros?.text;
 
   const emCode = chartData?.emCode;
@@ -101,6 +104,8 @@ export const ProgressNoteDetails: FC = () => {
   const observations = chartData?.observations;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
+  const showMechanismOfInjury = !!(mechanismOfInjury && mechanismOfInjury.length > 0);
+  const showHpi = !!(hpi && hpi.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
   const showAdditionalQuestions =
     !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
@@ -145,6 +150,8 @@ export const ProgressNoteDetails: FC = () => {
 
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,
+    showHpi && <HistoryOfPresentIllnessContainer />,
+    showMechanismOfInjury && <MechanismOfInjuryContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,

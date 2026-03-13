@@ -20,19 +20,7 @@ export const EmergencyBanner: FC = () => {
       }}
     >
       <CardContent sx={{ p: 0 }}>
-        <Box
-          sx={{
-            backgroundColor: theme.palette.destructive.main,
-            borderRadius: '50%',
-            width: 40,
-            height: 40,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <ErrorOutlineIcon sx={{ color: otherColors.white }} />
-        </Box>
+        <ErrorOutlineIcon sx={{ color: theme.palette.warning.main }} fontSize="large" />
       </CardContent>
       <Typography
         sx={{

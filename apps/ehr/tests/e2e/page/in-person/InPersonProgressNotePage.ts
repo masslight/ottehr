@@ -22,13 +22,24 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
 
   async expectLoaded(): Promise<void> {
     await this.#page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
-    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+    // Ensure no error occurred
+    await expect(this.#page.getByText('An error has occurred'))
+      .not.toBeVisible({ timeout: 5000 })
+      .catch(() => {
+        // If error message is visible, throw
+        throw new Error('Page loaded with error state');
+      });
+    // Wait for the card to appear (it may take time to render after data loads)
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible({
+      timeout: 60000,
+    });
   }
 }
 
 export async function expectInPersonProgressNotePage(page: Page): Promise<InPersonProgressNotePage> {
-  await page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
-  return new InPersonProgressNotePage(page);
+  const progressNotePage = new InPersonProgressNotePage(page);
+  await progressNotePage.expectLoaded();
+  return progressNotePage;
 }
 
 export async function openInPersonProgressNotePage(

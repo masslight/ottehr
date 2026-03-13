@@ -6,9 +6,12 @@ import {
   diffInMinutes,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
+  FHIR_ZAPEHR_URL,
+  getCoding,
   PAPERWORK_CONSENT_CODE_UNIQUE,
   PUBLIC_EXTENSION_BASE_URL,
   REASON_FOR_VISIT_SEPARATOR,
+  SERVICE_CATEGORY_SYSTEM,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
   TelemedStatusHistoryElement,
@@ -197,6 +200,7 @@ export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
     return {};
   }
   const complaints = (appointment?.description ?? '').split(REASON_FOR_VISIT_SEPARATOR);
+
   return {
     reasonForVisit: complaints[0]?.trim(),
     additionalDetails: complaints[1]
@@ -205,4 +209,37 @@ export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
       .map((complaint) => complaint.trim())
       .join(', '),
   };
+};
+
+export const isAppointmentWorkersComp = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === 'workers-comp';
+};
+
+export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === 'occupational-medicine';
+};
+
+export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === 'urgent-care';
+};
+
+export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {
+  if (!appointment?.cancelationReason?.coding?.[0]) {
+    return undefined;
+  }
+
+  const coding = appointment.cancelationReason.coding[0];
+  const baseDisplay = coding.display;
+  const additionalInfo = coding.extension?.find(
+    (ext) => ext.url === `${FHIR_ZAPEHR_URL}/StructureDefinition/cancellation-reason-additional-info`
+  )?.valueString;
+
+  if (additionalInfo) {
+    return `${baseDisplay} - ${additionalInfo}`;
+  }
+
+  return baseDisplay;
 };

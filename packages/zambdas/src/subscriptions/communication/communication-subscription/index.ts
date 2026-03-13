@@ -159,7 +159,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const practitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
       console.log('practitionersEmails', practitionersEmails);
 
-      const toEmail = [];
+      // issue reports should always make their way back to us so we want this email to always be included
+      const toEmail = ['ottehr-support@ottehr.com'];
       if (practitionersEmails) {
         toEmail.push(...practitionersEmails);
       }

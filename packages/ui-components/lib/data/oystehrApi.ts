@@ -18,6 +18,8 @@ import {
   GetEligibilityResponse,
   GetPaperworkRequestParams,
   GetPastVisitsResponse,
+  GetPatientBalancesZambdaInput,
+  GetPatientBalancesZambdaOutput,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetTelemedAppointmentsRequest,
@@ -37,6 +39,7 @@ import {
   PaymentMethodListParameters,
   PaymentMethodSetDefaultParameters,
   PaymentMethodSetupParameters,
+  PaymentMethodSetupZambdaOutput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentRequestParams,
@@ -60,6 +63,7 @@ type ZambdaName =
   | 'get schedule'
   | 'get paperwork'
   | 'get patients'
+  | 'get patient balances'
   | 'get payment methods'
   | 'get presigned file url'
   | 'get telemed states'
@@ -88,6 +92,7 @@ const zambdasPublicityMap: Record<ZambdaName, boolean> = {
   'get schedule': true,
   'get paperwork': true,
   'get patients': false,
+  'get patient balances': false,
   'get payment methods': false,
   'get presigned file url': true,
   'get telemed states': true,
@@ -124,6 +129,7 @@ export const getOystehrAPI = (
   getPaperworkPublic: typeof getPaperworkPublic;
   getPaperwork: typeof getPaperwork;
   getPatients: typeof getPatients;
+  getPatientBalances: typeof getPatientBalances;
   getPaymentMethods: typeof getPaymentMethods;
   getTelemedStates: typeof getTelemedStates;
   getWaitStatus: typeof getWaitStatus;
@@ -151,6 +157,7 @@ export const getOystehrAPI = (
     getScheduleZambdaID,
     getPaperworkZambdaID,
     getPatientsZambdaID,
+    getPatientBalancesZambdaID,
     getPaymentMethodsZambdaID,
     getPresignedFileURLZambdaID,
     getTelemedLocationsZambdaID: getTelemedStatesZambdaID,
@@ -180,6 +187,7 @@ export const getOystehrAPI = (
     'get schedule': getScheduleZambdaID,
     'get paperwork': getPaperworkZambdaID,
     'get patients': getPatientsZambdaID,
+    'get patient balances': getPatientBalancesZambdaID,
     'get payment methods': getPaymentMethodsZambdaID,
     'get presigned file url': getPresignedFileURLZambdaID,
     'get telemed states': getTelemedStatesZambdaID,
@@ -326,6 +334,12 @@ export const getOystehrAPI = (
     return await makeZapRequest('get patients');
   };
 
+  const getPatientBalances = async (
+    parameters: GetPatientBalancesZambdaInput
+  ): Promise<GetPatientBalancesZambdaOutput> => {
+    return await makeZapRequest('get patient balances', parameters);
+  };
+
   const getPaymentMethods = async (parameters: PaymentMethodListParameters): Promise<{ cards: CreditCardInfo[] }> => {
     return await makeZapRequest('get payment methods', parameters);
   };
@@ -357,7 +371,9 @@ export const getOystehrAPI = (
     return await makeZapRequest('set default payment method', parameters);
   };
 
-  const setupPaymentMethod = async (parameters: PaymentMethodSetupParameters): Promise<string> => {
+  const setupPaymentMethod = async (
+    parameters: PaymentMethodSetupParameters
+  ): Promise<PaymentMethodSetupZambdaOutput> => {
     return await makeZapRequest('setup payment method', parameters);
   };
 
@@ -422,6 +438,7 @@ export const getOystehrAPI = (
     getPaperworkPublic,
     getPaperwork,
     getPatients,
+    getPatientBalances,
     getPaymentMethods,
     getTelemedStates,
     getWaitStatus,

@@ -1,12 +1,13 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Autocomplete, Box, FormControlLabel, Radio, RadioGroup, TextField, Typography } from '@mui/material';
+import type { ExamCardFormComponent } from 'config-types';
 import React, { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, UseFormWatch } from 'react-hook-form';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { ExamCardFormComponent, ExamObservationDTO } from 'utils';
+import { ExamObservationDTO } from 'utils';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type FormValues = Record<string, string | null>;
@@ -36,7 +37,7 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
     return formConfig;
   }, [form.fields, fieldNames]);
 
-  const { value: fields, update, isLoading } = useExamObservations(observationNames);
+  const { value: fields, update, delete: deleteObservations, isLoading } = useExamObservations(observationNames);
   const abnormalFields = fields.filter((field) => field.value);
 
   const [value, setValue] = useState(abnormalFields.length > 0);
@@ -84,7 +85,7 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
     const field = fields.find((field) => field.field === name);
 
     if (field) {
-      update({ ...field, note: undefined, value: false });
+      deleteObservations(field);
     }
   };
 
@@ -98,7 +99,7 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
     } else {
       setSavedFields(abnormalFields);
       if (abnormalFields.length > 0) {
-        update(abnormalFields.map((field) => ({ ...field, value: false })));
+        deleteObservations(abnormalFields);
       }
     }
   };

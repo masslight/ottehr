@@ -16,7 +16,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { configLabRequestsForGetChartData } from '../shared/labs';
+import { configLabRequestsForGetChartData } from '../lab/shared/labs';
 import {
   configProceduresRequestsForGetChartData,
   convertSearchResultsToResponse,
@@ -186,6 +186,10 @@ export async function getChartData(
     addRequestIfNeeded({ field: 'historyOfPresentIllness', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
+  if (requestedFields?.mechanismOfInjury) {
+    addRequestIfNeeded({ field: 'mechanismOfInjury', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
   if (requestedFields?.ros) {
     addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
@@ -214,6 +218,10 @@ export async function getChartData(
     chartDataRequests.push(
       createFindResourceRequestByPatientField(patient.id!, 'EpisodeOfCare', 'patient', requestedFields.episodeOfCare)
     );
+  }
+
+  if (requestedFields?.accident) {
+    addRequestIfNeeded({ field: 'accident', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
   if (requestedFields == null) {
@@ -250,10 +258,13 @@ export async function getChartData(
     chartDataRequests.push(...labRequests);
   }
 
-  // old code (but we don't have 'procedures' in requestedFields fields currently):
-  // if ((!requestedFields || requestedFields.procedures) && encounter.id) {
-  if (!requestedFields && encounter.id) {
-    chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
+  // procedures can be requested with custom search params (e.g., multiple encounters)
+  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+    const proceduresSearchParams = requestedFields?.procedures;
+    // Check if encounterIds are provided in search params for batch request
+    const encounterIdsParam = proceduresSearchParams?.encounterIds;
+    const encounterIds = encounterIdsParam || encounter.id;
+    chartDataRequests.push(configProceduresRequestsForGetChartData(encounterIds));
   }
 
   if (requestedFields?.preferredPharmacies) {

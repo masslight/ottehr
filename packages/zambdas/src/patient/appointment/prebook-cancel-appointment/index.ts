@@ -2,13 +2,12 @@ import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CancelAppointmentZambdaInput,
   CancelAppointmentZambdaOutput,
-  CancellationReasonCodesInPerson,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
@@ -28,6 +27,7 @@ import {
   ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
+  ServiceMode,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -44,7 +44,10 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { getEmailClient } from '../../../shared/communication';
-import { validateRequestParameters } from './validateRequestParameters';
+import {
+  validateCancellationReasonForAppointmentContext,
+  validateRequestParameters,
+} from './validateRequestParameters';
 
 export interface CancelAppointmentZambdaInputValidated extends CancelAppointmentZambdaInput {
   secrets: Secrets | null;
@@ -67,7 +70,14 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     const user = userToken && (await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets));
     const isEHRUser = user && checkIsEHRUser(user);
     const validatedParameters = validateRequestParameters(input);
-    const { appointmentID, language: languageInput, cancellationReason, silent, secrets } = validatedParameters;
+    const {
+      appointmentID,
+      language: languageInput,
+      cancellationReason,
+      cancellationReasonAdditional,
+      silent,
+      secrets,
+    } = validatedParameters;
     const language = languageInput || 'en';
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -108,11 +118,34 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       console.log('cancelled by EHR user');
     }
 
+    // make sure cancellation reason is valid for appointment context
+    const serviceMode = isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'];
+    const requesterType = isEHRUser ? 'provider' : 'patient';
+    validateCancellationReasonForAppointmentContext({
+      cancellationReason,
+      requesterType,
+      serviceMode,
+    });
+
     // stamp critical update tag so this event can be surfaced in activity logs
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
     const cancelledBy =
       user && isEHRUser ? `Staff ${user?.email}` : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
+    const fhirCancellationReason: Coding = {
+      // todo reassess codes and reasons, just using custom codes atm
+      system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
+      code: cancellationReason,
+      display: cancellationReason,
+    };
+    if (cancellationReasonAdditional) {
+      fhirCancellationReason.extension = [
+        {
+          url: `${FHIR_ZAPEHR_URL}/StructureDefinition/cancellation-reason-additional-info`,
+          valueString: cancellationReasonAdditional,
+        },
+      ];
+    }
     const appointmentPatchOperations: Operation[] = [
       ...getAppointmentMetaTagOpForStatusUpdate(appointment, 'cancelled', { updatedByOverride: cancelledBy }),
       {
@@ -124,14 +157,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
         op: 'add',
         path: '/cancelationReason',
         value: {
-          coding: [
-            {
-              // todo reassess codes and reasons, just using custom codes atm
-              system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
-              code: CancellationReasonCodesInPerson[cancellationReason],
-              display: cancellationReason,
-            },
-          ],
+          coding: [fhirCancellationReason],
         },
       },
     ];

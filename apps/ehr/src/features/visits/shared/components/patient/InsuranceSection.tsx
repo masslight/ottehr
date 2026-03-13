@@ -5,7 +5,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { checkCoverageMatchesDetails, CoverageCheckWithDetails, CoverageWithPriority } from 'utils';
 import { InsuranceContainer } from './InsuranceContainer';
 
-const getEligibilityCheckDetailsForCoverage = (
+export const getEligibilityCheckDetailsForCoverage = (
   coverage: Coverage,
   coverageChecks: CoverageCheckWithDetails[]
 ): CoverageCheckWithDetails | undefined => {

@@ -3,6 +3,8 @@ import {
   Box,
   Button,
   capitalize,
+  CircularProgress,
+  Container,
   FormControlLabel,
   Paper,
   Radio,
@@ -18,39 +20,58 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { DocumentReference, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
+import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useGetEncounter } from 'src/hooks/useEncounter';
-import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
+import { useGetPatientAccount } from 'src/hooks/useGetPatient';
+import { CreditCardBrandIcon } from 'ui-components';
 import {
   APIError,
   APIErrorCode,
   CashOrCardPayment,
+  CoverageCheckWithDetails,
+  FHIR_EXTENSION,
+  getCoding,
   getPaymentVariantFromEncounter,
   isApiError,
+  ListPatientPaymentResponse,
+  OrderedCoveragesWithSubscribers,
+  PatientPaymentBenefit,
   PatientPaymentDTO,
   PaymentVariant,
   PostPatientPaymentInput,
-  RECEIPT_CODE,
   SendReceiptByEmailZambdaInput,
+  SERVICE_CATEGORY_SYSTEM,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
+import { GenericToolTip } from './GenericToolTip';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
   patient: Patient | undefined;
+  appointment: Appointment | undefined;
   encounterId: string;
   loading?: boolean;
   responsibleParty?: {
     fullName?: string;
     email?: string;
   };
+  insuranceCoverages?: {
+    coverages: OrderedCoveragesWithSubscribers;
+    insuranceOrgs: Organization[];
+  };
+  paymentData: ListPatientPaymentResponse | undefined;
+  refetchPaymentList: () => Promise<void>;
+  isRefetching: boolean;
+  paymentListError: Error | null;
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -61,17 +82,40 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const formatUsd = (amount: number | string | undefined | null): string | null => {
+  if (amount === undefined || amount === null) return null;
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return null;
+  return usdFormatter.format(numericAmount);
+};
+
 export default function PatientPaymentList({
   loading,
   patient,
+  appointment,
   encounterId,
   responsibleParty,
+  insuranceCoverages,
+  paymentData,
+  refetchPaymentList,
+  isRefetching,
+  paymentListError,
 }: PaymentListProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
+  const apiClient = useOystehrAPIClient();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
-  const [receiptDocRefId, setReceiptDocRefId] = useState<string | undefined>();
+  const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean>(false);
+  const [cardOnFileKnown, setCardOnFileKnown] = useState<boolean>(false);
+
   const {
     data: encounter,
     refetch: refetchEncounter,
@@ -79,46 +123,158 @@ export default function PatientPaymentList({
   } = useGetEncounter({ encounterId });
 
   const {
-    data: paymentData,
-    refetch: refetchPaymentList,
-    isRefetching,
-    error: paymentListError,
-  } = useGetPatientPaymentsList({
-    patientId: patient?.id ?? '',
-    encounterId,
-    disabled: !encounterId || !patient?.id,
+    data: receiptDocRef,
+    refetch: refetchReceipt,
+    isFetching: isReceiptFetching,
+  } = useEncounterReceipt({ encounterId });
+
+  const { data: insuranceData } = useGetPatientAccount({
+    apiClient,
+    patientId: patient?.id ?? null,
   });
+
+  function getPaymentAmountFromPatientBenefit({
+    coverage,
+    code,
+    coverageCode,
+    levelCode,
+    periodCode,
+  }: {
+    coverage: PatientPaymentBenefit[];
+    code: string;
+    coverageCode: string;
+    levelCode: string;
+    periodCode: string | undefined;
+  }): PatientPaymentBenefit | undefined {
+    if (!periodCode) {
+      return coverage.find(
+        (item) => item.code === code && item.coverageCode === coverageCode && item.levelCode === levelCode
+      );
+    }
+
+    return coverage.find(
+      (item) =>
+        item.code === code &&
+        item.coverageCode === coverageCode &&
+        item.levelCode === levelCode &&
+        item.periodCode === periodCode
+    );
+  }
+
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
+
+  const cardOnFileStatusStroke = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#2E7D32' : '#8A1538') : '#90A4AE';
+  const cardOnFileStatusFill = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#E8F5E9' : '#FBE9E7') : '#D9D9D9';
+  const cardOnFileStatusLabel = cardOnFileKnown
+    ? hasCreditCardOnFileFromList
+      ? 'card on file'
+      : 'no card on file'
+    : 'checking card on file';
+  const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
+  const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const getBooleanFlag = (candidate: unknown): boolean | undefined => {
+      if (typeof candidate === 'boolean') {
+        return candidate;
+      }
+      return undefined;
+    };
+
+    const deriveCardOnFileStatus = (output: unknown): boolean => {
+      if (!output || typeof output !== 'object') {
+        return false;
+      }
+
+      const response = output as Record<string, unknown>;
+      if (!Array.isArray(response.cards)) {
+        return false;
+      }
+
+      const allCards = response.cards as unknown[];
+      if (allCards.length === 0) {
+        return false;
+      }
+
+      let hasAnyDefaultFlag = false;
+      let hasDefaultOrPrimary = false;
+
+      allCards.forEach((card) => {
+        if (!card || typeof card !== 'object') {
+          return;
+        }
+
+        const cardObj = card as Record<string, unknown>;
+        const possibleFlags = [
+          cardObj.default,
+          cardObj.isDefault,
+          cardObj.is_default,
+          cardObj.primary,
+          cardObj.isPrimary,
+          cardObj.is_primary,
+        ];
+
+        possibleFlags.forEach((flag) => {
+          const boolFlag = getBooleanFlag(flag);
+          if (boolFlag !== undefined) {
+            hasAnyDefaultFlag = true;
+            if (boolFlag) {
+              hasDefaultOrPrimary = true;
+            }
+          }
+        });
+      });
+
+      if (hasAnyDefaultFlag) {
+        return hasDefaultOrPrimary;
+      }
+
+      return true;
+    };
+
+    const fetchCardStatus = async (): Promise<void> => {
+      if (!oystehrZambda || !patient?.id) {
+        setCardOnFileKnown(false);
+        setHasCreditCardOnFileFromList(false);
+        return;
+      }
+
+      try {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'payment-methods-list',
+          beneficiaryPatientId: patient.id,
+          appointmentId: appointment?.id,
+        });
+
+        const derivedStatus = deriveCardOnFileStatus(result.output);
+        if (!cancelled) {
+          setHasCreditCardOnFileFromList(derivedStatus);
+          setCardOnFileKnown(true);
+        }
+      } catch (error) {
+        console.error('Failed to determine card-on-file status from payment-methods-list', error);
+        if (!cancelled) {
+          setCardOnFileKnown(false);
+          setHasCreditCardOnFileFromList(false);
+        }
+      }
+    };
+
+    void fetchCardStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [oystehrZambda, patient?.id, appointment?.id]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
       ? (paymentListError as APIError).code === APIErrorCode.STRIPE_CUSTOMER_ID_DOES_NOT_EXIST
       : false;
 
-  useEffect(() => {
-    if (oystehr && encounterId) {
-      void oystehr.fhir
-        .search<DocumentReference>({
-          resourceType: 'DocumentReference',
-          params: [
-            {
-              name: 'type',
-              value: RECEIPT_CODE,
-            },
-            {
-              name: 'encounter',
-              value: 'Encounter/' + encounterId,
-            },
-          ],
-        })
-        .then((response) => {
-          const docRef = response.unbundle()[0];
-          if (docRef) {
-            setReceiptDocRefId(docRef.id);
-          }
-        });
-    }
-  }, [encounterId, oystehr, paymentData]);
+  const receiptDocRefId = receiptDocRef?.id;
 
   const sendReceipt = async (formData: SendReceiptFormData): Promise<void> => {
     if (!oystehr) return;
@@ -138,10 +294,26 @@ export default function PatientPaymentList({
   };
 
   const getLabelForPayment = (payment: PatientPaymentDTO): string | ReactElement => {
-    if (payment.paymentMethod === 'card') {
+    if (
+      payment.paymentMethod === 'card' ||
+      payment.paymentMethod === 'card-reader' ||
+      payment.paymentMethod === 'external-card-reader'
+    ) {
       if (payment.cardLast4) {
-        return `XXXX - XXXX - XXXX - ${payment.cardLast4}`;
-      } else {
+        const formattedBrand = payment.cardBrand ? capitalize(payment.cardBrand) : 'Card';
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {payment.cardBrand && (
+              <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                <CreditCardBrandIcon brand={payment.cardBrand} />
+              </Box>
+            )}
+            <Typography variant="body1">{`${formattedBrand} •••• ${payment.cardLast4}`}</Typography>
+          </Box>
+        );
+      }
+
+      if (payment.paymentMethod === 'card') {
         return (
           <RefreshableStatusChip
             status={'processing...'}
@@ -163,24 +335,43 @@ export default function PatientPaymentList({
           />
         );
       }
-    } else {
-      return capitalize(payment.paymentMethod);
+
+      return 'Card Reader';
     }
+
+    return capitalize(payment.paymentMethod);
   };
 
   const createNewPayment = useMutation({
     mutationFn: async (input: PostPatientPaymentInput) => {
-      if (oystehrZambda && input) {
-        return oystehrZambda.zambda
-          .execute({
-            id: 'patient-payments-post',
-            ...input,
-          })
-          .then(async () => {
-            await refetchPaymentList();
-            setPaymentDialogOpen(false);
-          });
-      }
+      if (!oystehrZambda) return;
+
+      await oystehrZambda.zambda.execute({
+        id: 'patient-payments-post',
+        ...input,
+      });
+    },
+    onSuccess: async () => {
+      await refetchPaymentList();
+      const waitForReceipt = async (): Promise<void> => {
+        let receipt: DocumentReference | null = null;
+        const maxTries = 15;
+        let tries = 0;
+
+        while (!receipt && tries < maxTries) {
+          const result = await refetchReceipt();
+
+          receipt = result.data ?? null;
+          if (!receipt) {
+            await new Promise((res) => setTimeout(res, 2000));
+          }
+          tries += 1;
+        }
+      };
+
+      await waitForReceipt();
+
+      setPaymentDialogOpen(false);
     },
     retry: 0,
   });
@@ -233,6 +424,48 @@ export default function PatientPaymentList({
     return null;
   })();
 
+  const insurance = insuranceCoverages?.coverages?.primary?.identifier?.find(
+    (temp) => temp.type?.coding?.find((temp) => temp.code === 'MB')
+  )?.assigner;
+  const insuranceOrganization = insuranceCoverages?.insuranceOrgs?.find(
+    (organization) => organization.id === insurance?.reference?.replace('Organization/', '')
+  );
+  const insuranceName = insuranceOrganization?.name;
+  const insuranceNotes = insuranceOrganization?.extension?.find(
+    (extensionTemp) => extensionTemp.url === FHIR_EXTENSION.InsurancePlan.notes.url
+  )?.valueString;
+
+  let coverageCheck: CoverageCheckWithDetails | undefined = undefined;
+  if (insuranceCoverages?.coverages?.primary && insuranceData?.coverageChecks) {
+    coverageCheck = getEligibilityCheckDetailsForCoverage(
+      insuranceCoverages?.coverages?.primary,
+      insuranceData?.coverageChecks
+    );
+  }
+
+  const copayAmount = getPaymentAmountFromPatientBenefit({
+    coverage: coverageCheck?.copay?.filter((item) => item.inNetwork === true) || [],
+    code: 'UC',
+    coverageCode: 'B',
+    levelCode: 'IND',
+    periodCode: undefined,
+  });
+
+  const remainingDeductibleAmount = getPaymentAmountFromPatientBenefit({
+    coverage: coverageCheck?.deductible?.filter((item) => item.inNetwork === true) || [],
+    code: '30',
+    coverageCode: 'C',
+    levelCode: 'IND',
+    periodCode: '29',
+  });
+
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const isUrgentCare = serviceCategory === 'urgent-care';
+  const isOccupationalMedicine = serviceCategory === 'occupational-medicine';
+  const isWorkmansComp = serviceCategory === 'workers-comp';
+  const formattedCopayAmount = formatUsd(copayAmount?.amountInUSD);
+  const formattedRemainingDeductibleAmount = formatUsd(remainingDeductibleAmount?.amountInUSD);
+
   return (
     <Paper
       sx={{
@@ -240,9 +473,11 @@ export default function PatientPaymentList({
         padding: 3,
       }}
     >
-      <Typography variant="h4" color="primary.dark">
-        How would patient like to pay for the visit?
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Typography variant="h4" color="primary.dark">
+          Payer/Responsible for Claim
+        </Typography>
+      </Box>
       <RadioGroup
         row
         name="options"
@@ -256,25 +491,175 @@ export default function PatientPaymentList({
         }}
         sx={{ mt: 2 }}
       >
-        <FormControlLabel
-          disabled={updateEncounter.isPending || isEncounterRefetching}
-          value={PaymentVariant.insurance}
-          control={<Radio />}
-          label="Insurance"
-        />
+        {isUrgentCare ? (
+          <FormControlLabel
+            disabled={updateEncounter.isPending || isEncounterRefetching}
+            value={PaymentVariant.insurance}
+            control={<Radio />}
+            label="Insurance"
+          />
+        ) : null}
         <FormControlLabel
           disabled={updateEncounter.isPending || isEncounterRefetching}
           value={PaymentVariant.selfPay}
           control={<Radio />}
-          label="Self-pay"
+          label="Self"
         />
+        {isOccupationalMedicine || isWorkmansComp ? (
+          <FormControlLabel
+            disabled={updateEncounter.isPending || isEncounterRefetching}
+            value={PaymentVariant.employer}
+            control={<Radio />}
+            label="Employer"
+          />
+        ) : null}
       </RadioGroup>
+      <Container
+        style={{
+          backgroundColor: theme.palette.background.default,
+          borderRadius: 4,
+          paddingTop: 10,
+          paddingBottom: 10,
+        }}
+      >
+        <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+          Payment Considerations
+        </Typography>
+        {insuranceData ? (
+          <>
+            <Table style={{ tableLayout: 'fixed' }}>
+              <TableBody>
+                <TableRow>
+                  <TableCell style={{ fontSize: '16px' }}>Insurance Carrier</TableCell>
+                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
+                    {insuranceName ? insuranceName : 'Unknown'}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell style={{ fontSize: '16px' }}>Copay</TableCell>
+                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
+                    {formattedCopayAmount && copayAmount?.periodDescription
+                      ? `${formattedCopayAmount} / ${copayAmount.periodDescription}`
+                      : 'Unknown'}
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ '&:last-child td': { borderBottom: 'none' } }}>
+                  <TableCell style={{ fontSize: '16px' }}>Remaining Deductible</TableCell>
+                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
+                    {formattedRemainingDeductibleAmount ?? 'Unknown'}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            {insuranceNotes && (
+              <Container
+                style={{
+                  backgroundColor: '#2169F514',
+                  borderRadius: 4,
+                  marginTop: 5,
+                  paddingTop: 10,
+                  paddingBottom: 10,
+                }}
+              >
+                <Typography variant="body1" sx={{ color: theme.palette.primary.dark, fontWeight: 'bold' }}>
+                  Notes
+                </Typography>
+                <Typography variant="body1" style={{ whiteSpace: 'pre' }}>
+                  {insuranceNotes}
+                </Typography>
+              </Container>
+            )}
+          </>
+        ) : (
+          <CircularProgress />
+        )}
+      </Container>
       {stripeCustomerDeletedError && <StripeErrorAlert />}
       {!stripeCustomerDeletedError && (
         <>
-          <Typography variant="h5" color="primary.dark" sx={{ mt: 2 }}>
-            Patient Payments
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 2 }}>
+            <Typography variant="h5" color="primary.dark">
+              Patient Payments
+            </Typography>
+            <GenericToolTip
+              disableHoverListener={!cardOnFileKnown}
+              customWidth={220}
+              title={
+                cardOnFileKnown ? (
+                  <Box
+                    sx={{
+                      px: 1,
+                      py: 0.75,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      backgroundColor: 'transparent',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        px: 0.75,
+                        py: 0.25,
+                        borderRadius: 1,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.3px',
+                        color: hasCreditCardOnFileFromList === true ? '#2E7D32' : '#8A1538',
+                        backgroundColor: hasCreditCardOnFileFromList === true ? '#C8E6C9' : '#FFCDD2',
+                      }}
+                    >
+                      {cardOnFileChipLabel}
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#000000',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {cardOnFileTooltipText}
+                    </Typography>
+                  </Box>
+                ) : (
+                  ''
+                )
+              }
+            >
+              <Box sx={{ ml: 'auto', display: 'inline-flex', alignItems: 'center' }} aria-label={cardOnFileStatusLabel}>
+                <svg width="38" height="38" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect
+                    x="10"
+                    y="12"
+                    width="36"
+                    height="30"
+                    rx="5"
+                    fill={cardOnFileStatusFill}
+                    stroke={cardOnFileStatusStroke}
+                    strokeWidth="2"
+                  />
+                  <rect x="15" y="18" width="26" height="5" rx="1" fill={cardOnFileStatusStroke} opacity="0.7" />
+                  <rect x="15" y="27" width="12" height="4" rx="1" fill={cardOnFileStatusStroke} opacity="0.45" />
+                  {cardOnFileKnown && hasCreditCardOnFileFromList === true ? (
+                    <path
+                      d="M31 31L34.5 34.5L41 28"
+                      stroke={cardOnFileStatusStroke}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ) : null}
+                  {cardOnFileKnown && hasCreditCardOnFileFromList === false ? (
+                    <>
+                      <path d="M32 28L40 36" stroke={cardOnFileStatusStroke} strokeWidth="2" strokeLinecap="round" />
+                      <path d="M40 28L32 36" stroke={cardOnFileStatusStroke} strokeWidth="2" strokeLinecap="round" />
+                    </>
+                  ) : null}
+                </svg>
+              </Box>
+            </GenericToolTip>
+          </Box>
           <Table size="small" style={{ tableLayout: 'fixed' }}>
             <TableBody>
               {payments.length === 0 && !loading && (
@@ -288,6 +673,7 @@ export default function PatientPaymentList({
               )}
               {payments.map((payment) => {
                 const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
+                const formattedPaymentAmount = formatUsd(payment.amountInCents / 100) ?? '$0.00';
                 return (
                   <Fragment key={idForPaymentDTO(payment)}>
                     <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
@@ -328,7 +714,7 @@ export default function PatientPaymentList({
                             {loading ? (
                               <Skeleton aria-busy="true" width={200} />
                             ) : (
-                              <Typography variant="body1">{`$${payment.amountInCents / 100}`}</Typography>
+                              <Typography variant="body1">{formattedPaymentAmount}</Typography>
                             )}
                           </Box>
                         </TableCell>
@@ -350,7 +736,7 @@ export default function PatientPaymentList({
             <span>
               <Button
                 sx={{ mt: 2, ml: 2 }}
-                disabled={!receiptDocRefId}
+                disabled={!receiptDocRefId || isReceiptFetching}
                 onClick={() => setSendReceiptByEmailDialogOpen(true)}
                 variant="contained"
                 color="primary"
@@ -365,8 +751,13 @@ export default function PatientPaymentList({
         <PaymentDialog
           open={paymentDialogOpen}
           patient={patient}
+          encounterId={encounterId}
+          appointmentId={appointment?.id}
           handleClose={() => setPaymentDialogOpen(false)}
           isSubmitting={createNewPayment.isPending}
+          onTerminalPaymentSuccess={async () => {
+            await refetchPaymentList();
+          }}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
               patientId: patient.id ?? '',

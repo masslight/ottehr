@@ -10,7 +10,7 @@ import { Control, Controller, RegisterOptions } from 'react-hook-form';
 interface BasicDatePickerProps {
   name: string;
   control: Control<any>;
-  rules: RegisterOptions;
+  rules?: RegisterOptions;
   required?: boolean;
   defaultValue?: string;
   onChange?: (date: string) => void;
@@ -21,12 +21,13 @@ interface BasicDatePickerProps {
   id?: string;
   dataTestId?: string;
   component?: 'Picker' | 'Field';
+  disablePast?: boolean;
 }
 
 export function BasicDatePicker({
   name,
   control,
-  rules,
+  rules = {},
   defaultValue,
   onChange,
   disabled,
@@ -36,6 +37,7 @@ export function BasicDatePicker({
   id,
   dataTestId,
   component = 'Picker',
+  disablePast = false,
 }: BasicDatePickerProps): JSX.Element {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -66,6 +68,7 @@ export function BasicDatePicker({
                   slotProps={{
                     textField: {
                       id: id,
+                      name: name,
                       variant,
                       error: !!error,
                       helperText: error?.message,
@@ -82,6 +85,7 @@ export function BasicDatePicker({
                     },
                   }}
                   label={label}
+                  disablePast={disablePast}
                 />
               );
             } else {
@@ -93,6 +97,7 @@ export function BasicDatePicker({
                     field.onChange(dateStr);
                     onChange?.(dateStr);
                   }}
+                  name={name}
                   fullWidth
                   disabled={disabled}
                   label={label}
@@ -108,6 +113,7 @@ export function BasicDatePicker({
                       InputLabelProps,
                     },
                   }}
+                  disablePast={disablePast}
                 />
               );
             }

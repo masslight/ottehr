@@ -7,8 +7,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "2.item.0.linkId", "value": "payment-option" },
-          { "path": "2.item.0.answer.0.valueString", "value": "I have insurance" }
+          {
+            "path": "2.item.0.linkId",
+            "value": "payment-option"
+          },
+          {
+            "path": "2.item.0.answer.0.valueString",
+            "value": "I have insurance"
+          }
         ]
       },
       "item": [
@@ -532,18 +538,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -582,8 +593,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "2.item.0.linkId", "value": "payment-option" },
-          { "path": "2.item.0.answer.0.valueString", "value": "I will pay without insurance" }
+          {
+            "path": "2.item.0.linkId",
+            "value": "payment-option"
+          },
+          {
+            "path": "2.item.0.answer.0.valueString",
+            "value": "I will pay without insurance"
+          }
         ]
       },
       "item": [
@@ -985,18 +1002,23 @@
           "linkId": "consent-forms-page",
           "item": [
             {
-              "linkId": "consent-jurisdiction",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueString": "NY"
-                }
-              ]
-            },
-            {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -1044,7 +1066,9 @@
         "inner": [
           {
             "path": "responsible-party-date-of-birth",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
         "validItemsToCheck": []
@@ -1616,18 +1640,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -1667,7 +1696,9 @@
         "inner": [
           {
             "path": "responsible-party-date-of-birth",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
         "validItemsToCheck": []
@@ -1903,18 +1934,23 @@
           "linkId": "consent-forms-page",
           "item": [
             {
-              "linkId": "consent-jurisdiction",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueString": "IL"
-                }
-              ]
-            },
-            {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -1961,8 +1997,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "3.item.4.item.0.answer.0.valueString", "value": "08" },
-          { "path": "3.item.4.item.0.linkId", "value": "responsible-party-dob-day" }
+          {
+            "path": "3.item.4.item.0.answer.0.valueString",
+            "value": "08"
+          },
+          {
+            "path": "3.item.4.item.0.linkId",
+            "value": "responsible-party-dob-day"
+          }
         ]
       },
       "item": [
@@ -2233,18 +2275,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -2283,8 +2330,14 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "3.item.4.item.0.answer.0.valueString", "value": "10" },
-          { "path": "3.item.4.item.0.linkId", "value": "responsible-party-dob-day" }
+          {
+            "path": "3.item.4.item.0.answer.0.valueString",
+            "value": "10"
+          },
+          {
+            "path": "3.item.4.item.0.linkId",
+            "value": "responsible-party-dob-day"
+          }
         ]
       },
       "item": [
@@ -2555,18 +2608,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -2606,11 +2664,15 @@
         "inner": [
           {
             "path": "secondary-insurance.item[0]",
-            "errors": ["This field is required"]
+            "errors": [
+              "This field is required"
+            ]
           },
           {
             "path": "secondary-insurance.item[5]",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
         "validItemsToCheck": []
@@ -3169,18 +3231,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -3220,10 +3287,17 @@
         "inner": [
           {
             "path": "responsible-party-date-of-birth",
-            "errors": ["Please enter a valid date"]
+            "errors": [
+              "Please enter a valid date"
+            ]
           }
         ],
-        "validItemsToCheck": [{ "path": "2.item.18.linkId", "value": null }]
+        "validItemsToCheck": [
+          {
+            "path": "2.item.18.linkId",
+            "value": null
+          }
+        ]
       },
       "item": [
         {
@@ -3792,18 +3866,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -3842,11 +3921,26 @@
         "valid": true,
         "inner": [],
         "validItemsToCheck": [
-          { "path": "2.item.18.linkId", "value": null },
-          { "path": "2.item.4.linkId", "value": null },
-          { "path": "2.item.8.linkId", "value": null },
-          { "path": "2.item.12.linkId", "value": null },
-          { "path": "2.item.16.linkId", "value": null }
+          {
+            "path": "2.item.18.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.4.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.8.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.12.linkId",
+            "value": null
+          },
+          {
+            "path": "2.item.16.linkId",
+            "value": null
+          }
         ]
       },
       "item": [
@@ -4416,18 +4510,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -4465,7 +4564,14 @@
       "expectation": {
         "valid": true,
         "inner": [],
-        "validItemsToCheck": [{ "path": "2.item.18.item.3", "value": { "linkId": "policy-holder-middle-name-2" } }]
+        "validItemsToCheck": [
+          {
+            "path": "2.item.18.item.3",
+            "value": {
+              "linkId": "policy-holder-middle-name-2"
+            }
+          }
+        ]
       },
       "item": [
         {
@@ -4720,7 +4826,9 @@
                 },
                 {
                   "linkId": "policy-holder-address-additional-line-2",
-                  "answer": [{}]
+                  "answer": [
+                    {}
+                  ]
                 },
                 {
                   "linkId": "policy-holder-city-2",
@@ -5016,18 +5124,23 @@
               ]
             },
             {
-              "linkId": "hipaa-acknowledgement",
-              "answer": [
+              "linkId": "consent-forms-checkbox-group",
+              "item": [
                 {
-                  "valueBoolean": true
-                }
-              ]
-            },
-            {
-              "linkId": "consent-to-treat",
-              "answer": [
+                  "linkId": "hipaa-acknowledgement",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
+                },
                 {
-                  "valueBoolean": true
+                  "linkId": "consent-to-treat",
+                  "answer": [
+                    {
+                      "valueBoolean": true
+                    }
+                  ]
                 }
               ]
             },
@@ -5070,7 +5183,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "patient-will-be-18",
@@ -5234,8 +5350,14 @@
       {
         "fullFormId": "47bac09e-f433-4651-842e-6681d80cddd6",
         "description": "contact info valid case 2",
-        "expectation": { "valid": true, "inner": [] },
-        "context": { "values": {}, "items": [] },
+        "expectation": {
+          "valid": true,
+          "inner": []
+        },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "patient-will-be-18",
@@ -5382,7 +5504,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "ovrp-interest",
@@ -5476,7 +5601,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "payment-option",
@@ -5639,7 +5767,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "payment-option",
@@ -5659,10 +5790,15 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
-            "answer": [null],
+            "answer": [
+              null
+            ],
             "item": [
               {
                 "linkId": "insurance-carrier-2",
@@ -5819,7 +5955,9 @@
           },
           {
             "linkId": "insurance-card-back",
-            "answer": [""]
+            "answer": [
+              ""
+            ]
           },
           {
             "linkId": "insurance-card-front",
@@ -5960,11 +6098,20 @@
           "valid": true,
           "inner": [],
           "validItemsToCheck": [
-            { "path": "secondary-insurance.item.3.linkId", "value": "policy-holder-middle-name-2" },
-            { "path": "secondary-insurance.item.3.answer", "value": null }
+            {
+              "path": "secondary-insurance.item.3.linkId",
+              "value": "policy-holder-middle-name-2"
+            },
+            {
+              "path": "secondary-insurance.item.3.answer",
+              "value": null
+            }
           ]
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "payment-option",
@@ -6243,7 +6390,9 @@
               {},
               {
                 "linkId": "insurance-card-back-2",
-                "answer": [{}]
+                "answer": [
+                  {}
+                ]
               }
             ],
             "linkId": "secondary-insurance"
@@ -6261,7 +6410,10 @@
           "inner": [],
           "validItemsToCheck": []
         },
-        "context": { "values": {}, "items": [] },
+        "context": {
+          "values": {},
+          "items": []
+        },
         "item": [
           {
             "linkId": "photo-id-front",

@@ -1,11 +1,11 @@
 import { Box, Button, Pagination, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { LabOrdersSearchBy, LabsTableColumn } from 'utils';
+import { GetLabOrdersParameters, LabsTableColumn } from 'utils';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableContainer } from './LabsTableContainer';
 import { usePatientLabOrders } from './usePatientLabOrders';
 
-type LabsTablePatientChartProps<SearchBy extends LabOrdersSearchBy> = {
+type LabsTablePatientChartProps<SearchBy extends GetLabOrdersParameters> = {
   searchBy: SearchBy;
   columns: LabsTableColumn[];
   allowDelete: boolean;
@@ -13,7 +13,7 @@ type LabsTablePatientChartProps<SearchBy extends LabOrdersSearchBy> = {
   onCreateOrder?: () => void;
 };
 
-export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
+export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
   searchBy,
   columns,
   allowDelete,
@@ -79,23 +79,26 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
           </Box>
         ) : (
           <>
-            {Object.values(groupedLabOrdersForChartTable.pendingActionOrResults).map((orderBundle, idx) => (
-              <LabsTableContainer
-                key={`order-bundle-${idx}`}
-                labOrders={orderBundle.orders}
-                orderBundleName={orderBundle.bundleName}
-                abnPdfUrl={orderBundle.abnPdfUrl}
-                orderPdfUrl={orderBundle.orderPdfUrl}
-                searchBy={searchBy}
-                columns={columns}
-                allowDelete={allowDelete}
-                allowSubmit={allowSubmit}
-                fetchLabOrders={fetchLabOrders}
-                showDeleteLabOrderDialog={showDeleteLabOrderDialog}
-                DeleteOrderDialog={DeleteOrderDialog}
-                handleRejectedAbn={handleRejectedAbn}
-              />
-            ))}
+            {Object.entries(groupedLabOrdersForChartTable.pendingActionOrResults).map(
+              ([requisitionNumber, orderBundle], idx) => (
+                <LabsTableContainer
+                  key={`order-bundle-${idx}`}
+                  labOrders={orderBundle.orders}
+                  orderBundleName={orderBundle.bundleName}
+                  requisitionNumber={requisitionNumber}
+                  orderBundleNote={orderBundle.bundleNote}
+                  abnPdfUrl={orderBundle.abnPdfUrl}
+                  orderPdfUrl={orderBundle.orderPdfUrl}
+                  searchBy={searchBy}
+                  columns={columns}
+                  allowDelete={allowDelete}
+                  allowSubmit={allowSubmit}
+                  fetchLabOrders={fetchLabOrders}
+                  showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+                  handleRejectedAbn={handleRejectedAbn}
+                />
+              )
+            )}
             {bundlesWithResults.length > 0 && (
               <LabsTableContainer
                 key={`orders-with-results`}
@@ -105,11 +108,10 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
                 orderPdfUrl={undefined}
                 searchBy={searchBy}
                 columns={columns}
-                allowDelete={false}
+                allowDelete={allowDelete}
                 allowSubmit={false}
                 fetchLabOrders={fetchLabOrders}
                 showDeleteLabOrderDialog={showDeleteLabOrderDialog}
-                DeleteOrderDialog={DeleteOrderDialog}
               />
             )}
             {showPagination && totalPages > 1 && (
@@ -132,6 +134,7 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
           </>
         )}
       </Box>
+      {DeleteOrderDialog}
     </>
   );
 };

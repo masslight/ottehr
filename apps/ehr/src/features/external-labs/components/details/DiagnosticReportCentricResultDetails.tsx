@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { updateLabOrderResources } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { PdfAttachmentDTO, ReflexLabDTO, TaskReviewedParameters } from 'utils';
+import { ReflexLabDTO, TaskReviewedParameters } from 'utils';
 import { LabBreadcrumbs } from '../labs-orders/LabBreadcrumbs';
 import { DetailsWithResults } from './DetailsWithResults';
 
 interface DiagnosticReportCentricResultDetailsProps {
-  results: ReflexLabDTO | PdfAttachmentDTO;
+  results: ReflexLabDTO;
   loadingOrders: boolean;
   appointmentId: string;
 }

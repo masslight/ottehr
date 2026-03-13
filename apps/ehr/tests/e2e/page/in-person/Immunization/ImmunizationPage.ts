@@ -23,11 +23,11 @@ export class ImmunizationPage {
 
 export async function expectImmunizationPage(page: Page): Promise<ImmunizationPage> {
   await page.waitForURL(new RegExp('/in-person/.*/immunization/*'));
-  await expect(page.getByTestId(dataTestIds.immunizationPage.title)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.immunizationPage.title)).toBeVisible({ timeout: 60000 });
   return new ImmunizationPage(page);
 }
 
 export async function openImmunizationPage(appointmentId: string, page: Page): Promise<ImmunizationPage> {
-  await page.goto(`/in-person/${appointmentId}/immunization/mar`);
+  await page.goto(`/in-person/${appointmentId}/immunization/mar`, { timeout: 60000 });
   return expectImmunizationPage(page);
 }

@@ -11,12 +11,13 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  TextField,
   Typography,
 } from '@mui/material';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
-import { CancelAppointmentZambdaInput, CancellationReasonOptionsInPerson } from 'utils';
+import { CancelAppointmentZambdaInput, isTelemedAppointment, VALUE_SETS } from 'utils';
 import { cancelAppointment } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -39,7 +40,8 @@ export default function CancellationReasonDialog({
   getAndSetResources,
 }: CancellationReasonDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [cancellationReason, setCancellationReason] = useState<CancellationReasonOptionsInPerson | ''>('');
+  const [cancellationReason, setCancellationReason] = useState<string>('');
+  const [cancellationReasonAdditional, setCancellationReasonAdditional] = useState<string>('');
   const [cancelLoading, setCancelLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const buttonSx = {
@@ -59,6 +61,10 @@ export default function CancellationReasonDialog({
     },
   };
 
+  const cancelOptions = isTelemedAppointment(appointment)
+    ? VALUE_SETS.cancelReasonOptionsVirtualProvider
+    : VALUE_SETS.cancelReasonOptionsInPersonProvider;
+
   const handleCancel = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setCancelLoading(true);
@@ -72,6 +78,7 @@ export default function CancellationReasonDialog({
     const zambdaParams: CancelAppointmentZambdaInput = {
       appointmentID: appointment.id || '',
       cancellationReason: cancellationReason,
+      cancellationReasonAdditional: cancellationReason === 'Other' ? cancellationReasonAdditional : undefined,
     };
 
     let response;
@@ -85,12 +92,14 @@ export default function CancellationReasonDialog({
     } finally {
       if (response && !apiErr) {
         await refetchData();
-        await getAndSetResources({ logs: true }).catch((error: any) => {
+        try {
+          await getAndSetResources({ logs: true });
+        } catch (error) {
           console.log('error getting activity logs after cancellation', error);
-        });
-        enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
-          variant: 'error',
-        });
+          enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
+            variant: 'error',
+          });
+        }
         handleClose();
         setError(false);
       } else {
@@ -101,9 +110,12 @@ export default function CancellationReasonDialog({
   };
 
   const handleChange = (event: SelectChangeEvent<typeof cancellationReason>): void => {
-    const value = event.target.value as CancellationReasonOptionsInPerson;
+    const value = event.target.value as string;
     if (value && setCancellationReason) {
       setCancellationReason(value);
+    }
+    if (value !== 'Other') {
+      setCancellationReasonAdditional('');
     }
   };
 
@@ -143,12 +155,22 @@ export default function CancellationReasonDialog({
                 renderValue={(selected) => selected}
                 MenuProps={MenuProps}
               >
-                {Object.keys(CancellationReasonOptionsInPerson).map((reason) => (
-                  <MenuItem key={reason} value={reason}>
-                    <ListItemText primary={reason} />
+                {cancelOptions.map((reason) => (
+                  <MenuItem key={reason.value} value={reason.value}>
+                    <ListItemText primary={reason.label} />
                   </MenuItem>
                 ))}
               </Select>
+              {cancellationReason === 'Other' && (
+                <TextField
+                  fullWidth
+                  sx={{ mt: 2 }}
+                  label="Please specify"
+                  value={cancellationReasonAdditional}
+                  onChange={(e) => setCancellationReasonAdditional(e.target.value)}
+                  inputProps={{ maxLength: 200 }}
+                />
+              )}
             </FormControl>
           </div>
         </DialogContent>
@@ -156,6 +178,7 @@ export default function CancellationReasonDialog({
           <LoadingButton
             data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
             loading={cancelLoading}
+            disabled={!cancellationReason}
             type="submit"
             variant="contained"
             color="primary"

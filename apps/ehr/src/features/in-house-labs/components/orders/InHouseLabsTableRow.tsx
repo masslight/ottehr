@@ -60,7 +60,7 @@ export const InHouseLabsTableRow = ({
       case 'status':
         return <InHouseLabsStatusChip status={labOrderData.status} />;
       case 'actions':
-        if (allowDelete && labOrderData.status === 'ORDERED') {
+        if (allowDelete) {
           return (
             <Button
               onClick={(e) => {

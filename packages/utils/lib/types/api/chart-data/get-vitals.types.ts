@@ -3,6 +3,7 @@ import {
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsRespirationRateObservationDTO,
   VitalsTemperatureObservationDTO,
@@ -19,6 +20,7 @@ export type GetVitalsResponseData = {
   [VitalFieldNames.VitalWeight]: VitalsWeightObservationDTO[];
   [VitalFieldNames.VitalHeight]: VitalsHeightObservationDTO[];
   [VitalFieldNames.VitalVision]: VitalsVisionObservationDTO[];
+  [VitalFieldNames.VitalLastMenstrualPeriod]: VitalsLastMenstrualPeriodObservationDTO[];
 };
 
 export type GetVitalsRequestPayload = {

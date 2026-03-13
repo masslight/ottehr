@@ -30,7 +30,7 @@ interface Icd10Code {
 
 let cachedCodes: Icd10Code[] | null = null;
 
-async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
+export async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
   if (cachedCodes) {
     return cachedCodes;
   }

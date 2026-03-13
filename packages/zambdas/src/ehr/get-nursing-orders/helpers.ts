@@ -11,7 +11,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils';
-import { parseAppointmentIdForServiceRequest } from '../shared/labs';
+import { parseAppointmentIdForServiceRequest } from '../lab/shared/labs';
 
 export const mapResourcesNursingOrderDTOs = (
   serviceRequests: ServiceRequest[],

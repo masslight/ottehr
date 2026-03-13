@@ -3,9 +3,10 @@ import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
-import { generatePath, useNavigate } from 'react-router-dom';
+import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   APIError,
+  BOOKING_CONFIG,
   CreateSlotParams,
   getClosingTime,
   getHoursOfOperationForToday,
@@ -22,6 +23,7 @@ import { CustomTooltip } from '../components/CustomTooltip';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { BoldPurpleInputLabel } from '../components/form';
 import PageForm from '../components/PageForm';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedLocations } from '../telemed/features/appointments';
@@ -50,6 +52,8 @@ const currentWorkingHoursText = (location: TelemedLocation | undefined): string 
 
 const StartVirtualVisit = (): JSX.Element => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const serviceCategory = searchParams.get('serviceCategory');
   const theme = useTheme();
   const [selectedLocation, setSelectedLocation] = useState<TelemedLocation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +85,11 @@ const StartVirtualVisit = (): JSX.Element => {
         lengthInMinutes: 15,
         status: 'busy-tentative',
         walkin: true,
+        ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
+        // Use test questionnaire canonical if injected via config (for e2e test isolation)
+        ...(BOOKING_CONFIG.virtualQuestionnaireCanonical && {
+          questionnaireCanonical: BOOKING_CONFIG.virtualQuestionnaireCanonical,
+        }),
       };
 
       try {
@@ -166,6 +175,7 @@ const StartVirtualVisit = (): JSX.Element => {
         <>
           <Autocomplete
             id="states-autocomplete"
+            data-testid={dataTestIds.scheduleVirtualVisitStatesSelector}
             options={sortedLocations}
             getOptionLabel={(option) => option.fullName || option.state || ''}
             onChange={(_e, newValue) =>

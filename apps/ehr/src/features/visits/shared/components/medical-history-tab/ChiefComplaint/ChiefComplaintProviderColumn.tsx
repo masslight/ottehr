@@ -1,11 +1,11 @@
 import { Box, FormControlLabel, Skeleton, Switch, TextField } from '@mui/material';
 import { FC } from 'react';
-import { ChiefComplaintField, ChiefComplaintFieldReadOnly } from '../../../../ChiefComplaintField';
+import { HistoryOfPresentIllnessField, HistoryOfPresentIllnessFieldReadOnly } from 'src/features/visits/HpiField';
 import { RosField, RosFieldReadOnly } from '../../../../RosField';
 
 export const ChiefComplaintProviderColumn: FC = () => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-    <ChiefComplaintField />
+    <HistoryOfPresentIllnessField label="HPI provider notes" />
 
     <RosField />
   </Box>
@@ -13,7 +13,7 @@ export const ChiefComplaintProviderColumn: FC = () => (
 
 export const ChiefComplaintProviderColumnReadOnly: FC = () => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-    <ChiefComplaintFieldReadOnly />
+    <HistoryOfPresentIllnessFieldReadOnly label="HPI provider notes" />
 
     <RosFieldReadOnly />
   </Box>

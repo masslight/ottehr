@@ -13,6 +13,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
+import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
@@ -23,7 +24,6 @@ import PatientFollowup from './features/visits/shared/components/patient/Patient
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
 import EditInsurance from './features/visits/telemed/components/telemed-admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/telemed-admin/EditVirtualLocationPage';
-import { PatientVisitDetails } from './features/visits/telemed/pages/PatientVisitDetailsPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -31,8 +31,10 @@ import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
+import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
+import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
@@ -41,12 +43,14 @@ import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
+  CompleteEncounters,
   DailyPayments,
   DataExports,
   IncompleteEncounters,
   InvoiceablePatients,
+  PracticeKpis,
+  RecentPatients,
   VisitsOverview,
-  WorkflowEfficiency,
 } from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
@@ -189,11 +193,13 @@ function App(): ReactElement {
                   <Route path="/tasks-observability" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
+                  <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
                   <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                  <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                   <Route path="/reports/data-exports" element={<DataExports />} />
-                  <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
+                  <Route path="/reports/recent-patients" element={<RecentPatients />} />
                   <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
                 </>
               )}
@@ -212,10 +218,10 @@ function App(): ReactElement {
                   <Route path="/employees" element={<EmployeesPage />} />
                   <Route path="/employees/add" element={<AddEmployeePage />} />
                   <Route path="/employee/:id" element={<EditEmployeePage />} />
+                  <Route path="/profile" element={<EmployeeProfilePage />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
-                  <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
@@ -241,6 +247,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
@@ -252,9 +259,9 @@ function App(): ReactElement {
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
+                  <Route path="/profile" element={<EmployeeProfilePage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
-                  <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
@@ -287,6 +294,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>

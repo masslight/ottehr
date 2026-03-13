@@ -27,12 +27,13 @@ import {
   Organization,
   Patient,
   Practitioner,
-  QuestionnaireResponse,
   Reference,
   RelatedPerson,
   Resource,
+  Schedule,
   ServiceRequest,
   Signature,
+  Slot,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -40,6 +41,7 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   CODE_SYSTEM_COVERAGE_CLASS,
+  createPatientDocumentList,
   docRefIsLabGeneratedResult,
   docRefIsOgHl7Transmission,
   findExistingListByDocumentTypeCode,
@@ -54,19 +56,23 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { PROJECT_WEBSITE } from '../ottehr-config/branding';
 import {
+  APPOINTMENT_NOT_FOUND_ERROR,
   BookableResource,
+  CPTCodeDTO,
   EncounterVirtualServiceExtension,
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
-  PROJECT_WEBSITE,
+  SCHEDULE_NOT_FOUND_ERROR,
   ScheduleOwnerFhirResource,
   ServiceMode,
   VisitType,
 } from '../types';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+  ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   APPOINTMENT_LOCKED_META_TAG,
   APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
@@ -75,6 +81,7 @@ import {
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
+  FOLDERS_CONFIG,
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
@@ -111,10 +118,12 @@ export function getNPI(resource: Practitioner | Organization | Location | Health
     return ident.system === FHIR_IDENTIFIER_NPI;
   })?.value;
 }
-export function getTaxID(resource: Practitioner | Organization | Location | HealthcareService): string | undefined {
+export function getTaxID(
+  resource: Practitioner | Organization | Location | HealthcareService | Patient
+): string | undefined {
   // https://docs.oystehr.com/services/rcm/eligibility/#provider-practitioner--practitionerrole--organization
   return resource.identifier?.find((ident) => {
-    if (resource.resourceType === 'Practitioner') {
+    if (resource.resourceType === 'Practitioner' || resource.resourceType === 'Patient') {
       return ident.type?.coding?.some(
         (tc) =>
           tc.system === FHIR_IDENTIFIER_SYSTEM &&
@@ -363,11 +372,17 @@ export async function createFilesDocumentReferences(
     if (listResources) {
       const newListResources: List[] = [];
       for (const [typeCode, newEntries] of Object.entries(newEntriesByType)) {
-        const list = findExistingListByDocumentTypeCode(listResources, typeCode);
-        if (!list?.id) {
-          console.log(`default list for files with typeCode: ${typeCode} not found. Add typeCode to FOLDERS_CONFIG`);
-          // TODO: Create List with default config
-        } else {
+        let list = findExistingListByDocumentTypeCode(listResources, typeCode);
+        if (!list) {
+          const config = FOLDERS_CONFIG.find((config) => config.documentTypeCode === typeCode);
+          const patientReference = (references as any).subject?.reference;
+          if (config && typeof patientReference === 'string' && patientReference.startsWith('Patient/')) {
+            list = await oystehr.fhir.create<List>(createPatientDocumentList(patientReference, config));
+          } else {
+            console.log(`Can't create a list for config "${typeCode}" and patient "${patientReference}"`);
+          }
+        }
+        if (list?.id) {
           const updatedFolderEntries = [...(list?.entry ?? []), ...newEntries];
           const patchListWithDocRefOperation: Operation =
             list?.entry && list.entry?.length > 0
@@ -426,6 +441,8 @@ export const makeAppointmentTask = (input: AppointmentTaskInput): Task => {
   return {
     resourceType: 'Task',
     status: 'requested',
+    // todo add title here
+    // description: `Task for appointment ${appointmentID}`,
     intent: 'plan',
     focus: {
       type: 'Appointment',
@@ -615,10 +632,11 @@ export const getAbbreviationFromLocation = (location: Location): string | undefi
   return location.address?.state;
 };
 
-export function getTaskResource(coding: TaskCoding, appointmentID: string, encounterId?: string): Task {
+export function getTaskResource(coding: TaskCoding, title: string, appointmentID: string, encounterId?: string): Task {
   return {
     resourceType: 'Task',
     status: 'requested',
+    description: title,
     intent: 'plan',
     focus: {
       type: 'Appointment',
@@ -815,13 +833,6 @@ export const getUnconfirmedDOBIdx = (appointment?: Appointment): number | undefi
   return appointment.extension?.findIndex((ext) => {
     return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
   });
-};
-
-export const getIpAddress = (questionnaireResponse?: QuestionnaireResponse): string | undefined => {
-  if (!questionnaireResponse) return;
-  return questionnaireResponse.extension?.find((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.QuestionnaireResponse.ipAddress.url;
-  })?.valueString;
 };
 
 export function filterResources(allResources: Resource[], resourceType: string): Resource[] {
@@ -1254,10 +1265,41 @@ export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   return outcomeEntry;
 };
 
-export const getStripeCustomerIdFromAccount = (account: Account): string | undefined => {
-  return account.identifier?.find((ident) => {
+export const getStripeCustomerIdFromAccount = (
+  account: Account,
+  stripeAccount: string | undefined
+): string | undefined => {
+  if (!stripeAccount) {
+    return account.identifier?.find((ident) => {
+      return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE && !ident.extension;
+    })?.value;
+  } else {
+    return account.identifier?.find((ident) => {
+      return (
+        ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE &&
+        ident.extension?.some((ext) => {
+          return ext.url === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT && ext.valueString === stripeAccount;
+        })
+      );
+    })?.value;
+  }
+};
+
+export const getAllStripeCustomerAccountPairs = (
+  account: Account
+): { stripeAccount: string | undefined; customerId: string }[] => {
+  const stripeIdentifiers = account.identifier?.filter((ident) => {
     return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
-  })?.value;
+  });
+  if (!stripeIdentifiers) {
+    return [];
+  }
+  return stripeIdentifiers.map((ident) => {
+    const stripeAccount = ident.extension?.find((ext) => {
+      return ext.url === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT;
+    })?.valueString;
+    return { stripeAccount, customerId: ident.value ?? '' };
+  });
 };
 
 export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
@@ -1366,4 +1408,94 @@ export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undef
 
 export function getPatientReferenceFromAccount(account: Account): string | undefined {
   return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
+}
+
+export function getResponsiblePartyFromAccount(
+  account: Account,
+  resources: Resource[]
+): Patient | RelatedPerson | undefined {
+  const responsiblePartyRef = getActiveAccountGuarantorReference(account);
+  if (!responsiblePartyRef) return undefined;
+  return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
+}
+
+export const getScheduleOwnerFromAppointmentOrEncounter = async (
+  input: { appointmentId?: string; encounterId?: string },
+  oystehr: Oystehr
+): Promise<Location | HealthcareService | Practitioner> => {
+  const { appointmentId, encounterId } = input;
+  const appointmentSearchParams: SearchParam[] = [
+    {
+      name: '_include',
+      value: 'Appointment:actor',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Schedule:actor:Location',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Schedule:actor:Practitioner',
+    },
+  ];
+
+  if (appointmentId) {
+    appointmentSearchParams.push({
+      name: '_id',
+      value: appointmentId,
+    });
+  } else if (encounterId) {
+    appointmentSearchParams.push({ name: '_has:Encounter:appointment:_id', value: encounterId });
+  } else {
+    throw new Error('Either appointmentId or encounterId must be provided');
+  }
+
+  const allResources = (
+    await oystehr.fhir.search<Appointment | Slot | Schedule | Location | HealthcareService | Practitioner>({
+      resourceType: 'Appointment',
+      params: appointmentSearchParams,
+    })
+  ).unbundle();
+  console.log(`successfully retrieved ${allResources.length} appointment resources`);
+  const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
+  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
+  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
+  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
+
+  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
+  if (fhirLocation) {
+    scheduleOwner = fhirLocation as Location;
+  } else if (fhirHS) {
+    scheduleOwner = fhirHS as HealthcareService;
+  } else if (fhirPractitioner) {
+    scheduleOwner = fhirPractitioner as Practitioner;
+  }
+
+  if (!fhirAppointment) {
+    throw APPOINTMENT_NOT_FOUND_ERROR;
+  }
+
+  if (!scheduleOwner) {
+    throw SCHEDULE_NOT_FOUND_ERROR;
+  }
+
+  return scheduleOwner;
+};
+
+export function makeCptCodeDisplay(cptCode: CPTCodeDTO): string {
+  const dtoHasMod = cptCode.modifier && cptCode.modifier.length > 0;
+
+  const modifierCodesString = dtoHasMod ? `${cptCode.modifier?.map((mod) => `-${mod.code}`).join('')}` : '';
+
+  const modifierDescriptionString = dtoHasMod ? `${cptCode.modifier?.map((mod) => ` - ${mod.display}`).join('')}` : '';
+
+  return `${cptCode.code}${modifierCodesString} ${cptCode.display}${modifierDescriptionString}`;
 }

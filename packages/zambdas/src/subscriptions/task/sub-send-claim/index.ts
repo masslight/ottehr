@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
@@ -14,11 +14,6 @@ import {
 } from '../../../shared';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { validateRequestParameters } from '../validateRequestParameters';
-
-export interface TaskSubscriptionInput {
-  task: Task;
-  secrets: Secrets | null;
-}
 
 type TaskStatus =
   | 'draft'

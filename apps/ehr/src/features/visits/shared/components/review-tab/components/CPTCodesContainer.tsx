@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
+import { makeCptCodeDisplay } from 'utils';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const CPTCodesContainer: FC = () => {
@@ -11,11 +12,7 @@ export const CPTCodesContainer: FC = () => {
       <Typography variant="h5" color="primary.dark">
         CPT codes
       </Typography>
-      {cptCodes?.map((code) => (
-        <Typography key={code.resourceId}>
-          {code.code} {code.display}
-        </Typography>
-      ))}
+      {cptCodes?.map((code) => <Typography key={code.resourceId}>{makeCptCodeDisplay(code)}</Typography>)}
     </Box>
   );
 };

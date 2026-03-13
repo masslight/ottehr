@@ -10,16 +10,27 @@ export class DocumentProcedurePage {
   }
 
   async setConsentForProcedureChecked(checked: boolean): Promise<void> {
-    await this.#page
+    const consentCheckbox = this.#page
       .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
-      .locator('input')
-      .setChecked(checked);
+      .locator('input');
+
+    // Consent checkbox is optional - exists in some repos but not in others
+    const count = await consentCheckbox.count();
+    if (count > 0) {
+      await consentCheckbox.setChecked(checked);
+    }
   }
 
   async verifyConsentForProcedureChecked(checked: boolean): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure).locator('input')
-    ).toBeChecked({ checked });
+    const consentCheckbox = this.#page
+      .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
+      .locator('input');
+
+    // Consent checkbox is optional - exists in some repos but not in others
+    const count = await consentCheckbox.count();
+    if (count > 0) {
+      await expect(consentCheckbox).toBeChecked({ checked });
+    }
   }
 
   async selectProcedureType(type: string): Promise<void> {

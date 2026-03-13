@@ -22,8 +22,8 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
   const assessAbnormality = (entry: string): void => {
     if (
       testItemComponent.dataType === 'Quantity' &&
-      testItemComponent.normalRange.low &&
-      testItemComponent.normalRange.high
+      testItemComponent.normalRange.low !== null &&
+      testItemComponent.normalRange.high !== null
     ) {
       const entryNum = parseFloat(entry);
       const { high, low } = testItemComponent.normalRange;

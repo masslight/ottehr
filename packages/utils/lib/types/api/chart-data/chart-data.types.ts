@@ -13,8 +13,10 @@ import {
   Reference,
   Resource,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { ObservationDTO } from 'utils';
+import z from 'zod';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
   AiObservationField,
@@ -38,6 +40,7 @@ export interface AIChatDetails {
 export interface AllChartValues {
   chiefComplaint?: FreeTextNoteDTO;
   historyOfPresentIllness?: FreeTextNoteDTO;
+  mechanismOfInjury?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
@@ -55,7 +58,6 @@ export interface AllChartValues {
   disposition?: DispositionDTO;
   episodeOfCare?: HospitalizationDTO[];
   diagnosis?: DiagnosisDTO[];
-  aiPotentialDiagnosis?: DiagnosisDTO[];
   patientInfoConfirmed?: BooleanValueDTO;
   addToVisitNote?: BooleanValueDTO;
   addendumNote?: FreeTextNoteDTO;
@@ -67,12 +69,14 @@ export interface AllChartValues {
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
   reasonForVisit?: FreeTextNoteDTO;
+  accident?: AccidentDTO;
 }
 
 export type RequestedFields =
   | 'surgicalHistoryNote'
   | 'chiefComplaint'
   | 'historyOfPresentIllness'
+  | 'mechanismOfInjury'
   | 'ros'
   | 'episodeOfCare'
   | 'prescribedMedications'
@@ -88,9 +92,11 @@ export type RequestedFields =
   | 'addendumNote'
   | 'medications'
   | 'inhouseMedications'
+  | 'procedures'
   | 'observations'
   | 'preferredPharmacies'
-  | 'reasonForVisit';
+  | 'reasonForVisit'
+  | 'accident';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -104,22 +110,28 @@ export type ChartDataResources =
   | Observation
   | Procedure
   | ServiceRequest
-  | EpisodeOfCare;
+  | EpisodeOfCare
+  | Task;
 
 export interface ChartDataWithResources {
   chartData: GetChartDataResponse;
   chartResources: Resource[];
 }
 
-export interface SaveableDTO {
-  resourceId?: string;
-  derivedFrom?: string;
-  createICDRecommendations?: boolean;
-}
+export const saveableDTOSchema = z.object({
+  resourceId: z.string().uuid().optional(),
+  derivedFrom: z.string().optional(),
+  createICDRecommendations: z.boolean().optional(),
+});
 
-export interface FreeTextNoteDTO extends SaveableDTO {
-  text?: string;
-}
+export type SaveableDTO = z.infer<typeof saveableDTOSchema>;
+
+export const freeTextNoteDTOSchema = z.object({
+  ...saveableDTOSchema.shape,
+  text: z.string().optional(),
+});
+
+export type FreeTextNoteDTO = z.infer<typeof freeTextNoteDTOSchema>;
 
 export interface BooleanValueDTO {
   value?: boolean;
@@ -154,6 +166,7 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   provider?: string;
   added?: string;
   prescriptionId?: string;
+  encounterId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {
@@ -195,9 +208,21 @@ export interface VitalsBaseObservationDTO extends SaveableDTO {
 export interface VitalsNumericValueObservationDTO extends VitalsBaseObservationDTO {
   value: number;
 }
-export interface VitalsWeightObservationDTO extends VitalsNumericValueObservationDTO {
+
+export type VitalsWeightOption = 'patient_refused';
+
+type VitalsWeightWithValueDTO = VitalsNumericValueObservationDTO & {
   field: Extract<VitalFieldNames, 'vital-weight'>;
-}
+  extraWeightOptions?: VitalsWeightOption[];
+};
+
+export type VitalsWeightPatientRefusedDTO = VitalsBaseObservationDTO & {
+  field: Extract<VitalFieldNames, 'vital-weight'>;
+  extraWeightOptions: ['patient_refused'];
+  value?: never;
+};
+
+export type VitalsWeightObservationDTO = VitalsWeightWithValueDTO | VitalsWeightPatientRefusedDTO;
 
 export interface VitalsHeightObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-height'>;
@@ -240,6 +265,12 @@ export interface VitalsRespirationRateObservationDTO extends VitalsNumericValueO
   field: Extract<VitalFieldNames, 'vital-respiration-rate'>;
 }
 
+export type VitalsLastMenstrualPeriodObservationDTO = VitalsBaseObservationDTO & {
+  field: Extract<VitalFieldNames, 'vital-last-menstrual-period'>;
+  value: string;
+  isUnsure?: boolean;
+};
+
 export type VitalsObservationDTO =
   | VitalsTemperatureObservationDTO
   | VitalsHeartbeatObservationDTO
@@ -248,7 +279,8 @@ export type VitalsObservationDTO =
   | VitalsRespirationRateObservationDTO
   | VitalsWeightObservationDTO
   | VitalsHeightObservationDTO
-  | VitalsVisionObservationDTO;
+  | VitalsVisionObservationDTO
+  | VitalsLastMenstrualPeriodObservationDTO;
 
 export interface ObservationBooleanFieldDTO extends SaveableDTO {
   field: string;
@@ -268,14 +300,19 @@ export type AiObservationDTO = {
 export interface CPTCodeDTO extends SaveableDTO {
   code: string;
   display: string;
+  modifier?: { code: string; display: string }[];
 }
 
-export interface ClinicalImpressionDTO extends SaveableDTO {
-  text?: string;
-}
+export const clinicalImpressionDTOSchema = z.object({
+  ...saveableDTOSchema.shape,
+  text: z.string().optional(),
+});
+
+export type ClinicalImpressionDTO = z.infer<typeof clinicalImpressionDTOSchema>;
 
 export interface CommunicationDTO extends SaveableDTO {
   text?: string;
+  title?: string;
 }
 
 export enum NOTE_TYPE {
@@ -431,7 +468,39 @@ export const followUpInOptions = [
   },
 ];
 
+export interface BillingSuggestionInput {
+  newPatient: boolean | undefined;
+  hpi: string;
+  mdm: string;
+  externalLabOrders: string;
+  internalLabOrders: string;
+  radiologyOrders: any;
+  procedures: any;
+  diagnoses: DiagnosisDTO[] | undefined;
+  billing: CPTCodeDTO[] | undefined;
+}
+
+export interface BillingSuggestionOutput {
+  icdCodes: {
+    code: string;
+    description: string;
+    reason: string;
+  }[];
+  cptCodes: {
+    code: string;
+    description: string;
+    reason: string;
+  }[];
+  emCode: {
+    code: string;
+    description: string;
+    upcodingSuggestion: string;
+  }[];
+  codingSuggestions: string;
+}
+
 export interface ProcedureDTO extends SaveableDTO {
+  encounterId?: string;
   procedureType?: string;
   cptCodes?: CPTCodeDTO[];
   diagnoses?: DiagnosisDTO[];
@@ -451,4 +520,10 @@ export interface ProcedureDTO extends SaveableDTO {
   timeSpent?: string;
   documentedBy?: string;
   consentObtained?: boolean;
+}
+
+export interface AccidentDTO extends SaveableDTO {
+  type: string[];
+  date?: string;
+  state?: string;
 }

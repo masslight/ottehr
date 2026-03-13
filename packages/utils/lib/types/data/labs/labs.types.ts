@@ -1,5 +1,6 @@
 // cSpell:ignore RFRT
 import {
+  Communication,
   Coverage,
   DocumentReference,
   Encounter,
@@ -10,13 +11,40 @@ import {
   QuestionnaireResponseItem,
   Reference,
 } from 'fhir/r4b';
-import { DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
+import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
   item: OrderableItem;
   lab: OrderableItemLab;
 }
+
+export interface ExternalLabListItem {
+  display: string; // {test name / filler lab name}
+  itemCode: string;
+  labGuid: string;
+}
+
+export interface InHouseLabListItem {
+  display: string;
+  activityDefinitionId: string;
+}
+
+export interface ExternalLabListDTO {
+  listId: string;
+  listName: string;
+  listType: LabType.external;
+  labs: ExternalLabListItem[];
+}
+
+export interface InHouseLabListDTO {
+  listId: string;
+  listName: string;
+  listType: LabType.inHouse;
+  labs: InHouseLabListItem[];
+}
+
+export type LabListsDTO = ExternalLabListDTO | InHouseLabListDTO;
 
 export interface sampleDTO {
   specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
@@ -81,7 +109,7 @@ export enum ExternalLabsStatus {
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab' | 'rejected abn';
+  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab' | 'rejected abn' | 'deleted';
   performer: string;
   date: string;
 };
@@ -134,9 +162,11 @@ export type LabOrderListPageDTO = {
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
-  abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
+  abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_ABN_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
+  orderLevelNoteByUser: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn
+  clinicalInfoNoteByUser: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn (these notes should be one to one with SRs)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -175,6 +205,8 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'orderPdfUrl'
   | 'abnPdfUrl'
   | 'location'
+  | 'orderLevelNoteByUser'
+  | 'clinicalInfoNoteByUser'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
@@ -185,10 +217,6 @@ export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO &
 
 export type ReflexLabDTO = DiagnosticReportDrivenResultDTO & {
   drCentricResultType: 'reflex';
-};
-
-export type PdfAttachmentDTO = DiagnosticReportDrivenResultDTO & {
-  drCentricResultType: 'pdfAttachment';
 };
 
 // todo labs can probably leverage drCentricResultType here as well
@@ -207,14 +235,15 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
-  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
+  drDrivenResults: ReflexLabDTO[];
 };
 
 type orderBundleDTO = {
   bundleName: string;
+  bundleNote: string | undefined;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
-  orders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
+  orders: (LabOrderListPageDTO | ReflexLabDTO)[];
 };
 export type LabOrderListPageDTOGrouped = {
   pendingActionOrResults: Record<string, orderBundleDTO>;
@@ -246,10 +275,9 @@ export enum LabType {
   // do not change the following values as they are linked to LAB_DR_TYPE_TAG which is defined in oystehr
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
-  pdfAttachment = 'pdfAttachment', // external but has less fhir resources available since it did not originate from ottehr
 }
 /**
- * 'unsolicited', 'reflex', 'pdfAttachment'
+ * 'unsolicited', 'reflex'
  */
 export type LabDrTypeTagCode = (typeof LAB_DR_TYPE_TAG.code)[keyof typeof LAB_DR_TYPE_TAG.code];
 
@@ -287,34 +315,42 @@ type SelfPayResource = {
   type: LabPaymentMethod.SelfPay;
   coverage?: Coverage;
 };
-export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource;
+type WorkersCompResource = {
+  type: LabPaymentMethod.WorkersComp;
+  coverage: Coverage;
+};
+export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource | WorkersCompResource;
 
 export enum LabPaymentMethod {
   Insurance = 'insurance',
   SelfPay = 'selfPay',
   ClientBill = 'clientBill',
+  WorkersComp = 'workersComp',
 }
 export type CreateLabPaymentMethod =
   | LabPaymentMethod.Insurance
   | LabPaymentMethod.SelfPay
-  | LabPaymentMethod.ClientBill;
+  | LabPaymentMethod.ClientBill
+  | LabPaymentMethod.WorkersComp;
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];
   encounter: Encounter;
-  orderableItem: OrderableItemSearchResult;
+  orderableItems: OrderableItemSearchResult[];
   psc: boolean;
   orderingLocation: ModifiedOrderingLocation;
   selectedPaymentMethod: CreateLabPaymentMethod;
+  clinicalInfoNoteByUser?: string;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
 
 export type GetCreateLabOrderResources = {
   patientId?: string;
+  encounterId?: string;
   search?: string;
-  selectedOfficeId?: string;
   labOrgIdsString?: string;
+  selectedLabSet?: ExternalLabListDTO;
 };
 
 export type ModifiedOrderingLocation = {
@@ -334,6 +370,9 @@ export type ExternalLabOrderingLocations = {
 export type LabOrderResourcesRes = {
   coverages?: CreateLabCoverageInfo[];
   labs: OrderableItemSearchResult[];
+  appointmentIsWorkersComp: boolean;
+  additionalCptCodes?: CPTCodeOption[];
+  labSets: LabListsDTO[] | undefined;
 } & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
@@ -348,6 +387,8 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   cancelUnsolicitedResultTask: 'cancelUnsolicitedResultTask', // match or review tasks
   matchUnsolicitedResult: 'matchUnsolicitedResult',
   rejectedAbn: 'rejectedAbn',
+  addOrderLevelNote: 'addOrderLevelNote',
+  updateOrderLevelNote: 'updateOrderLevelNote',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -372,6 +413,7 @@ export type SaveOrderCollectionData = {
   serviceRequestId: string;
   data: DynamicAOEInput;
   specimenCollectionDates?: SpecimenCollectionDateConfig;
+  userTimezone: string;
 };
 
 export type CancelMatchUnsolicitedResultTask = {
@@ -393,7 +435,14 @@ export type UpdateLabOrderResourcesInput =
   | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
   | CancelMatchUnsolicitedResultTask
   | FinalizeUnsolicitedResultMatch
-  | { serviceRequestId: string; event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn };
+  | { serviceRequestId: string; event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn }
+  | {
+      requisitionNumber: string;
+      note: string;
+      event:
+        | typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote
+        | typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote;
+    };
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
@@ -427,17 +476,13 @@ export interface LabDocumentBase {
   docRefId: string;
   presignedURL: string;
 }
-export interface LabGeneratedResultDocument extends LabDocumentBase {
-  type: LabDocumentType.labGeneratedResult;
-  relatedResultReferences: string[]; // diagnostic reports linked via DocumentReference.context.related
-}
-export interface OttehrGeneratedResultDocument extends LabDocumentBase {
-  type: LabDocumentType.ottehrGeneratedResult;
-  diagnosticReportId: string;
+export interface LabDocumentRelatedToDiagnosticReport extends LabDocumentBase {
+  type: LabDocumentType.ottehrGeneratedResult | LabDocumentType.labGeneratedResult;
+  diagnosticReportIds: string[]; // lab generated results are one doc ref to many diagnostic reports
 }
 export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
   type: LabDocumentType.abn | LabDocumentType.orderPdf;
-  serviceRequestId: string;
+  serviceRequestIds: string[]; // one order pdf doc ref to many service requests
 }
 export interface LabelPdf {
   type: LabDocumentType.label;
@@ -445,18 +490,19 @@ export interface LabelPdf {
   presignedURL: string;
 }
 
-export type LabDocument =
-  | LabGeneratedResultDocument
-  | OttehrGeneratedResultDocument
-  | LabDocumentRelatedToServiceRequest
-  | LabelPdf;
+export type LabDocument = LabDocumentRelatedToDiagnosticReport | LabDocumentRelatedToServiceRequest | LabelPdf;
 
 export interface ExternalLabDocuments {
-  labelPDF: LabelPdf | undefined;
+  labelPDF: LabelPdf | undefined; // only ever returned for the detail page atm
+  labGeneratedResults: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
+  resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
   abnPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
-  labGeneratedResults: LabGeneratedResultDocument[] | undefined;
-  resultPDFs: OttehrGeneratedResultDocument[] | undefined;
+}
+
+export interface ExternalLabCommunications {
+  orderLevelNotesByUser: Communication[];
+  clinicalInfoNotesByUser: Communication[];
 }
 
 export enum UnsolicitedResultsRequestType {

@@ -10,7 +10,7 @@ import {
   SearchParams,
 } from 'utils';
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
-import { makeEncounterLabResults } from '../shared/labs';
+import { makeEncounterLabResults } from '../lab/shared/labs';
 
 type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 
@@ -201,7 +201,6 @@ export async function convertSearchResultsToResponse(
           schoolWorkNotes: [],
           observations: [],
           practitioners: [],
-          aiPotentialDiagnosis: [],
           aiChat: {
             documents: [],
             providers: [],
@@ -281,15 +280,21 @@ export async function convertSearchResultsToResponse(
   };
 }
 
-export const configProceduresRequestsForGetChartData = (encounterId: string): BatchInputGetRequest => {
+export const configProceduresRequestsForGetChartData = (encounterIds: string | string[]): BatchInputGetRequest => {
+  const encounterRefs = Array.isArray(encounterIds)
+    ? encounterIds.map((id) => `Encounter/${id}`).join(',')
+    : `Encounter/${encounterIds}`;
   return {
     method: 'GET',
-    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=completed`,
+    url: `/ServiceRequest?encounter=${encounterRefs}&status=completed`,
   };
 };
 
-export const defaultChartDataFieldsSearchParams: Partial<Record<keyof GetChartDataResponse, { _tag: string }>> = {
+export const defaultChartDataFieldsSearchParams: Partial<
+  Record<keyof GetChartDataResponse, { _tag?: string; _sort?: string }>
+> = {
   medications: { _tag: 'current-medication' },
   inhouseMedications: { _tag: 'in-house-medication' },
   schoolWorkNotes: { _tag: SCHOOL_WORK_NOTE },
+  instructions: { _sort: '-sent' },
 };

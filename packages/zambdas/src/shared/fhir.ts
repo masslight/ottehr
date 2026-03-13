@@ -7,6 +7,7 @@ import Oystehr, {
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
+  Bundle,
   Encounter,
   HealthcareService,
   Location,
@@ -122,7 +123,7 @@ export async function getSchedules(
   }
   if (hsSchedulingStrategy === undefined && scheduleOwner?.resourceType === 'HealthcareService') {
     throw MISCONFIGURED_SCHEDULING_GROUP(
-      `HealthcareService/${scheduleOwner?.id} needs to be (configured with a scheduling strategy)[todo: link to docs] in order to be used as a schedule provider.`
+      `HealthcareService/${scheduleOwner?.id} needs to be configured with a scheduling strategy in order to be used as a schedule provider.`
     );
   }
 
@@ -143,7 +144,7 @@ export async function getSchedules(
 
   if (!schedule?.id && (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns)) {
     throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
-      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite (schedule extension json)[todo: link to docs].`
+      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite schedule extension json.`
     );
   }
 
@@ -380,4 +381,41 @@ export async function searchInvitedParticipantResourcesByEncounterId(
     (r): r is RelatedPerson => r.resourceType === 'RelatedPerson'
   );
   return relatedPersons.filter((r) => r.relationship?.[0].coding?.[0].code === 'WIT');
+}
+
+export async function fetchAllPages(
+  fetchPage: (offset: number, count: number) => Promise<Bundle>,
+  initialPageSize: number
+): Promise<void> {
+  let offset = 0;
+  let pageSize = initialPageSize;
+  let hasMorePages = true;
+  do {
+    let bundle;
+    let pageFetched = false;
+    while (!pageFetched && pageSize > 0) {
+      try {
+        bundle = await fetchPage(offset, pageSize);
+        pageFetched = true;
+      } catch (error: unknown) {
+        console.log(`Error fetching page: ${error}`, JSON.stringify(error));
+        if (error instanceof Oystehr.OystehrSdkError && (error.code === 4130 || (error.code as any) === '4130')) {
+          pageSize = Math.floor(pageSize / 2);
+        } else {
+          throw error;
+        }
+      }
+    }
+    if (pageSize === 0) {
+      throw new Error('Failed to fetch resources');
+    }
+    hasMorePages = bundle?.link?.find((link) => link.relation === 'next') != null;
+    offset += pageSize;
+
+    // Safety check
+    if (offset > 100000) {
+      console.warn('Reached maximum pagination limit (100000 items). Stopping search.');
+      break;
+    }
+  } while (hasMorePages);
 }

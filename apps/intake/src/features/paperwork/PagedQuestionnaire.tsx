@@ -12,6 +12,8 @@ import {
   IconButton,
   InputBaseComponentProps,
   InputProps,
+  Link,
+  Stack,
   SxProps,
   TextField,
   Theme,
@@ -24,6 +26,7 @@ import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'rea
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
+import { usePaperworkStore } from 'src/pages/PaperworkPage';
 import {
   IntakeQuestionnaireItem,
   makeValidationSchema,
@@ -46,17 +49,23 @@ import { useIntakeThemeContext } from '../../contexts';
 import { getUCInputType } from '../../helpers/paperworkUtils';
 import { otherColors } from '../../IntakeThemeProvider';
 import { ControlButtonsProps } from '../../types';
+import AIInterview from './components/AIInterview';
+import { CardErrorDialog } from './components/CardErrorDialog';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
+import DecimalInput from './components/DecimalInput';
 import { FieldHelperText } from './components/FieldHelperText';
 import FileInput, { AttachmentType } from './components/FileInput';
 import FreeMultiSelectInput from './components/FreeMultiSelectInput';
 import GroupContainer from './components/group/GroupContainer';
 import MultiAnswerHeader from './components/group/MultiAnswerHeader';
+import { PharmacyCollection } from './components/PharmacyCollection';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
+import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useAutoFillValues } from './useAutofill';
+import { useFilterAnswersOptions } from './useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
 import { StyledQuestionnaireItem, useStyledItems } from './useStyleItems';
 import { getInputTypeForItem } from './utils';
@@ -70,6 +79,8 @@ interface PagedQuestionnaireOptions {
 interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
   pageId: string;
+  pageItem?: IntakeQuestionnaireItem;
+  pageSubtitle?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
   isSaving?: boolean;
@@ -122,7 +133,6 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
   if (numErrors === 0) {
     return undefined;
   }
-  // console.log('errors in form', JSON.stringify(errors, null, 2));
 
   // Check if any error is for a group with list-with-form type
   const hasListWithFormError = items.some((item) => {
@@ -177,6 +187,8 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
 const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
   pageId,
+  pageItem,
+  pageSubtitle,
   defaultValues,
   options = {},
   isSaving,
@@ -184,7 +196,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   saveProgress,
 }) => {
   const { paperwork, allItems, questionnaireResponse: questionnaireResponseResource } = usePaperworkContext();
-
   const [cache, setCache] = useState({
     pageId,
     items,
@@ -220,7 +231,9 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   }, [cache, defaultValues, items, reset, pageId]);
   return (
     <FormProvider {...methods}>
+      {pageItem && pageSubtitle ? <PaperworkPageTitle pageItem={pageItem} pageSubtitle={pageSubtitle} /> : null}
       <PaperworkFormRoot
+        pageItem={pageItem}
         items={items}
         onSubmit={onSubmit}
         saveProgress={saveProgress}
@@ -231,7 +244,37 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   );
 };
 
+interface PaperworkPageTitleProps {
+  pageItem: IntakeQuestionnaireItem;
+  pageSubtitle: string;
+}
+
+const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitle }) => {
+  const theme = useTheme();
+  const [styledPageItem] = useStyledItems({ formItems: [pageItem] });
+  return (
+    <Stack style={{ marginBottom: '16px' }}>
+      <Typography
+        sx={{
+          width: { xs: '100%', md: '100%' },
+        }}
+        variant="h2"
+        color="primary.main"
+        data-testid="flow-page-title"
+      >
+        {styledPageItem?.text}
+      </Typography>
+      {pageSubtitle && (
+        <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
+          {pageSubtitle}
+        </Typography>
+      )}
+    </Stack>
+  );
+};
+
 interface PaperworkRootInput {
+  pageItem?: IntakeQuestionnaireItem;
   items: IntakeQuestionnaireItem[];
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
@@ -239,6 +282,7 @@ interface PaperworkRootInput {
   parentIsSaving?: boolean;
 }
 const PaperworkFormRoot: FC<PaperworkRootInput> = ({
+  pageItem,
   items,
   onSubmit,
   saveProgress,
@@ -247,11 +291,12 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 }) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
-  const { saveButtonDisabled } = usePaperworkContext();
-  //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
-  //console.log('all items', allItems);
+  const { questionnaireResponse, saveButtonDisabled } = usePaperworkContext();
+  const { continueLabel } = usePaperworkStore();
 
   const { handleSubmit, formState } = useFormContext();
+
+  const { isSavingCard, handleCardSave } = useCreditCardSave();
 
   const theme = useTheme();
 
@@ -260,31 +305,48 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const errorMessage = makeFormErrorMessage(items, errors);
   const { formValues } = useQRState();
 
-  const submitHandler = useCallback(async () => {
-    setIsSavingProgress(true);
-    await handleSubmit(onSubmit)();
-    setIsSavingProgress(false);
-  }, [handleSubmit, onSubmit]);
+  const submitHandler = useCallback(
+    async ({ skipValidation = false }: { skipValidation?: boolean } = {}) => {
+      const { shouldContinue } = await handleCardSave({ skipValidation });
+
+      if (!shouldContinue) {
+        return;
+      }
+
+      setIsSavingProgress(true);
+      await handleSubmit(onSubmit)();
+      setIsSavingProgress(false);
+    },
+    [handleSubmit, onSubmit, handleCardSave]
+  );
 
   const { bottomComponent, hideControls, controlButtons } = options;
-
   const swizzledCtrlButtons = useMemo(() => {
     const baseStuff = controlButtons ?? {};
     return {
       ...baseStuff,
       submitDisabled: baseStuff.loading || isLoading || saveButtonDisabled,
+      // only use the continue label with inperson paperwork
+      submitLabel: questionnaireResponse?.questionnaire?.includes('intake-paperwork-inperson')
+        ? continueLabel
+        : undefined,
       onSubmit: submitHandler,
     };
-  }, [controlButtons, isLoading, saveButtonDisabled, submitHandler]);
+  }, [continueLabel, controlButtons, isLoading, questionnaireResponse, saveButtonDisabled, submitHandler]);
 
   useBeforeUnload(() => {
     saveProgress(formValues);
   });
 
   return (
-    <form onSubmit={submitHandler}>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submitHandler();
+      }}
+    >
       <Grid container spacing={1}>
-        <RenderItems items={items} />
+        <RenderItems items={items} pageItem={pageItem} />
       </Grid>
       <div id="page-form-inner-form" />
       {bottomComponent}
@@ -297,23 +359,26 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
         </FormHelperText>
       )}
       {!hideControls && (
-        <ControlButtons {...swizzledCtrlButtons} loading={isSavingProgress || isSubmitting || parentIsSaving} />
+        <ControlButtons
+          {...swizzledCtrlButtons}
+          loading={isSavingProgress || isSubmitting || parentIsSaving || isSavingCard}
+        />
       )}
+      <CardErrorDialog onContinueAnyway={() => void submitHandler({ skipValidation: true })} />
     </form>
   );
 };
 
 export interface RenderItemsProps {
   items: IntakeQuestionnaireItem[];
+  pageItem?: IntakeQuestionnaireItem;
   parentItem?: IntakeQuestionnaireItem;
   fieldId?: string;
 }
 
 const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
-  const { items, parentItem, fieldId } = props;
+  const { items, pageItem, parentItem, fieldId } = props;
   const styledItems = useStyledItems({ formItems: items });
-  // console.log('styledItems', styledItems);
-  // console.log('all items', items);
   useAutoFillValues({ questionnaireItems: items, fieldId, parentItem });
 
   return (
@@ -321,13 +386,18 @@ const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
       {styledItems.map((item, idx) => {
         if (item.type === 'display') {
           return <FormDisplayField item={item} key={`FDF-${fieldId ?? item.linkId}-${idx}`} />;
-        } else if (item.type === 'group' && item.dataType !== 'DOB') {
+        } else if (
+          item.type === 'group' &&
+          item.dataType !== 'DOB' &&
+          item.groupType !== QuestionnaireItemGroupType.PharmacyCollection
+        ) {
           return (
             <GroupContainer
               item={item}
               key={`${JSON.stringify(item)}-${idx}`}
               fieldId={fieldId}
               parentItem={parentItem}
+              pageItem={pageItem}
               RenderItems={RenderItems}
             />
           );
@@ -337,6 +407,7 @@ const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
               key={`NI-${JSON.stringify(item)}-${idx}`}
               item={item}
               inputProps={makeFormInputPropsForItem(item)}
+              pageItem={pageItem}
               parentItem={props.parentItem}
               inheritedFieldId={fieldId}
             />
@@ -365,12 +436,13 @@ const makeStyles = (): any => {
 };
 
 interface NestedInputProps extends StyledItemInputProps {
+  pageItem?: IntakeQuestionnaireItem;
   parentItem?: IntakeQuestionnaireItem;
   inheritedFieldId?: string;
 }
 
 const NestedInput: FC<NestedInputProps> = (props) => {
-  const { item, inputProps, sx = {}, parentItem, inheritedFieldId } = props;
+  const { item, inputProps, sx = {}, pageItem, parentItem, inheritedFieldId } = props;
   const { helperText, showHelperTextIcon } = inputProps || {};
   const { formValues } = useQRState();
   const dependency = item.requireWhen ? formValues[item.requireWhen.question] : undefined;
@@ -380,10 +452,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
 
   // fieldId returns the path to the scalar value (the thing that the inputs manipulate directly)
   // call site 2: ignores result when no parent item
-  //console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
   const fieldId = getPaperworkFieldId({ item, parentItem, parentFieldId: inheritedFieldId });
-  //console.log('linkId, fieldId', item.linkId, fieldId);
-
   const { hasError, errorMessage } = useFieldError(parentItem ? fieldId : item.linkId);
 
   useEffect(() => {
@@ -430,7 +499,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
               htmlFor={`${item.linkId}`}
               sx={(theme) => ({
                 ...(item.hideControlLabel ? { display: 'none' } : { whiteSpace: 'pre-wrap', position: 'unset' }),
-                color: isFocused ? theme.palette.primary.main : theme.palette.primary.dark,
+                color: isFocused ? theme.palette.primary.dark : theme.palette.primary.main,
               })}
             >
               {item.infoText ? (
@@ -446,7 +515,13 @@ const NestedInput: FC<NestedInputProps> = (props) => {
                 item.text
               )}
             </BoldPurpleInputLabel>
-            <FormInputField renderProps={renderProps} itemProps={props} parentItem={parentItem} fieldId={fieldId} />
+            <FormInputField
+              renderProps={renderProps}
+              itemProps={props}
+              pageItem={pageItem}
+              parentItem={parentItem}
+              fieldId={fieldId}
+            />
             {item.secondaryInfoText ? (
               <LightToolTip
                 title={item.secondaryInfoText}
@@ -487,10 +562,17 @@ interface GetFormInputFieldProps {
   itemProps: StyledItemInputProps;
   renderProps: any; // do better
   fieldId: string;
+  pageItem?: IntakeQuestionnaireItem;
   parentItem?: IntakeQuestionnaireItem;
 }
 
-const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fieldId, parentItem }): ReactElement => {
+const FormInputField: FC<GetFormInputFieldProps> = ({
+  itemProps,
+  renderProps,
+  fieldId,
+  pageItem,
+  parentItem,
+}): ReactElement => {
   const { item, inputProps } = itemProps;
   const { inputBaseProps, inputMode } = inputProps || { disableUnderline: true };
   const {
@@ -522,12 +604,13 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
   } = usePaperworkFormHelpers({ item, renderValue: value, renderOnChange: onChange, fieldId });
 
   const error = useFieldError(fieldId);
-  const answerOptions = item.answerOption ?? [];
+  const answerOptions = useFilterAnswersOptions(item.answerOption ?? []);
   const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {
     attachmentType = 'pdf';
   }
+
   return (() => {
     switch (inputType) {
       case 'Text':
@@ -542,7 +625,11 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
               ...inputBaseProps,
               inputMode:
                 inputMode ??
-                (item.type === 'integer' || item.type === 'decimal' || item.dataType === 'ZIP' ? 'numeric' : 'text'),
+                (item.type === 'decimal'
+                  ? 'decimal'
+                  : item.type === 'integer' || item.dataType === 'ZIP'
+                  ? 'numeric'
+                  : 'text'),
               ...(item.dataType === 'ZIP' && { pattern: '[0-9]*', maxLength: 5 }),
             }}
             placeholder={item.placeholder}
@@ -683,6 +770,18 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
             onChange={smartOnChange}
           />
         );
+      case 'Decimal':
+        return (
+          <DecimalInput
+            item={item}
+            value={unwrappedValue}
+            fieldId={fieldId}
+            onChange={smartOnChange}
+            inputRef={parentItem ? ref : inputRef}
+            error={error.hasError}
+            disabled={item.displayStrategy !== 'enabled'}
+          />
+        );
       case 'Attachment':
         return (
           <FileInput
@@ -702,6 +801,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
             <>
               <MultiAnswerHeader item={item} key={`${fieldId}.group-header`} />
               <RenderItems
+                pageItem={pageItem}
                 parentItem={item}
                 items={item.item ?? []}
                 fieldId={fieldId}
@@ -709,12 +809,44 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
               />
             </>
           );
+        } else if (item.groupType == QuestionnaireItemGroupType.PharmacyCollection) {
+          return <PharmacyCollection onChange={smartOnChange} />;
         } else {
-          return <RenderItems parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
+          return <RenderItems pageItem={pageItem} parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
         }
       case 'Credit Card':
         return (
-          <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
+          <CreditCardVerification
+            fieldId={fieldId}
+            onChange={smartOnChange}
+            required={item.required ?? false}
+            value={unwrappedValue}
+          />
+        );
+      case 'Medical History':
+        return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;
+      case 'Link':
+        return (
+          <Link
+            component="button"
+            type="button"
+            onClick={() => smartOnChange(!unwrappedValue)}
+            aria-label={`${item.linkId}-toggle`}
+            underline="hover"
+            sx={{
+              pt: item.hideControlLabel ? 0 : 1,
+              textAlign: 'left',
+              display: 'inline',
+              cursor: 'pointer',
+              color: otherColors.purple,
+              fontWeight: 500,
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            {item.text}
+          </Link>
         );
       default:
         return <></>;

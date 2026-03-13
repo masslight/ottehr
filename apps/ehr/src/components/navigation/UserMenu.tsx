@@ -1,3 +1,5 @@
+import { otherColors } from '@ehrTheme/colors';
+import SettingsIcon from '@mui/icons-material/Settings';
 import WarningIcon from '@mui/icons-material/Warning';
 import {
   Avatar,
@@ -22,7 +24,7 @@ import {
   useEnrollPractitionerToERX,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
+import { BRANDING_CONFIG, getFullestAvailableName, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
@@ -62,7 +64,9 @@ export const UserMenu: FC = () => {
     }
   }, [connectPractitionerForConfirmation, enrollPractitioner, practitioner]);
 
-  const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? `${PROJECT_NAME} Team`);
+  const name =
+    user?.profileResource &&
+    (getFullestAvailableName(user.profileResource, true) ?? `${BRANDING_CONFIG.projectName} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
   return (
@@ -90,7 +94,7 @@ export const UserMenu: FC = () => {
       >
         <MenuItem>
           <Box>
-            <Typography variant="body1">{PROJECT_NAME} Admin</Typography>
+            <Typography variant="body1">{BRANDING_CONFIG.projectName} Admin</Typography>
             <Typography variant="caption">{user?.email}</Typography>
           </Box>
         </MenuItem>
@@ -123,6 +127,13 @@ export const UserMenu: FC = () => {
             <Divider />
           </>
         )}
+        <Link to="/profile" style={{ textDecoration: 'none', color: 'inherit' }} onClick={() => setAnchorElement(null)}>
+          <MenuItem>
+            <SettingsIcon fontSize="small" sx={{ mr: 1, color: otherColors.blackTransparent }} />
+            <Typography variant="body1">Settings</Typography>
+          </MenuItem>
+        </Link>
+        <Divider sx={{ my: 1 }} />
         <Link to="/logout" style={{ textDecoration: 'none' }}>
           <MenuItem>
             <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>

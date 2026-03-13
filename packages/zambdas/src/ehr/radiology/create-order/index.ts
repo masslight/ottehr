@@ -1,43 +1,44 @@
-import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
+import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
+import { Encounter, HumanName, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
 import {
-  CreateRadiologyZambdaOrderInput,
-  CreateRadiologyZambdaOrderOutput,
-  getSecret,
-  RoleType,
-  Secrets,
-  SecretsKeys,
-  userMe,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  fillMeta,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
-import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
+  CPTCodeDTO,
+  CreateRadiologyZambdaOrderInput,
+  CreateRadiologyZambdaOrderOutput,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
+  getAdvaPACSLocationForAppointmentOrEncounter,
+  getCallerUserWithAccessToken,
+  getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
+  Secrets,
+  SecretsKeys,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-} from '../shared';
+} from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  fillMeta,
+  makeCPTCodeDTO,
+  makeCptModifierExtension,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -79,6 +80,8 @@ const ZAMBDA_NAME = 'create-radiology-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.log('Input body and headers', unsafeInput.body, unsafeInput.headers);
+
     const secrets = validateSecrets(unsafeInput.secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -87,31 +90,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
 
     const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
-    await accessCheck(callerUser);
 
     const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ output }),
+      body: JSON.stringify(output),
     };
   } catch (error: any) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
-
-const accessCheck = async (callerUser: User): Promise<void> => {
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
-
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  return userMe(token, secrets);
-};
 
 const performEffect = async (
   validatedInput: ValidatedInput,
@@ -127,17 +116,24 @@ const performEffect = async (
     id: practitionerRelativeReference.split('/')[1],
   });
 
+  // Grab advapacs location id from schedule owner extension if any
+  const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
+    { encounterId: body.encounter.id },
+    oystehr
+  );
+
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
   if (!ourServiceRequest.id) {
     throw new Error('Error creating service request, id is missing');
   }
 
-  await writeOurProcedure(ourServiceRequest, secrets, oystehr);
+  const cptCodeDTO = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
+  const cptCodesSaved = cptCodeDTO ? [cptCodeDTO] : undefined;
 
   // Send the order to AdvaPACS
   try {
-    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
+    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
   } catch (error) {
     captureException(error);
     console.error('Error sending order to AdvaPACS: ', error);
@@ -146,6 +142,7 @@ const performEffect = async (
 
   return {
     serviceRequestId: ourServiceRequest.id,
+    cptCodesSaved,
   };
 };
 
@@ -154,8 +151,16 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, stat, clinicalHistory } = validatedBody;
+  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory } = validatedBody;
   const now = DateTime.now();
+
+  const srCodeCoding = lateralityModifier
+    ? {
+        code: `${cpt.code}-${lateralityModifier.code}`,
+        display: `${cpt.display} - ${lateralityModifier.display}`,
+        system: cpt.system,
+      }
+    : cpt;
 
   const fillerAndPlacerOrderNumber = randomstring.generate({
     length: 22,
@@ -235,7 +240,7 @@ const writeOurServiceRequest = (
     },
     priority: stat ? 'stat' : 'routine',
     code: {
-      coding: [cpt],
+      coding: [srCodeCoding],
     },
     orderDetail: [
       {
@@ -317,9 +322,23 @@ const writeOurServiceRequest = (
 // This Procedure holds the CPT code for billing purposes
 const writeOurProcedure = async (
   ourServiceRequest: ServiceRequest,
+  validatedBody: EnhancedBody,
   secrets: Secrets,
   oystehr: Oystehr
-): Promise<void> => {
+): Promise<CPTCodeDTO | undefined> => {
+  const { cpt, lateralityModifier } = validatedBody;
+
+  const modifierExtension = lateralityModifier ? { extension: [makeCptModifierExtension([lateralityModifier])] } : {};
+
+  const procedureCode = {
+    coding: [
+      {
+        ...cpt,
+        ...modifierExtension,
+      },
+    ],
+  };
+
   const procedureConfig: Procedure = {
     resourceType: 'Procedure',
     status: 'completed',
@@ -328,15 +347,22 @@ const writeOurProcedure = async (
     performer: ourServiceRequest.performer?.map((performer) => ({
       actor: performer,
     })),
-    code: ourServiceRequest.code,
+    code: procedureCode,
     meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
   };
-  await oystehr.fhir.create<Procedure>(procedureConfig);
+
+  const fhirProcedure = await oystehr.fhir.create<Procedure>(procedureConfig);
+  console.log(`cpt code procedure successfully created: Procedure/${fhirProcedure.id}`);
+
+  const cptCodeDTO = makeCPTCodeDTO(fhirProcedure);
+
+  return cptCodeDTO;
 };
 
 const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
   ourPractitioner: Practitioner,
+  advaPACSLocationId: string | undefined,
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -349,6 +375,16 @@ const writeAdvaPacsTransaction = async (
     const ourPatientId = ourPatient.id;
     const ourRequestingPractitionerId = ourServiceRequest.requester?.reference?.split('/')[1];
 
+    // Advapacs supports only a single name: send first official if there is one otherwise grab the first
+    const bestNameToSendForActor = (resource: Patient | Practitioner): HumanName[] | undefined => {
+      let nameToSend: HumanName[] | undefined = resource.name;
+      if (resource.name && resource.name.length > 0) {
+        const officialName = resource.name.find((name) => name.use === 'official');
+        nameToSend = officialName ? [officialName] : [resource.name[0]];
+      }
+      return nameToSend;
+    };
+
     const patientToCreate: BatchInputPutRequest<Patient> = {
       method: 'PUT',
       url: `Patient?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourPatientId}`,
@@ -360,7 +396,7 @@ const writeAdvaPacsTransaction = async (
             value: ourPatientId,
           },
         ],
-        name: ourPatient.name,
+        name: bestNameToSendForActor(ourPatient),
         birthDate: ourPatient.birthDate,
         gender: ourPatient.gender,
       },
@@ -377,7 +413,7 @@ const writeAdvaPacsTransaction = async (
             value: ourRequestingPractitionerId,
           },
         ],
-        name: ourPractitioner.name,
+        name: bestNameToSendForActor(ourPractitioner),
         birthDate: ourPractitioner.birthDate,
         gender: ourPractitioner.gender,
       },
@@ -465,6 +501,15 @@ const writeAdvaPacsTransaction = async (
         ],
         authoredOn: ourServiceRequest.authoredOn,
         occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
+        location: advaPACSLocationId
+          ? [
+              {
+                reference: {
+                  reference: `Location/${advaPACSLocationId}`,
+                },
+              },
+            ]
+          : undefined,
       },
     };
 

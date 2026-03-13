@@ -11,9 +11,9 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import type { ExamCardComponent, ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExamCardComponent, ExamItemConfig } from 'utils';
 import { ControlledCheckboxSelect } from './ControlledCheckboxSelect';
 import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamCheckboxDropdown } from './ControlledExamCheckboxDropdown';

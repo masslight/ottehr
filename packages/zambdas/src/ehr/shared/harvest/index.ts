@@ -1,4 +1,5 @@
 import Oystehr, {
+  BatchInputDeleteRequest,
   BatchInputPatchRequest,
   BatchInputPostRequest,
   BatchInputPutRequest,
@@ -18,24 +19,28 @@ import {
   ContactPoint,
   Coverage,
   DocumentReference,
+  Extension,
   FhirResource,
   Flag,
+  Identifier,
   List,
   Location,
   Organization,
   Patient,
   Practitioner,
+  Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
-  Task,
 } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  ATTORNEY_FIRM_EXTENSION_URL,
+  buildExtensionObject,
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
   ConsentSigner,
@@ -52,43 +57,47 @@ import {
   deduplicateContactPoints,
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
+  EMPLOYER_ORG_IDENTIFIER_SYSTEM,
   extractResourceTypeAndPath,
   FHIR_BASE_URL,
   FHIR_EXTENSION,
   FileDocDataForDocReference,
+  filterHiddenRemovableFields,
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
+  getAllStripeCustomerAccountPairs,
   getArrayInfo,
   getConsentAndRelatedDocRefsForAppointment,
+  getConsentFormsForLocation,
   getCurrentValue,
   getEmailForIndividual,
   getFullName,
   getMemberIdFromCoverage,
-  getPatchOperationToAddOrUpdateExtension,
   getPatchOperationToAddOrUpdatePreferredLanguage,
   getPatchOperationToAddOrUpdatePreferredName,
-  getPatchOperationToRemoveExtension,
   getPatchOperationToRemovePreferredLanguage,
   getPayerId,
   getPhoneNumberForIndividual,
   getSecret,
+  getTaxID,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  InsurancePlanTypes,
   IntakeQuestionnaireItem,
+  isFieldExplicitlyCleared,
   isoStringFromDateComponents,
   isValidUUID,
+  makeSSNIdentifier,
   mapBirthSexToGender,
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
   PAPERWORK_CONSENT_CODE_UNIQUE,
-  PAPERWORK_CONSENT_CODING_LOINC,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
@@ -96,32 +105,68 @@ import {
   PatientAccountAndCoverageResources,
   patientFieldPaths,
   PatientMasterRecordResource,
-  PatientMasterRecordResourceType,
+  PHARMACY_COLLECTION_LINK_IDS,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
+  PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_EXTENSION_URL,
-  PRIVACY_POLICY_CODE,
+  PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
+  PREFERRED_PHARMACY_PLACES_ID_URL,
+  prepareQuestionnaireResponseForHarvest,
   PRIVATE_EXTENSION_BASE_URL,
+  QuestionnaireResponseHarvestInput,
   relatedPersonFieldPaths,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
   SecretsKeys,
-  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   takeContainedOrFind,
   uploadPDF,
+  VALUE_SETS,
+  WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
+import { createPdfBytes } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
-const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
-// const PATIENT_UPDATE_MAX_RETRIES = 3;
+export const accountMatchesType = (account: Account, type?: Account['type']): boolean => {
+  if (!account?.type?.coding || !type?.coding) {
+    return false;
+  }
+  for (const targetCoding of type.coding) {
+    const matches = account.type.coding.some(
+      (accountCoding) => accountCoding.code === targetCoding.code && accountCoding.system === targetCoding.system
+    );
+    if (matches) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const organizationMatchesType = (organization: Organization, type?: CodeableConcept): boolean => {
+  if (!organization?.type?.length || !type?.coding) {
+    return false;
+  }
+  for (const targetCoding of type.coding) {
+    const matches = organization.type.some((organizationType) => {
+      return organizationType.coding?.some(
+        (organizationCoding) =>
+          organizationCoding.code === targetCoding.code && organizationCoding.system === targetCoding.system
+      );
+    });
+    if (matches) {
+      return true;
+    }
+  }
+  return false;
+};
 
 interface ResponsiblePartyContact {
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -277,38 +322,18 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   const baseUploadURL = `${getSecret(SecretsKeys.PROJECT_API, secrets)}/z3/${bucket}/${
     patientResource.id
   }/${Date.now()}`;
-  const consentDocument =
-    locationState === 'IL'
-      ? './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf'
-      : './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf';
-  const pdfsToCreate = [
-    {
-      uploadURL: `${baseUploadURL}-consent-to-treat.pdf`,
-      copyFromPath: consentDocument,
-      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
-      resourceTitle: 'Consent forms',
-      type: {
-        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
-        text: 'Consent forms',
-      },
-    },
-    {
-      uploadURL: `${baseUploadURL}-hipaa-acknowledgement.pdf`,
-      copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
-      formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPAA forms',
-      type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: PRIVACY_POLICY_CODE,
-            display: 'Privacy Policy',
-          },
-        ],
-        text: 'HIPAA Acknowledgement forms',
-      },
-    },
-  ];
+
+  const consentForms = getConsentFormsForLocation(locationState);
+
+  const pdfsToCreate = consentForms.map((form) => ({
+    formId: form.id,
+    uploadURL: `${baseUploadURL}-${form.id}.pdf`,
+    copyFromPath: form.assetPath,
+    formTitle: form.formTitle,
+    resourceTitle: form.resourceTitle,
+    type: form.type,
+    createsConsentResource: form.createsConsentResource,
+  }));
 
   const pdfGroups: Record<string, typeof pdfsToCreate> = {};
   for (const pdfInfo of pdfsToCreate) {
@@ -344,10 +369,6 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
         (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
       )?.value;
 
-  const ipAddress = questionnaireResponse.extension?.find((ext) => {
-    return ext.url === FHIR_EXTENSION.Paperwork.submitterIP.url;
-  })?.valueString;
-
   const timezone = questionnaireResponse.item?.find((item) => {
     return item.linkId === 'signature-timezone';
   })?.answer?.[0]?.valueString;
@@ -362,7 +383,6 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       patientResource,
       consentSigner,
       nowIso.trim(),
-      ipAddress?.trim() ?? '',
       pdfInfo,
       secrets,
       timezone?.trim(),
@@ -417,6 +437,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   for (const pdfInfo of pdfsToCreate) {
+    if (!pdfInfo.createsConsentResource) {
+      continue;
+    }
+
     let typeCode = pdfInfo.type.coding[0].code;
     // only in the case of Consent DRs, we have introduced multiple codings so we can tell different kinds of Consents apart (labs vs paperwork)
     if (pdfInfo.type.coding.length > 1) {
@@ -437,9 +461,8 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    if (typeCode === PAPERWORK_CONSENT_CODE_UNIQUE.code) {
-      await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
-    }
+    await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
+    console.log(`Created Consent resource for ${pdfInfo.formTitle}`);
   }
 }
 
@@ -726,6 +749,8 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
   'common-well-consent': patientFieldPaths.commonWellConsent,
+  'patient-ssn': patientFieldPaths.ssn,
+  'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'insurance-additional-information': coverageFieldPaths.additionalInformation,
@@ -743,28 +768,14 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-relationship-to-insured': coverageFieldPaths.relationship,
 };
 
-const pathToLinkIdMap: Record<string, string> = Object.entries(paperworkToPatientFieldMap).reduce(
-  (acc, [linkId, path]) => {
-    acc[path] = linkId;
-    return acc;
-  },
-  {} as Record<string, string>
-);
-
 const BIRTH_SEX_MAP: Record<string, string> = {
   Male: 'male',
   Female: 'female',
   Intersex: 'other',
 };
 
-interface ConflictingUpdate {
-  operation: Operation;
-  resourceReference: Reference['reference'];
-}
-
 interface ResourcePatchOperations {
   patchOpsForDirectUpdate: Operation[];
-  conflictingUpdates: ConflictingUpdate[];
 }
 
 interface MasterRecordPatchOperations {
@@ -775,29 +786,19 @@ interface MasterRecordPatchOperations {
 
 const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp-number', 'pcp-active'];
 
-export interface PatientMasterRecordResources {
-  patient: Patient;
-}
-
 export function createMasterRecordPatchOperations(
-  questionnaireResponseItems: QuestionnaireResponseItem[],
+  questionnaireResponseHarvestInput: QuestionnaireResponseHarvestInput,
   patient: Patient
 ): MasterRecordPatchOperations {
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    questionnaireResponseItems as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
+  const flattenedPaperwork = prepareQuestionnaireResponseForHarvest(questionnaireResponseHarvestInput);
 
   const result: MasterRecordPatchOperations = {
-    patient: { patchOpsForDirectUpdate: [], conflictingUpdates: [] },
+    patient: { patchOpsForDirectUpdate: [] },
     coverage: {},
     relatedPerson: {},
   };
 
-  const tempOperations = {
-    patient: [] as Operation[],
-    coverage: {} as { [key: string]: Operation[] },
-    relatedPerson: {} as { [key: string]: Operation[] },
-  };
+  const tempOperations: Operation[] = [];
 
   // Define telecom configurations
   const contactTelecomConfigs: Record<string, ContactTelecomConfig> = {
@@ -812,6 +813,7 @@ export function createMasterRecordPatchOperations(
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
+  const extensionIntents: Array<{ url: string; action: 'set' | 'remove'; value?: string }> = [];
   let isUseMissedInPatientName = false;
 
   flattenedPaperwork.forEach((item) => {
@@ -844,185 +846,270 @@ export function createMasterRecordPatchOperations(
 
     const { resourceType, path } = extractResourceTypeAndPath(fullPath);
 
-    const shouldThrow = path.includes('contact') || fullPath.includes('contact');
-    if (shouldThrow) {
-      throw new Error(`SHORT CIRCUIT: trigger occurs`);
+    if (resourceType !== 'Patient') return;
+
+    // Handle telecom fields
+    const contactTelecomConfig = contactTelecomConfigs[item.linkId];
+    if (contactTelecomConfig) {
+      const operation = createPatchOperationForTelecom(
+        contactTelecomConfig,
+        patient,
+        path,
+        isAnswerEmpty ? undefined : (value as string)
+      );
+      if (operation) tempOperations.push(operation);
+      return;
     }
 
-    switch (resourceType) {
-      case 'Patient': {
-        // Handle telecom fields
-        const contactTelecomConfig = contactTelecomConfigs[item.linkId];
-        if (contactTelecomConfig) {
-          if (isAnswerEmpty) {
-            const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, undefined);
-            if (operation) tempOperations.patient.push(operation);
-            return;
+    // Collect extension intents (resolved into a single operation after the loop)
+    if (path.startsWith('/extension/')) {
+      const url = path.replace('/extension/', '');
+      const currentValue = getCurrentValue(patient, path);
+      if (value !== currentValue) {
+        if (isAnswerEmpty) {
+          if (currentValue !== undefined && currentValue !== null) {
+            extensionIntents.push({ url, action: 'remove' });
           }
-
-          const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, value as string);
-          if (operation) tempOperations.patient.push(operation);
-          return;
+        } else {
+          extensionIntents.push({ url, action: 'set', value: String(value) });
         }
+      }
+      return;
+    }
 
-        // Handle extensions
-        if (path.startsWith('/extension/')) {
-          const url = path.replace('/extension/', '');
-          const currentValue = getCurrentValue(patient, path);
-          if (value !== currentValue) {
-            let operation: Operation | undefined;
-            if (isAnswerEmpty) {
-              if (currentValue !== undefined && currentValue !== null) {
-                operation = getPatchOperationToRemoveExtension(patient, { url });
-              }
-            } else {
-              operation = getPatchOperationToAddOrUpdateExtension(patient, { url, value: String(value) }, currentValue);
-            }
-            if (operation) tempOperations.patient.push(operation);
-          }
-          return;
+    // Special handler for preferred-language
+    if (item.linkId === 'preferred-language') {
+      const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
+      const otherItem = flattenedPaperwork.find((item) => item.linkId === 'other-preferred-language');
+      const otherValue = otherItem ? extractValueFromItem(otherItem) : undefined;
+      const newValue = value === 'Other' ? otherValue : value;
+      if (!newValue || newValue === '') {
+        if (currentValue) {
+          const operation = getPatchOperationToRemovePreferredLanguage(patient);
+          if (operation) tempOperations.push(operation);
         }
+        return;
+      } else if (newValue !== currentValue) {
+        const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
+          newValue as string,
+          path,
+          patient,
+          currentValue as string | undefined
+        );
+        tempOperations.push(operation);
+      }
+      return;
+    }
 
-        // Special handler for preferred-language
-        if (item.linkId === 'preferred-language') {
-          const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-          const otherItem = flattenedPaperwork.find((item) => item.linkId === 'other-preferred-language');
-          const otherValue = otherItem ? extractValueFromItem(otherItem) : undefined;
-          const newValue = value === 'Other' ? otherValue : value;
-          if (!newValue || newValue === '') {
-            if (currentValue) {
-              const operation = getPatchOperationToRemovePreferredLanguage(patient);
-              if (operation) tempOperations.patient.push(operation);
-            }
-            return;
-          } else if (newValue !== currentValue) {
-            const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
-              newValue as string,
-              path,
-              patient,
-              currentValue as string | undefined
-            );
-            tempOperations.patient.push(operation);
-          }
-          return;
-        }
+    if (item.linkId === 'patient-ssn') {
+      const currentValue = getTaxID(patient);
+      const SSN_SYSTEM = 'http://hl7.org/fhir/sid/us-ssn';
 
-        if (item.linkId === 'patient-preferred-name') {
-          const preferredNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
-          const currentPath = path.replace(/name\/\d+/, `name/${preferredNameIndex}`);
-          const currentValue = getCurrentValue(patient, currentPath);
-
-          if (value !== currentValue) {
-            const operation = getPatchOperationToAddOrUpdatePreferredName(
-              currentPath,
-              currentValue as string,
-              value as string
-            );
-
-            if (operation) tempOperations.patient.push(operation);
-          }
-          return;
-        }
-
-        // Handle array fields
-        const { isArray, parentPath } = getArrayInfo(path);
-        if (isArray) {
-          const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient) as
-            | string[]
-            | undefined;
-
-          if (isAnswerEmpty) {
-            if (!effectiveArrayValue) return undefined;
-          }
-
-          if (effectiveArrayValue === undefined) {
-            const currentParentValue = getCurrentValue(patient, parentPath);
-            const operation = createBasicPatchOperation([value as PatchValueBase], parentPath, currentParentValue);
-            if (operation) tempOperations.patient.push(operation);
-            return;
-          }
-
-          const arrayMatch = path.match(/^(.+)\/(\d+)$/);
-
-          if (arrayMatch) {
-            const [, arrayPath, indexStr] = arrayMatch;
-            const targetIndex = parseInt(indexStr);
-            const currentArray = Array.isArray(effectiveArrayValue)
-              ? [...effectiveArrayValue]
-              : new Array(targetIndex + 1).fill(undefined);
-
-            if (value === '') {
-              currentArray[targetIndex] = undefined;
-            } else {
-              currentArray[targetIndex] = value;
-            }
-
-            const cleanArray = currentArray.filter(
-              (item, index) => item !== undefined || index < currentArray.length - 1
-            );
-            if (effectiveArrayValue === undefined || areArraysDifferent(effectiveArrayValue, cleanArray)) {
-              const operation: Operation =
-                cleanArray.length > 0
-                  ? {
-                      op: effectiveArrayValue === undefined ? 'add' : 'replace',
-                      path: arrayPath,
-                      value: cleanArray,
-                    }
-                  : {
-                      op: 'remove',
-                      path: arrayPath,
-                    };
-              tempOperations.patient.push(operation);
-            }
-          }
-          return;
-        }
-
-        // Handle regular fields
-        const currentValue = getCurrentValue(patient, path);
-        if (value !== currentValue) {
-          if (isAnswerEmpty) {
-            if (currentValue !== undefined && currentValue !== null) {
-              const removeOp: RemoveOperation = {
-                op: 'remove',
-                path,
-              };
-              tempOperations.patient.push(removeOp);
-            }
-          } else {
-            const operation = createBasicPatchOperation(value, path, currentValue);
-            if (operation) tempOperations.patient.push(operation);
+      if (isAnswerEmpty) {
+        // SSN field is enabled but empty — remove existing SSN identifier if present
+        if (patient.identifier) {
+          const ssnIndex = patient.identifier.findIndex((id) => id.system === SSN_SYSTEM);
+          if (ssnIndex !== -1) {
+            tempOperations.push({
+              op: 'remove',
+              path: `/identifier/${ssnIndex}`,
+            });
           }
         }
         return;
       }
-      default: {
+
+      if (currentValue !== value) {
+        const ssnIdentifier = makeSSNIdentifier(value as string);
+
+        if (!patient.identifier) {
+          // Scenario 1: No identifier field exists - add new identifier array with SSN
+          tempOperations.push({
+            op: 'add',
+            path: '/identifier',
+            value: ssnIdentifier, // normalization logic below will wrap this value in an array
+          });
+        } else {
+          // Find existing SSN identifier index
+          const ssnIndex = patient.identifier.findIndex((id) => id.system === ssnIdentifier.system);
+
+          if (ssnIndex === -1) {
+            // Scenario 2: Identifier exists but no SSN entry - add SSN to array
+            tempOperations.push({
+              op: 'add',
+              path: `/identifier/-`,
+              value: ssnIdentifier,
+            });
+          } else {
+            // Scenario 3: SSN entry exists - replace entire identifier to ensure type field is included
+            tempOperations.push({
+              op: 'replace',
+              path: `/identifier/${ssnIndex}`,
+              value: ssnIdentifier,
+            });
+          }
+        }
+      }
+      return;
+    }
+    if (item.linkId === 'patient-preferred-name') {
+      const preferredNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
+      const currentPath = path.replace(/name\/\d+/, `name/${preferredNameIndex}`);
+      const currentValue = getCurrentValue(patient, currentPath);
+
+      if (value !== currentValue) {
+        const operation = getPatchOperationToAddOrUpdatePreferredName(
+          currentPath,
+          currentValue as string,
+          value as string
+        );
+
+        if (operation) tempOperations.push(operation);
+      }
+      return;
+    }
+
+    // Handle array fields
+    const { isArray, parentPath } = getArrayInfo(path);
+    if (isArray) {
+      const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations) as string[] | undefined;
+
+      if (isAnswerEmpty) {
+        if (!effectiveArrayValue) return undefined;
+      }
+
+      if (effectiveArrayValue === undefined) {
+        const currentParentValue = getCurrentValue(patient, parentPath);
+        const operation = createBasicPatchOperation([value as PatchValueBase], parentPath, currentParentValue);
+        if (operation) tempOperations.push(operation);
         return;
+      }
+
+      const arrayMatch = path.match(/^(.+)\/(\d+)$/);
+
+      if (arrayMatch) {
+        const [, arrayPath, indexStr] = arrayMatch;
+        const targetIndex = parseInt(indexStr);
+        const currentArray = Array.isArray(effectiveArrayValue)
+          ? [...effectiveArrayValue]
+          : new Array(targetIndex + 1).fill(undefined);
+
+        if (value === '') {
+          currentArray[targetIndex] = undefined;
+        } else {
+          currentArray[targetIndex] = value;
+        }
+
+        const cleanArray = currentArray.filter((item, index) => item !== undefined || index < currentArray.length - 1);
+        if (effectiveArrayValue === undefined || areArraysDifferent(effectiveArrayValue, cleanArray)) {
+          const operation: Operation =
+            cleanArray.length > 0
+              ? {
+                  op: effectiveArrayValue === undefined ? 'add' : 'replace',
+                  path: arrayPath,
+                  value: cleanArray,
+                }
+              : {
+                  op: 'remove',
+                  path: arrayPath,
+                };
+          tempOperations.push(operation);
+        }
+      }
+      return;
+    }
+
+    // Handle regular fields
+    const currentValue = getCurrentValue(patient, path);
+    if (value !== currentValue) {
+      if (isAnswerEmpty) {
+        if (currentValue !== undefined && currentValue !== null) {
+          const removeOp: RemoveOperation = {
+            op: 'remove',
+            path,
+          };
+          tempOperations.push(removeOp);
+        }
+      } else {
+        const operation = createBasicPatchOperation(value, path, currentValue);
+        if (operation) tempOperations.push(operation);
       }
     }
   });
 
   if (isUseMissedInPatientName) {
-    tempOperations.patient.push({
+    tempOperations.push({
       op: 'add',
       path: '/name/0/use',
       value: 'official',
     });
   }
 
-  // Separate operations for each resource
-  // Separate Patient operations
-  result.patient = separateResourceUpdates(tempOperations.patient, patient, 'Patient');
-  result.patient.patchOpsForDirectUpdate = result.patient.patchOpsForDirectUpdate.filter((op) => {
+  result.patient.patchOpsForDirectUpdate = tempOperations.filter((op) => {
     const { path, op: innerOperation } = op;
     return path != undefined && innerOperation != undefined;
   });
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
-  // this needs to go here for now because consolidateOperations breaks it
+
+  // Extension and PCP ops are added after consolidateOperations because they are already
+  // fully resolved and would be mangled by the consolidation pipeline's grouping/normalization.
+  result.patient.patchOpsForDirectUpdate.push(...resolveExtensionIntents(extensionIntents, patient));
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
-  console.log('result.patient.patchOps', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
+  // sanitize the patient patch ops so no SSN is leaked in logs
+  const sanitizedPatchOps = result.patient.patchOpsForDirectUpdate.map((op) => {
+    if (op.path?.includes('patient-ssn')) {
+      return { ...op, value: '***REDACTED***' };
+    }
+    return op;
+  });
+  console.log('result.patient.patchOps', JSON.stringify(sanitizedPatchOps, null, 2));
   return result;
 }
+
+const resolveExtensionIntents = (
+  intents: Array<{ url: string; action: 'set' | 'remove'; value?: string }>,
+  patient: Patient
+): Operation[] => {
+  if (intents.length === 0) return [];
+
+  const targetExtensions: Extension[] = _.cloneDeep(patient.extension ?? []);
+
+  for (const intent of intents) {
+    const existingIndex = targetExtensions.findIndex((ext) => ext.url === intent.url);
+    if (intent.action === 'remove') {
+      if (existingIndex !== -1) {
+        targetExtensions.splice(existingIndex, 1);
+      }
+    } else {
+      const extensionObj = buildExtensionObject(intent.url, intent.value!);
+      if (extensionObj) {
+        if (existingIndex !== -1) {
+          targetExtensions[existingIndex] = extensionObj;
+        } else {
+          targetExtensions.push(extensionObj);
+        }
+      }
+    }
+  }
+
+  const sortByUrl = (exts: Extension[]): Extension[] => _.sortBy(exts, 'url');
+  const originalSorted = sortByUrl(patient.extension ?? []);
+  const targetSorted = sortByUrl(targetExtensions);
+
+  if (_.isEqual(originalSorted, targetSorted)) {
+    return [];
+  }
+
+  if (!patient.extension || patient.extension.length === 0) {
+    return [{ op: 'add', path: '/extension', value: targetExtensions }];
+  }
+
+  if (targetExtensions.length === 0) {
+    return [{ op: 'remove', path: '/extension' }];
+  }
+
+  return [{ op: 'replace', path: '/extension', value: targetExtensions }];
+};
 
 const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
   const isActive = flattenedItems.find((field) => field.linkId === 'pcp-active')?.answer?.[0]?.valueBoolean;
@@ -1120,16 +1207,15 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       return operations;
     }
 
-    let newContained: Patient['contained'] = [newPCP];
-
-    if (currentContainedPCP) {
-      newContained = (patient.contained ?? []).map((resource) => {
-        if (resource.id === currentContainedPCP?.id) {
-          return newPCP;
-        }
-        return resource;
-      });
-    }
+    const existingContained = patient.contained ?? [];
+    const newContained: Patient['contained'] = currentContainedPCP
+      ? existingContained.map((resource) => {
+          if (resource.id === currentContainedPCP.id) {
+            return newPCP;
+          }
+          return resource;
+        })
+      : [...existingContained.filter((resource) => resource.id !== newPCP.id), newPCP];
 
     operations.push({
       op: patient.contained != undefined ? 'replace' : 'add',
@@ -1155,8 +1241,19 @@ export const createUpdatePharmacyPatchOps = (
   const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
   const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
 
+  const pharmacyWasManuallyEntered = getAnswer('pharmacy-page-manual-entry', flattenedItems);
+  const placesPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesId, flattenedItems);
+  const placesPharmacyNameAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesName, flattenedItems);
+  const placesPharmacyAddressAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesAddress, flattenedItems);
+  const exrPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, flattenedItems);
+
   // Check if pharmacy fields are present in the questionnaire response
-  const hasPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+  const hasManualPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+  const hasPlacesPharmacyFields =
+    placesPharmacyIdAnswer !== undefined ||
+    placesPharmacyNameAnswer !== undefined ||
+    placesPharmacyAddressAnswer !== undefined;
+  const hasPharmacyFields = hasManualPharmacyFields || hasPlacesPharmacyFields || exrPharmacyIdAnswer !== undefined;
 
   // Check if patient currently has pharmacy data
   const hasExistingPharmacy =
@@ -1168,8 +1265,8 @@ export const createUpdatePharmacyPatchOps = (
     return [];
   }
 
-  const inputPharmacyName = pharmacyNameAnswer?.valueString;
-  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString;
+  const inputPharmacyName = pharmacyNameAnswer?.valueString ?? placesPharmacyNameAnswer?.valueString;
+  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString ?? placesPharmacyAddressAnswer?.valueString;
 
   const operations: Operation[] = [];
 
@@ -1178,7 +1275,7 @@ export const createUpdatePharmacyPatchOps = (
 
   // Add new pharmacy if provided
   if (inputPharmacyName || inputPharmacyAddress) {
-    filteredContained.push({
+    const pharmacyOrg: Organization = {
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
       name: inputPharmacyName ?? '-',
@@ -1190,7 +1287,25 @@ export const createUpdatePharmacyPatchOps = (
             },
           ]
         : undefined,
-    });
+    };
+
+    if (pharmacyWasManuallyEntered?.valueBoolean) {
+      pharmacyOrg.extension = [
+        {
+          url: PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
+          valueBoolean: true,
+        },
+      ];
+    } else if (placesPharmacyIdAnswer?.valueString) {
+      pharmacyOrg.extension = [
+        {
+          url: PREFERRED_PHARMACY_PLACES_ID_URL,
+          valueString: placesPharmacyIdAnswer?.valueString,
+        },
+      ];
+    }
+
+    filteredContained.push(pharmacyOrg);
   }
 
   // Create contained operation
@@ -1212,7 +1327,8 @@ export const createUpdatePharmacyPatchOps = (
   // Handle extension
   const currentExtensions = patient.extension ?? [];
   const filteredExtensions = currentExtensions.filter(
-    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
+    (extension) =>
+      extension.url !== PREFERRED_PHARMACY_EXTENSION_URL && extension.url !== PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL
   );
 
   // Add pharmacy reference if we have pharmacy data
@@ -1222,6 +1338,13 @@ export const createUpdatePharmacyPatchOps = (
       valueReference: {
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
+    });
+  }
+
+  if (exrPharmacyIdAnswer?.valueString) {
+    filteredExtensions.push({
+      url: PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
+      valueString: exrPharmacyIdAnswer?.valueString,
     });
   }
 
@@ -1244,41 +1367,6 @@ export const createUpdatePharmacyPatchOps = (
   return operations;
 };
 
-function separateResourceUpdates(
-  patchOps: Operation[],
-  resource: Patient | Coverage | RelatedPerson,
-  resourceType: string
-): ResourcePatchOperations {
-  const patchOpsForDirectUpdate: Operation[] = [];
-  const conflictingUpdates: ConflictingUpdate[] = [];
-
-  patchOps.forEach((patchOp) => {
-    if (patchOp.op === 'add' || IGNORE_CREATING_TASKS_FOR_REVIEW) {
-      patchOpsForDirectUpdate.push(patchOp);
-    } else {
-      const currentValue = getCurrentValue(resource, patchOp.path);
-      if (!currentValue || currentValue === '') {
-        patchOpsForDirectUpdate.push(patchOp);
-      } else {
-        conflictingUpdates.push({
-          operation: patchOp,
-          resourceReference: `${resourceType}/${resource.id}`,
-        });
-      }
-    }
-  });
-
-  return { patchOpsForDirectUpdate, conflictingUpdates };
-}
-
-export function hasConflictingUpdates(operations: MasterRecordPatchOperations): boolean {
-  return (
-    operations.patient.conflictingUpdates.length > 0 ||
-    Object.values(operations.coverage).some((ops) => ops.conflictingUpdates.length > 0) ||
-    Object.values(operations.relatedPerson).some((ops) => ops.conflictingUpdates.length > 0)
-  );
-}
-
 type PatchValueBase = string | number | boolean | Reference;
 function createBasicPatchOperation(
   value: PatchValueBase | PatchValueBase[],
@@ -1295,11 +1383,7 @@ function createBasicPatchOperation(
   };
 }
 
-function extractValueFromItem(
-  item: QuestionnaireResponseItem
-  // insurancePlanResources?: InsurancePlan[],
-  // organizationResources?: Organization[]
-): string | boolean | Reference | undefined {
+function extractValueFromItem(item: QuestionnaireResponseItem): string | boolean | Reference | undefined {
   // Handle date components collection
   if (item?.item) {
     const hasDateComponents = item.item.some(
@@ -1355,116 +1439,6 @@ function getEffectiveValue(
   });
 
   return effectiveValue;
-}
-
-export function createConflictResolutionTask(
-  operations: MasterRecordPatchOperations,
-  resources: PatientMasterRecordResources,
-  qrId: QuestionnaireResponse['id']
-): Task {
-  // Collect all conflicts with resource context
-  const allConflicts = [
-    // Patient conflicts
-    ...operations.patient.conflictingUpdates.map((conflict) => ({
-      ...conflict,
-      resourceType: 'Patient',
-      resourceId: resources.patient.id!,
-    })),
-
-    // Coverage conflicts
-    ...Object.entries(operations.coverage).flatMap(([coverageId, ops]) =>
-      ops.conflictingUpdates.map((conflict) => ({
-        ...conflict,
-        resourceType: 'Coverage',
-        resourceId: coverageId,
-      }))
-    ),
-
-    // RelatedPerson conflicts
-    ...Object.entries(operations.relatedPerson).flatMap(([relatedPersonId, ops]) =>
-      ops.conflictingUpdates.map((conflict) => ({
-        ...conflict,
-        resourceType: 'RelatedPerson',
-        resourceId: relatedPersonId,
-      }))
-    ),
-  ];
-
-  return {
-    resourceType: 'Task',
-    status: 'ready',
-    intent: 'order',
-    description: 'Patient master record information changes',
-    requester: {
-      type: 'Patient',
-      reference: `Patient/${resources.patient.id}`,
-    },
-    input: allConflicts.map((conflict) => ({
-      type: {
-        text: getFieldNameWithResource(resources, conflict.resourceType, conflict.resourceId, conflict.operation.path),
-      },
-      valueString: JSON.stringify({
-        operation: conflict.operation,
-        resourceReference: conflict.resourceReference,
-      }),
-    })),
-    focus: {
-      type: 'QuestionnaireResponse',
-      reference: `QuestionnaireResponse/${qrId}`,
-    },
-  };
-}
-
-function getFieldNameWithResource(
-  resources: PatientMasterRecordResources,
-  resourceType: PatientMasterRecordResourceType,
-  _resourceId: string,
-  path: string
-): string {
-  let resource: PatientMasterRecordResource | undefined;
-
-  switch (resourceType) {
-    case 'Patient':
-      resource = resources.patient;
-      break;
-  }
-
-  if (!resource) {
-    return `Unknown field in ${resourceType}`;
-  }
-
-  // Get human-readable field name
-  const fullPath = `${resourceType}${path}`;
-  const fieldName = getFieldName(resource, fullPath);
-
-  // Add context about which resource it belongs to
-  switch (resourceType) {
-    case 'Patient':
-      return `Patient: ${fieldName}`;
-    case 'Coverage': {
-      const coverage = resource as Coverage;
-      const coverageContext = coverage.order === 1 ? 'Primary' : 'Secondary';
-      return `${coverageContext} Coverage: ${fieldName}`;
-    }
-    case 'RelatedPerson':
-      return `Related Person: ${fieldName}`;
-    default:
-      return fieldName;
-  }
-}
-
-function getFieldName(resource: PatientMasterRecordResource, path: string): string {
-  if (path.includes('/extension/')) {
-    const extensionIndex = path.replace('/extension/', '');
-    if (!isNaN(Number(extensionIndex))) {
-      const extension = resource.extension?.[Number(extensionIndex)];
-      if (extension?.url) {
-        path = `${resource.resourceType}/extension/${extension.url}`;
-      }
-    }
-  }
-
-  return pathToLinkIdMap[path] || 'unknown-field';
 }
 
 function areArraysDifferent(source: string[], target: string[]): boolean {
@@ -1865,19 +1839,9 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
   return undefined;
 }
 
-const buildEmergencyContactAddress = (contact: EmergencyContact, patient: Patient): Address | undefined => {
-  if (contact.addressSameAsPatient) {
-    const patientAddress = patient.address?.[0];
-    if (patientAddress) {
-      return {
-        line: patientAddress.line ? [...patientAddress.line] : undefined,
-        city: patientAddress.city,
-        state: patientAddress.state,
-        postalCode: patientAddress.postalCode,
-      };
-    }
-  }
-
+const buildEmergencyContactAddress = (contact: EmergencyContact): Address | undefined => {
+  // The frontend auto-fills the address fields when "same as patient" is selected,
+  // so we always read directly from the emergency contact's own fields.
   const { addressLine, addressLine2, city, state, zip } = contact;
   const hasAddressData = addressLine || addressLine2 || city || state || zip;
   if (!hasAddressData) {
@@ -1926,6 +1890,393 @@ function getInsuranceDetailsFromAnswers(
 
   return { org, additionalInformation, typeCode };
 }
+
+interface EmployerInformation {
+  workersCompInsurance?: string;
+  workersCompMemberId?: string;
+  employerName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  contactFax?: string;
+  contactTitle?: string;
+}
+
+interface AttorneyInformation {
+  firm?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  fax?: string;
+}
+
+const createTelecom = (system: ContactPoint['system'], value?: string): ContactPoint | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  return {
+    system,
+    value,
+  };
+};
+
+const safeFormatPhone = (value?: string): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  try {
+    return formatPhoneNumber(value);
+  } catch (error) {
+    console.warn(`Unable to format employer phone number ${value}`, error);
+    return value;
+  }
+};
+
+const ensurePatientSubject = (subjects: Account['subject'], patientReference: string): Account['subject'] => {
+  const normalized = subjects ? [...subjects] : [];
+  if (!normalized.some((subject) => subject.reference === patientReference)) {
+    normalized.push({ reference: patientReference });
+  }
+  return normalized;
+};
+
+const mergeGuarantors = (guarantors: Account['guarantor'], organizationReference: string): Account['guarantor'] => {
+  const filtered = (guarantors ?? []).filter((guarantor) => guarantor.party?.reference !== organizationReference);
+  return [
+    ...filtered,
+    {
+      party: {
+        reference: organizationReference,
+        type: 'Organization',
+      },
+    },
+  ];
+};
+
+const buildEmployerOrganization = (details: EmployerInformation, id?: string): Organization => {
+  const lines = [details.addressLine1, details.addressLine2].filter(Boolean) as string[];
+  const phone = safeFormatPhone(details.contactPhone);
+  const fax = safeFormatPhone(details.contactFax);
+
+  const telecom = [
+    createTelecom('phone', phone),
+    createTelecom('fax', fax),
+    createTelecom('email', details.contactEmail),
+  ].filter(Boolean) as ContactPoint[];
+
+  const address =
+    lines.length || details.city || details.state || details.zip
+      ? [
+          {
+            line: lines.length ? lines : undefined,
+            city: details.city || undefined,
+            state: details.state || undefined,
+            postalCode: details.zip || undefined,
+          },
+        ]
+      : undefined;
+
+  const contactGiven = details.contactFirstName ? [details.contactFirstName] : [];
+  const hasContactName = contactGiven.length || details.contactLastName;
+  const contactEntry =
+    hasContactName || telecom.length || details.contactTitle
+      ? [
+          {
+            name: hasContactName
+              ? {
+                  given: contactGiven.length ? contactGiven : undefined,
+                  family: details.contactLastName || undefined,
+                }
+              : undefined,
+            telecom: telecom.length ? telecom : undefined,
+            purpose: details.contactTitle ? { text: details.contactTitle } : undefined,
+          },
+        ]
+      : undefined;
+
+  const employerOrgCode = 'workers-comp-employer';
+
+  // fhir dictates that an Organization SHALL at least have a name or an identifier, and possibly more than one
+  // adding this id allows users to enter employee data with out an employee name
+  const employerOrgIdentifier: Identifier = { system: EMPLOYER_ORG_IDENTIFIER_SYSTEM, value: employerOrgCode };
+
+  return {
+    resourceType: 'Organization',
+    id,
+    name: details.employerName || undefined,
+    address,
+    telecom: telecom.length ? telecom : undefined,
+    contact: contactEntry,
+    identifier: [employerOrgIdentifier],
+    type: [
+      {
+        coding: [
+          {
+            system: FHIR_EXTENSION.Organization.organizationType.url,
+            code: employerOrgCode,
+          },
+        ],
+      },
+    ],
+  };
+};
+
+interface BuildEmployerAccountResourceParams {
+  patientId: string;
+  existingAccount?: Account;
+  organizationReference: string;
+  accountTypeCoding?: CodeableConcept;
+  employerInformation?: EmployerInformation;
+  coverageReference?: string;
+}
+
+const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
+  const {
+    patientId,
+    existingAccount,
+    organizationReference,
+    accountTypeCoding,
+    employerInformation,
+    coverageReference,
+  } = params;
+  const patientReference = `Patient/${patientId}`;
+  const baseAccount: Account = existingAccount ? { ...existingAccount } : { resourceType: 'Account', status: 'active' };
+
+  const subject = ensurePatientSubject(baseAccount.subject, patientReference);
+  const guarantor = mergeGuarantors(baseAccount.guarantor, organizationReference);
+
+  const organizationIdFromReference = organizationReference.startsWith('Organization/')
+    ? organizationReference.split('/')[1]
+    : undefined;
+
+  return {
+    ...baseAccount,
+    resourceType: 'Account',
+    status: 'active',
+    type: {
+      coding: [...(accountTypeCoding?.coding || [])],
+    },
+    name: employerInformation?.employerName,
+    subject,
+    owner: { reference: organizationReference },
+    guarantor,
+    contained: organizationIdFromReference
+      ? baseAccount.contained?.filter(
+          (resource) => !(resource.resourceType === 'Organization' && resource.id === organizationIdFromReference)
+        )
+      : baseAccount.contained,
+    coverage: coverageReference
+      ? [
+          {
+            coverage: { reference: coverageReference },
+          },
+        ]
+      : undefined,
+  };
+};
+
+const getOccupationalMedicineEmployerInformation = (
+  items: QuestionnaireResponseItem[]
+): { occupationalMedicineEmployerReference: Reference | null; explicitlyCleared: boolean } | undefined => {
+  const item = items.find((item) => item.linkId === 'occupational-medicine-employer');
+
+  // If the field is not in the response at all, return undefined (field not touched)
+  if (!item) {
+    return undefined;
+  }
+
+  // Check if field was explicitly cleared (present with empty answer array)
+  const explicitlyCleared = isFieldExplicitlyCleared(item);
+
+  // Get the reference value
+  const occupationalMedicineEmployerReference = item.answer?.[0]?.valueReference;
+
+  return {
+    occupationalMedicineEmployerReference: occupationalMedicineEmployerReference || null,
+    explicitlyCleared,
+  };
+};
+
+const EMPLOYER_INFORMATION_FIELDS = new Set([
+  'workers-comp-insurance-name',
+  'workers-comp-insurance-member-id',
+  'employer-name',
+  'employer-address',
+  'employer-address-2',
+  'employer-city',
+  'employer-state',
+  'employer-zip',
+  'employer-contact-first-name',
+  'employer-contact-last-name',
+  'employer-contact-title',
+  'employer-contact-email',
+  'employer-contact-phone',
+  'employer-contact-fax',
+]);
+
+const isEmployerInformationExplicitlyCleared = (items: QuestionnaireResponseItem[]): boolean => {
+  return items.some((item) => EMPLOYER_INFORMATION_FIELDS.has(item.linkId) && isFieldExplicitlyCleared(item));
+};
+
+const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInformation | undefined => {
+  const getAnswerString = (linkId: string): string | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
+
+  const workersCompInsurance = items.find((item) => item.linkId === 'workers-comp-insurance-name')?.answer?.[0]
+    ?.valueReference?.reference;
+  const workersCompMemberId = getAnswerString('workers-comp-insurance-member-id');
+  const employerName = getAnswerString('employer-name');
+  const addressLine1 = getAnswerString('employer-address');
+  const city = getAnswerString('employer-city');
+  const state = getAnswerString('employer-state');
+  const zip = getAnswerString('employer-zip');
+  const contactFirstName = getAnswerString('employer-contact-first-name');
+  const contactLastName = getAnswerString('employer-contact-last-name');
+  const contactPhone = getAnswerString('employer-contact-phone');
+
+  const hasAnyValue = [
+    workersCompInsurance,
+    workersCompMemberId,
+    employerName,
+    addressLine1,
+    city,
+    state,
+    zip,
+    contactFirstName,
+    contactLastName,
+    contactPhone,
+    getAnswerString('employer-address-2'),
+    getAnswerString('employer-contact-email'),
+    getAnswerString('employer-contact-fax'),
+    getAnswerString('employer-contact-title'),
+  ].some((value) => value && value.length);
+
+  if (!hasAnyValue) {
+    return undefined;
+  }
+
+  return {
+    workersCompInsurance,
+    workersCompMemberId,
+    employerName,
+    addressLine1,
+    addressLine2: getAnswerString('employer-address-2'),
+    city,
+    state,
+    zip,
+    contactFirstName,
+    contactLastName,
+    contactPhone,
+    contactEmail: getAnswerString('employer-contact-email'),
+    contactFax: getAnswerString('employer-contact-fax'),
+    contactTitle: getAnswerString('employer-contact-title'),
+  };
+};
+
+const getAttorneyInformation = (items: QuestionnaireResponseItem[]): AttorneyInformation | undefined => {
+  const getAnswerString = (linkId: string): string | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
+
+  const hasAttorney = getAnswerString('attorney-mva-has-attorney');
+
+  if (hasAttorney === 'I do not have an attorney') {
+    return undefined;
+  }
+
+  const firm = getAnswerString('attorney-mva-firm');
+  const firstName = getAnswerString('attorney-mva-first-name');
+  const lastName = getAnswerString('attorney-mva-last-name');
+  const email = getAnswerString('attorney-mva-email');
+  const mobile = getAnswerString('attorney-mva-mobile');
+  const fax = getAnswerString('attorney-mva-fax');
+
+  const hasAnyValue = [firm, firstName, lastName, email, mobile, fax].some((value) => value && value.length);
+
+  if (!hasAnyValue) {
+    return undefined;
+  }
+
+  return {
+    firm,
+    firstName,
+    lastName,
+    email,
+    mobile,
+    fax,
+  };
+};
+
+const buildAttorneyRelatedPerson = (
+  details: AttorneyInformation,
+  patientId: string,
+  id?: string,
+  existingRelatedPerson?: RelatedPerson
+): RelatedPerson => {
+  const phone = safeFormatPhone(details.mobile);
+  const fax = safeFormatPhone(details.fax);
+
+  const telecom = [
+    createTelecom('phone', phone),
+    createTelecom('fax', fax),
+    createTelecom('email', details.email),
+  ].filter(Boolean) as ContactPoint[];
+
+  const givenNames = details.firstName ? [details.firstName] : [];
+  const familyName = details.lastName;
+
+  const firmExtension = details.firm
+    ? {
+        url: ATTORNEY_FIRM_EXTENSION_URL,
+        valueString: details.firm,
+      }
+    : undefined;
+
+  // Preserve existing extensions, but update or add the firm extension
+  const existingExtensions =
+    existingRelatedPerson?.extension?.filter((ext) => ext.url !== ATTORNEY_FIRM_EXTENSION_URL) || [];
+  const extensions = firmExtension
+    ? [...existingExtensions, firmExtension]
+    : existingExtensions.length
+    ? existingExtensions
+    : undefined;
+
+  return {
+    resourceType: 'RelatedPerson',
+    id,
+    patient: {
+      reference: `Patient/${patientId}`,
+    },
+    name:
+      givenNames.length || familyName
+        ? [
+            {
+              given: givenNames.length ? givenNames : undefined,
+              family: familyName,
+            },
+          ]
+        : undefined,
+    telecom: telecom.length ? telecom : undefined,
+    relationship: [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+            code: 'OTHER',
+            display: 'MVA Attorney',
+          },
+        ],
+      },
+    ],
+    extension: extensions,
+  };
+};
 
 interface CreateCoverageResourceInput {
   patientId: string;
@@ -2012,7 +2363,8 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
-  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === typeCode)?.coverageCoding;
+  const coverageTypeCoding = VALUE_SETS.insuranceTypeOptions.find((planType) => planType.candidCode === typeCode)
+    ?.coverageCoding;
   if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
@@ -2111,14 +2463,27 @@ export interface GetAccountOperationsInput {
   existingAccount?: Account;
   preserveOmittedCoverages?: boolean;
   existingEmergencyContact?: RelatedPerson;
+  existingWorkersCompAccount?: Account;
+  existingOccupationalMedicineAccount?: Account;
+  existingEmployerOrganization?: Organization;
+  existingAttorneyRelatedPerson?: RelatedPerson;
 }
 
 export interface GetAccountOperationsOutput {
   coveragePosts: BatchInputPostRequest<Coverage>[];
-  patch: BatchInputPatchRequest<Coverage | RelatedPerson>[];
-  put: BatchInputPutRequest<Account | RelatedPerson>[];
+  patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[];
+  put: BatchInputPutRequest<Account | Coverage | RelatedPerson | Organization>[];
   accountPost?: Account;
   emergencyContactPost?: BatchInputPostRequest<RelatedPerson>;
+  employerOrganizationPost?: BatchInputPostRequest<Organization>;
+  employerOrganizationPut?: BatchInputPutRequest<Organization>;
+  workersCompAccountPost?: Account;
+  workersCompAccountPut?: BatchInputPutRequest<Account>;
+  occupationalMedicineAccountPost?: Account;
+  occupationalMedicineAccountPut?: BatchInputPutRequest<Account>;
+  occupationalMedicineAccountDelete?: BatchInputDeleteRequest;
+  attorneyRelatedPersonPost?: BatchInputPostRequest<RelatedPerson>;
+  attorneyRelatedPersonPut?: BatchInputPutRequest<RelatedPerson>;
 }
 
 // this function is exported for testing purposes
@@ -2132,6 +2497,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     existingAccount,
     preserveOmittedCoverages,
     existingEmergencyContact,
+    existingWorkersCompAccount,
+    existingOccupationalMedicineAccount,
+    existingEmployerOrganization,
+    existingAttorneyRelatedPerson,
   } = input;
 
   if (!patient.id) {
@@ -2144,7 +2513,21 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const emergencyContactData = extractEmergencyContact(flattenedItems);
   const emergencyContactAddress =
-    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
+    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData) : undefined;
+
+  const employerInformation = getEmployerInformation(flattenedItems);
+  const shouldClearEmployerInformation =
+    employerInformation === undefined && isEmployerInformationExplicitlyCleared(flattenedItems);
+  const occupationalMedicineEmployerInformation = getOccupationalMedicineEmployerInformation(flattenedItems);
+  let occupationalMedicineEmployerReference;
+  let shouldClearOccupationalMedicineEmployer = false;
+  if (occupationalMedicineEmployerInformation) {
+    occupationalMedicineEmployerReference =
+      occupationalMedicineEmployerInformation.occupationalMedicineEmployerReference;
+    // Use the explicit cleared flag to determine if we should delete
+    shouldClearOccupationalMedicineEmployer = occupationalMedicineEmployerInformation.explicitlyCleared;
+  }
+  const attorneyInformation = getAttorneyInformation(flattenedItems);
   /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
@@ -2164,17 +2547,29 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
-  const puts: BatchInputPutRequest<Account | RelatedPerson>[] = [];
+  const puts: BatchInputPutRequest<Account | Coverage | RelatedPerson>[] = [];
   let accountPost: Account | undefined;
   let emergencyContactPost: BatchInputPostRequest<RelatedPerson> | undefined;
+  let employerOrganizationPost: BatchInputPostRequest<Organization> | undefined;
+  let employerOrganizationPut: BatchInputPutRequest<Organization> | undefined;
+  let workersCompAccountPost: Account | undefined;
+  let workersCompAccountPut: BatchInputPutRequest<Account> | undefined;
+  let occupationalMedicineAccountPost: Account | undefined;
+  let occupationalMedicineAccountPut: BatchInputPutRequest<Account> | undefined;
+  let occupationalMedicineAccountDelete: BatchInputDeleteRequest | undefined;
+  let attorneyRelatedPersonPost: BatchInputPostRequest<RelatedPerson> | undefined;
+  let attorneyRelatedPersonPut: BatchInputPutRequest<RelatedPerson> | undefined;
 
   console.log(
-    'getting account operations for patient, guarantorData, emergencyContactData, coverages, account',
+    'getting account operations for patient, guarantorData, emergencyContactData, coverages, account, employerInformation, occupationalMedicineEmployerInformation',
     JSON.stringify(patient, null, 2),
     JSON.stringify(guarantorData, null, 2),
     JSON.stringify(emergencyContactData, null, 2),
     JSON.stringify(existingCoverages, null, 2),
-    JSON.stringify(existingAccount, null, 2)
+    JSON.stringify(existingAccount, null, 2),
+    JSON.stringify(employerInformation, null, 2),
+    JSON.stringify(shouldClearEmployerInformation, null, 2),
+    JSON.stringify(occupationalMedicineEmployerInformation, null, 2)
   );
 
   // note: We're not assuming existing Coverages, if there are any, come from the Account resource; they could be free-floating.
@@ -2355,12 +2750,219 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     };
   }
 
+  if (employerInformation || shouldClearEmployerInformation) {
+    const effectiveEmployerInformation = employerInformation ?? {};
+    let employerOrganizationReference: string | undefined = existingEmployerOrganization?.id
+      ? `Organization/${existingEmployerOrganization.id}`
+      : existingWorkersCompAccount?.owner?.reference;
+
+    if (existingEmployerOrganization?.id) {
+      employerOrganizationPut = {
+        method: 'PUT',
+        url: `Organization/${existingEmployerOrganization.id}`,
+        resource: buildEmployerOrganization(effectiveEmployerInformation, existingEmployerOrganization.id),
+      };
+    } else if (employerInformation) {
+      employerOrganizationReference = `urn:uuid:${randomUUID()}`;
+      employerOrganizationPost = {
+        method: 'POST',
+        url: 'Organization',
+        fullUrl: employerOrganizationReference,
+        resource: buildEmployerOrganization(effectiveEmployerInformation),
+      };
+    }
+
+    let workersCompCoverageReference: string | undefined = undefined;
+
+    if (employerInformation) {
+      let workersCompCoverage: Coverage | undefined = undefined;
+      const workersCompInsurance = employerInformation.workersCompInsurance;
+      const workersCompMemberId = employerInformation.workersCompMemberId;
+      const workersCompInsuranceOrg = organizationResources.find(
+        (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
+      );
+      const payerId = getPayerId(workersCompInsuranceOrg);
+      if (existingCoverages.workersComp) {
+        workersCompCoverage = existingCoverages.workersComp;
+        const updatedWorkersCompCoverage = { ...workersCompCoverage };
+        workersCompCoverageReference = `Coverage/${workersCompCoverage.id}`;
+        if (workersCompMemberId && workersCompInsuranceOrg) {
+          updatedWorkersCompCoverage.identifier = [
+            createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg),
+          ];
+          updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
+        }
+        if (workersCompInsuranceOrg) {
+          updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
+          updatedWorkersCompCoverage.class = [
+            {
+              type: {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                    code: 'plan',
+                  },
+                ],
+              },
+              value: payerId ?? '',
+              name: `${workersCompInsuranceOrg?.name ?? ''}`,
+            },
+          ];
+        }
+        if (workersCompCoverage !== updatedWorkersCompCoverage) {
+          puts.push({
+            method: 'PUT',
+            url: `Coverage/${workersCompCoverage.id}`,
+            resource: updatedWorkersCompCoverage,
+          });
+        }
+      } else if (workersCompInsuranceOrg && payerId) {
+        workersCompCoverageReference = `urn:uuid:${randomUUID()}`;
+        workersCompCoverage = {
+          id: workersCompCoverageReference,
+          identifier: workersCompMemberId
+            ? [createCoverageMemberIdentifier(workersCompMemberId, workersCompInsuranceOrg)]
+            : undefined,
+          resourceType: 'Coverage',
+          status: 'active',
+          beneficiary: {
+            type: 'Patient',
+            reference: `Patient/${patient.id}`,
+          },
+          type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
+          payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+          relationship: {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
+                code: 'other',
+                display: 'Other',
+              },
+            ],
+          },
+          // todo labs subscriber is needed for submit lab but we might need to change later
+          subscriber: {
+            reference: `Patient/${patient.id}`,
+          },
+          subscriberId: workersCompMemberId,
+          class: [
+            {
+              type: {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                    code: 'plan',
+                  },
+                ],
+              },
+              value: payerId,
+              name: `${workersCompInsuranceOrg?.name ?? ''}`,
+            },
+          ],
+        };
+        coveragePosts.push({
+          method: 'POST',
+          fullUrl: workersCompCoverage.id,
+          url: 'Coverage',
+          resource: { ...workersCompCoverage },
+        });
+      }
+    }
+
+    if (existingWorkersCompAccount?.id && employerOrganizationReference) {
+      const workersCompAccountResource = buildEmployerAccountResource({
+        patientId: patient.id!,
+        existingAccount: existingWorkersCompAccount,
+        organizationReference: employerOrganizationReference,
+        accountTypeCoding: WORKERS_COMP_ACCOUNT_TYPE,
+        coverageReference: workersCompCoverageReference,
+        employerInformation: effectiveEmployerInformation,
+      });
+
+      workersCompAccountPut = {
+        method: 'PUT',
+        url: `Account/${existingWorkersCompAccount.id}`,
+        resource: {
+          ...workersCompAccountResource,
+          id: existingWorkersCompAccount.id,
+        },
+      };
+    } else if (employerInformation && employerOrganizationReference) {
+      workersCompAccountPost = buildEmployerAccountResource({
+        patientId: patient.id!,
+        organizationReference: employerOrganizationReference,
+        accountTypeCoding: WORKERS_COMP_ACCOUNT_TYPE,
+        coverageReference: workersCompCoverageReference,
+        employerInformation: effectiveEmployerInformation,
+      });
+    }
+  }
+
+  if (shouldClearOccupationalMedicineEmployer && existingOccupationalMedicineAccount?.id) {
+    // Field was explicitly cleared - delete the existing account
+    occupationalMedicineAccountDelete = {
+      method: 'DELETE',
+      url: `Account/${existingOccupationalMedicineAccount.id}`,
+    };
+  } else if (occupationalMedicineEmployerReference?.reference) {
+    const occupationalMedicineAccountResource = buildEmployerAccountResource({
+      patientId: patient.id!,
+      existingAccount: existingOccupationalMedicineAccount,
+      organizationReference: occupationalMedicineEmployerReference.reference,
+      accountTypeCoding: OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+      employerInformation,
+    });
+
+    if (existingOccupationalMedicineAccount?.id) {
+      occupationalMedicineAccountPut = {
+        method: 'PUT',
+        url: `Account/${existingOccupationalMedicineAccount.id}`,
+        resource: {
+          ...occupationalMedicineAccountResource,
+          id: existingOccupationalMedicineAccount.id,
+        },
+      };
+    } else {
+      occupationalMedicineAccountPost = occupationalMedicineAccountResource;
+    }
+  }
+
+  if (attorneyInformation) {
+    if (existingAttorneyRelatedPerson?.id) {
+      attorneyRelatedPersonPut = {
+        method: 'PUT',
+        url: `RelatedPerson/${existingAttorneyRelatedPerson.id}`,
+        resource: buildAttorneyRelatedPerson(
+          attorneyInformation,
+          patient.id!,
+          existingAttorneyRelatedPerson.id,
+          existingAttorneyRelatedPerson
+        ),
+      };
+    } else {
+      attorneyRelatedPersonPost = {
+        method: 'POST',
+        url: 'RelatedPerson',
+        resource: buildAttorneyRelatedPerson(attorneyInformation, patient.id!),
+      };
+    }
+  }
+
   return {
     coveragePosts,
     accountPost,
     patch,
     put: puts,
     emergencyContactPost,
+    employerOrganizationPost,
+    employerOrganizationPut,
+    workersCompAccountPost,
+    workersCompAccountPut,
+    occupationalMedicineAccountPost,
+    occupationalMedicineAccountPut,
+    occupationalMedicineAccountDelete,
+    attorneyRelatedPersonPost,
+    attorneyRelatedPersonPut,
   };
 };
 
@@ -3051,10 +3653,51 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   let existingAccount: Account | undefined;
   let existingGuarantorResource: RelatedPerson | Patient | undefined;
+  let workersCompAccount: Account | undefined;
+  let occupationalMedicineAccount: Account | undefined;
 
-  if (accountResources.length >= 0) {
-    existingAccount = accountResources[0];
+  if (accountResources.length > 0) {
+    existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
+    workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
+    occupationalMedicineAccount = accountResources.find((account) =>
+      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+    );
+    if (!existingAccount) {
+      existingAccount = accountResources.find(
+        (account) =>
+          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
+          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+      );
+    }
   }
+
+  const employerOrganization: Organization | undefined = resources.find(
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(
+        res,
+        codeableConcept('workers-comp-employer', FHIR_EXTENSION.Organization.organizationType.url)
+      )
+  );
+
+  const occupationalMedicineEmployerOrganization: Organization | undefined = resources.find(
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(
+        res,
+        codeableConcept('occupational-medicine-employer', FHIR_EXTENSION.Organization.organizationType.url)
+      )
+  );
+
+  const attorneyRelatedPerson: RelatedPerson | undefined = resources.find(
+    (res): res is RelatedPerson =>
+      res.resourceType === 'RelatedPerson' &&
+      Boolean(
+        res.relationship?.some(
+          (rel) => rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
+        )
+      )
+  );
 
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
   if (existingAccount) {
@@ -3113,6 +3756,12 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     }
   }
 
+  if (workersCompAccount?.coverage) {
+    existingCoverages.workersComp = coverageResources.find((coverage) => {
+      return coverage.id === workersCompAccount?.coverage?.[0]?.coverage?.reference?.split('/')[1];
+    });
+  }
+
   const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
   if (primarySubscriberReference && existingCoverages.primary) {
     const subscriberResult = takeContainedOrFind<RelatedPerson>(
@@ -3136,7 +3785,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   }
 
   const insuranceOrgs: Organization[] = resources.filter(
-    (res): res is Organization => res.resourceType === 'Organization'
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
   );
 
   const emergencyContactResource = resources.find(
@@ -3154,6 +3805,11 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   return {
     patient,
     account: existingAccount,
+    workersCompAccount,
+    occupationalMedicineAccount,
+    employerOrganization,
+    occupationalMedicineEmployerOrganization,
+    attorneyRelatedPerson,
     coverages: existingCoverages,
     insuranceOrgs,
     guarantorResource: existingGuarantorResource,
@@ -3164,6 +3820,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
+  workersComp = 'workers-comp-insurance-name',
 }
 
 export const getAccountAndCoverageResourcesForPatient = async (
@@ -3182,6 +3839,10 @@ export const getAccountAndCoverageResourcesForPatient = async (
         {
           name: '_revinclude',
           value: 'Account:patient',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Account:owner',
         },
         {
           name: '_revinclude',
@@ -3203,6 +3864,8 @@ export const getAccountAndCoverageResourcesForPatient = async (
     })
   ).unbundle();
   console.timeEnd('querying for Patient account resources');
+
+  console.log(`fetched ${accountAndCoverageResources?.length} resources related to Patient/${patientId}`);
 
   const patientResource = accountAndCoverageResources.find(
     (r) => r.resourceType === 'Patient' && r.id === patientId
@@ -3229,17 +3892,24 @@ export interface UpdatePatientAccountInput {
   patientId: string;
   questionnaireResponseItem: QuestionnaireResponse['item'];
   preserveOmittedCoverages?: boolean;
+  questionnaireForEnableWhenFiltering?: Questionnaire;
 }
 
 export const updatePatientAccountFromQuestionnaire = async (
   input: UpdatePatientAccountInput,
   oystehr: Oystehr
 ): Promise<Bundle> => {
-  const { patientId, questionnaireResponseItem, preserveOmittedCoverages } = input;
+  const { patientId, questionnaireResponseItem, preserveOmittedCoverages, questionnaireForEnableWhenFiltering } = input;
 
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+  let flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItem as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
+
+  // Remove hidden removable fields based on enableWhen conditions
+  // This prevents accidental deletion when field is just hidden (not explicitly cleared)
+  if (questionnaireForEnableWhenFiltering) {
+    flattenedPaperwork = filterHiddenRemovableFields(flattenedPaperwork, questionnaireForEnableWhenFiltering);
+  }
 
   // get insurance additional information
   const insuranceOrgs = [];
@@ -3252,6 +3922,10 @@ export const updatePatientAccountFromQuestionnaire = async (
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsuranceOrg) insuranceOrgs.push(secondaryInsuranceOrg);
 
+  const workersCompInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.workersComp)
+    ?.answer?.[0]?.valueReference?.reference;
+  if (workersCompInsuranceOrg) insuranceOrgs.push(workersCompInsuranceOrg);
+
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
   const {
@@ -3260,6 +3934,10 @@ export const updatePatientAccountFromQuestionnaire = async (
     account: existingAccount,
     guarantorResource: existingGuarantorResource,
     emergencyContactResource: existingEmergencyContact,
+    workersCompAccount: existingWorkersCompAccount,
+    occupationalMedicineAccount: existingOccupationalMedicineAccount,
+    employerOrganization: existingEmployerOrganization,
+    attorneyRelatedPerson: existingAttorneyRelatedPerson,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
   /*
@@ -3276,22 +3954,76 @@ export const updatePatientAccountFromQuestionnaire = async (
     existingGuarantorResource,
     preserveOmittedCoverages,
     existingEmergencyContact,
+    existingWorkersCompAccount,
+    existingOccupationalMedicineAccount,
+    existingEmployerOrganization,
+    existingAttorneyRelatedPerson,
   });
 
   console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
 
-  const { patch, accountPost, put, coveragePosts, emergencyContactPost } = accountOperations;
+  const {
+    patch,
+    accountPost,
+    put,
+    coveragePosts,
+    emergencyContactPost,
+    employerOrganizationPost,
+    employerOrganizationPut,
+    workersCompAccountPost,
+    workersCompAccountPut,
+    occupationalMedicineAccountPost,
+    occupationalMedicineAccountPut,
+    occupationalMedicineAccountDelete,
+    attorneyRelatedPersonPost,
+    attorneyRelatedPersonPut,
+  } = accountOperations;
 
-  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient>[] = [
+  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
     ...coveragePosts,
     ...patch,
     ...put,
   ];
+  if (employerOrganizationPost) {
+    transactionRequests.push(employerOrganizationPost);
+  }
+  if (employerOrganizationPut) {
+    transactionRequests.push(employerOrganizationPut);
+  }
+  if (attorneyRelatedPersonPost) {
+    transactionRequests.push(attorneyRelatedPersonPost);
+  }
+  if (attorneyRelatedPersonPut) {
+    transactionRequests.push(attorneyRelatedPersonPut);
+  }
+  if (workersCompAccountPut) {
+    transactionRequests.push(workersCompAccountPut);
+  }
+  if (occupationalMedicineAccountPut) {
+    transactionRequests.push(occupationalMedicineAccountPut);
+  }
+  if (occupationalMedicineAccountDelete) {
+    transactionRequests.push(occupationalMedicineAccountDelete);
+  }
   if (accountPost) {
     transactionRequests.push({
       url: '/Account',
       method: 'POST',
       resource: accountPost,
+    });
+  }
+  if (workersCompAccountPost) {
+    transactionRequests.push({
+      url: '/Account',
+      method: 'POST',
+      resource: workersCompAccountPost,
+    });
+  }
+  if (occupationalMedicineAccountPost) {
+    transactionRequests.push({
+      url: '/Account',
+      method: 'POST',
+      resource: occupationalMedicineAccountPost,
     });
   }
   if (emergencyContactPost) {
@@ -3315,30 +4047,26 @@ interface UpdateStripeCustomerInput {
   guarantorResource: RelatedPerson | Patient;
   stripeClient: Stripe;
 }
-export const updateStripeCustomer = async (input: UpdateStripeCustomerInput, oystehr: Oystehr): Promise<void> => {
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
   const { guarantorResource, account, stripeClient } = input;
   console.log('updating Stripe customer for account', account.id);
   console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
-  const { customerId: stripeCustomerId } = await ensureStripeCustomerId(
-    {
-      patientId: account.subject?.[0]?.reference?.split('/')[1] || '',
-      account,
-      guarantorResource,
-      stripeClient,
-    },
-    oystehr
-  );
+
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
   const phone = getPhoneNumberForIndividual(guarantorResource);
-  if (stripeCustomerId) {
-    await stripeClient.customers.update(stripeCustomerId, {
-      email,
-      name,
-      phone,
-    });
-  } else {
-    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
+
+  const stripeCustomerAccountPairs = getAllStripeCustomerAccountPairs(account);
+  for (const pair of stripeCustomerAccountPairs) {
+    await stripeClient.customers.update(
+      pair.customerId,
+      {
+        email,
+        name,
+        phone,
+      },
+      { stripeAccount: pair.stripeAccount }
+    );
   }
 };
 

@@ -1,25 +1,23 @@
-import { otherColors } from '@ehrTheme/colors';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { LoadingButton } from '@mui/lab';
-import { Box, Button, TableCell, TableRow, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { JSXElementConstructor, ReactElement, useState } from 'react';
+import { ReactElement, useState } from 'react';
 import { submitLabOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  ExternalLabsStatus,
   GetLabOrdersParameters,
   LabOrderListPageDTO,
   LabOrdersSearchBy,
   LabsTableColumn,
   openPdf,
-  PdfAttachmentDTO,
   ReflexLabDTO,
 } from 'utils';
 import { LabsTable } from './LabsTable';
+import { LabsTableBundleHeaderRow } from './LabsTableBundleHeaderRow';
 
 type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
-  labOrders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
+  labOrders: (LabOrderListPageDTO | ReflexLabDTO)[];
   orderBundleName: string;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
@@ -34,9 +32,11 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
-  DeleteOrderDialog: ReactElement<any, string | JSXElementConstructor<any>> | null;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
+  requisitionNumber?: string; // optional because the result table is not grouped by requisition
+  orderBundleNote?: string; // right now with the way results are organized this will not be viewable once results come in. not sure if thats a problem.
 };
 
 export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
@@ -50,8 +50,9 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   allowSubmit,
   fetchLabOrders,
   showDeleteLabOrderDialog,
-  DeleteOrderDialog,
   handleRejectedAbn,
+  requisitionNumber,
+  orderBundleNote,
 }: LabsTableContainerProps<SearchBy>): ReactElement => {
   const { oystehrZambda: oystehr } = useApiClients();
 
@@ -72,6 +73,10 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
     { pendingLabs: [], readyLabs: [] }
   );
   const showSubmitButton = allowSubmit && readyLabs.length + pendingLabs.length > 0;
+
+  const refetchLabOrders = async (): Promise<void> => {
+    await fetchLabOrders(searchBy);
+  };
 
   const submitOrders = async (manualOrder: boolean, labsToSubmit = readyLabs): Promise<void> => {
     if (!oystehr) {
@@ -95,7 +100,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
         setErrorDialogOpen(true);
       } else {
         setErrorDialogOpen(false);
-        await fetchLabOrders(searchBy);
+        await refetchLabOrders();
       }
     } catch (e) {
       const sdkError = e as Oystehr.OystehrSdkError;
@@ -116,7 +121,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
       .filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
     await submitOrders(true, labs);
   };
-  function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO): order is LabOrderListPageDTO {
+  function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO): order is LabOrderListPageDTO {
     return !('drCentricResultType' in order);
   }
 
@@ -135,70 +140,20 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
     </Box>
   );
 
-  const bundleHeaderRow = (
-    <>
-      <TableRow>
-        <TableCell colSpan={columns.length} sx={{ p: '8px 18px', backgroundColor: '#2169F514' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body1" sx={{ fontWeight: '500', color: 'primary.dark' }}>
-                {orderBundleName}
-              </Typography>
-            </Box>
-            {showSubmitButton && (
-              <LoadingButton
-                loading={submitLoading}
-                variant="contained"
-                sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
-                color="primary"
-                size={'medium'}
-                onClick={() => submitOrders(false)}
-                disabled={pendingLabs.length > 0}
-              >
-                Submit & Print Order(s)
-              </LoadingButton>
-            )}
-            {abnPdfUrl && (
-              <Button
-                variant="outlined"
-                type="button"
-                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
-                onClick={() => openPdf(abnPdfUrl)}
-              >
-                Re-print ABN
-              </Button>
-            )}
-            {orderPdfUrl && (
-              <Button
-                variant="outlined"
-                type="button"
-                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
-                onClick={() => openPdf(orderPdfUrl)}
-              >
-                Re-print Order
-              </Button>
-            )}
-          </Box>
-        </TableCell>
-      </TableRow>
-      {abnPdfUrl && (
-        <TableRow sx={{ p: '6px 16px' }}>
-          <TableCell colSpan={columns.length} sx={{ p: '8px 18px', background: otherColors.warningBackground }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <WarningAmberIcon sx={{ fontWeight: '600', color: otherColors.warningIcon, paddingRight: '8px' }} />
-              <Typography variant="h5" color={otherColors.warningIcon}>
-                Advance Beneficiary Notice
-              </Typography>
-            </Box>
-            <Typography variant="body2">
-              Some tests may not be covered by patient’s insurance. Patient needs to review and sign ABN. If not signed,
-              please mark the test(s) as rejected on the printed order form.
-            </Typography>
-          </TableCell>
-        </TableRow>
-      )}
-    </>
-  );
+  const bundleHeaderRowProps = {
+    columnsLen: columns.length,
+    orderBundleName,
+    showSubmitButton,
+    pendingLabsLen: pendingLabs.length,
+    submitLoading,
+    abnPdfUrl,
+    orderPdfUrl,
+    submitOrders,
+    refetchLabOrders,
+    oystehr,
+    requisitionNumber,
+    existingNote: orderBundleNote,
+  };
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -208,14 +163,13 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
             <LabsTable
               columns={columns}
               labOrders={labOrders}
-              bundleRow={bundleHeaderRow}
+              bundleRow={<LabsTableBundleHeaderRow {...bundleHeaderRowProps} />}
               allowDelete={allowDelete}
               showDeleteLabOrderDialog={showDeleteLabOrderDialog}
               handleRejectedAbn={handleRejectedAbn}
             />
           </>
         </Box>
-        {DeleteOrderDialog}
       </>
       {error && (
         <Typography sx={{ textAlign: 'right', mt: 1 }} color="error">

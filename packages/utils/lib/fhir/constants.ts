@@ -11,20 +11,17 @@ import {
 } from 'fhir/r4b';
 import {
   AppointmentType,
+  CanonicalUrl,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
-  LAB_ORDER_DOC_REF_CODING_CODE,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  OYSTEHR_ABN_DOC_REF_CODING_UNIQUE,
-  PAPERWORK_CONSENT_CODE_UNIQUE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
@@ -110,9 +107,6 @@ export const FHIR_EXTENSION = {
     legalTimezone: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/legal-timezone`,
     },
-    submitterIP: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/ip-address`,
-    },
   },
   ContactPoint: {
     erxTelecom: {
@@ -123,10 +117,8 @@ export const FHIR_EXTENSION = {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
     },
-  },
-  QuestionnaireResponse: {
-    ipAddress: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/ip-address`,
+    notes: {
+      url: ottehrExtensionUrl('notes'),
     },
   },
   Coverage: {
@@ -381,6 +373,7 @@ export const BUCKET_NAMES = {
   RECEIPTS: 'receipts',
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
+  STATEMENTS: 'statements',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -399,7 +392,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   {
     title: BUCKET_NAMES.CONSENT_FORMS,
     display: 'Consent Forms',
-    documentTypeCode: PAPERWORK_CONSENT_CODE_UNIQUE.code!,
+    documentTypeCode: 'patient-registration', // PAPERWORK_CONSENT_CODE_UNIQUE.code
   },
   {
     title: BUCKET_NAMES.PRIVACY_POLICY,
@@ -435,10 +428,10 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.LABS,
     display: 'Labs',
     documentTypeCode: [
-      LAB_ORDER_DOC_REF_CODING_CODE.code,
-      LAB_RESULT_DOC_REF_CODING_CODE.code,
-      EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
-      OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
+      '51991-8', // LAB_ORDER_DOC_REF_CODING_CODE.code - external lab ottehr generated order form and eReqs
+      '11502-2', // LAB_RESULT_DOC_REF_CODING_CODE.code - lab results -- includes lab-generated and ottehr generated for external, as well as internal results
+      'specimen-container-label', // EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
+      'external-lab-abn', // OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code
     ],
   },
   {
@@ -455,6 +448,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.DISCHARGE_SUMMARIES,
     display: 'Discharge Summary',
     documentTypeCode: DISCHARGE_SUMMARY_CODE,
+  },
+  {
+    title: BUCKET_NAMES.STATEMENTS,
+    display: 'Statements',
+    documentTypeCode: STATEMENT_CODE,
   },
 ];
 
@@ -488,6 +486,26 @@ export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
       system: 'http://terminology.hl7.org/CodeSystem/account-type',
       code: 'PBILLACCT',
       display: 'patient billing account',
+    },
+  ],
+};
+
+export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'WCOMPACCT',
+      display: 'worker compensation account',
+    },
+  ],
+};
+
+export const OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'OCCUPATIONALMEDICINEACCT',
+      display: 'occupational medicine account',
     },
   ],
 };
@@ -554,6 +572,12 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 };
 
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
+export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
+export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
+export const SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/stripe-terminal-location-id';
+export const SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/advapacs-location-id';
+
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
   coding: [
@@ -617,6 +641,28 @@ export const makeBookingOriginExtensionEntry = (url: string): { url: string; val
   };
 };
 
+// Extension for specifying which questionnaire should be used for appointments booked on this slot
+export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
+
+export const makeQuestionnaireCanonicalExtensionEntry = (
+  canonical: CanonicalUrl
+): { url: string; valueString: string } => {
+  // Store as "url|version" format (standard FHIR canonical with version)
+  const canonicalString = `${canonical.url}|${canonical.version}`;
+  return {
+    url: SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+    valueString: canonicalString,
+  };
+};
+
+export const parseQuestionnaireCanonicalExtension = (valueString: string): CanonicalUrl => {
+  const [url, version] = valueString.split('|');
+  if (!version) {
+    throw new Error(`Invalid questionnaire canonical extension value: "${valueString}" - missing version`);
+  }
+  return { url, version };
+};
+
 // this is the time in minutes after which a busy-tentative slot will be considered expired and will no longer
 // be counted against the available slots. the _lastUpdated field will be checked, so mutating the slot
 // at all will reset the timer
@@ -629,7 +675,13 @@ export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/perform
 export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';
 
 export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-method';
+
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
+export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
+export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-places-id'); // added when the pharmacy was selected with places search
+// docs.oystehr.com/oystehr/services/erx/patient-sync/#preferred-pharmacy
+export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
+  'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 
@@ -644,7 +696,7 @@ export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');
 
 export const RCM_TASK_SYSTEM = ottehrCodeSystemUrl('rcm-task');
-// note: be careful, one of these codes are hardcoded in ottehr-spec.json in SUB-SEND-INVOICE-TO-PATIENT endpoint
+// note: be careful, one of these codes are hardcoded in zambdas config file in SUB-SEND-INVOICE-TO-PATIENT endpoint
 export enum RcmTaskCode {
   sendInvoiceToPatient = 'send-invoice-to-patient',
   sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',
@@ -679,3 +731,19 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
 
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
+
+export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
+
+export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
+
+export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
+
+export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
+export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
+export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
+
+export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
+export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';
+
+export const ACCIDENT_TYPE_SYSTEM = ottehrCodeSystemUrl('accident-type');
+export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');

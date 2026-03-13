@@ -11,6 +11,7 @@ import {
   formatPhoneNumberDisplay,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryIdx,
+  getFullestAvailableName,
   getLocationInformation,
   getPatchBinary,
   getSecret,
@@ -136,7 +137,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     const checkedIn = appointment.status !== 'booked';
     if (!checkedIn) {
       console.log('checking in the patient');
-      await checkIn(oystehr, checkedInBy, appointment, encounter);
+      await checkIn(oystehr, checkedInBy, appointment, encounter, patient);
       await createAuditEvent(AuditableZambdaEndpoints.appointmentCheckIn, oystehr, input, patient.id || '', secrets);
     } else {
       console.log('Appointment is already checked in');
@@ -177,7 +178,8 @@ async function checkIn(
   oystehr: Oystehr,
   checkedInBy: string,
   appointment: Appointment,
-  encounter: Encounter
+  encounter: Encounter,
+  patient: Patient
 ): Promise<void> {
   const now = DateTime.now().setZone('UTC').toISO() || '';
 
@@ -244,7 +246,11 @@ async function checkIn(
     patchOperations: encounterPatchOperations,
   });
 
-  const checkInTextTask = getTaskResource(TaskIndicator.checkInText, appointment.id || '');
+  const checkInTextTask = getTaskResource(
+    TaskIndicator.checkInText,
+    `Send check-in text to ${getFullestAvailableName(patient)}`,
+    appointment.id || ''
+  );
   const taskRequest: BatchInputPostRequest<Task> = {
     method: 'POST',
     url: '/Task',

@@ -9,7 +9,7 @@ export const ContactSupportButton = ({ onClick }: ContactSupportButtonProps): JS
   return (
     <Button
       aria-label="Help button"
-      color="primary"
+      color="secondary"
       sx={{
         display: 'flex',
         alignItems: 'center',

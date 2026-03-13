@@ -12,7 +12,8 @@ export interface GetPatientInstructionsInput {
 
 export interface SavePatientInstructionInput {
   instructionId?: string;
-  text: string;
+  text?: string;
+  title?: string;
 }
 
 export interface DeletePatientInstructionInput {

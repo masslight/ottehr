@@ -1,10 +1,10 @@
 import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
 import * as esbuild from 'esbuild';
-import { copy } from 'esbuild-plugin-copy';
 import { type Options } from 'execa';
 import fs from 'fs';
-import ottehrSpec from '../../config/oystehr/ottehr-spec.json';
+import path from 'path';
+import zambdasSpec from '../../config/oystehr/zambdas.json';
 
 interface ZambdaSpec {
   name: string;
@@ -14,59 +14,114 @@ interface ZambdaSpec {
   zip: string;
 }
 
-const zambdasList = (): ZambdaSpec[] => {
-  return Object.entries(ottehrSpec.zambdas).map(([_key, spec]) => {
-    return spec;
-  });
+interface ZambdasJson {
+  'schema-version': string;
+  zambdas: Record<string, ZambdaSpec>;
+}
+
+const loadEnvZambdas = (env: string): ZambdaSpec[] => {
+  const envConfigPath = path.resolve(__dirname, `../../config/oystehr/env/${env}/zambdas.json`);
+  try {
+    if (fs.existsSync(envConfigPath)) {
+      const envSpec = JSON.parse(fs.readFileSync(envConfigPath, 'utf-8')) as ZambdasJson;
+      console.log(`Loading env-specific zambdas from: ${envConfigPath}`);
+      return Object.values(envSpec.zambdas);
+    }
+  } catch (error) {
+    console.warn(`Failed to load env-specific zambdas from ${envConfigPath}:`, error);
+  }
+  return [];
 };
 
-const build = async (
-  zambdas: ZambdaSpec[],
-  assetsFrom: string[],
-  assetsTo: string[],
-  outdir: string
-): Promise<void> => {
-  const sources = zambdas.map((zambda) => `${zambda.src}.ts`);
-  await esbuild
-    .build({
-      entryPoints: sources,
+const zambdasList = (): ZambdaSpec[] => {
+  const baseZambdas = Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => spec);
+  const env = process.env.ENV || '';
+  if (env) {
+    const envZambdas = loadEnvZambdas(env);
+    return [...baseZambdas, ...envZambdas];
+  }
+  return baseZambdas;
+};
+
+const BUNDLE_CHUNK_SIZE = 35;
+const ZIP_CHUNK_SIZE = 20;
+
+const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+};
+
+const getSentryPlugins = (isSentryEnabled: boolean): esbuild.Plugin[] => {
+  if (!isSentryEnabled) return [];
+  return [
+    sentryEsbuildPlugin({
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      sourcemaps: {
+        // if enabled, creates unstable js builds, so we will add debug IDs using CLI
+        // see this issue for more information https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/500
+        disable: true,
+      },
+      release: {
+        // if enabled, creates unstable js builds, so we will create releases using CLI
+        inject: false,
+      },
+    }),
+  ];
+};
+
+const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
+  try {
+    await esbuild.build({
+      entryPoints: zambdas.map((z) => ({
+        in: `${z.src}.ts`,
+        out: z.src.substring('src/'.length),
+      })),
       bundle: true,
       outdir,
-      sourcemap: true,
+      sourcemap: isSentryEnabled,
       platform: 'node',
       external: ['@aws-sdk/*'],
       treeShaking: true,
-      plugins: [
-        copy({
-          resolveFrom: 'cwd',
-          assets: {
-            from: assetsFrom,
-            to: assetsTo,
-          },
-        }),
-        sentryEsbuildPlugin({
-          authToken: process.env.SENTRY_AUTH_TOKEN,
-          org: process.env.SENTRY_ORG,
-          project: process.env.SENTRY_PROJECT,
-          sourcemaps: {
-            // if enabled, creates unstable js builds, so we will add debug IDs using CLI
-            // see this issue for more information https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/500
-            disable: true,
-          },
-          release: {
-            // if enabled, creates unstable js builds, so we will create releases using CLI
-            inject: false,
-          },
-        }),
-      ],
-    })
-    .catch((error) => {
-      console.log(error);
-      process.exit(1);
+      plugins: getSentryPlugins(isSentryEnabled),
     });
+  } catch (error) {
+    console.log('Error bundling zambdas:', error);
+    process.exit(1);
+  }
 };
 
-const injectSourceMaps = async (): Promise<void> => {
+const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
+  const chunks = chunkArray(zambdas, BUNDLE_CHUNK_SIZE);
+  console.log(`Bundling ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${BUNDLE_CHUNK_SIZE}...`);
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`Bundling chunk ${i + 1}/${chunks.length} (${chunks[i].length} zambdas)...`);
+    await buildZambdaChunk(chunks[i], outdir, isSentryEnabled);
+  }
+};
+
+const copyAssets = async (from: string, to: string): Promise<void> => {
+  if (!fs.existsSync(from)) {
+    console.warn(`Assets directory ${from} does not exist, skipping copy`);
+    return;
+  }
+
+  const { $ } = await import('execa');
+  try {
+    await $`cp -r ${from} ${to}`;
+  } catch (error) {
+    console.error(`Failed to copy assets from ${from} to ${to}:`, error);
+    throw error;
+  }
+};
+
+const SENTRY_CHUNK_SIZE = 20;
+
+const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
     console.warn('Sentry environment variables are not set');
     return;
@@ -86,8 +141,28 @@ const injectSourceMaps = async (): Promise<void> => {
   const revParse = await $`git rev-parse --verify HEAD`;
   const releaseName = revParse.stdout;
   await $(shellConfig)`sentry-cli releases new ${releaseName}`;
-  await $(shellConfig)`sentry-cli sourcemaps inject .dist --quiet --log-level error`;
-  await $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} .dist`;
+
+  const zambdaDirs = zambdas.map((z) => path.dirname(`.dist/${z.src.substring('src/'.length)}.js`));
+  const chunks = chunkArray(zambdaDirs, SENTRY_CHUNK_SIZE);
+  console.log(
+    `Injecting source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
+  );
+
+  for (const chunk of chunks) {
+    await Promise.all(
+      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps inject ${dir} --quiet --log-level error`)
+    );
+  }
+
+  console.log(
+    `Uploading source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
+  );
+  for (const chunk of chunks) {
+    await Promise.all(
+      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${dir}`)
+    );
+  }
+
   await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
 };
 
@@ -97,7 +172,7 @@ const zipZambda = async (
   assetsPath: string,
   outPath: string
 ): Promise<void> => {
-  const archive = archiver('zip', { zlib: { level: 9 } });
+  const archive = archiver('zip', { zlib: { level: 1 } });
   const stream = fs.createWriteStream(outPath);
 
   return new Promise((resolve, reject) => {
@@ -111,50 +186,64 @@ const zipZambda = async (
   });
 };
 
-const zip = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath: string): Promise<void> => {
-  const zipsDir = '.dist/zips';
-  if (!fs.existsSync(zipsDir)) {
-    fs.mkdirSync(zipsDir);
-  }
+const zipInChunks = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath: string): Promise<void> => {
+  const chunks = chunkArray(zambdas, ZIP_CHUNK_SIZE);
+  console.log(`Zipping ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${ZIP_CHUNK_SIZE}...`);
 
-  await Promise.all(
-    zambdas.map((zambda) => {
-      const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
-      return zipZambda(sourceDir, assetsDir, assetsPath, zambda.zip);
-    })
-  );
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`Zipping chunk ${i + 1}/${chunks.length} (${chunk.length} zambdas)...`);
+    await Promise.all(
+      chunk.map((zambda) => {
+        const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
+        return zipZambda(sourceDir, assetsDir, assetsPath, zambda.zip);
+      })
+    );
+  }
 };
 
 const main = async (): Promise<void> => {
   console.log('Starting to bundle and zip Zambdas...');
   const { $ } = await import('execa');
+
   await $({ stdio: 'inherit' })`rm -rf ./.dist`;
+  await fs.promises.mkdir('.dist/zips', { recursive: true });
+
   const zambdas = zambdasList();
   console.log('Bundling...');
   console.time('Bundle time');
 
-  const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order'];
+  const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order', 'recommend-billing-suggestions'];
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
-
-  const icd10SearchZambda = zambdas.filter((zambda) => zambda.name === 'icd-10-search');
-  await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search');
-
-  const radiologyCreateOrderZambda = zambdas.filter((zambda) => zambda.name === 'radiology-create-order');
-  await build(radiologyCreateOrderZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/radiology/create-order');
-
-  const mostZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
   const assetsDir = '.dist/assets';
-  await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
+
+  const isSentryEnabled =
+    !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
+    Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+
+  const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
+  const regularZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
+
+  await buildAllZambdas(zambdas, '.dist', isSentryEnabled);
+
+  console.log('Copying assets...');
+  await Promise.all([copyAssets('icd-10-cm-tabular', icd10AssetDir), copyAssets('assets', assetsDir)]);
+
   console.timeEnd('Bundle time');
-  console.log('Source maps...');
-  console.time('Source maps time');
-  await injectSourceMaps();
-  console.timeEnd('Source maps time');
+  if (isSentryEnabled) {
+    console.log('Source maps...');
+    console.time('Source maps time');
+    await injectSourceMaps(zambdas);
+    console.timeEnd('Source maps time');
+  }
   console.log('Zipping...');
   console.time('Zip time');
-  await zip(icd10SearchZambda, icd10AssetDir, 'icd-10-cm-tabular');
-  await zip(radiologyCreateOrderZambda, icd10AssetDir, 'icd-10-cm-tabular');
-  await zip(mostZambdas, assetsDir, 'assets');
+
+  await Promise.all([
+    zipInChunks(icd10Zambdas, icd10AssetDir, 'icd-10-cm-tabular'),
+    zipInChunks(regularZambdas, assetsDir, 'assets'),
+  ]);
+
   console.timeEnd('Zip time');
   console.log('Zambdas successfully bundled and zipped into .dist/zips');
 };

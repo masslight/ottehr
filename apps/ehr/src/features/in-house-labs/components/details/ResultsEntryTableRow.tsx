@@ -1,6 +1,7 @@
 import { SxProps, TableCell, TableRow, Theme, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { OBSERVATION_CODES, quantityRangeFormat, TestItemComponent } from 'utils';
+import { ResultEntryFreeText } from './ResultEntryFreeText';
 import { ResultEntrySelect } from './ResultEntrySelect';
 import { ResultEntryNumericInput } from './ResultsEntryNumericInput';
 
@@ -60,6 +61,9 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
         disabled={disabled}
       />
     );
+  }
+  if (component.displayType === 'Free Text') {
+    valueElement = <ResultEntryFreeText testItemComponent={component} disabled={disabled} />;
   }
 
   const rowStyling: SxProps<Theme> = isLastRow

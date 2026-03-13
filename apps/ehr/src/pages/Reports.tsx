@@ -1,6 +1,9 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import InsightsIcon from '@mui/icons-material/Insights';
+import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
@@ -92,6 +95,12 @@ export default function Reports(): React.ReactElement {
       path: '/reports/incomplete-encounters',
     },
     {
+      title: 'Complete Encounters',
+      description: 'View encounters that have been completed',
+      icon: <AssignmentTurnedInIcon />,
+      path: '/reports/complete-encounters',
+    },
+    {
       title: 'AI-Assisted Encounters',
       description: 'View encounters with AI-generated documentation and assistant interactions',
       icon: <PsychologyIcon />,
@@ -104,16 +113,22 @@ export default function Reports(): React.ReactElement {
       path: '/reports/daily-payments',
     },
     {
+      title: 'Practice KPIs',
+      description: 'View location-level performance metrics for in-person visits',
+      icon: <InsightsIcon />,
+      path: '/reports/practice-kpis',
+    },
+    {
       title: 'Visits Overview',
       description: 'View appointment statistics and charts showing visit types (in-person vs telemed)',
       icon: <AssessmentIcon />,
       path: '/reports/visits-overview',
     },
     {
-      title: 'Workflow Efficiency',
-      description: 'Analyze visit metrics, time-to-provider statistics, and appointment status workflows',
-      icon: <AssessmentIcon />,
-      path: '/reports/workflow-efficiency',
+      title: 'Recent Patients',
+      description: 'View list of recent patients with contact information and visit details',
+      icon: <PeopleIcon />,
+      path: '/reports/recent-patients',
     },
     {
       title: 'Invoiceable patients',

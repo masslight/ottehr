@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import Stripe from 'stripe';
-import { getAuth0Token, getRelatedPersonForPatient } from '../shared';
+import { getRelatedPersonForPatient } from 'utils';
+import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string): Promise<void> {
@@ -55,6 +56,18 @@ async function sendDelinquentPastDueInvoiceBySMS(
 ): Promise<void> {
   const shortInvoiceLink = invoiceLink; //await shortenURL(invoiceLink);
   const invoiceMessage = `Friendly reminder: your UrgiKids balance is still outstanding. Please submit payment using the link below to keep your account in good standing:\n
+${shortInvoiceLink}`;
+  await sendSMSMessage(oystehr, resourceId, invoiceMessage);
+  // console.log('💬 SMS Message:\n', invoiceMessage);
+}
+
+async function sendCollectionsPastDueInvoiceBySMS(
+  oystehr: Oystehr,
+  resourceId: string,
+  invoiceLink: string
+): Promise<void> {
+  const shortInvoiceLink = invoiceLink; //await shortenURL(invoiceLink);
+  const invoiceMessage = `Your UrgiKids balance is now over 60 days past due. Please submit payment using the link below to avoid the balance being sent to collections:\n
 ${shortInvoiceLink}`;
   await sendSMSMessage(oystehr, resourceId, invoiceMessage);
   // console.log('💬 SMS Message:\n', invoiceMessage);
@@ -310,35 +323,49 @@ function generateCSVReport(reportData: CSVReportData[], filename: string): void 
   }
 }
 
-// Updated main function with collections logic
+// Updated main function with 4-tier collections logic
 async function main(): Promise<void> {
   const env = process.argv[2];
-  const newestPastDueDaysArg = process.argv[3]; // Number of days before today
-  const collectablePastDueDaysArg = process.argv[4]; // Number of days for collections
-  const csvFilename = process.argv[5]; // CSV filename for report
+  const newestPastDueDaysArg = process.argv[3]; // Number of days before today - SMS tier
+  const delinquentPastDueDaysArg = process.argv[4]; // Number of days for delinquent - Delinquent SMS tier
+  const collectionsWarningDaysArg = process.argv[5]; // Number of days for collections warning - Collections SMS tier
+  const writtenOffDaysArg = process.argv[6]; // Number of days for written off - No SMS, just report
+  const csvFilename = process.argv[7]; // CSV filename for report
 
   // Validate required arguments
   if (!env) {
     throw new Error(
-      '❌ Environment is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <collectablePastDueDays> <csvFilename>'
+      '❌ Environment is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <delinquentPastDueDays> <collectionsWarningDays> <writtenOffDays> <csvFilename>'
     );
   }
 
   if (!newestPastDueDaysArg) {
     throw new Error(
-      '❌ Newest past due days is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <collectablePastDueDays> <csvFilename>'
+      '❌ Newest past due days is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <delinquentPastDueDays> <collectionsWarningDays> <writtenOffDays> <csvFilename>'
     );
   }
 
-  if (!collectablePastDueDaysArg) {
+  if (!delinquentPastDueDaysArg) {
     throw new Error(
-      '❌ Collectable past due days is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <collectablePastDueDays> <csvFilename>'
+      '❌ Delinquent past due days is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <delinquentPastDueDays> <collectionsWarningDays> <writtenOffDays> <csvFilename>'
+    );
+  }
+
+  if (!collectionsWarningDaysArg) {
+    throw new Error(
+      '❌ Collections warning days is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <delinquentPastDueDays> <collectionsWarningDays> <writtenOffDays> <csvFilename>'
+    );
+  }
+
+  if (!writtenOffDaysArg) {
+    throw new Error(
+      '❌ Written off days is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <delinquentPastDueDays> <collectionsWarningDays> <writtenOffDays> <csvFilename>'
     );
   }
 
   if (!csvFilename) {
     throw new Error(
-      '❌ CSV filename is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <collectablePastDueDays> <csvFilename>'
+      '❌ CSV filename is required. Usage: npm run script send-past-due-invoices-to-patients-by-sms <env> <newestPastDueDays> <delinquentPastDueDays> <collectionsWarningDays> <writtenOffDays> <csvFilename>'
     );
   }
 
@@ -348,38 +375,52 @@ async function main(): Promise<void> {
     throw new Error('❌ Newest past due days must be a valid positive number (e.g., 7 for 7 days ago)');
   }
 
-  const collectablePastDueDays = parseInt(collectablePastDueDaysArg);
-  if (isNaN(collectablePastDueDays) || collectablePastDueDays < 0) {
-    throw new Error('❌ Collectable past due days must be a valid positive number (e.g., 90 for 90 days ago)');
+  const delinquentPastDueDays = parseInt(delinquentPastDueDaysArg);
+  if (isNaN(delinquentPastDueDays) || delinquentPastDueDays < 0) {
+    throw new Error('❌ Delinquent past due days must be a valid positive number (e.g., 30 for 30 days ago)');
   }
 
-  // Validate that collectable days is larger than newest days
-  if (collectablePastDueDays <= newestPastDueDays) {
-    throw new Error('❌ Collectable past due days must be larger than newest past due days');
+  const collectionsWarningDays = parseInt(collectionsWarningDaysArg);
+  if (isNaN(collectionsWarningDays) || collectionsWarningDays < 0) {
+    throw new Error('❌ Collections warning days must be a valid positive number (e.g., 60 for 60 days ago)');
+  }
+
+  const writtenOffDays = parseInt(writtenOffDaysArg);
+  if (isNaN(writtenOffDays) || writtenOffDays < 0) {
+    throw new Error('❌ Written off days must be a valid positive number (e.g., 90 for 90 days ago)');
+  }
+
+  // Validate that days are in ascending order
+  if (delinquentPastDueDays <= newestPastDueDays) {
+    throw new Error('❌ Delinquent past due days must be larger than newest past due days');
+  }
+
+  if (collectionsWarningDays <= delinquentPastDueDays) {
+    throw new Error('❌ Collections warning days must be larger than delinquent past due days');
+  }
+
+  if (writtenOffDays <= collectionsWarningDays) {
+    throw new Error('❌ Written off days must be larger than collections warning days');
   }
 
   // Calculate the date ranges
   const newestBeforeDate = new Date();
   newestBeforeDate.setDate(newestBeforeDate.getDate() - newestPastDueDays);
 
-  const collectableBeforeDate = new Date();
-  collectableBeforeDate.setDate(collectableBeforeDate.getDate() - collectablePastDueDays);
+  const delinquentBeforeDate = new Date();
+  delinquentBeforeDate.setDate(delinquentBeforeDate.getDate() - delinquentPastDueDays);
 
-  console.log(`🗓️ Looking for invoices due between:`);
-  console.log(
-    `   ${collectableBeforeDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })} (${collectablePastDueDays} days ago) - COLLECTIONS`
-  );
-  console.log(
-    `   ${newestBeforeDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })} (${newestPastDueDays} days ago) - SMS REMINDERS`
-  );
+  const collectionsWarningBeforeDate = new Date();
+  collectionsWarningBeforeDate.setDate(collectionsWarningBeforeDate.getDate() - collectionsWarningDays);
+
+  const writtenOffBeforeDate = new Date();
+  writtenOffBeforeDate.setDate(writtenOffBeforeDate.getDate() - writtenOffDays);
+
+  console.log(`🗓️ Invoice age tiers:`);
+  console.log(`   1️⃣  ${newestPastDueDays}-${delinquentPastDueDays} days past due → SMS reminder`);
+  console.log(`   2️⃣  ${delinquentPastDueDays}-${collectionsWarningDays} days past due → Delinquent SMS`);
+  console.log(`   3️⃣  ${collectionsWarningDays}-${writtenOffDays} days past due → Collections warning SMS`);
+  console.log(`   4️⃣  ${writtenOffDays}+ days past due → Written off (report only)`);
 
   const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
 
@@ -400,70 +441,80 @@ async function main(): Promise<void> {
     fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
   });
 
-  // Find past due invoices before the newest date (this includes both SMS and collections)
-  const pastDueInvoices = await findOpenStripeInvoicesDueBeforeDate(stripe, newestBeforeDate);
+  // Find all past due invoices before the newest date
+  const allPastDueInvoices = await findOpenStripeInvoicesDueBeforeDate(stripe, newestBeforeDate);
 
-  if (pastDueInvoices.length === 0) {
+  if (allPastDueInvoices.length === 0) {
     console.log(`❌ No past due invoices found due before ${newestPastDueDays} days ago.`);
     return;
   }
 
-  // Separate invoices into SMS and Collections categories
-  const smsInvoices = pastDueInvoices.filter((invoice) => invoice.dueDate && invoice.dueDate >= collectableBeforeDate);
+  // Separate invoices into 4 tiers
+  const smsInvoices = allPastDueInvoices.filter(
+    (invoice) => invoice.dueDate && invoice.dueDate >= delinquentBeforeDate
+  );
 
-  const collectionsInvoices = pastDueInvoices.filter(
-    (invoice) => invoice.dueDate && invoice.dueDate < collectableBeforeDate
+  const delinquentInvoices = allPastDueInvoices.filter(
+    (invoice) =>
+      invoice.dueDate && invoice.dueDate < delinquentBeforeDate && invoice.dueDate >= collectionsWarningBeforeDate
+  );
+
+  const collectionsWarningInvoices = allPastDueInvoices.filter(
+    (invoice) =>
+      invoice.dueDate && invoice.dueDate < collectionsWarningBeforeDate && invoice.dueDate >= writtenOffBeforeDate
+  );
+
+  const writtenOffInvoices = allPastDueInvoices.filter(
+    (invoice) => invoice.dueDate && invoice.dueDate < writtenOffBeforeDate
   );
 
   // Calculate totals
-  const totalAmountDue = pastDueInvoices.reduce((sum, invoice) => sum + invoice.amountDue, 0);
+  const totalAmountDue = allPastDueInvoices.reduce((sum, invoice) => sum + invoice.amountDue, 0);
   const smsAmountDue = smsInvoices.reduce((sum, invoice) => sum + invoice.amountDue, 0);
-  const collectionsAmountDue = collectionsInvoices.reduce((sum, invoice) => sum + invoice.amountDue, 0);
+  const delinquentAmountDue = delinquentInvoices.reduce((sum, invoice) => sum + invoice.amountDue, 0);
+  const collectionsWarningAmountDue = collectionsWarningInvoices.reduce((sum, invoice) => sum + invoice.amountDue, 0);
+  const writtenOffAmountDue = writtenOffInvoices.reduce((sum, invoice) => sum + invoice.amountDue, 0);
 
   console.log(`\n💰 Past Due Invoice Summary:`);
-  console.log(`   Total invoices: ${pastDueInvoices.length} ($${(totalAmountDue / 100).toFixed(2)})`);
-  console.log(`   📱 SMS reminders: ${smsInvoices.length} ($${(smsAmountDue / 100).toFixed(2)})`);
-  console.log(`   🏢 Collections: ${collectionsInvoices.length} ($${(collectionsAmountDue / 100).toFixed(2)})`);
+  console.log(`   Total invoices: ${allPastDueInvoices.length} ($${(totalAmountDue / 100).toFixed(2)})`);
+  console.log(`   1️⃣  SMS reminders: ${smsInvoices.length} ($${(smsAmountDue / 100).toFixed(2)})`);
+  console.log(`   2️⃣  Delinquent: ${delinquentInvoices.length} ($${(delinquentAmountDue / 100).toFixed(2)})`);
+  console.log(
+    `   3️⃣  Collections warning: ${collectionsWarningInvoices.length} ($${(collectionsWarningAmountDue / 100).toFixed(
+      2
+    )})`
+  );
+  console.log(`   4️⃣  Written off: ${writtenOffInvoices.length} ($${(writtenOffAmountDue / 100).toFixed(2)})`);
 
-  // Extract patient IDs from SMS invoices only
+  const csvReportData: CSVReportData[] = [];
+
+  // Process Tier 1: SMS Reminders
   const smsPatientIds = smsInvoices
     .filter((invoice) => invoice.oystehrPatientId)
     .map((invoice) => invoice.oystehrPatientId!);
 
-  // Extract patient IDs from collections invoices
-  const collectionsPatientIds = collectionsInvoices
-    .filter((invoice) => invoice.oystehrPatientId)
-    .map((invoice) => invoice.oystehrPatientId!);
+  console.log(`\n1️⃣  Processing ${smsPatientIds.length} patients for SMS reminders...`);
 
-  console.log(`\n📱 Processing ${smsPatientIds.length} patients for SMS reminders...`);
+  let smsSentCount = 0;
+  let smsFailCount = 0;
 
-  let successCount = 0;
-  let failCount = 0;
-  let totalAmountProcessed = 0;
-  const csvReportData: CSVReportData[] = [];
-
-  // Process SMS invoices
   for (let i = 0; i < smsPatientIds.length; i++) {
     const patientId = smsPatientIds[i];
-
-    // Find the corresponding invoice for this patient
     const invoiceInfo = smsInvoices.find((inv) => inv.oystehrPatientId === patientId);
 
     if (!invoiceInfo) {
       console.log(`⚠️  No invoice found for patient ${patientId}`);
-      failCount++;
+      smsFailCount++;
       continue;
     }
 
     try {
       console.log(`\n[${i + 1}/${smsPatientIds.length}] Processing SMS for patient: ${patientId}`);
 
-      // Calculate how many days past due this invoice is
       const daysPastDue = invoiceInfo.dueDate
         ? Math.floor((new Date().getTime() - invoiceInfo.dueDate.getTime()) / (1000 * 60 * 60 * 24))
         : 'Unknown';
 
-      // Get patient info including latest appointment
       const patientInfo = await getPatientInfoWithLatestAppointment(oystehr, patientId);
 
       let firstName = 'Unknown';
@@ -471,16 +522,13 @@ async function main(): Promise<void> {
 
       if (patientInfo) {
         console.log(`👤 Patient: ${patientInfo.fullName} (DOB: ${patientInfo.dateOfBirth})`);
-        console.log(`📅 Latest appointment: ${patientInfo.latestAppointmentDate || 'No appointments'}`);
-
-        // Split full name into first and last name
         const nameParts = patientInfo.fullName.split(' ');
         firstName = nameParts[0] || 'Unknown';
         lastName = nameParts.slice(1).join(' ') || 'Unknown';
       }
 
       console.log(
-        `📄 Past due invoice - Amount: $${(invoiceInfo.amountDue / 100).toFixed(
+        `📄 Invoice - Amount: $${(invoiceInfo.amountDue / 100).toFixed(
           2
         )}, Due: ${invoiceInfo.dueDate?.toLocaleDateString('en-US', {
           month: 'short',
@@ -488,55 +536,41 @@ async function main(): Promise<void> {
         })} (${daysPastDue} days past due)`
       );
 
-      // Format payment method info
       let cardOnFile = 'No card on file';
       if (invoiceInfo.defaultPaymentMethod) {
         const pm = invoiceInfo.defaultPaymentMethod;
         cardOnFile = `${pm.brand?.toUpperCase()} ****${pm.last4}`;
         console.log(`💳 Payment method on file: ${cardOnFile} (${pm.expMonth}/${pm.expYear})`);
-      } else {
-        console.log(`‼️ No payment method on file`);
       }
 
-      // Send SMS with the invoice information
       await sendPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.amountDue, invoiceInfo.invoiceLink);
-
-      // Re-send invoice by email via Stripe to ensure they have the latest link
       await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
-      console.log(
-        `📧 Re-sent invoice with id ${invoiceInfo.invoiceId} email via Stripe to ${
-          invoiceInfo.customerEmail || 'unknown email'
-        }`
-      );
+      console.log(`📧 Re-sent invoice email via Stripe`);
 
-      successCount++;
-      totalAmountProcessed += invoiceInfo.amountDue;
+      smsSentCount++;
 
-      // Add data to CSV report
       csvReportData.push({
-        firstName: firstName,
-        lastName: lastName,
+        firstName,
+        lastName,
         dateOfBirth: patientInfo?.dateOfBirth || 'Unknown',
         amountDue: `$${(invoiceInfo.amountDue / 100).toFixed(2)}`,
         dateDue: invoiceInfo.dueDate?.toISOString().split('T')[0] || 'Unknown',
         appointmentDate: patientInfo?.latestAppointmentDate
           ? new Date(patientInfo.latestAppointmentDate).toISOString().split('T')[0]
           : 'No appointments',
-        cardOnFile: cardOnFile,
+        cardOnFile,
         invoiceLink: invoiceInfo.invoiceLink,
-        collectionsStatus: 'SMS Sent', // Mark as SMS sent
+        collectionsStatus: 'SMS Sent',
       });
 
-      // Add delay between SMS sends to avoid rate limiting
       if (i < smsPatientIds.length - 1) {
-        console.log('⏳ Waiting 2 seconds before next SMS...');
+        console.log('⏳ Waiting 2 seconds...');
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
       console.error(`❌ Failed to process patient ${patientId}:`, error);
-      failCount++;
+      smsFailCount++;
 
-      // Still add to CSV report even if SMS failed
       csvReportData.push({
         firstName: 'Error',
         lastName: 'Error',
@@ -546,34 +580,38 @@ async function main(): Promise<void> {
         appointmentDate: 'Error',
         cardOnFile: 'Error',
         invoiceLink: invoiceInfo.invoiceLink,
-        collectionsStatus: 'SMS Failed', // Mark as SMS failed
+        collectionsStatus: 'SMS Failed',
       });
     }
   }
 
-  // Process Collections invoices (send delinquent SMS and report)
-  console.log(`\n🏢 Processing ${collectionsPatientIds.length} patients for collections referral...`);
+  // Process Tier 2: Delinquent SMS
+  const delinquentPatientIds = delinquentInvoices
+    .filter((invoice) => invoice.oystehrPatientId)
+    .map((invoice) => invoice.oystehrPatientId!);
 
-  for (let i = 0; i < collectionsPatientIds.length; i++) {
-    const patientId = collectionsPatientIds[i];
+  console.log(`\n2️⃣  Processing ${delinquentPatientIds.length} patients for delinquent SMS...`);
 
-    // Find the corresponding invoice for this patient
-    const invoiceInfo = collectionsInvoices.find((inv) => inv.oystehrPatientId === patientId);
+  let delinquentSentCount = 0;
+  let delinquentFailCount = 0;
+
+  for (let i = 0; i < delinquentPatientIds.length; i++) {
+    const patientId = delinquentPatientIds[i];
+    const invoiceInfo = delinquentInvoices.find((inv) => inv.oystehrPatientId === patientId);
 
     if (!invoiceInfo) {
-      console.log(`⚠️  No collections invoice found for patient ${patientId}`);
+      console.log(`⚠️  No invoice found for patient ${patientId}`);
+      delinquentFailCount++;
       continue;
     }
 
     try {
-      console.log(`\n[${i + 1}/${collectionsPatientIds.length}] 🏢 Refer to collections - Patient: ${patientId}`);
+      console.log(`\n[${i + 1}/${delinquentPatientIds.length}] Processing delinquent SMS for patient: ${patientId}`);
 
-      // Calculate how many days past due this invoice is
       const daysPastDue = invoiceInfo.dueDate
         ? Math.floor((new Date().getTime() - invoiceInfo.dueDate.getTime()) / (1000 * 60 * 60 * 24))
         : 'Unknown';
 
-      // Get patient info including latest appointment
       const patientInfo = await getPatientInfoWithLatestAppointment(oystehr, patientId);
 
       let firstName = 'Unknown';
@@ -581,15 +619,13 @@ async function main(): Promise<void> {
 
       if (patientInfo) {
         console.log(`👤 Patient: ${patientInfo.fullName} (DOB: ${patientInfo.dateOfBirth})`);
-
-        // Split full name into first and last name
         const nameParts = patientInfo.fullName.split(' ');
         firstName = nameParts[0] || 'Unknown';
         lastName = nameParts.slice(1).join(' ') || 'Unknown';
       }
 
       console.log(
-        `📄 Collections invoice - Amount: $${(invoiceInfo.amountDue / 100).toFixed(
+        `📄 Delinquent invoice - Amount: $${(invoiceInfo.amountDue / 100).toFixed(
           2
         )}, Due: ${invoiceInfo.dueDate?.toLocaleDateString('en-US', {
           month: 'short',
@@ -597,48 +633,40 @@ async function main(): Promise<void> {
         })} (${daysPastDue} days past due)`
       );
 
-      // Format payment method info
       let cardOnFile = 'No card on file';
       if (invoiceInfo.defaultPaymentMethod) {
         const pm = invoiceInfo.defaultPaymentMethod;
         cardOnFile = `${pm.brand?.toUpperCase()} ****${pm.last4}`;
       }
 
-      // Send delinquent SMS reminder
       await sendDelinquentPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink);
-
-      // Re-send invoice by email via Stripe to ensure they have the latest link
       await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
-      console.log(
-        `📧 Re-sent very late invoice with id ${invoiceInfo.invoiceId} email via Stripe to ${
-          invoiceInfo.customerEmail || 'unknown email'
-        }`
-      );
+      console.log(`📧 Re-sent invoice email via Stripe`);
 
-      // Add data to CSV report
+      delinquentSentCount++;
+
       csvReportData.push({
-        firstName: firstName,
-        lastName: lastName,
+        firstName,
+        lastName,
         dateOfBirth: patientInfo?.dateOfBirth || 'Unknown',
         amountDue: `$${(invoiceInfo.amountDue / 100).toFixed(2)}`,
         dateDue: invoiceInfo.dueDate?.toISOString().split('T')[0] || 'Unknown',
         appointmentDate: patientInfo?.latestAppointmentDate
           ? new Date(patientInfo.latestAppointmentDate).toISOString().split('T')[0]
           : 'No appointments',
-        cardOnFile: cardOnFile,
+        cardOnFile,
         invoiceLink: invoiceInfo.invoiceLink,
-        collectionsStatus: 'Delinquent SMS Sent', // Mark as delinquent SMS sent
+        collectionsStatus: 'Delinquent SMS Sent',
       });
 
-      // Add delay between SMS sends to avoid rate limiting
-      if (i < collectionsPatientIds.length - 1) {
-        console.log('⏳ Waiting 2 seconds before next SMS...');
+      if (i < delinquentPatientIds.length - 1) {
+        console.log('⏳ Waiting 2 seconds...');
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
-      console.error(`❌ Failed to process collections patient ${patientId}:`, error);
+      console.error(`❌ Failed to process delinquent patient ${patientId}:`, error);
+      delinquentFailCount++;
 
-      // Still add to CSV report even if processing failed
       csvReportData.push({
         firstName: 'Error',
         lastName: 'Error',
@@ -648,8 +676,159 @@ async function main(): Promise<void> {
         appointmentDate: 'Error',
         cardOnFile: 'Error',
         invoiceLink: invoiceInfo.invoiceLink,
-        collectionsStatus: 'Delinquent SMS Failed', // Mark as SMS failed
+        collectionsStatus: 'Delinquent SMS Failed',
       });
+    }
+  }
+
+  // Process Tier 3: Collections Warning SMS
+  const collectionsWarningPatientIds = collectionsWarningInvoices
+    .filter((invoice) => invoice.oystehrPatientId)
+    .map((invoice) => invoice.oystehrPatientId!);
+
+  console.log(`\n3️⃣  Processing ${collectionsWarningPatientIds.length} patients for collections warning SMS...`);
+
+  let collectionsSentCount = 0;
+  let collectionsFailCount = 0;
+
+  for (let i = 0; i < collectionsWarningPatientIds.length; i++) {
+    const patientId = collectionsWarningPatientIds[i];
+    const invoiceInfo = collectionsWarningInvoices.find((inv) => inv.oystehrPatientId === patientId);
+
+    if (!invoiceInfo) {
+      console.log(`⚠️  No invoice found for patient ${patientId}`);
+      collectionsFailCount++;
+      continue;
+    }
+
+    try {
+      console.log(
+        `\n[${i + 1}/${
+          collectionsWarningPatientIds.length
+        }] Processing collections warning SMS for patient: ${patientId}`
+      );
+
+      const daysPastDue = invoiceInfo.dueDate
+        ? Math.floor((new Date().getTime() - invoiceInfo.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+        : 'Unknown';
+
+      const patientInfo = await getPatientInfoWithLatestAppointment(oystehr, patientId);
+
+      let firstName = 'Unknown';
+      let lastName = 'Unknown';
+
+      if (patientInfo) {
+        console.log(`👤 Patient: ${patientInfo.fullName} (DOB: ${patientInfo.dateOfBirth})`);
+        const nameParts = patientInfo.fullName.split(' ');
+        firstName = nameParts[0] || 'Unknown';
+        lastName = nameParts.slice(1).join(' ') || 'Unknown';
+      }
+
+      console.log(
+        `📄 Collections warning invoice - Amount: $${(invoiceInfo.amountDue / 100).toFixed(
+          2
+        )}, Due: ${invoiceInfo.dueDate?.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        })} (${daysPastDue} days past due)`
+      );
+
+      let cardOnFile = 'No card on file';
+      if (invoiceInfo.defaultPaymentMethod) {
+        const pm = invoiceInfo.defaultPaymentMethod;
+        cardOnFile = `${pm.brand?.toUpperCase()} ****${pm.last4}`;
+      }
+
+      await sendCollectionsPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink);
+      await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
+      console.log(`📧 Re-sent invoice email via Stripe`);
+
+      collectionsSentCount++;
+
+      csvReportData.push({
+        firstName,
+        lastName,
+        dateOfBirth: patientInfo?.dateOfBirth || 'Unknown',
+        amountDue: `$${(invoiceInfo.amountDue / 100).toFixed(2)}`,
+        dateDue: invoiceInfo.dueDate?.toISOString().split('T')[0] || 'Unknown',
+        appointmentDate: patientInfo?.latestAppointmentDate
+          ? new Date(patientInfo.latestAppointmentDate).toISOString().split('T')[0]
+          : 'No appointments',
+        cardOnFile,
+        invoiceLink: invoiceInfo.invoiceLink,
+        collectionsStatus: 'Collections Warning SMS Sent',
+      });
+
+      if (i < collectionsWarningPatientIds.length - 1) {
+        console.log('⏳ Waiting 2 seconds...');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    } catch (error) {
+      console.error(`❌ Failed to process collections warning patient ${patientId}:`, error);
+      collectionsFailCount++;
+
+      csvReportData.push({
+        firstName: 'Error',
+        lastName: 'Error',
+        dateOfBirth: 'Error',
+        amountDue: `$${(invoiceInfo.amountDue / 100).toFixed(2)}`,
+        dateDue: invoiceInfo.dueDate?.toISOString().split('T')[0] || 'Unknown',
+        appointmentDate: 'Error',
+        cardOnFile: 'Error',
+        invoiceLink: invoiceInfo.invoiceLink,
+        collectionsStatus: 'Collections Warning SMS Failed',
+      });
+    }
+  }
+
+  // Process Tier 4: Written Off (Report Only - No SMS)
+  const writtenOffPatientIds = writtenOffInvoices
+    .filter((invoice) => invoice.oystehrPatientId)
+    .map((invoice) => invoice.oystehrPatientId!);
+
+  console.log(`\n4️⃣  Processing ${writtenOffPatientIds.length} written off invoices (report only)...`);
+
+  for (let i = 0; i < writtenOffPatientIds.length; i++) {
+    const patientId = writtenOffPatientIds[i];
+    const invoiceInfo = writtenOffInvoices.find((inv) => inv.oystehrPatientId === patientId);
+
+    if (!invoiceInfo) {
+      continue;
+    }
+
+    try {
+      const patientInfo = await getPatientInfoWithLatestAppointment(oystehr, patientId);
+
+      let firstName = 'Unknown';
+      let lastName = 'Unknown';
+
+      if (patientInfo) {
+        const nameParts = patientInfo.fullName.split(' ');
+        firstName = nameParts[0] || 'Unknown';
+        lastName = nameParts.slice(1).join(' ') || 'Unknown';
+      }
+
+      let cardOnFile = 'No card on file';
+      if (invoiceInfo.defaultPaymentMethod) {
+        const pm = invoiceInfo.defaultPaymentMethod;
+        cardOnFile = `${pm.brand?.toUpperCase()} ****${pm.last4}`;
+      }
+
+      csvReportData.push({
+        firstName,
+        lastName,
+        dateOfBirth: patientInfo?.dateOfBirth || 'Unknown',
+        amountDue: `$${(invoiceInfo.amountDue / 100).toFixed(2)}`,
+        dateDue: invoiceInfo.dueDate?.toISOString().split('T')[0] || 'Unknown',
+        appointmentDate: patientInfo?.latestAppointmentDate
+          ? new Date(patientInfo.latestAppointmentDate).toISOString().split('T')[0]
+          : 'No appointments',
+        cardOnFile,
+        invoiceLink: invoiceInfo.invoiceLink,
+        collectionsStatus: 'Written Off',
+      });
+    } catch (error) {
+      console.error(`❌ Failed to process written off patient ${patientId}:`, error);
     }
   }
 
@@ -658,22 +837,27 @@ async function main(): Promise<void> {
 
   // Final Summary
   console.log(`\n📊 Final Summary:`);
-  console.log(`📱 SMS Processing:`);
-  console.log(`   ✅ Successfully sent: ${successCount} SMS messages`);
-  console.log(`   ❌ Failed: ${failCount} patients`);
-  console.log(`   💰 Amount in SMS notifications: $${(totalAmountProcessed / 100).toFixed(2)}`);
-  console.log(`🏢 Collections Processing:`);
-  console.log(`   📋 Referred to collections: ${collectionsPatientIds.length} patients`);
-  console.log(`   💰 Amount for collections: $${(collectionsAmountDue / 100).toFixed(2)}`);
-  console.log(`📄 Total records in CSV: ${csvReportData.length}`);
+  console.log(`1️⃣  SMS Reminders:`);
+  console.log(`   ✅ Sent: ${smsSentCount}`);
+  console.log(`   ❌ Failed: ${smsFailCount}`);
+  console.log(`   💰 Amount: $${(smsAmountDue / 100).toFixed(2)}`);
+  console.log(`2️⃣  Delinquent SMS:`);
+  console.log(`   ✅ Sent: ${delinquentSentCount}`);
+  console.log(`   ❌ Failed: ${delinquentFailCount}`);
+  console.log(`   💰 Amount: $${(delinquentAmountDue / 100).toFixed(2)}`);
+  console.log(`3️⃣  Collections Warning SMS:`);
+  console.log(`   ✅ Sent: ${collectionsSentCount}`);
+  console.log(`   ❌ Failed: ${collectionsFailCount}`);
+  console.log(`   💰 Amount: $${(collectionsWarningAmountDue / 100).toFixed(2)}`);
+  console.log(`4️⃣  Written Off (Report Only):`);
+  console.log(`   📋 Count: ${writtenOffPatientIds.length}`);
+  console.log(`   💰 Amount: $${(writtenOffAmountDue / 100).toFixed(2)}`);
+  console.log(`\n📄 Total records in CSV: ${csvReportData.length}`);
   console.log(`📄 CSV report saved as: ${csvFilename}`);
-  console.log(`🗓️ Date ranges:`);
-  console.log(`   SMS: ${newestPastDueDays}-${collectablePastDueDays} days past due`);
-  console.log(`   Collections: More than ${collectablePastDueDays} days past due`);
 }
 
 main()
-  .then(() => console.log('\n✅ All invoices sent to patients by SMS.'))
+  .then(() => console.log('\n✅ All invoices processed.'))
   .catch((error) => {
     console.error(error);
     throw error;

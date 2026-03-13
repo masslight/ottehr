@@ -2,10 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
-import { examConfig } from 'utils';
+import { examConfig, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { getAuth0Token } from '../shared';
-import { GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from '../shared/templates';
 import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
 
 const getOystehr = async (config: any): Promise<Oystehr> => {

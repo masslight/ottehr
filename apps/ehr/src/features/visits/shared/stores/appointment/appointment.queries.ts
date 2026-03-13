@@ -26,14 +26,17 @@ import { extractReviewAndSignAppointmentData } from 'src/features/visits/telemed
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
+  AISuggestionNotesInput,
   APIError,
-  APIErrorCode,
+  BillingSuggestionInput,
   CancelMatchUnsolicitedResultTask,
-  CPTCodeDTO,
+  CODE_SYSTEM_NDC,
+  CPTSearchRequestParams,
   createSmsModel,
-  DiagnosisDTO,
   filterResources,
   FinalizeUnsolicitedResultMatch,
+  GetCreateInHouseLabOrderResourcesInput,
+  GetCreateInHouseLabOrderResourcesOutput,
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
@@ -51,12 +54,12 @@ import {
   GetUnsolicitedResultsTasksOutput,
   Icd10SearchRequestParams,
   Icd10SearchResponse,
-  IcdSearchRequestParams,
   IcdSearchResponse,
   InstructionType,
   INVENTORY_MEDICATION_TYPE_CODE,
   LabOrderResourcesRes,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MeetingData,
   ProcedureDetail,
   PromiseReturnType,
@@ -316,6 +319,7 @@ export const useGetAllergiesSearch = (
 
 export const useGetCreateExternalLabResources = ({
   patientId,
+  encounterId,
   search,
   labOrgIdsString,
 }: GetCreateLabOrderResources): UseQueryResult<LabOrderResourcesRes | null, Error> => {
@@ -324,7 +328,7 @@ export const useGetCreateExternalLabResources = ({
     queryKey: ['external lab resource search', patientId, search, labOrgIdsString],
 
     queryFn: async () => {
-      const res = await apiClient?.getCreateExternalLabResources({ patientId, search, labOrgIdsString });
+      const res = await apiClient?.getCreateExternalLabResources({ patientId, encounterId, search, labOrgIdsString });
       if (res) {
         return res;
       } else {
@@ -333,6 +337,28 @@ export const useGetCreateExternalLabResources = ({
     },
 
     enabled: Boolean(apiClient && (patientId || search)),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+};
+
+export const useGetCreateInHouseLabResources = ({
+  encounterId,
+}: GetCreateInHouseLabOrderResourcesInput): UseQueryResult<GetCreateInHouseLabOrderResourcesOutput | null, Error> => {
+  const apiClient = useOystehrAPIClient();
+  return useQuery({
+    queryKey: ['inhouse lab resource search', encounterId],
+
+    queryFn: async () => {
+      const res = await apiClient?.getCreateInHouseLabOrderResources({ encounterId });
+      if (res) {
+        return res;
+      } else {
+        return null;
+      }
+    },
+
+    enabled: Boolean(apiClient),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
@@ -512,47 +538,112 @@ export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Err
   });
 }
 
-export const useGetIcd10Search = ({
+export const useGetCPTHCPCSSearch = ({
   search,
-  sabs,
+  type,
   radiologyOnly,
-}: IcdSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, APIError> => {
-  const apiClient = useOystehrAPIClient();
+}: CPTSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, APIError> => {
+  const { oystehr } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['icd-search', search, sabs, radiologyOnly],
+    queryKey: ['hcpcs-search', search, radiologyOnly],
 
     queryFn: async () => {
-      return apiClient?.icdSearch({ search, sabs, radiologyOnly });
+      switch (type) {
+        case 'cpt': {
+          const terminologyResponse = await oystehr?.terminology.searchCpt({
+            query: search,
+            searchType: 'all',
+            limit: 100,
+          });
+          if (!terminologyResponse) {
+            throw new Error('could not get terminology results');
+          }
+          if (radiologyOnly) {
+            terminologyResponse.codes = terminologyResponse!.codes.filter((code) => code.code.startsWith('7'));
+          }
+          terminologyResponse.codes = terminologyResponse.codes.sort((a, b) => a.code.localeCompare(b.code));
+          return terminologyResponse;
+        }
+        case 'hcpcs': {
+          const terminologyResponse = await oystehr?.terminology.searchHcpcs({
+            query: search,
+            searchType: 'all',
+            limit: 100,
+          });
+          if (!terminologyResponse) {
+            throw new Error('could not get terminology results');
+          }
+          terminologyResponse.codes = terminologyResponse.codes.sort((a, b) => a.code.localeCompare(b.code));
+          return terminologyResponse;
+        }
+        case 'both': {
+          const [cptResponse, hcpcsResponse] = await Promise.all([
+            oystehr?.terminology.searchCpt({
+              query: search,
+              searchType: 'all',
+              limit: 100,
+            }),
+            oystehr?.terminology.searchHcpcs({
+              query: search,
+              searchType: 'all',
+              limit: 100,
+            }),
+          ]);
+          if (!cptResponse || !hcpcsResponse) {
+            throw new Error('could not get terminology results');
+          }
+          let combinedCodes = [...cptResponse.codes, ...hcpcsResponse.codes].filter(
+            (codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code)
+          );
+
+          // Put the exact code first
+          combinedCodes = combinedCodes.sort((a, b) => {
+            const aExact = a.code.toLowerCase() === search.toLowerCase();
+            const bExact = b.code.toLowerCase() === search.toLowerCase();
+            if (aExact && !bExact) return -1;
+            if (!aExact && bExact) return 1;
+            return a.code.localeCompare(b.code);
+          });
+
+          return { codes: combinedCodes };
+        }
+      }
     },
 
-    enabled: Boolean(apiClient && search),
+    enabled: Boolean(oystehr && search),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
 
-  useEffect(() => {
-    if (queryResult.error && (queryResult.error as APIError)?.code !== APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
-      enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
-        variant: 'error',
-      });
-    }
-  }, [queryResult.error]);
-
   return queryResult;
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useAiSuggestionNotes = () => {
+  const apiClient = useOystehrAPIClient();
+  return useMutation({
+    mutationFn: (props: AISuggestionNotesInput) => {
+      if (!apiClient) {
+        throw new Error('api client is not defined');
+      }
+      return apiClient.aiSuggestionNotes(props);
+    },
+    retry: 2,
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useRecommendBillingSuggestions = () => {
   const apiClient = useOystehrAPIClient();
   return useMutation({
-    mutationFn: (props: { diagnoses: DiagnosisDTO[] | undefined; billing: CPTCodeDTO[] | undefined }) => {
+    mutationFn: (props: BillingSuggestionInput) => {
       if (!apiClient) {
         throw new Error('api client is not defined');
       }
       return apiClient.recommendBillingSuggestions(props);
     },
-    retry: 2,
+    retry: 0,
   });
 };
 
@@ -660,7 +751,7 @@ export const useSavePatientInstruction = () => {
   const apiClient = useOystehrAPIClient();
 
   return useMutation({
-    mutationFn: (instruction: { text: string }) => {
+    mutationFn: (instruction: { text?: string; title?: string }) => {
       if (apiClient) {
         return apiClient.savePatientInstruction(instruction);
       }
@@ -874,7 +965,7 @@ export const useCreateUpdateMedicationOrder = () => {
 
 export const useGetMedicationOrders = (
   searchBy: GetMedicationOrdersInput['searchBy']
-): UseQueryResult<GetMedicationOrdersResponse, Error> => {
+): UseQueryResult<GetMedicationOrdersResponse | null, Error> => {
   const apiClient = useOystehrAPIClient();
 
   const encounterIdIsDefined = searchBy.field === 'encounterId' && searchBy.value;
@@ -883,9 +974,13 @@ export const useGetMedicationOrders = (
   return useQuery({
     queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy)],
 
-    queryFn: () => {
+    queryFn: async () => {
       if (apiClient) {
-        return apiClient.getMedicationOrders({ searchBy }) as Promise<GetMedicationOrdersResponse>;
+        if (encounterIdIsDefined || encounterIdsHasLen) {
+          return await apiClient.getMedicationOrders({ searchBy });
+        } else {
+          return null;
+        }
       }
       throw new Error('api client not defined');
     },
@@ -896,25 +991,43 @@ export const useGetMedicationOrders = (
   });
 };
 
-const emptyMedications: Record<string, string> = {};
+type MedicationListData = {
+  idToName: Record<string, string>;
+  idToMedispanCode: Record<string, string>;
+  idToNdc: Record<string, string>;
+};
+
+const emptyMedicationListData: MedicationListData = {
+  idToName: {},
+  idToMedispanCode: {},
+  idToNdc: {},
+};
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMedicationList = () => {
   const { oystehr } = useApiClients();
 
-  const getMedicationIdentifierNames = (data: Medication[]): Record<string, string> => {
-    return (data || []).reduce(
-      (acc, entry) => {
-        const identifier = entry.identifier?.find((id: Coding) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
-
-        if (identifier?.value && entry.id) {
-          acc[entry.id] = identifier.value;
-        }
-
-        return acc;
-      },
-      {} as Record<string, string>
-    );
+  const buildMedicationListData = (data: Medication[]): MedicationListData => {
+    const idToName: Record<string, string> = {};
+    const idToMedispanCode: Record<string, string> = {};
+    const idToNdc: Record<string, string> = {};
+    for (const entry of data || []) {
+      const identifier = entry.identifier?.find((id: Coding) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
+      if (identifier?.value && entry.id) {
+        idToName[entry.id] = identifier.value;
+      }
+      const medispanCoding = entry.code?.coding?.find(
+        (c: Coding) => c.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      );
+      if (medispanCoding?.code && entry.id) {
+        idToMedispanCode[entry.id] = medispanCoding.code;
+      }
+      const ndcCoding = entry.code?.coding?.find((c: Coding) => c.system === CODE_SYSTEM_NDC);
+      if (ndcCoding?.code && entry.id) {
+        idToNdc[entry.id] = ndcCoding.code;
+      }
+    }
+    return { idToName, idToMedispanCode, idToNdc };
   };
 
   const queryResult = useQuery({
@@ -922,14 +1035,14 @@ export const useGetMedicationList = () => {
 
     queryFn: async () => {
       if (!oystehr) {
-        return emptyMedications;
+        return emptyMedicationListData;
       }
       const data = await oystehr.fhir.search<Medication>({
         resourceType: 'Medication',
         params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
       });
 
-      return getMedicationIdentifierNames(data.unbundle());
+      return buildMedicationListData(data.unbundle());
     },
 
     placeholderData: keepPreviousData,

@@ -22,9 +22,13 @@ import {
   Reference,
   Resource,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCIDENT_STATE_EXTENSION,
+  ACCIDENT_TYPE_SYSTEM,
+  AccidentDTO,
   ADDED_VIA_LAB_ORDER_SYSTEM,
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -82,9 +86,11 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
   SNOMEDCodeConceptInterface,
+  TaskCoding,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
+import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
@@ -132,6 +138,14 @@ export function makeConditionResource(
               system: 'http://hl7.org/fhir/sid/icd-10',
               version: '2019',
               code: dto.code,
+              display: dto.display,
+            },
+          ],
+        }
+      : fieldName === 'medical-condition'
+      ? {
+          coding: [
+            {
               display: dto.display,
             },
           ],
@@ -298,6 +312,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     prescriptionId: medRequest.identifier?.find(
       (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
+    encounterId: medRequest.encounter?.reference?.split('/')?.[1],
   };
 }
 
@@ -459,6 +474,7 @@ export function makeCPTCodeDTO(resource: Procedure): CPTCodeDTO | undefined {
       resourceId: resource.id,
       code: coding?.code,
       display: coding?.display,
+      modifier: getCptModifierCodeFromProcedure(resource),
     };
   }
   return undefined;
@@ -552,17 +568,26 @@ export function makeCommunicationResource(
   data: CommunicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Communication {
+  const { resourceId, text, title } = data;
   return {
     resourceType: 'Communication',
-    id: data.resourceId,
+    id: resourceId,
     status: 'completed',
     subject: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
-    payload: [
-      {
-        contentString: data.text,
+    ...(title && {
+      topic: {
+        text: title,
       },
-    ],
+    }),
+
+    ...(text && {
+      payload: [
+        {
+          contentString: text,
+        },
+      ],
+    }),
     meta: getMetaWFieldName(fieldName),
   };
 }
@@ -570,7 +595,8 @@ export function makeCommunicationResource(
 export function makeCommunicationDTO(resource: Communication): CommunicationDTO {
   return {
     resourceId: resource.id,
-    text: resource.payload?.[0].contentString,
+    text: resource.payload?.[0]?.contentString,
+    title: resource.topic?.text,
   };
 }
 
@@ -883,16 +909,9 @@ export function makeDiagnosisConditionResource(
   encounterId: string,
   patientId: string,
   data: DiagnosisDTO,
-  fieldName: ProviderChartDataFieldsNames,
-  source?: string
+  fieldName: ProviderChartDataFieldsNames
 ): Condition {
   const meta = getMetaWFieldName(fieldName);
-  if (fieldName === 'ai-potential-diagnosis') {
-    meta.tag?.push({
-      code: source,
-      system: `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}-source`,
-    });
-  }
   const conditionConfig: Condition = {
     id: data.resourceId,
     resourceType: 'Condition',
@@ -1177,6 +1196,14 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Condition' &&
+    chartDataResourceHasMetaTagByCode(resource, 'mechanism-of-injury') &&
+    resourceReferencesEncounter(resource, encounterId)
+  ) {
+    logDuplicationWarning(data.mechanismOfInjury, 'chart-data duplication warning: "mechanismOfInjury" already exists');
+    data.mechanismOfInjury = makeFreeTextNoteDTO(resource);
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Condition' &&
     chartDataResourceHasMetaTagByCode(resource, 'ros') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
@@ -1198,7 +1225,9 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication')
+    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication') &&
+    // Chart data doesn't return cancelled orders. There is a separate endpoint that returns them (get-medication-orders)
+    resource.status !== 'entered-in-error'
   ) {
     data.inhouseMedications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
@@ -1384,21 +1413,11 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
     data.addendumNote = { text: addendumNote.valueString };
   }
 
-  // 6. AI potential diagnoses
-  resources
-    .filter(
-      (resource) =>
-        resource.resourceType === 'Condition' &&
-        resource.meta?.tag?.[0].code === 'ai-potential-diagnosis' &&
-        encounterResource.id !== undefined &&
-        resourceReferencesEncounter(resource, encounterResource.id)
-    )
-    .forEach((condition) => {
-      data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
-    });
-
-  // 7. Procedures
+  // 6. Procedures
   data.procedures = makeProceduresDTOFromFhirResources(encounterResource, resources);
+
+  // 7. Accident
+  data.accident = makeAccidentDTOFromFhirResources(resources);
 
   return data;
 }
@@ -1526,7 +1545,12 @@ export function makeProceduresDTOFromFhirResources(
   resources: FhirResource[]
 ): ProcedureDTO[] | undefined {
   const proceduresServiceRequests: ServiceRequest[] = resources.filter(
-    (res) => res.resourceType === 'ServiceRequest' && chartDataResourceHasMetaTagByCode(res, 'procedure')
+    (res) =>
+      res.resourceType === 'ServiceRequest' &&
+      chartDataResourceHasMetaTagByCode(res, 'procedure') &&
+      // Filter out deleted procedures for backward compatibility
+      res.status !== 'entered-in-error' &&
+      res.status !== 'revoked'
   ) as ServiceRequest[];
 
   if (proceduresServiceRequests.length === 0) {
@@ -1549,6 +1573,7 @@ export function makeProceduresDTOFromFhirResources(
   return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
     return {
       resourceId: serviceRequests.id,
+      encounterId: serviceRequests.encounter?.reference?.split('/')[1],
       procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
       cptCodes: cptCodeProcedures
         .filter(
@@ -1653,6 +1678,7 @@ export const createProcedureServiceRequest = (
       reference: 'Procedure/' + cptCode.resourceId,
     };
   });
+
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',
     id: procedure.resourceId,
@@ -1731,3 +1757,66 @@ function getMedicationDosage(medication: MedicationStatement, medicationType: st
   }
   return medication.dosage?.[0].text;
 }
+
+export function makeEncounterTaskResource(encounterId: string, coding: TaskCoding): Task {
+  return {
+    resourceType: 'Task',
+    status: 'requested',
+    intent: 'order',
+    description: `Update chart data with recommended diagnosis code ${coding.code}`,
+    focus: { reference: `Encounter/${encounterId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    code: {
+      coding: [coding],
+    },
+  };
+}
+
+export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): AccidentDTO | undefined {
+  const accidentCondition = resources.find(
+    (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
+  ) as Condition;
+  if (accidentCondition == null) {
+    return undefined;
+  }
+  return {
+    resourceId: accidentCondition.id,
+    type:
+      accidentCondition.code?.coding
+        ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
+        ?.map((coding) => coding.code as any) ?? [],
+    date: accidentCondition.onsetDateTime,
+    state: accidentCondition.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)?.valueString,
+  };
+}
+
+export const createAccidentCondition = (
+  accident: AccidentDTO,
+  encounterId: string,
+  patientId: string
+): BatchInputPutRequest<Condition> | BatchInputPostRequest<Condition> => {
+  return saveOrUpdateResourceRequest<Condition>({
+    resourceType: 'Condition',
+    id: accident.resourceId,
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    onsetDateTime: accident.date,
+    code: {
+      coding: accident.type.map((type) => {
+        return {
+          system: ACCIDENT_TYPE_SYSTEM,
+          code: type,
+        };
+      }),
+    },
+    extension: accident.state
+      ? [
+          {
+            url: ACCIDENT_STATE_EXTENSION,
+            valueString: accident.state,
+          },
+        ]
+      : undefined,
+    meta: getMetaWFieldName('accident'),
+  });
+};

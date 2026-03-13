@@ -26,7 +26,7 @@ export const index = wrapHandler('del-payment-method', async (input: ZambdaInput
       return lambdaResponse(400, { message: error.message });
     }
 
-    const { beneficiaryPatientId, paymentMethodId, secrets } = validatedParameters;
+    const { beneficiaryPatientId, appointmentId, paymentMethodId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -44,7 +44,11 @@ export const index = wrapHandler('del-payment-method', async (input: ZambdaInput
       oystehrClient
     ));
 
-    const { stripeCustomerId } = await complexValidation({ patientId: beneficiaryPatientId, oystehrClient });
+    const { stripeCustomerId } = await complexValidation({
+      patientId: beneficiaryPatientId,
+      appointmentId,
+      oystehrClient,
+    });
     const stripeClient = getStripeClient(secrets);
 
     // check if payment method is assigned to the customer to begin with, before updating the

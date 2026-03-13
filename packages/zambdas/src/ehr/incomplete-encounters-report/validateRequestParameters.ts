@@ -8,7 +8,7 @@ export function validateRequestParameters(
     throw new Error('Missing request body');
   }
 
-  const { dateRange } = JSON.parse(input.body);
+  const { dateRange, encounterStatus } = JSON.parse(input.body);
 
   if (!dateRange) {
     throw new Error('Missing dateRange parameter');
@@ -27,12 +27,17 @@ export function validateRequestParameters(
     throw new Error('dateRange.end must be a valid ISO date string');
   }
 
+  if (encounterStatus && encounterStatus !== 'incomplete' && encounterStatus !== 'complete') {
+    throw new Error("encounterStatus must be 'incomplete' or 'complete'");
+  }
+
   if (!input.secrets) {
     throw new Error('Input did not have any secrets');
   }
 
   return {
     dateRange,
+    encounterStatus,
     secrets: input.secrets,
   };
 }

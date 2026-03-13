@@ -5,14 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCancelTelemedAppointmentMutation } from 'src/telemed/features/appointments';
 import { useOystehrAPIClient } from 'src/telemed/utils';
+import { FormInputType } from 'src/types';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
-  BOOKING_CONFIG,
-  CancellationReasonOptionsTelemed,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
-  PROJECT_NAME,
   ServiceMode,
+  VALUE_SETS,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import ottehrApi from '../api/ottehrApi';
@@ -32,6 +31,7 @@ const CancellationReason = (): JSX.Element => {
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [cancelErrorDialog, setCancelErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
+
   const { id: appointmentID } = useParams();
   const navigateInFlow = useNavigateInFlow();
 
@@ -70,6 +70,9 @@ const CancellationReason = (): JSX.Element => {
       if (!appointmentID) {
         throw new Error('no appointment ID provided');
       }
+      const cancellationReasonAdditional =
+        data.cancellationReason === 'Other' ? data.cancellationReasonAdditional : undefined;
+
       setLoading(true);
 
       if (isVirtualAppt) {
@@ -81,6 +84,7 @@ const CancellationReason = (): JSX.Element => {
             apiClient,
             appointmentID: appointmentID,
             cancellationReason: data.cancellationReason,
+            cancellationReasonAdditional,
           },
           {
             onSuccess: async () => {
@@ -111,6 +115,7 @@ const CancellationReason = (): JSX.Element => {
           appointmentID: appointmentID,
           language: 'en', // replace with i18n.language to enable
           cancellationReason: data.cancellationReason,
+          cancellationReasonAdditional,
         });
 
         setLoading(false);
@@ -137,6 +142,35 @@ const CancellationReason = (): JSX.Element => {
 
   const appointmentNotFoundInformation = useAppointmentNotFoundInformation();
 
+  const cancelReasonOptions = useMemo(() => {
+    return isVirtualAppt ? VALUE_SETS.cancelReasonOptionsVirtualPatient : VALUE_SETS.cancelReasonOptionsInPersonPatient;
+  }, [isVirtualAppt]);
+
+  const formElements = useMemo<FormInputType[]>(
+    () => [
+      {
+        type: 'Select',
+        name: 'cancellationReason',
+        label: t('cancel.subtitle'),
+        required: true,
+        selectOptions: cancelReasonOptions,
+      },
+      {
+        type: 'Text',
+        name: 'cancellationReasonAdditional',
+        label: t('cancel.additionalReasonSubtitle'),
+        required: false,
+        hidden: true,
+        enableWhen: {
+          question: 'cancellationReason',
+          operator: '=',
+          answer: 'Other',
+        },
+      },
+    ],
+    [cancelReasonOptions, t]
+  );
+
   if (notFound) {
     return (
       <PageContainer title={t('cancel.errors.errorCanceling')} description={appointmentNotFoundInformation}>
@@ -145,33 +179,10 @@ const CancellationReason = (): JSX.Element => {
     );
   }
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const cancelReasonOptions = useMemo(() => {
-    return isVirtualAppt
-      ? Object.keys(CancellationReasonOptionsTelemed).map((key, index) => ({
-          label:
-            t(`cancel.telemedReasons.reason${index + 1}`, { PROJECT_NAME }) ||
-            CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
-          value: CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
-        }))
-      : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
-          label: t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) || BOOKING_CONFIG.cancelReasonOptions[index],
-          value: BOOKING_CONFIG.cancelReasonOptions[index],
-        }));
-  }, [t, isVirtualAppt]);
-
   return (
     <PageContainer title={t('cancel.title')}>
       <PageForm
-        formElements={[
-          {
-            type: 'Select',
-            name: 'cancellationReason',
-            label: t('cancel.subtitle'),
-            required: true,
-            selectOptions: cancelReasonOptions,
-          },
-        ]}
+        formElements={formElements}
         controlButtons={{
           loading: loading || cancelTelemedAppointment.isPending,
           submitLabel: t('cancel.cancelButton'),

@@ -1,6 +1,11 @@
 import { Task } from 'fhir/r4b';
-import { Secrets, TaskSubscriptionInput } from 'utils';
+import { Secrets } from 'utils';
 import { ZambdaInput } from '../../shared';
+
+export interface TaskSubscriptionInput {
+  task: Task;
+  secrets: Secrets;
+}
 
 export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets } {
   if (!input.body) {
@@ -26,7 +31,7 @@ export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionI
   }
 
   return {
-    task: task as Task,
+    task,
     secrets: input.secrets,
   };
 }

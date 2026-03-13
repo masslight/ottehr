@@ -1,4 +1,5 @@
-import { patientScreeningQuestionsConfig } from '../../../main';
+// Import directly from source to avoid circular dependency through main barrel
+import { patientScreeningQuestionsConfig } from '../../../ottehr-config/screening-questions';
 import { HistorySourceKeys, historySourceLabels, RecentVisitKeys, recentVisitLabels } from './constants';
 import { Field, NoteField, ObservationDTO } from './types';
 

@@ -3,7 +3,7 @@ import { DiagnosticReport, DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { EXAMPLE_ENVS } from './lab-script-consts';
-import { createAttachmentDocRef } from './lab-script-helpers';
+import { createResultAttachmentDocRef } from './lab-script-helpers';
 
 // Creates a DiagnosticReport and an Observation to mock a pdf attachment
 // npm run mock-pdf-result ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -72,7 +72,7 @@ const main = async (): Promise<void> => {
 
   const diagnosticReports = resultResources.filter((resource) => resource.resourceType === 'DiagnosticReport');
   const relatedDiagnosticReportReferences = diagnosticReports.map((dr) => ({ reference: `DiagnosticReport/${dr.id}` }));
-  const docRef = createAttachmentDocRef({
+  const docRef = createResultAttachmentDocRef({
     ENV,
     projectId,
     relatedDiagnosticReportReferences,

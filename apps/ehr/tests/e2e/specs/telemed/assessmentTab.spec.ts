@@ -19,7 +19,7 @@ const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
-const E_M_CODE = '99201';
+const E_M_CODE = '99202';
 
 test.describe.configure({ mode: 'serial' });
 

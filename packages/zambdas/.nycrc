@@ -1,0 +1,23 @@
+{
+    "reporter": [
+        "text",
+        "html"
+    ],
+    "all": true,
+    "clean": true,
+    "report-dir": "./coverage",
+    "include": [
+        "src/**"
+    ],
+    "exclude": [
+        "./coverage/**",
+        "test/**",
+        "**/*.d.ts",
+        ".jsdoc.js",
+        "**/.jsdoc.js",
+        "src/local-server/**",
+        "src/**/tests/**",
+        "src/**/testUtils/**"
+    ],
+    "exclude-after-remap": false
+}

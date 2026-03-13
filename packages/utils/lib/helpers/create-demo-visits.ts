@@ -1,8 +1,22 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
+import {
+  Address,
+  Appointment,
+  Location,
+  Patient,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponseItem,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ServiceCategoryCode } from '../configuration';
-import { isLocationVirtual } from '../fhir';
+import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG, isLocationVirtual } from '../fhir';
+import {
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  ServiceCategoryCode,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
+} from '../ottehr-config';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -17,10 +31,12 @@ import {
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
+  getAttorneyInformationStepAnswers,
   getCardPaymentStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
+  getEmployerInformationStepAnswers,
   getInviteParticipantStepAnswers,
   getMedicalConditionsStepAnswers,
   getMedicationsStepAnswers,
@@ -55,6 +71,84 @@ interface DemoConfig {
 }
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
+
+interface PaperworkStepDefinition {
+  linkId: string;
+  getAnswers: () => PatchPaperworkParameters['answers'];
+}
+
+const findItemByLinkId = (items: QuestionnaireItem[] | undefined, linkId: string): boolean => {
+  if (!items) return false;
+  return items.some((item: QuestionnaireItem) => {
+    if (item.linkId === linkId) return true;
+    if (item.item) return findItemByLinkId(item.item, linkId);
+    return false;
+  });
+};
+
+const getQuestionnaireForServiceMode = (serviceMode: ServiceMode): Questionnaire | undefined => {
+  return serviceMode === ServiceMode.virtual
+    ? VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()
+    : IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
+};
+
+export const questionnaireHasPage = (serviceMode: ServiceMode, linkId: string): boolean => {
+  const questionnaire = getQuestionnaireForServiceMode(serviceMode);
+  if (!questionnaire?.item) return false;
+  return findItemByLinkId(questionnaire.item, linkId);
+};
+
+export const hasEmployerInformationPage = (): boolean => {
+  return questionnaireHasPage(ServiceMode['in-person'], 'employer-information-page');
+};
+
+export const hasAttorneyInformationPage = (): boolean => {
+  return questionnaireHasPage(ServiceMode['in-person'], 'attorney-mva-page');
+};
+
+const getAllPaperworkSteps = (
+  patientInfo: PatientInfo,
+  birthDate: { day: string; month: string; year: string } | undefined
+): PaperworkStepDefinition[] => [
+  {
+    linkId: 'contact-information-page',
+    getAnswers: () =>
+      getContactInformationAnswers({
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        ...(birthDate ? { birthDate } : {}),
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
+      }),
+  },
+  { linkId: 'patient-details-page', getAnswers: () => getPatientDetailsStepAnswers({}) },
+  { linkId: 'primary-care-physician-page', getAnswers: () => getPrimaryCarePhysicianStepAnswers({}) },
+  { linkId: 'pharmacy-page', getAnswers: () => getPreferredPharmacyStepAnswers() },
+  { linkId: 'current-medications-page', getAnswers: () => getMedicationsStepAnswers() },
+  { linkId: 'allergies-page', getAnswers: () => getAllergiesStepAnswers() },
+  { linkId: 'medical-history-page', getAnswers: () => getMedicalConditionsStepAnswers() },
+  { linkId: 'surgical-history-page', getAnswers: () => getSurgicalHistoryStepAnswers() },
+  { linkId: 'payment-option-page', getAnswers: () => getPaymentOptionSelfPayAnswers() },
+  { linkId: 'responsible-party-page', getAnswers: () => getResponsiblePartyStepAnswers({}) },
+  { linkId: 'employer-information-page', getAnswers: () => getEmployerInformationStepAnswers({}) },
+  { linkId: 'emergency-contact-page', getAnswers: () => getEmergencyContactStepAnswers({}) },
+  { linkId: 'attorney-mva-page', getAnswers: () => getAttorneyInformationStepAnswers({}) },
+  { linkId: 'card-payment-page', getAnswers: () => getCardPaymentStepAnswers() },
+  { linkId: 'school-work-note-page', getAnswers: () => getSchoolWorkNoteStepAnswers() },
+  { linkId: 'invite-participant-page', getAnswers: () => getInviteParticipantStepAnswers() },
+  { linkId: 'additional-page', getAnswers: () => getAdditionalQuestionsAnswers({ useRandomAnswers: true }) },
+  { linkId: 'consent-forms-page', getAnswers: () => getConsentStepAnswers({}) },
+];
+
+export const buildPaperworkPatches = (
+  patientInfo: PatientInfo,
+  birthDate: { day: string; month: string; year: string } | undefined,
+  serviceMode: ServiceMode
+): QuestionnaireResponseItem[] => {
+  const allSteps = getAllPaperworkSteps(patientInfo, birthDate);
+  return allSteps.filter((step) => questionnaireHasPage(serviceMode, step.linkId)).map((step) => step.getAnswers());
+};
 
 const DEFAULT_FIRST_NAMES = [
   'Alice',
@@ -244,6 +338,7 @@ export const createSampleAppointments = async ({
               authToken,
               projectId,
               serviceModeToUse,
+              oystehr,
               paperworkAnswers
             );
           }
@@ -289,67 +384,49 @@ const processPaperwork = async (
   authToken: string,
   projectId: string,
   serviceMode: ServiceMode,
+  oystehr: Oystehr,
   paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
     const { appointmentId, questionnaireResponseId } = appointmentData;
-
     if (!questionnaireResponseId) return;
 
     const birthDate = isoToDateObject(patientInfo.dateOfBirth || '') || undefined;
 
-    // Determine the paperwork patches based on service mode
-    let paperworkPatches: QuestionnaireResponseItem[] = [];
-
-    const telemedWalkinAnswers = [
-      getContactInformationAnswers({
-        firstName: patientInfo.firstName,
-        lastName: patientInfo.lastName,
-        birthDate,
-        email: patientInfo.email,
-        phoneNumber: patientInfo.phoneNumber,
-        birthSex: patientInfo.sex,
-      }),
-      getPatientDetailsStepAnswers({}),
-      getPrimaryCarePhysicianStepAnswers({}),
-      getPreferredPharmacyStepAnswers(),
-      getMedicationsStepAnswers(),
-      getAllergiesStepAnswers(),
-      getMedicalConditionsStepAnswers(),
-      getSurgicalHistoryStepAnswers(),
-      getAdditionalQuestionsAnswers({ useRandomAnswers: true }),
-      getPaymentOptionSelfPayAnswers(),
-      getResponsiblePartyStepAnswers({}),
-      getCardPaymentStepAnswers(),
-      getSchoolWorkNoteStepAnswers(),
-      getConsentStepAnswers({}),
-      getInviteParticipantStepAnswers(),
-    ];
-
-    paperworkPatches = paperworkAnswers
+    const paperworkPatches = paperworkAnswers
       ? await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })
-      : serviceMode === ServiceMode.virtual
-      ? telemedWalkinAnswers
-      : [
-          getContactInformationAnswers({
-            firstName: patientInfo.firstName,
-            lastName: patientInfo.lastName,
-            ...(birthDate ? { birthDate } : {}),
-            email: patientInfo.email,
-            phoneNumber: patientInfo.phoneNumber,
-            birthSex: patientInfo.sex,
-          }),
-          getPatientDetailsStepAnswers({}),
-          getPrimaryCarePhysicianStepAnswers({}),
-          getPreferredPharmacyStepAnswers(),
-          getPaymentOptionSelfPayAnswers(),
-          getResponsiblePartyStepAnswers({}),
-          getEmergencyContactStepAnswers({}),
-          getConsentStepAnswers({}),
-        ];
+      : buildPaperworkPatches(patientInfo, birthDate, serviceMode);
 
     // Execute the paperwork patches
     await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
+
+    try {
+      for (let i = 0; i < 10; i++) {
+        const appointment = (
+          await oystehr.fhir.search({
+            resourceType: 'Appointment',
+            params: [
+              {
+                name: '_id',
+                value: appointmentId,
+              },
+            ],
+          })
+        ).unbundle()[0] as Appointment;
+
+        const tags = appointment?.meta?.tag || [];
+        const isHarvestingDone = tags.some(
+          (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
+        );
+        if (isHarvestingDone) {
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+      }
+    } catch (error) {
+      console.error('Error verifying paperwork harvesting completion:', error);
+    }
 
     // Submit the paperwork
     const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {

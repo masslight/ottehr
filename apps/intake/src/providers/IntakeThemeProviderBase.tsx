@@ -2,6 +2,7 @@ import {
   BreakpointsOptions,
   Components,
   createTheme,
+  CssBaseline,
   PaletteColor,
   PaletteOptions,
   ThemeProvider,
@@ -9,6 +10,7 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { i18n } from 'i18next';
 import { FC } from 'react';
+import { BRANDING_CONFIG } from 'utils';
 import { IntakeThemeContext } from '../contexts';
 import { PropsWithChildren } from '../types';
 
@@ -73,11 +75,18 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
   } = props;
 
   const defaultComponentsOverrides: Components = {
+    MuiCssBaseline: {
+      styleOverrides: {
+        a: {
+          color: `${palette.secondary.main} !important`,
+        },
+      },
+    },
     MuiAppBar: {
       styleOverrides: {
         root: {
           display: 'flex',
-          backgroundColor: otherColors.appBarBackground,
+          backgroundColor: BRANDING_CONFIG.intake.appBar.backgroundColor,
         },
       },
     },
@@ -194,7 +203,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     fontFamily: textFonts.join(','),
     fontWeightMedium: 600,
     h1: {
-      fontSize: 36,
+      fontSize: 28,
       fontWeight: '600',
       fontFamily: headerFonts.join(','),
       lineHeight: '140%',
@@ -292,6 +301,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
 
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <IntakeThemeContext.Provider value={{ otherColors, i18n }}>{children}</IntakeThemeContext.Provider>
     </ThemeProvider>
   );

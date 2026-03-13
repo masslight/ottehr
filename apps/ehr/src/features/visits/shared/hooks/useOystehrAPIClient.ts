@@ -27,6 +27,7 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           createUpdateMedicationOrderZambdaID: 'create-update-medication-order',
           getMedicationOrdersZambdaID: 'get-medication-orders',
           icdSearchZambdaId: 'icd-search',
+          aiSuggestionNotesZambdaID: 'ai-suggestion-notes',
           recommendBillingSuggestionsZambdaID: 'recommend-billing-suggestions',
           recommendBillingCodesZambdaID: 'recommend-billing-codes',
           isAppLocal: import.meta.env.VITE_APP_IS_LOCAL,
@@ -37,6 +38,9 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           externalLabResourceSearchID: 'get-create-lab-order-resources',
           getUnsolicitedResultsResourcesID: 'get-unsolicited-results-resources',
           updateLabOrderResourcesID: 'update-lab-order-resources',
+          searchPlacesID: 'search-places',
+          inhouseLabResourceSearchID: 'get-create-in-house-lab-order-resources',
+          makeMedicationHistoryPdfID: 'make-medication-history-pdf',
         },
         oystehrZambda
       );

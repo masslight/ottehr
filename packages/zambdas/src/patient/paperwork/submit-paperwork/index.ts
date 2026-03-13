@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
+import { getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
@@ -40,7 +40,7 @@ export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput):
 });
 
 const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
-  const { updatedAnswers, questionnaireResponseId, ipAddress, secrets, currentQRStatus, appointmentId } = input;
+  const { updatedAnswers, questionnaireResponseId, secrets, currentQRStatus, appointmentId } = input;
 
   let newStatus = 'completed';
   if (currentQRStatus === 'completed' || currentQRStatus === 'amended') {
@@ -66,16 +66,6 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
           op: 'add',
           path: '/authored',
           value: DateTime.now().toISO(),
-        },
-        {
-          op: 'add',
-          path: '/extension',
-          value: [
-            {
-              ...FHIR_EXTENSION.Paperwork.submitterIP,
-              valueString: ipAddress,
-            },
-          ],
         },
       ],
     });

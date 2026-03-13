@@ -198,12 +198,6 @@
       ]
     }
   ],
-  "extension": [
-    {
-      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
-      "valueString": "2a02:a45d:8dad:0:7464:b34d:86a2:6046"
-    }
-  ],
   "id": "371b3005-fddd-4292-80e2-162104452ee7",
   "meta": {
     "versionId": "1db0a1ca-fc84-4155-97a8-43d90b73b7c4",

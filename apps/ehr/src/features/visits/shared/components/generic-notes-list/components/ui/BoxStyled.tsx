@@ -1,10 +1,15 @@
 import { alpha, Box, useTheme } from '@mui/material';
 import React from 'react';
 
-export const BoxStyled: React.FC<React.ComponentProps<typeof Box>> = ({ children, ...props }) => {
+interface Props extends React.ComponentProps<typeof Box> {
+  dataTestId?: string;
+}
+
+export const BoxStyled: React.FC<Props> = ({ children, ...props }) => {
   const theme = useTheme();
   return (
     <Box
+      data-testid={props.dataTestId}
       sx={{
         display: 'flex',
         justifyContent: 'space-between',

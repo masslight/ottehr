@@ -82,21 +82,15 @@ export const useCancelTelemedAppointmentMutation = (): UseMutationResult<
     apiClient: OystehrAPIClient;
     appointmentID: string;
     cancellationReason: string;
+    cancellationReasonAdditional?: string;
   }
 > =>
   useMutation({
-    mutationFn: ({
-      apiClient,
-      appointmentID,
-      cancellationReason,
-    }: {
-      apiClient: OystehrAPIClient;
-      appointmentID: string;
-      cancellationReason: string;
-    }) => {
+    mutationFn: ({ apiClient, appointmentID, cancellationReason, cancellationReasonAdditional }) => {
       return apiClient.cancelAppointment({
         appointmentID,
         cancellationReason,
+        cancellationReasonAdditional,
       });
     },
   });

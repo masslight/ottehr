@@ -9,12 +9,13 @@ import {
 } from 'utils';
 import { FHIR_EXTENSION } from '../fhir/constants';
 
-export const STATUSES_WITHOUT_TIME_TRACKER: VisitStatusHistoryLabel[] = [
+export const NON_LOS_STATUSES: VisitStatusHistoryLabel[] = [
   'pending',
   'no show',
   'cancelled',
   'completed',
   'discharged',
+  'awaiting supervisor approval',
 ];
 
 export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTimeNow: DateTime): number => {
@@ -23,9 +24,7 @@ export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTi
       DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes
     );
   } else if (statusEntry.period.start) {
-    if (!STATUSES_WITHOUT_TIME_TRACKER.includes(statusEntry.status)) {
-      return Math.floor(dateTimeNow.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes);
-    }
+    return Math.floor(dateTimeNow.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes);
   }
   return 0;
 };
@@ -49,7 +48,7 @@ export const getVisitTotalTime = (
 ): number => {
   if (appointment.start) {
     return visitStatusHistory
-      .filter((status) => !STATUSES_WITHOUT_TIME_TRACKER.includes(status.status))
+      .filter((status) => !NON_LOS_STATUSES.includes(status.status))
       .reduce((accumulator, statusTemp) => {
         return accumulator + getDurationOfStatus(statusTemp, dateTimeNow);
       }, 0);

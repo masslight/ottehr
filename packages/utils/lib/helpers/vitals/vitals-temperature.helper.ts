@@ -2,8 +2,10 @@ import { roundNumberToDecimalPlaces } from '../../utils';
 
 export const roundTemperatureValue = (temperature: number): number => roundNumberToDecimalPlaces(temperature, 1);
 
+export const roundTemperatureForSave = (temperature: number): number => roundNumberToDecimalPlaces(temperature, 3);
+
 export const celsiusToFahrenheit = (tempInCelsius: number): number =>
-  roundTemperatureValue((9 / 5) * tempInCelsius + 32);
+  roundTemperatureForSave((9 / 5) * tempInCelsius + 32);
 
 export const fahrenheitToCelsius = (tempInFahrenheit: number): number =>
-  roundTemperatureValue((5 / 9) * (tempInFahrenheit - 32));
+  roundTemperatureForSave((5 / 9) * (tempInFahrenheit - 32));

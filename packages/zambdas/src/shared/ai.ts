@@ -1,8 +1,9 @@
-import { ChatAnthropic } from '@langchain/anthropic';
+import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
+import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -17,25 +18,62 @@ import {
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
 
+export class ClaudeClient {
+  chatbot: ChatAnthropic;
+
+  constructor(anthropicApiKey: string, model: AnthropicMessagesModelId = 'claude-haiku-4-5-20251001') {
+    this.chatbot = new ChatAnthropic({
+      model,
+      anthropicApiKey,
+      temperature: 0,
+      clientOptions: {
+        timeout: 5000, // 5 seconds (in milliseconds)
+        maxRetries: 5, // Number of retries on failure
+      },
+    });
+  }
+
+  async invoke(input: BaseMessageLike[]): Promise<AIMessageChunk> {
+    return this.chatbot.invoke(input);
+  }
+}
+
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
-function getPrompt(fields: string): string {
+function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
-Please generate ${fields} with ICD-10 codes for the patient. 
-Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
-Use a single string property in JSON for each section except potential diagnoses. 
+Patient details: ${patientInfoDetails} 
+Please generate ${fields} based on the trancsript.
+Please present a response in JSON format. Don't add markdown. Use property names in camel case.
+Use a single string property in JSON for each section.
+Here is an example response:
+{
+  "historyOfPresentIllness": "example",
+  "pastMedicalHistory": "example",
+  "pastSurgicalHistory": "example",
+  "medicationsHistory": "example",
+  "allergies": "example",
+  "socialHistory": "example",
+  "familyHistory": "example",
+  "hospitalizationsHistory": "example",
+  "labs": "example",
+  "erx": "example",
+  "procedures": "example"
+}
 The transcript: `;
 }
 
 const AI_RESPONSE_KEY_TO_FIELD = {
   historyOfPresentIllness: AiObservationField.HistoryOfPresentIllness,
+  mechanismOfInjury: AiObservationField.MechanismOfInjury,
   pastMedicalHistory: AiObservationField.PastMedicalHistory,
   pastSurgicalHistory: AiObservationField.PastSurgicalHistory,
   medicationsHistory: AiObservationField.MedicationsHistory,
@@ -56,15 +94,26 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
 
+  const shouldRetry = (status: number): boolean => {
+    // Retry on rate limiting and server errors
+    // these http status codes were chosen by an AI and while they look reasonable they are suspect
+    return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+  };
+
   const backoffTimes = Array.from({ length: RETRY_COUNT }, (_, i) =>
     // This ends up with an array of exponential backoff times with small perturbations like [ 0, 3002, 5964, 12077, 24109 ]
     // for more information about this approach see https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
     i === 0 ? 0 : 2 ** (i - 1) * FIRST_DELAY_MS * (1 - JITTER + Math.random() * JITTER * 2)
   );
+
+  let resolved = false;
   const requests = backoffTimes.map(async (backoffTime) => {
+    await new Promise((resolve) => setTimeout(resolve, backoffTime));
+
+    if (resolved) return null; // Skip if already resolved
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, backoffTime));
-      return fetch(
+      const response = await fetch(
         `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
@@ -76,13 +125,23 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
           }),
         }
       );
+
+      if (!response.ok && shouldRetry(response.status)) {
+        throw new Error(`Retryable error: ${response.status}`);
+      }
+
+      if (response.ok) {
+        resolved = true;
+      }
+      return response;
     } catch (error) {
       console.error('Error invoking Vertex AI:', error);
       captureException(error);
       throw error;
     }
   });
-  const response = await (await Promise.any(requests)).json();
+
+  const response = await (await Promise.any(requests))?.json();
 
   console.log(JSON.stringify(response));
   return response.candidates[0].content.parts[0].text;
@@ -95,8 +154,8 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
       clientOptions: {
-        timeout: 5000, // 5 seconds (in milliseconds)
-        maxRetries: 5, // Number of retries on failure
+        timeout: 10000, // 5 seconds (in milliseconds)
+        maxRetries: 1, // Number of retries on failure
       },
     });
   }
@@ -114,15 +173,68 @@ export async function createResourcesFromAiInterview(
   secrets: Secrets | null
 ): Promise<string> {
   let fields =
-    'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
+    'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history';
   // if there is a provider user profile, it is a recording
+  const resources = (
+    await oystehr.fhir.search<Encounter | Appointment | Patient>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: '_id',
+          value: encounterID,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Encounter:subject',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
+  const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+  const patient = resources.find((resource) => resource.resourceType === 'Patient');
+
+  let patientInfoDetails = undefined;
+
+  if (patient) {
+    let patientAge = undefined;
+    let patientSex = undefined;
+    if (patient.birthDate) {
+      const birthDate = DateTime.fromISO(patient.birthDate);
+      const now = DateTime.now();
+      patientAge = Math.floor(now.diff(birthDate, 'years').years);
+    }
+    if (patient.gender) {
+      patientSex = patient.gender;
+    }
+    patientInfoDetails = `Age: ${patientAge || 'unknown'} year old, Sex: ${patientSex || 'unknown'}`;
+  }
+
+  if (
+    appointment?.serviceCategory?.find(
+      (serviceCategory) =>
+        serviceCategory.coding?.find(
+          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
+        )
+    )
+  ) {
+    fields = 'mechanism of injury, ' + fields;
+  }
+
   const source = providerUserProfile ? 'audio-recording' : 'chat';
   if (source === 'audio-recording') {
     fields = 'labs, erx, procedures, ' + fields;
   }
-  const aiResponseString = (
-    await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
-  ).content.toString();
+
+  const aiResponseString = await invokeChatbotVertexAI(
+    [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
+    secrets
+  );
   console.log(`AI response: "${aiResponseString}"`);
   let aiResponse;
   try {
@@ -131,10 +243,11 @@ export async function createResourcesFromAiInterview(
     console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
     aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
   }
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterID,
-  });
+
+  if (!encounter) {
+    throw new Error(`Encounter ID ${encounterID} not found`);
+  }
+
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
   const requests: BatchInputPostRequest<DocumentReference | Observation | Condition>[] = [];
@@ -292,13 +405,13 @@ Only suggest diagnoses that are supported by the clinical information provided. 
 }
 
 export async function generateIcdTenCodesFromNotes(
+  aiClient: BaseChatModel,
   hpiText: string | undefined,
-  mdmText: string | undefined,
-  secrets: Secrets | null
+  mdmText: string | undefined
 ): Promise<{ diagnosis: string; icd10: string }[]> {
   try {
     const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
-    const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+    const aiResponseString = (await aiClient.invoke([{ role: 'user', content: prompt }])).content.toString();
 
     console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
     let aiResponse;

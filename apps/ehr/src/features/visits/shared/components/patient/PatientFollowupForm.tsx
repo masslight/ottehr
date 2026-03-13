@@ -297,9 +297,11 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
       const followup = await saveFollowup(oystehrZambda, { encounterDetails });
 
-      navigate(`/in-person/${formData.initialVisit?.appointment?.id}/follow-up-note`, {
-        state: { encounterId: followup.encounterId },
-      });
+      navigate(
+        `/in-person/${formData.initialVisit?.appointment?.id}/follow-up-note${
+          followup.encounterId ? `?encounterId=${followup.encounterId}` : ''
+        }`
+      );
     } catch (error) {
       console.error(`Failed to add patient followup: ${error}`);
       if (!errorMessage) errorMessage = `Failed to add patient followup: ${error}`;

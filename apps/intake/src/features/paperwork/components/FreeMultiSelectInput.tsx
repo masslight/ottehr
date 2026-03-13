@@ -87,10 +87,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   const selectionHandler = useCallback(
     (e: any): void => {
       const targetVal = e?.selectedOption ?? e?.target?.value;
-      if (!targetVal) {
-        return;
-      }
-      if (multiple) {
+      if (multiple && targetVal) {
         const value = getValues(name)?.answer?.map((i: any) => i.valueString) ?? [];
         const newVal = [...value, targetVal];
         onChange({ target: { value: newVal } });
@@ -170,7 +167,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       }}
       autoComplete
       value={otherProps.value || null}
-      disableClearable
+      disableClearable={otherProps.required}
       disabled={disabled}
       id={name}
       options={options}
@@ -190,7 +187,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       ListboxComponent={virtualization ? VirtualizedListbox : undefined}
       multiple={multiple}
       onChange={selectionHandler}
-      onBlur={() => freeSolo && selectionHandler({ selectedOption: inputValue })}
+      onBlur={() => freeSolo && inputValue && selectionHandler({ selectedOption: inputValue })}
       defaultValue={defaultOrNull}
       renderTags={(_options, _getTagProps) => null}
       getOptionLabel={(option) => {

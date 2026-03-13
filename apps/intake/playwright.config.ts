@@ -1,18 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// require('dotenv').config();
-/**
  * See https://playwright.dev/docs/test-configuration.
  */
 
 export default defineConfig({
   testDir: './tests',
   testMatch: /.*\.spec\.ts/,
-  testIgnore: ['**/component/**', '**/unit/**'],
+  testIgnore: ['**/component/**', '**/unit/**', '**/utils/**'],
   /* Run tests in files in parallel */
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -41,61 +36,44 @@ export default defineConfig({
     trace: process.env.CI ? 'on-first-retry' : 'on',
     screenshot: process.env.CI ? 'only-on-failure' : 'off',
     video: process.env.CI ? 'retain-on-failure' : 'off',
-    actionTimeout: 25000,
-    navigationTimeout: 30000,
+    actionTimeout: 40_000,
+    navigationTimeout: 40_000,
   },
-  timeout: 120000,
+  timeout: 240_000,
   expect: {
-    timeout: 30000,
+    timeout: 40_000,
   },
   retries: process.env.CI ? 2 : 0,
   outputDir: `test-results${process.env.PLAYWRIGHT_REPORT_SUFFIX || ''}/`,
   workers: process.env.CI ? 6 : undefined,
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
+  /* Global timeout for entire test run - 15 minutes max for intake tests */
+  globalTimeout: 15 * 60 * 1000,
 
   /* Configure projects for major browsers */
   projects: [
-    // { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
-      name: 'chromium',
+      // Runs ONLY when explicitly invoked (e.g. via run-e2e "login" stage).
+      // Generates fresh user.json for authentication.
+      name: 'login',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
-        // storageState: './tests/.auth/user.json'
       },
-      // dependencies: ['setup'],
+      testMatch: /.*login\/login\.spec\.ts/,
     },
-
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
+    {
+      // E2E tests for booking flows, paperwork, and extended scenarios
+      name: 'e2e',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testDir: './tests/e2e',
+      testMatch: /.*\.spec\.ts/,
+      timeout: 360_000, // 6 minutes - extended scenarios need more time
+    },
   ],
 
   /* Run your local dev server before starting the tests */

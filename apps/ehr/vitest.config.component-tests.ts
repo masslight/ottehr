@@ -8,10 +8,12 @@ dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
 
 export default defineConfig({
   test: {
-    globals: true,
+    // Disable globals to avoid conflicts with Playwright's expect during test execution
+    globals: false,
     include: ['**/*.test.tsx'],
-    setupFiles: './tests/component/setup.ts',
+    setupFiles: ['./tests/component/setup.ts'],
     environment: 'jsdom',
+    testTimeout: 30_000, // 30 seconds
   },
   plugins: [tsconfigPaths(), react()],
 });

@@ -1,40 +1,29 @@
-import { Box, Divider, MenuItem, Select, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Divider, Typography } from '@mui/material';
 import { HumanName, Patient } from 'fhir/r4b';
 import { FC, useState } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
-import { FormSelect, FormTextField } from 'src/components/form';
 import { Row, Section } from 'src/components/layout';
-import {
-  ETHNICITY_OPTIONS,
-  FormFields as AllFormFields,
-  GENDER_IDENTITY_OPTIONS,
-  POINT_OF_DISCOVERY_OPTIONS,
-  RACE_OPTIONS,
-  SEXUAL_ORIENTATION_OPTIONS,
-} from 'src/constants';
-import { dataTestIds } from 'src/constants/data-test-ids';
-import { LANGUAGE_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { PATIENT_RECORD_CONFIG } from 'utils';
+import PatientRecordFormField from './PatientRecordFormField';
+import { usePatientRecordFormSection } from './PatientRecordFormSection';
 import ShowMoreButton from './ShowMoreButton';
 
-const FormFields = AllFormFields.patientDetails;
+const patientDetailsSection = PATIENT_RECORD_CONFIG.FormFields.patientDetails;
 interface PatientDetailsContainerProps {
   patient: Patient;
   isLoading: boolean;
 }
 export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ patient, isLoading }) => {
-  const theme = useTheme();
-  const { control, watch } = useFormContext();
+  const {
+    items: FormFields,
+    hiddenFields,
+    requiredFields,
+  } = usePatientRecordFormSection({ formSection: patientDetailsSection });
 
   const [showAllPreviousNames, setShowAllPreviousNames] = useState(false);
 
   if (!patient) return null;
 
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
-
-  const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
-  const isNonBinaryGender = genderIdentityCurrentValue === 'Non-binary gender identity';
-  const languageValue = watch(FormFields.language.key);
-
   return (
     <Section title="Patient details">
       <Row label="Previous name">
@@ -65,206 +54,80 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           <Typography color="text.secondary">No previous names</Typography>
         )}
       </Row>
-      <Row label="Patient's ethnicity" dataTestId={dataTestIds.patientDetailsContainer.patientsEthnicity} required>
-        <FormSelect
-          name={FormFields.ethnicity.key}
-          control={control}
-          disabled={isLoading}
-          options={ETHNICITY_OPTIONS}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-          }}
-        />
-      </Row>
-      <Row label="Patient's race" dataTestId={dataTestIds.patientDetailsContainer.patientsRace} required>
-        <FormSelect
-          name={FormFields.race.key}
-          control={control}
-          disabled={isLoading}
-          options={RACE_OPTIONS}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-          }}
-        />
-      </Row>
-      <Row label="Sexual orientation" dataTestId={dataTestIds.patientDetailsContainer.sexualOrientation}>
-        <FormSelect
-          disabled={isLoading}
-          name={FormFields.sexualOrientation.key}
-          control={control}
-          options={SEXUAL_ORIENTATION_OPTIONS}
-        />
-      </Row>
-      <Row label="Gender identity" dataTestId={dataTestIds.patientDetailsContainer.genderIdentity}>
-        <FormSelect
-          disabled={isLoading}
-          name={FormFields.genderIdentity.key}
-          control={control}
-          options={GENDER_IDENTITY_OPTIONS}
-        />
-      </Row>
-      {isNonBinaryGender && (
+      <PatientRecordFormField
+        item={FormFields.ethnicity}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.race}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.sexualOrientation}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.genderIdentity}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.genderIdentityDetails}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.pointOfDiscovery}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.language}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.otherLanguage}
+        isLoading={isLoading}
+        hiddenFormFields={hiddenFields}
+        requiredFormFields={requiredFields}
+      />
+      <Row label={'Consents'}>
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '5px',
+            flexDirection: 'row',
+            width: '100%',
+            justifyContent: 'space-between',
+            paddingTop: '10px',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', alignSelf: 'end', flex: '0 1 70%' }}>
-            <FormTextField
-              name={FormFields.genderIdentityDetails.key}
-              data-testid={dataTestIds.patientDetailsContainer.pleaseSpecifyField}
-              control={control}
-              disabled={isLoading}
-              rules={{
-                validate: (value: string) => {
-                  if (!value && isNonBinaryGender) return REQUIRED_FIELD_ERROR_MESSAGE;
-                  return true;
-                },
-              }}
-            />
-          </Box>
+          <PatientRecordFormField
+            item={FormFields.commonWellConsent}
+            isLoading={isLoading}
+            hiddenFormFields={hiddenFields}
+            requiredFormFields={requiredFields}
+            omitRowWrapper
+          />
+          <PatientRecordFormField
+            item={FormFields.sendMarketing}
+            isLoading={isLoading}
+            hiddenFormFields={hiddenFields}
+            requiredFormFields={requiredFields}
+            omitRowWrapper
+          />
         </Box>
-      )}
-      <Row label="How did you hear about us?" dataTestId={dataTestIds.patientDetailsContainer.howDidYouHearAboutUs}>
-        <FormSelect
-          disabled={isLoading}
-          name={FormFields.pointOfDiscovery.key}
-          control={control}
-          options={POINT_OF_DISCOVERY_OPTIONS}
-        />
       </Row>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '5px',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
-          <Typography sx={{ color: theme.palette.primary.dark }}>Send marketing messages</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
-          <Controller
-            name={FormFields.sendMarketing.key}
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                value={String(field.value) || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                disabled={isLoading}
-                onChange={(e) => {
-                  const boolValue = e.target.value === 'true';
-                  field.onChange(boolValue);
-                }}
-                data-testid={dataTestIds.patientDetailsContainer.sendMarketingMessages}
-              >
-                {[
-                  { value: 'true', label: 'Yes' },
-                  { value: 'false', label: 'No' },
-                ].map((option) => (
-                  <MenuItem key={String(option.value)} value={String(option.value)}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            )}
-          />
-        </Box>
-      </Box>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '5px',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
-          <Typography sx={{ color: theme.palette.primary.dark }}>Preferred language</Typography>
-        </Box>
-        <Stack sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
-          <Box width="100%">
-            <Controller
-              name={FormFields.language.key}
-              control={control}
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  value={field.value || ''}
-                  variant="standard"
-                  disabled={isLoading}
-                  sx={{ width: '100%' }}
-                  data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
-                >
-                  {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
-                    <MenuItem key={value} value={value}>
-                      {key}
-                    </MenuItem>
-                  ))}
-                </Select>
-              )}
-            />
-          </Box>
-          {languageValue === 'Other' ? (
-            <Box width="100%">
-              <FormTextField
-                name={FormFields.otherLanguage.key}
-                control={control}
-                disabled={isLoading}
-                rules={{
-                  validate: (value: string) => {
-                    if (value === '') return REQUIRED_FIELD_ERROR_MESSAGE;
-                    return true;
-                  },
-                }}
-              />
-            </Box>
-          ) : null}
-        </Stack>
-      </Box>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '5px',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
-          <Typography sx={{ color: theme.palette.primary.dark }}>CommonWell consent</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
-          <Controller
-            name={FormFields.commonWellConsent.key}
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                value={String(field.value) || ''}
-                variant="standard"
-                disabled={isLoading}
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  const boolValue = e.target.value === 'true';
-                  field.onChange(boolValue);
-                }}
-                data-testid={dataTestIds.patientDetailsContainer.commonWellConsent}
-              >
-                {[
-                  { value: 'true', label: 'Yes' },
-                  { value: 'false', label: 'No' },
-                ].map((option) => (
-                  <MenuItem key={String(option.value)} value={String(option.value)}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            )}
-          />
-        </Box>
-      </Box>
     </Section>
   );
 };

@@ -1,5 +1,4 @@
-import { Bundle, FhirResource } from 'fhir/r4b';
-import { DiagnosisDTO, OBSERVATION_CODES, Pagination } from '../..';
+import { CPTCodeDTO, DiagnosisDTO, InHouseLabListDTO, LabListsDTO, OBSERVATION_CODES, Pagination } from 'utils';
 
 export interface TestItemMethods {
   manual?: { device: string };
@@ -50,21 +49,40 @@ export interface QuantityComponent extends BaseComponent {
   displayType: 'Numeric';
 }
 
-export type TestItemComponent = CodeableConceptComponent | QuantityComponent;
+interface ValidationValueAndDisplay {
+  value: string | number;
+  display?: string;
+}
+export interface Validation {
+  format?: ValidationValueAndDisplay;
+  // minLength?: number; // labs todo: can include these in the future but omitted now for sake of time
+  // maxLength?: number;
+}
+export interface StringComponent extends BaseComponent {
+  dataType: 'string';
+  displayType: 'Free Text';
+  validations?: Validation;
+}
+
+export type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
 export interface TestItem {
   name: string;
   methods: TestItemMethods;
   method: string;
   device: string;
-  cptCode: string[];
-  repeatable: boolean;
+  cptCode: CPTCodeDTO[];
+  repeatable: boolean; // this test CAN be run as a repeat test
+  orderMode: 'repeat' | 'reflex' | 'standard';
   components: {
+    // todo labs im not sure we ever have an instance where a test has both of these and i think we should assert that in this type
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
+  reflexAlert: { alert: string; testName: string; canonicalUrl: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
   adUrl: string;
   adVersion: string;
+  adId: string;
   note?: string;
 }
 
@@ -89,6 +107,7 @@ export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
   labDetails: TestItem;
   orderHistory: {
     status: TestStatus;
+    statusSubtitle: string | undefined;
     providerName: string;
     date: string;
   }[];
@@ -136,25 +155,23 @@ export type GetInHouseOrdersParameters = InHouseOrdersSearchBy &
 
 export type CreateInHouseLabOrderParameters = {
   encounterId: string;
-  testItem: TestItem;
-  cptCode: string;
+  testItems: TestItem[];
   diagnosesAll: DiagnosisDTO[];
   diagnosesNew: DiagnosisDTO[];
-  isRepeatTest: boolean;
   notes?: string;
 };
 
 export type CreateInHouseLabOrderResponse = {
-  transactionResponse: { output: Bundle<FhirResource> };
   saveChartDataResponse: { output: { chartData: { diagnosis: (DiagnosisDTO & { resourceId: string })[] } } };
-  serviceRequestId?: string | undefined;
+  serviceRequestIds: string[];
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { encounterId?: string };
+export type GetCreateInHouseLabOrderResourcesInput = { encounterId?: string; selectedLabSet?: InHouseLabListDTO };
 
-export type GetCreateInHouseLabOrderResourcesResponse = {
+export type GetCreateInHouseLabOrderResourcesOutput = {
   labs: TestItem[];
-  providerName: string;
+  providerName?: string;
+  labSets?: LabListsDTO[] | undefined;
 };
 
 export type CollectInHouseLabSpecimenParameters = {

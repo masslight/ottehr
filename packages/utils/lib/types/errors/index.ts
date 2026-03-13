@@ -23,14 +23,18 @@ export enum APIErrorCode {
   SCHEDULE_OWNER_NOT_FOUND = 4018,
   SLOT_UNAVAILABLE = 4019,
   USER_ALREADY_EXISTS = 4020,
+  PATIENT_PHONE_NOT_FOUND = 4021,
+  RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
+  FHIR_RESOURCE_IS_GONE = 4102,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
   MISSING_REQUIRED_PARAMETERS = 4201,
   INVALID_RESOURCE_ID = 4202,
   MISSING_AUTH_TOKEN = 4203,
+  MISSING_REQUEST_SECRETS = 4204,
   // 43xx
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
@@ -47,6 +51,7 @@ export enum APIErrorCode {
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
   IN_HOUSE_LAB_GENERAL = 4402,
+  MISSING_WC_INFO_FOR_LABS = 4403,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -242,6 +247,11 @@ export const MISSING_REQUEST_BODY = {
   message: 'The request was missing a required request body',
 };
 
+export const MISSING_REQUEST_SECRETS = {
+  code: APIErrorCode.MISSING_REQUEST_SECRETS,
+  message: 'The request was missing secrets required to process it',
+};
+
 export const FHIR_RESOURCE_NOT_FOUND = (resourceType: FhirResource['resourceType']): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
   message: `The requested ${resourceType} resource could not be found`,
@@ -250,6 +260,12 @@ export const FHIR_RESOURCE_NOT_FOUND = (resourceType: FhirResource['resourceType
 export const FHIR_RESOURCE_NOT_FOUND_CUSTOM = (message: string): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
   message,
+});
+
+export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_IS_GONE,
+  statusCode: 410,
+  message: `The requested resource is gone`,
 });
 
 export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {
@@ -320,6 +336,13 @@ export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
     message,
   };
 };
+
+export const EXTERNAL_LAB_ERROR_MISSING_WC_INFO = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MISSING_WC_INFO_FOR_LABS,
+    message,
+  };
+};
 export const ORDER_SUBMITTED_MESSAGE = 'Order is already submitted';
 
 export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
@@ -349,6 +372,18 @@ export const USER_ALREADY_EXISTS_ERROR = {
 export const APPOINTMENT_ALREADY_EXISTS_ERROR = {
   code: APIErrorCode.APPOINTMENT_ALREADY_EXISTS,
   message: 'An appointment can not be created because the slot provided is already attached to an Appointment resource',
+};
+
+export const PATIENT_PHONE_NOT_FOUND_ERROR = {
+  code: APIErrorCode.PATIENT_PHONE_NOT_FOUND,
+  message: 'Patient phone number not found',
+};
+
+export const RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+    message,
+  };
 };
 
 export const GENERIC_STRIPE_PAYMENT_ERROR = {

@@ -1,6 +1,8 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { DispositionCard } from '../../shared/components/DispositionCard';
+import { FormsCard } from '../../shared/components/FormsCard';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { PatientInstructionsCard } from '../../shared/components/plan-tab/PatientInstructionsCard';
@@ -11,11 +13,7 @@ interface PlanProps {
 }
 
 export const Plan: FC<PlanProps> = () => {
-  const {
-    resources: { appointment },
-    isAppointmentLoading,
-    appointmentError,
-  } = useAppointmentData();
+  const { appointment, location, isAppointmentLoading, appointmentError } = useAppointmentData();
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;
@@ -24,13 +22,15 @@ export const Plan: FC<PlanProps> = () => {
   if (isLoading || isChartDataLoading) return <Loader />;
   if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
+  const locationName = location?.name;
 
   return (
     <Stack spacing={1}>
       <PageTitle label="Plan" showIntakeNotesButton={false} />
       <PatientInstructionsCard />
       <DispositionCard />
-      <SchoolWorkExcuseCard />
+      <SchoolWorkExcuseCard locationName={locationName} />
+      {FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
     </Stack>
   );
 };

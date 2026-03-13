@@ -35,19 +35,16 @@ function parseAsNumber(value: any): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
-// Helper to format GMT date to local timezone as yyyy-MM-dd
+// Helper to return ISO string for date-time
 function formatGMTToLocalDate(gmtDateString: string): string {
   if (!gmtDateString) return 'N/A';
   try {
-    // Parse the GMT date string and convert to local date
+    // Parse the GMT date string and validate it
     const gmtDate = new Date(gmtDateString);
     if (isNaN(gmtDate.getTime())) return 'N/A';
 
-    // Format as yyyy-MM-dd in local timezone
-    const yyyy = gmtDate.getFullYear();
-    const mm = String(gmtDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(gmtDate.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    // Return ISO string for front-end to format as needed
+    return gmtDate.toISOString();
   } catch {
     return 'N/A';
   }

@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { patientScreeningQuestionsConfig } from '../../configuration/questionnaire';
+import { patientScreeningQuestionsConfig } from '../../ottehr-config/screening-questions';
 import { Field } from '../../types/data/screening-questions';
 
 /**
@@ -34,6 +34,15 @@ export function formatScreeningQuestionValue(fieldId: string, rawValue: any): st
       if (field.options) {
         const option = field.options.find((opt) => opt.fhirValue === rawValue);
         return option?.label || String(rawValue);
+      }
+      return String(rawValue);
+
+    case 'date':
+      if (typeof rawValue === 'string') {
+        const dateTime = DateTime.fromISO(rawValue);
+        if (dateTime.isValid) {
+          return dateTime.toFormat('MM/dd/yyyy');
+        }
       }
       return String(rawValue);
 

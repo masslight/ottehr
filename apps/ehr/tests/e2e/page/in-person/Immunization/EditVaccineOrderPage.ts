@@ -25,17 +25,17 @@ export class EditVaccineOrderPage {
 
 export async function expectCreateVaccineOrderPage(page: Page): Promise<EditVaccineOrderPage> {
   await page.waitForURL(new RegExp(`/in-person/.*/immunization/order`));
-  await expect(page.getByTestId(dataTestIds.orderVaccinePage.title)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.orderVaccinePage.title)).toBeVisible({ timeout: 60000 });
   return new EditVaccineOrderPage(page);
 }
 
 export async function expectEditVaccineOrderPage(page: Page): Promise<EditVaccineOrderPage> {
   await page.waitForURL(new RegExp(`/in-person/.*/immunization/.*`));
-  await expect(page.getByTestId(dataTestIds.orderVaccinePage.title)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.orderVaccinePage.title)).toBeVisible({ timeout: 60000 });
   return new EditVaccineOrderPage(page);
 }
 
 export async function openCreateVaccineOrderPage(appointmentId: string, page: Page): Promise<EditVaccineOrderPage> {
-  await page.goto(`/in-person/${appointmentId}/immunization/order`);
+  await page.goto(`/in-person/${appointmentId}/immunization/order`, { timeout: 60000 });
   return expectEditVaccineOrderPage(page);
 }

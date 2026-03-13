@@ -1,15 +1,17 @@
-import { Pagination } from '../../data/pagination.types';
+import { CPTCodeDTO, Pagination, Task } from 'utils';
 
 export interface CreateRadiologyZambdaOrderInput {
   encounterId: string;
   diagnosisCode: string;
   cptCode: string;
+  lateralityModifier: { display: string; code: string } | undefined;
   stat: boolean;
   clinicalHistory: string;
 }
 
 export interface CreateRadiologyZambdaOrderOutput {
   serviceRequestId: string;
+  cptCodesSaved: CPTCodeDTO[] | undefined;
 }
 
 export interface CancelRadiologyOrderZambdaInput {
@@ -38,10 +40,10 @@ export enum RadiologyOrderStatus {
   pending = 'pending',
   performed = 'performed',
   preliminary = 'preliminary',
+  pendingFinal = 'pending final',
   final = 'final',
   reviewed = 'reviewed',
 }
-
 export interface GetRadiologyOrderListZambdaOrder {
   serviceRequestId: string;
   appointmentId: string;
@@ -52,9 +54,11 @@ export interface GetRadiologyOrderListZambdaOrder {
   diagnosis: string;
   status: RadiologyOrderStatus;
   isStat: boolean;
-  result?: string;
+  preliminaryReport?: string;
+  finalReport?: string;
   clinicalHistory?: string;
   history?: RadiologyOrderHistoryRow[];
+  task?: Task;
 }
 
 export type RadiologyOrderHistoryRow = {
@@ -67,3 +71,16 @@ export interface GetRadiologyOrderListZambdaOutput {
   orders: GetRadiologyOrderListZambdaOrder[];
   pagination: Pagination;
 }
+
+export interface SavePreliminaryReportZambdaInput {
+  serviceRequestId: string;
+  preliminaryReport: string;
+}
+
+export type SavePreliminaryReportZambdaOutput = Record<string, never>;
+
+export interface SendForFinalReadZambdaInput {
+  serviceRequestId: string;
+}
+
+export type SendForFinalReadZambdaOutput = Record<string, never>;

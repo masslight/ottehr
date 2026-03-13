@@ -15,5 +15,13 @@ export function validateRequestParameters(
   }
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
+  const { text, title } = data;
+  const hasText = typeof text === 'string' && text.trim().length > 0;
+  const hasTitle = typeof title === 'string' && title.trim().length > 0;
+
+  if (!hasText && !hasTitle) {
+    throw new Error('Either text or title must be provided');
+  }
+
   return { ...data, secrets: input.secrets, userToken };
 }

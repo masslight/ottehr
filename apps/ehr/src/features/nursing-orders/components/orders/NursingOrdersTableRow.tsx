@@ -1,6 +1,7 @@
 import { Box, IconButton, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { deleteIcon } from 'src/themes/ottehr';
 import { NursingOrder } from 'utils';
@@ -52,7 +53,9 @@ export const NursingOrdersTableRow = ({
       case 'order':
         return (
           <Box>
-            <Box style={{ whiteSpace: 'pre-line' }}>{nursingOrderData.note}</Box>
+            <Box style={{ whiteSpace: 'pre-line' }} data-testid={dataTestIds.nursingOrdersPage.orderNote}>
+              {nursingOrderData.note}
+            </Box>
           </Box>
         );
       case 'orderAdded':
@@ -65,13 +68,19 @@ export const NursingOrdersTableRow = ({
       case 'status':
         return (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            {nursingOrderData.status && <NursingOrdersStatusChip status={nursingOrderData.status} />}
+            {nursingOrderData.status && (
+              <NursingOrdersStatusChip
+                status={nursingOrderData.status}
+                dataTestId={dataTestIds.nursingOrdersPage.status}
+              />
+            )}
             {nursingOrderData.status === 'pending' && allowDelete && (
               <IconButton
                 onClick={async (event) => {
                   event.stopPropagation();
                   setIsDeleteDialogOpen(true);
                 }}
+                data-testid={dataTestIds.nursingOrdersPage.deleteButton}
               >
                 <img alt="delete icon" src={deleteIcon} width={18} />
               </IconButton>
@@ -91,6 +100,7 @@ export const NursingOrdersTableRow = ({
           cursor: 'pointer',
         }}
         onClick={onRowClick}
+        data-testid={dataTestIds.nursingOrdersPage.orderRow}
       >
         {columns.map((column) => (
           <TableCell key={column}>{renderCellContent(column)}</TableCell>

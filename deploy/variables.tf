@@ -31,6 +31,13 @@ variable "environment" {
   default     = "local"
 }
 
+variable "ehr_bucket_name" {
+  description = "EHR S3 Bucket Name; only specify this when importing existing buckets"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "ehr_domain" {
   description = "EHR domain, for example, dev-ehr.ottehr.com"
   type        = string
@@ -40,6 +47,13 @@ variable "ehr_domain" {
 
 variable "ehr_cert_domain" {
   description = "EHR Certificate domain, for example, *.ottehr.com"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "patient_portal_bucket_name" {
+  description = "Patient Portal S3 Bucket Name; only specify this when importing existing buckets"
   type        = string
   nullable    = true
   default     = null

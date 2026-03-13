@@ -1,18 +1,38 @@
-import LoadingButton from '@mui/lab/LoadingButton';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
-import { Task } from 'fhir/r4b';
+import CloseIcon from '@mui/icons-material/Close';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import {
+  Box,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  InputAdornment,
+  Skeleton,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { isPhoneNumberValid, parseInvoiceTaskInput, PrefilledInvoiceInfo, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { z } from 'zod';
+import {
+  BRANDING_CONFIG,
+  InvoiceablePatientReport,
+  InvoiceMessagesPlaceholders,
+  InvoiceTaskInput,
+  parseInvoiceTaskInput,
+  replaceTemplateVariablesArrows,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+  TEXTING_CONFIG,
+} from 'utils';
 import { BasicDatePicker } from '../form';
-import InputMask from '../InputMask';
+import { RoundedButton } from '../RoundedButton';
 
 export interface SendInvoiceFormData {
-  recipientName: string;
-  recipientEmail: string;
-  recipientPhoneNumber: string;
+  amount: number;
   dueDate: string;
   memo: string;
   smsTextMessage: string;
@@ -22,9 +42,9 @@ interface SendInvoiceToPatientDialogProps {
   title: string;
   modalOpen: boolean;
   handleClose: () => void;
-  onSubmit: (taskId: string, prefilledInvoiceInfo: PrefilledInvoiceInfo) => Promise<void>;
+  onSubmit: (taskId: string, prefilledInvoiceInfo: InvoiceTaskInput) => Promise<void>;
   submitButtonName: string;
-  invoiceTask?: Task;
+  report?: InvoiceablePatientReport;
 }
 
 export default function SendInvoiceToPatientDialog({
@@ -33,140 +53,149 @@ export default function SendInvoiceToPatientDialog({
   handleClose,
   onSubmit,
   submitButtonName,
-  invoiceTask,
+  report,
 }: SendInvoiceToPatientDialogProps): ReactElement {
-  const emailValidator = z.string().email();
   const [disableAllFields, setDisableAllFields] = useState(true);
-
-  const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
-    if (invoiceTask && invoiceTask?.id) {
-      setDisableAllFields(true);
-      const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
-      if (invoiceTaskInput) {
-        // getting disabled fields from initial input
-        void onSubmit(invoiceTask?.id, {
-          recipientName: invoiceTaskInput.recipientName,
-          recipientEmail: invoiceTaskInput.recipientEmail,
-          recipientPhoneNumber: invoiceTaskInput.recipientPhoneNumber,
-          dueDate: data.dueDate,
-          memo: data.memo,
-          smsTextMessage: data.smsTextMessage,
-        });
-      }
-    } else enqueueSnackbar('Error sending invoice', { variant: 'error' });
-  };
-
   const {
     control,
+    watch,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<SendInvoiceFormData>({
     mode: 'onBlur',
   });
+  const { visitDate, location, patient, task, responsibleParty } = report ?? {};
+  const invoiceMessagesPlaceholders: InvoiceMessagesPlaceholders = {
+    clinic: BRANDING_CONFIG.projectName,
+    amount: watch('amount')?.toString(),
+    'due-date': watch('dueDate'),
+    'invoice-link': 'https://example.com/invoice-link',
+    'patient-full-name': patient?.fullName ?? '',
+    'url-to-patient-portal': 'https://example.com/patient-portal',
+    'visit-date': visitDate,
+    location,
+  };
+  const smsMessagePrefilledPreview = replaceTemplateVariablesArrows(
+    watch('smsTextMessage'),
+    invoiceMessagesPlaceholders
+  );
+  const memoMessagePrefilledPreview = replaceTemplateVariablesArrows(watch('memo'), invoiceMessagesPlaceholders);
+
+  const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
+    if (task && task?.id) {
+      setDisableAllFields(true);
+
+      void onSubmit(task?.id, {
+        dueDate: data.dueDate,
+        memo: data.memo,
+        smsTextMessage: data.smsTextMessage,
+        amountCents: Math.round(data.amount * 100),
+      });
+    } else enqueueSnackbar('Error sending invoice', { variant: 'error' });
+  };
 
   useEffect(() => {
-    if (invoiceTask) {
-      setDisableAllFields(false);
-      const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
-      if (invoiceTaskInput) {
-        reset({
-          recipientName: invoiceTaskInput.recipientName,
-          recipientEmail: invoiceTaskInput.recipientEmail,
-          recipientPhoneNumber: invoiceTaskInput.recipientPhoneNumber,
-          dueDate: invoiceTaskInput.dueDate,
-          memo: invoiceTaskInput.memo,
-          smsTextMessage: invoiceTaskInput.smsTextMessage,
-        });
+    if (task) {
+      try {
+        const invoiceTaskInput = parseInvoiceTaskInput(task);
+        if (invoiceTaskInput) {
+          const { amountCents } = invoiceTaskInput;
+          const dueDate = DateTime.now().plus({ days: TEXTING_CONFIG.invoicing.dueDateInDays }).toISODate();
+          const memo = TEXTING_CONFIG.invoicing.stripeMemoMessage;
+          const smsMessage = TEXTING_CONFIG.invoicing.smsMessage;
+          reset({
+            amount: (amountCents ?? 0) / 100,
+            dueDate: dueDate,
+            memo: memo,
+            smsTextMessage: smsMessage,
+          });
+          setDisableAllFields(false);
+        }
+      } catch {
+        /* empty */
       }
     }
-  }, [invoiceTask, reset]);
+  }, [task, reset]);
 
   return (
     <Dialog open={modalOpen}>
-      <Grid container direction="column" sx={{ marginBottom: 2 }} spacing={0.5}>
+      <IconButton onClick={() => handleClose()} size="medium" sx={{ position: 'absolute', right: 12, top: 12 }}>
+        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
+      </IconButton>
+
+      <Grid container direction="column" sx={{ padding: 1 }} spacing={0.5}>
         <DialogTitle variant="h4" color="primary.dark">
           {title}
         </DialogTitle>
 
-        <DialogContent sx={{ overflow: 'auto' }}>
-          <Box component="form" id="send-invoice-form" onSubmit={handleSubmit(handleSubmitWrapped)} sx={{ mt: 2 }}>
-            <Controller
-              name="recipientName"
-              control={control}
-              disabled
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="Recipient full name"
-                  error={!!errors.recipientName}
-                  helperText={errors.recipientName?.message}
-                  required
-                  sx={{ mb: 2 }}
-                />
-              )}
-            />
+        <DialogContent>
+          {report !== undefined ? (
+            <Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Patient
+                </Typography>
+                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patient?.fullName}</Typography>
+                <Box sx={{ flexDirection: 'row', display: 'flex' }}>
+                  <Typography variant="body2">{patient?.dob}</Typography>
+                  <Typography variant="body2" sx={{ pl: 2 }}>
+                    {patient?.gender}
+                  </Typography>
+                  <Typography variant="body2" sx={{ pl: 2 }}>
+                    {patient?.phoneNumber}
+                  </Typography>
+                </Box>
+              </Box>
 
-            <Controller
-              name="recipientEmail"
-              control={control}
-              disabled
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-                validate: (value) => {
-                  const result = emailValidator.safeParse(value);
-                  return result.success || 'Invalid email format';
-                },
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="Email address"
-                  type="email"
-                  error={!!errors.recipientEmail}
-                  helperText={errors.recipientEmail?.message}
-                  required
-                  sx={{ mb: 2 }}
-                />
-              )}
-            />
+              <Box sx={{ mt: 2, mb: 3 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Responsible party name
+                </Typography>
+                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{responsibleParty?.fullName}</Typography>
+                <Box sx={{ flexDirection: 'row', display: 'flex' }}>
+                  <Typography variant="body2">{responsibleParty?.email}</Typography>
+                  <Typography variant="body2" sx={{ pl: 2 }}>
+                    {responsibleParty?.phoneNumber}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            <Skeleton variant="rectangular" animation="wave" />
+          )}
 
-            <Controller
-              name="recipientPhoneNumber"
-              control={control}
-              disabled
-              rules={{
-                validate: (value: string) => {
-                  if (!value) return true;
-                  return (
-                    isPhoneNumberValid(value) ||
-                    'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
-                  );
-                },
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  inputProps={{ mask: '(000) 000-0000' }}
-                  InputProps={{
-                    inputComponent: InputMask as any,
-                  }}
-                  label="Phone number"
-                  error={!!errors.recipientPhoneNumber}
-                  helperText={errors.recipientPhoneNumber?.message}
-                  sx={{ mb: 2 }}
-                />
-              )}
-            />
+          <Grid
+            component="form"
+            id="send-invoice-form"
+            container
+            spacing={2}
+            onSubmit={handleSubmit(handleSubmitWrapped)}
+          >
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="amount"
+                control={control}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  min: { value: 0.01, message: 'Amount must be greater than 0' },
+                }}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    type="number"
+                    label="Amount, $"
+                    error={!!errors.amount}
+                    helperText={errors.amount?.message}
+                    required
+                    disabled={disableAllFields}
+                  />
+                )}
+              />
+            </Grid>
 
-            <Box sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={6}>
               <BasicDatePicker
                 name="dueDate"
                 label="Due date"
@@ -175,65 +204,105 @@ export default function SendInvoiceToPatientDialog({
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 component="Picker"
                 disabled={disableAllFields}
+                disablePast={true}
               />
-            </Box>
+            </Grid>
 
-            <Controller
-              name="memo"
-              control={control}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-              disabled={disableAllFields}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="Memo"
-                  error={!!errors.memo}
-                  helperText={errors.memo?.message}
-                  required
-                  sx={{ mb: 2 }}
-                />
-              )}
-            />
+            <Grid item xs={12}>
+              <Controller
+                name="smsTextMessage"
+                control={control}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
+                disabled={disableAllFields}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Sms message"
+                    multiline
+                    rows={4}
+                    error={!!errors.smsTextMessage}
+                    helperText={errors.smsTextMessage?.message}
+                    required
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                          <Tooltip title={smsMessagePrefilledPreview} arrow>
+                            <IconButton edge="end" size="small">
+                              <InfoOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            </Grid>
 
-            <Controller
-              name="smsTextMessage"
-              control={control}
-              rules={{
-                required: REQUIRED_FIELD_ERROR_MESSAGE,
-              }}
-              disabled={disableAllFields}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="Sms text"
-                  error={!!errors.smsTextMessage}
-                  helperText={errors.smsTextMessage?.message}
-                  required
-                  sx={{ mb: 2 }}
-                />
-              )}
-            />
-          </Box>
+            <Grid item xs={12}>
+              <Controller
+                name="memo"
+                control={control}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
+                disabled={disableAllFields}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Invoice memo"
+                    multiline
+                    rows={4}
+                    error={!!errors.memo}
+                    helperText={errors.memo?.message}
+                    required
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                          <Tooltip title={memoMessagePrefilledPreview} arrow>
+                            <IconButton edge="end" size="small">
+                              <InfoOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
 
         <DialogActions>
-          <Button variant="text" onClick={handleClose} size="medium" disabled={disableAllFields}>
-            Cancel
-          </Button>
-          <LoadingButton
-            disabled={disableAllFields}
-            loading={isSubmitting}
-            form="send-invoice-form"
-            type="submit"
-            variant="contained"
-            color="primary"
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              width: '100%',
+              marginX: 2,
+              mb: 1,
+            }}
           >
-            {submitButtonName}
-          </LoadingButton>
+            <RoundedButton variant="outlined" onClick={handleClose} size="medium">
+              Cancel
+            </RoundedButton>
+            <RoundedButton
+              disabled={disableAllFields}
+              loading={isSubmitting}
+              form="send-invoice-form"
+              type="submit"
+              variant="contained"
+              color="primary"
+            >
+              {submitButtonName}
+            </RoundedButton>
+          </Box>
         </DialogActions>
       </Grid>
     </Dialog>

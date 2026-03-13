@@ -27,6 +27,10 @@
     {
       "name": "Test Utilities",
       "path": "../packages/test-utils"
+    },
+    {
+      "name": "PACS Poll",
+      "path": "../packages/pacs-poll"
     }
   ],
   "settings": {
@@ -36,6 +40,11 @@
     }
   },
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint", "streetsidesoftware.code-spell-checker", "eamodio.gitlens", "usernamehw.errorlens"]
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "streetsidesoftware.code-spell-checker",
+      "eamodio.gitlens",
+      "usernamehw.errorlens"
+    ]
   }
 }

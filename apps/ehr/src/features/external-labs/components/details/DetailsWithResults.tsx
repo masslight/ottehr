@@ -2,18 +2,12 @@ import { Button, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
-import {
-  LabOrderDetailedPageDTO,
-  PdfAttachmentDTO,
-  ReflexLabDTO,
-  TaskReviewedParameters,
-  UnsolicitedLabDTO,
-} from 'utils';
+import { LabOrderDetailedPageDTO, ReflexLabDTO, TaskReviewedParameters, UnsolicitedLabDTO } from 'utils';
 import { OrderCollection } from '../OrderCollection';
 import { ResultItem } from './ResultItem';
 
 export const DetailsWithResults: React.FC<{
-  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO | PdfAttachmentDTO;
+  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   loading: boolean;
 }> = ({ labOrder, markTaskAsReviewed, loading }) => {

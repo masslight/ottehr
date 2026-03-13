@@ -1,11 +1,16 @@
+import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
   Chip,
   Grid,
   IconButton,
   Link,
+  ListItemIcon,
+  Menu,
   MenuItem,
   Skeleton,
   Stack,
@@ -17,16 +22,20 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue } from 'src/shared/utils';
 import {
+  FhirAppointmentType,
   formatDateToMDYWithTime,
   getAdmitterPractitionerId,
+  getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getFullestAvailableName,
   getInsuranceNameFromCoverage,
   PaymentVariant,
   PRACTITIONER_CODINGS,
@@ -47,6 +56,9 @@ import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
+  position: 'sticky',
+  top: 0,
+  zIndex: 100,
   backgroundColor: theme.palette.background.paper,
   padding: '8px 16px 8px 0',
   borderBottom: `1px solid ${theme.palette.divider}`,
@@ -128,12 +140,15 @@ export const Header = (): JSX.Element => {
   const theme = useTheme();
 
   const {
-    resources: { appointment, patient, encounter: encounterValues, location: locationResource },
+    resources: { appointment: appointmentValues, patient, encounter: encounterValues },
     mappedData,
-    visitState,
+    appointment,
+    practitioners,
+    group,
+    location,
+    locations,
+    encounter,
     appointmentRefetch,
-    followUpOriginEncounter,
-    followupEncounters,
     selectedEncounterId,
   } = useAppointmentData();
 
@@ -144,42 +159,63 @@ export const Header = (): JSX.Element => {
     patientId: patient?.id ?? null,
   });
 
-  const { chartData } = useChartData();
-  const { encounter, location } = visitState;
-  const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
-
-  const findEncounterById = (id?: string): Encounter | undefined => {
-    if (!id) return undefined;
-    const foundInFollowups = (followupEncounters || []).find((e) => e.id === id);
-    if (foundInFollowups) return foundInFollowups;
-    if (followUpOriginEncounter?.id === id) return followUpOriginEncounter;
-    return undefined;
-  };
-
-  const isMainEncounter = !effectiveEncounterId || effectiveEncounterId === followUpOriginEncounter?.id;
-
-  const currentEncounter = isMainEncounter ? followUpOriginEncounter : findEncounterById(effectiveEncounterId);
-
-  const start = isMainEncounter ? appointment?.start : currentEncounter?.period?.start;
-
-  let locationName = '';
-
-  const locationRef = currentEncounter?.location?.[0]?.location?.reference;
-  if (locationRef) {
-    const locationId = locationRef.split('/')[1];
-    const allLocations = [...(visitState?.location ? [visitState.location] : []), ...[locationResource]];
-    const matchedLocation = allLocations.find((loc) => loc?.id === locationId);
-
-    locationName = matchedLocation?.name ?? '';
-  }
-
-  locationName = locationName || location?.name || '';
-
-  const { date = '', time = '' } = formatDateToMDYWithTime(start) ?? {};
-  const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`.trim();
-
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
+
+  const { chartData } = useChartData();
+
+  const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
+
+  const start = encounter?.period?.start ?? appointmentValues?.start;
+
+  let optionalVisitLabel = '';
+
+  if (isFollowup) {
+    const locationRef = encounter?.location?.[0]?.location?.reference;
+    if (locationRef) {
+      const locationId = locationRef.split('/')[1];
+      const matchedLocation = locations.find((location) => location?.id === locationId);
+
+      optionalVisitLabel = matchedLocation?.name ?? '';
+    }
+  } else {
+    if (!optionalVisitLabel && appointment?.participant?.length) {
+      const nonPatientParticipant = appointment.participant.find(
+        (p) => typeof p?.actor?.reference === 'string' && !p.actor.reference.includes('Patient/')
+      );
+
+      const ref = nonPatientParticipant?.actor?.reference;
+
+      if (ref) {
+        const [type, id] = ref.split('/');
+
+        if (type === 'Location' && location?.name) {
+          optionalVisitLabel = location.name;
+        }
+
+        if (type === 'HealthcareService' && group?.name) {
+          optionalVisitLabel = group.name;
+        }
+
+        const visitOwner = practitioners?.find((p) => p?.id === id);
+        if (type === 'Practitioner' && visitOwner) {
+          optionalVisitLabel = getFullestAvailableName(visitOwner) ?? '';
+        }
+      }
+    }
+  }
+
+  const userTimezone = DateTime.local().zoneName;
+  const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
+  const visitText = `Visit: ${date} ${time}${optionalVisitLabel ? ` | ${optionalVisitLabel}` : ''}`.trim();
+  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const visitBookingType = appointment
+    ? appointment.appointmentType?.text === FhirAppointmentType.prebook
+      ? 'Scheduled'
+      : 'On Demand'
+    : undefined;
+  const visitTypeAndCategory = ['In Person', serviceCategory].filter(Boolean).join(' | ');
+
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const paymentVariant = formatLabelValue(
@@ -229,9 +265,11 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = formatLabelValue(appointment?.description, 'Reason for Visit');
+  const reasonForVisit = formatLabelValue(appointmentValues?.description, 'Reason for Visit');
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -341,7 +379,7 @@ export const Header = (): JSX.Element => {
                   <Grid item>
                     <Link
                       component={RouterLink}
-                      to={`/visit/${appointment?.id}`}
+                      to={`/visit/${appointmentValues?.id}`}
                       variant="body2"
                       sx={{
                         color: theme.palette.text.secondary,
@@ -351,6 +389,16 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitText}</PatientMetadata>
                     </Link>
                   </Grid>
+                  {visitTypeAndCategory && (
+                    <Grid item>
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitTypeAndCategory}</PatientMetadata>
+                    </Grid>
+                  )}
+                  {visitBookingType && (
+                    <Grid item>
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
+                    </Grid>
+                  )}
                   <Grid item>
                     <Tooltip title={paymentVariant}>
                       <PatientMetadata
@@ -494,7 +542,57 @@ export const Header = (): JSX.Element => {
                   mt: 0.5,
                 }}
               >
-                {effectiveEncounterId ? <InternalNotes /> : null}
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  {effectiveEncounterId ? <InternalNotes /> : null}
+                  <IconButton
+                    onClick={(e) => setHeaderMenuAnchorEl(e.currentTarget)}
+                    sx={{ color: theme.palette.primary.main }}
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                </Stack>
+                <Menu
+                  anchorEl={headerMenuAnchorEl}
+                  open={!!headerMenuAnchorEl}
+                  onClose={() => setHeaderMenuAnchorEl(null)}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                >
+                  <MenuItem
+                    onClick={() => {
+                      setHeaderMenuAnchorEl(null);
+                      if (patient?.id) {
+                        navigate(`/patient/${patient.id}/followup/add`);
+                      }
+                    }}
+                    disabled={!patient?.id}
+                    sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                      <CalendarMonthOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Create Follow-Up Visit
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setHeaderMenuAnchorEl(null);
+                      setShowCreateTaskDialog(true);
+                    }}
+                    sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                      <AddOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Create Task
+                  </MenuItem>
+                </Menu>
+                <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />
               </Grid>
             </Grid>
           </Grid>

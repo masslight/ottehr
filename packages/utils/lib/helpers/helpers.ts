@@ -12,18 +12,21 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { patientScreeningQuestionsConfig } from '../configuration/questionnaire';
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
+  getCoding,
   getFullName,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   PROVIDER_TYPE_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
 } from '../fhir';
+import { CONSENT_FORMS_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config';
+import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import {
   appointmentTypeLabels,
   appointmentTypeMap,
@@ -219,12 +222,6 @@ export function findFirstAndLastTimeSlot(arr: Extension[]): {
   return { firstFulfillmentIndex, lastFulfillmentIndex };
 }
 
-// https://stackoverflow.com/a/13653180/2150542
-const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-export const isValidUUID = (maybeUUID: string): boolean => {
-  return uuidRegex.test(maybeUUID);
-};
-
 export const deepCopy = <T extends object>(source: T): T => {
   return JSON.parse(JSON.stringify(source));
 };
@@ -287,10 +284,11 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
 }
 
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
-  if (phone.length !== 10) {
+  const phoneDigits = phone.replace(/\D/g, '');
+  if (phoneDigits.length !== 10) {
     throw new Error('Invalid phone number');
   }
-  return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`;
+  return `(${phoneDigits.slice(0, 3)}) ${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`;
 };
 
 export const objectToDateString = (dateObj: { year: string; month: string; day: string }): string => {
@@ -350,6 +348,26 @@ export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_LINE2 = 'address 2';
 export const DEMO_VISIT_EMERGENCY_CONTACT_CITY = 'city';
 export const DEMO_VISIT_EMERGENCY_CONTACT_STATE = 'AL';
 export const DEMO_VISIT_EMERGENCY_CONTACT_ZIP = '12312';
+export const DEMO_VISIT_EMPLOYER_NAME = 'Test Employer Inc';
+export const DEMO_VISIT_EMPLOYER_ADDRESS = '123 Business Street';
+export const DEMO_VISIT_EMPLOYER_ADDRESS_2 = 'Suite 100';
+export const DEMO_VISIT_EMPLOYER_CITY = 'New York';
+export const DEMO_VISIT_EMPLOYER_STATE = 'NY';
+export const DEMO_VISIT_EMPLOYER_ZIP = '10001';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME = 'John';
+export const DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME = 'Doe';
+export const DEMO_VISIT_EMPLOYER_CONTACT_TITLE = 'HR Manager';
+export const DEMO_VISIT_EMPLOYER_CONTACT_EMAIL = 'a@a.a';
+export const DEMO_VISIT_EMPLOYER_CONTACT_PHONE = '(123) 123-1234';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FAX = '(123) 123-1234';
+export const DEMO_VISIT_ATTORNEY_HAS_ATTORNEY = 'I have an attorney';
+export const DEMO_VISIT_ATTORNEY_FIRM = 'Test Law Firm';
+export const DEMO_VISIT_ATTORNEY_FIRST_NAME = 'John';
+export const DEMO_VISIT_ATTORNEY_LAST_NAME = 'Attorney';
+export const DEMO_VISIT_ATTORNEY_EMAIL = 'attorney@testlaw.com';
+export const DEMO_VISIT_ATTORNEY_MOBILE = '(123) 123-1234';
+export const DEMO_VISIT_ATTORNEY_FAX = '(123) 123-1235';
+export const DEMO_PREFERRED_COMMUNICATION_METHOD = 'No preference';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -373,6 +391,7 @@ export function getContactInformationAnswers({
   phoneNumber = '(202) 733-9622',
 
   mobileOptIn = DEMO_VISIT_MARKETING_MESSAGING,
+  preferredCommunicationMethod = DEMO_PREFERRED_COMMUNICATION_METHOD,
 }: {
   willBe18?: boolean;
   isNewPatient?: boolean;
@@ -384,6 +403,7 @@ export function getContactInformationAnswers({
   email?: string;
   phoneNumber?: string;
   mobileOptIn?: boolean;
+  preferredCommunicationMethod?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'contact-information-page',
@@ -462,6 +482,14 @@ export function getContactInformationAnswers({
         answer: [
           {
             valueString: formatPhoneNumberForQuestionnaire(phoneNumber),
+          },
+        ],
+      },
+      {
+        linkId: 'patient-preferred-communication-method',
+        answer: [
+          {
+            valueString: preferredCommunicationMethod,
           },
         ],
       },
@@ -701,7 +729,7 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
     item: [
       {
         linkId: 'payment-option',
-        answer: [{ valueString: 'I will pay without insurance' }],
+        answer: [{ valueString: SELF_PAY_OPTION }],
       },
     ],
   };
@@ -1028,7 +1056,7 @@ export function getPaymentOptionInsuranceAnswers({
         linkId: 'payment-option',
         answer: [
           {
-            valueString: 'I have insurance',
+            valueString: INSURANCE_PAY_OPTION,
           },
         ],
       },
@@ -1058,20 +1086,13 @@ export function getConsentStepAnswers({
     linkId: 'consent-forms-page',
     item: [
       {
-        linkId: 'hipaa-acknowledgement',
-        answer: [
-          {
-            valueBoolean: true,
-          },
-        ],
-      },
-      {
-        linkId: 'consent-to-treat',
-        answer: [
-          {
-            valueBoolean: true,
-          },
-        ],
+        linkId: 'consent-forms-checkbox-group',
+        item: CONSENT_FORMS_CONFIG.forms
+          .filter((form) => form.createsConsentResource)
+          .map((form) => ({
+            linkId: form.id,
+            answer: [{ valueBoolean: true }],
+          })),
       },
       {
         linkId: 'signature',
@@ -1330,6 +1351,140 @@ export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['ans
   };
 }
 
+export function getEmployerInformationStepAnswers({
+  employerName = DEMO_VISIT_EMPLOYER_NAME,
+  address = DEMO_VISIT_EMPLOYER_ADDRESS,
+  address2 = DEMO_VISIT_EMPLOYER_ADDRESS_2,
+  city = DEMO_VISIT_EMPLOYER_CITY,
+  state = DEMO_VISIT_EMPLOYER_STATE,
+  zip = DEMO_VISIT_EMPLOYER_ZIP,
+  contactFirstName = DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME,
+  contactLastName = DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME,
+  contactTitle = DEMO_VISIT_EMPLOYER_CONTACT_TITLE,
+  contactEmail = DEMO_VISIT_EMPLOYER_CONTACT_EMAIL,
+  contactPhone = DEMO_VISIT_EMPLOYER_CONTACT_PHONE,
+  contactFax = DEMO_VISIT_EMPLOYER_CONTACT_FAX,
+}: {
+  employerName?: string;
+  address?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactFax?: string;
+} = {}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'employer-information-page',
+    item: [
+      {
+        linkId: 'employer-name',
+        answer: [{ valueString: employerName }],
+      },
+      {
+        linkId: 'employer-address',
+        answer: [{ valueString: address }],
+      },
+      {
+        linkId: 'employer-address-2',
+        answer: [{ valueString: address2 }],
+      },
+      {
+        linkId: 'employer-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'employer-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'employer-zip',
+        answer: [{ valueString: zip }],
+      },
+      {
+        linkId: 'employer-contact-first-name',
+        answer: [{ valueString: contactFirstName }],
+      },
+      {
+        linkId: 'employer-contact-last-name',
+        answer: [{ valueString: contactLastName }],
+      },
+      {
+        linkId: 'employer-contact-title',
+        answer: [{ valueString: contactTitle }],
+      },
+      {
+        linkId: 'employer-contact-email',
+        answer: [{ valueString: contactEmail }],
+      },
+      {
+        linkId: 'employer-contact-phone',
+        answer: [{ valueString: contactPhone }],
+      },
+      {
+        linkId: 'employer-contact-fax',
+        answer: [{ valueString: contactFax }],
+      },
+    ],
+  };
+}
+
+export function getAttorneyInformationStepAnswers({
+  hasAttorney = DEMO_VISIT_ATTORNEY_HAS_ATTORNEY,
+  firm = DEMO_VISIT_ATTORNEY_FIRM,
+  firstName = DEMO_VISIT_ATTORNEY_FIRST_NAME,
+  lastName = DEMO_VISIT_ATTORNEY_LAST_NAME,
+  email = DEMO_VISIT_ATTORNEY_EMAIL,
+  mobile = DEMO_VISIT_ATTORNEY_MOBILE,
+  fax = DEMO_VISIT_ATTORNEY_FAX,
+}: {
+  hasAttorney?: string;
+  firm?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  fax?: string;
+} = {}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'attorney-mva-page',
+    item: [
+      {
+        linkId: 'attorney-mva-has-attorney',
+        answer: [{ valueString: hasAttorney }],
+      },
+      {
+        linkId: 'attorney-mva-firm',
+        answer: [{ valueString: firm }],
+      },
+      {
+        linkId: 'attorney-mva-first-name',
+        answer: [{ valueString: firstName }],
+      },
+      {
+        linkId: 'attorney-mva-last-name',
+        answer: [{ valueString: lastName }],
+      },
+      {
+        linkId: 'attorney-mva-email',
+        answer: [{ valueString: email }],
+      },
+      {
+        linkId: 'attorney-mva-mobile',
+        answer: [{ valueString: mobile }],
+      },
+      {
+        linkId: 'attorney-mva-fax',
+        answer: [{ valueString: fax }],
+      },
+    ],
+  };
+}
+
 const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
   const { extension, amount, created, id } = paymentNotice;
 
@@ -1339,12 +1494,18 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
 
   const paymentMethod = extension.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
 
-  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check' && paymentMethod !== 'card-reader')) {
+  if (
+    !paymentMethod ||
+    (paymentMethod !== 'cash' &&
+      paymentMethod !== 'check' &&
+      paymentMethod !== 'card-reader' &&
+      paymentMethod !== 'external-card-reader')
+  ) {
     return undefined;
   }
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader',
+    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
@@ -1467,6 +1628,27 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
   return { type };
 }
 
+export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | undefined {
+  if (!serviceCategory) return undefined;
+
+  const normalizedServiceCategory = serviceCategory
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC'> = {
+    urgentcare: 'UC',
+    occupationalmedicine: 'OM',
+    workerscomp: 'WC',
+  };
+
+  return serviceCategoryMap[normalizedServiceCategory];
+}
+
+export function getAppointmentServiceCategoryAbbreviation(appointment?: Appointment): 'UC' | 'OM' | 'WC' | undefined {
+  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+  return getServiceCategoryAbbreviation(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
+}
+
 /**
  * Formats a nine digit zipcode with a dash. Can consume the zipcode or the fhirAddress.
  * Assumes zip is at the end of the string. Returns string unchanged if no nine digit zip match is found.
@@ -1490,7 +1672,13 @@ export interface TemplateVariables {
 
 // <key> syntax
 export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
-  return template.replace(/<([\w-]+)>/g, (match, key) => {
-    return variables[key]?.toString() || match;
-  });
+  try {
+    if (!template) return '';
+    return template.replace(/<([\w-]+)>/g, (match, key) => {
+      if (key === 'phone') return match;
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
 }

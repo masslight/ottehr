@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Consent, Coverage, RelatedPerson } from 'fhir/r4b';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { getAuth0Token } from '../src/shared';
 import { SECRETS } from './data/secrets';
 

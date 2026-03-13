@@ -5,7 +5,7 @@ import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/m
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
-import { PROJECT_NAME, RoleType } from 'utils';
+import { BRANDING_CONFIG, RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
@@ -130,7 +130,7 @@ export default function Navbar(): ReactElement | null {
           <Link to="/">
             <img
               src={logo}
-              alt={`${PROJECT_NAME} logo`}
+              alt={`${BRANDING_CONFIG.projectName} logo`}
               style={{
                 marginRight: 20,
                 marginTop: 10,

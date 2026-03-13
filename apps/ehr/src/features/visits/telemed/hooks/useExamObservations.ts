@@ -2,7 +2,10 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useRef } from 'react';
 import { ExamObservationDTO } from 'utils';
 import { useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
-import { useExamObservationsStore } from '../../shared/stores/appointment/exam-observations.store';
+import {
+  useExamObservationsInitializationStore,
+  useExamObservationsStore,
+} from '../../shared/stores/appointment/exam-observations.store';
 
 type ExamRecord = { [field: string]: ExamObservationDTO };
 type Update = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
@@ -157,6 +160,7 @@ export function useExamObservations(param?: string | string[]): {
     );
 
     if (noFetch) {
+      useExamObservationsInitializationStore.setState({ hasInitialData: true });
       return;
     }
 
@@ -199,7 +203,7 @@ export function useExamObservations(param?: string | string[]): {
       return;
     }
 
-    const { prevState, prevValues } = getPrevStateAndValues(param);
+    const { prevState } = getPrevStateAndValues(param);
 
     useExamObservationsStore.setState(() => {
       // If param is an array, convert to object
@@ -236,27 +240,20 @@ export function useExamObservations(param?: string | string[]): {
       return;
     }
 
-    deleteChartData(
-      {
-        examObservations: Array.isArray(param)
-          ? param
-          : Object.prototype.hasOwnProperty.call(param, 'field')
-          ? [param as ExamObservationDTO]
-          : objectToArray(param as ExamRecord),
-      },
-      {
-        onError: () => {
-          useExamObservationsStore.setState(prevValues);
-        },
-      }
-    );
+    deleteChartData({
+      examObservations: Array.isArray(param)
+        ? param
+        : Object.prototype.hasOwnProperty.call(param, 'field')
+        ? [param as ExamObservationDTO]
+        : objectToArray(param as ExamRecord),
+    });
   };
 
   return {
     value: param
       ? typeof param === 'string'
-        ? state[param]
-        : param.map((option) => state[option])
+        ? state[param] ?? { field: param, value: false, note: '' }
+        : param.map((option) => state[option] ?? { field: option, value: false, note: '' })
       : objectToArray(state),
     update,
     delete: deleteExamObservations,

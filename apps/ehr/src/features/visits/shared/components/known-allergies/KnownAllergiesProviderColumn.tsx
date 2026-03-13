@@ -19,7 +19,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { AllergyDTO } from 'utils';
+import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -32,6 +32,7 @@ import {
 } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
+import { QuickPicksButton } from '../QuickPicksButton';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
@@ -88,7 +89,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
   const featureFlags = useAppFlags();
-  const { chartDataSetState } = useChartData();
+  const { chartDataSetState } = useChartData({ refetchOnMount: false });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
@@ -143,23 +144,35 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   };
 
   const deleteAllergy = (): void => {
+    // Optimistic update
+    chartDataSetState(
+      (prevState) => ({
+        chartData: {
+          ...prevState.chartData!,
+          allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId !== value.resourceId),
+        },
+      }),
+      { invalidateQueries: false }
+    );
     deleteChartData(
       {
         allergies: [value],
       },
       {
         onSuccess: () => {
-          chartDataSetState((prevState) => ({
-            chartData: {
-              ...prevState.chartData!,
-              allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId !== value.resourceId),
-            },
-          }));
+          // No need to update again, optimistic update already applied
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting allergy. Please try again.', {
             variant: 'error',
           });
+          // Rollback to previous state
+          chartDataSetState((prevState) => ({
+            chartData: {
+              ...prevState.chartData!,
+              allergies: [...(prevState.chartData?.allergies || []), value],
+            },
+          }));
         },
       }
     );
@@ -199,7 +212,11 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
                 }}
               />
             )}
-            <DeleteIconButton disabled={isLoadingOrAwaiting || !isAlreadySaved} onClick={deleteAllergy} />
+            <DeleteIconButton
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              onClick={deleteAllergy}
+              dataTestId={dataTestIds.allergies.knownAllergiesListItemDeleteButton}
+            />
           </Box>
         )}
       </Box>
@@ -231,7 +248,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
-  const { isChartDataLoading } = useChartData();
+  const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
 
   const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null; otherAllergyName: string }>({
@@ -277,16 +294,37 @@ const AddAllergyField: FC = () => {
         name: data.name,
         id: data.id?.toString(),
         current: true,
+        lastUpdated: new Date().toISOString(),
       };
+      const prevAllergies = [...(chartData?.allergies ?? [])];
 
       try {
+        setPartialChartData(
+          {
+            allergies: [...(chartData?.allergies || []), newValue],
+          },
+          { invalidateQueries: false }
+        );
         await onSubmit(newValue);
         reset({ value: null, otherAllergyName: '' });
         setIsOtherOptionSelected(false);
       } catch {
-        // Error is already handled by useChartDataArrayValue
+        // Rollback to previous state
+        setPartialChartData({
+          allergies: prevAllergies,
+        });
       }
     }
+  };
+
+  const handleQuickPickSelect = async (
+    quickPick: (typeof MEDICAL_HISTORY_CONFIG.allergies.quickPicks)[number]
+  ): Promise<void> => {
+    const quickPickAsAllergy = {
+      name: quickPick.name,
+      id: 'id' in quickPick ? quickPick.id : undefined,
+    } as ExtractObjectType<ErxSearchAllergensResponse>;
+    await handleSelectOption(quickPickAsAllergy);
   };
 
   const onSubmitForm = async (data: {
@@ -315,6 +353,12 @@ const AddAllergyField: FC = () => {
           gap: 2,
         }}
       >
+        <QuickPicksButton
+          quickPicks={MEDICAL_HISTORY_CONFIG.allergies.quickPicks}
+          getLabel={(quickPick) => quickPick.name}
+          onSelect={handleQuickPickSelect}
+          disabled={isChartDataLoading || isLoading}
+        />
         <Controller
           name="value"
           control={control}

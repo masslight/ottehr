@@ -1,42 +1,34 @@
 import Oystehr from '@oystehr/sdk';
-import { DomainResource, Encounter, Patient } from 'fhir/r4b';
+import { DomainResource } from 'fhir/r4b';
 import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, M2MClientMockType } from 'utils';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import {
+  InsertFullAppointmentDataBaseResult,
+  insertInPersonAppointmentBase,
+  setupIntegrationTest,
+} from '../helpers/integration-test-seed-data-setup';
 
 describe('radiology integration tests', () => {
   let oystehrTestUserM2M: Oystehr;
   let oystehrAdmin: Oystehr;
-  let encounter: Encounter;
   const resourcesToCleanup: DomainResource[] = [];
+
+  let baseResources: InsertFullAppointmentDataBaseResult;
+  let appointmentBaseCleanup: () => Promise<void>;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('integration/radiology.test.ts', M2MClientMockType.provider);
+    appointmentBaseCleanup = setup.cleanup;
     oystehrTestUserM2M = setup.oystehrTestUserM2M;
     oystehrAdmin = setup.oystehr;
-
-    const patient = await oystehrAdmin.fhir.create<Patient>({
-      resourceType: 'Patient',
-      name: [{ given: ['Test'], family: 'Patient' }],
-      birthDate: '2000-01-01',
-      gender: 'female',
-    });
-    resourcesToCleanup.push(patient);
-
-    encounter = await oystehrAdmin.fhir.create<Encounter>({
-      resourceType: 'Encounter',
-      status: 'in-progress',
-      class: { code: 'AMB' },
-      subject: { reference: `Patient/${patient.id}` },
-    });
-    resourcesToCleanup.push(encounter);
-    expect(encounter).toBeDefined();
-  });
+    baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
+  }, 60_000);
 
   afterAll(async () => {
     if (!oystehrAdmin) {
       throw new Error('oystehr is null! could not clean up!');
     }
     await cleanupResources(oystehrAdmin);
+    await appointmentBaseCleanup();
   });
 
   const cleanupResources = async (oystehr: Oystehr): Promise<void> => {
@@ -52,9 +44,10 @@ describe('radiology integration tests', () => {
   describe('create order', () => {
     it('should create a radiology order -- success', async () => {
       const createOrderInput: CreateRadiologyZambdaOrderInput = {
-        encounterId: encounter.id!,
+        encounterId: baseResources.encounter.id!,
         diagnosisCode: 'W21.89XA',
         cptCode: '73562',
+        lateralityModifier: undefined,
         stat: true,
         clinicalHistory: 'Took an arrow to the knee',
       };
@@ -71,8 +64,8 @@ describe('radiology integration tests', () => {
         orderOutput = error as Error;
       }
       expect(orderOutput).toBeDefined();
-      expect(orderOutput).toHaveProperty('output');
-      expect(orderOutput.output).toHaveProperty('serviceRequestId');
+      expect(orderOutput).toHaveProperty('serviceRequestId');
+      expect(orderOutput).toHaveProperty('cptCodesSaved');
     });
   });
 });

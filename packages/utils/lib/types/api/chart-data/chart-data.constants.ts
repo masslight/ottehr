@@ -6,6 +6,7 @@ import { IN_PERSON_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.type
 export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
   | 'history-of-present-illness'
+  | 'mechanism-of-injury'
   | 'ros'
   | 'current-medication'
   | 'in-house-medication'
@@ -27,9 +28,9 @@ export type ProviderChartDataFieldsNames =
   | typeof NOTHING_TO_EAT_OR_DRINK_ID
   | typeof IN_PERSON_NOTE_ID
   | 'birth-history'
-  | 'ai-potential-diagnosis'
   | 'procedure'
-  | typeof ERX_MEDICATION_META_TAG_CODE;
+  | typeof ERX_MEDICATION_META_TAG_CODE
+  | 'accident';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 
@@ -60,6 +61,7 @@ export enum VitalFieldNames {
   VitalWeight = 'vital-weight',
   VitalHeight = 'vital-height',
   VitalVision = 'vital-vision',
+  VitalLastMenstrualPeriod = 'vital-last-menstrual-period',
 }
 
 export enum VitalVisionComponents {
@@ -164,6 +166,7 @@ export enum VitalsOxygenSatObservationMethod {
 
 export enum AiObservationField {
   HistoryOfPresentIllness = 'ai-history-of-present-illness',
+  MechanismOfInjury = 'ai-mechanism-of-injury',
   PastMedicalHistory = 'ai-past-medical-history',
   PastSurgicalHistory = 'ai-past-surgical-history',
   MedicationsHistory = 'ai-medications-history',

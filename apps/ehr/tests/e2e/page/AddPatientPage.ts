@@ -46,6 +46,8 @@ export class AddPatientPage {
 
   async clickPatientNotFoundButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.addPatientPage.patientNotFoundButton).click();
+    // Wait for new patient form to appear
+    await expect(this.#page.locator('[placeholder="MM/DD/YYYY"]')).toBeVisible({ timeout: 60_000 });
   }
 
   async enterFirstName(firstName: string): Promise<void> {
@@ -58,6 +60,7 @@ export class AddPatientPage {
 
   async enterDateOfBirth(dateOfBirth: string): Promise<void> {
     const locator = this.#page.locator('[placeholder="MM/DD/YYYY"]');
+    await locator.waitFor({ state: 'visible', timeout: 60_000 });
     await locator.click();
     await this.#page.waitForTimeout(2000);
     // just because of date input for some reason not accepting wrong date
@@ -120,14 +123,20 @@ export class AddPatientPage {
     await buttonLocator.click();
     return (await buttonLocator.textContent()) ?? '';
   }
+
   async clickCloseSelectDateWarningDialog(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+  }
+
+  async selectServiceCategory(serviceCategory: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown).click();
+    await this.#page.getByText(serviceCategory).click();
   }
 }
 
 export async function expectAddPatientPage(page: Page): Promise<AddPatientPage> {
   await page.waitForURL(`/visits/add`);
-  await expect(page.locator('h3').getByText('Add Patient')).toBeVisible();
+  await expect(page.locator('h3').getByText('Add Visit')).toBeVisible();
   return new AddPatientPage(page);
 }
 

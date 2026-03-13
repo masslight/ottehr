@@ -17,10 +17,10 @@ import {
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 import { getChartData } from '../../../ehr/get-chart-data';
-import { getInHouseResources } from '../../../ehr/get-in-house-orders/helpers';
-import { getLabResources } from '../../../ehr/get-lab-orders/helpers';
 import { getMedicationOrders } from '../../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
+import { getLabResources } from '../../../ehr/lab/external/get-lab-orders/helpers';
+import { getInHouseResources } from '../../../ehr/lab/in-house/get-in-house-orders/helpers';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
@@ -32,9 +32,9 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { composeAndCreateVisitNotePdf } from '../../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
@@ -168,7 +168,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ]);
   const immunizationOrders = (
     await getImmunizationOrders(oystehr, {
-      encounterId: visitResources.encounter.id!,
+      encounterIds: [visitResources.encounter.id!],
     })
   ).orders;
   const chartData = chartDataResult.response;
@@ -177,9 +177,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Chart data received');
   try {
-    const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData, medicationOrders, immunizationOrders, externalLabsData, inHouseOrdersData },
-      visitResources,
+    const { pdfInfo } = await createProgressNotePdf(
+      {
+        patient,
+        encounter,
+        allChartData: {
+          chartData,
+          additionalChartData,
+          medicationOrders,
+          immunizationOrders,
+          externalLabsData,
+          inHouseOrdersData,
+        },
+        appointmentPackage: visitResources,
+        questionnaireResponse: visitResources.questionnaireResponse,
+      },
       secrets,
       oystehrToken
     );
@@ -203,7 +215,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         locationName = getNameForOwner(location);
         address = getAddressStringForScheduleResource(location) ?? '';
       }
-      const presignedUrls = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+      const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
       const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
 
       if (isInPersonAppointment) {

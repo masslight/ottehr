@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { escapeTerraformTemplateSyntax } from './escape-terraform';
 import { Schema, SpecFile } from './schema';
 
 export const VAR_REGEX = /#\{var\/([^}]+)\}/g;
@@ -253,6 +254,21 @@ export class Schema20250925 implements Schema<Spec20250925> {
       labRoutesResources.resource.oystehr_lab_route[routeName] = {
         account_number: this.getValue(route.accountNumber, this.resources),
         lab_id: this.getValue(route.labId, this.resources),
+        primary_name: this.getValue(route.primaryName, this.resources),
+        primary_phone: this.getValue(route.primaryPhone, this.resources),
+        primary_address: route.primaryAddress
+          ? {
+              address1: this.getValue(route.primaryAddress.address1, this.resources),
+              address2: this.getValue(route.primaryAddress.address2, this.resources),
+              city: this.getValue(route.primaryAddress.city, this.resources),
+              state_province_code: this.getValue(route.primaryAddress.stateProvinceCode, this.resources),
+              postal_code: this.getValue(route.primaryAddress.postalCode, this.resources),
+            }
+          : undefined,
+        client_site_id: this.getValue(route.clientSiteId, this.resources),
+        eula_version: this.getValue(route.eulaVersion, this.resources),
+        eula_accepter_full_name: this.getValue(route.eulaAccepterFullName, this.resources),
+        eula_acceptance_date_time_utc: this.getValue(route.eulaAcceptanceDateTimeUtc, this.resources),
       };
     }
     if (Object.keys(labRoutesResources.resource.oystehr_lab_route).length) {
@@ -410,7 +426,8 @@ export class Schema20250925 implements Schema<Spec20250925> {
         return match;
       }
     );
-    return refReplacedValue;
+    // Escape Terraform template syntax in literal values
+    return escapeTerraformTemplateSyntax(refReplacedValue);
   }
 
   replaceVariableWithValue(value: string): string {

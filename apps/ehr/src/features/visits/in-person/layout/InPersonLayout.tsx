@@ -2,7 +2,7 @@ import { Mic } from '@mui/icons-material';
 import { Container, Fab, Paper } from '@mui/material';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { getAdmitterPractitionerId } from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
@@ -44,6 +44,7 @@ export const InPersonLayout: React.FC = () => {
   useResetAppointmentStore();
   const { chartData } = useChartData({ shouldUpdateExams: true });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
+  const assignedProviderId = getAttendingPractitionerId(encounter);
 
   return (
     <div style={layoutStyle}>
@@ -92,12 +93,12 @@ export const InPersonLayout: React.FC = () => {
               padding: '20px 20px 24px 20px',
             }}
           >
-            {isFollowup || assignedIntakePerformerId ? (
+            {(isFollowup || assignedIntakePerformerId) && assignedProviderId ? (
               <>
                 <Outlet />
               </>
             ) : (
-              <InfoAlert text="Select an intake performer in order to begin charting." persistent />
+              <InfoAlert text="Select an intake performer and a provider in order to begin charting." persistent />
             )}
           </div>
           <BottomNavigation />

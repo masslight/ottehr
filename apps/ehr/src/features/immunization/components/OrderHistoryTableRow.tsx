@@ -45,8 +45,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       await cancelOrder({
         orderId: order.id,
       });
-    } catch (error) {
-      console.error('Error deleting vaccine order:', error);
+    } catch {
       enqueueSnackbar('An error occurred while deleting the vaccine order. Please try again.', { variant: 'error' });
     } finally {
       setIsDeleteDialogOpened(false);
@@ -78,7 +77,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           : { cursor: 'default' }),
       }}
       onClick={handleRowClick}
-      data-testid={dataTestIds.immunizationPage.marTableRow}
+      data-testid={dataTestIds.immunizationPage.marTableRow(order.id)}
     >
       <TableCell data-testid={dataTestIds.immunizationPage.marTableVaccineCell}>
         {order.details.medication.name}

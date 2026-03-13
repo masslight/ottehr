@@ -27,12 +27,19 @@ import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AllStates, EmployeeDetails, GetEmployeesResponse, RoleType, State, useSuccessQuery } from 'utils';
+import {
+  AllStates,
+  EmployeeDetails,
+  formatDateForDisplay,
+  GetEmployeesResponse,
+  RoleType,
+  State,
+  useSuccessQuery,
+} from 'utils';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
-import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
@@ -358,7 +365,7 @@ function EmployeesTable({
                         color: otherColors.tableRow,
                       }}
                     >
-                      {employee.lastLogin ? formatDateUsingSlashes(employee.lastLogin) : 'Never'}
+                      {employee.lastLogin ? formatDateForDisplay(employee.lastLogin) : 'Never'}
                     </TableCell>
                     <TableCell>
                       <Chip

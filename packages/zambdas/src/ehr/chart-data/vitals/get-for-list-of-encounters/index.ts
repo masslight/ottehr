@@ -18,6 +18,7 @@ import {
   isValidUUID,
   LOINC_SYSTEM,
   MISSING_REQUIRED_PARAMETERS,
+  parseLastMenstrualPeriodObservation,
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   SecretsKeys,
@@ -142,6 +143,8 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
         vitalObservation = parseBloodPressureObservation(observation, performer);
       } else if (field === VitalFieldNames.VitalVision) {
         vitalObservation = parseVisionObservation(observation, performer);
+      } else if (field === VitalFieldNames.VitalLastMenstrualPeriod) {
+        vitalObservation = parseLastMenstrualPeriodObservation(observation, performer);
       } else {
         vitalObservation = parseNumericValueObservation(observation, performer, field);
       }

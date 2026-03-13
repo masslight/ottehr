@@ -63,8 +63,8 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
         { ...complexInput, apiUrl, accessToken: oystehrToken, secrets: secrets },
         oystehr
       );
-      console.log('prevalidation primary', result.primary);
-      console.log('prevalidation secondary', result.primary);
+      console.log('prevalidation primary', JSON.stringify(result.primary));
+      console.log('prevalidation secondary', JSON.stringify(result.secondary));
       primary = result.primary;
       secondary = result.secondary;
     } else {

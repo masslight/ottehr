@@ -1,12 +1,15 @@
-import { Box, Link, Typography } from '@mui/material';
-import { FC } from 'react';
+import { otherColors } from '@ehrTheme/colors';
+import { WarningAmber } from '@mui/icons-material';
+import { Avatar, Box, Link, Typography } from '@mui/material';
+import { FC, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getAssessmentUrl, getHpiUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/visits/in-person/routing/helpers';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
+import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 
@@ -22,8 +25,13 @@ export const MissingCard: FC = () => {
       chiefComplaint: {
         _tag: 'chief-complaint',
       },
+      historyOfPresentIllness: {
+        _tag: 'history-of-present-illness',
+      },
     },
   });
+
+  const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
 
   const { isInPerson } = useAppFlags();
   const navigate = useNavigate();
@@ -31,15 +39,32 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
+  const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
-  if (primaryDiagnosis && medicalDecision && emCode && hpi) {
+  useEffect(() => {
+    const loadSuggestions = async (): Promise<void> => {
+      if (!hpi) return;
+
+      const suggestionNoteTemp = await aiSuggestionNotes({
+        type: 'missing-hpi',
+        hpi,
+      });
+      setSuggestionNote(suggestionNoteTemp.suggestions?.[0]);
+    };
+
+    loadSuggestions().catch((error) => console.log('Error fetching suggestion note', error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hpi]);
+
+  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote) {
     return null;
   }
 
-  const navigateTo = (target: 'hpi' | 'assessment'): void => {
+  const navigateTo = (target: 'chief-complaint' | 'hpi' | 'assessment'): void => {
     if (isInPerson) {
-      const inPersonRoutes: Record<'hpi' | 'assessment', string> = {
-        hpi: getHpiUrl(appointment?.id || ''),
+      const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
+        'chief-complaint': getChiefComplaintUrl(appointment?.id || ''),
+        hpi: getHPIUrl(appointment?.id || ''),
         assessment: getAssessmentUrl(appointment?.id || ''),
       };
 
@@ -52,6 +77,8 @@ export const MissingCard: FC = () => {
         assessment: TelemedAppointmentVisitTabs.assessment,
       };
 
+      if (target === 'chief-complaint') return;
+
       useAppTelemedLocalStore.setState({
         currentTab: telemedTabs[target],
       });
@@ -59,11 +86,11 @@ export const MissingCard: FC = () => {
   };
 
   return (
-    <AccordionCard label="Missing" dataTestId={dataTestIds.progressNotePage.missingCard}>
+    <AccordionCard label="Missing & Warnings" dataTestId={dataTestIds.progressNotePage.missingCard}>
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start', position: 'relative' }}>
         {isFetching && <LoadingScreen />}
         <Typography data-testid={dataTestIds.progressNotePage.missingCardText}>
-          This information is required to sign the chart. Click on the item to navigate to it.
+          Click on the item to navigate to it.
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -106,6 +133,26 @@ export const MissingCard: FC = () => {
             >
               E&M code
             </Link>
+          )}
+          {suggestionNote && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <WarningAmber sx={{ fontSize: '18px', color: otherColors.orange700 }} />
+              <Avatar
+                sx={{
+                  backgroundColor: '#DCF0FF',
+                  color: '#2F79B2',
+                  width: '18px',
+                  height: '18px',
+                  fontWeight: 'bold',
+                  fontSize: '10px',
+                }}
+              >
+                AI
+              </Avatar>
+              <Link sx={{ cursor: 'pointer' }} color="#000000" onClick={() => navigateTo('hpi')}>
+                {suggestionNote}
+              </Link>
+            </div>
           )}
         </Box>
       </Box>

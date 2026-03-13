@@ -18,7 +18,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -30,6 +30,9 @@ import {
 } from '../../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
+import { QuickPicksButton } from '../../QuickPicksButton';
+
+type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'display'> & { code: string | undefined };
 
 export const MedicalConditionsProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
@@ -100,7 +103,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   const isLoading = isUpdateLoading || isDeleteLoading;
   const isLoadingOrAwaiting = isLoading || !areNotesEqual;
   const isAlreadySaved = !!value.resourceId;
-  const { chartDataSetState } = useChartData();
+  const { chartDataSetState } = useChartData({ refetchOnMount: false });
 
   const updateNote = useMemo(
     () =>
@@ -149,25 +152,35 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   };
 
   const deleteCondition = (): void => {
+    // Optimistic update
+    chartDataSetState(
+      (prevState) => ({
+        chartData: {
+          ...prevState.chartData!,
+          conditions: prevState.chartData?.conditions?.filter((condition) => condition.resourceId !== value.resourceId),
+        },
+      }),
+      { invalidateQueries: false }
+    );
     deleteChartData(
       {
         conditions: [value],
       },
       {
         onSuccess: () => {
-          chartDataSetState((prevState) => ({
-            chartData: {
-              ...prevState.chartData!,
-              conditions: prevState.chartData?.conditions?.filter(
-                (condition) => condition.resourceId !== value.resourceId
-              ),
-            },
-          }));
+          // No need to update again, optimistic update already applied
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting medical condition. Please try again.', {
             variant: 'error',
           });
+          // Rollback to previous state
+          chartDataSetState((prevState) => ({
+            chartData: {
+              ...prevState.chartData!,
+              conditions: [...(prevState.chartData?.conditions || []), value],
+            },
+          }));
         },
       }
     );
@@ -207,7 +220,11 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
                 }}
               />
             )}
-            <DeleteIconButton disabled={isLoadingOrAwaiting || !isAlreadySaved} onClick={deleteCondition} />
+            <DeleteIconButton
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              onClick={deleteCondition}
+              dataTestId={dataTestIds.deleteOutlinedIcon}
+            />
           </Box>
         )}
       </Box>
@@ -239,7 +256,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
-  const { isChartDataLoading } = useChartData();
+  const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
@@ -255,27 +272,43 @@ const AddMedicalConditionField: FC = () => {
   const debouncedHandleInputChange = useMemo(
     () =>
       debounce((data) => {
-        console.log(data);
         setDebouncedSearchTerm(data);
       }, 800),
     []
   );
 
-  const handleSelectOption = async (data: IcdSearchResponse['codes'][number] | null): Promise<void> => {
+  const handleSelectOption = async (data: IcdSearchResponseOptionalCode | null): Promise<void> => {
     if (data) {
       const newValue = {
         code: data.code,
         display: data.display,
         current: true,
+        lastUpdated: new Date().toISOString(),
       };
 
       try {
+        setPartialChartData(
+          {
+            conditions: [...(chartData?.conditions || []), newValue],
+          },
+          { invalidateQueries: false }
+        );
         await onSubmit(newValue);
         reset({ value: null });
       } catch {
         // Error is already handled by useChartDataArrayValue
       }
     }
+  };
+
+  const handleQuickPickSelect = async (
+    quickPick: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks)[number]
+  ): Promise<void> => {
+    const quickPickAsIcdCode: IcdSearchResponseOptionalCode = {
+      code: 'code' in quickPick ? quickPick.code : undefined,
+      display: quickPick.display,
+    };
+    await handleSelectOption(quickPickAsIcdCode);
   };
 
   if (isChartDataLoading) {
@@ -294,6 +327,15 @@ const AddMedicalConditionField: FC = () => {
         gap: 2,
       }}
     >
+      <QuickPicksButton
+        quickPicks={MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks}
+        getLabel={(quickPick) => {
+          const code = 'code' in quickPick ? `${quickPick.code} ` : '';
+          return `${code}${quickPick.display}`;
+        }}
+        onSelect={handleQuickPickSelect}
+        disabled={isChartDataLoading || isLoading}
+      />
       <Controller
         name="value"
         control={control}

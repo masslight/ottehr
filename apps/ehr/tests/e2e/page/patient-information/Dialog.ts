@@ -12,6 +12,10 @@ export class Dialog {
     await expect(this.#page.getByTestId(dataTestIds.dialog.message)).toHaveText(message);
   }
 
+  async verifyModalContent(content: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.dialog.inPersonModalContent)).toContainText(content);
+  }
+
   async verifyTitle(title: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.dialog.title)).toHaveText(title);
   }
@@ -26,6 +30,12 @@ export class Dialog {
 
   async clickCloseButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+  }
+
+  async verifyAlertIconVisible(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.dialog.inPersonModalContent).getByTestId(dataTestIds.dialog.alertIcon)
+    ).toBeVisible();
   }
 }
 

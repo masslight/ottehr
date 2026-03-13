@@ -14,7 +14,7 @@ import {
   getTimezone,
   OVERRIDE_DATE_FORMAT,
 } from 'utils';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotMap, addDateToSlotTimes } from './data/slot-constants';
 import {

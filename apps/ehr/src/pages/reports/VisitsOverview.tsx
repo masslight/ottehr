@@ -57,7 +57,7 @@ export default function VisitsOverview(): React.ReactElement {
 
   const getDateRange = useCallback(
     (filter: string, selectedDate?: string): { start: string; end: string } => {
-      const now = DateTime.now().setZone('America/New_York');
+      const now = DateTime.now();
 
       switch (filter) {
         case 'today':
@@ -84,15 +84,15 @@ export default function VisitsOverview(): React.ReactElement {
           };
         case 'custom': {
           if (!selectedDate) return { start: '', end: '' };
-          const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
+          const customDateTime = DateTime.fromISO(selectedDate);
           return {
             start: customDateTime.startOf('day').toISO() ?? '',
             end: customDateTime.endOf('day').toISO() ?? '',
           };
         }
         case 'customRange': {
-          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
-          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          const startDateTime = DateTime.fromISO(customStartDate);
+          const endDateTime = DateTime.fromISO(customEndDate);
           return {
             start: startDateTime.startOf('day').toISO() ?? '',
             end: endDateTime.endOf('day').toISO() ?? '',
@@ -112,6 +112,7 @@ export default function VisitsOverview(): React.ReactElement {
     async (filter: string): Promise<void> => {
       setLoading(true);
       setError(null);
+      setReportData(null);
 
       try {
         const { start, end } = getDateRange(filter, customDate);
@@ -138,34 +139,38 @@ export default function VisitsOverview(): React.ReactElement {
     void fetchReport(dateFilter);
   }, [dateFilter, fetchReport]);
 
+  // Trigger fetch when custom date changes
+  useEffect(() => {
+    if (dateFilter === 'custom') {
+      void fetchReport('custom');
+    }
+  }, [customDate, dateFilter, fetchReport]);
+
+  // Trigger fetch when custom date range changes
+  useEffect(() => {
+    if (dateFilter === 'customRange') {
+      void fetchReport('customRange');
+    }
+  }, [customStartDate, customEndDate, dateFilter, fetchReport]);
+
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
     setDateFilter(newFilter);
-    void fetchReport(newFilter);
   };
 
   const handleCustomDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomDate(newDate);
-    if (dateFilter === 'custom') {
-      void fetchReport('custom');
-    }
   };
 
   const handleCustomStartDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomStartDate(newDate);
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
   };
 
   const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomEndDate(newDate);
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
   };
 
   const getDateRangeLabel = useCallback(
@@ -382,6 +387,58 @@ export default function VisitsOverview(): React.ReactElement {
     }));
   }, [reportData]);
 
+  const visitsByTypeColumns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'location',
+        headerName: 'Location',
+        width: 200,
+        sortable: true,
+      },
+      {
+        field: 'serviceCategory',
+        headerName: 'Service Category',
+        width: 150,
+        sortable: true,
+      },
+      {
+        field: 'inPerson',
+        headerName: 'In-Person',
+        width: 120,
+        sortable: true,
+        type: 'number',
+      },
+      {
+        field: 'telemed',
+        headerName: 'Telemed',
+        width: 120,
+        sortable: true,
+        type: 'number',
+      },
+      {
+        field: 'total',
+        headerName: 'Total',
+        width: 100,
+        sortable: true,
+        type: 'number',
+      },
+    ],
+    []
+  );
+
+  const visitsByTypeRows = useMemo(() => {
+    if (!reportData?.visitsByTypeCount) return [];
+
+    return reportData.visitsByTypeCount.map((row) => ({
+      id: `${row.locationId}-${row.serviceCategory}`,
+      location: row.locationName,
+      serviceCategory: row.serviceCategory,
+      inPerson: row.inPerson,
+      telemed: row.telemed,
+      total: row.total,
+    }));
+  }, [reportData]);
+
   return (
     <PageContainer>
       <Box>
@@ -552,6 +609,44 @@ export default function VisitsOverview(): React.ReactElement {
                     <DataGrid
                       rows={practitionerRows}
                       columns={practitionerColumns}
+                      initialState={{
+                        pagination: {
+                          paginationModel: { pageSize: 10 },
+                        },
+                        sorting: {
+                          sortModel: [{ field: 'total', sort: 'desc' }],
+                        },
+                      }}
+                      pageSizeOptions={[5, 10, 25]}
+                      slots={{
+                        toolbar: CustomToolbar,
+                      }}
+                      disableRowSelectionOnClick
+                      sx={{
+                        '& .MuiDataGrid-cell': {
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        },
+                        '& .MuiDataGrid-columnHeaderTitle': {
+                          fontWeight: 600,
+                        },
+                      }}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+
+            {visitsByTypeRows.length > 0 && (
+              <Card sx={{ mb: 4 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 3 }}>
+                    Visits by Type
+                  </Typography>
+                  <Box sx={{ height: 400, width: '100%' }}>
+                    <DataGrid
+                      rows={visitsByTypeRows}
+                      columns={visitsByTypeColumns}
                       initialState={{
                         pagination: {
                           paginationModel: { pageSize: 10 },

@@ -19,13 +19,15 @@ export interface CustomDialogProps {
   handleClose: (...args: any[]) => any;
   title: string | ReactElement;
   description: string | ReactElement;
-  closeButtonText: string;
+  closeButtonText?: string;
   closeButton?: boolean;
   handleConfirm?: any;
   confirmText?: string;
   confirmLoading?: boolean;
   error?: string;
   disabled?: boolean;
+  dataTestId?: string;
+  actions?: React.ReactNode;
 }
 
 export const CustomDialog: FC<CustomDialogProps> = ({
@@ -40,6 +42,8 @@ export const CustomDialog: FC<CustomDialogProps> = ({
   confirmLoading,
   error,
   disabled,
+  dataTestId,
+  actions,
 }) => {
   const theme = useTheme();
 
@@ -53,6 +57,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
           padding: 2,
         },
       }}
+      data-testid={dataTestId}
     >
       <DialogTitle
         variant="h5"
@@ -77,46 +82,54 @@ export const CustomDialog: FC<CustomDialogProps> = ({
         )}
       </DialogTitle>
       <DialogContent>
-        <DialogContentText
-          sx={{
-            color: theme.palette.text.primary,
-          }}
-          data-testid={dataTestIds.dialog.message}
-        >
-          {description}
-        </DialogContentText>
+        {typeof description === 'string' ? (
+          <DialogContentText
+            sx={{
+              color: theme.palette.text.primary,
+            }}
+            data-testid={dataTestIds.dialog.message}
+          >
+            {description}
+          </DialogContentText>
+        ) : (
+          description
+        )}
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'start', px: 2 }}>
-        {handleConfirm && (
-          <LoadingButton
-            disabled={disabled}
-            loading={confirmLoading}
-            variant="contained"
-            onClick={handleConfirm}
+      {actions ? (
+        <DialogActions sx={{ px: 2 }}>{actions}</DialogActions>
+      ) : (
+        <DialogActions sx={{ justifyContent: 'start', px: 2 }}>
+          {handleConfirm && (
+            <LoadingButton
+              disabled={disabled}
+              loading={confirmLoading}
+              variant="contained"
+              onClick={handleConfirm}
+              sx={{
+                fontWeight: 500,
+                borderRadius: '100px',
+                mr: '8px',
+                textTransform: 'none',
+              }}
+              data-testid={dataTestIds.dialog.proceedButton}
+            >
+              {confirmText}
+            </LoadingButton>
+          )}
+          <Button
+            variant={handleConfirm ? 'text' : 'contained'}
+            onClick={handleClose}
             sx={{
               fontWeight: 500,
               borderRadius: '100px',
-              mr: '8px',
               textTransform: 'none',
             }}
-            data-testid={dataTestIds.dialog.proceedButton}
+            data-testid={dataTestIds.dialog.cancelButton}
           >
-            {confirmText}
-          </LoadingButton>
-        )}
-        <Button
-          variant={handleConfirm ? 'text' : 'contained'}
-          onClick={handleClose}
-          sx={{
-            fontWeight: 500,
-            borderRadius: '100px',
-            textTransform: 'none',
-          }}
-          data-testid={dataTestIds.dialog.cancelButton}
-        >
-          {closeButtonText}
-        </Button>
-      </DialogActions>
+            {closeButtonText}
+          </Button>
+        </DialogActions>
+      )}
       {error && (
         <Typography color="error" variant="body2" my={1} mx={2}>
           {error}

@@ -1,7 +1,15 @@
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PatientVitalsContainer } from 'src/features/visits/in-person/components/progress-note/PatientVitalsContainer';
-import { examConfig, getSpentTime, patientScreeningQuestionsConfig, vitalsObservationsRequest } from 'utils';
+import {
+  examConfig,
+  getSpentTime,
+  IN_PERSON_NOTE_ID,
+  NOTE_TYPE,
+  patientScreeningQuestionsConfig,
+  PRIVATE_EXTENSION_BASE_URL,
+  vitalsObservationsRequest,
+} from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { useChartFields } from '../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../hooks/usePatientInstructionsVisibility';
@@ -10,10 +18,10 @@ import { SectionList } from '../SectionList';
 import { AdditionalQuestionsContainer } from './components/AdditionalQuestionsContainer';
 import { AllergiesContainer } from './components/AllergiesContainer';
 import { AssessmentContainer } from './components/AssessmentContainer';
-import { ChiefComplaintContainer } from './components/ChiefComplaintContainer';
 import { CPTCodesContainer } from './components/CPTCodesContainer';
 import { EMCodeContainer } from './components/EMCodeContainer';
 import { ExaminationContainer } from './components/ExaminationContainer';
+import { HistoryOfPresentIllnessContainer } from './components/HistoryOfPresentIllnessContainer';
 import { MedicalConditionsContainer } from './components/MedicalConditionsContainer';
 import { MedicalDecisionMakingContainer } from './components/MedicalDecisionMakingContainer';
 import { MedicationsContainer } from './components/MedicationsContainer';
@@ -37,11 +45,16 @@ export const VisitNoteCard: FC = () => {
       chiefComplaint: { _tag: 'chief-complaint' },
       ros: { _tag: 'ros' },
       vitalsObservations: vitalsObservationsRequest,
+      notes: {
+        _sort: '-_lastUpdated',
+        _count: 1000,
+        _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.VITALS}|${IN_PERSON_NOTE_ID}`,
+      },
     },
   });
 
   const { chartData } = useChartData();
-  const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const hpi = chartFields?.chiefComplaint?.text;
   const spentTime = getSpentTime(encounter.statusHistory);
   const ros = chartFields?.ros?.text;
   const diagnoses = chartData?.diagnosis;
@@ -49,9 +62,10 @@ export const VisitNoteCard: FC = () => {
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
   const prescriptions = chartFields?.prescribedMedications;
-  const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
+  const showHistoryOfPresentIllness = !!((hpi && hpi.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
   const vitalsObservations = chartFields?.vitalsObservations;
+  const vitalsNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
 
   const showAdditionalQuestions = patientScreeningQuestionsConfig.fields.some((field) => {
     const observation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
@@ -64,14 +78,15 @@ export const VisitNoteCard: FC = () => {
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
-  const showVitalsObservations = !!(vitalsObservations && vitalsObservations.length > 0);
+  const showVitalsObservations =
+    !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
   const sections = [
     <PatientInformationContainer />,
     <VisitDetailsContainer />,
-    showChiefComplaint && <ChiefComplaintContainer />,
+    showHistoryOfPresentIllness && <HistoryOfPresentIllnessContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
-    showVitalsObservations && <PatientVitalsContainer encounterId={encounter?.id} />,
+    showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
     <MedicationsContainer />,
     <AllergiesContainer />,
     <MedicalConditionsContainer />,

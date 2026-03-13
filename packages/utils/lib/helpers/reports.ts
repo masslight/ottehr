@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
  * The default number of days per batch when splitting date ranges
  * to prevent backend responses from exceeding size limits
  */
-export const DEFAULT_BATCH_DAYS = 5;
+export const DEFAULT_BATCH_DAYS = 1;
 
 /**
  * Splits a date range into batches of maximum days each.

@@ -145,13 +145,13 @@ export const intakeFlowPageRoute = {
     path: `${visitBasePath}/reschedule`,
     getPage: () => <Reschedule />,
   },
-  CancellationConfirmation: {
-    path: `${visitBasePath}/cancellation-confirmation`,
-    getPage: () => <CancellationConfirmation />,
-  },
   CancellationReason: {
     path: `${visitBasePath}/cancel`,
     getPage: () => <CancellationReason />,
+  },
+  CancellationConfirmation: {
+    path: `${visitBasePath}/cancellation-confirmation`,
+    getPage: () => <CancellationConfirmation />,
   },
   AIInterview: {
     path: `${visitBasePath}/ai-interview`,
@@ -218,6 +218,14 @@ export const intakeFlowPageRoute = {
   },
   SelectServiceCategory: {
     path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}/select-service-category`,
+    getPage: () => <SelectServiceCategoryPage />,
+  },
+  SelectServiceCategoryStartVirtual: {
+    path: '/start-virtual/select-service-category',
+    getPage: () => <SelectServiceCategoryPage />,
+  },
+  SelectServiceCategoryWalkin: {
+    path: '/walkin/location/:name/select-service-category',
     getPage: () => <SelectServiceCategoryPage />,
   },
   StartVirtualVisit: {
@@ -336,6 +344,14 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.SelectServiceCategory.path}
                   element={intakeFlowPageRoute.SelectServiceCategory.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryStartVirtual.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryStartVirtual.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryWalkin.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryWalkin.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}

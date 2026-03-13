@@ -17,6 +17,7 @@ export type GetOystehrTelemedAPIParams = {
   deletePatientInstructionZambdaID?: string;
   savePatientFollowupZambdaID?: string;
   icdSearchZambdaId?: string;
+  aiSuggestionNotesZambdaID?: string;
   recommendBillingSuggestionsZambdaID?: string;
   recommendBillingCodesZambdaID?: string;
   createUpdateMedicationOrderZambdaID?: string;
@@ -28,6 +29,9 @@ export type GetOystehrTelemedAPIParams = {
   externalLabResourceSearchID?: string;
   getUnsolicitedResultsResourcesID?: string;
   updateLabOrderResourcesID?: string;
+  searchPlacesID?: string;
+  inhouseLabResourceSearchID?: string;
+  makeMedicationHistoryPdfID?: string;
 };
 
 export type { PromiseReturnType } from 'utils';

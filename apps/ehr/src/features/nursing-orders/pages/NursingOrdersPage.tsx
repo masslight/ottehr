@@ -1,6 +1,7 @@
 import { Box, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { getNursingOrderCreateUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -33,7 +34,11 @@ export const NursingOrdersPage: React.FC = () => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle label="Nursing Orders" showIntakeNotesButton={false} />
+        <PageTitle
+          label="Nursing Orders"
+          showIntakeNotesButton={false}
+          dataTestId={dataTestIds.nursingOrdersPage.title}
+        />
         <Stack direction="row" spacing={2} alignItems="center">
           {!isReadOnly && (
             <ButtonRounded
@@ -45,6 +50,7 @@ export const NursingOrdersPage: React.FC = () => {
                 py: 1,
                 px: 5,
               }}
+              data-testid={dataTestIds.nursingOrdersPage.orderButton}
             >
               Order
             </ButtonRounded>

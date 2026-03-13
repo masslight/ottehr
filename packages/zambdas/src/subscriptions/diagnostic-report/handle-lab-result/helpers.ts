@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { DiagnosticReport, Encounter, Organization, Patient, Task } from 'fhir/r4b';
-import { LAB_DR_TYPE_TAG, LAB_ORDER_TASK, LabOrderTaskCode, LabType } from 'utils';
-import { getAllDrTags } from '../../../ehr/shared/labs';
+import { DiagnosticReport, DocumentReference, Encounter, Organization, Patient, Task } from 'fhir/r4b';
+import { LAB_ORDER_TASK, LAB_RESULT_DOC_REF_CODING_CODE, LabOrderTaskCode } from 'utils';
 
 export const ACCEPTED_RESULTS_STATUS = ['preliminary', 'final', 'corrected', 'cancelled'];
 type AcceptedResultsStatus = (typeof ACCEPTED_RESULTS_STATUS)[number];
@@ -21,20 +20,6 @@ export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, 
   }
 };
 
-export const isUnsolicitedResult = (specificTag: LabType | undefined, dr: DiagnosticReport): boolean => {
-  if (!specificTag) return false;
-  if (specificTag === LAB_DR_TYPE_TAG.code.unsolicited) return true;
-  if (specificTag === LAB_DR_TYPE_TAG.code.attachment) {
-    // check if tag also contains unsolicited (we are treating pdf as the primary tag and unsolicited as something secondary)
-    const allTags = getAllDrTags(dr);
-    const unsolicitedTagIsContained = allTags?.includes(LabType.unsolicited);
-    // this is a backup method for checking if the attachment DR is undefined
-    const patientSubjectIsFound = !!dr.subject?.reference?.startsWith('Patient/');
-    return unsolicitedTagIsContained || !patientSubjectIsFound;
-  }
-  return false;
-};
-
 export async function fetchRelatedResources(
   diagnosticReport: DiagnosticReport,
   oystehr: Oystehr
@@ -43,9 +28,10 @@ export async function fetchRelatedResources(
   patient?: Patient;
   labOrg?: Organization;
   encounter?: Encounter;
+  attachments?: DocumentReference[];
 }> {
   const resources = (
-    await oystehr.fhir.search<DiagnosticReport | Patient | Organization | Task | Encounter>({
+    await oystehr.fhir.search<DiagnosticReport | Patient | Organization | Task | Encounter | DocumentReference>({
       resourceType: 'DiagnosticReport',
       params: [
         { name: '_id', value: diagnosticReport.id ?? '' },
@@ -53,6 +39,7 @@ export async function fetchRelatedResources(
         { name: '_include', value: 'DiagnosticReport:subject' }, // patient
         { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
         { name: '_include', value: 'DiagnosticReport:encounter' }, // to grab the appointment id
+        { name: '_revinclude', value: 'DocumentReference:related' }, // to grab any lab generated attachments
       ],
     })
   ).unbundle();
@@ -82,6 +69,7 @@ export async function fetchRelatedResources(
     patient?: Patient;
     labOrg?: Organization;
     encounter?: Encounter; // unsolicited results will not have
+    attachments?: DocumentReference[];
   } = { tasks: [] };
 
   resources.forEach((resource) => {
@@ -96,6 +84,17 @@ export async function fetchRelatedResources(
     }
     if (resource.resourceType === 'Encounter') {
       result.encounter = resource;
+    }
+    if (
+      resource.resourceType === 'DocumentReference' &&
+      resource.status === 'current' &&
+      resource.type?.coding?.some(
+        (coding) =>
+          coding.system === LAB_RESULT_DOC_REF_CODING_CODE.system && coding.code === LAB_RESULT_DOC_REF_CODING_CODE.code
+      )
+    ) {
+      if (result.attachments) result.attachments.push(resource);
+      else result.attachments = [resource];
     }
   });
 

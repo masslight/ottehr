@@ -10,6 +10,7 @@ export const RoundedButton = styled(
       loading?: boolean;
       loadingPosition?: 'start' | 'end' | 'center';
       state?: any;
+      'data-testid'?: string;
     }
   ) => (
     <LoadingButton
@@ -18,6 +19,7 @@ export const RoundedButton = styled(
       loadingPosition={props.loadingPosition || 'center'}
       {...props}
       {...(props.to ? { component: Link, to: props.to, target: props.target, state: props.state } : {})}
+      data-testid={props['data-testid']}
     />
   )
 )(() => ({

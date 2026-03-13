@@ -115,6 +115,7 @@ export const distributeTimeSlots = (
 
 export const DATE_FORMAT = 'yyyy-MM-dd';
 export const DISPLAY_DATE_FORMAT = 'MM/dd/yyyy';
+export const DISPLAY_DATE_AND_TIME_FORMAT = DISPLAY_DATE_FORMAT + ' HH:mm';
 
 export function calculatePatientAge(date: string | null | undefined): string | null | undefined {
   if (!date) {
@@ -160,6 +161,30 @@ export const formatDOB = (birthDate: string | undefined): string | undefined => 
   const age = calculatePatientAge(birthDate);
   return `${birthday} (${age})`;
 };
+
+export function formatDateForDisplay(date?: string, timezone?: string): string {
+  if (!date) return '';
+
+  const dt = DateTime.fromISO(date);
+  if (!dt.isValid) return '';
+
+  return (timezone ? dt.setZone(timezone) : dt).toFormat(DISPLAY_DATE_FORMAT);
+}
+
+export function formatDateConfigurable(input: {
+  isoDate?: string;
+  date?: DateTime;
+  format?: string;
+  timezone?: string;
+}): string | undefined {
+  const { isoDate, date, format = DISPLAY_DATE_FORMAT, timezone } = input;
+  let targetDate = date || (isoDate ? DateTime.fromISO(isoDate) : null);
+
+  if (!targetDate || !targetDate.isValid) return undefined;
+  if (timezone) targetDate = targetDate.setZone(timezone);
+
+  return targetDate.toFormat(format);
+}
 
 /**
  * Compares two dates.

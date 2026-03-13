@@ -52,6 +52,7 @@ export type InsuranceData = InsuranceSettingsBooleans & {
   active: Organization['active'];
   identifier?: Identifier[];
   address?: Address[];
+  notes?: string;
 };
 
 type InsuranceForm = Omit<InsuranceData, 'id' | 'active'>;
@@ -106,6 +107,7 @@ export default function EditInsurance(): JSX.Element {
     reset({
       payor: insuranceDetails,
       displayName: alias || insuranceDetails.name,
+      notes: insuranceDetails.extension?.find((ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url)?.valueString,
       // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
       // ...settingsMap,
     });
@@ -129,6 +131,7 @@ export default function EditInsurance(): JSX.Element {
     const submitSnackbarText = isNew
       ? `${data.displayName} was successfully created`
       : `${data.displayName} was updated successfully`;
+
     try {
       const mutateResp = await mutateInsurance(data);
       enqueueSnackbar(`${submitSnackbarText}`, {
@@ -257,6 +260,23 @@ export default function EditInsurance(): JSX.Element {
                       value={value || ''}
                       onChange={onChange}
                       sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
+                      margin="dense"
+                    />
+                  )}
+                />
+
+                <Controller
+                  name="notes"
+                  control={control}
+                  render={({ field: { onChange, value } }) => (
+                    <TextField
+                      id="notes"
+                      label="Notes"
+                      value={value || ''}
+                      onChange={onChange}
+                      sx={{ marginTop: 1, marginBottom: 1, width: '100%' }}
+                      multiline
+                      minRows={2}
                       margin="dense"
                     />
                   )}

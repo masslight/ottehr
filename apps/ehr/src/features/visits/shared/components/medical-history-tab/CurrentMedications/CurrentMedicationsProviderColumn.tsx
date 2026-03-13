@@ -20,12 +20,13 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
-import { MedicationDTO } from 'utils';
+import { MEDICAL_HISTORY_CONFIG, MedicationDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
+import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
 
 interface CurrentMedicationsProviderColumnForm {
@@ -42,7 +43,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const { isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { control, reset, handleSubmit } = methods;
+  const { control, reset, handleSubmit, setValue } = methods;
 
   const { refetchHistory } = useMedicationHistory();
 
@@ -105,6 +106,16 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     }
   };
 
+  const handleQuickPickSelect = (quickPick: (typeof MEDICAL_HISTORY_CONFIG.medications.quickPicks)[number]): void => {
+    const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
+      name: quickPick.name,
+      strength: quickPick.strength,
+      id: quickPick.id,
+    } as ExtractObjectType<ErxSearchMedicationsResponse>;
+
+    setValue('medication', quickPickAsMedication);
+  };
+
   return (
     <Box>
       <Box
@@ -163,6 +174,12 @@ export const CurrentMedicationsProviderColumn: FC = () => {
               gap: 2,
             }}
           >
+            <QuickPicksButton
+              quickPicks={MEDICAL_HISTORY_CONFIG.medications.quickPicks}
+              getLabel={(quickPick) => `${quickPick.name}${quickPick.strength ? ` (${quickPick.strength})` : ''}`}
+              onSelect={handleQuickPickSelect}
+              disabled={isLoading || isChartDataLoading}
+            />
             <Controller
               name="type"
               control={control}

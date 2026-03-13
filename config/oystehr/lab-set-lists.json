@@ -1,0 +1,123 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "list-external-lab-set-autolab-example": {
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "Example AutoLab Set",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/lab-test-item-set",
+              "code": "external-labs"
+            }
+          ]
+        },
+        "entry": [
+          {
+            "date": "2026-02-10T17:00:44.691Z",
+            "item": {
+              "identifier": {
+                "system": "https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code",
+                "value": "790b282d-77e9-4697-9f59-0cef8238033a|30341-2"
+              },
+              "display": "Erythrocyte Sedimentation Rate / AutoLab",
+              "extension": [
+                {
+                  "url": "https://fhir.ottehr.com/Extension/orderable-item-search-fields",
+                  "extension": [
+                    {
+                      "url": "https://fhir.ottehr.com/Extension/search-field-labGuid",
+                      "valueString": "790b282d-77e9-4697-9f59-0cef8238033a"
+                    },
+                    {
+                      "url": "https://fhir.ottehr.com/Extension/search-field-itemCode",
+                      "valueString": "30341-2"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:44.691Z",
+            "item": {
+              "identifier": {
+                "system": "https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code",
+                "value": "790b282d-77e9-4697-9f59-0cef8238033a|57021-8"
+              },
+              "display": "CBC W Auto Differential panel in Blood / AutoLab",
+              "extension": [
+                {
+                  "url": "https://fhir.ottehr.com/Extension/orderable-item-search-fields",
+                  "extension": [
+                    {
+                      "url": "https://fhir.ottehr.com/Extension/search-field-labGuid",
+                      "valueString": "790b282d-77e9-4697-9f59-0cef8238033a"
+                    },
+                    {
+                      "url": "https://fhir.ottehr.com/Extension/search-field-itemCode",
+                      "valueString": "57021-8"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "list-in-house-lab-set-upper-respiratory-example": {
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "Example Upper Respiratory Set",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/lab-test-item-set",
+              "code": "in-house-labs"
+            }
+          ]
+        },
+        "entry": [
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-flu-vid-13_0_0/type}/#{ref/fhirResources/activity-definition-flu-vid-13_0_0/id}",
+              "display": "Flu-Vid"
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-rapid-covid-19-antigen-13_0_0/type}/#{ref/fhirResources/activity-definition-rapid-covid-19-antigen-13_0_0/id}",
+              "display": "Rapid COVID-19 Antigen"
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-monospot-test-13_0_0/type}/#{ref/fhirResources/activity-definition-monospot-test-13_0_0/id}",
+              "display": "Monospot test"
+            }
+          },
+          {
+            "date": "2026-02-10T17:00:00.001Z",
+            "item": {
+              "type": "ActivityDefinition",
+              "reference": "#{ref/fhirResources/activity-definition-rsv-13_0_0/type}/#{ref/fhirResources/activity-definition-rsv-13_0_0/id}",
+              "display": "RSV"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

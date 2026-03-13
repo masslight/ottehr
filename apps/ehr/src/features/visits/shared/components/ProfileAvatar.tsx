@@ -1,7 +1,6 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Avatar, Box, IconButton, useTheme } from '@mui/material';
 import React, { FC, useEffect, useState } from 'react';
-import { EditPatientDialog } from '../../../../components/dialogs';
 import { useGetSignedPatientProfilePhotoUrlQuery } from '../../in-person/queries/in-person.queries';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import ProfilePhotoImagePicker from './ProfilePhotoImagePicker';
@@ -10,19 +9,18 @@ type ProfileAvatarProps = {
   appointmentID?: string;
   embracingSquareSize?: number;
   editBubbleSize?: number;
-  hasEditableInfo?: boolean;
+  showEditButton?: boolean;
 };
 
 export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   appointmentID,
   embracingSquareSize,
   editBubbleSize = 24,
-  hasEditableInfo,
+  showEditButton = false,
 }): JSX.Element => {
   const { mappedData } = useAppointmentData(appointmentID);
   const theme = useTheme();
   const [isProfileImagePickerOpen, setProfileImagePickerOpen] = useState<boolean>(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | undefined>(undefined);
   const patientPhoto = mappedData?.patientAvatarPhotoUrl;
 
@@ -46,9 +44,6 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
       {isProfileImagePickerOpen && (
         <ProfilePhotoImagePickerForCSS open={isProfileImagePickerOpen} setOpen={setProfileImagePickerOpen} />
       )}
-      {hasEditableInfo && isEditDialogOpen && (
-        <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />
-      )}
       <Box sx={{ position: 'relative' }}>
         <Avatar
           src={profilePhotoUrl}
@@ -58,7 +53,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
             setProfileImagePickerOpen(true);
           }}
         />
-        {hasEditableInfo && (
+        {showEditButton && (
           <IconButton
             size="small"
             aria-label="edit"
@@ -75,7 +70,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
               },
             }}
             onClick={() => {
-              setIsEditDialogOpen(true);
+              setProfileImagePickerOpen(true);
             }}
           >
             <EditOutlinedIcon fontSize="small" />

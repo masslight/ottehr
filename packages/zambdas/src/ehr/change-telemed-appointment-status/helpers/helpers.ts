@@ -165,6 +165,30 @@ const mergeUnsignedStatusesTimesOp = (statusHistory: EncounterStatusHistory[]): 
       changeStatusRecordPeriodValueOp(statusHistoryLength - 1, 'start', unsignedSummaryStart),
       changeStatusRecordPeriodValueOp(statusHistoryLength - 1, 'end', unsignedSummaryEnd),
     ]);
+  } else if (
+    lastRecord.status === 'finished' &&
+    beforeLastRecord.status === 'finished' &&
+    lastRecord.period.start &&
+    beforeLastRecord.period.start &&
+    beforeLastRecord.period.end === undefined
+  ) {
+    const firstFinishedStart = new Date(beforeLastRecord.period.start).getTime();
+    const secondFinishedStart = new Date(lastRecord.period.start).getTime();
+    const secondUnsignedEnd = new Date().getTime();
+    // in case if before last record doesn't have end time, we just replace it with new record
+    // this caused bug so encounter can't be completed
+    encounterOperations.push(deleteStatusHistoryRecordOp(statusHistoryLength - 1));
+    statusHistoryLength--;
+    // we take the least start time as the overall start time
+    // and the current time as the end time
+
+    const startTime = firstFinishedStart < secondFinishedStart ? firstFinishedStart : secondFinishedStart;
+    const endTime = secondUnsignedEnd;
+
+    encounterOperations = encounterOperations.concat([
+      changeStatusRecordPeriodValueOp(statusHistoryLength - 2, 'start', new Date(startTime).toISOString()),
+      changeStatusRecordPeriodValueOp(statusHistoryLength - 2, 'end', new Date(endTime).toISOString()),
+    ]);
   }
 
   return encounterOperations;

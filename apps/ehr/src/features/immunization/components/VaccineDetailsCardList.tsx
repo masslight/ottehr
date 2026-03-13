@@ -14,7 +14,7 @@ export const VaccineDetailsCardList: React.FC = () => {
   const { encounter } = useAppointmentData(appointmentId);
 
   const { data: ordersResponse } = useGetImmunizationOrders({
-    encounterId: encounter.id,
+    encounterIds: [encounter.id!],
   });
 
   const pendingOrders = (ordersResponse?.orders ?? [])

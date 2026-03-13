@@ -62,7 +62,7 @@ export const palette = {
     main: '#66BA70',
   },
   warning: {
-    main: '#FFDF9A',
+    main: '#FFCD75',
   },
   error: {
     main: '#EC6930',

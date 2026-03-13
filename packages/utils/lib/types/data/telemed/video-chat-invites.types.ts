@@ -47,3 +47,12 @@ export type VideoChatCreateInviteInput = InviteParticipantRequestParameters & La
 export interface VideoChatCreateInviteResponse {
   inviteUrl: string;
 }
+
+export interface VideoChatNotificationInput {
+  appointmentId: string;
+}
+
+export interface VideoChatNotificationResponse {
+  taskCreated: boolean;
+  taskNotCreatedReason?: string;
+}

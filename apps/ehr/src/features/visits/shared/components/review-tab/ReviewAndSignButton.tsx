@@ -47,6 +47,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       chiefComplaint: {
         _tag: 'chief-complaint',
       },
+      historyOfPresentIllness: {
+        _tag: 'history-of-present-illness',
+      },
       inHouseLabResults: {},
       patientInfoConfirmed: {},
     },
@@ -61,7 +64,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
 
-  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);
+  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(true);
 
   const { updateVisitStatusToAwaitSupervisorApproval, loading: isPendingSupervisorApproval } =
     usePendingSupervisorApproval({
@@ -76,6 +79,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
+  const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
@@ -134,6 +138,12 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       messages.push('In-House lab results pending');
     }
 
+    if (inHouseLabReflexTestPending) {
+      inHouseLabReflexTestPending.forEach((test) =>
+        messages.push(`In-House lab results have triggered a reflex test for ${test}`)
+      );
+    }
+
     return messages;
   }, [
     isInPerson,
@@ -147,6 +157,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     appointmentAccessibility.status,
     inHouseLabResultsPending,
     isFollowup,
+    inHouseLabReflexTestPending,
   ]);
 
   const handleCloseTooltip = (): void => {
@@ -162,7 +173,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       throw new Error('api client not defined or appointmentId not provided');
     }
 
-    if (FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
+    if (isInPerson && shouldRequireSupervisorApproval && requireSupervisorApproval) {
       await updateVisitStatusToAwaitSupervisorApproval();
     } else {
       if (isInPerson) {
@@ -202,6 +213,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return !isPhysician && isInPerson;
   }, [practitioner, isInPerson]);
 
+  const shouldRequireSupervisorApproval =
+    FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && !isFollowup;
+
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
       <Tooltip
@@ -224,10 +238,11 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
                   {!isInPerson && ' Once signed, notes will be locked and no changes can be made.'}
                 </DialogContentText>
 
-                {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && !isFollowup && (
+                {shouldRequireSupervisorApproval && (
                   <FormControlLabel
                     control={
                       <Checkbox
+                        data-testid={dataTestIds.progressNotePage.supervisorApprovalCheckbox}
                         checked={requireSupervisorApproval}
                         onChange={(e) => setRequireSupervisorApproval(e.target.checked)}
                       />

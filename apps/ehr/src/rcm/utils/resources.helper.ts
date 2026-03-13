@@ -1,14 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Coverage, DomainResource, FhirResource, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { mapGenderToLabel } from 'utils';
 import { NameInformation, PersonInformation } from './form-values.types';
-
-export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]: string } = {
-  male: 'Male',
-  female: 'Female',
-  other: 'Intersex',
-  unknown: 'Unknown',
-};
 
 export const genderOptions = Object.keys(mapGenderToLabel)
   .filter((gender) => gender !== 'unknown')

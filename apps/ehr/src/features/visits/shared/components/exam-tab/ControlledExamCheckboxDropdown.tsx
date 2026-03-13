@@ -18,7 +18,12 @@ type ControlledExamCheckboxDropdownProps = {
 export const ControlledExamCheckboxDropdown: FC<ControlledExamCheckboxDropdownProps> = (props) => {
   const { checkboxLabel, dropdownLabel, abnormal, options, dropdownTestId, checkboxBlockTestId } = props;
 
-  const { value: fields, update, isLoading } = useExamObservations(options.map((option) => option.name));
+  const {
+    value: fields,
+    update,
+    delete: deleteObservations,
+    isLoading,
+  } = useExamObservations(options.map((option) => option.name));
 
   const [selectedOption, setSelectedOption] = useState<ExamCheckboxDropdownOptionType | null>(
     fields
@@ -35,7 +40,10 @@ export const ControlledExamCheckboxDropdown: FC<ControlledExamCheckboxDropdownPr
     if (!newValue) {
       setSelectedOption(null);
       if (selectedOption) {
-        onChange(fields.map((field) => ({ ...field, value: false })));
+        const fieldsToDelete = fields.filter((field) => field.value === true);
+        if (fieldsToDelete.length > 0) {
+          deleteObservations(fieldsToDelete);
+        }
       }
     }
     setBooleanValue(newValue);

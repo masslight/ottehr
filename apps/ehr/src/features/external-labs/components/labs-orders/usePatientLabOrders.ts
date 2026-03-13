@@ -14,7 +14,6 @@ import {
   LabOrdersSearchBy,
   PaginatedResponse,
   PatientLabItem,
-  PdfAttachmentDTO,
   ReflexLabDTO,
   SpecimenDateChangedParameters,
   TaskReviewedParameters,
@@ -26,7 +25,7 @@ import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLa
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
-  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
+  drDrivenResults: ReflexLabDTO[];
   loading: boolean;
   error: Error | null;
   totalPages: number;
@@ -44,9 +43,11 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
+    testItemStatus,
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
@@ -57,7 +58,8 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
-  _searchBy: SearchBy
+  _searchBy: SearchBy,
+  refreshKey?: number
 ): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
@@ -65,7 +67,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const [groupedLabOrdersForChartTable, setGroupedLabOrdersForChartTable] = useState<
     LabOrderListPageDTOGrouped | undefined
   >(undefined);
-  const [drDrivenResults, setDrDrivenResults] = useState<(ReflexLabDTO | PdfAttachmentDTO)[]>([]);
+  const [drDrivenResults, setDrDrivenResults] = useState<ReflexLabDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -197,7 +199,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     } else {
       console.error('searchParams are not valid', searchParams);
     }
-  }, [fetchLabOrders, page, memoizedSearchBy]);
+  }, [fetchLabOrders, page, memoizedSearchBy, refreshKey]);
 
   const handleDeleteLabOrder = useCallback(
     async ({ serviceRequestId }: DeleteLabOrderZambdaInput): Promise<boolean> => {
@@ -227,8 +229,6 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
         return true;
       } catch (err) {
-        console.error('Error deleting external lab order:', err);
-
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
 
@@ -330,7 +330,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
 const groupLabOrderListPageDTOs = (
   labOrders: LabOrderListPageDTO[],
-  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[]
+  drDrivenResults: ReflexLabDTO[]
 ): LabOrderListPageDTOGrouped | undefined => {
   if (!labOrders.length) return;
 
@@ -342,10 +342,7 @@ const groupLabOrderListPageDTOs = (
     ExternalLabsStatus.corrected,
   ]);
 
-  const addToGroup = (
-    item: LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO,
-    orders: LabOrderListPageDTOGrouped
-  ): void => {
+  const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, orders: LabOrderListPageDTOGrouped): void => {
     const requisitionNumber = item.orderNumber;
 
     if (!requisitionNumber) {
@@ -361,12 +358,21 @@ const groupLabOrderListPageDTOs = (
       orderBundles[requisitionNumber].orders.push(item);
     } else {
       const bundleName = `${item.fillerLab}${item.isPSC ? ' PSC' : ''}`;
-      orderBundles[requisitionNumber] = { bundleName, abnPdfUrl: undefined, orderPdfUrl: undefined, orders: [item] };
+      orderBundles[requisitionNumber] = {
+        bundleName,
+        bundleNote: undefined,
+        abnPdfUrl: undefined,
+        orderPdfUrl: undefined,
+        orders: [item],
+      };
       if ('abnPdfUrl' in item) {
         orderBundles[requisitionNumber].abnPdfUrl = item.abnPdfUrl;
       }
       if ('orderPdfUrl' in item) {
         orderBundles[requisitionNumber].orderPdfUrl = item.orderPdfUrl;
+      }
+      if ('orderLevelNoteByUser' in item) {
+        orderBundles[requisitionNumber].bundleNote = item.orderLevelNoteByUser;
       }
     }
   };

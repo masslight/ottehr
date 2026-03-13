@@ -1,0 +1,322 @@
+name: Terraform apply and Test Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: false
+        type: string
+      node_version:
+        required: true
+        type: string
+        default: '22'
+      aws_deploy_role:
+        required: true
+        type: string
+      secrets_repository:
+        required: true
+        type: string
+      run_automated_tests:
+        description: 'Run automated tests'
+        required: false
+        type: boolean
+        default: true
+      run_ehr_e2e:
+        description: 'Run EHR E2E tests'
+        required: false
+        type: boolean
+        default: true
+      run_intake_e2e:
+        description: 'Run Intake E2E tests'
+        required: false
+        type: boolean
+        default: true
+      skip_terraform_apply:
+        description: 'Skip Terraform Apply (run jobs in parallel without apply)'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - "apps/ehr/**"
+      - "apps/intake/**"
+      - "packages/zambdas/**"
+      - "packages/utils/**"
+      - "packages/ui-components/**"
+      - packages/spec/**
+      - "scripts/**"
+      - ".github/**"
+      - ".prettierignore"
+      - "package.json"
+      - "config/**"
+  pull_request:
+    branches: [main, develop, 'release/**']
+    paths:
+      - "apps/ehr/**"
+      - "apps/intake/**"
+      - "packages/zambdas/**"
+      - "packages/utils/**"
+      - "packages/ui-components/**"
+      - packages/spec/**
+      - "scripts/**"
+      - ".github/**"
+      - ".prettierignore"
+      - "package.json"
+      - "config/**"
+
+
+env:
+  NODE_VERSION: 22
+  NODE_OPTIONS: "--max_old_space_size=8192"
+  AWS_DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE }}
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }}
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      environment: ${{ steps.finalize-env.outputs.environment }}
+      should-run-apply: ${{ steps.check.outputs.should-run-apply }}
+      concurrency-group: ${{ steps.concurrency.outputs.group }}
+    steps:
+      - name: Determine Environment
+        id: env
+        run: |
+          echo "========================================="
+          echo "STEP 1: Initial Environment Determination"
+          echo "========================================="
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "Run Number: ${{ github.run_number }}"
+          
+          INPUT_ENV="${{ inputs.environment }}"
+          echo "Manual input environment: '${INPUT_ENV}'"
+          
+          if [ -n "$INPUT_ENV" ]; then
+            ENV="$INPUT_ENV"
+            echo "[OK] Using manually specified environment: $ENV"
+          elif [ "${{ github.repository }}" != "masslight/ottehr" ]; then
+            # Downstream repositories use local environment
+            ENV="local"
+            echo "[OK] Downstream repository detected - using local environment"
+          else
+            # For masslight/ottehr, use load balancing to select least loaded environment
+            # This will be set in the next step
+            ENV=""
+            echo "[OK] masslight/ottehr detected - will use load balancing"
+          fi
+          
+          # Safety check: only allow local, e2e, e2e2, and e2e3 environments
+          if [ -n "$ENV" ]; then
+            if [[ "$ENV" != "local" && "$ENV" != "e2e" && "$ENV" != "e2e2" && "$ENV" != "e2e3" ]]; then
+              echo "[ERROR] Environment must be 'local', 'e2e', 'e2e2', or 'e2e3' for this workflow. Got: $ENV"
+              exit 1
+            fi
+            echo "[OK] Environment validation passed: $ENV"
+            echo "environment=$ENV" >> $GITHUB_OUTPUT
+          else
+            echo "[INFO] Environment will be determined by load balancing step"
+          fi
+          echo "========================================="
+
+      - name: Select Least Loaded Environment
+        if: steps.env.outputs.environment == ''
+        id: load-balance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "========================================="
+          echo "Load Balancing"
+          echo "========================================="
+          
+          CURRENT_RUN_ID="${{ github.run_id }}"
+          echo "Current run: $CURRENT_RUN_ID"
+          
+          # Get active runs
+          echo ""
+          echo "[API] Fetching active runs..."
+          RUNS=$(gh api "repos/${{ github.repository }}/actions/workflows/terraform-apply-and-test-pipeline.yml/runs?per_page=50" | jq '[.workflow_runs[] | select(.status == "pending" or .status == "queued" or .status == "in_progress")]')
+          
+          # Count OTHER active runs (excluding current)
+          ACTIVE_COUNT=$(echo "$RUNS" | jq '[.[] | select(.id != '$CURRENT_RUN_ID')] | length')
+          
+          echo "Active runs (excluding current): $ACTIVE_COUNT"
+          
+          # Simple: count % 3 for 3 environments
+          # 0 runs -> 0 % 3 = 0 -> e2e
+          # 1 run  -> 1 % 3 = 1 -> e2e2
+          # 2 runs -> 2 % 3 = 2 -> e2e3
+          # 3 runs -> 3 % 3 = 0 -> e2e
+          # 4 runs -> 4 % 3 = 1 -> e2e2
+          # 5 runs -> 5 % 3 = 2 -> e2e3
+          REMAINDER=$((ACTIVE_COUNT % 3))
+          
+          if [ $REMAINDER -eq 0 ]; then
+            ENV="e2e"
+            echo "Decision: $ACTIVE_COUNT runs (mod 3 = 0) -> e2e"
+          elif [ $REMAINDER -eq 1 ]; then
+            ENV="e2e2"
+            echo "Decision: $ACTIVE_COUNT runs (mod 3 = 1) -> e2e2"
+          else
+            ENV="e2e3"
+            echo "Decision: $ACTIVE_COUNT runs (mod 3 = 2) -> e2e3"
+          fi
+          
+          echo ""
+          echo "Selected: $ENV"
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "========================================="
+
+      - name: Finalize Environment Selection
+        id: finalize-env
+        run: |
+          echo "========================================="
+          echo "STEP 3: Finalize Environment Selection"
+          echo "========================================="
+          
+          LOAD_BALANCED_ENV="${{ steps.load-balance.outputs.environment }}"
+          INITIAL_ENV="${{ steps.env.outputs.environment }}"
+          
+          echo "Initial environment: '${INITIAL_ENV}'"
+          echo "Load-balanced environment: '${LOAD_BALANCED_ENV}'"
+          
+          # Use load-balanced environment if available, otherwise use the one from initial determination
+          if [ -n "$LOAD_BALANCED_ENV" ]; then
+            ENV="$LOAD_BALANCED_ENV"
+            echo "[OK] Using load-balanced environment"
+          else
+            ENV="$INITIAL_ENV"
+            echo "[OK] Using initial environment (manual or downstream)"
+          fi
+          
+          echo ""
+          echo "[FINAL] FINAL ENVIRONMENT: $ENV"
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "========================================="
+
+      - name: Checkout repository
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node_version || env.NODE_VERSION }}
+
+      - name: Check if Terraform Apply is needed
+        id: check
+        run: |
+          ENV="${{ steps.finalize-env.outputs.environment }}"
+          # For workflow_dispatch on e2e environment, check skip_terraform_apply input
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.skip_terraform_apply }}" == "true" ]; then
+              echo "Skip Terraform Apply input is true - skipping Terraform Apply"
+              echo "should-run-apply=false" >> $GITHUB_OUTPUT
+            else
+              echo "Workflow dispatch without skip flag - running Terraform Apply"
+              echo "should-run-apply=true" >> $GITHUB_OUTPUT
+            fi
+            exit 0
+          fi
+          
+          # Check for skip command in PR description
+          if [ "${{ contains(github.event.pull_request.body || '', '/skip-terraform-apply') }}" == "true" ]; then
+            echo "Skipping Terraform Apply via PR command /skip-terraform-apply"
+            echo "should-run-apply=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Default: run Terraform Apply for all push/pull_request events
+          echo "Running Terraform Apply by default"
+          echo "should-run-apply=true" >> $GITHUB_OUTPUT
+
+      - name: Determine Concurrency Group
+        id: concurrency
+        run: |
+          echo "========================================="
+          echo "STEP 4: Determine Concurrency Group"
+          echo "========================================="
+          
+          ENV="${{ steps.finalize-env.outputs.environment }}"
+          SHOULD_RUN_APPLY="${{ steps.check.outputs.should-run-apply }}"
+          
+          echo "Environment: $ENV"
+          echo "Should run apply: $SHOULD_RUN_APPLY"
+          echo ""
+          
+          if [ "$SHOULD_RUN_APPLY" == "true" ]; then
+            # Sequential group for PRs that need terraform apply
+            GROUP="terraform-pipeline-${ENV}-sequential"
+            echo "[MODE] SEQUENTIAL (will queue behind other deployments on $ENV)"
+            echo "   Concurrency group: $GROUP"
+            echo ""
+            echo "   This means:"
+            echo "   - Only one deployment per environment at a time"
+            echo "   - Ensures safe sequential deployments"
+            echo "   - Each environment (e2e/e2e2) has independent queue"
+          else
+            # Unique group for parallel execution (each workflow run gets its own group)
+            GROUP="terraform-pipeline-${ENV}-parallel-${{ github.run_id }}"
+            echo "[MODE] PARALLEL (will run immediately, no queueing)"
+            echo "   Concurrency group: $GROUP"
+            echo ""
+            echo "   This means:"
+            echo "   - Skips terraform apply"
+            echo "   - Can run multiple test-only jobs in parallel"
+            echo "   - Each run has unique concurrency group"
+          fi
+          
+          echo ""
+          echo "[RESULT] Final concurrency group: $GROUP"
+          echo "group=$GROUP" >> $GITHUB_OUTPUT
+          echo "========================================="
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "========================================"
+          echo "  ENVIRONMENT DETERMINATION COMPLETE"
+          echo "========================================"
+          echo ""
+          echo "[CONFIGURATION] Configuration Summary:"
+          echo "   - Repository: ${{ github.repository }}"
+          echo "   - Event: ${{ github.event_name }}"
+          echo "   - Run ID: ${{ github.run_id }}"
+          echo "   - Run Number: ${{ github.run_number }}"
+          echo ""
+          echo "[SELECTED] Selected Configuration:"
+          echo "   - Environment: ${{ steps.finalize-env.outputs.environment }}"
+          echo "   - Concurrency Group: ${{ steps.concurrency.outputs.group }}"
+          echo "   - Will Deploy: ${{ steps.check.outputs.should-run-apply }}"
+          echo ""
+          echo "[NEXT STEPS] Next Steps:"
+          echo "   - run-pipeline job will use this configuration"
+          echo "   - Check concurrency queue for selected environment"
+          echo "   - Deploy and run tests on: ${{ steps.finalize-env.outputs.environment }}"
+          echo ""
+          echo "========================================"
+
+  # Wrapper job that holds concurrency lock and runs entire pipeline (deploy + tests)
+  run-pipeline:
+    needs: determine-environment
+    concurrency:
+      group: ${{ needs.determine-environment.outputs.concurrency-group }}
+      cancel-in-progress: false
+    uses: ./.github/workflows/deploy-and-test-reusable.yml
+    secrets: inherit
+    with:
+      environment: ${{ needs.determine-environment.outputs.environment }}
+      should_run_deploy: ${{ needs.determine-environment.outputs.should-run-apply == 'true' }}
+      node_version: ${{ inputs.node_version || '22' }}
+      aws_deploy_role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+      secrets_repository: ${{ inputs.secrets_repository || vars.SECRETS_REPOSITORY }}
+      run_automated_tests: ${{ github.event.inputs.run_automated_tests != 'false' || github.event_name != 'workflow_dispatch' }}
+      run_ehr_e2e: ${{ github.event.inputs.run_ehr_e2e != 'false' || github.event_name != 'workflow_dispatch' }}
+      run_intake_e2e: ${{ github.event.inputs.run_intake_e2e != 'false' || github.event_name != 'workflow_dispatch' }}
+      pr_body: ${{ github.event.pull_request.body || '' }}
+      github_ref: ${{ github.ref }}
+      is_pull_request: ${{ github.event_name == 'pull_request' }}

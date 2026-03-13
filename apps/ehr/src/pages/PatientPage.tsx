@@ -2,8 +2,10 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
 import Contacts from 'src/features/visits/shared/components/patient/info/Contacts';
 import { FullNameDisplay } from 'src/features/visits/shared/components/patient/info/FullNameDisplay';
@@ -25,6 +27,7 @@ export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
+  const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
 
   const { loading, patient } = useGetPatient(id);
 
@@ -100,7 +103,7 @@ export default function PatientPage(): JSX.Element {
                   to={
                     latestAppointment.serviceMode === ServiceMode.virtual
                       ? `/telemed/appointments/${latestAppointment.appointmentId}?tab=sign`
-                      : `/in-person/${latestAppointment.appointmentId}/progress-note`
+                      : `/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
                   }
                 >
                   Recent Progress Note
@@ -108,6 +111,9 @@ export default function PatientPage(): JSX.Element {
               )}
               <RoundedButton sx={{ width: '100%' }} to={`/patient/${id}/docs`}>
                 Review Docs
+              </RoundedButton>
+              <RoundedButton sx={{ width: '100%' }} onClick={() => setShowAccountSettingsDialog(true)}>
+                Account Settings
               </RoundedButton>
             </Box>
           </Paper>
@@ -188,6 +194,14 @@ export default function PatientPage(): JSX.Element {
               </TabPanel>
             )}
           </TabContext>
+          {showAccountSettingsDialog ? (
+            <AccountSettingsDialog
+              patientId={id ?? ''}
+              handleClose={(): void => {
+                setShowAccountSettingsDialog(false);
+              }}
+            />
+          ) : null}
         </Stack>
       </PageContainer>
     </>

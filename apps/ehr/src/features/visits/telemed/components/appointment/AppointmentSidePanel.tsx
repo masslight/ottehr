@@ -19,7 +19,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import CancelVisitDialog from 'src/components/CancelVisitDialog';
 import { EditPatientDialog } from 'src/components/dialogs';
@@ -43,8 +43,12 @@ import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue, getPatientName } from 'src/shared/utils';
 import {
   calculatePatientAge,
+  FhirAppointmentType,
+  formatDateToMDYWithTime,
+  getAppointmentServiceCategoryAbbreviation,
   getInsuranceNameFromCoverage,
   getQuestionnaireResponseByLinkId,
+  getSupportPhoneFor,
   getTelemedVisitStatus,
   INTERPRETER_PHONE_NUMBER,
   isInPersonAppointment,
@@ -52,7 +56,7 @@ import {
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
-import { quickTexts } from '../../utils/appointments';
+import { getTelemedQuickTexts } from '../../utils/appointments';
 import { getTelemedVisitDetailsUrl } from '../../utils/routing';
 import InviteParticipant from '../appointment/InviteParticipant';
 import { PastVisits } from './PastVisits';
@@ -98,6 +102,18 @@ export const AppointmentSidePanel: FC = () => {
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
   const { allergies } = chartData || {};
   const formattedReasonForVisit = appointment?.description && addSpacesAfterCommas(appointment.description);
+  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const appointmentType = appointment
+    ? appointment.appointmentType?.text === FhirAppointmentType.prebook
+      ? 'Pre-Booked'
+      : 'On Demand'
+    : undefined;
+  const appointmentTime = formatDateToMDYWithTime(
+    appointment?.start ?? encounter?.period?.start,
+    DateTime.local().zoneName
+  )?.time;
+  const visitTypeAndCategory = [appointmentType, serviceCategory].filter(Boolean).join(' | ');
+  const visitTypeCategoryAndTime = [visitTypeAndCategory, appointmentTime].filter(Boolean).join('  ');
 
   const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
     ?.valueString;
@@ -138,6 +154,12 @@ export const AppointmentSidePanel: FC = () => {
   );
 
   const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
+
+  const quickTexts = useMemo(() => {
+    if (!locationVirtual) return [];
+    const locationName = locationVirtual.name;
+    return getTelemedQuickTexts(getSupportPhoneFor(locationName) || '');
+  }, [locationVirtual]);
 
   if (!patient || !locationVirtual) {
     return null;
@@ -205,6 +227,18 @@ export const AppointmentSidePanel: FC = () => {
                   VID: {appointment.id}
                 </Typography>
               </Tooltip>
+            )}
+            {visitTypeCategoryAndTime && (
+              <Typography
+                sx={{
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+                variant="body2"
+              >
+                {visitTypeCategoryAndTime}
+              </Typography>
             )}
 
             <Tooltip title={paymentVariant}>

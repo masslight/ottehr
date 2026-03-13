@@ -32,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.group('validateRequestParameters');
     validatedParameters = validateRequestParameters(input);
-    const { dateRange, secrets } = validatedParameters;
+    const { dateRange, encounterStatus = 'incomplete', secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -183,9 +183,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     });
 
-    // Filter encounters to only include those that are not in terminal states
-    // Only encounters that have appointments within our date range will be included
-    const incompleteEncounters = encounters.filter((encounter) => {
+    // Filter encounters based on encounterStatus parameter
+    const filteredEncounters = encounters.filter((encounter) => {
       // Find the corresponding appointment
       const appointmentRef = encounter.appointment?.[0]?.reference;
       const appointment = appointmentRef ? appointmentMap.get(appointmentRef) : undefined;
@@ -198,16 +197,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Get visit status
       const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
 
-      // Terminal states that should be excluded from the report
-      const terminalStates = ['completed', 'cancelled', 'no-show'];
+      if (encounterStatus === 'complete') {
+        return visitStatus === 'completed';
+      }
 
+      // Default: incomplete - exclude terminal states
+      const terminalStates = ['completed', 'cancelled', 'no-show'];
       return !terminalStates.includes(visitStatus);
     });
 
-    console.log(`Found ${incompleteEncounters.length} incomplete encounters`);
+    console.log(`Found ${filteredEncounters.length} ${encounterStatus} encounters`);
 
     // Build the response data
-    const encounterItems = incompleteEncounters.map((encounter) => {
+    const encounterItems = filteredEncounters.map((encounter) => {
       const appointmentRef = encounter.appointment?.[0]?.reference;
       const appointment = appointmentRef ? appointmentMap.get(appointmentRef) : undefined;
       const patientRef = encounter.subject?.reference;
@@ -253,7 +255,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     const response: IncompleteEncountersReportZambdaOutput = {
-      message: `Found ${encounterItems.length} incomplete encounters`,
+      message: `Found ${encounterItems.length} ${encounterStatus} encounters`,
       encounters: encounterItems,
     };
 

@@ -1,4 +1,4 @@
-import { ExamType } from '../../configuration';
+import { ExamType } from '../../ottehr-config';
 
 export interface ListTemplatesZambdaInput {
   examType: ExamType;

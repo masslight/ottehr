@@ -22,6 +22,7 @@ export interface BookingDetails {
   consentForms?: {
     consentAttested: boolean;
   };
+  serviceCategory?: string;
 }
 
 export interface UpdateVisitDetailsInput {
@@ -50,4 +51,9 @@ export interface UpdateVisitFilesInput {
   appointmentId?: string;
   fileType: EHRImageUploadType;
   attachment: Attachment;
+}
+
+export interface DeleteVisitFilesInput {
+  documentId: string;
+  patientId: string;
 }

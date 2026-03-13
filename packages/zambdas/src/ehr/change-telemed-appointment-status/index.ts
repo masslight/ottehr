@@ -28,9 +28,9 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createProgressNotePdf } from '../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
 import { getNameForOwner } from '../schedules/shared';
 import { getInsurancePlan } from './helpers/fhir-utils';
@@ -127,9 +127,14 @@ export const performEffect = async (
 
     console.log('Chart data received');
     try {
-      const pdfInfo = await composeAndCreateVisitNotePdf(
-        { chartData, additionalChartData },
-        visitResources,
+      const { pdfInfo } = await createProgressNotePdf(
+        {
+          patient,
+          encounter,
+          allChartData: { chartData, additionalChartData },
+          appointmentPackage: visitResources,
+          questionnaireResponse,
+        },
         secrets,
         m2mToken
       );
@@ -257,7 +262,7 @@ export const performEffect = async (
     const patientEmail = getPatientContactEmail(patient);
     if (emailEnabled && location && patientEmail) {
       const locationName = getNameForOwner(location) ?? '';
-      const presignedUrls = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
+      const { presignedUrls } = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
       const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
 
       const templateData: TelemedCompletionTemplateData = {

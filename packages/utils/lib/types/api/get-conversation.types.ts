@@ -1,7 +1,7 @@
 import { ConversationMessage } from '.';
 
 export interface GetConversationInput {
-  smsNumbers: string[];
+  patientId: string;
   timezone: string;
 }
 

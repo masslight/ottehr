@@ -4,12 +4,14 @@ import { Appointment } from 'fhir/r4b';
 import {
   appointmentTypeForAppointment,
   createSmsModel,
+  FHIR_ZAPEHR_URL,
   getSecret,
   GetTelemedAppointmentsInput,
   GetTelemedAppointmentsResponseEhr,
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   TelemedAppointmentInformation,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -131,6 +133,9 @@ export const performEffect = async (
         practitioner,
         encounterId: encounter.id || 'Unknown',
         appointmentType: appointmentTypeForAppointment(appointment),
+        serviceCategory: appointment.serviceCategory
+          ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+          ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
       };
 
       resultAppointments.push(appointmentTemp);
@@ -146,12 +151,23 @@ export const performEffect = async (
 const extractCancellationReason = (appointment: Appointment): string | undefined => {
   const codingClause = appointment.cancelationReason?.coding?.[0];
   const cancellationReasonOptionOne = codingClause?.code;
+  let baseReason: string | undefined;
   if ((cancellationReasonOptionOne ?? '').toLowerCase() === 'other') {
-    return codingClause?.display;
-  }
-  if (cancellationReasonOptionOne) {
-    return cancellationReasonOptionOne;
+    baseReason = codingClause?.display;
+  } else if (cancellationReasonOptionOne) {
+    baseReason = cancellationReasonOptionOne;
+  } else {
+    baseReason = codingClause?.display;
   }
 
-  return codingClause?.display;
+  // Check for additional cancellation reason details in extension
+  const additionalInfo = codingClause?.extension?.find(
+    (ext) => ext.url === `${FHIR_ZAPEHR_URL}/StructureDefinition/cancellation-reason-additional-info`
+  )?.valueString;
+
+  if (additionalInfo && baseReason) {
+    return `${baseReason} - ${additionalInfo}`;
+  }
+
+  return baseReason;
 };

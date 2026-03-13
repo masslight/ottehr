@@ -9,6 +9,7 @@ import {
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
   checkValidBookingTime,
   getAvailableSlotsForSchedules,
+  getFullestAvailableName,
   getSecret,
   getTaskResource,
   isPostTelemedAppointment,
@@ -196,7 +197,11 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     });
 
     if (fhirAppointment.id) {
-      const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, fhirAppointment.id!);
+      const confirmationTextTask = getTaskResource(
+        TaskIndicator.confirmationMessages,
+        `Send confirmation text for appointment ${getFullestAvailableName(fhirPatient)}`,
+        fhirAppointment.id!
+      );
       try {
         await oystehr.fhir.create(confirmationTextTask);
       } catch (error) {

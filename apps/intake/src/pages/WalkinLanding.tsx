@@ -1,14 +1,22 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { ottehrLightBlue } from '@theme/icons';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
-import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
-import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, PROJECT_WEBSITE, ServiceMode } from 'utils';
+import { generatePath, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  APIError,
+  BOOKING_CONFIG,
+  BRANDING_CONFIG,
+  CreateSlotParams,
+  isApiError,
+  PROJECT_WEBSITE,
+  ServiceMode,
+} from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
+import { primaryIcon } from '../branding/assets';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
@@ -16,12 +24,14 @@ import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 export const WalkinLanding: FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const serviceCategory = searchParams.get('serviceCategory');
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const { id: scheduleId, name } = useParams();
   const getWalkinAvailability = ottehrApi.getWalkinAvailability;
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
-  const locationName = name ? name.replace('_', ' ') : undefined;
+  const locationName = name ? name.replaceAll('_', ' ') : undefined;
   const { data, error, isLoading, isFetching, isRefetching } = useQuery({
     queryKey: ['walkin-check-availability', scheduleId, locationName],
     queryFn: () =>
@@ -39,7 +49,8 @@ export const WalkinLanding: FC = () => {
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description')} <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
+          {t('welcome.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
+          <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );
@@ -47,12 +58,12 @@ export const WalkinLanding: FC = () => {
 
   return (
     <PageContainer
-      title={somethingIsLoadingInSomeWay ? 'Loading...' : 'Welcome to Ottehr'} // todo: get some copy for this
+      title={somethingIsLoadingInSomeWay ? 'Loading...' : `Welcome to ${BRANDING_CONFIG.projectName} `}
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
-      img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
-      imgWidth={150}
+      img={primaryIcon}
+      imgAlt={BRANDING_CONFIG.primaryIconAlt}
+      imgWidth={120}
     >
       {!somethingIsLoadingInSomeWay && data ? (
         data.walkinOpen ? (
@@ -63,13 +74,21 @@ export const WalkinLanding: FC = () => {
             <PageForm
               onSubmit={async (_) => {
                 if (tokenlessZambdaClient && data.scheduleId) {
+                  const serviceMode = data.serviceMode ?? ServiceMode['in-person'];
+                  // Use test questionnaire canonical if injected via config (for e2e test isolation)
+                  const questionnaireCanonical =
+                    serviceMode === ServiceMode.virtual
+                      ? BOOKING_CONFIG.virtualQuestionnaireCanonical
+                      : BOOKING_CONFIG.inPersonQuestionnaireCanonical;
                   const createSlotInput: CreateSlotParams = {
                     scheduleId: data.scheduleId,
                     startISO: DateTime.now().toISO(),
-                    serviceModality: data.serviceMode ?? ServiceMode['in-person'],
+                    serviceModality: serviceMode,
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,
+                    ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
+                    ...(questionnaireCanonical && { questionnaireCanonical }),
                   };
                   try {
                     const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
@@ -109,9 +128,9 @@ export const WalkinLanding: FC = () => {
               {t('welcome.errors.closed.description')}
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
-              <Link to={PROJECT_WEBSITE} aria-label={`${PROJECT_NAME} website`} target="_blank">
+              <Link to={PROJECT_WEBSITE} aria-label={`${BRANDING_CONFIG.projectName} website`} target="_blank">
                 <Button variant="contained" color="primary" data-testid="loading-button">
-                  {t('welcome.goToWebsite', { PROJECT_NAME })}
+                  {t('welcome.goToWebsite', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
                 </Button>
               </Link>
             </Box>

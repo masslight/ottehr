@@ -36,6 +36,15 @@ export interface PractitionerVisitCount {
   total: number;
 }
 
+export interface VisitsByTypeCount {
+  locationName: string;
+  locationId: string;
+  serviceCategory: string;
+  inPerson: number;
+  telemed: number;
+  total: number;
+}
+
 export interface VisitsOverviewReportZambdaOutput {
   message: string;
   totalAppointments: number;
@@ -43,6 +52,7 @@ export interface VisitsOverviewReportZambdaOutput {
   dailyVisits: DailyVisitCount[];
   locationVisits: LocationVisitCount[];
   practitionerVisits: PractitionerVisitCount[];
+  visitsByTypeCount: VisitsByTypeCount[];
   dateRange: {
     start: string;
     end: string;

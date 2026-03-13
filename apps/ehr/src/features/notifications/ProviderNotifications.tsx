@@ -13,6 +13,8 @@ import useEvolveUser from '../../hooks/useEvolveUser';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 import { useProviderNotificationsStore } from './notifications.store';
 
+const MAX_NOTIFICATION_MESSAGE_LENGTH = 140;
+
 type ProviderNotificationDisplay = {
   id: string;
   message: string;
@@ -30,11 +32,16 @@ export const ProviderNotifications: FC = memo(() => {
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
   const [notificationsElement, setNotificationsElement] = useState<undefined | HTMLElement>(undefined);
 
-  const { enabled: notificationsEnabled, method: notificationMethod }: ProviderNotificationSettings = useMemo(
+  const {
+    method: notificationMethod,
+    taskNotificationsEnabled,
+    telemedNotificationsEnabled,
+  }: ProviderNotificationSettings = useMemo(
     () =>
       getProviderNotificationSettingsForPractitioner(user?.profileResource) || {
         method: ProviderNotificationMethod['phone and computer'],
-        enabled: false,
+        taskNotificationsEnabled: false,
+        telemedNotificationsEnabled: false,
       },
     [user?.profileResource]
   );
@@ -60,8 +67,12 @@ export const ProviderNotifications: FC = memo(() => {
   const hasUnread = notifications.some((notification) => notification.isUnread);
 
   useEffect(() => {
-    useProviderNotificationsStore.setState({ notificationsEnabled, notificationMethod: notificationMethod });
-  }, [notificationsEnabled, notificationMethod]);
+    useProviderNotificationsStore.setState({
+      notificationMethod,
+      taskNotificationsEnabled,
+      telemedNotificationsEnabled,
+    });
+  }, [notificationMethod, taskNotificationsEnabled, telemedNotificationsEnabled]);
 
   const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = (event) => {
     setNotificationsOpen(true);
@@ -121,7 +132,7 @@ export const ProviderNotifications: FC = memo(() => {
           'aria-labelledby': 'notifications-button',
         }}
       >
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 3, maxWidth: '400px' }}>
           <Typography sx={{ fontWeight: 'bold' }} variant="h5" color="primary.dark">
             Notifications
           </Typography>
@@ -176,7 +187,9 @@ const MenuItem = ({ onClick, title, subtitle }: MenuItemProps): JSX.Element => {
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', textTransform: 'none' }}>
         <Typography variant="body1" color={titleColor}>
-          {title}
+          {title.length > MAX_NOTIFICATION_MESSAGE_LENGTH
+            ? title.substring(0, MAX_NOTIFICATION_MESSAGE_LENGTH) + '...'
+            : title}
         </Typography>
         {subtitle && (
           <Typography variant="caption" sx={{ mt: 1 }} color={alpha(titleColor, 0.5)}>

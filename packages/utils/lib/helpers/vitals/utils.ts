@@ -1,7 +1,7 @@
 // cSpell:ignore alertable
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AlertRule, AlertThreshold, VitalsDef } from '../../configuration';
+import { AlertRule, AlertThreshold, VitalsDef } from '../../ottehr-config';
 import {
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
@@ -211,6 +211,10 @@ const findRulesForVitalsKeyAndDOB = (
 ):
   | { type: 'rules'; rules: AlertRule[] }
   | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {
+  if (key === 'vital-last-menstrual-period') {
+    return { type: 'rules', rules: [] };
+  }
+
   const dateOfBirth = DateTime.fromISO(dob);
   const now = DateTime.now();
   const alertThresholds: AlertThreshold[] = VitalsDef(configOverride)[key]?.alertThresholds ?? [];
@@ -242,8 +246,10 @@ const getRulesForPatientDOB = (
         if (dateOfBirth > minAgeDOB) return false;
       }
       if (maxAge) {
+        // Exclusive upper bound: when an adjacent threshold's minAge equals this maxAge,
+        // a patient at exactly maxAge will match the next (older-age) threshold instead.
         const maxAgeDOB = now.minus({ [maxAge.unit]: maxAge.value });
-        if (dateOfBirth < maxAgeDOB) return false;
+        if (dateOfBirth <= maxAgeDOB) return false;
       }
       return true;
     })
@@ -261,10 +267,13 @@ interface AlertableValuesInput {
 
 const getAlertLevels = (input: AlertableValuesInput): FHIRObservationInterpretation[] => {
   const { observation, rules, patientAgeInMonths, patientSex, componentName } = input;
-  let value: number | undefined = observation.value;
+  if (observation.field === VitalFieldNames.VitalLastMenstrualPeriod) {
+    return [];
+  }
   if (observation.field === VitalFieldNames.VitalVision) {
     return [];
   }
+  let value: number | undefined = observation.value;
   if (observation.field === VitalFieldNames.VitalBloodPressure) {
     // do a blood pressure-specific check on components
     if (componentName === 'systolic-pressure') {
@@ -330,7 +339,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
 
   const ruleCriticality = rule.criticality;
   if (rule.type === 'min') {
-    if (value < thresholdValue) {
+    if (value <= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalLow;
       }
@@ -340,7 +349,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
     }
   }
   if (rule.type === 'max') {
-    if (value > thresholdValue) {
+    if (value >= thresholdValue) {
       if (ruleCriticality === VitalAlertCriticality.Critical) {
         return FHIRObservationInterpretation.CriticalHigh;
       }

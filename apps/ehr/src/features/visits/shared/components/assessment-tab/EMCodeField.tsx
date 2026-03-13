@@ -2,7 +2,7 @@ import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CPTCodeOption, emCodeOptions } from 'utils';
+import { CPTCodeOption, PROVIDER_CONFIG } from 'utils';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 
 export const EMCodeField: FC = () => {
@@ -12,9 +12,8 @@ export const EMCodeField: FC = () => {
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
   const onChange = (value: CPTCodeOption | null): void => {
+    const prevValue = emCode ? { ...emCode } : undefined;
     if (value) {
-      const prevValue = emCode;
-
       saveChartData(
         { emCode: { ...emCode, ...value } },
         {
@@ -27,21 +26,35 @@ export const EMCodeField: FC = () => {
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue });
           },
         }
       );
-      setPartialChartData({ emCode: value });
+      setPartialChartData({ emCode: value }, { invalidateQueries: false });
     } else {
-      deleteChartData({ emCode });
-      setPartialChartData({ emCode: undefined });
+      // Optimistic update
+      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
+      deleteChartData(
+        { emCode },
+        {
+          onSuccess: async () => {
+            // No need to update again, optimistic update already applied
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
+            setPartialChartData({ emCode: prevValue });
+          },
+        }
+      );
     }
   };
 
   return (
     <Autocomplete
       disabled={isSaveLoading || isDeleteLoading}
-      options={emCodeOptions}
+      options={PROVIDER_CONFIG.assessment.emCodeOptions}
       data-testid={dataTestIds.assessmentCard.emCodeDropdown}
       isOptionEqualToValue={(option, value) => option.code === value.code}
       value={emCode ? { display: emCode.display, code: emCode.code } : null}

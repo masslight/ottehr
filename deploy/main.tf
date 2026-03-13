@@ -38,7 +38,7 @@ locals {
   # `1` is the magic number to run a module that checks this local variable.
   # switch which line is commented out to run non-local modules like aws_infra
   # while still in the `local` environment
-  is_local                     = var.environment == "local" ? true : false
+  is_local                     = contains(["local", "e2e", "e2e2", "e2e3"], var.environment)
   not_local_env_resource_count = local.is_local ? 0 : 1
   # not_local_env_resource_count = 1
 }
@@ -47,8 +47,10 @@ module "infra" {
   source                     = "./infra/no-cloud"
   count                      = local.not_local_env_resource_count
   project_id                 = var.project_id
+  ehr_bucket_name            = var.ehr_bucket_name
   ehr_domain                 = var.ehr_domain
   ehr_cert_domain            = var.ehr_cert_domain
+  patient_portal_bucket_name = var.patient_portal_bucket_name
   patient_portal_domain      = var.patient_portal_domain
   patient_portal_cert_domain = var.patient_portal_cert_domain
 }
@@ -61,7 +63,7 @@ module "sendgrid" {
 }
 
 module "oystehr" {
-  depends_on = [module.infra]
+  depends_on = [module.infra, module.sendgrid]
   source     = "./oystehr"
   providers = {
     oystehr = oystehr
@@ -78,26 +80,35 @@ module "ottehr_apps" {
   environment = var.environment
   is_local    = local.is_local
   ehr_vars = {
-    ENV                              = var.environment
-    PROJECT_ID                       = var.project_id
-    IS_LOCAL                         = local.is_local ? "true" : "false"
-    EHR_APP_NAME                     = module.oystehr.EHR_APP_NAME
-    EHR_ORGANIZATION_NAME_LONG       = module.oystehr.EHR_ORGANIZATION_NAME_LONG
-    EHR_ORGANIZATION_NAME_SHORT      = module.oystehr.EHR_ORGANIZATION_NAME_SHORT
-    OYSTEHR_APPLICATION_CLIENT_ID    = module.oystehr.app_ehr_client_id
-    OYSTEHR_APPLICATION_REDIRECT_URL = module.oystehr.app_ehr_redirect_url
-    OYSTEHR_CONNECTION_NAME          = module.oystehr.app_ehr_connection_name == null ? "" : module.oystehr.app_ehr_connection_name
-    MUI_X_LICENSE_KEY                = module.oystehr.MUI_X_LICENSE_KEY
-    OYSTEHR_APPLICATION_ID           = module.oystehr.app_ehr_id
-    PROJECT_API_ZAMBDA_URL           = local.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
-    PATIENT_APP_URL                  = var.patient_portal_domain == null ? one(module.infra[*].patient_portal_domain) == null ? "http://localhost:3002" : "https://${one(module.infra[*].patient_portal_domain)}" : "https://${var.patient_portal_domain}"
-    STRIPE_PUBLIC_KEY                = module.oystehr.stripe_public_key
-    DYNAMSOFT_LICENSE_KEY            = module.oystehr.DYNAMSOFT_LICENSE_KEY
-    SENTRY_AUTH_TOKEN                = module.oystehr.sentry_auth_token
-    SENTRY_ORG                       = module.oystehr.sentry_org
-    SENTRY_PROJECT                   = module.oystehr.sentry_project
-    SENTRY_DSN                       = module.oystehr.sentry_dsn
-    SENTRY_ENV                       = var.environment
+    ENV                                         = var.environment
+    PROJECT_ID                                  = var.project_id
+    IS_LOCAL                                    = local.is_local ? "true" : "false"
+    EHR_APP_NAME                                = module.oystehr.EHR_APP_NAME
+    EHR_ORGANIZATION_NAME_LONG                  = module.oystehr.EHR_ORGANIZATION_NAME_LONG
+    EHR_ORGANIZATION_NAME_SHORT                 = module.oystehr.EHR_ORGANIZATION_NAME_SHORT
+    OYSTEHR_APPLICATION_CLIENT_ID               = module.oystehr.app_ehr_client_id
+    OYSTEHR_APPLICATION_REDIRECT_URL            = module.oystehr.app_ehr_redirect_url
+    OYSTEHR_CONNECTION_NAME                     = module.oystehr.app_ehr_connection_name == null ? "" : module.oystehr.app_ehr_connection_name
+    MUI_X_LICENSE_KEY                           = module.oystehr.MUI_X_LICENSE_KEY
+    OYSTEHR_APPLICATION_ID                      = module.oystehr.app_ehr_id
+    PROJECT_API_ZAMBDA_URL                      = local.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    PATIENT_APP_URL                             = var.patient_portal_domain == null ? one(module.infra[*].patient_portal_domain) == null ? "http://localhost:3002" : "https://${one(module.infra[*].patient_portal_domain)}" : "https://${var.patient_portal_domain}"
+    STRIPE_PUBLIC_KEY                           = module.oystehr.stripe_public_key
+    DYNAMSOFT_LICENSE_KEY                       = module.oystehr.DYNAMSOFT_LICENSE_KEY
+    SENTRY_AUTH_TOKEN                           = module.oystehr.sentry_auth_token
+    SENTRY_ORG                                  = module.oystehr.sentry_org
+    SENTRY_PROJECT                              = module.oystehr.sentry_project
+    SENTRY_DSN                                  = module.oystehr.sentry_dsn
+    SENTRY_ENV                                  = var.environment
+    IS_LAB_ORDERS_ENABLED_FEATURE_FLAG          = module.oystehr.IS_LAB_ORDERS_ENABLED_FEATURE_FLAG
+    IS_IN_HOUSE_LABS_ENABLED_FEATURE_FLAG       = module.oystehr.IS_IN_HOUSE_LABS_ENABLED_FEATURE_FLAG
+    IS_RADIOLOGY_ENABLED_FEATURE_FLAG           = module.oystehr.IS_RADIOLOGY_ENABLED_FEATURE_FLAG
+    IS_NURSING_ORDERS_ENABLED_FEATURE_FLAG      = module.oystehr.IS_NURSING_ORDERS_ENABLED_FEATURE_FLAG
+    IS_SUPERVISOR_APPROVAL_ENABLED_FEATURE_FLAG = module.oystehr.IS_SUPERVISOR_APPROVAL_ENABLED_FEATURE_FLAG
+    CREATE_DEMO_VISITS_FEATURE_FLAG             = module.oystehr.CREATE_DEMO_VISITS_FEATURE_FLAG
+    IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG    = module.oystehr.IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG
+    IS_FORMS_ENABLED_FEATURE_FLAG               = module.oystehr.IS_FORMS_ENABLED_FEATURE_FLAG
+    IS_LEGACY_DATA_ENABLED_FEATURE_FLAG         = module.oystehr.IS_LEGACY_DATA_ENABLED_FEATURE_FLAG
   }
   patient_portal_vars = {
     ENV                           = var.environment

@@ -6,6 +6,7 @@ import {
   getFullestAvailableName,
   getSecret,
   getTestNameOrCodeFromDr,
+  LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
   LabType,
   NonNormalResult,
@@ -13,14 +14,16 @@ import {
   SecretsKeys,
   TaskAlertCode,
 } from 'utils';
-import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/shared/labs';
+import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
+import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
 import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
-import { fetchRelatedResources, getCodeForNewTask, isUnsolicitedResult } from './helpers';
+import { fetchRelatedResources, getCodeForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -47,7 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
-    const isUnsolicited = isUnsolicitedResult(specificDrTypeFromTag, diagnosticReport);
+    const isUnsolicited = specificDrTypeFromTag === LAB_DR_TYPE_TAG.code.unsolicited;
     const isUnsolicitedAndMatched = isUnsolicited && !!diagnosticReport.subject?.reference?.startsWith('Patient/');
 
     const serviceRequestId = diagnosticReport?.basedOn
@@ -65,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
-    const { tasks, patient, labOrg, encounter } = await fetchRelatedResources(diagnosticReport, oystehr);
+    const { tasks, patient, labOrg, encounter, attachments } = await fetchRelatedResources(diagnosticReport, oystehr);
 
     const requests: BatchInputRequest<Task>[] = [];
 
@@ -99,16 +102,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? appointmentRef?.replace('Appointment/', '')
       : undefined;
 
+    const testName = getTestNameOrCodeFromDr(diagnosticReport);
+    const labName = labOrg?.name ?? 'missing';
+    const patientResource = patient ? patient : getContainedPatientFromDiagnosticReport(diagnosticReport);
+    const patientName = patientResource ? getFullestAvailableName(patientResource) : 'missing';
+
     const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
       : [
           {
             type: LAB_ORDER_TASK.input.testName,
-            valueString: getTestNameOrCodeFromDr(diagnosticReport),
+            valueString: testName,
           },
           {
             type: LAB_ORDER_TASK.input.labName,
-            valueString: labOrg?.name,
+            valueString: labName,
           },
           {
             type: LAB_ORDER_TASK.input.receivedDate,
@@ -116,7 +124,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           },
           {
             type: LAB_ORDER_TASK.input.patientName,
-            valueString: patient ? getFullestAvailableName(patient) : undefined,
+            valueString: patientName,
           },
           {
             type: LAB_ORDER_TASK.input.appointmentId,
@@ -145,12 +153,49 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const showTaskOnBoard = diagnosticReport.status !== 'preliminary' || isUnsolicited;
     console.log('showTaskOnBoard', showTaskOnBoard);
 
+    const code = getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched);
+
+    // copied and adjusted from /apps/ehr/src/features/visits/in-person/hooks/useTasks.ts:fhirTaskToTask
+    let title = '';
+    const fullTestName = testName + (labName ? ' / ' + labName : '');
+    const labTypeString = specificDrTypeFromTag || '';
+
+    if (
+      serviceRequestId &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult ||
+        code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+        code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
+    ) {
+      title = `Review results for “${fullTestName}” for ${patientName}`;
+    }
+    if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
+      title = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
+        patientName ? ` for ${patientName}` : ''
+      }`;
+    }
+    if (
+      code === LAB_ORDER_TASK.code.reviewFinalResult ||
+      code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+      code === LAB_ORDER_TASK.code.reviewPreliminaryResult
+    ) {
+      if (labTypeString === LabType.unsolicited && !serviceRequestId) {
+        title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
+      }
+      if (labTypeString === LabType.reflex) {
+        title = `Review reflex results for “${fullTestName}” for ${patientName}`;
+      }
+    }
+    if (code === LAB_ORDER_TASK.code.reviewCancelledResult) {
+      title = `Review cancelled results for “${fullTestName}” for ${patientName}`;
+    }
+
     const newTask = createTask(
       {
         category: LAB_ORDER_TASK.category,
+        title,
         code: {
           system: LAB_ORDER_TASK.system,
-          code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+          code,
         },
         encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
         basedOn: [
@@ -166,22 +211,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       newTask.status = 'completed';
     }
 
-    // no task will be created for an unsolicited result pdf attachment
-    // no result pdf can be created until it is matched and it should come in with at least one other DR that will trigger the task
-    // after the matching is complete we can create the review task / generate the pdf
-    const skipTaskCreation =
-      specificDrTypeFromTag === LabType.pdfAttachment && isUnsolicited && !isUnsolicitedAndMatched;
-
-    if (!skipTaskCreation) {
-      requests.push({
-        method: 'POST',
-        url: '/Task',
-        resource: newTask,
-      });
-      console.log('creating a new task with code: ', JSON.stringify(newTask.code));
-    } else {
-      console.log('skipTaskCreation', skipTaskCreation);
-    }
+    requests.push({
+      method: 'POST',
+      url: '/Task',
+      resource: newTask,
+    });
+    console.log('creating a new task with code: ', JSON.stringify(newTask.code));
 
     const oystehrResponse = await oystehr.fhir.transaction<Task>({ requests });
 
@@ -201,10 +236,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, false, secrets, oystehrToken);
     } else if (specificDrTypeFromTag !== undefined) {
       // unsolicited result pdfs will be created after matching to a patient
-      if (
-        (isUnsolicitedAndMatched || [LabType.reflex, LabType.pdfAttachment].includes(specificDrTypeFromTag)) &&
-        !skipTaskCreation
-      ) {
+      if (isUnsolicitedAndMatched || specificDrTypeFromTag === LabType.reflex) {
         if (!diagnosticReport.id) throw Error('unable to parse id from diagnostic report');
         console.log(`creating pdf for ${specificDrTypeFromTag} result`);
         await createExternalLabResultPDFBasedOnDr(
@@ -226,6 +258,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     } else {
       console.log('skipping pdf creation'); // shouldn't reach this tbh
+    }
+
+    // we should add attachments to the patient lab folder for any solicited result, or matched unsolicited results
+    if (attachments && patient && (isUnsolicitedAndMatched || !isUnsolicited)) {
+      console.log('adding attachments to patient lab folder');
+      const attachmentDocRefReferences = attachments.map((attachment) => `DocumentReference/${attachment.id}`);
+      console.log(
+        'These are the attachment DocumentReferences we might add to Patient list:',
+        JSON.stringify(attachmentDocRefReferences)
+      );
+      const labList = await getLabListResource(oystehr, patient.id!, secrets);
+      if (labList) {
+        await addDocsToLabList(oystehr, labList, attachmentDocRefReferences, secrets);
+      }
     }
 
     return {

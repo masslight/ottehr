@@ -1,6 +1,7 @@
 import { Coverage, DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   CreateLabPaymentMethod,
+  DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
@@ -11,7 +12,7 @@ import {
   LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
-  OYSTEHR_LAB_DOC_CATEGORY_CODING,
+  OYSTEHR_ABN_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -168,15 +169,16 @@ export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
   const testName =
     dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
     dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
-    dr.code.coding?.find((temp) => temp.system === '(HL7_V2)')?.display;
+    dr.code.coding?.find((temp) => temp.system?.endsWith(DEFAULT_OYSTEHR_LABS_HL7_SYSTEM))?.display; // Oystehr postfixes any system it doesn't recognize with this HL7 system string, so this ensures we still pull the value
   return testName;
 };
 
-export const getTestItemCodeFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code;
-  return testName;
+export const getTestItemCodeFromDr = (diagnosticReport: DiagnosticReport): string | undefined => {
+  const testItemCode =
+    diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+    diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
+    diagnosticReport.code.coding?.find((temp) => temp.system?.endsWith(DEFAULT_OYSTEHR_LABS_HL7_SYSTEM))?.code; // Oystehr postfixes any system it doesn't recognize with this HL7 system string, so this ensures we still pull the value
+  return testItemCode;
 };
 
 export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
@@ -187,17 +189,31 @@ export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
 };
 
 export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentMethod {
-  let paymentMethod = LabPaymentMethod.Insurance;
-  const coverageTypeFromCoding = coverage.type?.coding?.[0]?.code;
-  switch (coverageTypeFromCoding) {
-    case 'pay':
-      paymentMethod = LabPaymentMethod.SelfPay;
-      break;
-    case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
-      paymentMethod = LabPaymentMethod.ClientBill;
-      break;
+  let hasPay = false;
+  let hasClientBill = false;
+
+  for (const coding of coverage.type?.coding ?? []) {
+    switch (coding.code) {
+      case 'WC':
+        return LabPaymentMethod.WorkersComp;
+      case 'pay':
+        hasPay = true;
+        break;
+      case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
+        hasClientBill = true;
+        break;
+    }
   }
-  return paymentMethod;
+
+  if (hasPay) {
+    return LabPaymentMethod.SelfPay;
+  }
+
+  if (hasClientBill) {
+    return LabPaymentMethod.ClientBill;
+  }
+
+  return LabPaymentMethod.Insurance;
 }
 
 export function serviceRequestPaymentMethod(
@@ -261,7 +277,7 @@ export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
     (cat) =>
       cat.coding?.some(
         (code) =>
-          code.code === OYSTEHR_LAB_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_LAB_DOC_CATEGORY_CODING.system
+          code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system
       )
   );
   return isCurrent && isAbn;

@@ -10,7 +10,7 @@ import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/Order
 import { VaccineDetailsTab } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsTab';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
-import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
+import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { getFirstName, getLastName, medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
 import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
@@ -39,8 +39,14 @@ interface AdministrationDetails {
   mobile: string;
 }
 
+const firstAvailableVaccine =
+  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[0] as keyof typeof vaccines.fhirResources];
+
+const secondAvailableVaccine =
+  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[1] as keyof typeof vaccines.fhirResources];
+
 const VACCINE_A: VaccineInfo = {
-  vaccine: vaccines.fhirResources['VACCINE_TDAP'].resource.identifier[1].value,
+  vaccine: firstAvailableVaccine?.resource.identifier[1].value,
   dose: '0.5',
   units: 'mg',
   route: medicationApplianceRoutes.BODY_CAVITY.display!,
@@ -49,7 +55,7 @@ const VACCINE_A: VaccineInfo = {
 };
 
 const VACCINE_B: VaccineInfo = {
-  vaccine: vaccines.fhirResources['VACCINE_TD'].resource.identifier[1].value,
+  vaccine: secondAvailableVaccine?.resource.identifier[1].value,
   dose: '1',
   units: 'mL',
   route: medicationApplianceRoutes.CAUDAL.display!,
@@ -211,11 +217,12 @@ test.describe('Immunization Page mutating tests', () => {
 
   async function setupPractitioners(page: Page): Promise<void> {
     const inPersonHeader = new InPersonHeader(page);
-    await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+    await page.goto(`in-person/${resourceHandler.appointment.id}/review-and-sign`);
     await inPersonHeader.verifyStatus('pending');
     await inPersonHeader.selectIntakePractitioner();
     await inPersonHeader.selectProviderPractitioner();
-    await expectPatientInfoPage(page);
+    const sideMenu = new SideMenu(page);
+    await sideMenu.clickCcAndIntakeNotes();
   }
 
   async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {

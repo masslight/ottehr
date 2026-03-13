@@ -17,7 +17,7 @@ import { ChangeEvent, FC, useMemo, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { CommunicationDTO, InstructionType, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, CommunicationDTO, InstructionType } from 'utils';
 import {
   useDeletePatientInstruction,
   useGetPatientInstructions,
@@ -62,14 +62,19 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
       return patientInstructions;
     }
     const lowerSearchTerm = searchTerm.toLowerCase();
-    return patientInstructions.filter((instruction) => instruction.text?.toLowerCase().includes(lowerSearchTerm));
+    return patientInstructions.filter((instruction) => {
+      const titleMatch = instruction.title?.toLowerCase().includes(lowerSearchTerm);
+      const textMatch = instruction.text?.toLowerCase().includes(lowerSearchTerm);
+
+      return titleMatch || textMatch;
+    });
   }, [patientInstructions, searchTerm]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle component="div" sx={{ p: 3, pb: 2, display: 'flex', alignItems: 'flex-start' }}>
         <Typography variant="h4" color={theme.palette.primary.dark} sx={{ flex: 1 }}>
-          {isMyTemplates ? 'My instruction templates' : `${PROJECT_NAME} instruction templates `}
+          {isMyTemplates ? 'My instruction templates' : `${BRANDING_CONFIG.projectName} instruction templates `}
         </Typography>
         <IconButton size="small" onClick={onClose}>
           <Close fontSize="small" />
@@ -124,7 +129,12 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
           <ActionsList
             data={filteredInstructions}
             getKey={(value, index) => value.resourceId || index}
-            renderItem={(value) => <Typography>{value.text}</Typography>}
+            renderItem={(value) => (
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {value.title && <Typography fontWeight={600}>{value.title}</Typography>}
+                {value.text && <Typography style={{ whiteSpace: 'pre-line' }}>{value.text}</Typography>}
+              </Box>
+            )}
             renderActions={(value) => (
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 {isMyTemplates && (

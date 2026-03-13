@@ -3,6 +3,8 @@ import { DataComposer } from '../pdf-common';
 import { PDF_CLIENT_STYLES } from '../pdf-consts';
 import { Documents, PdfSection } from '../types';
 
+const IMAGE_GAP = 20;
+
 export const composeDocumentsData: DataComposer<DocumentReference[], Documents> = (documents) => {
   const photoIdFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'photo-id-front')
@@ -101,6 +103,25 @@ export const createDocumentsSection = <TData extends { documents?: Documents }>(
     if (!assets?.images) return;
     const { images } = assets;
 
+    const getContainSize = (
+      origWidth: number,
+      origHeight: number,
+      maxWidth: number,
+      maxHeight: number
+    ): { width: number; height: number; offsetX: number; offsetY: number } => {
+      const scale = Math.min(maxWidth / origWidth, maxHeight / origHeight);
+
+      const width = Math.round(origWidth * scale);
+      const height = Math.round(origHeight * scale);
+
+      return {
+        width,
+        height,
+        offsetX: Math.round((maxWidth - width) / 2),
+        offsetY: Math.round((maxHeight - height) / 2),
+      };
+    };
+
     const drawSection = (title: string, frontKey: keyof typeof documents, backKey: keyof typeof documents): void => {
       const frontDoc = documents[frontKey];
       const backDoc = documents[backKey];
@@ -112,24 +133,36 @@ export const createDocumentsSection = <TData extends { documents?: Documents }>(
       client.drawText(title, styles.textStyles.regular);
       client.newLine(130);
 
-      const imageWidth = (client.getRightBound() - client.getLeftBound()) / 2 - 10;
+      const imageWidth = (client.getRightBound() - client.getLeftBound()) / 2 - IMAGE_GAP / 2;
       const imageHeight = Math.round(imageWidth / 2);
 
       if (hasFront) {
+        const { width, height, offsetX, offsetY } = getContainSize(
+          images[frontDoc.title].width,
+          images[frontDoc.title].height,
+          imageWidth,
+          imageHeight
+        );
         client.drawImage(images[frontDoc.title], {
-          width: imageWidth,
-          height: imageHeight,
+          width,
+          height,
           center: false,
-          margin: { top: 0, left: 0, right: 10, bottom: 0 },
+          margin: { top: offsetY, left: offsetX, right: IMAGE_GAP / 2, bottom: 0 },
         });
       }
 
       if (hasBack) {
+        const { width, height, offsetX, offsetY } = getContainSize(
+          images[backDoc.title].width,
+          images[backDoc.title].height,
+          imageWidth,
+          imageHeight
+        );
         client.drawImage(images[backDoc.title], {
-          width: imageWidth,
-          height: imageHeight,
+          width,
+          height,
           center: false,
-          margin: { top: 0, left: 10, right: 0, bottom: 0 },
+          margin: { top: offsetY, left: IMAGE_GAP / 2 + offsetX, right: 0, bottom: 0 },
         });
       }
 

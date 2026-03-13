@@ -40,7 +40,7 @@ export const MedicationBarcodeScan: React.FC<MedicationNameProps> = ({ medicatio
             flexShrink: 0,
           }}
         />
-        {medication.medicationName}
+        {medication?.medicationName || ''}
       </StyledTypography>
       {/* {medication.scanStatus && (
         <Box mt={1}>

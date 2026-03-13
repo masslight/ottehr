@@ -59,6 +59,7 @@ const PatientDocumentsExplorerPage: FC = () => {
     isLoadingFolders,
     searchDocuments,
     downloadDocument,
+    renameDocument,
     documentActions,
   } = useGetPatientDocs(patientId!);
 
@@ -234,8 +235,9 @@ const PatientDocumentsExplorerPage: FC = () => {
         return true;
       },
       onDocumentDownload: downloadDocument,
+      onDocumentRename: renameDocument,
     };
-  }, [downloadDocument]);
+  }, [downloadDocument, renameDocument]);
 
   if (isLoadingPatientData) return <LoadingScreen />;
 

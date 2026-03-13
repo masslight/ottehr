@@ -38,11 +38,21 @@ function cloneRepoLocally(repoUrl) {
   return new Promise((resolve, reject) => {
     exec(`git clone ${repoUrl}`, (error) => {
       if (error) {
-        console.error(`Error cloning repository: ${error.message}`);
-        reject(error);
-        return;
+      console.error(`Error cloning repository: ${error.message}`);
+      reject(error);
+      return;
       }
-      resolve();
+      
+      const repoName = getRepoNameFromUrl(repoUrl);
+      exec(`cd ${repoName} && git checkout develop`, (checkoutError) => {
+        if (checkoutError) {
+          console.error(`Error checking out develop branch: ${checkoutError.message}`);
+          reject(checkoutError);
+          return;
+        }
+        console.log('Successfully checked out develop branch');
+        resolve();
+      });
     });
   });
 }

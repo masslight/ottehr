@@ -17,7 +17,6 @@ export const PatientInformationKnownPatientFieldsDisplay = ({
   selectPatientPageUrl: string;
 }): JSX.Element => {
   const patientFullName = useGetFullName(patientInfo);
-  console.log('date to format:', unconfirmedDateOfBirth ?? patientInfo.dateOfBirth);
   const formattedBirthday = DateTime.fromFormat(
     yupDateTransform(unconfirmedDateOfBirth ?? patientInfo.dateOfBirth),
     'yyyy-MM-dd'
@@ -28,10 +27,10 @@ export const PatientInformationKnownPatientFieldsDisplay = ({
 
   return (
     <>
-      <Typography variant="h3" color="secondary.main">
+      <Typography variant="h3" color="primary.main">
         {patientFullName}
       </Typography>
-      <Typography variant="body2" sx={{ fontSize: '14px' }} color="secondary.main">
+      <Typography variant="body2" sx={{ fontSize: '14px' }} color="primary.main">
         {t('aboutPatient.birthdayLabel')} {formattedBirthday}
       </Typography>
       <Typography variant="body1" color={otherColors.wrongPatient} marginTop={2} marginBottom={4}>

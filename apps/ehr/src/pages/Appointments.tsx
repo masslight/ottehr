@@ -5,25 +5,16 @@ import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Typograp
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
-import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
-import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
-import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
-import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
-  ExtendedMedicationDataForResponse,
-  GetRadiologyOrderListZambdaOrder,
   GetVitalsForListOfEncountersResponseData,
-  InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
-  LabOrderListPageDTO,
-  NursingOrder,
   OrdersForTrackingBoardTable,
 } from 'utils';
 import { getAppointments } from '../api/api';
@@ -60,34 +51,38 @@ export default function Appointments(): ReactElement {
   const [appointmentDate, setAppointmentDate] = useState<DateTime | null>(DateTime.local());
   const [editingComment, setEditingComment] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<AppointmentSearchResultData | null>(null);
+  const [appointmentsVersion, setAppointmentsVersion] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const pageIsVisible = usePageVisibility(); // goes to false if tab loses focus and gives the fhir api a break
   const { debounce } = useDebounce(300);
 
-  const handleSubmit: CustomFormEventHandler = (event: any, value: any, field: string): void => {
-    if (field === 'date') {
-      queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
-    } else if (field === 'location') {
-      queryParams?.set('locationID', value?.id ?? '');
-    } else if (field === 'visitTypes') {
-      const appointmentTypesString = value.join(',');
-      queryParams.set('visitType', appointmentTypesString);
-    } else if (field === 'providers') {
-      const providersString = value.join(',');
-      queryParams.set('providers', providersString);
-    } else if (field === 'groups') {
-      const groupsString = value.join(',');
-      queryParams.set('groups', groupsString);
-    }
-
-    setEditingComment(false);
-    navigate(`?${queryParams?.toString()}`);
-  };
-
   const queryParams = useMemo(() => {
     return new URLSearchParams(location.search);
   }, [location.search]);
+
+  const handleSubmit: CustomFormEventHandler = useCallback(
+    (event: any, value: any, field: string): void => {
+      if (field === 'date') {
+        queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
+      } else if (field === 'location') {
+        queryParams?.set('locationID', value?.id ?? '');
+      } else if (field === 'visitTypes') {
+        const appointmentTypesString = value.join(',');
+        queryParams.set('visitType', appointmentTypesString);
+      } else if (field === 'providers') {
+        const providersString = value.join(',');
+        queryParams.set('providers', providersString);
+      } else if (field === 'groups') {
+        const groupsString = value.join(',');
+        queryParams.set('groups', groupsString);
+      }
+
+      setEditingComment(false);
+      navigate(`?${queryParams?.toString()}`);
+    },
+    [queryParams, appointmentDate, navigate]
+  );
 
   const { locationID, searchDate, visitType, providers, groups, queryId } = (() => {
     const locationID = queryParams.get('locationID') || '';
@@ -117,79 +112,10 @@ export default function Appointments(): ReactElement {
   const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
   const encountersIdsEligibleForOrders = [...inOfficeEncounterIds, ...completedEncounterIds];
 
-  const externalLabOrders = usePatientLabOrders({
-    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+  const { orders, refetchOrders } = useGetOrdersForTrackingBoard({
+    encounterIds: encountersIdsEligibleForOrders,
+    refreshKey: appointmentsVersion,
   });
-  const externalLabOrdersByAppointmentId = useMemo(() => {
-    return externalLabOrders?.labOrders?.reduce(
-      (acc, order) => {
-        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
-        return acc;
-      },
-      {} as Record<string, LabOrderListPageDTO[]>
-    );
-  }, [externalLabOrders?.labOrders]);
-
-  const inHouseOrders = useInHouseLabOrders({
-    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
-  });
-  const inHouseLabOrdersByAppointmentId = useMemo(() => {
-    return inHouseOrders?.labOrders?.reduce(
-      (acc, order) => {
-        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
-        return acc;
-      },
-      {} as Record<string, InHouseOrderListPageItemDTO[]>
-    );
-  }, [inHouseOrders?.labOrders]);
-
-  const { nursingOrders } = useGetNursingOrders({
-    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
-  });
-  const nursingOrdersByAppointmentId: Record<string, NursingOrder[]> = useMemo(() => {
-    return nursingOrders?.reduce(
-      (acc, order) => {
-        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
-        return acc;
-      },
-      {} as Record<string, NursingOrder[]>
-    );
-  }, [nursingOrders]);
-
-  const { data: inHouseMedications } = useGetMedicationOrders({
-    field: 'encounterIds',
-    value: encountersIdsEligibleForOrders,
-  });
-  const inHouseMedicationsByEncounterId = useMemo(() => {
-    if (!inHouseMedications?.orders) return {};
-
-    return inHouseMedications?.orders?.reduce(
-      (acc, med) => {
-        acc[med.encounterId] = [...(acc[med.encounterId] || []), med];
-        return acc;
-      },
-      {} as Record<string, ExtendedMedicationDataForResponse[]>
-    );
-  }, [inHouseMedications?.orders]);
-
-  const { orders: radiologyOrders } = usePatientRadiologyOrders({ encounterIds: encountersIdsEligibleForOrders });
-  const radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]> = useMemo(() => {
-    return radiologyOrders?.reduce(
-      (acc, order) => {
-        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
-        return acc;
-      },
-      {} as Record<string, GetRadiologyOrderListZambdaOrder[]>
-    );
-  }, [radiologyOrders]);
-
-  const orders: OrdersForTrackingBoardTable = {
-    externalLabOrdersByAppointmentId,
-    inHouseLabOrdersByAppointmentId,
-    nursingOrdersByAppointmentId,
-    inHouseMedicationsByEncounterId,
-    radiologyOrdersByAppointmentId,
-  };
 
   const { data: vitals } = useGetVitalsForEncounters({
     encounterIds: [...inOfficeEncounterIds, ...completedEncounterIds],
@@ -297,6 +223,11 @@ export default function Appointments(): ReactElement {
           supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
 
+        // drives refetch for apis not using react hook query yet
+        setAppointmentsVersion(Date.now());
+        // drives refetch for apis using react hook query
+        void refetchOrders();
+
         debounce(() => {
           setSearchResults(searchResults || []);
           setLoadingState({ status: 'loaded', id: queryId });
@@ -331,6 +262,7 @@ export default function Appointments(): ReactElement {
     queryParams,
     pageIsVisible,
     debounce,
+    refetchOrders,
   ]);
 
   useEffect(() => {
@@ -338,6 +270,10 @@ export default function Appointments(): ReactElement {
     // Call updateAppointments so we don't need to wait for it to be called
     // getConversations().catch((error) => console.log(error));
     return () => clearInterval(appointmentInterval);
+  }, []);
+
+  const updateAppointments = useCallback(() => {
+    setLoadingState({ status: 'initial' });
   }, []);
 
   return (
@@ -360,7 +296,7 @@ export default function Appointments(): ReactElement {
       healthcareServices={healthcareServices}
       appointmentDate={appointmentDate}
       setAppointmentDate={setAppointmentDate}
-      updateAppointments={() => setLoadingState({ status: 'initial' })}
+      updateAppointments={updateAppointments}
       setEditingComment={setEditingComment}
     />
   );
@@ -538,7 +474,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                           variant="contained"
                         >
                           <AddIcon />
-                          <Typography fontWeight="bold">Add patient</Typography>
+                          <Typography fontWeight="bold">Visit</Typography>
                         </Button>
                       </Link>
                     </Grid>
@@ -560,7 +496,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   variant="contained"
                 >
                   <AddIcon />
-                  <Typography fontWeight="bold">Add patient</Typography>
+                  <Typography fontWeight="bold">Visit</Typography>
                 </Button>
               </Link>
             </Box>

@@ -1,13 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import type { Patient } from 'fhir/r4b';
+import type { Account, Encounter, Patient, Questionnaire } from 'fhir/r4b';
 import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   flattenQuestionnaireAnswers,
-  getCanonicalQuestionnaire,
   getSecret,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
@@ -16,7 +15,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR,
+  PATIENT_RECORD_QUESTIONNAIRE,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   Secrets,
@@ -33,6 +32,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { mergeEncounterAccounts } from '../../../subscriptions/questionnaire-response/sub-intake-harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
@@ -55,7 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('complexly validating request parameters');
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+    const effectInput = await complexValidation(validatedParameters);
     console.log('complex validation successful');
     await performEffect(effectInput, oystehr);
     const response: UpdatePatientAccountResponse = { result: 'success' };
@@ -71,7 +71,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
-  const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
+  const {
+    questionnaireResponse,
+    items,
+    patientId,
+    providerProfileReference,
+    preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering,
+  } = input;
 
   let patientResource = await oystehr.fhir.get<Patient>({
     resourceType: 'Patient',
@@ -79,7 +86,14 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   });
 
   console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(items || [], patientResource);
+  const patientPatchOps = createMasterRecordPatchOperations(
+    {
+      questionnaireResponseItems: items || [],
+      sourceQuestionnaire: questionnaireForEnableWhenFiltering,
+      options: { filterByEnableWhen: true },
+    },
+    patientResource
+  );
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
@@ -109,7 +123,12 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   let resultBundle: Bundle;
   try {
     resultBundle = await updatePatientAccountFromQuestionnaire(
-      { questionnaireResponseItem: items, patientId, preserveOmittedCoverages },
+      {
+        questionnaireResponseItem: items,
+        patientId,
+        preserveOmittedCoverages,
+        questionnaireForEnableWhenFiltering,
+      },
       oystehr
     );
   } catch (e) {
@@ -122,21 +141,28 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     throw e;
   }
 
+  let updatedAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
+
   try {
-    const { account, guarantorResource } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    const {
+      account,
+      guarantorResource,
+      workersCompAccount: latestWorkersCompAccount,
+    } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    updatedAccount = account;
+    workersCompAccount = latestWorkersCompAccount;
+
     const stripeClient = getStripeClient(input.secrets);
 
     if (!account || !guarantorResource) {
       console.log('could not find account or guarantor, skipping stripe update');
     } else {
-      await updateStripeCustomer(
-        {
-          account,
-          guarantorResource,
-          stripeClient,
-        },
-        oystehr
-      );
+      await updateStripeCustomer({
+        account,
+        guarantorResource,
+        stripeClient,
+      });
     }
   } catch (e) {
     console.error('error updating stripe details', e);
@@ -156,6 +182,33 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   );
 
   console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
+
+  if (questionnaireResponse.encounter?.reference) {
+    const encounterId = questionnaireResponse.encounter.reference.split('/')[1];
+    const encounterResource = await oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    });
+    const patientAccountReference = updatedAccount?.id ? `Account/${updatedAccount.id}` : undefined;
+    const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+    const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+      encounterResource.account,
+      [patientAccountReference, workersCompAccountReference]
+    );
+    if (accountsChanged && updatedEncounterAccounts) {
+      await oystehr.fhir.patch<Encounter>({
+        id: encounterId,
+        resourceType: 'Encounter',
+        operations: [
+          {
+            op: encounterResource.account ? 'replace' : 'add',
+            path: '/account',
+            value: updatedEncounterAccounts,
+          },
+        ],
+      });
+    }
+  }
 };
 
 interface AuditEventInput {
@@ -317,9 +370,10 @@ interface FinishedInput extends BasicInput {
   providerProfileReference: string;
   items: QuestionnaireResponseItem[];
   preserveOmittedCoverages: boolean;
+  questionnaireForEnableWhenFiltering: Questionnaire;
 }
 
-const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promise<FinishedInput> => {
+const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   const { secrets, userToken, questionnaireResponse } = input;
   console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
   const oystehr = createOystehrClient(userToken, secrets);
@@ -333,17 +387,7 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
   if (!providerProfileReference) {
     throw NOT_AUTHORIZED;
   }
-  const [url, version] = (questionnaireResponse.questionnaire ?? ' | ').split('|');
-  const questionnaire = await getCanonicalQuestionnaire(
-    {
-      url: url,
-      version: version,
-    },
-    oystehrM2M
-  );
-  if (!questionnaire) {
-    throw QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR;
-  }
+  const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
 
   const preserveOmittedCoverages = questionnaireResponse.item?.length === 1;
   console.log('preserveOmittedCoverages', preserveOmittedCoverages);
@@ -409,5 +453,6 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
     providerProfileReference,
     items,
     preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering: questionnaire,
   };
 };

@@ -10,7 +10,7 @@ terraform {
 ##### EHR Bucket #####
 
 resource "aws_s3_bucket" "ehr_bucket" {
-  bucket        = "ottehr-${var.project_id}-ehr.ottehr.com"
+  bucket        = var.ehr_bucket_name == null ? "ottehr-${var.project_id}-ehr.ottehr.com" : var.ehr_bucket_name
   force_destroy = true
   lifecycle {
     prevent_destroy = true
@@ -102,6 +102,15 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
     }
   }
   aliases = var.ehr_domain == null ? [] : [var.ehr_domain]
+  ordered_cache_behavior {
+    path_pattern           = "index.html"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "ottehr-ehr-${var.project_id}"
+    viewer_protocol_policy = "allow-all"
+    compress               = true
+    cache_policy_id        = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+  }
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
@@ -129,7 +138,7 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
 ##### Patient Portal Bucket #####
 
 resource "aws_s3_bucket" "patient_portal_bucket" {
-  bucket        = "ottehr-${var.project_id}-intake.ottehr.com"
+  bucket        = var.patient_portal_bucket_name == null ? "ottehr-${var.project_id}-intake.ottehr.com" : var.patient_portal_bucket_name
   force_destroy = true
   lifecycle {
     prevent_destroy = true
@@ -220,6 +229,15 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
     }
   }
   aliases = var.patient_portal_domain == null ? [] : [var.patient_portal_domain]
+  ordered_cache_behavior {
+    path_pattern           = "index.html"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "ottehr-patient-portal-${var.project_id}"
+    viewer_protocol_policy = "allow-all"
+    compress               = true
+    cache_policy_id        = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+  }
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]

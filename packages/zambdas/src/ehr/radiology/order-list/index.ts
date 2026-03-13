@@ -2,18 +2,29 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import {
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  formatDate,
+  getExtension,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
   getSecret,
   isPositiveNumberOrZero,
+  ORDER_TYPE_CODE_SYSTEM,
   Pagination,
+  RADIOLOGY_TASK,
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
-  RoleType,
-  Secrets,
   SecretsKeys,
-  User,
+  SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+  Task as OttehrTask,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -22,16 +33,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import {
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  ORDER_TYPE_CODE_SYSTEM,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-} from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -49,14 +50,14 @@ const ZAMBDA_NAME = 'radiology-order-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.log('input body, ', JSON.stringify(unsafeInput.body));
+
     const secrets = validateSecrets(unsafeInput.secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
     const validatedInput = await validateInput(unsafeInput);
-
-    await accessCheck(validatedInput.callerAccessToken, secrets);
 
     const response = await performEffect(validatedInput, oystehr);
 
@@ -69,22 +70,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
-
-const accessCheck = async (callerAccessToken: string, secrets: Secrets): Promise<void> => {
-  const callerUser = await getCallerUserWithAccessToken(callerAccessToken, secrets);
-
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
-
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
-};
 
 const performEffect = async (
   validatedInput: ValidatedInput,
@@ -142,7 +127,7 @@ export const getRadiologyOrders = async (
     searchParams.push({ name: 'subject', value: `Patient/${patientId}` });
   } else if (serviceRequestId) {
     searchParams.push({ name: '_id', value: serviceRequestId });
-  } else if (encounterIds?.length) {
+  } else if (encounterIds) {
     searchParams.push({
       name: 'encounter',
       value: encounterIds.map((id) => `Encounter/${id}`).join(','),
@@ -234,41 +219,86 @@ const parseResultsToOrder = (
 
   let status: RadiologyOrderStatus | undefined;
 
-  // TODO add task for 'reviewed' feature.
-  // const myReviewTask = tasks.find((task) => {
-  //   task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
-  // });
+  const finalReviewTask = tasks.find((task) => {
+    const basedOnSr = task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
+    const isRadiologyTask = task.groupIdentifier?.value === RADIOLOGY_TASK.category;
+    const isFinalReview = task.code?.coding?.some(
+      (c) => c.system === RADIOLOGY_TASK.system && c.code === RADIOLOGY_TASK.code.reviewFinalResultTask
+    );
+    return basedOnSr && isRadiologyTask && isFinalReview && task.status !== 'cancelled';
+  });
+  console.log('finalReviewTask found: ', finalReviewTask?.id);
+  let formattedFinalReviewTask: OttehrTask | undefined;
 
   // Get all diagnostic reports related to this service request
   const relatedDiagnosticReports = diagnosticReports.filter(
     (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
   );
 
-  // Find the best diagnostic report using our priority logic
-  const preliminaryDiagnosticReport = relatedDiagnosticReports.find((report) => report.status === 'preliminary');
-  const bestDiagnosticReport = takeTheBestDiagnosticReport(relatedDiagnosticReports);
+  const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
+  const preliminaryReportData = preliminaryDiagnosticReport?.presentedForm?.find(
+    (attachment) => attachment.contentType === 'text/html'
+  )?.data;
 
-  const result = bestDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
+  const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
+  const finalReportData = bestFinalReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
     ?.data;
+
+  // Check if order is being or was sent for final read and we are awaiting the final read.
+  const existingExtensions = serviceRequest.extension;
+  const hasNeedsFinalReadExtension = existingExtensions?.some(
+    (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+  );
 
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
-  } else if (serviceRequest.status === 'completed' && !bestDiagnosticReport) {
+  } else if (serviceRequest.status === 'completed' && !preliminaryDiagnosticReport && !bestFinalReport) {
     status = RadiologyOrderStatus.performed;
-  } else if (bestDiagnosticReport?.status === 'preliminary') {
+  } else if (preliminaryDiagnosticReport && !hasNeedsFinalReadExtension && !bestFinalReport) {
     status = RadiologyOrderStatus.preliminary;
-  } else if (bestDiagnosticReport?.status === 'final') {
-    // && myReviewTask?.status === 'ready') {
-    status = RadiologyOrderStatus.final;
-    // } else if (myReviewTask?.status === 'completed') {
-    //   status = RadiologyOrderStatus.reviewed;
+  } else if (preliminaryDiagnosticReport && hasNeedsFinalReadExtension && !bestFinalReport) {
+    status = RadiologyOrderStatus.pendingFinal;
+  } else if (bestFinalReport?.status === 'final') {
+    if (finalReviewTask?.status === 'completed') {
+      status = RadiologyOrderStatus.reviewed;
+    } else {
+      status = RadiologyOrderStatus.final;
+      if (finalReviewTask) {
+        const orderDate = serviceRequest.extension?.find(
+          (ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL
+        )?.valueDateTime;
+        let taskSubtitle = `Ordered by ${providerFirstName} ${providerLastName} on ${formatDate(
+          orderDate ?? '',
+          'MM/dd/yyyy h:mm a'
+        )}`;
+        if (finalReviewTask?.location?.display) {
+          taskSubtitle += ` | ${finalReviewTask?.location?.display}`;
+        }
+        formattedFinalReviewTask = {
+          id: finalReviewTask?.id || '',
+          category: RADIOLOGY_TASK.category,
+          createdDate: finalReviewTask?.authoredOn ?? '',
+          title: 'Review Radiology Final Results',
+          subtitle: taskSubtitle,
+          status: finalReviewTask?.status || 'unknown',
+          assignee: finalReviewTask?.owner
+            ? {
+                id: finalReviewTask.owner?.reference?.split('/')?.[1] ?? '',
+                name: finalReviewTask.owner?.display ?? '',
+                date: getExtension(finalReviewTask.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
+              }
+            : undefined,
+          completable: true,
+        };
+      }
+    }
   } else {
     throw new Error('Order is in an invalid state, could not determine status.');
   }
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, bestDiagnosticReport, preliminaryDiagnosticReport, providerName);
+  const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
 
   const clinicalHistory = extractClinicalHistory(serviceRequest);
 
@@ -282,13 +312,36 @@ const parseResultsToOrder = (
     diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
     isStat: serviceRequest.priority === 'stat',
-    result,
+    preliminaryReport: preliminaryReportData,
+    finalReport: finalReportData,
     clinicalHistory,
     history,
+    task: formattedFinalReviewTask,
   };
 };
 
-const takeTheBestDiagnosticReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
+const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
+  if (!reports.length) return undefined;
+
+  return reports.reduce((mostRecent, current) => {
+    if (!current.issued) return mostRecent;
+    if (!mostRecent.issued) return current;
+
+    return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
+  });
+};
+
+const takeMostRecentPreliminaryReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
+  if (!diagnosticReports.length) {
+    return undefined;
+  }
+
+  const preliminaryReports = diagnosticReports.filter((report) => report.status === 'preliminary');
+
+  return getMostRecentReport(preliminaryReports);
+};
+
+const takeTheBestFinalDiagnosticReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
   if (!diagnosticReports.length) {
     return undefined;
   }
@@ -299,31 +352,15 @@ const takeTheBestDiagnosticReport = (diagnosticReports: DiagnosticReport[]): Dia
   );
 
   const finalReports = diagnosticReports.filter((report) => report.status === 'final');
-  const preliminaryReports = diagnosticReports.filter((report) => report.status === 'preliminary');
-
-  // Helper function to get the most recent report by issued datetime
-  const getMostRecent = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
-    if (!reports.length) return undefined;
-
-    return reports.reduce((mostRecent, current) => {
-      if (!current.issued) return mostRecent;
-      if (!mostRecent.issued) return current;
-
-      return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
-    });
-  };
 
   // Apply priority logic
   if (amendedCorrectedAppended.length > 0) {
-    return getMostRecent(amendedCorrectedAppended);
+    return getMostRecentReport(amendedCorrectedAppended);
   } else if (finalReports.length > 0) {
-    return getMostRecent(finalReports);
-  } else if (preliminaryReports.length > 0) {
-    return getMostRecent(preliminaryReports);
+    return getMostRecentReport(finalReports);
   }
 
-  // If no reports match the expected statuses, return the first one
-  return diagnosticReports[0];
+  return undefined;
 };
 
 const buildHistory = (
@@ -351,7 +388,7 @@ const buildHistory = (
   if (performedHistoryExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.performed,
-      performer: 'See AdvaPACS',
+      performer: '',
       date: performedHistoryExtensionValue,
     });
   }
@@ -365,22 +402,40 @@ const buildHistory = (
   if (diagnosticReportPreliminaryReadTimeExtensionValueFromBest) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
-      performer: 'See AdvaPACS',
+      performer: '',
       date: diagnosticReportPreliminaryReadTimeExtensionValueFromBest,
     });
   } else if (diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
-      performer: 'See AdvaPACS',
+      performer: '',
       date: diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary,
     });
   }
 
-  if (bestDiagnosticReport?.issued) {
+  // Check if order is being or was sent for final read and we are awaiting the final read.
+  const existingExtensions = serviceRequest.extension;
+  const hasNeedsFinalReadExtension = existingExtensions?.some(
+    (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+  );
+  if (hasNeedsFinalReadExtension) {
+    const needsFinalReadExtensionValue = existingExtensions?.find(
+      (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+    )?.valueDateTime;
+    if (needsFinalReadExtensionValue) {
+      history.push({
+        status: RadiologyOrderStatus.pendingFinal,
+        performer: '',
+        date: needsFinalReadExtensionValue,
+      });
+    }
+  }
+
+  if (bestDiagnosticReport) {
     history.push({
       status: RadiologyOrderStatus.final,
-      performer: 'See AdvaPACS',
-      date: bestDiagnosticReport.issued,
+      performer: '',
+      date: bestDiagnosticReport.issued || bestDiagnosticReport.meta?.lastUpdated || '',
     });
   }
 

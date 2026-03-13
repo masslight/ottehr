@@ -1,8 +1,9 @@
 import DownloadIcon from '@mui/icons-material/Download';
-import { Box, Button, CircularProgress, Divider, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Divider, Link, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
-import { GetVisitDetailsResponse } from 'utils';
+import { VisitFiles, VisitFileType, visitFileTypes } from 'src/types/types';
+import { FileURLs, GetVisitDetailsResponse } from 'utils';
 import { intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetVisitDetails } from '../telemed/features/appointments';
@@ -10,39 +11,31 @@ import { useIntakeCommonStore } from '../telemed/features/common';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { useOystehrAPIClient } from '../telemed/utils';
 
-const ExcuseNoteContent = ({
-  data,
-  docType,
-}: {
-  data: GetVisitDetailsResponse | undefined;
-  docType: string;
-}): JSX.Element | null => {
-  const openExternalLink = useOpenExternalLink();
+function adaptVisitFiles(files?: FileURLs): VisitFiles | undefined {
+  if (!files) return undefined;
 
-  return data?.files[docType] ? (
-    <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-        <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
-          {docType} note
-        </Typography>
-        <Button
-          variant="text"
-          startIcon={<DownloadIcon />}
-          onClick={() => {
-            openExternalLink(data.files[docType].presignedUrl || '');
-          }}
-          disabled={!data?.files[docType].presignedUrl}
-        >
-          Download PDF
-        </Button>
-      </Box>
+  const result: VisitFiles = {};
 
-      <Divider sx={{ my: 3 }} />
-    </>
-  ) : (
-    <></>
-  );
-};
+  for (const key of Object.values(visitFileTypes)) {
+    if (files[key]) {
+      result[key] = files[key];
+    }
+  }
+
+  return result;
+}
+
+const FILE_SECTIONS: {
+  key: VisitFileType;
+  label: string;
+}[] = [
+  { key: visitFileTypes.visitNote, label: 'Full visit note' },
+  { key: visitFileTypes.dischargeSummary, label: 'Discharge papers' },
+  { key: visitFileTypes.school, label: 'School note' },
+  { key: visitFileTypes.work, label: 'Work note' },
+  { key: visitFileTypes.receipt, label: 'Receipt' },
+  { key: visitFileTypes.statement, label: 'Statement' },
+];
 
 const VisitDetailsContent = ({
   data,
@@ -67,45 +60,66 @@ const VisitDetailsContent = ({
     );
   }
 
+  const typedFiles = adaptVisitFiles(data?.files);
+
   return (
     <>
-      {data?.files['visit-note'] && (
-        <>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
-              Full visit note
-            </Typography>
-            <Button
-              variant="text"
-              startIcon={<DownloadIcon />}
-              onClick={() => {
-                openExternalLink(data.files['visit-note'].presignedUrl || '');
-              }}
-              disabled={!data?.files['visit-note'].presignedUrl}
-            >
-              Download PDF
-            </Button>
-          </Box>
+      <Stack spacing={2} divider={<Divider />}>
+        {FILE_SECTIONS.map(({ key, label }) => {
+          const file = typedFiles?.[key];
+          if (!file) return null;
 
-          <Divider sx={{ my: 3 }} />
-        </>
+          const url = file.presignedUrl;
+
+          return (
+            <Box key={key}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+                  {label}
+                </Typography>
+
+                <Button
+                  variant="text"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => url && openExternalLink(url)}
+                  disabled={!url}
+                >
+                  Download PDF
+                </Button>
+              </Box>
+            </Box>
+          );
+        })}
+      </Stack>
+
+      {!!(data?.medications && data.medications.length > 0) && (
+        <Box>
+          <Typography variant="subtitle1" color="primary.dark">
+            Medications Prescribed
+          </Typography>
+          {data?.medications.map((medication) => (
+            <Box sx={{ mb: 3 }} key={medication.resourceId}>
+              <Typography sx={{ fontSize: 18 }}>{medication.name}</Typography>
+              <Typography sx={{ fontSize: 14 }}>{medication.instructions}</Typography>
+            </Box>
+          ))}
+        </Box>
       )}
 
-      {['school', 'work'].map((docType) => (
-        <ExcuseNoteContent key={docType} data={data} docType={docType} />
-      ))}
-
-      <Box>
-        <Typography variant="subtitle1" color="primary.dark">
-          Medications Prescribed
-        </Typography>
-        {data?.medications.map((medication) => (
-          <Box sx={{ mb: 3 }} key={medication.resourceId}>
-            <Typography sx={{ fontSize: 18 }}>{medication.name}</Typography>
-            <Typography sx={{ fontSize: 14 }}>{medication.instructions}</Typography>
-          </Box>
-        ))}
-      </Box>
+      {!!(data?.reviewedLabResults && data?.reviewedLabResults.length > 0) && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: '8px' }}>
+          <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+            Labs
+          </Typography>
+          {data.reviewedLabResults.map((labResult, idx) => (
+            <Box key={`${idx}-lab-result`}>
+              <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(labResult.presignedUrl || '')}>
+                {labResult.description}
+              </Link>
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {data?.followUps && data.followUps.length > 0 && (
         <>
@@ -122,7 +136,7 @@ const VisitDetailsContent = ({
                 const dt = DateTime.fromISO(followUp.encounterTime);
                 return dt.toFormat('MMMM dd, yyyy');
               })();
-              const hasVisitNote = Boolean(followUp.documents['visit-note']?.presignedUrl);
+              const hasVisitNote = Boolean(followUp.documents[visitFileTypes.visitNote]?.presignedUrl);
 
               return (
                 <Box key={index} sx={{ mb: 3 }}>
@@ -135,9 +149,9 @@ const VisitDetailsContent = ({
                         variant="text"
                         startIcon={<DownloadIcon />}
                         onClick={() => {
-                          openExternalLink(followUp.documents['visit-note'].presignedUrl || '');
+                          openExternalLink(followUp.documents[visitFileTypes.visitNote].presignedUrl || '');
                         }}
-                        disabled={!followUp.documents['visit-note']?.presignedUrl}
+                        disabled={!followUp.documents[visitFileTypes.visitNote]?.presignedUrl}
                       >
                         View Follow-up Note
                       </Button>
@@ -149,8 +163,6 @@ const VisitDetailsContent = ({
           </Box>
         </>
       )}
-
-      <Divider />
     </>
   );
 };

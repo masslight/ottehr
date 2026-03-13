@@ -16,7 +16,6 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { FormSelect } from 'src/components/form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { Row, Section } from 'src/components/layout';
-import { RX_HISTORY_CONSENT_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { usePatientStore } from 'src/state/patient.store';
 import {
@@ -26,6 +25,7 @@ import {
   PATIENT_RX_HISTORY_CONSENT_STATUS_URL,
   patientFieldPaths,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  VALUE_SETS,
 } from 'utils';
 
 export const SettingsContainer: FC = () => {
@@ -84,10 +84,10 @@ export const SettingsContainer: FC = () => {
           name={patientFieldPaths.rxHistoryConsentStatus}
           control={control}
           defaultValue={rxHistoryConsentStatus}
-          options={RX_HISTORY_CONSENT_OPTIONS}
+          options={VALUE_SETS.rxHistoryConsentOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) => RX_HISTORY_CONSENT_OPTIONS.some((option) => option.value === value),
+            validate: (value: string) => VALUE_SETS.rxHistoryConsentOptions.some((option) => option.value === value),
           }}
         />
       </Row>

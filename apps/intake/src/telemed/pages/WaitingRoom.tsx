@@ -1,13 +1,16 @@
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { AppointmentType, getSelectors } from 'utils';
+import { ottehrApi } from 'src/api';
+import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
+import { AppointmentType, BRANDING_CONFIG, getSelectors } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
+import { primaryIcon } from '../../branding/assets';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
 import { IntakeThemeContext } from '../../contexts';
 import { CallSettings, CancelVisitDialog } from '../components';
@@ -22,6 +25,7 @@ import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room'
 const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const zambdaClient = useUCZambdaClient({ tokenless: true });
   const { otherColors } = useContext(IntakeThemeContext);
   const { estimatedTime, numberInLine } = getSelectors(useWaitingRoomStore, ['estimatedTime', 'numberInLine']);
   const [searchParams, _] = useSearchParams();
@@ -44,6 +48,22 @@ const WaitingRoom = (): JSX.Element => {
   }, [urlAppointmentID, persistedAppointmentId]);
 
   const currentAppointmentId = urlAppointmentID || persistedAppointmentId || '';
+
+  useEffect(() => {
+    if (!currentAppointmentId || !zambdaClient) return;
+
+    ottehrApi
+      .createWaitingRoomNotification(
+        {
+          appointmentId: currentAppointmentId,
+        },
+        zambdaClient
+      )
+      .catch((error) => {
+        console.error('Failed to create notification', error);
+        safelyCaptureException(error);
+      });
+  }, [currentAppointmentId, zambdaClient]);
 
   useGetWaitStatus(
     (data) => {
@@ -87,8 +107,8 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title="Waiting room"
-      img={ottehrLightBlue}
-      imgAlt="ottehr icon"
+      img={primaryIcon}
+      imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={80}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
     >
@@ -140,7 +160,7 @@ const WaitingRoom = (): JSX.Element => {
               primaryText="Leave waiting room"
               secondaryText="We will notify you once the call starts"
             >
-              <img alt="ottehr icon" src={ottehrLightBlue} width={24} />
+              <LogoutIcon color="secondary" />
             </StyledListItemWithButton>
 
             <StyledListItemWithButton

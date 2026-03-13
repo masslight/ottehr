@@ -2,6 +2,7 @@ import { Box, CircularProgress, Divider, Paper, Stack, TextField, Typography } f
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createNursingOrder } from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -55,7 +56,7 @@ export const NursingOrderCreatePage: React.FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
         <BreadCrumbs />
 
-        <Typography variant="h4" color="primary.dark">
+        <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
           Nursing Order
         </Typography>
 
@@ -78,6 +79,7 @@ export const NursingOrderCreatePage: React.FC = () => {
                     onChange={(e) => setOrderNote(e.target.value)}
                     required
                     inputProps={{ maxLength: 150 }}
+                    data-testid={dataTestIds.nursingOrderCreatePage.orderNoteInput}
                   />
                 </Box>
                 <Divider />
@@ -91,6 +93,7 @@ export const NursingOrderCreatePage: React.FC = () => {
                         px: 4,
                         py: 1,
                       }}
+                      data-testid={dataTestIds.nursingOrderCreatePage.cancelButton}
                     >
                       Cancel
                     </ButtonRounded>
@@ -104,6 +107,7 @@ export const NursingOrderCreatePage: React.FC = () => {
                           px: 4,
                           py: 1,
                         }}
+                        data-testid={dataTestIds.nursingOrderCreatePage.orderButton}
                       >
                         Order
                       </ButtonRounded>

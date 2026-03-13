@@ -5,12 +5,13 @@ import { applyOverridesToDailySchedule, DOW, ScheduleDay, ScheduleExtension } fr
 export function isClosureOverride(closures: Closure[], timezone: Timezone, currentDate: DateTime): boolean {
   const result = closures.some((closure) => {
     const { start, end } = closure;
-    const closureStart = DateTime.fromFormat(start, OVERRIDE_DATE_FORMAT, { zone: timezone });
-    if (closureStart.ordinal === currentDate.ordinal) {
+    const closureStart = DateTime.fromFormat(start, OVERRIDE_DATE_FORMAT, { zone: timezone }).startOf('day');
+    const currentDay = currentDate.setZone(timezone).startOf('day');
+    if (closureStart.valueOf() === currentDay.valueOf()) {
       return true;
     } else if (end) {
-      const closureEnd = DateTime.fromFormat(end, OVERRIDE_DATE_FORMAT, { zone: timezone });
-      return currentDate.ordinal >= closureStart.ordinal && currentDate.ordinal <= closureEnd.ordinal;
+      const closureEnd = DateTime.fromFormat(end, OVERRIDE_DATE_FORMAT, { zone: timezone }).startOf('day');
+      return currentDay.valueOf() >= closureStart.valueOf() && currentDay.valueOf() <= closureEnd.valueOf();
     }
     return false;
   });
@@ -36,12 +37,7 @@ export function getOpeningTime(
   if (!currentHoursOfOperation.workingDay) {
     return undefined;
   }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.open });
-  return dt.set({
-    year: currentDate.year,
-    month: currentDate.month,
-    day: currentDate.day,
-  });
+  return currentDate.setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.open });
 }
 
 export function getClosingTime(
@@ -64,12 +60,10 @@ export function getClosingTime(
   if (!currentHoursOfOperation.workingDay) {
     return undefined;
   }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.close });
-  const formattedClosingTime = dt.set({
-    year: currentDate.year,
-    month: currentDate.month,
-    day: currentDate.day,
-  });
+  const formattedClosingTime = currentDate
+    .setZone(timezone)
+    .startOf('day')
+    .plus({ hours: currentHoursOfOperation.close });
   // if time is midnight, add 1 day to closing time
   if (
     formattedClosingTime !== undefined &&

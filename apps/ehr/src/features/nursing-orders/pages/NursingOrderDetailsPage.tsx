@@ -2,6 +2,7 @@ import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCi
 import { Box, Button, CircularProgress, Collapse, Divider, IconButton, Paper, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 import { History } from '../components/details/History';
@@ -99,7 +100,7 @@ export const NursingOrderDetailsPage: React.FC = () => {
             </Typography>
           </Box>
           <Divider />
-          <Collapse in={showHistory}>
+          <Collapse in={showHistory} data-testid={dataTestIds.nursingOrderDetailsPage.historyToggleButton}>
             <History orderHistory={order.history} />
           </Collapse>
         </Paper>

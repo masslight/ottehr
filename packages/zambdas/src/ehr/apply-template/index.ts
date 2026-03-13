@@ -6,11 +6,16 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
-import { ApplyTemplateZambdaInput, chunkThings, getSecret, SecretsKeys } from 'utils';
+import {
+  ApplyTemplateZambdaInput,
+  chunkThings,
+  getSecret,
+  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
+  SecretsKeys,
+} from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from '../../shared/templates';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -104,9 +109,12 @@ const performEffect = async (
       ],
     })
   ).unbundle();
-
+  // Temporary workaround: ROS_TEMPLATE_GENERAL should not delete existing resources.
+  // We skip delete requests for this template to preserve current data.
+  // TODO: move this behavior to a more generic logic.
+  const isRosTemplate = templateList.title === 'ROS : 14 Systems';
   // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
-  const deleteRequests = await makeDeleteRequests(encounterBundle);
+  const deleteRequests = await makeDeleteRequests(encounterBundle, { skipDelete: isRosTemplate });
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
@@ -154,7 +162,12 @@ const performEffect = async (
   // console.log('Transaction Bundle:', transactionBundle);
 };
 
-const makeDeleteRequests = async (encounterBundle: FhirResource[]): Promise<BatchInputDeleteRequest[]> => {
+const makeDeleteRequests = async (
+  encounterBundle: FhirResource[],
+  options?: { skipDelete?: boolean }
+): Promise<BatchInputDeleteRequest[]> => {
+  if (options?.skipDelete) return [];
+
   const deleteResourcesRequests: BatchInputDeleteRequest[] = [];
 
   const resourcesToDelete = encounterBundle.filter(
@@ -212,8 +225,14 @@ const makeCreateRequests = (
       )
   );
 
+  const existingRosCondition = encounterBundle.find(
+    (resource) =>
+      resource.meta?.tag?.some((tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/ros')
+  );
+
   const templateEncounterDiagnoses = templateList.contained?.find((r) => r.resourceType === 'Encounter')?.diagnosis;
   let templateHpiCondition: Condition | undefined;
+  let templateRosCondition: Condition | undefined;
 
   for (const resource of templateList.entry) {
     // grab contained resource from resource.id in entry
@@ -231,6 +250,16 @@ const makeCreateRequests = (
       existingHpiCondition
     ) {
       templateHpiCondition = containedResource as Condition;
+      continue;
+    }
+
+    if (
+      containedResource.meta?.tag?.some(
+        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/ros'
+      ) &&
+      existingRosCondition
+    ) {
+      templateRosCondition = containedResource as Condition;
       continue;
     }
 
@@ -304,6 +333,23 @@ const makeCreateRequests = (
           op: 'replace',
           path: '/note/0/text',
           value: `${condition.note?.[0]?.text}\n\n${templateHpiCondition?.note?.[0]?.text}`,
+        },
+      ],
+    };
+    createResourcesRequests.push(encounterDiagnosisPatch);
+  }
+
+  // Patch ROS note if it already exists
+  if (existingRosCondition) {
+    const condition = existingRosCondition as Condition;
+    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+      method: 'PATCH',
+      url: `Condition/${condition.id}`,
+      operations: [
+        {
+          op: 'replace',
+          path: '/note/0/text',
+          value: `${condition.note?.[0]?.text}\n\n${templateRosCondition?.note?.[0]?.text}`,
         },
       ],
     };

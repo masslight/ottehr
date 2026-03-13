@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import React, { useState } from 'react';
 import { CSSProperties } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExtendedMedicationDataForResponse } from 'utils';
 import { Loader } from '../../../../shared/components/Loader';
 import { useMedicationAPI } from '../../../hooks/useMedicationOperations';
@@ -42,10 +43,12 @@ const sortByDateTimeCreated = (
 export const MarTable: React.FC = () => {
   const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
-  const { medications, isLoading } = useMedicationAPI();
+  const { medications, cancelledMedications, isLoading } = useMedicationAPI();
 
-  const pendingMedications = sortByDateTimeCreated(medications?.filter?.((med) => med.status === 'pending') || []);
-  const completedMedications = sortByDateTimeCreated(medications?.filter?.((med) => med.status !== 'pending') || []);
+  // show cancelled in-house medications in the completed section for the backward compatibility
+  const allMedications = [...medications, ...cancelledMedications];
+  const pendingMedications = sortByDateTimeCreated(allMedications?.filter?.((med) => med.status === 'pending') || []);
+  const completedMedications = sortByDateTimeCreated(allMedications?.filter?.((med) => med.status !== 'pending') || []);
 
   const handlePendingToggle = (): void => {
     setIsPendingCollapsed((prev) => !prev);
@@ -72,7 +75,7 @@ export const MarTable: React.FC = () => {
   };
 
   if (isLoading) {
-    return <Loader height={'300px'} />;
+    return <Loader height={'300px'} data-testid={dataTestIds.inHouseMedicationsPage.marTableLoader} />;
   }
 
   return (

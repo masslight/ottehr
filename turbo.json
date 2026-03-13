@@ -35,10 +35,11 @@
     "lint:fix": {
       "cache": false
     },
-    "integration:zambdas": {
-      "cache": false
-    },
     "e2e:login": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "e2e:login:ui": {
       "cache": false,
       "dependsOn": ["^build"]
     },

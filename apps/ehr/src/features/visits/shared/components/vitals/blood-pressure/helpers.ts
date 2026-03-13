@@ -2,7 +2,7 @@ import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils';
 
 export const textToBloodPressureNumber = (text: string): number | undefined => {
   const bpVal = textToNumericValue(text);
-  if (!bpVal) return;
+  if (bpVal === undefined) return;
   return roundPressureValue(bpVal);
 };
 
