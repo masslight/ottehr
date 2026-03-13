@@ -420,6 +420,147 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
     expect(result.find((item) => item.linkId === 'patient-point-of-discovery')).toBeDefined();
   });
 
+  it('should resolve cross-section enableWhen when using includeSections', () => {
+    // Regression test: when harvesting a single section, enableWhen conditions that reference
+    // items in a different section must still be evaluated correctly.
+    const responseItems: QuestionnaireResponseItem[] = [
+      {
+        linkId: 'contact-information-page',
+        text: 'Contact information',
+        item: [
+          { linkId: 'is-new-qrs-patient', text: 'Is New Patient?', answer: [{ valueBoolean: true }] },
+          { linkId: 'patient-email', text: 'Email', answer: [{ valueString: 'test@example.com' }] },
+        ],
+      },
+      {
+        linkId: 'patient-details-page',
+        text: 'Patient details',
+        item: [
+          { linkId: 'patient-first-name', text: 'First Name', answer: [{ valueString: 'John' }] },
+          {
+            linkId: 'patient-point-of-discovery',
+            text: 'How did you hear about us?',
+            answer: [{ valueString: 'Website' }],
+          },
+        ],
+      },
+    ];
+
+    const questionnaire: Questionnaire = {
+      resourceType: 'Questionnaire',
+      status: 'active',
+      item: [
+        {
+          linkId: 'contact-information-page',
+          text: 'Contact information',
+          type: 'group',
+          item: [
+            { linkId: 'is-new-qrs-patient', text: 'Is New Patient?', type: 'boolean', readOnly: true },
+            { linkId: 'patient-email', text: 'Email', type: 'string' },
+          ],
+        },
+        {
+          linkId: 'patient-details-page',
+          text: 'Patient details',
+          type: 'group',
+          item: [
+            { linkId: 'patient-first-name', text: 'First Name', type: 'string' },
+            {
+              linkId: 'patient-point-of-discovery',
+              text: 'How did you hear about us?',
+              type: 'choice',
+              enableWhen: [
+                {
+                  question: 'is-new-qrs-patient',
+                  operator: '=',
+                  answerBoolean: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Harvest only patient-details-page — enableWhen references is-new-qrs-patient from contact-information-page
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true, includeSections: ['patient-details-page'] },
+    });
+
+    // is-new-qrs-patient is true, so patient-point-of-discovery should be kept
+    expect(result).toHaveLength(2);
+    expect(result.find((item) => item.linkId === 'patient-first-name')).toBeDefined();
+    expect(result.find((item) => item.linkId === 'patient-point-of-discovery')).toBeDefined();
+  });
+
+  it('should filter cross-section enableWhen item when condition is false with includeSections', () => {
+    const responseItems: QuestionnaireResponseItem[] = [
+      {
+        linkId: 'contact-information-page',
+        text: 'Contact information',
+        item: [{ linkId: 'is-new-qrs-patient', text: 'Is New Patient?', answer: [{ valueBoolean: false }] }],
+      },
+      {
+        linkId: 'patient-details-page',
+        text: 'Patient details',
+        item: [
+          { linkId: 'patient-first-name', text: 'First Name', answer: [{ valueString: 'John' }] },
+          {
+            linkId: 'patient-point-of-discovery',
+            text: 'How did you hear about us?',
+            answer: [{ valueString: 'Website' }],
+          },
+        ],
+      },
+    ];
+
+    const questionnaire: Questionnaire = {
+      resourceType: 'Questionnaire',
+      status: 'active',
+      item: [
+        {
+          linkId: 'contact-information-page',
+          text: 'Contact information',
+          type: 'group',
+          item: [{ linkId: 'is-new-qrs-patient', text: 'Is New Patient?', type: 'boolean', readOnly: true }],
+        },
+        {
+          linkId: 'patient-details-page',
+          text: 'Patient details',
+          type: 'group',
+          item: [
+            { linkId: 'patient-first-name', text: 'First Name', type: 'string' },
+            {
+              linkId: 'patient-point-of-discovery',
+              text: 'How did you hear about us?',
+              type: 'choice',
+              enableWhen: [
+                {
+                  question: 'is-new-qrs-patient',
+                  operator: '=',
+                  answerBoolean: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = prepareQuestionnaireResponseForHarvest({
+      questionnaireResponseItems: responseItems,
+      sourceQuestionnaire: questionnaire,
+      options: { filterByEnableWhen: true, includeSections: ['patient-details-page'] },
+    });
+
+    // is-new-qrs-patient is false, so patient-point-of-discovery should be filtered out
+    expect(result).toHaveLength(1);
+    expect(result.find((item) => item.linkId === 'patient-first-name')).toBeDefined();
+    expect(result.find((item) => item.linkId === 'patient-point-of-discovery')).toBeUndefined();
+  });
+
   it('should filter out nested items when enableWhen condition is false', () => {
     // This tests that filtering still works correctly with nested items
     const responseItems: QuestionnaireResponseItem[] = [

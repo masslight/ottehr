@@ -30,6 +30,7 @@ import {
   APIError,
   BillingSuggestionInput,
   CancelMatchUnsolicitedResultTask,
+  CODE_SYSTEM_NDC,
   CPTSearchRequestParams,
   createSmsModel,
   filterResources,
@@ -993,11 +994,13 @@ export const useGetMedicationOrders = (
 type MedicationListData = {
   idToName: Record<string, string>;
   idToMedispanCode: Record<string, string>;
+  idToNdc: Record<string, string>;
 };
 
 const emptyMedicationListData: MedicationListData = {
   idToName: {},
   idToMedispanCode: {},
+  idToNdc: {},
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -1007,6 +1010,7 @@ export const useGetMedicationList = () => {
   const buildMedicationListData = (data: Medication[]): MedicationListData => {
     const idToName: Record<string, string> = {};
     const idToMedispanCode: Record<string, string> = {};
+    const idToNdc: Record<string, string> = {};
     for (const entry of data || []) {
       const identifier = entry.identifier?.find((id: Coding) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
       if (identifier?.value && entry.id) {
@@ -1018,8 +1022,12 @@ export const useGetMedicationList = () => {
       if (medispanCoding?.code && entry.id) {
         idToMedispanCode[entry.id] = medispanCoding.code;
       }
+      const ndcCoding = entry.code?.coding?.find((c: Coding) => c.system === CODE_SYSTEM_NDC);
+      if (ndcCoding?.code && entry.id) {
+        idToNdc[entry.id] = ndcCoding.code;
+      }
     }
-    return { idToName, idToMedispanCode };
+    return { idToName, idToMedispanCode, idToNdc };
   };
 
   const queryResult = useQuery({

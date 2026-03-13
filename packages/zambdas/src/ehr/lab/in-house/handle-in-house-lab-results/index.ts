@@ -792,9 +792,15 @@ const makeDiagnosticReportRequest = (
   }
 
   if (existingDiagnosticReport && existingDiagnosticReport.id) {
+    const { tag: _removedTag, ...existingMetaWithoutTag } = existingDiagnosticReport.meta ?? {};
+
     const updatedDiagnosticReport = {
       ...existingDiagnosticReport,
       ...diagnosticReportConfig,
+      meta: {
+        ...existingMetaWithoutTag,
+        ...(diagnosticReportConfig.meta ?? {}),
+      },
     };
 
     const diagnosticReportPutRequest: BatchInputPutRequest<DiagnosticReport> = {

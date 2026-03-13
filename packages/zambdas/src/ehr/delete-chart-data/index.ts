@@ -96,6 +96,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       notes,
       vitalsObservations,
       procedures,
+      accident,
     } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -257,6 +258,10 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     episodeOfCare?.forEach((element) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('EpisodeOfCare', element.resourceId!));
     });
+
+    if (accident) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', accident.resourceId!));
+    }
 
     if (updateEncounterOperations.length > 0) {
       deleteOrUpdateRequests.push(

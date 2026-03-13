@@ -73,7 +73,7 @@ const makeValidatableItem = (
   }
   if (ZIP_CODE_FIELDS.includes(item.linkId) || item.dataType === 'ZIP') {
     regex = zipRegex;
-    regexError = 'ZIP Code must be 5 numbers';
+    regexError = 'ZIP Code must be 5 or 9 numbers';
   }
   if (item.dataType === 'SSN') {
     regex = ssnRegex;
@@ -192,7 +192,10 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
 
   if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
     // Apply .oneOf() first, then .required() - order matters because .oneOf() allows undefined by default
-    let stringSchema = Yup.string().oneOf(item.answerOption.map((option) => option.valueString));
+    let stringSchema = Yup.string().oneOf(
+      item.answerOption.map((option) => option.valueString),
+      'Value must be one of the provided answer options'
+    );
     if (required) {
       stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }

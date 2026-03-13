@@ -220,6 +220,10 @@ export async function getChartData(
     );
   }
 
+  if (requestedFields?.accident) {
+    addRequestIfNeeded({ field: 'accident', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
   if (requestedFields == null) {
     // AI chat
     chartDataRequests.push(

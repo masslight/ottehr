@@ -8,6 +8,7 @@ import { MessageModel } from './ChatModal';
 
 export const useFetchChatMessagesQuery = (
   timezone: string,
+  patientId: string,
   numbersToSendTo?: string[],
   onSuccess?: (data: ConversationMessage[] | null) => void
 ): UseQueryResult<ConversationMessage[] | null, Error> => {
@@ -17,7 +18,7 @@ export const useFetchChatMessagesQuery = (
     queryKey: ['chat-messages', numbersToSendTo, timezone],
 
     queryFn: async () => {
-      const data = await getConversation(oystehrZambda!, { smsNumbers: numbersToSendTo!, timezone });
+      const data = await getConversation(oystehrZambda!, { patientId, timezone });
       return data ? data : null;
     },
 
