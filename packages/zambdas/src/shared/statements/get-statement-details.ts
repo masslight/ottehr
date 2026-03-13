@@ -12,9 +12,7 @@ import {
   Resource,
   Schedule,
 } from 'fhir/r4b';
-import fs from 'fs';
 import { DateTime } from 'luxon';
-import path from 'path';
 import {
   createCandidApiClient,
   formatDateToMDYWithTime,
@@ -28,6 +26,7 @@ import {
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
 import { getCandidEncounterIdFromEncounter } from '../candid';
+import { getLogoBase64 } from './get-logo-base64';
 
 export type StatementType = 'standard' | 'past-due' | 'final-notice';
 
@@ -68,12 +67,6 @@ interface GetStatementDetailsInput {
 }
 
 const UNKNOWN_BILLER_VALUE = 'unknown';
-
-function getLogo(): string {
-  const logoPath = path.resolve(process.cwd(), 'assets', 'logo.png');
-  const logoBuffer = fs.readFileSync(logoPath);
-  return `data:image/png;base64,${logoBuffer.toString('base64')}`;
-}
 
 const getResources = async (encounterId: string, oystehr: Oystehr): Promise<StatementResources> => {
   const items: Array<Appointment | Encounter | Patient | Location | Schedule> = (
@@ -313,7 +306,7 @@ function createStatementDetails(
   const { statementType } = input;
   const pastDue = statementType === 'past-due' || statementType === 'final-notice';
   const finalNotice = statementType === 'final-notice';
-  const logoBase64 = getLogo();
+  const logoBase64 = getLogoBase64();
   const { patient, location, appointment } = resources;
   const statementNumber = appointment.id ?? 'unknown';
   const patientName = patient.name?.[0];
