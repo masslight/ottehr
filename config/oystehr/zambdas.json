@@ -50,6 +50,13 @@
       "src": "src/ehr/daily-payments-report/index",
       "zip": ".dist/zips/daily-payments-report.zip"
     },
+    "IMMUNIZATION-REPORT": {
+      "name": "immunization-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization-report/index",
+      "zip": ".dist/zips/immunization-report.zip"
+    },
     "PRACTICE-KPIS-REPORT": {
       "name": "practice-kpis-report",
       "type": "http_auth",

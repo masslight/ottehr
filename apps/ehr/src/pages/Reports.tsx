@@ -6,6 +6,7 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SummarizeIcon from '@mui/icons-material/Summarize';
+import VaccinesIcon from '@mui/icons-material/Vaccines';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -135,6 +136,12 @@ export default function Reports(): React.ReactElement {
       description: 'View invoiceable patients report',
       icon: <SummarizeIcon />,
       path: '/reports/invoiceable-patients',
+    },
+    {
+      title: 'Immunizations',
+      description: 'View vaccine administration data including CPT/CVX/MVX codes across completed encounters',
+      icon: <VaccinesIcon />,
+      path: '/reports/immunization-report',
     },
   ];
 

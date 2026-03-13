@@ -46,6 +46,7 @@ import {
   CompleteEncounters,
   DailyPayments,
   DataExports,
+  ImmunizationReport,
   IncompleteEncounters,
   InvoiceablePatients,
   PracticeKpis,
@@ -201,6 +202,7 @@ function App(): ReactElement {
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                   <Route path="/reports/recent-patients" element={<RecentPatients />} />
                   <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
+                  <Route path="/reports/immunization-report" element={<ImmunizationReport />} />
                 </>
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
