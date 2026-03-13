@@ -13,15 +13,23 @@ function getLogo(): string {
   return `data:image/png;base64,${logoBuffer.toString('base64')}`;
 }
 
-export function getStatementTemplate(template: string): StatementTemplatePayload {
-  const templateFileName = template.endsWith('.html') ? template : `${template}.html`;
+function getStatementTemplateByExtension(template: string, extension: 'html' | 'json'): StatementTemplatePayload {
+  const templateFileName = template.endsWith(`.${extension}`) ? template : `${template}.${extension}`;
   const templatePath = path.resolve(process.cwd(), 'assets', 'statements', templateFileName);
-  const htmlTemplate = fs.readFileSync(templatePath, 'utf8');
+  const statementTemplate = fs.readFileSync(templatePath, 'utf8');
   const logoBase64 = getLogo();
 
   return {
-    template: htmlTemplate,
+    template: statementTemplate,
     fileName: templateFileName,
     logoBase64,
   };
+}
+
+export function getHTMLStatementTemplate(template: string): StatementTemplatePayload {
+  return getStatementTemplateByExtension(template, 'html');
+}
+
+export function getJSONStatementTemplate(template: string): StatementTemplatePayload {
+  return getStatementTemplateByExtension(template, 'json');
 }

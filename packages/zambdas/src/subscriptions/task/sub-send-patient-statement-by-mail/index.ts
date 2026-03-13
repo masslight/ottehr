@@ -7,8 +7,8 @@ import { generateStatement, getSecret, RCM_TASK_SYSTEM, Secrets, SecretsKeys, Ta
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getHTMLStatementTemplate,
   getStatementDetails,
-  getStatementTemplate,
   sendPostGridLetter,
   StatementType,
   topLevelCatch,
@@ -45,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
 
-    const templatePayload = getStatementTemplate('statement-template');
+    const templatePayload = getHTMLStatementTemplate('statement-template');
     const statementDetails = await getStatementDetails({
       encounterId,
       statementType,

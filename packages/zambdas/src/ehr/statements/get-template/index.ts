@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils';
-import { getStatementTemplate, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { getHTMLStatementTemplate, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler(
@@ -9,7 +9,7 @@ export const index = wrapHandler(
     try {
       const validatedInput = validateRequestParameters(input);
       const { template } = validatedInput;
-      const templateDetails = getStatementTemplate(template);
+      const templateDetails = getHTMLStatementTemplate(template);
 
       return {
         statusCode: 200,

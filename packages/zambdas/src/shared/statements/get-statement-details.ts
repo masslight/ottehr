@@ -418,12 +418,6 @@ export async function getStatementDetails(input: GetStatementDetailsInput): Prom
     }
 
     billerDetails = getBillerDetails(defaultBillingResource);
-
-    console.log(
-      `Resolved billing provider for statement details: Organization/${defaultBillingResource.id} - ${
-        billerDetails.name
-      } \n\n ${JSON.stringify(billerDetails, null, 2)}`
-    );
   } catch (error: unknown) {
     captureException(error);
     console.error(

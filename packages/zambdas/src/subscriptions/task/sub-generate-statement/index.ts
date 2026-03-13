@@ -2,13 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Encounter, List, Task } from 'fhir/r4b';
+import Handlebars from 'handlebars';
 import { DateTime } from 'luxon';
-import type { Browser } from 'puppeteer';
-import puppeteer from 'puppeteer';
+import { createRequire } from 'module';
+import path from 'path';
 import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
-  generateStatement,
   getSecret,
   OTTEHR_MODULE,
   Secrets,
@@ -21,8 +21,8 @@ import {
   createOystehrClient,
   createPresignedUrl,
   getAuth0Token,
+  getJSONStatementTemplate,
   getStatementDetails,
-  getStatementTemplate,
   topLevelCatch,
   uploadObjectToZ3,
   validateJsonBody,
@@ -32,8 +32,20 @@ import {
 } from '../../../shared';
 import { makeZ3Url } from '../../../shared/presigned-file-urls';
 
+const require = createRequire(import.meta.url);
+const pdfmake = require('pdfmake') as {
+  setFonts: (fonts: Record<string, unknown>) => void;
+  setUrlAccessPolicy?: (callback: (url: string) => boolean) => void;
+  createPdf: (definition: Record<string, unknown>) => {
+    getBuffer: () => Promise<Buffer>;
+  };
+};
+
 const ZAMBDA_NAME = 'generate-statement';
 const STATEMENT = 'Statement';
+const RUBIK_MEDIUM_FONT_PATH = path.resolve(process.cwd(), 'assets', 'Rubik-Medium.ttf');
+const RUBIK_BOLD_FONT_PATH = path.resolve(process.cwd(), 'assets', 'Rubik-Bold.otf');
+const RUBIK_ITALIC_FONT_PATH = path.resolve(process.cwd(), 'assets', 'fonts', 'rubik', 'Rubik-Italic-Variable.ttf');
 
 interface GenerateStatementInputValidated {
   encounterId: string;
@@ -42,12 +54,8 @@ interface GenerateStatementInputValidated {
 
 let oystehrToken: string;
 let m2mToken: string;
-let browserInstance: Browser | null = null;
-let browserLaunchPromise: Promise<Browser> | null = null;
-let browserLeaseQueue: Promise<void> = Promise.resolve();
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const releaseBrowserLease = await acquireBrowserLease();
   try {
     const { encounterId, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
@@ -59,7 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: encounterId,
     });
 
-    const templatePayload = getStatementTemplate('statement-template');
+    const templatePayload = getJSONStatementTemplate('statement-template');
     const statementDetails = await getStatementDetails({
       encounterId,
       statementType: 'standard',
@@ -67,8 +75,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehr,
     });
 
-    const html = generateStatement(templatePayload.template, statementDetails);
-    const pdfBytes = await generatePdfFromHtml(html);
+    const pdfTemplateContext = {
+      ...statementDetails,
+      biller: {
+        ...statementDetails.biller,
+        logoBase64: templatePayload.logoBase64,
+      },
+    };
+    const documentDefinition = buildPdfDocumentDefinition(templatePayload.template, pdfTemplateContext);
+    const pdfBytes = await generatePdfFromDocumentDefinition(documentDefinition);
 
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
     const fileName = `Statement-${encounterId}-${timestamp}.pdf`;
@@ -168,8 +183,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  } finally {
-    releaseBrowserLease();
   }
 });
 
@@ -243,63 +256,231 @@ async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
   return createOystehrClient(oystehrToken, secrets);
 }
 
-async function generatePdfFromHtml(html: string): Promise<Uint8Array> {
-  const browser = await getOrCreateBrowser();
-  const page = await browser.newPage();
+function buildPdfDocumentDefinition(template: string, context: Record<string, unknown>): Record<string, unknown> {
+  const parsedTemplate = JSON.parse(template) as unknown;
+  const expandedTemplate = processTemplateNode(parsedTemplate, context);
+  const expandedTemplateString = JSON.stringify(expandedTemplate);
+  const compiledTemplate = Handlebars.compile(expandedTemplateString)(context);
+  const documentDefinition = JSON.parse(compiledTemplate) as Record<string, unknown>;
+  applyLayoutResolvers(documentDefinition);
+  return documentDefinition;
+}
 
-  try {
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    const pdf = await page.pdf({
-      format: 'Letter',
-      printBackground: true,
-    });
-    return pdf;
-  } finally {
-    await page.close();
+function processTemplateNode(node: unknown, context: Record<string, unknown>): unknown {
+  if (Array.isArray(node)) {
+    const processedArray: unknown[] = [];
+
+    for (const item of node) {
+      if (isLoopDirective(item)) {
+        processedArray.push(...expandLoop(item, context));
+        continue;
+      }
+
+      const processedItem = processTemplateNode(item, context);
+      if (processedItem !== null) {
+        processedArray.push(processedItem);
+      }
+    }
+
+    return processedArray;
+  }
+
+  if (!isRecord(node)) {
+    return node;
+  }
+
+  if (!passesTemplateConditions(node, context)) {
+    return null;
+  }
+
+  const processedObject: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (key.startsWith('__')) {
+      continue;
+    }
+
+    const processedValue = processTemplateNode(value, context);
+    if (processedValue !== null) {
+      processedObject[key] = processedValue;
+    }
+  }
+
+  return processedObject;
+}
+
+function expandLoop(loopDirective: LoopDirective, context: Record<string, unknown>): unknown[] {
+  const source = getValueByPath(context, loopDirective.__loop);
+  if (!Array.isArray(source)) {
+    return [];
+  }
+
+  return source
+    .map((item) => {
+      const rowTemplate = JSON.stringify(loopDirective.__row);
+      const compiledRow = Handlebars.compile(rowTemplate)(item as Record<string, unknown>);
+      const parsedRow = JSON.parse(compiledRow) as unknown;
+      return processTemplateNode(parsedRow, context);
+    })
+    .filter((row): row is Exclude<typeof row, null> => row !== null);
+}
+
+function passesTemplateConditions(templateNode: Record<string, unknown>, context: Record<string, unknown>): boolean {
+  const includeWhen = templateNode.__condition;
+  if (typeof includeWhen === 'string' && !isTruthyForTemplate(getValueByPath(context, includeWhen))) {
+    return false;
+  }
+
+  const excludeWhen = templateNode.__conditionNot;
+  if (typeof excludeWhen === 'string' && isTruthyForTemplate(getValueByPath(context, excludeWhen))) {
+    return false;
+  }
+
+  return true;
+}
+
+function isTruthyForTemplate(value: unknown): boolean {
+  if (typeof value === 'string') {
+    const normalized = value.replace(/[$,\s]/g, '');
+    if (normalized.length === 0) {
+      return false;
+    }
+    const asNumber = Number(normalized);
+    if (!Number.isNaN(asNumber) && asNumber === 0) {
+      return false;
+    }
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  return Boolean(value);
+}
+
+function applyLayoutResolvers(node: unknown): void {
+  if (Array.isArray(node)) {
+    node.forEach((item) => applyLayoutResolvers(item));
+    return;
+  }
+
+  if (!isRecord(node)) {
+    return;
+  }
+
+  const layout = isRecord(node.layout) ? node.layout : null;
+  if (layout && layout.hLineWidth === '__hLineWidth') {
+    layout.hLineWidth = (rowIndex: number, tableNode: { table?: { body?: unknown[] } }): number => {
+      const body = tableNode?.table?.body;
+      const rowCount = Array.isArray(body) ? body.length : 0;
+      if (rowIndex <= 1 || rowIndex === rowCount) {
+        return 0.5;
+      }
+      return 0.25;
+    };
+  }
+
+  if (layout && layout.hLineColor === '__hLineColor') {
+    layout.hLineColor = (rowIndex: number, tableNode: { table?: { body?: unknown[] } }): string => {
+      const body = tableNode?.table?.body;
+      const rowCount = Array.isArray(body) ? body.length : 0;
+      if (rowIndex <= 1 || rowIndex === rowCount) {
+        return '#1e2d4a';
+      }
+      return '#eef1f6';
+    };
+  }
+
+  if (layout) {
+    normalizeTableLayoutFunctions(layout);
+  }
+
+  Object.values(node).forEach((value) => applyLayoutResolvers(value));
+}
+
+function normalizeTableLayoutFunctions(layout: Record<string, unknown>): void {
+  const hLineWidth = layout.hLineWidth;
+  if (typeof hLineWidth === 'number') {
+    layout.hLineWidth = (): number => hLineWidth;
+  }
+
+  const vLineWidth = layout.vLineWidth;
+  if (typeof vLineWidth === 'number') {
+    layout.vLineWidth = (): number => vLineWidth;
+  }
+
+  const hLineColor = layout.hLineColor;
+  if (typeof hLineColor === 'string') {
+    layout.hLineColor = (): string => hLineColor;
+  }
+
+  const vLineColor = layout.vLineColor;
+  if (typeof vLineColor === 'string') {
+    layout.vLineColor = (): string => vLineColor;
+  }
+
+  const paddingLeft = layout.paddingLeft;
+  if (typeof paddingLeft === 'number') {
+    layout.paddingLeft = (): number => paddingLeft;
+  }
+
+  const paddingRight = layout.paddingRight;
+  if (typeof paddingRight === 'number') {
+    layout.paddingRight = (): number => paddingRight;
+  }
+
+  const paddingTop = layout.paddingTop;
+  if (typeof paddingTop === 'number') {
+    layout.paddingTop = (): number => paddingTop;
+  }
+
+  const paddingBottom = layout.paddingBottom;
+  if (typeof paddingBottom === 'number') {
+    layout.paddingBottom = (): number => paddingBottom;
   }
 }
 
-async function acquireBrowserLease(): Promise<() => void> {
-  const previousLease = browserLeaseQueue;
-  let releaseCurrentLease: (() => void) | undefined;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
-  browserLeaseQueue = new Promise<void>((resolve) => {
-    releaseCurrentLease = resolve;
+interface LoopDirective {
+  __loop: string;
+  __row: unknown;
+}
+
+function isLoopDirective(value: unknown): value is LoopDirective {
+  return isRecord(value) && typeof value.__loop === 'string' && Object.prototype.hasOwnProperty.call(value, '__row');
+}
+
+function getValueByPath(context: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((currentValue, segment) => {
+    if (!isRecord(currentValue)) {
+      return undefined;
+    }
+    return currentValue[segment];
+  }, context);
+}
+
+async function generatePdfFromDocumentDefinition(documentDefinition: Record<string, unknown>): Promise<Uint8Array> {
+  pdfmake.setFonts({
+    Rubik: {
+      normal: RUBIK_MEDIUM_FONT_PATH,
+      bold: RUBIK_BOLD_FONT_PATH,
+      italics: RUBIK_ITALIC_FONT_PATH,
+      bolditalics: RUBIK_BOLD_FONT_PATH,
+    },
+    Courier: {
+      normal: 'Courier',
+      bold: 'Courier-Bold',
+      italics: 'Courier-Oblique',
+      bolditalics: 'Courier-BoldOblique',
+    },
   });
 
-  await previousLease;
+  // Disable external URL downloads for deterministic and secure server-side rendering.
+  pdfmake.setUrlAccessPolicy?.(() => false);
 
-  return () => {
-    releaseCurrentLease?.();
-  };
-}
-
-async function getOrCreateBrowser(): Promise<Browser> {
-  if (browserInstance?.connected) {
-    return browserInstance;
-  }
-
-  if (browserLaunchPromise) {
-    return browserLaunchPromise;
-  }
-
-  browserLaunchPromise = puppeteer
-    .launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
-    .then((browser) => {
-      browserInstance = browser;
-      browser.on('disconnected', () => {
-        if (browserInstance === browser) {
-          browserInstance = null;
-        }
-      });
-      return browser;
-    })
-    .finally(() => {
-      browserLaunchPromise = null;
-    });
-
-  return browserLaunchPromise;
+  const pdfBuffer = await pdfmake.createPdf(documentDefinition).getBuffer();
+  return new Uint8Array(pdfBuffer);
 }

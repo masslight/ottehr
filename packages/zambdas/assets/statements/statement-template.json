@@ -1,0 +1,285 @@
+{
+  "pageSize": "LETTER",
+  "pageMargins": [24, 24, 24, 60],
+
+  "defaultStyle": {
+    "font": "Rubik",
+    "fontSize": 10,
+    "color": "#1a1a2e",
+    "lineHeight": 1.3
+  },
+
+  "styles": {
+    "thLeft":  { "fontSize": 7,   "bold": true, "color": "#1e2d4a", "characterSpacing": 0.6 },
+    "thRight": { "fontSize": 7,   "bold": true, "color": "#1e2d4a", "characterSpacing": 0.6, "alignment": "right" },
+    "tdCode":  { "fontSize": 9.5, "bold": true, "color": "#2b5fa8", "font": "Courier" },
+    "tdDesc":  { "fontSize": 9.5, "color": "#3f4c63" },
+    "tdRight": { "fontSize": 9.5, "color": "#121a2a", "alignment": "right" },
+    "sectionLabel": { "fontSize": 7, "bold": true, "color": "#2b5fa8", "characterSpacing": 0.8 },
+    "colName":      { "fontSize": 11, "bold": true, "color": "#1e2d4a" },
+    "colDetail":    { "fontSize": 9,  "color": "#3f4c63", "lineHeight": 1.45 }
+  },
+
+  "footer": [
+    {
+      "stack": [
+        {
+          "columns": [
+            {
+              "stack": [
+                { "text": "PAY ONLINE", "fontSize": 7, "bold": true, "color": "#8a96a8", "characterSpacing": 0.8 },
+                { "text": "{{payment.url}}", "link": "https://{{payment.url}}", "fontSize": 11, "color": "#2b5fa8", "margin": [0, 2, 0, 0] }
+              ]
+            }
+          ],
+          "margin": [0, 0, 0, 6]
+        },
+        {
+          "text": [
+            { "text": "Questions? ", "color": "#8a96a8" },
+            { "text": "{{biller.email}}", "link": "mailto:{{biller.email}}", "color": "#2b5fa8" },
+            { "text": "  ·  ", "color": "#8a96a8" },
+            { "text": "{{biller.website}}", "link": "https://{{biller.website}}", "color": "#2b5fa8" },
+            { "text": "  ·  Payment due {{statement.dueDate}}.", "color": "#8a96a8" }
+          ],
+          "fontSize": 9,
+          "alignment": "center"
+        }
+      ],
+      "margin": [24, 8, 24, 30]
+    }
+  ],
+
+  "content": [
+
+    {
+      "__comment": "HEADER — left spacer (address zone) + right-justified clinic block",
+      "columns": [
+        { "width": 260, "text": "" },
+        {
+          "width": "*",
+          "margin": [16, 0, 0, 0],
+          "stack": [
+
+            {
+              "__comment": "Logo — rendered as image when logoBase64 is provided",
+              "image": "{{biller.logoBase64}}",
+              "width": 120,
+              "alignment": "right",
+              "margin": [0, 0, 0, 6]
+            },
+
+            {
+              "__comment": "Biller address",
+              "stack": [
+                {
+                  "text": "{{biller.addressLine1}}{{#if biller.addressLine2}}, {{biller.addressLine2}}{{/if}}",
+                  "fontSize": 9, "color": "#4a5a72", "alignment": "right"
+                },
+                {
+                  "text": "{{biller.city}}, {{biller.provinceOrState}} {{biller.postalOrZip}}",
+                  "fontSize": 9, "color": "#4a5a72", "alignment": "right"
+                },
+                {
+                  "text": [
+                    { "text": "{{biller.website}}", "link": "https://{{biller.website}}", "color": "#2b5fa8" },
+                    { "text": "  ·  ", "color": "#8a96a8" },
+                    { "text": "{{biller.email}}", "link": "mailto:{{biller.email}}", "color": "#2b5fa8" }
+                  ],
+                  "fontSize": 9, "alignment": "right", "margin": [0, 1, 0, 0]
+                }
+              ]
+            },
+
+            {
+              "__comment": "Statement meta — number, issue date, due date, amount due, badge",
+              "stack": [
+                {
+                  "text": "Statement # {{statement.number}}  ·  Issued {{statement.issueDate}}",
+                  "fontSize": 8, "color": "#8a96a8", "alignment": "right", "margin": [0, 6, 0, 2]
+                },
+                {
+                  "columns": [
+                    {
+                      "width": "*",
+                      "alignment": "right",
+                      "stack": [
+                        { "text": "PAYMENT DUE", "fontSize": 7, "bold": true, "color": "#8a96a8", "characterSpacing": 0.8 },
+                        { "text": "{{statement.dueDate}}", "fontSize": 10, "bold": true, "color": "#1e2d4a" }
+                      ]
+                    },
+                    {
+                      "width": "auto",
+                      "alignment": "right",
+                      "margin": [16, 0, 0, 0],
+                      "stack": [
+                        { "text": "AMOUNT DUE", "fontSize": 7, "bold": true, "color": "#8a96a8", "characterSpacing": 0.8 },
+                        { "text": "{{totals.balanceDue}}", "fontSize": 14, "bold": true, "color": "#c0392b" },
+                        {
+                          "__comment": "finalNotice badge — shown only when finalNotice=true (processed by runner, not Handlebars)",
+                          "__condition": "finalNotice",
+                          "text": "Past Due – Final Notice",
+                          "fontSize": 18, "bold": true, "color": "#ffffff",
+                          "background": "#8b0000", "alignment": "right", "margin": [0, 4, 0, 0]
+                        },
+                        {
+                          "__comment": "pastDue badge — shown only when pastDue=true and finalNotice=false",
+                          "__condition": "pastDue",
+                          "__conditionNot": "finalNotice",
+                          "text": "Past Due",
+                          "fontSize": 12, "bold": true, "color": "#ffffff",
+                          "background": "#8b0000", "alignment": "right", "margin": [0, 4, 0, 0]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+
+          ]
+        }
+      ],
+      "margin": [0, 0, 0, 8]
+    },
+
+    {
+      "__comment": "Thin hairline rule below header",
+      "table": {
+        "widths": ["*"],
+        "body": [[{ "text": "", "border": [false, true, false, false], "borderColor": ["#8a96a8", "#8a96a8", "#8a96a8", "#8a96a8"] }]]
+      },
+      "layout": { "hLineWidth": 0.5, "vLineWidth": 0, "hLineColor": "#8a96a8" },
+      "margin": [0, 0, 0, 0]
+    },
+
+    {
+      "__comment": "Patient Statement heading",
+      "text": "Patient Statement",
+      "fontSize": 14, "bold": true, "color": "#1e2d4a",
+      "margin": [0, 10, 0, 6]
+    },
+
+    {
+      "__comment": "INFO ROW — 3 columns",
+      "columns": [
+        {
+          "width": "*",
+          "stack": [
+            { "text": "RESPONSIBLE PARTY", "style": "sectionLabel", "margin": [0, 0, 0, 2] },
+            { "text": "{{respParty.firstName}} {{respParty.lastName}}", "style": "colName", "margin": [0, 0, 0, 1] },
+            {
+              "stack": [
+                { "text": "{{respParty.addressLine1}}" },
+                { "text": "{{respParty.addressLine2}}{{#unless respParty.addressLine2}}{{/unless}}" },
+                { "text": "{{respParty.city}}, {{respParty.provinceOrState}} {{respParty.postalOrZip}}" }
+              ],
+              "style": "colDetail"
+            }
+          ]
+        },
+        {
+          "width": "*",
+          "margin": [12, 0, 12, 0],
+          "stack": [
+            { "text": "INSURANCE", "style": "sectionLabel", "margin": [0, 0, 0, 2] },
+            { "text": "{{insurance.payerName}}", "style": "colName", "margin": [0, 0, 0, 1] },
+            { "text": "Member ID: {{insurance.memberId}}", "style": "colDetail" }
+          ]
+        },
+        {
+          "width": "*",
+          "stack": [
+            { "text": "PATIENT & VISIT", "style": "sectionLabel", "margin": [0, 0, 0, 2] },
+            { "text": "{{patient.firstName}} {{patient.lastName}}", "style": "colName", "margin": [0, 0, 0, 1] },
+            {
+              "stack": [
+                { "text": "DOB {{patient.dob}}  ·  {{visit.date}} {{visit.time}}" },
+                { "text": "{{facility.name}}" }
+              ],
+              "style": "colDetail"
+            }
+          ]
+        }
+      ],
+      "margin": [0, 8, 0, 8]
+    },
+
+    {
+      "__comment": "SERVICES TABLE — body rows injected by runner via {{#each service}} loop",
+      "table": {
+        "widths": [48, "*", 52, 52, 46, 46],
+        "headerRows": 1,
+        "body": [
+          [
+            { "text": "CODE",                   "style": "thLeft"  },
+            { "text": "PROCEDURE DESCRIPTION",  "style": "thLeft"  },
+            { "text": "AMOUNT\nCHARGED",         "style": "thRight" },
+            { "text": "INSURANCE\nPAID",          "style": "thRight" },
+            { "text": "PATIENT\nPAID",            "style": "thRight" },
+            { "text": "PATIENT\nOWES",            "style": "thRight" }
+          ],
+          {
+            "__loop": "service",
+            "__row": [
+              { "text": "{{this.cpt}}",           "style": "tdCode"  },
+              { "text": "{{this.description}}",   "style": "tdDesc"  },
+              { "text": "{{this.charged}}",       "style": "tdRight" },
+              { "text": "{{this.insurancePaid}}", "style": "tdRight" },
+              { "text": "{{this.patientPaid}}",   "style": "tdRight" },
+              { "text": "{{this.patientOwes}}",   "style": "tdRight" }
+            ]
+          }
+        ]
+      },
+      "layout": {
+        "hLineWidth": "__hLineWidth",
+        "vLineWidth": 0,
+        "hLineColor": "__hLineColor",
+        "paddingLeft": 5, "paddingRight": 5, "paddingTop": 4, "paddingBottom": 4
+      }
+    },
+
+    {
+      "__comment": "Thin hairline rule below services table",
+      "table": {
+        "widths": ["*"],
+        "body": [[{ "text": "", "border": [false, true, false, false] }]]
+      },
+      "layout": { "hLineWidth": 0.5, "vLineWidth": 0, "hLineColor": "#eef1f6" },
+      "margin": [0, 0, 0, 0]
+    },
+
+    {
+      "__comment": "BALANCE ROW",
+      "columns": [
+        {
+          "width": "*",
+          "columns": [
+            { "width": "auto", "text": ["Charged: ", { "text": "{{totals.charged}}",       "bold": true, "color": "#1a1a2e" }], "fontSize": 9, "color": "#4a5a72", "margin": [0, 0, 14, 0] },
+            { "width": "auto", "text": ["Ins. Paid: ", { "text": "{{totals.insurancePaid}}","bold": true, "color": "#1a1a2e" }], "fontSize": 9, "color": "#4a5a72", "margin": [0, 0, 14, 0] },
+            { "width": "auto", "text": ["Pt. Paid: ", { "text": "{{totals.patientPaid}}",   "bold": true, "color": "#1a1a2e" }], "fontSize": 9, "color": "#4a5a72", "margin": [0, 0, 14, 0] },
+            {
+              "__comment": "Deductible — shown only when totals.deductible is present and non-zero",
+              "__condition": "totals.deductible",
+              "width": "auto",
+              "text": ["Applied to Deductible: ", { "text": "{{totals.deductible}}", "bold": true, "color": "#1a1a2e" }],
+              "fontSize": 9, "color": "#4a5a72"
+            }
+          ]
+        },
+        {
+          "width": "auto",
+          "alignment": "right",
+          "text": [
+            { "text": "Balance Due ", "fontSize": 11, "bold": true, "color": "#1e2d4a" },
+            { "text": "{{totals.balanceDue}}", "fontSize": 14, "bold": true, "color": "#1e2d4a" }
+          ],
+          "margin": [0, 1, 0, 0]
+        }
+      ],
+      "margin": [0, 4, 0, 0]
+    }
+
+  ]
+}
