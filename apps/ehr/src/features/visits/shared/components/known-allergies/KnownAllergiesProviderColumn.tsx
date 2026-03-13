@@ -14,11 +14,12 @@ import {
 } from '@mui/material';
 import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useMemo, useState } from 'react';
+import { FC, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
@@ -326,6 +327,21 @@ const AddAllergyField: FC = () => {
     } as ExtractObjectType<ErxSearchAllergensResponse>;
     await handleSelectOption(quickPickAsAllergy);
   };
+
+  const handleQuickPickSelectRef = useRef(handleQuickPickSelect);
+  handleQuickPickSelectRef.current = handleQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      MEDICAL_HISTORY_CONFIG.allergies.quickPicks.map((qp) => ({
+        id: `allergy-${qp.name}`,
+        label: qp.name,
+        category: 'Allergies',
+        onSelect: () => void handleQuickPickSelectRef.current(qp),
+      })),
+    []
+  );
+  useCommandPaletteSource('allergy-quick-picks', commandPaletteItems);
 
   const onSubmitForm = async (data: {
     value: ExtractObjectType<ErxSearchAllergensResponse> | null;

@@ -25,7 +25,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
@@ -37,6 +37,7 @@ import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   AISuggestionNotes,
@@ -743,9 +744,28 @@ export default function ProceduresNew(): ReactElement {
     });
   };
 
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
+
   const selectedProcedureTypeCode = selectOptions?.procedureTypes?.find(
     (procedureType) => procedureType.name === formValues.procedureType
   )?.code;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      procedureId
+        ? []
+        : PROCEDURES_CONFIG.quickPicks
+            .filter((qp) => selectedProcedureTypeCode == null || selectedProcedureTypeCode === qp.procedureType)
+            .map((qp) => ({
+              id: `procedure-${qp.name}`,
+              label: qp.name,
+              category: 'Procedures',
+              onSelect: () => onQuickPickSelectRef.current(qp),
+            })),
+    [procedureId, selectedProcedureTypeCode]
+  );
+  useCommandPaletteSource('procedure-quick-picks', commandPaletteItems);
 
   return (
     <FormProvider {...methods}>
