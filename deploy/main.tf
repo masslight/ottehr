@@ -38,7 +38,7 @@ locals {
 }
 
 provider "sendgrid" {
-  api_key = local.sendgrid_enabled ? var.sendgrid_api_key : "sendgrid-disabled"
+  api_key = var.sendgrid_api_key != null ? var.sendgrid_api_key : "sendgrid-disabled"
 }
 
 provider "oystehr" {
