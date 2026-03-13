@@ -1,5 +1,5 @@
+import type { ExamCardComponent } from 'config-types';
 import {
-  ExamCardComponent,
   examConfig,
   ExamObservationDTO,
   GetChartDataResponse,

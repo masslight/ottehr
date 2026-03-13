@@ -1,86 +1,46 @@
 import { Box, Grid } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
-import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
+import { VitalsRespirationRateObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
+import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
-import { textToRespirationRateNumber } from './helpers';
 
 type VitalsRespirationRateCardProps = VitalsCardProps<VitalsRespirationRateObservationDTO>;
-const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
-  handleSaveVital,
-  handleDeleteVital,
-  currentObs,
-  historicalObs,
-}): JSX.Element => {
-  const [respirationRateValueText, setRespirationRateValueText] = useState('');
+const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({ field }): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  const [isRespirationRateValidationError, setRespirationRateValidationError] = useState<boolean>(false);
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const [isSaving, setIsSaving] = useState(false);
+  const latestRespRateValue = field.current[0]?.value;
+  const { localState } = field;
 
-  const isDisabledAddButton = !respirationRateValueText || isRespirationRateValidationError;
-
-  const latestRespRateValue = currentObs[0]?.value;
-
-  const handleSaveRespirationRateObservation = useCallback(
-    async (respRateValueText: string): Promise<void> => {
-      const respRateValueNumber = textToRespirationRateNumber(respRateValueText);
-      if (!respRateValueNumber) return;
-
-      try {
-        setIsSaving(true);
-        const vitalObs: VitalsRespirationRateObservationDTO = {
-          field: VitalFieldNames.VitalRespirationRate,
-          value: respRateValueNumber,
-        };
-        await handleSaveVital(vitalObs);
-        setRespirationRateValueText('');
-      } catch {
-        enqueueSnackbar('Error saving respiration rate data', { variant: 'error' });
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [handleSaveVital]
-  );
-
-  const handleTextInputChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      const respirationRateAsText = e.target.value;
-      setRespirationRateValueText(respirationRateAsText);
-      if (respirationRateAsText.length === 0) {
-        setRespirationRateValidationError(false);
-      }
-    },
-    [setRespirationRateValidationError, setRespirationRateValueText]
-  );
+  const { handleKeyDown } = useVitalsSaveOnEnter({
+    onSave: field.save,
+  });
 
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
-        currentEncounterObs={currentObs}
-        historicalObs={historicalObs}
+        currentEncounterObs={field.current}
+        historicalObs={field.historical}
         isLoading={false}
         historyElementCreator={(historyEntry) => {
-          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          const isCurrent = field.current.some((obs) => obs.resourceId === historyEntry.resourceId);
           return (
             <VitalHistoryElement
               historyEntry={historyEntry}
-              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+              onDelete={isCurrent && !isReadOnly ? field.delete : undefined}
               dataTestId={dataTestIds.vitalsPage.respirationRateItem}
             />
           );
@@ -114,16 +74,19 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
                   mx: 2,
                   py: 2,
                   px: 2,
+                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                  transition: VITALS_FORM_BORDER_TRANSITION,
                 }}
               >
                 {/* RespirationRate Input Field column */}
                 <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
                   <VitalsTextInputFiled
                     label="RR (/min)"
-                    value={respirationRateValueText}
-                    disabled={isSaving}
-                    isInputError={isRespirationRateValidationError}
-                    onChange={handleTextInputChange}
+                    value={localState.value}
+                    disabled={field.isSaving}
+                    isInputError={localState.validationError}
+                    onChange={localState.handleValueChange}
+                    onKeyDown={handleKeyDown}
                     data-testid={dataTestIds.vitalsPage.respirationRateInput}
                   />
                 </Grid>
@@ -132,9 +95,9 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
                 <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 2, sm: 2, md: 2, lg: 2 }} sx={{ mt: 0 }}>
                   <RoundedButton
                     size="small"
-                    disabled={isDisabledAddButton}
-                    loading={isSaving}
-                    onClick={() => handleSaveRespirationRateObservation(respirationRateValueText)}
+                    disabled={localState.isDisabled}
+                    loading={field.isSaving}
+                    onClick={field.save}
                     color="primary"
                     sx={{
                       height: '40px',

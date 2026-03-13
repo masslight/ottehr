@@ -37,7 +37,6 @@ import {
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
-  IN_HOUSE_LAB_TASK,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   isPSCOrder,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
@@ -69,7 +68,11 @@ import {
   TestItemComponent,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
-import { fetchResultResourcesForRelatedServiceRequest } from '../../ehr/lab/shared/in-house-labs';
+import { getObservationsForDiagnosticReportResults } from '../../ehr/lab/shared/helpers';
+import {
+  fetchResultResourcesForRelatedServiceRequest,
+  provenanceIsInHouseLabResultEntry,
+} from '../../ehr/lab/shared/in-house-labs';
 import {
   extractResultSpecimensFromDr,
   getExternalLabOrderResourcesViaDiagnosticReport,
@@ -590,7 +593,7 @@ export async function createInHouseLabResultPDF(
   schedule: Schedule,
   attendingPractitioner: Practitioner,
   attendingPractitionerName: string | undefined,
-  inputRequestTask: Task,
+  provenance: Provenance,
   observations: Observation[],
   diagnosticReport: DiagnosticReport,
   secrets: Secrets | null,
@@ -610,11 +613,10 @@ export async function createInHouseLabResultPDF(
   }
 
   const inHouseLabResults = await getFormattedInHouseLabResults(
-    oystehr,
     activityDefinition,
     observations,
     specimen,
-    inputRequestTask,
+    provenance,
     timezone
   );
 
@@ -1296,7 +1298,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
     pdfClient = drawFourColumnText(
       pdfClient,
       textStyles,
-      { name: 'NAME', startXPos: 0 },
+      { name: 'NAME', startXPos: pdfClient.getLeftBound() },
       { name: 'VALUE', startXPos: 230 },
       { name: resultHasUnits ? 'UNITS' : '', startXPos: 350 },
       { name: 'REFERENCE RANGE', startXPos: 410 }
@@ -1318,7 +1320,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       pdfClient = drawFourColumnText(
         pdfClient,
         textStyles,
-        { name: resultDetail.name, startXPos: 0 },
+        { name: resultDetail.name, startXPos: pdfClient.getLeftBound() },
         { name: valueStringToWrite || '', startXPos: 230 },
         { name: resultDetail.units || '', startXPos: 350 },
         { name: resultRange, startXPos: 410 },
@@ -1327,6 +1329,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     }
+    pdfClient.newLine(3);
     pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', labResult.collectionDate);
     pdfClient.newLine(STANDARD_FONT_SIZE + 3);
     pdfClient = drawFieldLineRight(
@@ -1335,7 +1338,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       'Results Date:',
       labResult.finalResultDateTime.setZone(data.timezone).toFormat(LABS_DATE_STRING_FORMAT)
     );
-    pdfClient.newLine(24);
+    pdfClient.newLine(30);
   }
 
   pdfClient.numberPages(textStyles.pageNumber);
@@ -1543,11 +1546,10 @@ export const makeRelatedForLabsPDFDocRef = (input: LabDocRelatedReferenceInput):
 };
 
 const getFormattedInHouseLabResults = async (
-  oystehr: Oystehr,
   activityDefinition: ActivityDefinition,
   observations: Observation[],
   specimen: Specimen,
-  task: Task,
+  provenance: Provenance,
   timezone: string | undefined
 ): Promise<InHouseLabResultConfig> => {
   if (!specimen?.collection?.collectedDateTime) {
@@ -1555,7 +1557,7 @@ const getFormattedInHouseLabResults = async (
   }
 
   const specimenSource = specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || '';
-  const { reviewDate: finalResultDateTime } = await getTaskCompletedByAndWhen(oystehr, task);
+  const finalResultDateTime = DateTime.fromISO(provenance.recorded);
 
   const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
     .setZone(timezone)
@@ -1641,14 +1643,25 @@ const getAdditionalResultsForRelated = async (
   const configs: InHouseLabResultConfig[] = [];
 
   for (const [srId, resources] of Object.entries(srResourceMap)) {
-    const { observations, tasks, specimens, relatedAdUrlCanonicalUrl } = resources;
-    const inputRequestTask = tasks.find(
-      (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
-    );
+    const {
+      diagnosticReports: allDiagnosticReports,
+      observations: allObservations,
+      specimens,
+      relatedAdUrlCanonicalUrl,
+      provenances,
+    } = resources;
+
+    const resultEntryProvenances = provenances.filter((provenance) => provenanceIsInHouseLabResultEntry(provenance));
+    const mostRecentResultEntryProvenance = resultEntryProvenances.sort(
+      (a, b) => DateTime.fromISO(b.recorded).toMillis() - DateTime.fromISO(a.recorded).toMillis()
+    )[0];
+
     const specimen = specimens[0];
-    if (!inputRequestTask || !specimen) {
-      throw new Error(`issue getting inputRequestTask or specimen for repeat service request: ${srId}`);
+
+    if (!mostRecentResultEntryProvenance || !specimen) {
+      throw new Error(`issue getting resultEntryProvenance or specimen for repeat service request: ${srId}`);
     }
+
     let relatedAd = activityDefinition;
     if (relatedAdUrlCanonicalUrl) {
       if (relatedAdUrlCanonicalUrl !== `${activityDefinition.url}|${activityDefinition.version}`) {
@@ -1660,12 +1673,20 @@ const getAdditionalResultsForRelated = async (
         });
       }
     }
+
+    // make sure that the observations are related only to the applicable diagnostic report
+    const diagnosticReports = allDiagnosticReports.filter(
+      (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${srId}`)
+    );
+
+    // todo labs i don't think this additional work is necessary anymore, the query has been updated to only grab observations from diagnostic report results
+    const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
+
     const config = await getFormattedInHouseLabResults(
-      oystehr,
       relatedAd,
       observations,
       specimen,
-      inputRequestTask,
+      mostRecentResultEntryProvenance,
       timezone
     );
     configs.push(config);

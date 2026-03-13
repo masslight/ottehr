@@ -246,8 +246,10 @@ const getRulesForPatientDOB = (
         if (dateOfBirth > minAgeDOB) return false;
       }
       if (maxAge) {
+        // Exclusive upper bound: when an adjacent threshold's minAge equals this maxAge,
+        // a patient at exactly maxAge will match the next (older-age) threshold instead.
         const maxAgeDOB = now.minus({ [maxAge.unit]: maxAge.value });
-        if (dateOfBirth < maxAgeDOB) return false;
+        if (dateOfBirth <= maxAgeDOB) return false;
       }
       return true;
     })

@@ -34,6 +34,9 @@ export interface PaperworkContext
       Error
     >
   >;
+  refetchSetupData: (
+    options?: RefetchOptions | undefined
+  ) => Promise<QueryObserverResult<PaymentMethodSetupZambdaOutput, Error>>;
   setSaveButtonDisabled: (newVal: boolean) => void;
   findAnswerWithLinkId: (linkId: string) => QuestionnaireResponseItem | undefined;
 }

@@ -39,8 +39,14 @@ interface AdministrationDetails {
   mobile: string;
 }
 
+const firstAvailableVaccine =
+  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[0] as keyof typeof vaccines.fhirResources];
+
+const secondAvailableVaccine =
+  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[1] as keyof typeof vaccines.fhirResources];
+
 const VACCINE_A: VaccineInfo = {
-  vaccine: vaccines.fhirResources['VACCINE_TDAP'].resource.identifier[1].value,
+  vaccine: firstAvailableVaccine?.resource.identifier[1].value,
   dose: '0.5',
   units: 'mg',
   route: medicationApplianceRoutes.BODY_CAVITY.display!,
@@ -49,7 +55,7 @@ const VACCINE_A: VaccineInfo = {
 };
 
 const VACCINE_B: VaccineInfo = {
-  vaccine: vaccines.fhirResources['VACCINE_TD'].resource.identifier[1].value,
+  vaccine: secondAvailableVaccine?.resource.identifier[1].value,
   dose: '1',
   units: 'mL',
   route: medicationApplianceRoutes.CAUDAL.display!,

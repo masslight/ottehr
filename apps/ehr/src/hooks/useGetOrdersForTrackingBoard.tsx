@@ -6,6 +6,7 @@ import { usePatientRadiologyOrders } from 'src/features/radiology/components/use
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { OrdersForTrackingBoardTable } from 'utils';
 import { useGetErxOrders } from './useGetErxOrders';
+import { useGetProcedures } from './useGetProcedures';
 
 interface UseGetOrdersForTrackingBoardParams {
   encounterIds: string[];
@@ -48,6 +49,8 @@ export const useGetOrdersForTrackingBoard = (
 
   const erxOrdersQuery = useGetErxOrders({ encounterIds });
 
+  const proceduresQuery = useGetProcedures({ encounterIds });
+
   const orders = useMemo(
     () => ({
       externalLabOrdersByAppointmentId: groupByAppointmentId(externalLabOrders?.labOrders),
@@ -56,6 +59,7 @@ export const useGetOrdersForTrackingBoard = (
       inHouseMedicationsByEncounterId: groupByEncounterId(medicationOrdersQuery.data?.orders),
       radiologyOrdersByAppointmentId: groupByAppointmentId(radiologyOrders),
       erxOrdersByEncounterId: groupByEncounterId(erxOrdersQuery.data?.orders),
+      proceduresByEncounterId: groupByEncounterId(proceduresQuery.data),
     }),
     [
       externalLabOrders?.labOrders,
@@ -64,11 +68,12 @@ export const useGetOrdersForTrackingBoard = (
       medicationOrdersQuery.data?.orders,
       radiologyOrders,
       erxOrdersQuery.data?.orders,
+      proceduresQuery.data,
     ]
   );
 
   const refetchOrders = async (): Promise<void> => {
-    await Promise.all([medicationOrdersQuery.refetch(), erxOrdersQuery.refetch()]);
+    await Promise.all([medicationOrdersQuery.refetch(), erxOrdersQuery.refetch(), proceduresQuery.refetch()]);
   };
 
   return {

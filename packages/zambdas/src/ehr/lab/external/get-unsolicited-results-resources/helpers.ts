@@ -13,7 +13,6 @@ import {
   compareDates,
   DiagnosticReportLabDetailPageDTO,
   DR_CONTAINED_PRACTITIONER_REF,
-  DR_UNSOLICITED_PATIENT_REF,
   getFullestAvailableName,
   getTestItemCodeFromDr,
   getTestNameOrCodeFromDr,
@@ -29,6 +28,7 @@ import {
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils';
+import { getContainedPatientFromDiagnosticReport } from '../../shared/helpers';
 import {
   AllResources,
   formatResourcesIntoDiagnosticReportLabDTO,
@@ -302,9 +302,7 @@ const getUnsolicitedResourcesFromDr = (
   let unsolicitedPatient: Patient | undefined;
   let unsolicitedProvider: Practitioner | undefined;
 
-  const containedPatient = dr.contained?.find(
-    (resource) => resource.resourceType === 'Patient' && resource.id === DR_UNSOLICITED_PATIENT_REF
-  );
+  const containedPatient = getContainedPatientFromDiagnosticReport(dr);
   if (containedPatient) {
     unsolicitedPatient = containedPatient as Patient;
   }

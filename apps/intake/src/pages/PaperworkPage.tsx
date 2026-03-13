@@ -84,8 +84,6 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
       ...PAPERWORK_STATE_INITIAL,
       setResponse: (response: UCGetPaperworkResponse) => {
         set((state) => {
-          // console.log('response.paperwork', response.paperwork);
-          // console.log('state.paperwork', state.paperwork);
           return {
             ...state,
             paperworkResponse: response,
@@ -215,7 +213,11 @@ export const PaperworkHome: FC = () => {
     });
   }, [allItems]);
 
-  const { data: stripeSetupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id, appointmentId);
+  const {
+    data: stripeSetupData,
+    isFetching: isSetupDataLoading,
+    refetch: refetchSetupData,
+  } = useSetupPaymentMethod(patient?.id, appointmentId);
 
   const {
     data: cardData,
@@ -246,6 +248,7 @@ export const PaperworkHome: FC = () => {
       stripeSetupData,
       setContinueLabel,
       refetchPaymentMethods,
+      refetchSetupData,
       setSaveButtonDisabled,
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
         return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
@@ -267,6 +270,7 @@ export const PaperworkHome: FC = () => {
     isSetupDataLoading,
     setContinueLabel,
     refetchPaymentMethods,
+    refetchSetupData,
   ]);
 
   const redirectTarget = useMemo(() => {
@@ -299,7 +303,6 @@ export const PaperworkHome: FC = () => {
     );
   }
   if (redirectTarget) {
-    // console.log('redirecting...', redirectTarget);
     return <Navigate to={redirectTarget} replace={true} />;
   }
   return <Outlet context={{ ...outletContext }} />;

@@ -76,7 +76,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let additionalCptCodes: CPTCodeOption[] | undefined = undefined;
     const additionalCptCodeToInclude = VALUE_SETS.externalLabAdditionalCptCodesToAdd;
     if (additionalCptCodeToInclude && additionalCptCodeToInclude.length > 0) {
-      additionalCptCodes = additionalCptCodeToInclude.map((coding: any) => {
+      additionalCptCodes = additionalCptCodeToInclude.map((coding) => {
         const cpt: CPTCodeOption = {
           code: coding.value,
           display: coding.label,

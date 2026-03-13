@@ -1,14 +1,22 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { primaryIcon } from '@theme/icons';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { generatePath, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { APIError, BRANDING_CONFIG, CreateSlotParams, isApiError, PROJECT_WEBSITE, ServiceMode } from 'utils';
+import {
+  APIError,
+  BOOKING_CONFIG,
+  BRANDING_CONFIG,
+  CreateSlotParams,
+  isApiError,
+  PROJECT_WEBSITE,
+  ServiceMode,
+} from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
+import { primaryIcon } from '../branding/assets';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
@@ -23,7 +31,7 @@ export const WalkinLanding: FC = () => {
   const getWalkinAvailability = ottehrApi.getWalkinAvailability;
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
-  const locationName = name ? name.replace('_', ' ') : undefined;
+  const locationName = name ? name.replaceAll('_', ' ') : undefined;
   const { data, error, isLoading, isFetching, isRefetching } = useQuery({
     queryKey: ['walkin-check-availability', scheduleId, locationName],
     queryFn: () =>
@@ -66,14 +74,21 @@ export const WalkinLanding: FC = () => {
             <PageForm
               onSubmit={async (_) => {
                 if (tokenlessZambdaClient && data.scheduleId) {
+                  const serviceMode = data.serviceMode ?? ServiceMode['in-person'];
+                  // Use test questionnaire canonical if injected via config (for e2e test isolation)
+                  const questionnaireCanonical =
+                    serviceMode === ServiceMode.virtual
+                      ? BOOKING_CONFIG.virtualQuestionnaireCanonical
+                      : BOOKING_CONFIG.inPersonQuestionnaireCanonical;
                   const createSlotInput: CreateSlotParams = {
                     scheduleId: data.scheduleId,
                     startISO: DateTime.now().toISO(),
-                    serviceModality: data.serviceMode ?? ServiceMode['in-person'],
+                    serviceModality: serviceMode,
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,
                     ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
+                    ...(questionnaireCanonical && { questionnaireCanonical }),
                   };
                   try {
                     const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);

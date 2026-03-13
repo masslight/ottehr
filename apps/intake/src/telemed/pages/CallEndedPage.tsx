@@ -1,9 +1,9 @@
 import { Button, Card, Typography, useTheme } from '@mui/material';
 import { Box, Container } from '@mui/system';
-import { primaryIcon } from '@theme/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BRANDING_CONFIG } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
+import { primaryIcon } from '../../branding/assets';
 import { CustomContainer } from '../features/common';
 
 const CallEndedPage = (): JSX.Element => {

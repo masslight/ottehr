@@ -131,7 +131,17 @@ const ReviewPaperwork = (): JSX.Element => {
 
   const { paperworkCompletedStatus, allComplete } = useMemo(() => {
     const validationSchema = makeValidationSchema(allItems);
-    const validationState = (paperworkPages ?? []).reduce(
+
+    // Calculate paperwork values for enableWhen evaluation
+    const paperworkValuesForEval = convertQRItemToLinkIdMap(questionnaireResponse?.item ?? []);
+
+    // Filter to only enabled pages (respects enableWhen conditions)
+    const enabledPages = (paperworkPages ?? []).filter((page) =>
+      evalEnableWhen(page, allItems, paperworkValuesForEval, questionnaireResponse)
+    );
+
+    // Only track completion status for enabled pages
+    const validationState = enabledPages.reduce(
       (accum, page) => {
         accum[page.linkId] = true;
         return accum;
@@ -147,7 +157,7 @@ const ReviewPaperwork = (): JSX.Element => {
           return item.path?.split('.')?.[0];
         }) ?? [];
       console.log('errorList', errorList, e);
-      const pagesWithError = (paperworkPages ?? [])
+      const pagesWithError = enabledPages
         .filter((page) => {
           const containsError = errorList.some((errorId) => {
             return page.item?.some((item) => {
@@ -164,22 +174,37 @@ const ReviewPaperwork = (): JSX.Element => {
       });
       console.log('pagesWithError', pagesWithError);
     }
-    const photoIdFront = pickFirstValueFromAnswerItem(findAnswerWithLinkId('photo-id-front'), 'attachment');
-    console.log('photoIdFront', photoIdFront, findAnswerWithLinkId('photo-id-front'));
-    // this is a strange one-off; it is optional in the schema but we communicate to the user that it is required
-    if (photoIdFront === undefined) {
-      validationState['photo-id-page'] = false;
+
+    // Only check photo-id-page if it's enabled
+    if (validationState['photo-id-page'] !== undefined) {
+      const photoIdFront = pickFirstValueFromAnswerItem(findAnswerWithLinkId('photo-id-front'), 'attachment');
+      console.log('photoIdFront', photoIdFront, findAnswerWithLinkId('photo-id-front'));
+      // this is a strange one-off; it is optional in the schema but we communicate to the user that it is required
+      if (photoIdFront === undefined) {
+        validationState['photo-id-page'] = false;
+      }
     }
-    // medical history is also optional
-    if (
-      appointmentData?.serviceMode === ServiceMode['in-person'] &&
-      pickFirstValueFromAnswerItem(findAnswerWithLinkId('medical-history-questionnaire'), 'boolean') === undefined
-    ) {
-      validationState['medical-history-page'] = false;
+
+    // Only check medical-history-page if it's enabled (and only for in-person)
+    if (validationState['medical-history-page'] !== undefined) {
+      if (
+        appointmentData?.serviceMode === ServiceMode['in-person'] &&
+        pickFirstValueFromAnswerItem(findAnswerWithLinkId('medical-history-questionnaire'), 'boolean') === undefined
+      ) {
+        validationState['medical-history-page'] = false;
+      }
     }
+
     const allComplete = Object.values(validationState).some((val) => !val) === false;
     return { paperworkCompletedStatus: validationState, allComplete };
-  }, [allItems, appointmentData?.serviceMode, completedPaperwork, findAnswerWithLinkId, paperworkPages]);
+  }, [
+    allItems,
+    appointmentData?.serviceMode,
+    completedPaperwork,
+    findAnswerWithLinkId,
+    paperworkPages,
+    questionnaireResponse,
+  ]);
 
   const paperworkValues = convertQRItemToLinkIdMap(questionnaireResponse?.item ?? []);
   const reviewItems: ReviewItem[] = [

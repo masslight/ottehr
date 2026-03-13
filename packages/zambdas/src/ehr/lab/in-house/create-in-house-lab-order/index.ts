@@ -138,7 +138,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
           let serviceRequests: ServiceRequest[] | undefined;
 
-          if (item.orderedAsRepeat) {
+          if (item.orderMode === 'repeat') {
             console.log('run as repeat for', item.name);
             // tests being run as repeat need to be linked via basedOn to the original test that was run
             // so we are looking for a test with the same instantiatesCanonical that does not have any value in basedOn - this will be the initialServiceRequest
@@ -148,6 +148,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 params: [
                   { name: 'encounter', value: `Encounter/${encounterId}` },
                   { name: 'instantiates-canonical', value: `${item.adUrl}|${item.adVersion}` },
+                  { name: 'status:not', value: 'revoked' },
                 ],
               })
               .then((result) => result.unbundle() as ServiceRequest[]);
@@ -170,12 +171,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                     name: '_sort',
                     value: '-_lastUpdated',
                   },
+                  { name: 'status:not', value: 'revoked' },
                 ],
               })
             ).unbundle();
           }
 
-          return { activityDefinition, serviceRequests, orderedAsRepeat: item.orderedAsRepeat, parentTestCanonicalUrl };
+          return {
+            activityDefinition,
+            serviceRequests,
+            orderMode: item.orderMode,
+            parentTestCanonicalUrl,
+          };
         })
       );
     };
@@ -231,7 +238,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     const testResources: TestItemResources[] = testItemResources.map((data) => {
-      const { activityDefinition, serviceRequests, orderedAsRepeat, parentTestCanonicalUrl } = data;
+      const { activityDefinition, serviceRequests, orderMode, parentTestCanonicalUrl } = data;
 
       if (activityDefinition.status !== 'active' || !activityDefinition.id || !activityDefinition.url) {
         throw Error(
@@ -240,9 +247,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
 
       let initialServiceRequest: ServiceRequest | undefined;
-      let testDetailType: TestItemResources['testDetailType'];
 
-      if (orderedAsRepeat) {
+      if (orderMode === 'repeat') {
         if (!serviceRequests || serviceRequests.length === 0) {
           throw IN_HOUSE_LAB_ERROR(
             `You cannot run ${activityDefinition.name} as repeat, no initial tests could be found for this encounter.`
@@ -268,7 +274,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           );
         }
         initialServiceRequest = possibleInitialSRs[0];
-        testDetailType = 'repeat';
       } else if (parentTestCanonicalUrl && serviceRequests) {
         const parentRequest = serviceRequests.find((sr) => {
           const isParentTest = sr.instantiatesCanonical?.some((url) => url === parentTestCanonicalUrl);
@@ -281,13 +286,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         });
         console.log('parentRequest', parentRequest?.id);
         initialServiceRequest = parentRequest;
-        testDetailType = 'reflex';
       }
 
       const testItemResources: TestItemResources = {
         activityDefinition,
         initialServiceRequest,
-        testDetailType,
+        orderMode,
       };
 
       return testItemResources;

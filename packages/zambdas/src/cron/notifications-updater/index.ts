@@ -126,7 +126,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     ]);
     console.log('--- Ready or unsigned: ' + JSON.stringify(readyOrUnsignedVisitPackages));
     console.log('--- In progress: ' + JSON.stringify(assignedOrInProgressVisitPackages));
-    console.log('--- Active providers map: ' + JSON.stringify(activeProvidersMap));
     console.log('--- Recently assigned tasks map: ' + JSON.stringify(recentlyAssignedTasksMap));
 
     // Going through arrived or in-progress visits to determine busy practitioners that should not receive a notification
@@ -479,9 +478,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const { practitioner, communications } = sendSMSPractitionerCommunications[id];
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
         if (
-          (practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
-            notificationSettings?.method === ProviderNotificationMethod.phone) ||
-          notificationSettings?.method === ProviderNotificationMethod['phone and computer']
+          practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
+          (notificationSettings?.method === ProviderNotificationMethod.phone ||
+            notificationSettings?.method === ProviderNotificationMethod['phone and computer'])
         ) {
           communications.forEach((comm) => {
             if (comm.payload?.[0].contentString) {
@@ -742,7 +741,6 @@ const getAllActiveProviders = async (oystehr: Oystehr): Promise<ProvidersMap> =>
     `Fetched ${inactiveRoleMembers.length} Inactive and ${providerRoleMembers.length} Provider role members.`
   );
 
-  console.log(`provider roles members: ${JSON.stringify(providerRoleMembers)}`);
   // map for getting inactive users by user id
   const inactiveUsersMap = new Map(inactiveRoleMembers.map((user) => [user.id, user]));
   // map for getting users that have Provider role by user id

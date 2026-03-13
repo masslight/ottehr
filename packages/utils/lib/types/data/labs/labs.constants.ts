@@ -208,6 +208,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
+  editResults: 'EDIT RESULTS',
   completePstTask: 'COMPLETE PST TASK',
   abnRejected: 'ABN REJECTED',
   deleteOrder: 'DELETE LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
@@ -218,6 +219,7 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   submit: 'submit',
   createOrder: 'create order',
   inputResults: 'input results',
+  editResults: 'edit results',
   completePstTask: 'complete pst task',
   abnRejected: 'ABN marked rejected',
   deleteOrder: 'Delete lab order and related resources', // this is a soft delete, resources are marked as cancelled or entered-in-error
@@ -242,6 +244,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   inputResults: {
     code: PROVENANCE_ACTIVITY_CODES.inputResults,
     display: PROVENANCE_ACTIVITY_CODES.inputResults,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  editResults: {
+    code: PROVENANCE_ACTIVITY_CODES.editResults,
+    display: PROVENANCE_ACTIVITY_CODES.editResults,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
   // specimen collection & aoe entry if applicable

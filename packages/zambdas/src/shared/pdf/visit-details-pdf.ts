@@ -2,6 +2,7 @@ import { BUCKET_NAMES, Secrets } from 'utils';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
+  composeAttorneyData,
   composeConsentFormsData,
   composeContactData,
   composeDocumentsData,
@@ -14,6 +15,7 @@ import {
   composePharmacyData,
   composeResponsiblePartyData,
   composeVisitData,
+  createAttorneyInfoSection,
   createConsentFormsSection,
   createContactInfoSection,
   createDocumentsSection,
@@ -36,6 +38,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
   const {
     patient,
     emergencyContactResource,
+    attorneyRelatedPerson,
     employerOrganization,
     appointment,
     encounter,
@@ -64,6 +67,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     consentForms: composeConsentFormsData({ encounter, consents, questionnaireResponse, timezone }),
     documents: composeDocumentsData(documents),
     emergencyContact: composeEmergencyContactData({ emergencyContactResource }),
+    attorney: composeAttorneyData({ attorneyRelatedPerson }),
     employer: composeEmployerData({ employer: employerOrganization }),
     paymentHistory: composePatientPaymentsData({ payments }),
   };
@@ -133,6 +137,7 @@ const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
     { ...createResponsiblePartySection(), preferredWidth: 'column' },
     { ...createEmployerInfoSection(), preferredWidth: 'column' },
     { ...createEmergencyContactInfoSection(), preferredWidth: 'column' },
+    { ...createAttorneyInfoSection(), preferredWidth: 'column' },
     { ...createConsentFormsSection(), preferredWidth: 'column' },
     { ...createPatientPaymentsSection(), preferredWidth: 'column' },
     createDocumentsSection(),

@@ -167,6 +167,10 @@
             "valueString": "America/New_York"
           },
           {
+            "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
+            "valueString": "#{var/stripe-account-3}"
+          },          
+          {
             "url": "http://hl7.org/fhir/StructureDefinition/room",
             "valueString": "1"
           },
@@ -333,7 +337,7 @@
           {
             "url": "http://hl7.org/fhir/StructureDefinition/timezone",
             "valueString": "America/New_York"
-          },
+          },           
           {
             "url": "http://hl7.org/fhir/StructureDefinition/room",
             "valueString": "1"
@@ -380,8 +384,12 @@
           },
           {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
-            "valueString": "#{var/stripe-account-1}"
+            "valueString": "#{var/stripe-account-3}"
           },
+          {
+            "url": "https://fhir.ottehr.com/Extension/stripe-terminal-location-id",
+            "valueString": "#{var/stripe-terminal-location-1}"
+          },          
           {
             "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
             "valueString": "#{var/advapacs-location-1}"

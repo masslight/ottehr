@@ -10,7 +10,7 @@ import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { APIErrorCode, CPTCodeOption, emCodeOptions, makeCptCodeDisplay } from 'utils';
+import { APIErrorCode, CPTCodeOption, makeCptCodeDisplay, PROVIDER_CONFIG } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetCPTHCPCSSearch } from '../../stores/appointment/appointment.queries';
 import {
@@ -204,7 +204,7 @@ export const BillingCodesContainer: FC = () => {
         {!isReadOnly && (
           <>
             <Autocomplete
-              options={emCodeOptions}
+              options={PROVIDER_CONFIG.assessment.emCodeOptions}
               disabled={disabledEM}
               isOptionEqualToValue={(option, value) => option.code === value.code}
               value={emCode ? { display: emCode.display, code: emCode.code } : null}
@@ -290,6 +290,7 @@ export const BillingCodesContainer: FC = () => {
           <AssessmentTitle>Additional CPT codes</AssessmentTitle>
           <ActionsList
             data={cptCodes}
+            dataTestId={dataTestIds.billingContainer.container}
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
               <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>

@@ -195,35 +195,6 @@ export const getPatchOperationToUpdateExtension = (
   return undefined;
 };
 
-export const getPatchOperationToRemoveExtension = (
-  resource: { extension?: Extension[] },
-  extensionToRemove: { url: Extension['url'] }
-): Operation | undefined => {
-  if (!resource.extension || resource.extension.length === 0) {
-    return undefined;
-  }
-
-  const extension = resource.extension;
-
-  const existingExtIndex = extension.findIndex((ext) => ext.url === extensionToRemove.url);
-  // check if formUser exists and needs to be updated and if so, update
-  if (existingExtIndex < 0) {
-    return undefined;
-  }
-
-  if (extension.length > 1) {
-    return {
-      op: 'remove',
-      path: `/extension/${existingExtIndex}`,
-    };
-  } else {
-    return {
-      op: 'remove',
-      path: '/extension',
-    };
-  }
-};
-
 export interface ContactTelecomConfig {
   system: string;
   use?: string;
@@ -342,10 +313,6 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
   if (resource.resourceType === 'Patient' && resource.contact) {
     // Special handling for contact name operations
     mergedOperations = consolidateContactNameOperations(mergedOperations);
-  }
-
-  if (resource.resourceType === 'Patient' && resource.extension) {
-    mergedOperations = consolidateExtensionOperations(mergedOperations, resource.extension);
   }
 
   // Group operations by their root paths
@@ -720,48 +687,4 @@ function consolidateContactNameOperations(operations: Operation[]): Operation[] 
   const nonNameOps = operations.filter((op) => !(op.op === 'add' && op.path.includes(consolidatedNameOps[0].path)));
 
   return [...consolidatedNameOps, ...nonNameOps];
-}
-
-function consolidateExtensionOperations(operations: Operation[], extension: Extension[]): Operation[] {
-  const extensionOps = operations.filter((op) => op.path.startsWith('/extension'));
-  if (!extensionOps.length) return operations;
-
-  const newExtensions = [...extension.map((e) => structuredClone(e))];
-
-  for (const op of extensionOps) {
-    const match = op.path.match(/^\/extension\/(\d+|-)$/);
-    if (!match) continue;
-
-    const idx = match[1];
-    if (idx === '-') {
-      if (op.op === 'add' && op.value) {
-        newExtensions.push(structuredClone(op.value));
-      }
-      continue;
-    }
-
-    const index = parseInt(idx, 10);
-    if (index < 0 || index >= extension.length) continue;
-
-    switch (op.op) {
-      case 'remove':
-        delete newExtensions[index];
-        break;
-      case 'replace':
-      case 'add':
-        if (op.value) newExtensions[index] = structuredClone(op.value);
-        break;
-    }
-  }
-
-  const mergedExtensions = newExtensions.filter(Boolean);
-
-  const otherOps = operations.filter((op) => !op.path.startsWith('/extension'));
-  const consolidatedOp: Operation = {
-    op: 'replace',
-    path: '/extension',
-    value: mergedExtensions,
-  };
-
-  return [...otherOps, consolidatedOp];
 }

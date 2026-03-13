@@ -52,8 +52,9 @@ interface ProcedureInfo {
   timeSpent: string;
   documentedBy: string;
 }
-
-const PROCEDURE_TYPE_CODINGS = procedureType.fhirResources['value-set-procedure-type'].resource.expansion.contains;
+const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-type')
+)?.[1].resource.expansion.contains;
 const PROCEDURE_MEDICATIONS_USED_CODINGS =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
 const PROCEDURE_BODY_SITES_CODINGS =
@@ -73,7 +74,7 @@ const PROCEDURE_POST_INSTRUCTIONS_CODINGS =
 const PROCEDURE_TIME_SPENT_CODINGS =
   procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 
-const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map((procedure) => {
+const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS!.map((procedure) => {
   const dropDownChoice = procedure.display;
   const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
   if (!codeableConcept) {

@@ -16,14 +16,28 @@ describe('Display helper functions', () => {
   });
 
   it('makeCptCodeDisplay should format cpt code for front end (one modifier)', () => {
-    const cptCode: CPTCodeDTO = { code: '82962', display: 'Glucose Finger/Heel Stick', modifier: ['91'] };
+    const cptCode: CPTCodeDTO = {
+      code: '82962',
+      display: 'Glucose Finger/Heel Stick',
+      modifier: [{ code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' }],
+    };
     const formattedDisplay = makeCptCodeDisplay(cptCode);
-    expect(formattedDisplay).toEqual('82962-91 Glucose Finger/Heel Stick');
+    expect(formattedDisplay).toEqual('82962-91 Glucose Finger/Heel Stick - Repeat Clinical Diagnostic Laboratory Test');
   });
 
   it('makeCptCodeDisplay should format cpt code for front end (three modifiers)', () => {
-    const cptCode: CPTCodeDTO = { code: '82962', display: 'Glucose Finger/Heel Stick', modifier: ['91', '26', '47'] };
+    const cptCode: CPTCodeDTO = {
+      code: '82962',
+      display: 'Glucose Finger/Heel Stick',
+      modifier: [
+        { code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' },
+        { code: '26', display: 'Professional Component' },
+        { code: '47', display: 'Anesthesia by Surgeon' },
+      ],
+    };
     const formattedDisplay = makeCptCodeDisplay(cptCode);
-    expect(formattedDisplay).toEqual('82962-91-26-47 Glucose Finger/Heel Stick');
+    expect(formattedDisplay).toEqual(
+      '82962-91-26-47 Glucose Finger/Heel Stick - Repeat Clinical Diagnostic Laboratory Test - Professional Component - Anesthesia by Surgeon'
+    );
   });
 });

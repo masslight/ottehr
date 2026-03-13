@@ -2,6 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import { Paper, Stack, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
+import { AccidentField } from '../../AccidentField';
 import { AiHpiSuggestion } from '../../AiHpiSuggestion';
 import { ChiefComplaintFieldReadOnly } from '../../ChiefComplaintField';
 import { HistoryOfPresentIllnessField, HistoryOfPresentIllnessFieldReadOnly } from '../../HpiField';
@@ -53,6 +54,7 @@ export const HPISection: FC = () => {
 
             {isReadOnly ? <HistoryOfPresentIllnessFieldReadOnly /> : <HistoryOfPresentIllnessField />}
             {isReadOnly ? <MechanismOfInjuryFieldReadOnly /> : <MechanismOfInjuryField />}
+            <AccidentField readOnly={isReadOnly} />
             {isReadOnly ? <RosFieldReadOnly /> : <RosField />}
           </Stack>
         }

@@ -1,7 +1,45 @@
+import {
+  ComplexValidationSchema,
+  type FormFieldsAttachmentItem,
+  type FormFieldsDisplayItem,
+  type FormFieldsGroupItem,
+  type FormFieldsInputItem,
+  type FormFieldsItem,
+  type FormFieldsLogicalItem,
+  type FormFieldTrigger,
+  FormSectionArraySchema,
+  FormSectionSimpleSchema,
+  type QuestionnaireConfigType,
+} from 'config-types';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
-import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../types/data/paperwork/paperwork.types';
 import { VALUE_SETS as formValueSets } from './value-sets';
+
+// Re-export from config-types for backwards compatibility
+export {
+  FormFieldItemRecordSchema,
+  FormFieldLogicalItemRecordSchema,
+  FormFieldTriggerSchema,
+  FormSectionArraySchema,
+  FormSectionSimpleSchema,
+  QuestionnaireBaseSchema,
+  QuestionnaireConfigSchema,
+} from 'config-types';
+export type {
+  FormFieldItemRecord,
+  FormFieldLogicalItemRecord,
+  FormFieldsAttachmentItem,
+  FormFieldsDisplayItem,
+  FormFieldsGroupItem,
+  FormFieldsInputItem,
+  FormFieldsItem,
+  FormFieldsLogicalItem,
+  FormFieldSection,
+  FormFieldTrigger,
+  QuestionnaireBase,
+  FormFieldOption,
+  QuestionnaireConfigType,
+} from 'config-types';
 
 export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
 export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
@@ -12,259 +50,6 @@ export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value
 export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
 export const HAS_ATTORNEY_OPTION = formValueSets.attorneyOptions[0].value; // 'I have an attorney'
 export const DOES_NOT_HAVE_ATTORNEY_OPTION = formValueSets.attorneyOptions[1].value; // 'I do not have an attorney'
-
-const triggerEffectSchema = z.enum(['enable', 'require', 'filter', 'sub-text']);
-const triggerSchema = z
-  .object({
-    targetQuestionLinkId: z.string(),
-    effect: z.array(triggerEffectSchema),
-    operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
-    answerBoolean: z.boolean().optional(),
-    answerString: z.string().optional(),
-    answerDateTime: z.string().optional(),
-    substituteText: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      const definedAnswers = [data.answerBoolean, data.answerString, data.answerDateTime].filter(
-        (answer) => answer !== undefined
-      );
-      return definedAnswers.length === 1;
-    },
-    {
-      message: 'Exactly one of answerBoolean, answerString, or answerDateTime must be defined',
-    }
-  )
-  .refine(
-    (data) => {
-      const hasSubTextEffect = data.effect.includes('sub-text');
-      if (hasSubTextEffect) {
-        return data.substituteText !== undefined;
-      }
-      return true;
-    },
-    {
-      message: 'substituteText must be defined when effect includes sub-text',
-    }
-  );
-export type FormFieldTrigger = z.infer<typeof triggerSchema>;
-
-const dynamicPopulationSchema = z.object({
-  sourceLinkId: z.string(),
-  // currently only supporting population when disabled, could see this evolve to a more flexible system where the trigger eval logic kicks off dynamic population
-  triggerState: z.literal('disabled').optional().default('disabled'),
-});
-
-const ReferenceDataSourceSchema = z
-  .object({
-    answerSource: AnswerOptionSourceSchema.optional(),
-    valueSet: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      return data.answerSource !== undefined || data.valueSet !== undefined;
-    },
-    {
-      message: 'Either answerSource or valueSet must be provided',
-    }
-  );
-const FormFieldsLogicalFieldSchema = z.object({
-  key: z.string(),
-  type: z.enum(['string', 'date', 'boolean', 'choice', 'open-choice']),
-  required: z.boolean().optional().default(true),
-  dataType: QuestionnaireDataTypeSchema.optional(),
-  initialValue: z.union([z.string(), z.boolean()]).optional(),
-  options: z
-    .array(
-      z.object({
-        label: z.string(),
-        value: z.string(),
-      })
-    )
-    .optional(),
-});
-
-const FormFieldsDisplayFieldSchema = z.object({
-  key: z.string(),
-  type: z.literal('display'),
-  text: z.string(),
-  element: z.enum(['h3', 'h4', 'p']).optional(),
-  dataType: QuestionnaireDataTypeSchema.optional(),
-  triggers: z.array(triggerSchema).optional(),
-  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-  disabledDisplay: z.literal('hidden').optional().default('hidden'),
-});
-
-const FormFieldsValueTypeBaseSchema = z.object({
-  key: z.string(),
-  type: z.enum(['string', 'text', 'date', 'choice', 'open-choice', 'boolean', 'reference', 'decimal']),
-  label: z.string(),
-  dataType: QuestionnaireDataTypeSchema.optional(),
-  options: z
-    .array(
-      z.object({
-        label: z.string(),
-        value: z.string(),
-      })
-    )
-    .optional(),
-  dataSource: ReferenceDataSourceSchema.optional(),
-  triggers: z.array(triggerSchema).optional(),
-  dynamicPopulation: dynamicPopulationSchema.optional(),
-  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-  disabledDisplay: z.enum(['hidden', 'disabled']).default('hidden'),
-  initialValue: z.union([z.string(), z.boolean()]).optional(),
-  inputWidth: z.enum(['s', 'm', 'l']).optional(),
-  autocomplete: z.string().optional(),
-  permissibleValue: z.union([z.boolean(), z.string()]).optional(),
-  placeholder: z.string().optional(),
-  infoTextSecondary: z.string().optional(),
-  element: z.string().optional(),
-  acceptsMultipleAnswers: z.boolean().optional(),
-  customLinkId: z.string().optional(),
-  categoryTag: z.string().optional(),
-  alwaysFilter: z.boolean().optional(),
-});
-
-const FormFieldsValueTypeSchema = FormFieldsValueTypeBaseSchema.refine(
-  (data) => {
-    if (data.type === 'choice' || data.type === 'open-choice') {
-      return (
-        Array.isArray(data.options) || {
-          message: 'Options must be provided for choice and open-choice types',
-        }
-      );
-    }
-    return true;
-  },
-  {
-    message: 'Options must be provided for choice and open-choice types',
-  }
-).refine(
-  (data) => {
-    if (data.type === 'reference') {
-      return data.dataSource !== undefined;
-    }
-    return true;
-  },
-  {
-    message: 'dataSource must be provided for reference types',
-  }
-);
-
-const FormFieldsAttachmentFieldSchema = FormFieldsValueTypeBaseSchema.extend({
-  type: z.literal('attachment'),
-  attachmentText: z.string().optional(),
-  documentType: z.string().optional(),
-});
-
-export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
-export type FormFieldsAttachmentItem = z.infer<typeof FormFieldsAttachmentFieldSchema>;
-export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
-export type FormFieldsInputItem = z.infer<typeof FormFieldsValueTypeSchema> | FormFieldsAttachmentItem;
-
-// Nested group schema - uses z.lazy() for recursion
-// Using z.ZodType<any> to avoid complex circular type inference issues
-const FormFieldsGroupFieldSchema = z.lazy(() =>
-  z.object({
-    key: z.string(),
-    type: z.literal('group'),
-    text: z.string().optional(),
-    required: z.boolean().optional(),
-    items: z.record(
-      z.union([
-        FormFieldsValueTypeSchema,
-        FormFieldsDisplayFieldSchema,
-        FormFieldsAttachmentFieldSchema,
-        FormFieldsGroupFieldSchema,
-      ])
-    ),
-    requiredFields: z.array(z.string()).optional(),
-    triggers: z.array(triggerSchema).optional(),
-    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-    extension: z.array(z.any()).optional(),
-    customLinkId: z.string().optional(),
-    categoryTag: z.string().optional(),
-    acceptsMultipleAnswers: z.boolean().optional(),
-    groupType: z.enum(['list-with-form', 'pharmacy-collection']).optional(),
-    disabledDisplay: z.literal('hidden').optional().default('hidden'),
-  })
-) as z.ZodType<any>;
-
-// Define the TypeScript type for group field manually (for proper type inference)
-export type FormFieldsGroupItem = {
-  key: string;
-  type: 'group';
-  text?: string;
-  required?: boolean;
-  items: Record<string, FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsAttachmentItem | FormFieldsGroupItem>;
-  requiredFields?: string[];
-  triggers?: FormFieldTrigger[];
-  enableBehavior?: 'all' | 'any';
-  extension?: any[];
-  customLinkId?: string;
-  categoryTag?: string;
-  acceptsMultipleAnswers?: boolean;
-  groupType?: string;
-  disabledDisplay?: string;
-};
-
-export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
-
-export const FormFieldItemRecordSchema = z.record(
-  z.union([
-    FormFieldsValueTypeSchema,
-    FormFieldsDisplayFieldSchema,
-    FormFieldsAttachmentFieldSchema,
-    FormFieldsGroupFieldSchema,
-  ])
-);
-export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
-export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
-export type FormFieldLogicalItemRecord = z.infer<typeof FormFieldLogicalItemRecordSchema>;
-
-const ComplexValidationTriggerWhenSchema = z.object({
-  question: z.string(),
-  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
-  answer: z.string(),
-});
-
-const ComplexValidationSchema = z.object({
-  type: z.string(),
-  triggerWhen: ComplexValidationTriggerWhenSchema,
-});
-
-export const FormSectionSimpleSchema = z.object({
-  linkId: z.string(),
-  title: z.string(),
-  items: FormFieldItemRecordSchema,
-  logicalItems: FormFieldLogicalItemRecordSchema.optional(),
-  hiddenFields: z.array(z.string()).optional(),
-  requiredFields: z.array(z.string()).optional(),
-  // Group-level properties
-  enableBehavior: z.enum(['all', 'any']).optional(),
-  reviewText: z.string().optional(),
-  complexValidation: ComplexValidationSchema.optional(),
-  element: z.string().optional(),
-  triggers: z.array(triggerSchema).optional(),
-});
-
-export const FormSectionArraySchema = z.object({
-  linkId: z.array(z.string()),
-  title: z.string(),
-  items: z.array(FormFieldItemRecordSchema),
-  logicalItems: FormFieldLogicalItemRecordSchema.optional(),
-  hiddenFields: z.array(z.string()).optional(),
-  requiredFields: z.array(z.string()).optional(),
-  // Group-level properties
-  enableBehavior: z.enum(['all', 'any']).optional(),
-  reviewText: z.string().optional(),
-  complexValidation: ComplexValidationSchema.optional(),
-  element: z.string().optional(),
-  triggers: z.array(triggerSchema).optional(),
-});
-
-export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
 
 const createDataTypeExtension = (dataType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type',
@@ -907,22 +692,7 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
   return item;
 };
 
-export const QuestionnaireBaseSchema = z.object({
-  resourceType: z.literal('Questionnaire'),
-  url: z.string(),
-  version: z.string(),
-  name: z.string(),
-  title: z.string(),
-  status: z.enum(['draft', 'active', 'retired', 'unknown']),
-});
-export type QuestionnaireBase = z.infer<typeof QuestionnaireBaseSchema>;
-
-export const QuestionnaireConfigSchema = z.object({
-  questionnaireBase: QuestionnaireBaseSchema,
-  hiddenFormSections: z.array(z.string()),
-  FormFields: z.record(z.string(), z.union([FormSectionSimpleSchema, FormSectionArraySchema])),
-});
-type QuestionnaireConfigType = z.infer<typeof QuestionnaireConfigSchema>;
+// QuestionnaireBaseSchema and QuestionnaireConfigSchema are now imported and re-exported from config-types
 
 const applyGroupLevelProperties = (
   groupItem: QuestionnaireItem,

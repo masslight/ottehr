@@ -565,7 +565,6 @@ export const InPersonExamConfig = {
             ruq: { label: 'RUQ', defaultValue: false },
             rlq: { label: 'RLQ', defaultValue: false },
             luq: { label: 'LUQ', defaultValue: false },
-            lll: { label: 'LLL', defaultValue: false },
             'r-cva': { label: 'R CVA', defaultValue: false },
             'l-cva': { label: 'L CVA', defaultValue: false },
           },

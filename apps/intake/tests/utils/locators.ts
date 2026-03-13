@@ -153,7 +153,6 @@ export class Locators {
   creditCardNumber: Locator;
   creditCardExpiry: Locator;
   creditCardCVC: Locator;
-  addCardButton: Locator;
   paperworkSelectOptionFieldErrorMessage: Locator;
   paperworkErrorInFieldAboveMessage: Locator;
   currentMedicationsPresent: Locator;
@@ -392,7 +391,6 @@ export class Locators {
     this.creditCardNumber = stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]');
     this.creditCardExpiry = stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]');
     this.creditCardCVC = stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]');
-    this.addCardButton = page.getByRole('button').filter({ hasText: 'Add card' });
     this.selectedCard = page.locator('[name="default-card-selection-group"]');
     this.cardNumberFilled = page.getByTestId(dataTestIds.cardNumber);
 

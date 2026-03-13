@@ -46,114 +46,174 @@ export async function createUserResourcesForPatient(
   patientID: string,
   phoneNumber: string
 ): Promise<{ relatedPerson: RelatedPerson; person: Person; newUser: boolean }> {
-  console.log(`Creating a RelatedPerson for Patient ${patientID}`);
-  const relatedPerson = (await oystehr.fhir.create({
-    resourceType: 'RelatedPerson',
-    relationship: [
-      {
-        coding: [
-          {
-            system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
-            code: 'user-relatedperson',
-          },
-        ],
-      },
-    ],
-    telecom: [
-      { system: 'phone', value: phoneNumber },
-      { system: 'sms', value: phoneNumber },
-    ],
-    patient: {
-      reference: `Patient/${patientID}`,
-    },
-  })) as RelatedPerson;
-
-  console.log(`For Patient ${patientID} created a RelatedPerson ${relatedPerson.id}`);
-  console.log(`Searching for Person with phone number ${phoneNumber}`);
-
-  let person: Person | undefined = undefined;
   let newUser = false;
 
-  let retries = 0;
-  let personPatchResult = undefined;
+  console.log(`[UserCreate] Start for patient=${patientID} phone=${phoneNumber}`);
 
-  while (retries < 10) {
-    const personResults = (
+  let person: Person | undefined;
+
+  const findPerson = async (): Promise<Person[]> =>
+    (
       await oystehr.fhir.search<Person>({
         resourceType: 'Person',
+        params: [{ name: 'telecom', value: phoneNumber }],
+      })
+    ).unbundle();
+
+  let personResults = await findPerson();
+
+  if (personResults.length > 0) {
+    person = personResults[0];
+    console.log(`[UserCreate] Found existing Person ${person.id}`);
+  } else {
+    try {
+      console.log(`[UserCreate] Creating Person for phone=${phoneNumber}`);
+
+      person = (await oystehr.fhir.create({
+        resourceType: 'Person',
+        telecom: [{ system: 'phone', value: phoneNumber }],
+      })) as Person;
+
+      newUser = true;
+      console.log(`[UserCreate] Created Person ${person.id}`);
+    } catch (e) {
+      console.log(`[UserCreate] Person create failed, retrying search`);
+
+      personResults = await findPerson();
+
+      if (personResults.length === 0) {
+        throw e;
+      }
+
+      person = personResults[0];
+      console.log(`[UserCreate] Person resolved after race ${person.id}`);
+    }
+  }
+
+  if (!person) {
+    throw new Error('Failed to resolve Person');
+  }
+
+  let resolvedPerson: Person = person;
+
+  let relatedPerson: RelatedPerson | undefined;
+
+  const findRelated = async (): Promise<RelatedPerson[]> =>
+    (
+      await oystehr.fhir.search<RelatedPerson>({
+        resourceType: 'RelatedPerson',
         params: [
-          {
-            name: 'telecom',
-            value: phoneNumber,
-          },
+          { name: 'patient', value: `Patient/${patientID}` },
+          { name: 'telecom', value: phoneNumber },
         ],
       })
     ).unbundle();
 
-    if (personResults.length === 0) {
-      newUser = true;
-      console.log(`Did not find a Person for user with phone number ${phoneNumber}, creating one`);
-      person = (await oystehr.fhir.create({
-        resourceType: 'Person',
-        telecom: [{ system: 'phone', value: phoneNumber }],
-        link: [
-          {
-            target: { reference: `RelatedPerson/${relatedPerson.id}` },
-          },
-        ],
-      })) as Person;
-      console.log(`For user with phone number ${phoneNumber} created a Person ${person.id}`);
-    } else {
-      console.log(
-        `Did find a Person with phone number ${phoneNumber} with ID ${personResults[0].id}, adding RelatedPerson ${relatedPerson.id} to link`
-      );
+  let relatedResults = await findRelated();
 
-      person = personResults[0];
-      const hasLink = person.link;
-      if (!hasLink) {
-        console.log(
-          "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients"
-        );
-      }
-      const link = {
-        target: {
-          reference: `RelatedPerson/${relatedPerson.id}`,
-        },
-      };
-      try {
-        personPatchResult = await oystehr.fhir.patch(
+  if (relatedResults.length > 0) {
+    relatedPerson = relatedResults[0];
+    console.log(`[UserCreate] Found existing RelatedPerson ${relatedPerson.id}`);
+  } else {
+    try {
+      console.log(`[UserCreate] Creating RelatedPerson for patient=${patientID}`);
+
+      relatedPerson = (await oystehr.fhir.create({
+        resourceType: 'RelatedPerson',
+        patient: { reference: `Patient/${patientID}` },
+        relationship: [
           {
-            resourceType: 'Person',
-            id: person.id || '',
-            operations: [
+            coding: [
               {
-                op: 'add',
-                path: hasLink ? '/link/-' : '/link',
-                value: hasLink ? link : [link],
+                system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
+                code: 'user-relatedperson',
               },
             ],
           },
-          { optimisticLockingVersionId: person.meta!.versionId }
-        );
-        console.log(`Updated Person with ID ${person.id}`);
-        break;
-      } catch (e) {
-        console.log(`Error patching Person ${person.id}: ${e}. Retrying...`, JSON.stringify(e));
-        retries++;
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        ],
+        telecom: [
+          { system: 'phone', value: phoneNumber },
+          { system: 'sms', value: phoneNumber },
+        ],
+      })) as RelatedPerson;
+
+      console.log(`[UserCreate] Created RelatedPerson ${relatedPerson.id}`);
+    } catch (e) {
+      console.log(`[UserCreate] RelatedPerson create failed, retrying search`);
+
+      relatedResults = await findRelated();
+
+      if (relatedResults.length === 0) {
+        throw e;
       }
+
+      relatedPerson = relatedResults[0];
+      console.log(`[UserCreate] RelatedPerson resolved after race ${relatedPerson.id}`);
+    }
+  }
+
+  if (!relatedPerson) {
+    throw new Error('Failed to resolve RelatedPerson');
+  }
+
+  const linkReference = `RelatedPerson/${relatedPerson.id}`;
+
+  let retries = 0;
+
+  while (retries < 10) {
+    const alreadyLinked = resolvedPerson.link?.some((l) => l.target?.reference === linkReference) ?? false;
+
+    if (alreadyLinked) {
+      console.log(`[UserCreate] Link already exists`);
+      break;
     }
 
-    console.log(`Updated Person with ID ${person.id}`);
-  }
+    try {
+      console.log(`[UserCreate] Patching Person ${resolvedPerson.id} with link`);
 
-  if (!personPatchResult) {
-    throw new Error(`Failed to patch Person for user with phone number ${phoneNumber} after 10 retries`);
-  }
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Person',
+          id: resolvedPerson.id!,
+          operations: [
+            {
+              op: 'add',
+              path: resolvedPerson.link ? '/link/-' : '/link',
+              value: resolvedPerson.link
+                ? { target: { reference: linkReference } }
+                : [{ target: { reference: linkReference } }],
+            },
+          ],
+        },
+        { optimisticLockingVersionId: resolvedPerson.meta!.versionId }
+      );
 
-  if (!person) {
-    throw new Error(`Failed to create or update Person for user with phone number ${phoneNumber} after 10 retries`);
+      console.log(`[UserCreate] Patch successful`);
+      break;
+    } catch (e) {
+      retries++;
+      console.log(`[UserCreate] Patch failed (attempt ${retries}), refreshing Person`);
+
+      resolvedPerson = await oystehr.fhir.get<Person>({
+        resourceType: 'Person',
+        id: resolvedPerson.id!,
+      });
+
+      const nowLinked = resolvedPerson.link?.some((l) => l.target?.reference === linkReference) ?? false;
+
+      if (nowLinked) {
+        console.log(`[UserCreate] Link added by concurrent request`);
+        break;
+      }
+
+      if (retries >= 10) {
+        throw e;
+      }
+    }
   }
+  person = resolvedPerson;
+
+  console.log(`[UserCreate] Completed successfully`);
 
   return { relatedPerson, person, newUser };
 }

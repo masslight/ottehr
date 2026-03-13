@@ -17,6 +17,8 @@ import {
   getInHouseMedicationMARUrl,
   getNursingOrderDetailsUrl,
   getNursingOrdersUrl,
+  getProcedureDetailsUrl,
+  getProceduresUrl,
   getRadiologyOrderEditUrl,
   getRadiologyUrl,
 } from 'src/features/visits/in-person/routing/helpers';
@@ -50,7 +52,15 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   const ordersExistForAppointment = hasAtLeastOneOrder(orders);
   if (!ordersExistForAppointment) return null;
 
-  const { externalLabOrders, inHouseLabOrders, nursingOrders, inHouseMedications, radiologyOrders, erxOrders } = orders;
+  const {
+    externalLabOrders,
+    inHouseLabOrders,
+    nursingOrders,
+    inHouseMedications,
+    radiologyOrders,
+    erxOrders,
+    procedures,
+  } = orders;
 
   const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
 
@@ -173,6 +183,23 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       })),
     };
     orderConfigs.push(ordersConfig);
+  }
+
+  if (procedures?.length) {
+    const proceduresConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Procedures'],
+      title: 'Procedures',
+      tableUrl: getProceduresUrl(appointment.id),
+      orders: procedures.map((procedure) => ({
+        fhirResourceId: procedure.resourceId ?? '',
+        itemDescription: procedure.procedureType ?? '',
+        detailPageUrl: procedure.resourceId
+          ? getProcedureDetailsUrl(appointment.id, procedure.resourceId)
+          : getProceduresUrl(appointment.id),
+        statusChip: <></>,
+      })),
+    };
+    orderConfigs.push(proceduresConfig);
   }
 
   return (

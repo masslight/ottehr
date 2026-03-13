@@ -538,17 +538,19 @@ test.describe('Order Deletion - Happy Path', () => {
         await expect(page.getByTestId(dataTestIds.radiologyPage.radiologyOrderRow(serviceRequestId))).not.toBeVisible();
       });
 
-      await test.step('Verify radiology order not shown in Progress Note', async () => {
-        // Navigate to Review & Sign (Progress Note) page
-        await sideMenu.clickReviewAndSign();
+      // we aren't deleting the cpt code associated with the radiology order
+      // so i don't think this is a good way to determine if the order isn't there
+      // await test.step('Verify radiology order not shown in Progress Note', async () => {
+      //   // Navigate to Review & Sign (Progress Note) page
+      //   await sideMenu.clickReviewAndSign();
 
-        // Wait for Progress Note page to load
-        await page.waitForURL(new RegExp('/review-and-sign'));
-        await expect(page.getByText('Progress Note')).toBeVisible({ timeout: 10000 });
+      //   // Wait for Progress Note page to load
+      //   await page.waitForURL(new RegExp('/review-and-sign'));
+      //   await expect(page.getByText('Progress Note')).toBeVisible({ timeout: 10000 });
 
-        // Verify deleted radiology order is not shown (check by CPT code which is stable)
-        await expect(page.getByText(RADIOLOGY_STUDY.code!)).not.toBeVisible();
-      });
+      //   // Verify deleted radiology order is not shown (check by CPT code which is stable)
+      //   await expect(page.getByText(RADIOLOGY_STUDY.code!)).not.toBeVisible();
+      // });
     } finally {
       // Cleanup: close page and context for this test
       await page.close();

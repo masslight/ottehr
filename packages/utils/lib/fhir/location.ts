@@ -117,8 +117,6 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
   return filteredLocations;
 }
 
-export const TELEMED_INITIAL_STATES = ['NJ', 'OH'];
-
 export const defaultLocation: Location = {
   resourceType: 'Location',
   status: 'active',

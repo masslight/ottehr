@@ -1,14 +1,13 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
 import { NetworkType } from 'candidhealth/api';
-import { Coding } from 'fhir/r4b';
+import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'config-types';
 import z from 'zod';
 import { VALUE_SET_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides/value-sets';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
-export interface InsurancePlanType {
+// Extend InsurancePlanType to use the specific Candid NetworkType
+export interface InsurancePlanType extends Omit<BaseInsurancePlanType, 'candidCode'> {
   candidCode: NetworkType;
-  label: string;
-  coverageCoding?: Coding;
 }
 
 const insuranceTypeOptions: InsurancePlanType[] = z.array(z.custom<InsurancePlanType>()).parse([
@@ -674,14 +673,19 @@ const formValueSets = {
     { label: 'Phone', value: 'Phone' },
   ],
   externalLabAdditionalCptCodesToAdd: [], // will be automatically added to the encounter if external labs are ordered
-} as const;
+};
 
-export const VALUE_SETS = mergeAndFreezeConfigObjects(formValueSets, OVERRIDES);
+// ValueSetsConfig type is now imported and re-exported from config-types
 
-type ExtractValues<T extends readonly { readonly value: string }[]> = T[number]['value'];
-
-export type ReasonForVisitUrgentCare = ExtractValues<typeof VALUE_SETS.reasonForVisitOptions>;
-export type ReasonForVisitOccMed = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsOccMed>;
-export type ReasonForVisitWorkersComp = ExtractValues<typeof VALUE_SETS.reasonForVisitOptionsWorkersComp>;
-
-export type ReasonForVisit = ReasonForVisitUrgentCare | ReasonForVisitOccMed | ReasonForVisitWorkersComp;
+/**
+ * Get value sets configuration with optional test overrides
+ *
+ * @param testOverrides - Optional overrides for testing purposes
+ * @returns Merged configuration
+ */
+// Merge defaults with instance-specific overrides (from ottehr-config-overrides)
+// Config is baked in at deploy time, no runtime injection needed
+export const VALUE_SETS: ValueSetsConfig = mergeAndFreezeConfigObjects(
+  formValueSets,
+  OVERRIDES as Partial<ValueSetsConfig>
+);

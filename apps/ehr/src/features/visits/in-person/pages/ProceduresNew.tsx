@@ -21,7 +21,7 @@ import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
-import { keepPreviousData, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -60,6 +60,7 @@ import {
 } from 'utils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import {
   useAiSuggestionNotes,
@@ -168,6 +169,7 @@ export default function ProceduresNew(): ReactElement {
   const { isInPerson } = useAppFlags();
   const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
+  const queryClient = useQueryClient();
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
   const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
@@ -411,6 +413,12 @@ export default function ProceduresNew(): ReactElement {
           ],
         });
       }
+
+      void queryClient.invalidateQueries({
+        queryKey: ['procedures-for-tracking-board'],
+        refetchType: 'active',
+      });
+
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
       navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
@@ -712,6 +720,33 @@ export default function ProceduresNew(): ReactElement {
     setInitialFormStateSet(true);
   }, [methods, procedure]);
 
+  const onQuickPickSelect = (quickPick: (typeof PROCEDURES_CONFIG.quickPicks)[number]): void => {
+    updateState((state) => {
+      if (quickPick.procedureType) {
+        methods.reset({
+          ...formValues,
+          procedureType: selectOptions?.procedureTypes.find(
+            (procedureType) => procedureType.code === quickPick.procedureType
+          )?.name,
+        });
+      }
+      Object.entries(quickPick).forEach(([key, value]) => {
+        if (key !== 'name' && key !== 'procedureType') {
+          (state as any)[key] = value;
+        }
+      });
+      Object.entries(state).forEach(([key, _value]) => {
+        if ((quickPick as any)[key] == null) {
+          (state as any)[key] = undefined;
+        }
+      });
+    });
+  };
+
+  const selectedProcedureTypeCode = selectOptions?.procedureTypes?.find(
+    (procedureType) => procedureType.name === formValues.procedureType
+  )?.code;
+
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
@@ -736,6 +771,17 @@ export default function ProceduresNew(): ReactElement {
                 </Link>
               </Typography>
             </Box>
+
+            {!procedureId && PROCEDURES_CONFIG.quickPicks.length > 0 ? (
+              <QuickPicksButton
+                quickPicks={PROCEDURES_CONFIG.quickPicks.filter(
+                  (quickPick) =>
+                    selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
+                )}
+                getLabel={(quickPick) => quickPick.name}
+                onSelect={onQuickPickSelect}
+              />
+            ) : null}
 
             <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>

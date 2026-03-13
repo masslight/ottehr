@@ -154,7 +154,7 @@ async function getReceiptData(input: {
   const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccountId) : undefined;
   if (!customerId) throw new Error('No stripe customer id found');
 
-  const [fhirBundle, listResourcesBundle, organization, paymentIntents, customer, paymentMethods] = await Promise.all([
+  const [fhirBundle, listResourcesBundle, organization, paymentIntents, customer] = await Promise.all([
     oystehr.fhir.search<FhirResource>({
       resourceType: 'Encounter',
       params: [
@@ -172,7 +172,7 @@ async function getReceiptData(input: {
     stripeClient.paymentIntents.search(
       {
         query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-        limit: 20, // default is 10
+        limit: 100, // default is 10
       },
       { stripeAccount: stripeAccountId }
     ),
@@ -180,13 +180,6 @@ async function getReceiptData(input: {
       customerId,
       {
         expand: ['invoice_settings.default_payment_method', 'sources'],
-      },
-      { stripeAccount: stripeAccountId }
-    ),
-    stripeClient.paymentMethods.list(
-      {
-        customer: customerId,
-        type: 'card',
       },
       { stripeAccount: stripeAccountId }
     ),
@@ -208,11 +201,12 @@ async function getReceiptData(input: {
 
   // parse data
   if (customer.deleted) throw new Error('Customer is deleted');
-  const payments = parsePaymentsList(
+  const payments = await parsePaymentsList(
     paymentNotices,
     paymentIntents.data,
     customer,
-    paymentMethods.data,
+    stripeClient,
+    stripeAccountId,
     lastOperationPaymentIntent
   );
 
@@ -259,37 +253,61 @@ async function getReceiptData(input: {
   };
 }
 
-function parsePaymentsList(
+async function parsePaymentsList(
   paymentNotices: PaymentNotice[],
   paymentIntents: Stripe.PaymentIntent[],
   customer: Stripe.Customer,
-  paymentMethods: Stripe.PaymentMethod[],
+  stripeClient: Stripe,
+  stripeAccountId: string | undefined,
   lastOperationPaymentIntent?: Stripe.PaymentIntent
-): PaymentData[] {
+): Promise<PaymentData[]> {
   if (lastOperationPaymentIntent) paymentIntents.push(lastOperationPaymentIntent);
   const defaultPaymentMethod: Stripe.PaymentMethod = customer.invoice_settings
     ?.default_payment_method as Stripe.PaymentMethod;
 
-  const payments: PaymentData[] = paymentNotices.map((paymentNotice) => {
-    const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
-    const stripeIntent = paymentIntents.find((pi) => pi.id === pnStripeId);
-    const stripeMethod = paymentMethods.find((pm) => pm.id === stripeIntent?.payment_method);
+  const payments = await Promise.all(
+    paymentNotices.map(async (paymentNotice): Promise<PaymentData> => {
+      const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
+      const stripeIntent = paymentIntents.find((pi) => pi.id === pnStripeId);
+      const stripePaymentMethodId =
+        typeof stripeIntent?.payment_method === 'string'
+          ? stripeIntent.payment_method
+          : stripeIntent?.payment_method?.id;
 
-    const amount = paymentNotice.amount.value;
-    const method = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
-      ?.valueString as CashOrCardPayment['paymentMethod'];
+      let stripeMethod: Stripe.PaymentMethod | undefined;
+      if (stripePaymentMethodId) {
+        try {
+          stripeMethod = await stripeClient.paymentMethods.retrieve(
+            stripePaymentMethodId,
+            {},
+            { stripeAccount: stripeAccountId }
+          );
+        } catch (error) {
+          console.error(
+            `Failed to retrieve Stripe payment method ${stripePaymentMethodId} for payment notice ${paymentNotice.id}`,
+            error
+          );
+        }
+      }
 
-    if (!amount) throw new Error('No amount found');
-    return {
-      amount,
-      method,
-      // todo: what date should i put here?
-      paymentDate: paymentNotice?.created,
-      last4: stripeMethod?.card?.last4,
-      brand: stripeMethod?.card?.brand,
-      isPrimary: stripeMethod?.id === defaultPaymentMethod?.id,
-    };
-  });
+      const stripeCardDetails = getStripeCardDetails(stripeMethod);
+
+      const amount = paymentNotice.amount.value;
+      const method = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
+        ?.valueString as CashOrCardPayment['paymentMethod'];
+
+      if (!amount) throw new Error('No amount found');
+      return {
+        amount,
+        method,
+        // todo: what date should i put here?
+        paymentDate: paymentNotice?.created,
+        last4: stripeCardDetails?.last4,
+        brand: stripeCardDetails?.brand,
+        isPrimary: stripeMethod?.id === defaultPaymentMethod?.id,
+      };
+    })
+  );
   // i do sorting before formatting date to MM/dd/yyyy to make it more precise
   payments.sort((a, b) => {
     const dateA = DateTime.fromISO(a.paymentDate ?? '');
@@ -300,6 +318,25 @@ function parsePaymentsList(
     (payment) => (payment.paymentDate = DateTime.fromISO(payment.paymentDate ?? '').toFormat('MM/dd/yyyy'))
   );
   return payments;
+}
+
+function getStripeCardDetails(paymentMethod?: Stripe.PaymentMethod): Pick<PaymentData, 'last4' | 'brand'> | undefined {
+  if (!paymentMethod) return undefined;
+  if (paymentMethod.card) {
+    return {
+      last4: paymentMethod.card.last4,
+      brand: paymentMethod.card.brand,
+    };
+  }
+
+  if (paymentMethod.card_present) {
+    return {
+      last4: paymentMethod.card_present.last4 ?? undefined,
+      brand: paymentMethod.card_present.brand ?? undefined,
+    };
+  }
+
+  return undefined;
 }
 
 async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise<Uint8Array> {
@@ -436,16 +473,48 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     const firstColumnWidth = tableWidth / 2;
     const otherColumnWidth = tableWidth / 4;
     const initialLeftBound = pdfClient.getLeftBound();
+    const usdFormatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const formatUsd = (amount: number): string => {
+      const numericAmount = Number(amount);
+      if (!Number.isFinite(numericAmount)) return '$0.00';
+      return usdFormatter.format(numericAmount);
+    };
     let totalAmount = 0;
 
     drawBlockHeader('Payments');
 
     // Payments list
     receiptData.payments.forEach((payment) => {
-      let cardText = `Card ending ${payment.last4}`;
+      const formattedBrand = payment.brand
+        ? `${payment.brand.charAt(0).toUpperCase()}${payment.brand.slice(1)}`
+        : 'Card';
+      const formattedLast4 = payment.last4 ?? '••••';
+      let cardText = `${formattedBrand} •••• ${formattedLast4}`;
       if (payment.isPrimary) cardText += ' (Primary)';
-      const paymentMethodText = payment.method === 'card' ? cardText : capitalize(payment.method);
-      totalAmount += payment.amount;
+      let paymentMethodText: string;
+      switch (payment.method) {
+        case 'card':
+        case 'card-reader':
+          paymentMethodText = cardText;
+          break;
+        case 'external-card-reader':
+          paymentMethodText = 'Card Reader';
+          break;
+        case 'cash':
+          paymentMethodText = 'Cash';
+          break;
+        case 'check':
+          paymentMethodText = 'Check';
+          break;
+        default:
+          paymentMethodText = capitalize(payment.method);
+      }
+      totalAmount += Number(payment.amount) || 0;
 
       pdfClient.setRightBound(initialLeftBound + firstColumnWidth);
       writeText(paymentMethodText, { noNewLineAfter: true, spacing: 0 });
@@ -457,7 +526,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       pdfClient.setLeftBound(initialLeftBound + firstColumnWidth + otherColumnWidth);
       pdfClient.setRightBound(initialLeftBound + firstColumnWidth + otherColumnWidth * 2);
 
-      writeText(`$ ${payment.amount}`, { side: 'right' });
+      writeText(formatUsd(payment.amount), { side: 'right' });
       pdfClient.setLeftBound(initialLeftBound);
       const grayLine = { ...GREY_LINE_STYLE };
       grayLine.margin = { top: 5, bottom: 1 };
@@ -466,7 +535,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
 
     // Totals
     writeText(`Total:`, { noNewLineAfter: true, bold: true });
-    writeText(`$ ${totalAmount}`, { side: 'right', bold: true });
+    writeText(formatUsd(totalAmount), { side: 'right', bold: true });
   };
 
   drawHeadline();

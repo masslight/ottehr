@@ -122,6 +122,7 @@
       "reason9": "Other"
     },
     "subtitle": "Cancelation reason",
+    "additionalReasonSubtitle": "Other reason",
     "title": "Why are you canceling?"
   },
   "checkIn": {

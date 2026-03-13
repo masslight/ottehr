@@ -56,6 +56,7 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { PROJECT_WEBSITE } from '../ottehr-config/branding';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   BookableResource,
@@ -64,7 +65,6 @@ import {
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
-  PROJECT_WEBSITE,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleOwnerFhirResource,
   ServiceMode,
@@ -1491,7 +1491,11 @@ export const getScheduleOwnerFromAppointmentOrEncounter = async (
 };
 
 export function makeCptCodeDisplay(cptCode: CPTCodeDTO): string {
-  const modifiersString =
-    cptCode.modifier && cptCode.modifier.length > 0 ? `${cptCode.modifier.map((mod) => `-${mod}`).join('')}` : '';
-  return `${cptCode.code}${modifiersString} ${cptCode.display}`;
+  const dtoHasMod = cptCode.modifier && cptCode.modifier.length > 0;
+
+  const modifierCodesString = dtoHasMod ? `${cptCode.modifier?.map((mod) => `-${mod.code}`).join('')}` : '';
+
+  const modifierDescriptionString = dtoHasMod ? `${cptCode.modifier?.map((mod) => ` - ${mod.display}`).join('')}` : '';
+
+  return `${cptCode.code}${modifierCodesString} ${cptCode.display}${modifierDescriptionString}`;
 }

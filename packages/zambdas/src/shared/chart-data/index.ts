@@ -26,6 +26,9 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCIDENT_STATE_EXTENSION,
+  ACCIDENT_TYPE_SYSTEM,
+  AccidentDTO,
   ADDED_VIA_LAB_ORDER_SYSTEM,
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -1413,6 +1416,9 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
   // 6. Procedures
   data.procedures = makeProceduresDTOFromFhirResources(encounterResource, resources);
 
+  // 7. Accident
+  data.accident = makeAccidentDTOFromFhirResources(resources);
+
   return data;
 }
 
@@ -1567,6 +1573,7 @@ export function makeProceduresDTOFromFhirResources(
   return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
     return {
       resourceId: serviceRequests.id,
+      encounterId: serviceRequests.encounter?.reference?.split('/')[1],
       procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
       cptCodes: cptCodeProcedures
         .filter(
@@ -1764,3 +1771,52 @@ export function makeEncounterTaskResource(encounterId: string, coding: TaskCodin
     },
   };
 }
+
+export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): AccidentDTO | undefined {
+  const accidentCondition = resources.find(
+    (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
+  ) as Condition;
+  if (accidentCondition == null) {
+    return undefined;
+  }
+  return {
+    resourceId: accidentCondition.id,
+    type:
+      accidentCondition.code?.coding
+        ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
+        ?.map((coding) => coding.code as any) ?? [],
+    date: accidentCondition.onsetDateTime,
+    state: accidentCondition.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)?.valueString,
+  };
+}
+
+export const createAccidentCondition = (
+  accident: AccidentDTO,
+  encounterId: string,
+  patientId: string
+): BatchInputPutRequest<Condition> | BatchInputPostRequest<Condition> => {
+  return saveOrUpdateResourceRequest<Condition>({
+    resourceType: 'Condition',
+    id: accident.resourceId,
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    onsetDateTime: accident.date,
+    code: {
+      coding: accident.type.map((type) => {
+        return {
+          system: ACCIDENT_TYPE_SYSTEM,
+          code: type,
+        };
+      }),
+    },
+    extension: accident.state
+      ? [
+          {
+            url: ACCIDENT_STATE_EXTENSION,
+            valueString: accident.state,
+          },
+        ]
+      : undefined,
+    meta: getMetaWFieldName('accident'),
+  });
+};

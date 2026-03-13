@@ -17,13 +17,13 @@ import {
   VisitType,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
+import { primaryIcon } from '../branding/assets';
 import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
-import { primaryIcon } from '../themes/ottehr/icons';
 import { useVisitContext } from './ThankYou';
 
 const Reschedule = (): JSX.Element => {

@@ -30,8 +30,10 @@ import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue } from 'src/shared/utils';
 import {
+  FhirAppointmentType,
   formatDateToMDYWithTime,
   getAdmitterPractitionerId,
+  getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
   getFullestAvailableName,
   getInsuranceNameFromCoverage,
@@ -206,6 +208,13 @@ export const Header = (): JSX.Element => {
   const userTimezone = DateTime.local().zoneName;
   const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
   const visitText = `Visit: ${date} ${time}${optionalVisitLabel ? ` | ${optionalVisitLabel}` : ''}`.trim();
+  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const visitBookingType = appointment
+    ? appointment.appointmentType?.text === FhirAppointmentType.prebook
+      ? 'Scheduled'
+      : 'On Demand'
+    : undefined;
+  const visitTypeAndCategory = ['In Person', serviceCategory].filter(Boolean).join(' | ');
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
@@ -380,6 +389,16 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitText}</PatientMetadata>
                     </Link>
                   </Grid>
+                  {visitTypeAndCategory && (
+                    <Grid item>
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitTypeAndCategory}</PatientMetadata>
+                    </Grid>
+                  )}
+                  {visitBookingType && (
+                    <Grid item>
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
+                    </Grid>
+                  )}
                   <Grid item>
                     <Tooltip title={paymentVariant}>
                       <PatientMetadata

@@ -1,6 +1,5 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
-import { primaryIcon } from '@theme/icons';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
@@ -10,6 +9,7 @@ import { BRANDING_CONFIG, PatientAppointmentDTO, ServiceMode, VALUE_SETS, VisitT
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
+import { primaryIcon } from '../branding/assets';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { CustomLoadingButton } from '../components/CustomLoadingButton';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';

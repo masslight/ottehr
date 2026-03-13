@@ -1,7 +1,8 @@
 import { Box } from '@mui/material';
+import type { ExamCardComponent, ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExamCardComponent, ExamItemConfig, isDropdownComponent, isMultiSelectComponent } from 'utils';
+import { isDropdownComponent, isMultiSelectComponent } from 'utils';
 import { useExamObservationsStore } from '../../../stores/appointment/exam-observations.store';
 import { ExamReviewGroup } from './ExamReviewGroup';
 

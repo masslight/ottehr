@@ -5,7 +5,7 @@ import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Typograp
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
@@ -57,29 +57,32 @@ export default function Appointments(): ReactElement {
   const pageIsVisible = usePageVisibility(); // goes to false if tab loses focus and gives the fhir api a break
   const { debounce } = useDebounce(300);
 
-  const handleSubmit: CustomFormEventHandler = (event: any, value: any, field: string): void => {
-    if (field === 'date') {
-      queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
-    } else if (field === 'location') {
-      queryParams?.set('locationID', value?.id ?? '');
-    } else if (field === 'visitTypes') {
-      const appointmentTypesString = value.join(',');
-      queryParams.set('visitType', appointmentTypesString);
-    } else if (field === 'providers') {
-      const providersString = value.join(',');
-      queryParams.set('providers', providersString);
-    } else if (field === 'groups') {
-      const groupsString = value.join(',');
-      queryParams.set('groups', groupsString);
-    }
-
-    setEditingComment(false);
-    navigate(`?${queryParams?.toString()}`);
-  };
-
   const queryParams = useMemo(() => {
     return new URLSearchParams(location.search);
   }, [location.search]);
+
+  const handleSubmit: CustomFormEventHandler = useCallback(
+    (event: any, value: any, field: string): void => {
+      if (field === 'date') {
+        queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
+      } else if (field === 'location') {
+        queryParams?.set('locationID', value?.id ?? '');
+      } else if (field === 'visitTypes') {
+        const appointmentTypesString = value.join(',');
+        queryParams.set('visitType', appointmentTypesString);
+      } else if (field === 'providers') {
+        const providersString = value.join(',');
+        queryParams.set('providers', providersString);
+      } else if (field === 'groups') {
+        const groupsString = value.join(',');
+        queryParams.set('groups', groupsString);
+      }
+
+      setEditingComment(false);
+      navigate(`?${queryParams?.toString()}`);
+    },
+    [queryParams, appointmentDate, navigate]
+  );
 
   const { locationID, searchDate, visitType, providers, groups, queryId } = (() => {
     const locationID = queryParams.get('locationID') || '';
@@ -269,6 +272,10 @@ export default function Appointments(): ReactElement {
     return () => clearInterval(appointmentInterval);
   }, []);
 
+  const updateAppointments = useCallback(() => {
+    setLoadingState({ status: 'initial' });
+  }, []);
+
   return (
     <AppointmentsBody
       loadingState={loadingState}
@@ -289,7 +296,7 @@ export default function Appointments(): ReactElement {
       healthcareServices={healthcareServices}
       appointmentDate={appointmentDate}
       setAppointmentDate={setAppointmentDate}
-      updateAppointments={() => setLoadingState({ status: 'initial' })}
+      updateAppointments={updateAppointments}
       setEditingComment={setEditingComment}
     />
   );

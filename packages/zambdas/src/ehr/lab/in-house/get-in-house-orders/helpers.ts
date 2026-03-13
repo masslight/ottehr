@@ -37,6 +37,7 @@ import {
   TestStatus,
 } from 'utils';
 import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../../../shared';
+import { getObservationsForDiagnosticReportResults } from '../../shared/helpers';
 import {
   buildOrderHistory,
   determineOrderStatus,
@@ -458,16 +459,16 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
       value: 'ServiceRequest:specimen',
     });
 
-    // Include observations for lab details
-    searchParams.push({
-      name: '_revinclude',
-      value: 'Observation:based-on',
-    });
-
     // Include the DR for grabbing pdf url
     searchParams.push({
       name: '_revinclude',
       value: 'DiagnosticReport:based-on',
+    });
+
+    // Include observations for lab details
+    searchParams.push({
+      name: '_include:iterate',
+      value: 'DiagnosticReport:result',
     });
 
     // Include any related repeat test SRs
@@ -512,7 +513,7 @@ export const extractInHouseResources = (
   const locations: Location[] = [];
   const provenances: Provenance[] = [];
   const specimens: Specimen[] = [];
-  const observations: Observation[] = [];
+  const allObservations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const activityDefinitions: ActivityDefinition[] = [];
   const appointments: Appointment[] = [];
@@ -521,7 +522,7 @@ export const extractInHouseResources = (
   const appointmentScheduleMap: Record<string, Schedule> = {};
 
   for (const resource of resources) {
-    if (resource.resourceType === 'ServiceRequest') {
+    if (resource.resourceType === 'ServiceRequest' && resource.status !== 'revoked') {
       serviceRequests.push(resource);
     } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
       tasks.push(resource);
@@ -534,7 +535,7 @@ export const extractInHouseResources = (
     } else if (resource.resourceType === 'Specimen') {
       specimens.push(resource);
     } else if (resource.resourceType === 'Observation') {
-      observations.push(resource);
+      allObservations.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource);
     } else if (resource.resourceType === 'ActivityDefinition') {
@@ -564,6 +565,9 @@ export const extractInHouseResources = (
       }
     }
   }
+
+  // todo labs i don't think this additional work is necessary anymore, the query has been updated to only grab observations from diagnostic report results
+  const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
 
   return {
     serviceRequests,

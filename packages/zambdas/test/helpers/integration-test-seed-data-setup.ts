@@ -18,9 +18,9 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { cleanAppointmentGraph, M2MClientMockType, RoleType } from 'utils';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE, M2MClientMockType, RoleType } from 'utils';
+import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
@@ -130,16 +130,13 @@ export const insertInPersonAppointmentBase = async (
   );
   const schedule = await oystehr.fhir.create(scheduleSpec);
 
-  // Assumes there is only a single Q resource in this file!
-  const questionnaireKey = Object.keys(inPersonIntakeQuestionnaire.fhirResources)[0] as any;
-  const fhirResourcesAny = inPersonIntakeQuestionnaire.fhirResources as any;
-
+  const intakePaperworkQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
   let seedDataString = JSON.stringify(fastSeedData);
   seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, location.id!);
   seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
   seedDataString = seedDataString.replace(
     /\{\{questionnaireUrl\}\}/g,
-    `${fhirResourcesAny[questionnaireKey].resource.url}|${fhirResourcesAny[questionnaireKey].resource.version}`
+    `${intakePaperworkQuestionnaire.url}|${intakePaperworkQuestionnaire.version}`
   );
   seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 

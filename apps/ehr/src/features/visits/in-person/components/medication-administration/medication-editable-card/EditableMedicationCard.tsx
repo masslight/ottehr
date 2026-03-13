@@ -150,20 +150,23 @@ export const EditableMedicationCard: React.FC<{
     }
   };
 
-  const handleFavoriteSelect = useCallback(
-    (favorite: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.favorites)[number]): void => {
-      const medicationId = selectsOptions.medicationId.medispanCodeToMedicationId?.[String(favorite.dosespotId)];
+  const handleQuickPickSelect = useCallback(
+    (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]): void => {
+      const { ndcToMedicationId, medispanCodeToMedicationId } = selectsOptions.medicationId;
+      const medicationId: string | undefined =
+        (quickPick.ndc && ndcToMedicationId?.[quickPick.ndc]) ??
+        (quickPick.dosespotId != null ? medispanCodeToMedicationId?.[String(quickPick.dosespotId)] : undefined);
       setLocalValues((prev) => ({
         ...prev,
         medicationId,
-        ...(favorite.dose != null && { dose: favorite.dose }),
-        ...(favorite.units != null && { units: favorite.units }),
-        ...(favorite.route != null && { route: favorite.route }),
-        ...(favorite.instructions != null && { instructions: favorite.instructions }),
+        ...(quickPick.dose != null && { dose: quickPick.dose }),
+        ...(quickPick.units != null && { units: quickPick.units }),
+        ...(quickPick.route != null && { route: quickPick.route }),
+        ...(quickPick.instructions != null && { instructions: quickPick.instructions }),
       }));
       setErxEnabled(true);
     },
-    [selectsOptions.medicationId.medispanCodeToMedicationId]
+    [selectsOptions.medicationId]
   );
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
@@ -513,8 +516,8 @@ export const EditableMedicationCard: React.FC<{
         }}
         onDelete={medication?.id && medication?.status !== 'cancelled' ? handleDeleteClick : undefined}
         isReadOnly={isReadOnly}
-        onFavoriteSelect={
-          typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleFavoriteSelect : undefined
+        onQuickPickSelect={
+          typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
         }
       />
       <InPersonModal

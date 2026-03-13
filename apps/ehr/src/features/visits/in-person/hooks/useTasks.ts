@@ -358,7 +358,9 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     }
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
       const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
-      title = `Match unsolicited test results`;
+      title = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
+        patientName ? ` for ${patientName}` : ''
+      }`;
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
       action = {
         name: 'Match',

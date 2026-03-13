@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { CODE_SYSTEM_ICD_10, getSecret, Secrets, SecretsKeys } from 'utils';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10, getSecret, Secrets, SecretsKeys } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 import { searchIcd10Codes } from '../../../shared/icd-10-search';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
@@ -24,7 +24,7 @@ export const validateInput = async (
 };
 
 const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oystehr): Promise<EnhancedBody> => {
-  const { diagnosisCode, cptCode, encounterId, stat, clinicalHistory } = validateJsonBody(input);
+  const { diagnosisCode, cptCode, lateralityModifier, encounterId, stat, clinicalHistory } = validateJsonBody(input);
 
   const diagnosis = await validateICD10Code(diagnosisCode);
   const cpt = await validateCPTCode(cptCode, secrets);
@@ -45,6 +45,7 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
   return {
     diagnosis,
     cpt,
+    lateralityModifier,
     encounter,
     stat,
     clinicalHistory,
@@ -172,7 +173,7 @@ const validateCPTCode = async (cptCode: unknown, secrets: Secrets): Promise<Vali
   const cpt = {
     code: cptCode,
     display: cptResponseBody.result.results[0].name,
-    system: CODE_SYSTEM_ICD_10,
+    system: CODE_SYSTEM_CPT,
   };
 
   console.log('CPT code validated:', cpt);

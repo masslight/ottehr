@@ -13,7 +13,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useCallback, useState } from 'react';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   GetVitalsForListOfEncountersResponseData,
@@ -62,21 +62,37 @@ export default function AppointmentTable({
     inHouseMedicationsByEncounterId,
     radiologyOrdersByAppointmentId,
     erxOrdersByEncounterId,
+    proceduresByEncounterId,
   } = orders;
 
-  const ordersForAppointment = (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
-    inHouseLabOrders: inHouseLabOrdersByAppointmentId[appointmentId],
-    externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
-    nursingOrders: nursingOrdersByAppointmentId[appointmentId],
-    inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
-    radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
-    erxOrders: erxOrdersByEncounterId[encounterId],
-  });
+  const ordersForAppointment = useCallback(
+    (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
+      inHouseLabOrders: inHouseLabOrdersByAppointmentId[appointmentId],
+      externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
+      nursingOrders: nursingOrdersByAppointmentId[appointmentId],
+      inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
+      radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
+      erxOrders: erxOrdersByEncounterId[encounterId],
+      procedures: proceduresByEncounterId[encounterId],
+    }),
+    [
+      inHouseLabOrdersByAppointmentId,
+      externalLabOrdersByAppointmentId,
+      nursingOrdersByAppointmentId,
+      inHouseMedicationsByEncounterId,
+      radiologyOrdersByAppointmentId,
+      erxOrdersByEncounterId,
+      proceduresByEncounterId,
+    ]
+  );
 
-  const vitalsForAppointment = (appointment: InPersonAppointmentInformation): GetVitalsResponseData | undefined => {
-    console.log(appointment, vitals);
-    return vitals?.[appointment.encounterId];
-  };
+  const vitalsForAppointment = useCallback(
+    (appointment: InPersonAppointmentInformation): GetVitalsResponseData | undefined => {
+      console.log(appointment, vitals);
+      return vitals?.[appointment.encounterId];
+    },
+    [vitals]
+  );
 
   return (
     <>

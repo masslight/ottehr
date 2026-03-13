@@ -25,12 +25,15 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
     if (!apiClient) {
       throw new Error('apiClient is not defined');
     }
+    const cancellationReasonAdditional =
+      data.cancellationReason === 'Other' ? data.cancellationReasonAdditional : undefined;
 
     cancelAppointment.mutate(
       {
         apiClient: apiClient,
         appointmentID: appointmentID,
         cancellationReason: data.cancellationReason,
+        cancellationReasonAdditional,
       },
       {
         onSuccess: async () => {
@@ -61,6 +64,18 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
             label: 'Cancelation reason',
             required: true,
             selectOptions: VALUE_SETS.cancelReasonOptionsVirtualPatient,
+          },
+          {
+            type: 'Text',
+            name: 'cancellationReasonAdditional',
+            label: 'Other reason',
+            required: false,
+            hidden: true,
+            enableWhen: {
+              question: 'cancellationReason',
+              operator: '=',
+              answer: 'Other',
+            },
           },
         ]}
         controlButtons={{

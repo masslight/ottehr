@@ -122,7 +122,7 @@ type ReactQueryState = {
 
 type ChartDataResponse = Omit<
   GetChartDataResponse,
-  Exclude<RequestedFields, 'medications' | 'inhouseMedications' | 'observations'>
+  Exclude<RequestedFields, 'medications' | 'inhouseMedications' | 'observations' | 'procedures'>
 >;
 
 export type ChartDataState = {

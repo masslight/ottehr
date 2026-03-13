@@ -29,7 +29,8 @@ export type ProviderChartDataFieldsNames =
   | typeof IN_PERSON_NOTE_ID
   | 'birth-history'
   | 'procedure'
-  | typeof ERX_MEDICATION_META_TAG_CODE;
+  | typeof ERX_MEDICATION_META_TAG_CODE
+  | 'accident';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 

@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   APIError,
   appointmentTypeForAppointment,
+  CanonicalUrl,
   checkEncounterIsVirtual,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -21,11 +22,13 @@ import {
   getTimezone,
   isPostTelemedAppointment,
   M2MClientMockType,
+  parseQuestionnaireCanonicalExtension,
   PatientInfo,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   ScheduleOwnerFhirResource,
   ServiceMode,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotListItem,
   SlotServiceCategory,
@@ -33,6 +36,7 @@ import {
   Timezone,
 } from 'utils';
 import { assert } from 'vitest';
+import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
   adjustHoursOfOperation,
@@ -1226,5 +1230,225 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       await cleanUpResources(initialResources);
     });
+  });
+
+  describe('questionnaire canonical extension', () => {
+    /**
+     * Helper to get the questionnaire canonical from a Slot's extension
+     */
+    const getQuestionnaireCanonicalFromSlot = (slot: Slot): CanonicalUrl | undefined => {
+      const ext = slot.extension?.find((e) => e.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL);
+      if (!ext?.valueString) return undefined;
+      return parseQuestionnaireCanonicalExtension(ext.valueString);
+    };
+
+    test.concurrent('slot created with questionnaireCanonical stores the extension correctly', async () => {
+      assert(processId);
+      const initialResources = await setUpInPersonResources();
+
+      const testCanonical: CanonicalUrl = {
+        url: 'https://example.com/Questionnaire/test-intake',
+        version: '1.0.0',
+      };
+
+      // Get an available slot time
+      let getScheduleResponse: GetScheduleResponse | undefined;
+      try {
+        getScheduleResponse = (
+          await oystehrTestUserM2M.zambda.executePublic({
+            id: 'get-schedule',
+            slug: initialResources.slug,
+            scheduleType: 'location',
+          })
+        ).output as GetScheduleResponse;
+      } catch (e) {
+        console.error('Error executing get-schedule zambda', e);
+      }
+      assert(getScheduleResponse);
+      const selectedSlot = getScheduleResponse.available[0];
+      assert(selectedSlot);
+
+      // Create slot with questionnaire canonical
+      const createSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
+          status: 'busy-tentative',
+        }),
+        questionnaireCanonical: testCanonical,
+      };
+
+      const { slot: createdSlot } = await createSlotAndValidate(
+        { params: createSlotParams, selectedSlot, schedule: initialResources.schedule },
+        oystehrTestUserM2M
+      );
+
+      // Verify the extension was stored correctly
+      const storedCanonical = getQuestionnaireCanonicalFromSlot(createdSlot);
+      expect(storedCanonical).toBeDefined();
+      assert(storedCanonical);
+      expect(storedCanonical.url).toEqual(testCanonical.url);
+      expect(storedCanonical.version).toEqual(testCanonical.version);
+
+      await cleanUpResources(initialResources);
+    });
+
+    test.concurrent('appointment created from slot with questionnaireCanonical uses that questionnaire', async () => {
+      assert(processId);
+      const initialResources = await setUpInPersonResources();
+
+      // Use the virtual intake questionnaire for an in-person slot
+      // This proves the Slot's canonical is being used instead of the default in-person questionnaire
+      const testCanonical = getCanonicalUrlForPrevisitQuestionnaire(ServiceMode.virtual);
+
+      // Get an available slot time
+      let getScheduleResponse: GetScheduleResponse | undefined;
+      try {
+        getScheduleResponse = (
+          await oystehrTestUserM2M.zambda.executePublic({
+            id: 'get-schedule',
+            slug: initialResources.slug,
+            scheduleType: 'location',
+          })
+        ).output as GetScheduleResponse;
+      } catch (e) {
+        console.error('Error executing get-schedule zambda', e);
+      }
+      assert(getScheduleResponse);
+      const selectedSlot = getScheduleResponse.available[0];
+      assert(selectedSlot);
+
+      // Create slot with questionnaire canonical
+      const createSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
+          status: 'busy-tentative',
+        }),
+        questionnaireCanonical: testCanonical,
+      };
+
+      const { slot: createdSlot } = await createSlotAndValidate(
+        { params: createSlotParams, selectedSlot, schedule: initialResources.schedule },
+        oystehrTestUserM2M
+      );
+
+      // Verify the extension is on the slot
+      const storedCanonical = getQuestionnaireCanonicalFromSlot(createdSlot);
+      assert(storedCanonical);
+
+      // Create appointment using this slot
+      const patientInfo: PatientInfo = {
+        id: existingTestPatient.id,
+        firstName: existingTestPatient.name![0]!.given![0],
+        lastName: existingTestPatient!.name![0]!.family,
+        email: 'test+questionnaire-canonical@example.com',
+        sex: 'female',
+        dateOfBirth: existingTestPatient.birthDate,
+        newPatient: false,
+      };
+
+      const createAppointmentInputParams: CreateAppointmentInputParams = {
+        patient: patientInfo,
+        slotId: createdSlot.id!,
+      };
+
+      let createAppointmentResponse: CreateAppointmentResponse | undefined;
+      try {
+        createAppointmentResponse = (
+          await oystehrTestUserM2M.zambda.execute({
+            id: 'create-appointment',
+            ...createAppointmentInputParams,
+          })
+        ).output as CreateAppointmentResponse;
+      } catch (e) {
+        console.error('Error executing create-appointment zambda', e);
+      }
+      assert(createAppointmentResponse);
+
+      // Verify the QuestionnaireResponse references the custom questionnaire canonical
+      const { questionnaire: questionnaireResponse } = createAppointmentResponse.resources;
+      assert(questionnaireResponse);
+      expect(questionnaireResponse.questionnaire).toBeDefined();
+
+      // The questionnaire field should contain the canonical URL with version
+      const expectedCanonicalString = `${testCanonical.url}|${testCanonical.version}`;
+      expect(questionnaireResponse.questionnaire).toEqual(expectedCanonicalString);
+
+      await cleanUpResources(initialResources);
+    });
+
+    test.concurrent(
+      'appointment created from slot without questionnaireCanonical uses default questionnaire',
+      async () => {
+        assert(processId);
+        const initialResources = await setUpInPersonResources();
+
+        // Get an available slot time
+        let getScheduleResponse: GetScheduleResponse | undefined;
+        try {
+          getScheduleResponse = (
+            await oystehrTestUserM2M.zambda.executePublic({
+              id: 'get-schedule',
+              slug: initialResources.slug,
+              scheduleType: 'location',
+            })
+          ).output as GetScheduleResponse;
+        } catch (e) {
+          console.error('Error executing get-schedule zambda', e);
+        }
+        assert(getScheduleResponse);
+        const selectedSlot = getScheduleResponse.available[0];
+        assert(selectedSlot);
+
+        // Create slot WITHOUT questionnaire canonical
+        const createSlotParams: CreateSlotParams = createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
+          status: 'busy-tentative',
+        });
+
+        const { slot: createdSlot } = await createSlotAndValidate(
+          { params: createSlotParams, selectedSlot, schedule: initialResources.schedule },
+          oystehrTestUserM2M
+        );
+
+        // Verify no questionnaire canonical extension on the slot
+        const storedCanonical = getQuestionnaireCanonicalFromSlot(createdSlot);
+        expect(storedCanonical).toBeUndefined();
+
+        // Create appointment using this slot
+        const patientInfo: PatientInfo = {
+          id: existingTestPatient.id,
+          firstName: existingTestPatient.name![0]!.given![0],
+          lastName: existingTestPatient!.name![0]!.family,
+          email: 'test+default-questionnaire@example.com',
+          sex: 'female',
+          dateOfBirth: existingTestPatient.birthDate,
+          newPatient: false,
+        };
+
+        const createAppointmentInputParams: CreateAppointmentInputParams = {
+          patient: patientInfo,
+          slotId: createdSlot.id!,
+        };
+
+        let createAppointmentResponse: CreateAppointmentResponse | undefined;
+        try {
+          createAppointmentResponse = (
+            await oystehrTestUserM2M.zambda.execute({
+              id: 'create-appointment',
+              ...createAppointmentInputParams,
+            })
+          ).output as CreateAppointmentResponse;
+        } catch (e) {
+          console.error('Error executing create-appointment zambda', e);
+        }
+        assert(createAppointmentResponse);
+
+        // Verify the QuestionnaireResponse has a questionnaire reference (the default one)
+        const { questionnaire: questionnaireResponse } = createAppointmentResponse.resources;
+        assert(questionnaireResponse);
+        expect(questionnaireResponse.questionnaire).toBeDefined();
+        // Should be the default in-person questionnaire canonical (not our custom one)
+        expect(questionnaireResponse.questionnaire).not.toContain('example.com');
+
+        await cleanUpResources(initialResources);
+      }
+    );
   });
 });

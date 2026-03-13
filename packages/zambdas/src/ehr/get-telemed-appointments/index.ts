@@ -11,6 +11,7 @@ import {
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   TelemedAppointmentInformation,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -132,6 +133,9 @@ export const performEffect = async (
         practitioner,
         encounterId: encounter.id || 'Unknown',
         appointmentType: appointmentTypeForAppointment(appointment),
+        serviceCategory: appointment.serviceCategory
+          ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+          ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
       };
 
       resultAppointments.push(appointmentTemp);

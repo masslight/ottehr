@@ -23,6 +23,10 @@ import {
 describe('slot availability tests', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
+  // Use a fixed date that doesn't fall on a DST transition to avoid flaky slot count assertions.
+  // January 6, 2025 is a Monday in America/New_York with no DST change.
+  const NON_DST_DATE = DateTime.fromISO('2025-01-06T00:00:00', { zone: 'America/New_York' });
+
   it('24/7 schedule with capacity divisible by 4 should make n/4 slots available every 15 minutes', () => {
     const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
     expect(schedule).toBeDefined();
@@ -35,7 +39,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -132,7 +136,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const ptmSlots = getPostTelemedSlots(startDate, schedule, []);
     expect(ptmSlots).toBeDefined();
@@ -164,7 +168,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -221,7 +225,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -277,7 +281,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -328,7 +332,7 @@ describe('slot availability tests', () => {
   it('24/7 schedule where 4 % capacity == 1 && capacity > 4 will skip the slot on the 45th minute when distributing the last 3 slots', () => {
     // if we have capacity = 7 and need to distribute the last 3 slots in 15 minute windows across a single hour
     const timezone = 'America/New_York';
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
     const tomorrow = startDate.plus({ days: 1 });
     let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     const scheduleExtensionCapacity7 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 7);
@@ -378,7 +382,7 @@ describe('slot availability tests', () => {
 
   it('24/7 schedule where 4 % capacity == 2 && capacity > 4 will skip the slots on the 15th and 45th minutes when distributing the slots', () => {
     const timezone = 'America/New_York';
-    const startDate = startOfDayWithTimezone();
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
     const tomorrow = startDate.startOf('day').plus({ days: 1 });
     let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     const scheduleExtensionCapacity2 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 2);
@@ -433,7 +437,7 @@ describe('slot availability tests', () => {
 
   it('24/7 schedule where 4 % capacity == 2 && capacity < 4 will skip the slots on the 15th and 45th minutes when distributing the slots', () => {
     const timezone = 'America/New_York';
-    const startDate = startOfDayWithTimezone();
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
     const tomorrow = startDate.plus({ days: 1 });
     let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     const scheduleExtensionCapacity6 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 6);
@@ -492,7 +496,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -545,7 +549,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -599,7 +603,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone();
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -654,7 +658,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),
@@ -709,7 +713,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate.setZone('UTC'),

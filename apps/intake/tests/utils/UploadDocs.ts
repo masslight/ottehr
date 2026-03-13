@@ -21,17 +21,8 @@ export class UploadDocs {
   }
 
   async uploadPhoto(locator: string, fileName: string): Promise<Locator> {
-    let requestUrl: string | undefined;
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
-
-    // Listen for all network requests
-    this.page.on('request', (request) => {
-      // Check if the request URL matches the pattern you are looking for
-      if (request.url().includes(`${process.env.WEBSITE_URL}`)) {
-        requestUrl = request.url();
-      }
-    });
 
     // Count existing Clear buttons before upload
     const clearButtonsCountBefore = await this.page.getByTestId(dataTestIds.fileCardClearButton).count();
@@ -70,9 +61,15 @@ export class UploadDocs {
       timeout: 60000,
     });
 
-    expect(requestUrl).toBeDefined();
-    const uploadedPhoto = this.page.locator(`img[src*="${requestUrl}"]`);
+    // Find the uploaded image within the field container
+    // The image src will be a blob URL (created via URL.createObjectURL)
+    const uploadedPhoto = fieldContainer.locator('img').first();
     await expect(uploadedPhoto).toBeVisible({ timeout: 60000 });
+
+    // Verify the image has a valid src (should be a blob URL)
+    const imageSrc = await uploadedPhoto.getAttribute('src');
+    expect(imageSrc).toBeTruthy();
+
     return uploadedPhoto;
   }
 
