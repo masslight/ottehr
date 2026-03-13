@@ -63,3 +63,8 @@ resource "terraform_data" "build_patient_portal" {
     working_dir = "${path.module}/../../apps/intake"
   }
 }
+
+resource "local_sensitive_file" "zambda_secrets" {
+  content  = jsonencode(var.zambda_secrets)
+  filename = "${path.module}/../../packages/zambdas/.env/zambda-secrets-${var.environment}.json"
+}

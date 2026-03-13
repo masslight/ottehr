@@ -1,5 +1,10 @@
 terraform {
-  backend "local" {}
+  backend "s3" {
+    bucket  = "YOUR_TF_BUCKET_NAME"
+    region  = "us-east-1"
+    profile = "YOUR_AWS_PROFILE_NAME"
+    key     = "terraform.tfstate"
+  }
   required_version = ">= 1.12.0"
   required_providers {
     sendgrid = {
@@ -126,6 +131,7 @@ module "ottehr_apps" {
     SENTRY_DSN                    = module.oystehr.sentry_dsn
     SENTRY_ENV                    = var.environment
   }
+  zambda_secrets = module.oystehr.zambda_secrets
 }
 
 module "apps_upload" {
