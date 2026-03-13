@@ -28,6 +28,7 @@ import {
   calculatePatientAge,
   formatDateForDisplay,
   getSupportPhoneFor,
+  makeAbbreviation,
   TelemedAppointmentInformation,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -326,12 +327,6 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
       )}
     </TableRow>
   );
-}
-
-function makeAbbreviation(str: string): string {
-  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
 }
 
 const SKELETON_ROWS_COUNT = 3;

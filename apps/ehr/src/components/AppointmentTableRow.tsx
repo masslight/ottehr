@@ -43,6 +43,7 @@ import {
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
+  makeAbbreviation,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
@@ -1036,10 +1037,4 @@ export default function AppointmentTableRow({
       )}
     </TableRow>
   );
-}
-
-function makeAbbreviation(str: string): string {
-  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
 }
