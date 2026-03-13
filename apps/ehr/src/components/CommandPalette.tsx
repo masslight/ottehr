@@ -1,9 +1,11 @@
 import SearchIcon from '@mui/icons-material/Search';
 import { Box, Dialog, InputAdornment, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useGlobalQuickPicks } from '../hooks/useGlobalQuickPicks';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 
 export const CommandPalette: FC = () => {
+  useGlobalQuickPicks();
   const { isOpen, close, toggle, sources } = useCommandPaletteStore();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -21,7 +23,9 @@ export const CommandPalette: FC = () => {
   const filteredItems = useMemo(() => {
     if (!query.trim()) return allItems;
     const lower = query.toLowerCase();
-    return allItems.filter((item) => item.label.toLowerCase().includes(lower));
+    return allItems.filter(
+      (item) => item.label.toLowerCase().includes(lower) || item.category.toLowerCase().includes(lower)
+    );
   }, [allItems, query]);
 
   const groupedItems = useMemo(() => {
@@ -136,7 +140,9 @@ export const CommandPalette: FC = () => {
           autoFocus
           fullWidth
           onKeyDown={handleKeyDown}
-          placeholder={hasItems ? 'Search quick picks...' : 'No quick picks available on this page'}
+          placeholder={
+            hasItems ? 'Search quick picks... (type a category like "allergies")' : 'No quick picks available'
+          }
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
