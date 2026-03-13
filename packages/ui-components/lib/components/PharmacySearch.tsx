@@ -17,12 +17,13 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | undefined>();
 
   const debouncedSetSearchTerm = useMemo(
     () =>
       debounce((value: string) => {
         setDebouncedSearchTerm(value);
-      }, 300),
+      }, 450),
     []
   );
 
@@ -31,6 +32,30 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
       debouncedSetSearchTerm.clear();
     };
   }, [debouncedSetSearchTerm]);
+
+  const getUserLocation = async (): Promise<{ latitude: number; longitude: number } | undefined> => {
+    if (!navigator.geolocation) return;
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        () => {
+          // User denied location or error occurred
+          resolve(undefined);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  };
+
+  useEffect(() => {
+    void getUserLocation().then(setUserLocation);
+  }, []);
 
   useEffect(() => {
     if (debouncedSearchTerm.length < 3) {
@@ -41,7 +66,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
     const handleSearchPlaces = async (): Promise<void> => {
       try {
         setSearching(true);
-        const searchResponse = await searchPlaces({ searchTerm: debouncedSearchTerm });
+        const searchResponse = await searchPlaces({ searchTerm: debouncedSearchTerm, locationBias: userLocation });
         setResults(searchResponse.pharmacyPlaces);
       } catch (e) {
         console.log('error calling searchPlaces with searchTerm', e);
@@ -53,7 +78,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
     };
 
     void handleSearchPlaces();
-  }, [debouncedSearchTerm, searchPlaces]);
+  }, [debouncedSearchTerm, searchPlaces, userLocation]);
 
   const handlePharmSelect = async (placesId: string | undefined): Promise<void> => {
     if (!placesId) return;
@@ -108,6 +133,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
         void handlePharmSelect(value?.placesId);
       }}
       getOptionLabel={(option) => (option ? `${option.name}${option.address ? ` ${option.address}` : ''}` : '')}
+      filterOptions={(x) => x}
       loading={searching}
       renderOption={(props, option) => (
         <ListItem {...props} key={option.placesId}>
