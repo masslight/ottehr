@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { chooseJson, generateStatement, InvoiceablePatientReport, StatementDetails } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 import { RoundedButton } from '../RoundedButton';
@@ -145,6 +146,10 @@ export default function SendStatementToPatientDialog({
   const printModeLabel = applyGreyscalePreview ? 'color' : 'black & white';
 
   const handleSendByMailClick = (): void => {
+    if (!FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED) {
+      return;
+    }
+
     if (!encounterId) {
       enqueueSnackbar('Missing encounter id for statement mailing', { variant: 'error' });
       return;
@@ -272,16 +277,29 @@ export default function SendStatementToPatientDialog({
                   variant="contained"
                   color="primary"
                   onClick={handleSendByMailClick}
-                  sx={
-                    hasMailedStatement
+                  disabled={!FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED}
+                  sx={{
+                    ...(hasMailedStatement
                       ? {
                           backgroundColor: '#8B1E1E',
                           '&:hover': {
                             backgroundColor: '#6E1717',
                           },
                         }
-                      : undefined
-                  }
+                      : {}),
+                    ...(!FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED
+                      ? {
+                          backgroundColor: '#e0e0e0',
+                          color: '#888',
+                          cursor: 'not-allowed',
+                          boxShadow: 'none',
+                          '&:hover': {
+                            backgroundColor: '#e0e0e0',
+                            color: '#888',
+                          },
+                        }
+                      : {}),
+                  }}
                 >
                   {hasMailedStatement ? 'Resend by Mail' : 'Send by Mail'}
                 </RoundedButton>
