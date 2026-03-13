@@ -15,7 +15,7 @@ export const useFetchChatMessagesQuery = (
   const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['chat-messages', numbersToSendTo, timezone],
+    queryKey: ['chat-messages', patientId, numbersToSendTo, timezone],
 
     queryFn: async () => {
       const data = await getConversation(oystehrZambda!, { patientId, timezone });

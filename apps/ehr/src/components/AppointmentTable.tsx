@@ -91,7 +91,6 @@ export default function AppointmentTable({
 
   const vitalsForAppointment = useCallback(
     (appointment: InPersonAppointmentInformation): GetVitalsResponseData | undefined => {
-      console.log(appointment, vitals);
       return vitals?.[appointment.encounterId];
     },
     [vitals]
