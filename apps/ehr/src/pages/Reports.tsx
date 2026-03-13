@@ -1,5 +1,6 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import InsightsIcon from '@mui/icons-material/Insights';
 import PeopleIcon from '@mui/icons-material/People';
@@ -92,6 +93,12 @@ export default function Reports(): React.ReactElement {
       description: 'View and manage encounters that are missing required information or documentation',
       icon: <AssignmentLateIcon />,
       path: '/reports/incomplete-encounters',
+    },
+    {
+      title: 'Complete Encounters',
+      description: 'View encounters that have been completed',
+      icon: <AssignmentTurnedInIcon />,
+      path: '/reports/complete-encounters',
     },
     {
       title: 'AI-Assisted Encounters',

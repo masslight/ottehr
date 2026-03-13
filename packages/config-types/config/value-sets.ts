@@ -52,6 +52,7 @@ export const ValueSetsConfigSchema = z.object({
   reasonForVisitOptions: FormFieldOptionsSchema,
   reasonForVisitOptionsOccMed: FormFieldOptionsSchema,
   reasonForVisitOptionsWorkersComp: FormFieldOptionsSchema,
+  reasonForVisitOptionsPreOp: FormFieldOptionsSchema.optional(),
   schoolWorkNoteOptions: FormFieldOptionsSchema,
 
   // Relationships

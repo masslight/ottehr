@@ -60,6 +60,10 @@
     "STATEMENTS": {
       "name": "#{var/PROJECT_ID}-statements",
       "removalPolicy": "retain"
+    },
+    "LEGACY_DATA": {
+      "name": "#{var/PROJECT_ID}-legacy-data",
+      "removalPolicy": "retain"
     }
   }
 }

@@ -300,14 +300,19 @@ export enum ProviderNotificationMethod {
 
 export interface ProviderNotificationSettings {
   method: ProviderNotificationMethod;
-  enabled: boolean;
+  taskNotificationsEnabled: boolean;
+  telemedNotificationsEnabled: boolean;
+  phoneNumber?: string;
 }
 
 const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
 export const PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL = `${FHIR_BASE_URL}/r4/provider-notifications-settings`;
 export const PROVIDER_NOTIFICATION_METHOD_URL = `${FHIR_BASE_URL}/r4/provider-notifications-method`;
+/** @deprecated */
 export const PROVIDER_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled`;
+export const PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled-task`;
+export const PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled-telemed`;
 
 export const PROVIDER_NOTIFICATION_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-tag`;
 export enum AppointmentProviderNotificationTags {

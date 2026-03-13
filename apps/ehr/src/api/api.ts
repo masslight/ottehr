@@ -136,7 +136,7 @@ export interface PatchOperation {
 const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
-const INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
+const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
@@ -315,17 +315,17 @@ export const getAppointments = async (
   }
 };
 
-export const getIncompleteEncountersReport = async (
+export const getEncountersReport = async (
   oystehr: Oystehr,
   parameters: IncompleteEncountersReportZambdaInput
 ): Promise<IncompleteEncountersReportZambdaOutput> => {
   try {
-    if (INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID == null) {
-      throw new Error('incomplete encounters report environment variable could not be loaded');
+    if (ENCOUNTERS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('encounters report environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
-      id: INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID,
+      id: ENCOUNTERS_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -1543,6 +1543,54 @@ export const updatePatientLoginPhoneNumbers = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'update-login-phone-numbers',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+// ── Legacy Records ─────────────────────────────────────────────────────────────
+
+export interface SearchLegacyRecordsInput {
+  lastName: string;
+  firstName?: string;
+  dateOfBirth?: string;
+  page?: number;
+  pageSize?: number;
+  maxFilesPerRecord?: number;
+}
+
+export interface LegacyFile {
+  key: string;
+  fileName: string;
+  fileType: 'medical-summary' | 'progress-note' | 'other';
+  presignedUrl: string;
+}
+
+export interface LegacyPatientRecord {
+  patientFolder: string;
+  patientId: string;
+  displayName: string;
+  files: LegacyFile[];
+}
+
+export interface SearchLegacyRecordsOutput {
+  results: LegacyPatientRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export const searchLegacyRecords = async (
+  oystehr: Oystehr,
+  parameters: SearchLegacyRecordsInput
+): Promise<SearchLegacyRecordsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'ehr-search-legacy-records',
       ...parameters,
     });
     return chooseJson(response);
