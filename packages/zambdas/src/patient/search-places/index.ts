@@ -72,6 +72,13 @@ const searchPharmaciesWithPlaces = async (
 ): Promise<PlacesResult[]> => {
   console.log('calling google places api with searchTerm', searchTerm);
 
+  const isNumeric = (str: string): boolean => /^\d+$/.test(str);
+
+  const adjustedSearchTerm: string = (() => {
+    if (isNumeric(searchTerm)) return `${searchTerm} Pharmacy`;
+    return searchTerm;
+  })();
+
   // https://developers.google.com/maps/documentation/places/web-service/place-types#table-a
   // https://developers.google.com/maps/documentation/places/web-service/place-types#table-b
   // the downside to this is if someone inputs just the address, nothing will be returned
@@ -80,7 +87,7 @@ const searchPharmaciesWithPlaces = async (
   const includedPrimaryTypes = ['drugstore', 'pharmacy', 'hospital', 'doctor', 'health']; // there can be 5 max
 
   const body: any = {
-    input: searchTerm,
+    input: adjustedSearchTerm,
     includedPrimaryTypes,
     languageCode: 'en',
   };

@@ -115,7 +115,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
       fullWidth
       popupIcon={null}
       noOptionsText={
-        debouncedSearchTerm && results.length === 0 ? 'No results' : 'Please enter pharmacy name and address'
+        debouncedSearchTerm && results.length === 0 ? 'No results' : 'Please include pharmacy name in your search'
       }
       options={results}
       value={null}
