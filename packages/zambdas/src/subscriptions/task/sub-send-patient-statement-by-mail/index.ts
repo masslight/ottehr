@@ -102,7 +102,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         color,
         doubleSided: true,
         metadata: {
-          oyster_patient_id: patientId,
+          oystehr_patient_id: patientId,
           oystehr_encounter_id: encounterId,
           oystehr_project_id: projectId,
         },
