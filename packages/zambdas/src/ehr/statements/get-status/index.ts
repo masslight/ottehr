@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, Task } from 'fhir/r4b';
-import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys } from 'utils';
+import { Communication, DocumentReference, Task } from 'fhir/r4b';
+import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys, STATEMENT_CODE } from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -21,6 +21,10 @@ interface GetStatementStatusInput {
 
 interface StatementStatusResponse {
   encounterId: string;
+  generated: {
+    generated: boolean;
+    lastGenerated?: string;
+  };
   communication: {
     found: boolean;
     id?: string;
@@ -156,6 +160,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       (resource) => resource.authoredOn ?? resource.meta?.lastUpdated
     )[0];
 
+    const statementDocumentReferences = (
+      await oystehr.fhir.search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          {
+            name: 'encounter',
+            value: encounterReference,
+          },
+          {
+            name: 'type',
+            value: STATEMENT_CODE,
+          },
+        ],
+      })
+    ).unbundle();
+
+    const latestStatementDocumentReference = sortByDateDesc(
+      statementDocumentReferences,
+      (resource) => resource.date ?? resource.meta?.lastUpdated
+    )[0];
+
     const communicationLetterId = getPostGridLetterIdFromCommunication(latestCommunication);
     const taskLetterId = getPostGridLetterIdFromTask(latestSendStatementByEmailTask);
     const postGridLetterId = communicationLetterId ?? taskLetterId;
@@ -187,6 +212,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const response: StatementStatusResponse = {
       encounterId,
+      generated: latestStatementDocumentReference
+        ? {
+            generated: true,
+            lastGenerated: latestStatementDocumentReference.date ?? latestStatementDocumentReference.meta?.lastUpdated,
+          }
+        : {
+            generated: false,
+          },
       communication: latestCommunication
         ? {
             found: true,

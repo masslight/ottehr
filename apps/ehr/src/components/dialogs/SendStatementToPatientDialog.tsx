@@ -31,6 +31,10 @@ interface SendStatementToPatientDialogProps {
 }
 
 interface StatementStatusResponse {
+  generated?: {
+    generated: boolean;
+    lastGenerated?: string;
+  };
   mailProcessor?: {
     found: boolean;
     status?: string;
@@ -62,6 +66,8 @@ export default function SendStatementToPatientDialog({
   const [isSendingMail, setIsSendingMail] = useState(false);
   const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
   const [isMailStatusLoading, setIsMailStatusLoading] = useState(false);
+  const [hasGeneratedStatement, setHasGeneratedStatement] = useState(false);
+  const [generatedStatusText, setGeneratedStatusText] = useState('');
   const [mailStatusText, setMailStatusText] = useState('No mailed statement found yet');
   const [hasMailedStatement, setHasMailedStatement] = useState(false);
 
@@ -117,10 +123,14 @@ export default function SendStatementToPatientDialog({
         });
 
         const statementStatus = chooseJson(response) as StatementStatusResponse;
+        setHasGeneratedStatement(Boolean(statementStatus.generated?.generated));
+        setGeneratedStatusText(getGeneratedStatusText(statementStatus.generated));
         setHasMailedStatement(Boolean(statementStatus.mailProcessor?.found));
         setMailStatusText(getMailStatusText(statementStatus.mailProcessor));
       } catch (error) {
         console.error('Error loading statement mail status:', error);
+        setHasGeneratedStatement(false);
+        setGeneratedStatusText('');
         setHasMailedStatement(false);
         setMailStatusText('Unable to load mail status');
       } finally {
@@ -252,7 +262,11 @@ export default function SendStatementToPatientDialog({
                   onClick={() => void handleGenerateStatement()}
                   disabled={isGeneratingStatement}
                 >
-                  {isGeneratingStatement ? 'Generating...' : 'Generate PDF'}
+                  {isGeneratingStatement
+                    ? 'Generating...'
+                    : hasGeneratedStatement
+                    ? 'Regenerate Statement'
+                    : 'Generate Statement'}
                 </RoundedButton>
                 <RoundedButton
                   variant="contained"
@@ -272,6 +286,18 @@ export default function SendStatementToPatientDialog({
                   {hasMailedStatement ? 'Resend by Mail' : 'Send by Mail'}
                 </RoundedButton>
               </Box>
+              {generatedStatusText && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    lineHeight: 1.35,
+                    textAlign: 'right',
+                    color: '#000000',
+                  }}
+                >
+                  {generatedStatusText}
+                </Typography>
+              )}
               {(isMailStatusLoading || hasMailedStatement || mailStatusText === 'Unable to load mail status') && (
                 <Typography
                   variant="body2"
@@ -437,6 +463,32 @@ function getMailStatusText(mailProcessor?: StatementStatusResponse['mailProcesso
   }
 
   return statusText;
+}
+
+function getGeneratedStatusText(generated?: StatementStatusResponse['generated']): string {
+  if (!generated?.generated) {
+    return '';
+  }
+
+  const formattedDate = formatLocalDate(generated.lastGenerated);
+  if (!formattedDate) {
+    return 'Statement generated';
+  }
+
+  return `Statement generated on ${formattedDate}`;
+}
+
+function formatLocalDate(dateValue?: string): string | undefined {
+  if (!dateValue) return undefined;
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) return undefined;
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(parsedDate);
 }
 
 function formatLocalDateTime(dateValue?: string): string | undefined {
