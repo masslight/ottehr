@@ -35,11 +35,15 @@ export const CommandPalette: FC = () => {
     return groups;
   }, [filteredItems]);
 
-  // Reset state when opened/closed
+  // Reset state and ensure focus when opened
   useEffect(() => {
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
+      // Ensure the input gets focus even after page navigation
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     }
   }, [isOpen]);
 
@@ -126,11 +130,12 @@ export const CommandPalette: FC = () => {
         },
       }}
     >
-      <Box onKeyDown={handleKeyDown}>
+      <Box>
         <TextField
           inputRef={inputRef}
           autoFocus
           fullWidth
+          onKeyDown={handleKeyDown}
           placeholder={hasItems ? 'Search quick picks...' : 'No quick picks available on this page'}
           value={query}
           onChange={(e) => {
