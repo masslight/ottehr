@@ -13,7 +13,7 @@ export async function getCommunicationResources(
       params: [
         {
           name: 'sender',
-          value: (type === 'provider' ? 'Practitioner/' : 'Organization/') + ownerId,
+          value: type === 'provider' ? ownerId : 'Organization/' + ownerId,
         },
         {
           name: '_tag',
