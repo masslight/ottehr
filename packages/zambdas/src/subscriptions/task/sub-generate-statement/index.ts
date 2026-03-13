@@ -4,8 +4,8 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, Encounter, List, Task } from 'fhir/r4b';
 import Handlebars from 'handlebars';
 import { DateTime } from 'luxon';
-import { createRequire } from 'module';
 import path from 'path';
+import pdfmakeModule from 'pdfmake';
 import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
@@ -32,8 +32,7 @@ import {
 } from '../../../shared';
 import { makeZ3Url } from '../../../shared/presigned-file-urls';
 
-const require = createRequire(import.meta.url);
-const pdfmake = require('pdfmake') as {
+const pdfmake = pdfmakeModule as unknown as {
   setFonts: (fonts: Record<string, unknown>) => void;
   setUrlAccessPolicy?: (callback: (url: string) => boolean) => void;
   createPdf: (definition: Record<string, unknown>) => {
@@ -471,10 +470,10 @@ async function generatePdfFromDocumentDefinition(documentDefinition: Record<stri
       bolditalics: RUBIK_BOLD_FONT_PATH,
     },
     Courier: {
-      normal: 'Courier',
-      bold: 'Courier-Bold',
-      italics: 'Courier-Oblique',
-      bolditalics: 'Courier-BoldOblique',
+      normal: RUBIK_MEDIUM_FONT_PATH,
+      bold: RUBIK_BOLD_FONT_PATH,
+      italics: RUBIK_ITALIC_FONT_PATH,
+      bolditalics: RUBIK_BOLD_FONT_PATH,
     },
   });
 
