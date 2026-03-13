@@ -35,7 +35,13 @@ const CardWithDescriptionAndLink: FC<CardWithDescriptionAndLinkProps> = ({
   paddingY,
 }) => {
   const theme = useTheme();
-  const shouldRenderIcon = Boolean(icon);
+  const hasIcon = Boolean(icon);
+  const hasIconAlt = Boolean(iconAlt);
+  const shouldRenderIcon = hasIcon && hasIconAlt;
+
+  if (hasIcon !== hasIconAlt) {
+    console.warn('CardWithDescriptionAndLink: icon and iconAlt must be provided together.');
+  }
 
   return (
     <Card

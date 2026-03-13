@@ -23,7 +23,13 @@ const CardWithDescription: FC<CardWithDescriptionProps> = ({
   marginBottom,
 }) => {
   const theme = useTheme();
-  const shouldRenderIcon = Boolean(icon);
+  const hasIcon = Boolean(icon);
+  const hasIconAlt = Boolean(iconAlt);
+  const shouldRenderIcon = hasIcon && hasIconAlt;
+
+  if (hasIcon !== hasIconAlt) {
+    console.warn('CardWithDescription: icon and iconAlt must be provided together.');
+  }
 
   return (
     <Card
