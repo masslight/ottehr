@@ -14,13 +14,14 @@ import {
 } from '@mui/material';
 import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
@@ -342,6 +343,14 @@ const AddAllergyField: FC = () => {
     []
   );
   useCommandPaletteSource('allergy-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback(
+    (payload: (typeof MEDICAL_HISTORY_CONFIG.allergies.quickPicks)[number]) => {
+      void handleQuickPickSelectRef.current(payload);
+    },
+    []
+  );
+  usePendingQuickPick('allergies', handlePendingQuickPick);
 
   const onSubmitForm = async (data: {
     value: ExtractObjectType<ErxSearchAllergensResponse> | null;

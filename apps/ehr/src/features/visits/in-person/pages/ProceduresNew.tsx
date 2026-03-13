@@ -30,7 +30,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -46,6 +46,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   AISuggestionNotes,
@@ -855,6 +856,11 @@ export default function ProceduresNew(): ReactElement {
     [procedureId, selectedProcedureTypeCode]
   );
   useCommandPaletteSource('procedure-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: (typeof PROCEDURES_CONFIG.quickPicks)[number]) => {
+    onQuickPickSelectRef.current(payload);
+  }, []);
+  usePendingQuickPick('procedures', handlePendingQuickPick);
 
   return (
     <FormProvider {...methods}>

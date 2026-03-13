@@ -8,6 +8,8 @@ import { ERX, ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import {
   ExtendedMedicationDataForResponse,
   getMedicationName,
@@ -168,6 +170,28 @@ export const EditableMedicationCard: React.FC<{
     },
     [selectsOptions.medicationId]
   );
+
+  // Register in-house medication quick picks in the command palette
+  const commandPaletteItems = useMemo(() => {
+    if (typeFromProps !== 'order-new') return [];
+    return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks
+      .filter((qp) => qp.dosespotId != null || qp.ndc != null)
+      .map((qp) => ({
+        id: `in-house-med-${qp.name}`,
+        label: qp.name,
+        category: 'In-House Medications',
+        onSelect: () => handleQuickPickSelect(qp),
+      }));
+  }, [typeFromProps, handleQuickPickSelect]);
+  useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
+
+  const handlePendingInHouseMed = useCallback(
+    (payload: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => {
+      handleQuickPickSelect(payload);
+    },
+    [handleQuickPickSelect]
+  );
+  usePendingQuickPick('in-house-medications', handlePendingInHouseMed);
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
     // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799

@@ -22,6 +22,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { MEDICAL_HISTORY_CONFIG, MedicationDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
@@ -134,6 +135,14 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     [handleQuickPickSelect]
   );
   useCommandPaletteSource('medication-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback(
+    (payload: (typeof MEDICAL_HISTORY_CONFIG.medications.quickPicks)[number]) => {
+      handleQuickPickSelect(payload);
+    },
+    [handleQuickPickSelect]
+  );
+  usePendingQuickPick('medications', handlePendingQuickPick);
 
   return (
     <Box>
