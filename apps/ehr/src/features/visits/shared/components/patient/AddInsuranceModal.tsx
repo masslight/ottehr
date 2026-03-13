@@ -444,7 +444,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   defaultValue={''}
                   rules={{
                     required: REQUIRED_FIELD_ERROR_MESSAGE,
-                    validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+                    validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 or 9 digits',
                   }}
                 />
               </LabeledField>

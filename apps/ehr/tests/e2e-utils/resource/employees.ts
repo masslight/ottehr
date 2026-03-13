@@ -243,7 +243,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
 
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);
   if (!npi) throw new Error(`No npi for this user: ${user.id}`);
-  if (!providerType || isProviderTypeCode(providerType)) throw new Error(`No providerType for this user: ${user.id}`);
+  if (!providerType || !isProviderTypeCode(providerType)) throw new Error(`No providerType for this user: ${user.id}`);
 
   return {
     id: user.id,

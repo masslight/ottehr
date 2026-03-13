@@ -63,6 +63,7 @@ export default function AppointmentTable({
     radiologyOrdersByAppointmentId,
     erxOrdersByEncounterId,
     proceduresByEncounterId,
+    immunizationOrdersByEncounterId,
   } = orders;
 
   const ordersForAppointment = useCallback(
@@ -74,6 +75,7 @@ export default function AppointmentTable({
       radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
       erxOrders: erxOrdersByEncounterId[encounterId],
       procedures: proceduresByEncounterId[encounterId],
+      immunizationOrders: immunizationOrdersByEncounterId[encounterId],
     }),
     [
       inHouseLabOrdersByAppointmentId,
@@ -83,6 +85,7 @@ export default function AppointmentTable({
       radiologyOrdersByAppointmentId,
       erxOrdersByEncounterId,
       proceduresByEncounterId,
+      immunizationOrdersByEncounterId,
     ]
   );
 
