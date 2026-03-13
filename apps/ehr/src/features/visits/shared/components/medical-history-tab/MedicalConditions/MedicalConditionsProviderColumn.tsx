@@ -13,13 +13,14 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useMemo, useState } from 'react';
+import { FC, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -310,6 +311,21 @@ const AddMedicalConditionField: FC = () => {
     };
     await handleSelectOption(quickPickAsIcdCode);
   };
+
+  const handleQuickPickSelectRef = useRef(handleQuickPickSelect);
+  handleQuickPickSelectRef.current = handleQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks.map((qp) => ({
+        id: `condition-${'code' in qp ? qp.code : qp.display}`,
+        label: `${'code' in qp ? `${qp.code} ` : ''}${qp.display}`,
+        category: 'Medical Conditions',
+        onSelect: () => void handleQuickPickSelectRef.current(qp),
+      })),
+    []
+  );
+  useCommandPaletteSource('medical-condition-quick-picks', commandPaletteItems);
 
   if (isChartDataLoading) {
     return <Skeleton variant="rectangular" width="100%" height={56} />;

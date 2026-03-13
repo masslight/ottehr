@@ -20,8 +20,9 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { MedicationDTO } from 'utils';
+import { MEDICAL_HISTORY_CONFIG, MedicationDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
@@ -109,15 +110,30 @@ export const CurrentMedicationsProviderColumn: FC = () => {
 
   const { quickPicks: medicationHistoryQuickPicks } = useMergedMedicationHistoryQuickPicks();
 
-  const handleQuickPickSelect = (quickPick: (typeof medicationHistoryQuickPicks)[number]): void => {
-    const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
-      name: quickPick.name,
-      strength: quickPick.strength,
-      id: quickPick.medicationId,
-    } as ExtractObjectType<ErxSearchMedicationsResponse>;
+  const handleQuickPickSelect = useCallback(
+    (quickPick: (typeof medicationHistoryQuickPicks)[number]): void => {
+      const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
+        name: quickPick.name,
+        strength: quickPick.strength,
+        id: quickPick.medicationId,
+      } as ExtractObjectType<ErxSearchMedicationsResponse>;
 
-    setValue('medication', quickPickAsMedication);
-  };
+      setValue('medication', quickPickAsMedication);
+    },
+    [setValue, medicationHistoryQuickPicks]
+  );
+
+  const commandPaletteItems = useMemo(
+    () =>
+      MEDICAL_HISTORY_CONFIG.medications.quickPicks.map((qp) => ({
+        id: `medication-${qp.name}`,
+        label: `${qp.name}${qp.strength ? ` (${qp.strength})` : ''}`,
+        category: 'Medications',
+        onSelect: () => handleQuickPickSelect(qp),
+      })),
+    [handleQuickPickSelect]
+  );
+  useCommandPaletteSource('medication-quick-picks', commandPaletteItems);
 
   return (
     <Box>
