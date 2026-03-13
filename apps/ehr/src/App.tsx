@@ -13,6 +13,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
+import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
@@ -33,6 +34,7 @@ import EditEmployeePage from './pages/EditEmployee';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
+import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
@@ -245,6 +247,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
@@ -291,6 +294,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>

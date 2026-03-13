@@ -1,5 +1,10 @@
 terraform {
-  backend "local" {}
+  backend "s3" {
+    bucket  = "YOUR_TF_BUCKET_NAME"
+    region  = "us-east-1"
+    profile = "YOUR_AWS_PROFILE_NAME"
+    key     = "terraform.tfstate"
+  }
   required_version = ">= 1.12.0"
   required_providers {
     sendgrid = {
@@ -33,7 +38,7 @@ locals {
 }
 
 provider "sendgrid" {
-  api_key = local.sendgrid_enabled ? var.sendgrid_api_key : "sendgrid-disabled"
+  api_key = var.sendgrid_api_key != null ? var.sendgrid_api_key : "sendgrid-disabled"
 }
 
 provider "oystehr" {
@@ -108,6 +113,7 @@ module "ottehr_apps" {
     CREATE_DEMO_VISITS_FEATURE_FLAG             = module.oystehr.CREATE_DEMO_VISITS_FEATURE_FLAG
     IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG    = module.oystehr.IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG
     IS_FORMS_ENABLED_FEATURE_FLAG               = module.oystehr.IS_FORMS_ENABLED_FEATURE_FLAG
+    IS_LEGACY_DATA_ENABLED_FEATURE_FLAG         = module.oystehr.IS_LEGACY_DATA_ENABLED_FEATURE_FLAG
   }
   patient_portal_vars = {
     ENV                           = var.environment
@@ -126,6 +132,7 @@ module "ottehr_apps" {
     SENTRY_DSN                    = module.oystehr.sentry_dsn
     SENTRY_ENV                    = var.environment
   }
+  zambda_secrets = module.oystehr.zambda_secrets
 }
 
 module "apps_upload" {

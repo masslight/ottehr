@@ -31,7 +31,6 @@ npm run terraform-init
 # To debug without applying, pass `plan` after the environment parameter
 if [ "${action}" = "apply" ]; then
   terraform apply -no-color -parallelism=20 -var-file="${ENV}.tfvars" "${AUTO_APPROVE}"
-  (cd ../packages/zambdas && ENV="${ENV}" npx tsx scripts/fetch-zambda-secrets.ts "${ENV}")
 else
   terraform plan -no-color -parallelism=20 -var-file="${ENV}.tfvars"
 fi

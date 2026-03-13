@@ -123,6 +123,13 @@ export class Schema20250319 implements Schema<Spec20250319> {
         console.log('Warning: could not resolve reference', fullMatch);
       }
     }
+    if (Object.keys(resources.secrets).length) {
+      const staticSecretRefs = Object.keys(resources.secrets)
+        .map((name) => `"${name}": oystehr_secret.${name}.value`)
+        .join(', ');
+      const zambdaSecretsExpr = `\${merge({for k, v in oystehr_secret.sendgrid_template_ids : k => v.value}, length(oystehr_secret.sendgrid_send_email_api_key) > 0 ? {"SENDGRID_SEND_EMAIL_API_KEY": one(oystehr_secret.sendgrid_send_email_api_key[*].value)} : {}, {${staticSecretRefs}})}`;
+      outputDirectives.output['zambda_secrets'] = { value: zambdaSecretsExpr };
+    }
     if (Object.keys(outputDirectives.output).length) {
       await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
     } else {

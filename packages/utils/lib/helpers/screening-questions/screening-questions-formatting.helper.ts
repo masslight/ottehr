@@ -37,6 +37,15 @@ export function formatScreeningQuestionValue(fieldId: string, rawValue: any): st
       }
       return String(rawValue);
 
+    case 'date':
+      if (typeof rawValue === 'string') {
+        const dateTime = DateTime.fromISO(rawValue);
+        if (dateTime.isValid) {
+          return dateTime.toFormat('MM/dd/yyyy');
+        }
+      }
+      return String(rawValue);
+
     case 'dateRange':
       if (Array.isArray(rawValue) && rawValue.length === 2) {
         const [start, end] = rawValue;

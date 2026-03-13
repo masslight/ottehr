@@ -33,7 +33,7 @@ on:
       pr_body:
         required: false
         type: string
-        default: ''
+        default: ""
       github_ref:
         required: true
         type: string
@@ -93,7 +93,7 @@ jobs:
           repository: ${{ inputs.secrets_repository }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           ref: develop
-          path: 'secrets'
+          path: "secrets"
 
       - name: Copy secrets to appropriate locations
         run: |
@@ -172,7 +172,7 @@ jobs:
           repository: ${{ inputs.secrets_repository }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           ref: develop
-          path: 'secrets'
+          path: "secrets"
 
       - name: Setup environment
         run: |
@@ -234,6 +234,7 @@ jobs:
     secrets: inherit
     with:
       environment: ${{ inputs.environment }}
+      aws_deploy_role: ${{ inputs.aws_deploy_role }}
 
   intake-e2e-tests:
     needs: deploy
@@ -245,6 +246,7 @@ jobs:
     secrets: inherit
     with:
       environment: ${{ inputs.environment }}
+      aws_deploy_role: ${{ inputs.aws_deploy_role }}
 
   # Create status check aliases for required checks
   status-aliases:
@@ -263,13 +265,13 @@ jobs:
           HAS_SKIP_TERRAFORM_APPLY: ${{ contains(inputs.pr_body, '/skip-terraform-apply') }}
         run: |
           FOUND_COMMANDS=()
-          
+
           [ "$HAS_SKIP_BUILD_AND_LINT" == "true" ] && FOUND_COMMANDS+=("/skip-build-and-lint")
           [ "$HAS_SKIP_AUTOMATED_TESTS" == "true" ] && FOUND_COMMANDS+=("/skip-automated-tests")
           [ "$HAS_SKIP_EHR_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-ehr-e2e")
           [ "$HAS_SKIP_INTAKE_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-intake-e2e")
           [ "$HAS_SKIP_TERRAFORM_APPLY" == "true" ] && FOUND_COMMANDS+=("/skip-terraform-apply")
-          
+
           if [ ${#FOUND_COMMANDS[@]} -gt 0 ]; then
             echo "Found skip commands in PR description:"
             for cmd in "${FOUND_COMMANDS[@]}"; do
@@ -279,7 +281,7 @@ jobs:
             echo "Skip commands are not allowed for merging. Please remove them before merging."
             exit 1
           fi
-          
+
           echo "No skip commands found"
 
       - name: Create EHR E2E status alias
