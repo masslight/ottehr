@@ -87,10 +87,21 @@ export type { LegalConfig } from './legal';
 export {
   LocationItemSchema,
   SupportScheduleGroupSchema,
+  SupportDialogRowSchema,
+  SupportDialogSectionSchema,
+  SupportDialogSchema,
   SupportDisplaySchema,
   LocationConfigSchema,
 } from './locations';
-export type { LocationItem, SupportScheduleGroup, SupportDisplay, LocationConfig } from './locations';
+export type {
+  LocationItem,
+  SupportScheduleGroup,
+  SupportDialogRow,
+  SupportDialogSection,
+  SupportDialog,
+  SupportDisplay,
+  LocationConfig,
+} from './locations';
 
 // Branding config types
 export {
