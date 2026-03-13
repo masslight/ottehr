@@ -25,6 +25,7 @@ const BRANDING_DEFAULTS = {
   },
   intake: {
     primaryIconAlt: 'Ottehr icon',
+    welcomeTitleBreak: false,
     primaryIconSize: 90,
     appBar: {
       backgroundColor: '#0a2243',

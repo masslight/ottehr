@@ -136,6 +136,7 @@ export type IntakePrimaryIconVisibility = z.infer<typeof IntakePrimaryIconVisibi
  */
 export const IntakeBrandingSchema = z.object({
   primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
+  welcomeTitleBreak: z.boolean().optional(),
   appBar: z.object({
     backgroundColor: z.string().min(1, { message: 'AppBar background color cannot be empty' }),
     logoHeight: z.string().min(1, { message: 'AppBar logo height cannot be empty' }),
