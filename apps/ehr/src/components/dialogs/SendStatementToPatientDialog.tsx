@@ -62,7 +62,7 @@ export default function SendStatementToPatientDialog({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string>('');
   const [statementType, setStatementType] = useState<'standard' | 'past-due' | 'final-notice'>('past-due');
-  const [applyGreyscalePreview, setApplyGreyscalePreview] = useState(false);
+  const [useColor, setUseColor] = useState(false);
   const [confirmMailOpen, setConfirmMailOpen] = useState(false);
   const [isSendingMail, setIsSendingMail] = useState(false);
   const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
@@ -75,7 +75,7 @@ export default function SendStatementToPatientDialog({
   useEffect(() => {
     if (modalOpen) {
       // Color toggle should default to off whenever the dialog is opened.
-      setApplyGreyscalePreview(false);
+      setUseColor(false);
     }
   }, [modalOpen]);
 
@@ -143,7 +143,7 @@ export default function SendStatementToPatientDialog({
   }, [encounterId, modalOpen, oystehrZambda]);
 
   const statementTypeLabel = getStatementTypeLabel(statementType);
-  const printModeLabel = applyGreyscalePreview ? 'color' : 'black & white';
+  const printModeLabel = useColor ? 'color' : 'black & white';
 
   const handleSendByMailClick = (): void => {
     if (!FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED) {
@@ -189,7 +189,7 @@ export default function SendStatementToPatientDialog({
         id: 'create-mail-statement-task',
         encounterId,
         statementType,
-        color: applyGreyscalePreview,
+        color: useColor,
       });
 
       enqueueSnackbar('Statement sent to mail queue', { variant: 'success' });
@@ -363,9 +363,9 @@ export default function SendStatementToPatientDialog({
                     sx={{ m: 0, flexShrink: 0 }}
                     control={
                       <Switch
-                        checked={applyGreyscalePreview}
+                        checked={useColor}
                         onChange={(event) => {
-                          setApplyGreyscalePreview(event.target.checked);
+                          setUseColor(event.target.checked);
                         }}
                         size="small"
                       />
@@ -404,7 +404,7 @@ export default function SendStatementToPatientDialog({
                         border: 'none',
                         backgroundColor: '#fff',
                         borderRadius: 1,
-                        filter: applyGreyscalePreview ? 'none' : 'grayscale(100%)',
+                        filter: useColor ? 'none' : 'grayscale(100%)',
                       }}
                     />
                   ) : (
