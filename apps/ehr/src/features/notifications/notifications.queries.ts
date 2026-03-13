@@ -50,6 +50,7 @@ export const useGetProviderNotifications = (
                 AppointmentProviderNotificationTypes.patient_waiting,
                 AppointmentProviderNotificationTypes.unsigned_charts,
                 AppointmentProviderNotificationTypes.task_assigned,
+                AppointmentProviderNotificationTypes.inbound_fax,
               ].join(',')}`,
             },
             {

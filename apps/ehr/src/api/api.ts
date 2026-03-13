@@ -230,6 +230,8 @@ const ADMIN_UPDATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-update-medic
 const ADMIN_REMOVE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-remove-medication-history-quick-pick';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
+const FILE_INBOUND_FAX_ZAMBDA_ID = 'file-inbound-fax';
+const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1686,6 +1688,36 @@ export const createProcedureQuickPick = async (
   }
 };
 
+export interface FileInboundFaxInput {
+  taskId: string;
+  communicationId: string;
+  patientId: string;
+  folderId: string;
+  documentName: string;
+  pdfUrl: string;
+}
+
+export interface FileInboundFaxOutput {
+  documentRefId: string;
+  folderId: string;
+}
+
+export const fileInboundFax = async (
+  oystehr: Oystehr,
+  parameters: FileInboundFaxInput
+): Promise<FileInboundFaxOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: FILE_INBOUND_FAX_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const updateProcedureQuickPick = async (
   oystehr: Oystehr,
   quickPickId: string,
@@ -1904,5 +1936,23 @@ export const removeMedicationHistoryQuickPick = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export interface DeleteInboundFaxInput {
+  taskId: string;
+  communicationId: string;
+  pdfUrl: string;
+}
+
+export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInboundFaxInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: DELETE_INBOUND_FAX_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
