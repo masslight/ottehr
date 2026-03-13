@@ -25,7 +25,7 @@ const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 async function generate(input: GenerateResourcesArgs): Promise<void> {
   const { configDir, env, outputPath } = input;
   await generateSendgridResources({ configDir, env });
-  const varFile = `../packages/zambdas/.env/${env}.json`;
+  const varFile = `../config/.env/${env}.json`;
   await generateOystehrResources({ configDir: `${configDir}/oystehr`, varFile, outputPath, env });
 }
 interface GenerateSendgridResources {

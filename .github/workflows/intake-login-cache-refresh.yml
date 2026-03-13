@@ -88,8 +88,8 @@ jobs:
       - name: Setup environment
         run: |
           setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
+            mkdir -p "config/.env"
+            cp -r secrets/ottehr/zambdas/.env "config/"
             mkdir -p "apps/$app/env"
             cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
             cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"
@@ -224,8 +224,8 @@ jobs:
       - name: Setup environment
         run: |
           setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
+            mkdir -p "config/.env"
+            cp -r secrets/ottehr/zambdas/.env "config/"
             mkdir -p "apps/$app/env"
             cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
             cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"
@@ -360,8 +360,8 @@ jobs:
       - name: Setup environment
         run: |
           setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp -r secrets/ottehr/zambdas/.env "packages/zambdas/"
+            mkdir -p "config/.env"
+            cp -r secrets/ottehr/zambdas/.env "config/"
             mkdir -p "apps/$app/env"
             cp "secrets/ottehr/apps/$app/env/tests."*.json "apps/$app/env/"
             cp "secrets/ottehr/apps/$app/env/.env"* "apps/$app/env/"

@@ -45,7 +45,7 @@ function getFilePaths(environment: string): GetFilePathConfig {
   return {
     zambdas: {
       source: path.join(secretsPath, 'zambdas', '.env', `${environment}.json`),
-      target: path.join(repoRoot, 'packages', 'zambdas', '.env', `${environment}.json`),
+      target: path.join(repoRoot, 'config', '.env', `${environment}.json`),
       sentry: {
         source: path.join(secretsPath, 'zambdas', '.env', '.env.sentry-build-plugin'),
         target: path.join(repoRoot, 'packages', 'zambdas', '.env.sentry-build-plugin'),
@@ -193,7 +193,7 @@ function populate(environment: string, project?: string): void {
     if (fs.existsSync(paths.zambdas.source)) {
       fs.mkdirSync(path.dirname(paths.zambdas.target), { recursive: true });
       fs.copyFileSync(paths.zambdas.source, paths.zambdas.target);
-      console.log(`Successfully copied ${environment}.json to packages/zambdas/.env`);
+      console.log(`Successfully copied ${environment}.json to config/.env`);
     }
     if (fs.existsSync(paths.zambdas.assets.source)) {
       fs.mkdirSync(paths.zambdas.assets.target, { recursive: true });
@@ -204,7 +204,7 @@ function populate(environment: string, project?: string): void {
       // No sentry config for local environment
       fs.mkdirSync(path.dirname(paths.zambdas.sentry.target), { recursive: true });
       fs.copyFileSync(paths.zambdas.sentry.source, paths.zambdas.sentry.target);
-      console.log(`Successfully copied .env.sentry-build-plugin to packages/zambdas/.env`);
+      console.log(`Successfully copied .env.sentry-build-plugin to packages/zambdas`);
     }
     if (fs.existsSync(paths.ehr.source)) {
       fs.mkdirSync(path.dirname(paths.ehr.target), { recursive: true });

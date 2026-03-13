@@ -2,7 +2,7 @@ import { input } from '@inquirer/prompts';
 
 /*
  to run:
- npx env-cmd -f packages/zambdas/.env/{ENV}.json tsx scripts/delete-resources/cleanup-all-resources.js
+ npx env-cmd -f config/.env/{ENV}.json tsx scripts/delete-resources/cleanup-all-resources.js
 */
 
 const { FHIR_API, PROJECT_ID, AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, ENVIRONMENT } = process.env;

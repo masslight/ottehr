@@ -50,7 +50,7 @@ There are npm scripts for deploying to local, staging, and production, as well a
 - Create an M2M Client with full access rights in your Oystehr project; you can use the default M2M created during project setup.
 - Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
 - Configure your local Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)).
-- Configure your application variables ([`packages/zambda/.env/${env}.json`](/packages/zambdas/.env/local.template.json)).
+- Configure your application variables ([`config/.env/${env}.json`](/config/.env/local.template.json)).
 
 All three of those configuration files have examples with the `.template` extension that you can copy to start.
 
@@ -149,11 +149,11 @@ Once set up, you should always use the same values for a given environment, othe
 
 ### Application Variables
 
-The environment file `packages/zambdas/.env/${env}.json` contains configuration values that control how the application works. When you run `npm run generate`, these values are combined with the resource definitions in `config/` to create `.tf.json` files in `deploy/oystehr/`. The values are also used as input for filling in environment variable templates
+The environment file `config/.env/${env}.json` contains configuration values that control how the application works. When you run `npm run generate`, these values are combined with the resource definitions in `config/` to create `.tf.json` files in `deploy/oystehr/`. The values are also used as input for filling in environment variable templates
 
 Each environment will have its own application configuration file because you will want to use different names, secrets, and API keys in your local, test, and production environments.
 
-There is a sample configuration file stored in [`packages/zambdas/.env/local.template.json`](/packages/zambdas/.env/local.template.json).
+There is a sample configuration file stored in [`config/.env/local.template.json`](/config/.env/local.template.json).
 
 You can verify that all required configuration variables have been found by searching `deploy/oystehr` for the string `#{var/` after running `npm run generate`. There will be 0 results when all variable values have been substituted.
 

@@ -59,7 +59,7 @@ const createEnoentError = (): NodeJS.ErrnoException => {
 // Helper to create test args
 const createTestArgs = (overrides: Partial<GenerateFhirResourcesArgs> = {}): GenerateFhirResourcesArgs => ({
   configDir: '/config/oystehr',
-  varFile: '/packages/zambdas/.env/local.json',
+  varFile: '/config/.env/local.json',
   outputPath: '/output',
   env: 'local',
   ...overrides,
@@ -211,9 +211,7 @@ describe('generate-oystehr-resources', () => {
         });
 
         await expect(
-          generateOystehrResources(
-            createTestArgs({ env: 'production', varFile: '/packages/zambdas/.env/production.json' })
-          )
+          generateOystehrResources(createTestArgs({ env: 'production', varFile: '/config/.env/production.json' }))
         ).resolves.not.toThrow();
 
         expect(fs.stat).toHaveBeenCalledWith('/config/oystehr/env/production');
