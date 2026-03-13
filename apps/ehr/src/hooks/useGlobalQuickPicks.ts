@@ -63,9 +63,10 @@ export function useGlobalQuickPicks(): void {
   const isOnHPI = currentSubPath === 'history-of-present-illness-and-templates';
 
   // Load templates globally so they appear when typing "HPI" or "template" from any page.
+  // Only fetch when in an in-person visit to avoid unnecessary API calls from other pages.
   // Stabilize the array reference to avoid infinite re-render loops — useListTemplates
   // returns a new array on every render, which would retrigger the useMemo below.
-  const { templates: rawTemplates } = useListTemplates(ExamType.IN_PERSON);
+  const { templates: rawTemplates } = useListTemplates(ExamType.IN_PERSON, { enabled: !!inPersonBase });
   const templatesKey = rawTemplates.map((t) => t.value).join(',');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const templates = useMemo(() => rawTemplates, [templatesKey]);

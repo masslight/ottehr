@@ -101,17 +101,22 @@ export const CommandPalette: FC = () => {
     [filteredItems, selectedIndex, handleSelect, close]
   );
 
-  // Global keyboard shortcut
+  // Global keyboard shortcut — skip when focus is in an editable element
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        const target = e.target as HTMLElement;
+        const isEditable =
+          target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
+        // Allow toggle when palette is already open (input inside the dialog)
+        if (isEditable && !isOpen) return;
         e.preventDefault();
         toggle();
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [toggle]);
+  }, [toggle, isOpen]);
 
   const hasItems = allItems.length > 0;
 
