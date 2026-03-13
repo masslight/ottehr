@@ -121,7 +121,7 @@ export const ApplyTemplate: React.FC = () => {
         : templates.map((t) => ({
             id: `template-${t.value}`,
             label: t.label,
-            category: 'Templates',
+            category: 'Add Template',
             onSelect: () => selectTemplateRef.current(t.value),
           })),
     [templates, isReadOnly]

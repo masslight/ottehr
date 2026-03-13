@@ -337,7 +337,7 @@ const AddAllergyField: FC = () => {
       MEDICAL_HISTORY_CONFIG.allergies.quickPicks.map((qp) => ({
         id: `allergy-${qp.name}`,
         label: qp.name,
-        category: 'Allergies',
+        category: 'Add Allergy',
         onSelect: () => void handleQuickPickSelectRef.current(qp),
       })),
     []

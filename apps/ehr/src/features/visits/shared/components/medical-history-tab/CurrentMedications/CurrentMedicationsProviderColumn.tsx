@@ -126,7 +126,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
       MEDICAL_HISTORY_CONFIG.medications.quickPicks.map((qp) => ({
         id: `medication-${qp.name}`,
         label: `${qp.name}${qp.strength ? ` (${qp.strength})` : ''}`,
-        category: 'Medications',
+        category: 'Add Medication',
         onSelect: () => handleQuickPickSelect(qp),
       })),
     [handleQuickPickSelect]

@@ -179,7 +179,7 @@ export const EditableMedicationCard: React.FC<{
       .map((qp) => ({
         id: `in-house-med-${qp.name}`,
         label: qp.name,
-        category: 'In-House Medications',
+        category: 'Add In-House Medication',
         onSelect: () => handleQuickPickSelect(qp),
       }));
   }, [typeFromProps, handleQuickPickSelect]);

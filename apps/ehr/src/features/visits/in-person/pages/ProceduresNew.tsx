@@ -761,7 +761,7 @@ export default function ProceduresNew(): ReactElement {
             .map((qp) => ({
               id: `procedure-${qp.name}`,
               label: qp.name,
-              category: 'Procedures',
+              category: 'Add Procedure',
               onSelect: () => onQuickPickSelectRef.current(qp),
             })),
     [procedureId, selectedProcedureTypeCode]
