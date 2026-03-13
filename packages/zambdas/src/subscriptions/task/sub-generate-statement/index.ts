@@ -47,6 +47,7 @@ const RUBIK_BOLD_FONT_PATH = path.resolve(process.cwd(), 'assets', 'Rubik-Bold.o
 const RUBIK_ITALIC_FONT_PATH = path.resolve(process.cwd(), 'assets', 'fonts', 'rubik', 'Rubik-Italic-Variable.ttf');
 
 interface GenerateStatementInputValidated {
+  taskId: string;
   encounterId: string;
   secrets: Secrets;
 }
@@ -56,7 +57,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { encounterId, secrets } = validateInput(input);
+    const { taskId, encounterId, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -173,6 +174,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
     });
 
+    await patchTaskStatus(oystehr, taskId, 'completed');
+
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -195,9 +198,24 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
   const task = inputJson as Task;
 
   return {
+    taskId: validateString(task.id, 'taskId'),
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
+}
+
+async function patchTaskStatus(oystehr: Oystehr, taskId: string, status: Task['status']): Promise<void> {
+  await oystehr.fhir.patch<Task>({
+    resourceType: 'Task',
+    id: taskId,
+    operations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: status,
+      },
+    ],
+  });
 }
 
 async function supersedeCurrentStatementDocumentReferences(
@@ -469,7 +487,7 @@ async function generatePdfFromDocumentDefinition(documentDefinition: Record<stri
       italics: RUBIK_ITALIC_FONT_PATH,
       bolditalics: RUBIK_BOLD_FONT_PATH,
     },
-    Courier: {
+    CodeMono: {
       normal: RUBIK_MEDIUM_FONT_PATH,
       bold: RUBIK_BOLD_FONT_PATH,
       italics: RUBIK_ITALIC_FONT_PATH,
@@ -481,5 +499,5 @@ async function generatePdfFromDocumentDefinition(documentDefinition: Record<stri
   pdfmake.setUrlAccessPolicy?.(() => false);
 
   const pdfBuffer = await pdfmake.createPdf(documentDefinition).getBuffer();
-  return new Uint8Array(pdfBuffer);
+  return Uint8Array.from(pdfBuffer);
 }

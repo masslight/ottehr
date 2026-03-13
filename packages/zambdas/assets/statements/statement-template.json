@@ -12,10 +12,10 @@
   "styles": {
     "thLeft":  { "fontSize": 7,   "bold": true, "color": "#1e2d4a", "characterSpacing": 0.6 },
     "thRight": { "fontSize": 7,   "bold": true, "color": "#1e2d4a", "characterSpacing": 0.6, "alignment": "right" },
-    "tdCode":  { "fontSize": 9.5, "bold": true, "color": "#2b5fa8", "font": "Courier" },
+    "tdCode":  { "fontSize": 9.5, "bold": true, "color": "#2b5fa8", "font": "CodeMono" },
     "tdDesc":  { "fontSize": 9.5, "color": "#3f4c63" },
     "tdRight": { "fontSize": 9.5, "color": "#121a2a", "alignment": "right" },
-    "sectionLabel": { "fontSize": 7, "bold": true, "color": "#2b5fa8", "characterSpacing": 0.8 },
+    "sectionLabel": { "fontSize": 8, "bold": false, "color": "#2b5fa8", "characterSpacing": 0 },
     "colName":      { "fontSize": 11, "bold": true, "color": "#1e2d4a" },
     "colDetail":    { "fontSize": 9,  "color": "#3f4c63", "lineHeight": 1.45 }
   },
@@ -104,7 +104,7 @@
                       "width": "*",
                       "alignment": "right",
                       "stack": [
-                        { "text": "PAYMENT DUE", "fontSize": 7, "bold": true, "color": "#8a96a8", "characterSpacing": 0.8 },
+                        { "text": "PAYMENT DUE", "fontSize": 7, "bold": true, "color": "#8a96a8", "characterSpacing": 0 },
                         { "text": "{{statement.dueDate}}", "fontSize": 10, "bold": true, "color": "#1e2d4a" }
                       ]
                     },
@@ -113,7 +113,7 @@
                       "alignment": "right",
                       "margin": [16, 0, 0, 0],
                       "stack": [
-                        { "text": "AMOUNT DUE", "fontSize": 7, "bold": true, "color": "#8a96a8", "characterSpacing": 0.8 },
+                        { "text": "AMOUNT DUE", "fontSize": 7, "bold": true, "color": "#8a96a8", "characterSpacing": 0 },
                         { "text": "{{totals.balanceDue}}", "fontSize": 14, "bold": true, "color": "#c0392b" },
                         {
                           "__comment": "finalNotice badge — shown only when finalNotice=true (processed by runner, not Handlebars)",
