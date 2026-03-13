@@ -168,7 +168,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ]);
   const immunizationOrders = (
     await getImmunizationOrders(oystehr, {
-      encounterId: visitResources.encounter.id!,
+      encounterIds: [visitResources.encounter.id!],
     })
   ).orders;
   const chartData = chartDataResult.response;
