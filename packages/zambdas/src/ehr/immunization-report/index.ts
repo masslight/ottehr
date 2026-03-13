@@ -258,16 +258,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const batchIds = encounterIds.slice(i, i + batchSize);
       const contextValue = batchIds.map((id) => `Encounter/${id}`).join(',');
 
-      const maBundle = await oystehr.fhir.search<MedicationAdministration>({
-        resourceType: 'MedicationAdministration',
-        params: [
-          { name: '_tag', value: 'immunization' },
-          { name: 'context', value: contextValue },
-          { name: '_count', value: '1000' },
-        ],
-      });
+      const maSearchParams = [
+        { name: '_tag', value: 'immunization' },
+        { name: 'context', value: contextValue },
+        { name: '_count', value: '1000' },
+      ];
 
+      let maBundle = await oystehr.fhir.search<MedicationAdministration>({
+        resourceType: 'MedicationAdministration',
+        params: [...maSearchParams, { name: '_offset', value: '0' }],
+      });
       allMedicationAdministrations.push(...maBundle.unbundle());
+
+      let maOffset = 1000;
+      while (maBundle.link?.find((link) => link.relation === 'next')) {
+        maBundle = await oystehr.fhir.search<MedicationAdministration>({
+          resourceType: 'MedicationAdministration',
+          params: [...maSearchParams, { name: '_offset', value: maOffset.toString() }],
+        });
+        allMedicationAdministrations.push(...maBundle.unbundle());
+        maOffset += 1000;
+
+        if (maOffset > 100000) {
+          console.warn('Reached maximum MA pagination limit. Stopping search.');
+          break;
+        }
+      }
     }
 
     console.log(`Found ${allMedicationAdministrations.length} immunization MedicationAdministrations`);

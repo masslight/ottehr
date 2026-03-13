@@ -413,7 +413,7 @@ export default function ImmunizationReport(): React.ReactElement {
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           This report shows vaccine administration data across completed encounters. It includes patient demographics,
-          vaccine details (CPT/CVX/MVX codes), lot numbers, and administering provider information.
+          vaccine details (CPT/CVX/MVX/NDC codes), lot numbers, and administering provider information.
         </Typography>
 
         {/* Date Filter */}
