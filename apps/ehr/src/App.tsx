@@ -26,11 +26,12 @@ import EditVirtualLocationPage from './features/visits/telemed/components/admin/
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
-import AddMedicationPage from './pages/AddMedicationPage';
 import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import { AdminPage } from './pages/AdminPage';
 import AppointmentsPage from './pages/Appointments';
+import AddMedicationPage from './pages/configuration/AddMedicationPage';
+import UpdateMedicationPage from './pages/configuration/UpdateMedicationPage';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import GroupPage from './pages/GroupPage';
@@ -53,7 +54,6 @@ import {
 } from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
-import UpdateMedicationPage from './pages/UpdateMedicationPage';
 import VisitDetailsPage from './pages/VisitDetailsPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';

@@ -69,8 +69,13 @@ export default function AddMedicationPage(): ReactElement {
             </Grid>
             <Grid item xs={6} />
             <Grid item>
-              <LoadingButton type="submit" variant="contained" loading={loading}>
-                Create
+              <LoadingButton
+                type="submit"
+                variant="contained"
+                loading={loading}
+                sx={{ textTransform: 'none', borderRadius: 28, fontWeight: 'bold' }}
+              >
+                Create Medication
               </LoadingButton>
             </Grid>
           </Grid>

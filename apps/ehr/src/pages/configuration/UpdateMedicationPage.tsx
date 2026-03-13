@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Grid, TextField, Typography } from '@mui/material';
+import { Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -105,52 +105,73 @@ export default function UpdateMedicationPage(): ReactElement {
             { link: '#', children: 'Update medication' },
           ]}
         />
-        <form onSubmit={update}>
-          <Grid container spacing={2} paddingTop={2}>
-            <Grid item xs={12}>
-              <Typography variant="h4">Update medication</Typography>
+        <Paper sx={{ padding: 2 }}>
+          <form onSubmit={update}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="h4">Update medication</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  label="Name"
+                  required
+                  fullWidth
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </Grid>
+              <Grid item xs={6} />
+              <Grid item xs={6}>
+                <TextField
+                  label="NDC"
+                  required
+                  fullWidth
+                  value={ndc}
+                  onChange={(event) => setNdc(event.target.value)}
+                />
+              </Grid>
+              <Grid item xs={6} />
+              <Grid item xs={6}>
+                <TextField
+                  label="Medispan ID"
+                  required
+                  fullWidth
+                  value={medispanID}
+                  onChange={(event) => setMedispanID(event.target.value)}
+                />
+              </Grid>
+              <Grid item xs={6} />
+              <Grid item>
+                <LoadingButton
+                  type="submit"
+                  variant="contained"
+                  loading={loading}
+                  sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
+                >
+                  Update Medication
+                </LoadingButton>
+              </Grid>
             </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Name"
-                required
-                fullWidth
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </Grid>
-            <Grid item xs={6} />
-            <Grid item xs={6}>
-              <TextField label="NDC" required fullWidth value={ndc} onChange={(event) => setNdc(event.target.value)} />
-            </Grid>
-            <Grid item xs={6} />
-            <Grid item xs={6}>
-              <TextField
-                label="Medispan ID"
-                required
-                fullWidth
-                value={medispanID}
-                onChange={(event) => setMedispanID(event.target.value)}
-              />
-            </Grid>
-            <Grid item xs={6} />
-            <Grid item>
-              <LoadingButton type="submit" variant="contained" loading={loading}>
-                Update
-              </LoadingButton>
-            </Grid>
-          </Grid>
-        </form>
+          </form>
+        </Paper>
 
-        <LoadingButton
-          variant="contained"
-          color={status === 'active' ? 'error' : 'success'}
-          sx={{ marginTop: 2 }}
-          onClick={() => updateStatus(status === 'active' ? 'inactive' : 'active')}
-          loading={loading}
-        >
-          {status === 'active' ? 'Remove' : 'Activate'}
-        </LoadingButton>
+        <Paper sx={{ padding: 2, marginTop: 2 }}>
+          <Typography variant="h4">{status === 'active' ? 'Remove' : 'Activate'} medication</Typography>
+          <Typography variant="body1">
+            {status === 'active'
+              ? 'Removing this medication will make it so it can no longer be ordered for a visit. It will not affect any medications that have already been ordered.'
+              : 'Activating this medication will add it to the list of in-house medications that can be ordered for a visit.'}
+          </Typography>
+          <LoadingButton
+            variant="contained"
+            color={status === 'active' ? 'error' : 'success'}
+            sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
+            onClick={() => updateStatus(status === 'active' ? 'inactive' : 'active')}
+            loading={loading}
+          >
+            {status === 'active' ? 'Remove' : 'Activate'} Medication
+          </LoadingButton>
+        </Paper>
       </>
     </PageContainer>
   );

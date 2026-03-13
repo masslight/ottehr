@@ -1,7 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication } from 'fhir/r4b';
-import { CODE_SYSTEM_NDC, getSecret, MEDICATION_DISPENSABLE_DRUG_ID, SecretsKeys } from 'utils';
+import {
+  CODE_SYSTEM_NDC,
+  getSecret,
+  MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDICATION_TYPE_SYSTEM,
+  SecretsKeys,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -54,11 +61,11 @@ export const performEffect = async (
     resourceType: 'Medication',
     identifier: [
       {
-        system: 'virtual-medication-type',
+        system: MEDICATION_TYPE_SYSTEM,
         value: 'virtual-medication-inventory',
       },
       {
-        system: 'virtual-medication-identifier-name-system',
+        system: MEDICATION_IDENTIFIER_NAME_SYSTEM,
         value: name,
       },
     ],
