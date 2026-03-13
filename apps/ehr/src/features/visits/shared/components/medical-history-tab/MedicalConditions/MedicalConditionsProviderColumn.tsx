@@ -321,7 +321,7 @@ const AddMedicalConditionField: FC = () => {
       MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks.map((qp) => ({
         id: `condition-${'code' in qp ? qp.code : qp.display}`,
         label: `${'code' in qp ? `${qp.code} ` : ''}${qp.display}`,
-        category: 'Medical Conditions',
+        category: 'Add Medical Condition',
         onSelect: () => void handleQuickPickSelectRef.current(qp),
       })),
     []

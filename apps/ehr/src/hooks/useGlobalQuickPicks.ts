@@ -81,7 +81,7 @@ export function useGlobalQuickPicks(): void {
         items.push({
           id: `global-allergy-${qp.name}`,
           label: qp.name,
-          category: 'Allergies',
+          category: 'Add Allergy',
           onSelect: () => navigateAndDefer('allergies', 'allergies', qp.name, qp),
         });
       }
@@ -93,7 +93,7 @@ export function useGlobalQuickPicks(): void {
         items.push({
           id: `global-condition-${qp.display}`,
           label: qp.display,
-          category: 'Medical Conditions',
+          category: 'Add Medical Condition',
           onSelect: () => navigateAndDefer('medical-conditions', 'medical-conditions', qp.display, qp),
         });
       }
@@ -106,7 +106,7 @@ export function useGlobalQuickPicks(): void {
         items.push({
           id: `global-medication-${qp.name}-${qp.strength ?? ''}`,
           label,
-          category: 'Medications',
+          category: 'Add Medication',
           onSelect: () => navigateAndDefer('medications', 'medications', `${qp.name}-${qp.strength ?? ''}`, qp),
         });
       }
@@ -118,7 +118,7 @@ export function useGlobalQuickPicks(): void {
         items.push({
           id: `global-procedure-${qp.name}`,
           label: qp.name,
-          category: 'Procedures',
+          category: 'Add Procedure',
           onSelect: () => navigateAndDefer('procedures/new', 'procedures', qp.name, qp),
         });
       }
@@ -133,7 +133,7 @@ export function useGlobalQuickPicks(): void {
         items.push({
           id: `global-in-house-med-${qp.name}`,
           label: qp.name,
-          category: 'In-House Medications',
+          category: 'Add In-House Medication',
           onSelect: () => navigateAndDefer('in-house-medication/order/new', 'in-house-medications', qp.name, qp),
         });
       }
@@ -145,7 +145,7 @@ export function useGlobalQuickPicks(): void {
         items.push({
           id: `global-template-${t.value}`,
           label: t.label,
-          category: 'Templates',
+          category: 'Add Template',
           onSelect: () => navigateAndDefer('history-of-present-illness-and-templates', 'templates', t.value, t),
         });
       }
