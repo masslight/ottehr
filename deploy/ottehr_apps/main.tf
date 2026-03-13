@@ -68,3 +68,10 @@ resource "local_sensitive_file" "zambda_secrets" {
   content  = jsonencode(var.zambda_secrets)
   filename = "${path.module}/../../packages/zambdas/.env/zambda-secrets-${var.environment}.json"
 }
+
+resource "terraform_data" "zambda_secrets_format" {
+  triggers_replace = local_sensitive_file.zambda_secrets.content_md5
+  provisioner "local-exec" {
+    command = "node -e \"const fs=require('fs'),f=process.argv[1];fs.writeFileSync(f,JSON.stringify(JSON.parse(fs.readFileSync(f,'utf8')),null,2))\" '${local_sensitive_file.zambda_secrets.filename}'"
+  }
+}
