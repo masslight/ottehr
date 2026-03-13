@@ -68,7 +68,7 @@
     table.services tbody tr:last-child td { border-bottom:none; }
 
     /* balance line */
-    .balance-row { display:flex; justify-content:space-between; align-items:baseline; padding:6px var(--margin); border-top:1.5px solid var(--navy); }
+    .balance-row { display:flex; justify-content:space-between; align-items:baseline; padding:6px 5px; border-top:1.5px solid var(--navy); }
     .balance-inline { display:flex; gap:22px; align-items:baseline; font-size:10px; color:var(--mid); }
     .balance-inline .val { font-weight:600; color:var(--ink); }
     .balance-due-label  { font-size:13px; font-weight:700; color:var(--navy); }
@@ -110,7 +110,7 @@
             <div class="clinic-contact">
         {{biller.addressLine1}}<span id="biller-line2-inline"></span><br />
         {{biller.city}}, {{biller.provinceOrState}}&nbsp;{{biller.postalOrZip}}<br />
-        <a href="https://{{biller.website}}">{{biller.website}}</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="mailto:{{biller.email}}">{{biller.email}}</a>
+        <a href="https://{{biller.website}}">{{biller.website}}</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="/cdn-cgi/l/email-protection#d5aeaeb7bcb9b9b0a7fbb0b8b4bcb9a8a8">{{biller.email}}</a>
       </div>
       <!-- statement meta lives here, right-aligned under clinic address -->
       <div class="statement-meta-block">
@@ -174,7 +174,6 @@
         <!-- rows injected by JS below -->
       </tbody>
     </table>
-  </div>
 
   <!-- BALANCE LINE -->
   <div class="balance-row">
@@ -188,7 +187,8 @@
       <span class="balance-due-label">Balance Due</span>
       <span class="balance-due-amount">{{totals.balanceDue}}</span>
     </div>
-  </div>
+  </div><!-- /.balance-row -->
+  </div><!-- /.services-section -->
 
   <!-- FOOTER: pinned to bottom third, pay online + QR + footer note -->
   <div class="page-footer">
@@ -203,13 +203,13 @@
       </div>
     </div>
     <div class="footer-note">
-      Questions?&nbsp;<a href="mailto:{{biller.email}}">{{biller.email}}</a>&nbsp;&middot;&nbsp;<a href="https://{{biller.website}}">{{biller.website}}</a>&nbsp;&middot;&nbsp;Payment due&nbsp;{{statement.dueDate}}.
+      Questions?&nbsp;<a href="/cdn-cgi/l/email-protection#1863637a7174747d6a367d757971746565">{{biller.email}}</a>&nbsp;&middot;&nbsp;<a href="https://{{biller.website}}">{{biller.website}}</a>&nbsp;&middot;&nbsp;Payment due&nbsp;{{statement.dueDate}}.
     </div>
   </div><!-- /.page-footer -->
 
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // Render addressLine2 only if supplied and non-blank
 (function() {
   var el  = document.getElementById('resp-line2');
