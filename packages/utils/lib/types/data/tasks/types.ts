@@ -94,4 +94,7 @@ export const ERX_TASK = {
   code: {
     providerNotification: 'provider-notification',
   },
+  input: {
+    providerName: 'provider-name',
+  },
 } as const;

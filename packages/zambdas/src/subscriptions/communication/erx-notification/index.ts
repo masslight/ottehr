@@ -39,6 +39,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ).unbundle()[0],
       'practitioner'
     );
+    const practitionerName =
+      practitioner.name?.[0] != null ? oystehr?.fhir.formatHumanName(practitioner.name[0]) : 'Unknown';
 
     const task = createTask({
       category: ERX_TASK.category,
@@ -48,12 +50,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         code: ERX_TASK.code.providerNotification,
       },
       basedOn: ['Communication/' + communication.id],
+      input: [
+        {
+          type: ERX_TASK.input.providerName,
+          valueString: practitionerName,
+        },
+      ],
     });
 
     task.status = 'in-progress';
     task.owner = {
       reference: 'Practitioner/' + practitioner.id,
-      display: practitioner.name?.[0] != null ? oystehr?.fhir.formatHumanName(practitioner.name[0]) : 'Unknown',
+      display: practitionerName,
       extension: [
         {
           url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
