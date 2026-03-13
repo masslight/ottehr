@@ -87,3 +87,11 @@ export const RADIOLOGY_TASK = {
     studyTypeCode: 'study-type-code',
   },
 } as const;
+
+export const ERX_TASK = {
+  category: 'erx',
+  system: 'erx-task',
+  code: {
+    providerNotification: 'provider-notification',
+  },
+} as const;
