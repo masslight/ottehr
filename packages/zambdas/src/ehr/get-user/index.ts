@@ -53,9 +53,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         console.log('Existing practitioner: ' + JSON.stringify(existingPractitionerResource));
       } catch (error: any) {
         if (
-          error.resourceType === 'OperationOutcome' &&
-          error.issue &&
-          error.issue.some((issue: any) => issue.severity === 'error' && issue.code === 'not-found')
+          (error.resourceType === 'OperationOutcome' &&
+            error.issue &&
+            error.issue.some((issue: any) => issue.severity === 'error' && issue.code === 'not-found')) ||
+          (error.name === 'OystehrFHIRError' && error.code === 404) ||
+          (error.name === 'OystehrFHIRError' && error.message.includes('expecting a UUID')) ||
+          (error.name === 'OystehrFHIRError' &&
+            error.cause &&
+            error.cause.issue &&
+            error.cause.issue.some((i: any) => i.code === 'not-found'))
         ) {
           existingPractitionerResource = undefined;
         } else {
@@ -93,7 +99,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
+    console.error('Error in get-user index:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
