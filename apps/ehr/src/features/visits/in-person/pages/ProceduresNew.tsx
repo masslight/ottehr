@@ -860,7 +860,7 @@ export default function ProceduresNew(): ReactElement {
   const handlePendingQuickPick = useCallback((payload: (typeof PROCEDURES_CONFIG.quickPicks)[number]) => {
     onQuickPickSelectRef.current(payload);
   }, []);
-  usePendingQuickPick('procedures', handlePendingQuickPick);
+  usePendingQuickPick('procedures', handlePendingQuickPick, !isSelectOptionsLoading);
 
   return (
     <FormProvider {...methods}>

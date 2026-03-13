@@ -126,21 +126,24 @@ export const CurrentMedicationsProviderColumn: FC = () => {
 
   const commandPaletteItems = useMemo(
     () =>
-      MEDICAL_HISTORY_CONFIG.medications.quickPicks.map((qp) => ({
-        id: `medication-${qp.name}`,
-        label: `${qp.name}${qp.strength ? ` (${qp.strength})` : ''}`,
-        category: 'Add Medication',
-        onSelect: () => handleQuickPickSelect(qp),
-      })),
-    [handleQuickPickSelect]
+      isReadOnly
+        ? []
+        : MEDICAL_HISTORY_CONFIG.medications.quickPicks.map((qp) => ({
+            id: `medication-${qp.name}-${qp.strength ?? ''}`,
+            label: `${qp.name}${qp.strength ? ` (${qp.strength})` : ''}`,
+            category: 'Add Medication',
+            onSelect: () => handleQuickPickSelect(qp),
+          })),
+    [handleQuickPickSelect, isReadOnly]
   );
   useCommandPaletteSource('medication-quick-picks', commandPaletteItems);
 
   const handlePendingQuickPick = useCallback(
     (payload: (typeof MEDICAL_HISTORY_CONFIG.medications.quickPicks)[number]) => {
+      if (isReadOnly) return;
       handleQuickPickSelect(payload);
     },
-    [handleQuickPickSelect]
+    [handleQuickPickSelect, isReadOnly]
   );
   usePendingQuickPick('medications', handlePendingQuickPick);
 
