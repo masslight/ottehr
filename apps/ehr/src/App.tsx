@@ -18,6 +18,7 @@ import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
@@ -266,6 +267,8 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/patients" element={<PatientsPage />} />
+
+                  <Route path="/inbound-fax/:communicationId/match" element={<InboundFaxMatch />} />
 
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                   <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />

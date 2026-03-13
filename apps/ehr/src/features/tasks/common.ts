@@ -1,6 +1,14 @@
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DOB_DATE_FORMAT, getFullName, IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, MANUAL_TASK, RADIOLOGY_TASK } from 'utils';
+import {
+  DOB_DATE_FORMAT,
+  FAX_TASK,
+  getFullName,
+  IN_HOUSE_LAB_TASK,
+  LAB_ORDER_TASK,
+  MANUAL_TASK,
+  RADIOLOGY_TASK,
+} from 'utils';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
@@ -23,6 +31,7 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [MANUAL_TASK.category.charting]: 'Charting',
   [MANUAL_TASK.category.coding]: 'Coding',
   [MANUAL_TASK.category.billing]: 'Billing',
+  [FAX_TASK.category]: 'Fax',
   [MANUAL_TASK.category.other]: 'Other',
 };
 

@@ -612,6 +612,18 @@
         "expression": "cron(0 9 * * ? *)"
       }
     },
+    "HANDLE-INBOUND-FAX": {
+      "name": "handle-inbound-fax",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/communication/handle-inbound-fax/index",
+      "zip": ".dist/zips/handle-inbound-fax.zip",
+      "subscription": {
+        "criteria": "Communication?medium=FAXWRIT&status=completed",
+        "reason": "Inbound fax received",
+        "event": "create"
+      }
+    },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
@@ -871,6 +883,20 @@
       "timeout": "300",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
       "zip": ".dist/zips/ai-interview-summary.zip"
+    },
+    "FILE-INBOUND-FAX": {
+      "name": "file-inbound-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/file-inbound-fax/index",
+      "zip": ".dist/zips/file-inbound-fax.zip"
+    },
+    "DELETE-INBOUND-FAX": {
+      "name": "delete-inbound-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-inbound-fax/index",
+      "zip": ".dist/zips/delete-inbound-fax.zip"
     },
     "SEND-FAX": {
       "name": "send-fax",

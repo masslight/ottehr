@@ -72,6 +72,21 @@ export const TaskAlertDisplay = {
   [TaskAlertCode.abnormalLabResult]: 'This result contains an abnormal result',
 };
 
+export const FAX_TASK = {
+  category: 'inbound-fax',
+  system: 'inbound-fax-task',
+  code: {
+    matchInboundFax: 'match-inbound-fax',
+  },
+  input: {
+    senderFaxNumber: 'sender-fax-number',
+    pageCount: 'page-count',
+    communicationId: 'communication-id',
+    pdfUrl: 'pdf-url',
+    receivedDate: 'received-date',
+  },
+} as const;
+
 export const RADIOLOGY_TASK = {
   category: 'radiology',
   system: 'radiology-task',
