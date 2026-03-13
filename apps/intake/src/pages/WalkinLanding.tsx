@@ -16,7 +16,7 @@ import {
 } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
-import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
@@ -61,9 +61,7 @@ export const WalkinLanding: FC = () => {
       title={somethingIsLoadingInSomeWay ? 'Loading...' : `Welcome to ${BRANDING_CONFIG.projectName} `}
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
-      img={primaryIcon}
-      imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={120}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.WALKIN_LANDING)}
     >
       {!somethingIsLoadingInSomeWay && data ? (
         data.walkinOpen ? (

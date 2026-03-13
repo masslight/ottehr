@@ -7,7 +7,6 @@ const overrides = OVERRIDES || {};
 const BRANDING_DEFAULTS = {
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',
-  primaryIconAlt: 'Ottehr icon',
   email: {
     logoURL: '',
     palette: {
@@ -25,6 +24,8 @@ const BRANDING_DEFAULTS = {
     pdf: '',
   },
   intake: {
+    primaryIconAlt: 'Ottehr icon',
+    primaryIconSize: 90,
     appBar: {
       backgroundColor: '#0a2243',
       logoHeight: '39px',

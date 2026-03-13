@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 import { otherColors } from '../IntakeThemeProvider';
 
 export interface CardWithDescriptionAndLinkProps {
-  icon: string;
-  iconAlt: string;
+  icon?: string;
+  iconAlt?: string;
   iconHeight: string | number;
   mainText?: string;
   descText?: string;
@@ -35,6 +35,8 @@ const CardWithDescriptionAndLink: FC<CardWithDescriptionAndLinkProps> = ({
   paddingY,
 }) => {
   const theme = useTheme();
+  const shouldRenderIcon = Boolean(icon);
+
   return (
     <Card
       sx={{
@@ -49,10 +51,18 @@ const CardWithDescriptionAndLink: FC<CardWithDescriptionAndLinkProps> = ({
       <Link to={link} style={{ textDecoration: 'none' }}>
         <Box sx={{ m: 0, px: { xs: 3, md: 3 }, py: paddingY ?? 2 }}>
           <Grid container direction="row" spacing={{ xs: 0, md: 5 }} alignItems="center">
-            <Grid item xs={12} md={2} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
-              <img src={icon} alt={iconAlt} height={iconHeight} />
-            </Grid>
-            <Grid item xs={12} md={7} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
+            {shouldRenderIcon && (
+              <Grid item xs={12} md={2} textAlign={{ xs: 'center', md: 'start' }} sx={{ marginTop: '0 !important' }}>
+                <img src={icon} alt={iconAlt} height={iconHeight} />
+              </Grid>
+            )}
+            <Grid
+              item
+              xs={12}
+              md={shouldRenderIcon ? 7 : 9}
+              textAlign={{ xs: 'center', md: 'start' }}
+              sx={{ marginTop: '0 !important' }}
+            >
               <Typography
                 sx={{ color: textColor ? textColor : otherColors.black, fontSize: '16px', fontWeight: '700' }}
                 color={theme.palette.secondary.main}

@@ -120,16 +120,30 @@ export const IntakeThemeSchema = z
 
 export type IntakeTheme = z.infer<typeof IntakeThemeSchema>;
 
+const IntakePrimaryIconVisibilityObjectSchema = z
+  .object({
+    default: z.boolean(),
+    pages: z.record(z.boolean()),
+  })
+  .partial();
+
+export const IntakePrimaryIconVisibilitySchema = z.union([z.boolean(), IntakePrimaryIconVisibilityObjectSchema]);
+
+export type IntakePrimaryIconVisibility = z.infer<typeof IntakePrimaryIconVisibilitySchema>;
+
 /**
  * IntakeBrandingSchema - Intake-specific branding options
  */
 export const IntakeBrandingSchema = z.object({
+  primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
   appBar: z.object({
     backgroundColor: z.string().min(1, { message: 'AppBar background color cannot be empty' }),
     logoHeight: z.string().min(1, { message: 'AppBar logo height cannot be empty' }),
     logoutButtonTextColor: z.string().min(1, { message: 'AppBar logout button color cannot be empty' }),
   }),
   assets: IntakeAssetsSchema.optional(),
+  primaryIconSize: z.number().int().positive().optional(),
+  primaryIconVisibility: IntakePrimaryIconVisibilitySchema.optional(),
   theme: IntakeThemeSchema.optional(),
 });
 
@@ -142,7 +156,6 @@ export type IntakeBranding = z.infer<typeof IntakeBrandingSchema>;
 export const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
   projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
-  primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
   email: EmailConfigSchema,
   logo: LogoConfigSchema,
   intake: IntakeBrandingSchema,
