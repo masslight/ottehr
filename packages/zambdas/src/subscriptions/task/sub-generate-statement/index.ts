@@ -47,7 +47,7 @@ const RUBIK_BOLD_FONT_PATH = path.resolve(process.cwd(), 'assets', 'Rubik-Bold.o
 const RUBIK_ITALIC_FONT_PATH = path.resolve(process.cwd(), 'assets', 'fonts', 'rubik', 'Rubik-Italic-Variable.ttf');
 
 interface GenerateStatementInputValidated {
-  taskId: string;
+  task: Task;
   encounterId: string;
   secrets: Secrets;
 }
@@ -57,7 +57,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { taskId, encounterId, secrets } = validateInput(input);
+    const { task, encounterId, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -174,7 +174,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
     });
 
-    await patchTaskStatus(oystehr, taskId, 'completed');
+    await patchTaskStatus(oystehr, task.id!, 'completed');
 
     return {
       statusCode: 200,
@@ -196,9 +196,13 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
   }
 
   const task = inputJson as Task;
+  const taskId = validateString(task.id, 'taskId');
 
   return {
-    taskId: validateString(task.id, 'taskId'),
+    task: {
+      ...task,
+      id: taskId,
+    },
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
