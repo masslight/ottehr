@@ -54,15 +54,27 @@ function scoreMatch(candidate: SearchResult, externalName: string, externalStren
 
 /**
  * Find the best matching medication from search results.
- * Returns the match and whether it's an exact match (name + strength both exact).
+ * Priority order:
+ *   1. rxcui match — strongest exact match if the external med has an rxcui
+ *   2. Name + strength scoring — falls back to fuzzy matching
  */
 function findBestMatch(
   searchResponse: ErxSearchMedicationsResponse,
   externalName: string,
-  externalStrength: string | null
+  externalStrength: string | null,
+  externalRxcui: number | null
 ): { match: SearchResult | null; isExact: boolean } {
   if (searchResponse.length === 0) return { match: null, isExact: false };
 
+  // Step 1: Try rxcui match first — this is the strongest identifier match
+  if (externalRxcui != null) {
+    const rxcuiMatch = searchResponse.find((med) => med.rxcui === externalRxcui);
+    if (rxcuiMatch) {
+      return { match: rxcuiMatch, isExact: true };
+    }
+  }
+
+  // Step 2: Fall back to name + strength scoring
   let bestCandidate: SearchResult | null = null;
   let bestScore = -1;
 
@@ -370,7 +382,7 @@ export const useExternalMedicationHistory = (
           const key = `${entry.name}|${entry.strength ?? ''}`;
           try {
             const searchResponse = await oystehr.erx.searchMedications({ name: entry.name });
-            const match = findBestMatch(searchResponse, entry.name, entry.strength);
+            const match = findBestMatch(searchResponse, entry.name, entry.strength, entry.rxcui);
             results.set(key, match);
           } catch {
             results.set(key, { match: null, isExact: false });
