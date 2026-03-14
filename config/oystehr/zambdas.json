@@ -155,6 +155,34 @@
       "src": "src/ehr/bulk-update-insurance-status/index",
       "zip": ".dist/zips/bulk-update-insurance-status.zip"
     },
+    "ADMIN-GET-PROCEDURE-QUICK-PICKS": {
+      "name": "admin-get-procedure-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-procedure-quick-picks/index",
+      "zip": ".dist/zips/admin-get-procedure-quick-picks.zip"
+    },
+    "ADMIN-CREATE-PROCEDURE-QUICK-PICK": {
+      "name": "admin-create-procedure-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-procedure-quick-pick/index",
+      "zip": ".dist/zips/admin-create-procedure-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-PROCEDURE-QUICK-PICK": {
+      "name": "admin-update-procedure-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-procedure-quick-pick/index",
+      "zip": ".dist/zips/admin-update-procedure-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-PROCEDURE-QUICK-PICK": {
+      "name": "admin-remove-procedure-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-procedure-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-procedure-quick-pick.zip"
+    },
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",

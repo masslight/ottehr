@@ -33,16 +33,22 @@ export function useApiClients(): ApiClientsState {
 
   useEffect(() => {
     if (!oystehrZambda || oystehrZambda.config.accessToken !== token) {
+      const zambdaConfig: ConstructorParameters<typeof Oystehr>[0] = {
+        accessToken: token,
+        fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
+        projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
+        projectId: import.meta.env.VITE_APP_PROJECT_ID,
+        retry: {
+          retries: 0,
+        },
+      };
+      if (import.meta.env.VITE_APP_IS_LOCAL === 'true') {
+        zambdaConfig.services = {
+          zambdaApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
+        };
+      }
       useApiClientsStore.setState({
-        oystehrZambda: new Oystehr({
-          accessToken: token,
-          fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
-          projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
-          projectId: import.meta.env.VITE_APP_PROJECT_ID,
-          retry: {
-            retries: 0,
-          },
-        }),
+        oystehrZambda: new Oystehr(zambdaConfig),
       });
     }
   }, [oystehrZambda, token]);

@@ -2,15 +2,17 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Tab } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
-import { VIRTUAL_LOCATIONS_URL } from 'src/App';
+import { PROCEDURE_QUICK_PICKS_URL, VIRTUAL_LOCATIONS_URL } from 'src/App';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import Insurances from '../features/visits/telemed/components/telemed-admin/Insurance';
+import ProcedureQuickPicks from '../features/visits/telemed/components/telemed-admin/ProcedureQuickPicksPage';
 import States from '../features/visits/telemed/components/telemed-admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
 
 enum PageTab {
   insurance = 'insurances',
   'virtual-locations' = 'virtual-locations',
+  'procedure-quick-picks' = 'procedure-quick-picks',
 }
 
 export function TelemedAdminPage(): JSX.Element {
@@ -18,7 +20,12 @@ export function TelemedAdminPage(): JSX.Element {
   const navigate = useNavigate();
 
   const statesMatch = useMatch(VIRTUAL_LOCATIONS_URL);
-  const page = statesMatch ? PageTab['virtual-locations'] : PageTab.insurance;
+  const procedureQuickPicksMatch = useMatch(PROCEDURE_QUICK_PICKS_URL);
+  const page = statesMatch
+    ? PageTab['virtual-locations']
+    : procedureQuickPicksMatch
+    ? PageTab['procedure-quick-picks']
+    : PageTab.insurance;
 
   useEffect(() => {
     setPageTab(page);
@@ -47,6 +54,12 @@ export function TelemedAdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/telemed-admin/${PageTab['virtual-locations']}`)}
                 />
+                <Tab
+                  label="Procedure Quick Picks"
+                  value={PageTab['procedure-quick-picks']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/telemed-admin/${PageTab['procedure-quick-picks']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -63,6 +76,7 @@ export function TelemedAdminPage(): JSX.Element {
             <TabPanel value={pageTab} sx={{ padding: 0 }}>
               {pageTab === PageTab.insurance && <Insurances />}
               {pageTab === PageTab['virtual-locations'] && <States />}
+              {pageTab === PageTab['procedure-quick-picks'] && <ProcedureQuickPicks />}
             </TabPanel>
           </Paper>
         </TabContext>

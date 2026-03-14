@@ -81,6 +81,7 @@ const TelemedAppointmentPageLazy = lazy(async () => {
 
 export const INSURANCES_URL = '/telemed-admin/insurances';
 export const VIRTUAL_LOCATIONS_URL = '/telemed-admin/virtual-locations';
+export const PROCEDURE_QUICK_PICKS_URL = '/telemed-admin/procedure-quick-picks';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -230,6 +231,7 @@ function App(): ReactElement {
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={INSURANCES_URL} element={<TelemedAdminPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                  <Route path={PROCEDURE_QUICK_PICKS_URL} element={<TelemedAdminPage />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"
