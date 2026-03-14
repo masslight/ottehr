@@ -1,10 +1,12 @@
 import { Stack, Typography } from '@mui/material';
-import React from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { MedicationDTO } from 'utils';
 import { Loader } from '../../shared/components/Loader';
 import { MedicalHistoryDoubleCard } from '../../shared/components/medical-history-tab';
 import { CurrentMedicationsPatientColumn } from '../../shared/components/medical-history-tab/CurrentMedications/CurrentMedicationsPatientColumn';
 import { CurrentMedicationsProviderColumn } from '../../shared/components/medical-history-tab/CurrentMedications/CurrentMedicationsProviderColumn';
+import { ExternalMedicationSelection } from '../../shared/components/medical-history-tab/CurrentMedications/ExternalRxSuggestions';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
@@ -28,6 +30,14 @@ export const Medications: React.FC<MedicationsProps> = () => {
 
   const { interactionMode } = useInPersonNavigationContext();
 
+  // Bridge between patient column (External RX) and provider column (form)
+  const selectMedicationRef = useRef<((selection: ExternalMedicationSelection) => void) | null>(null);
+  const [chartedMedications, setChartedMedications] = useState<MedicationDTO[]>([]);
+
+  const handleExternalMedSelect = useCallback((selection: ExternalMedicationSelection) => {
+    selectMedicationRef.current?.(selection);
+  }, []);
+
   if (isLoading || isChartDataLoading) return <Loader />;
   if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
@@ -42,8 +52,18 @@ export const Medications: React.FC<MedicationsProps> = () => {
 
       <AskMedicationsAlert />
       <MedicalHistoryDoubleCard
-        patientSide={<CurrentMedicationsPatientColumn />}
-        providerSide={<CurrentMedicationsProviderColumn />}
+        patientSide={
+          <CurrentMedicationsPatientColumn
+            chartedMedications={chartedMedications}
+            onSelectMedication={handleExternalMedSelect}
+          />
+        }
+        providerSide={
+          <CurrentMedicationsProviderColumn
+            onSelectMedicationRef={selectMedicationRef}
+            onMedicationsChange={setChartedMedications}
+          />
+        }
       />
 
       <MedicationHistoryList />

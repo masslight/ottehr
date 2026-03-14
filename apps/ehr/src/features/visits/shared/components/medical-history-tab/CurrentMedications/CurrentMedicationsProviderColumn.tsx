@@ -16,7 +16,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
@@ -36,7 +36,17 @@ interface CurrentMedicationsProviderColumnForm {
   dose: string | null;
 }
 
-export const CurrentMedicationsProviderColumn: FC = () => {
+import { ExternalMedicationSelection } from './ExternalRxSuggestions';
+
+interface CurrentMedicationsProviderColumnProps {
+  onSelectMedicationRef?: React.MutableRefObject<((selection: ExternalMedicationSelection) => void) | null>;
+  onMedicationsChange?: (medications: MedicationDTO[]) => void;
+}
+
+export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColumnProps> = ({
+  onSelectMedicationRef,
+  onMedicationsChange,
+}) => {
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
     defaultValues: { medication: null, dose: null, date: null, type: 'scheduled' },
   });
@@ -62,6 +72,28 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     },
     refetchHistory
   );
+
+  // Expose a callback so the patient column can pre-populate the form
+  useEffect(() => {
+    if (onSelectMedicationRef) {
+      onSelectMedicationRef.current = (selection) => {
+        setValue('medication', selection.medication);
+        if (selection.dose) {
+          setValue('dose', selection.dose);
+        }
+      };
+    }
+    return () => {
+      if (onSelectMedicationRef) {
+        onSelectMedicationRef.current = null;
+      }
+    };
+  }, [onSelectMedicationRef, setValue]);
+
+  // Report current medications to parent for External Rx filtering
+  useEffect(() => {
+    onMedicationsChange?.(medications);
+  }, [medications, onMedicationsChange]);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
