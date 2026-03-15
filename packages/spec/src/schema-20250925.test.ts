@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Schema20250925 } from './schema-20250925';
 
 describe('Schema20250925', () => {
@@ -113,6 +116,70 @@ describe('Schema20250925', () => {
       expect(() => new Schema20250925([spec], {}, '/out', '/zambdas')).toThrow(
         'must have at least one of the following top-level keys'
       );
+    });
+  });
+});
+
+describe('Schema20250925 generate()', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'spec-test-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  describe('zambda_secrets output', () => {
+    it('emits zambda_secrets with static secret refs and sendgrid merge when secrets are present', async () => {
+      const spec = {
+        path: 'secrets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          secrets: {
+            MY_API_KEY: { name: 'my-api-key', value: 'val1' },
+            ANOTHER_SECRET: { name: 'another-secret', value: 'val2' },
+          },
+        },
+      };
+
+      const schema = new Schema20250925([spec], {}, tmpDir, '/zambdas');
+      await schema.generate();
+
+      const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
+      const outputs = JSON.parse(outputsContent);
+
+      expect(outputs.output.zambda_secrets).toBeDefined();
+      const value: string = outputs.output.zambda_secrets.value;
+      // Static secret references
+      expect(value).toContain('"MY_API_KEY": oystehr_secret.MY_API_KEY.value');
+      expect(value).toContain('"ANOTHER_SECRET": oystehr_secret.ANOTHER_SECRET.value');
+      // SendGrid dynamic refs (always included; their presence at apply-time is guarded by length checks)
+      expect(value).toContain('{for k, v in oystehr_secret.sendgrid_template_ids : k => v.value}');
+      expect(value).toContain(
+        'length(oystehr_secret.sendgrid_send_email_api_key) > 0 ? {"SENDGRID_SEND_EMAIL_API_KEY": one(oystehr_secret.sendgrid_send_email_api_key[*].value)} : {}'
+      );
+    });
+
+    it('does not emit zambda_secrets when no secrets are defined', async () => {
+      const spec = {
+        path: 'zambdas.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          zambdas: {
+            'MY-ZAMBDA': { name: 'my-zambda', type: 'http_auth', runtime: 'nodejs18.x', memorySize: 512, timeout: 30, zip: 'my-zambda.zip' },
+          },
+        },
+      };
+
+      const schema = new Schema20250925([spec], {}, tmpDir, '/zambdas');
+      await schema.generate();
+
+      const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
+      const outputs = JSON.parse(outputsContent);
+
+      expect(outputs.output.zambda_secrets).toBeUndefined();
     });
   });
 });
