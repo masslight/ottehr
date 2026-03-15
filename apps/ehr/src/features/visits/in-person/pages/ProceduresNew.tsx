@@ -38,6 +38,7 @@ import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedProcedureQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
@@ -52,6 +53,7 @@ import {
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
+  ProcedureQuickPickData,
   PROCEDURES_CONFIG,
   ProcedureSuggestion,
   REQUIRED_FIELD_ERROR_MESSAGE,
@@ -165,6 +167,7 @@ export default function ProceduresNew(): ReactElement {
   const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
   const { oystehr } = useApiClients();
+  const { quickPicks: mergedQuickPicks } = useMergedProcedureQuickPicks();
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
   const { chartData, setPartialChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
@@ -722,7 +725,7 @@ export default function ProceduresNew(): ReactElement {
     setInitialFormStateSet(true);
   }, [methods, procedure]);
 
-  const onQuickPickSelect = (quickPick: (typeof PROCEDURES_CONFIG.quickPicks)[number]): void => {
+  const onQuickPickSelect = (quickPick: ProcedureQuickPickData): void => {
     updateState((state) => {
       if (quickPick.procedureType) {
         methods.reset({
@@ -733,7 +736,7 @@ export default function ProceduresNew(): ReactElement {
         });
       }
       Object.entries(quickPick).forEach(([key, value]) => {
-        if (key !== 'name' && key !== 'procedureType') {
+        if (key !== 'name' && key !== 'id' && key !== 'procedureType') {
           (state as any)[key] = value;
         }
       });
@@ -756,19 +759,19 @@ export default function ProceduresNew(): ReactElement {
     () =>
       procedureId
         ? []
-        : PROCEDURES_CONFIG.quickPicks
+        : mergedQuickPicks
             .filter((qp) => selectedProcedureTypeCode == null || selectedProcedureTypeCode === qp.procedureType)
             .map((qp) => ({
-              id: `procedure-${qp.name}`,
+              id: `procedure-${qp.id ?? qp.name}`,
               label: qp.name,
               category: 'Add Procedure',
               onSelect: () => onQuickPickSelectRef.current(qp),
             })),
-    [procedureId, selectedProcedureTypeCode]
+    [procedureId, selectedProcedureTypeCode, mergedQuickPicks]
   );
   useCommandPaletteSource('procedure-quick-picks', commandPaletteItems);
 
-  const handlePendingQuickPick = useCallback((payload: (typeof PROCEDURES_CONFIG.quickPicks)[number]) => {
+  const handlePendingQuickPick = useCallback((payload: ProcedureQuickPickData) => {
     onQuickPickSelectRef.current(payload);
   }, []);
   usePendingQuickPick('procedures', handlePendingQuickPick, !isSelectOptionsLoading);
@@ -798,9 +801,9 @@ export default function ProceduresNew(): ReactElement {
               </Typography>
             </Box>
 
-            {!procedureId && PROCEDURES_CONFIG.quickPicks.length > 0 ? (
+            {!procedureId && mergedQuickPicks.length > 0 ? (
               <QuickPicksButton
-                quickPicks={PROCEDURES_CONFIG.quickPicks.filter(
+                quickPicks={mergedQuickPicks.filter(
                   (quickPick) =>
                     selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
                 )}
