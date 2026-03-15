@@ -1,6 +1,6 @@
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Schema20250925 } from './schema-20250925';
 
@@ -168,7 +168,14 @@ describe('Schema20250925 generate()', () => {
         spec: {
           'schema-version': '2025-09-25',
           zambdas: {
-            'MY-ZAMBDA': { name: 'my-zambda', type: 'http_auth', runtime: 'nodejs18.x', memorySize: 512, timeout: 30, zip: 'my-zambda.zip' },
+            'MY-ZAMBDA': {
+              name: 'my-zambda',
+              type: 'http_auth',
+              runtime: 'nodejs18.x',
+              memorySize: 512,
+              timeout: 30,
+              zip: 'my-zambda.zip',
+            },
           },
         },
       };
