@@ -48,12 +48,13 @@ interface QuickPickEditorProps<T extends { id?: string }> {
   description: string;
   columns: QuickPickEditorColumn<T>[];
   fields: QuickPickEditorField[];
+  editable?: boolean;
   fetchItems: () => Promise<T[]>;
   createItem: (data: Omit<T, 'id'>) => Promise<T>;
-  updateItem: (id: string, data: Omit<T, 'id'>) => Promise<T>;
+  updateItem?: (id: string, data: Omit<T, 'id'>) => Promise<T>;
   removeItem: (id: string) => Promise<void>;
   buildItemFromFields: (values: Record<string, string>) => Omit<T, 'id'>;
-  getFieldValues: (item: T) => Record<string, string>;
+  getFieldValues?: (item: T) => Record<string, string>;
 }
 
 export default function QuickPickEditor<T extends { id?: string }>({
@@ -61,6 +62,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
   description,
   columns,
   fields,
+  editable = true,
   fetchItems,
   createItem,
   updateItem,
@@ -104,6 +106,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
   };
 
   const openEditDialog = (item: T): void => {
+    if (!getFieldValues) return;
     setEditingItem(item);
     setFieldValues(getFieldValues(item));
     setDialogOpen(true);
@@ -121,7 +124,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
     setSaving(true);
     try {
       const data = buildItemFromFields(fieldValues);
-      if (editingItem?.id) {
+      if (editingItem?.id && updateItem) {
         await updateItem(editingItem.id, data);
         enqueueSnackbar('Quick pick updated', { variant: 'success' });
       } else {
@@ -198,9 +201,11 @@ export default function QuickPickEditor<T extends { id?: string }>({
                     <TableCell key={col.label}>{col.getValue(item) || '-'}</TableCell>
                   ))}
                   <TableCell>
-                    <IconButton size="small" onClick={() => openEditDialog(item)} title="Edit">
-                      <EditIcon fontSize="small" />
-                    </IconButton>
+                    {editable && (
+                      <IconButton size="small" onClick={() => openEditDialog(item)} title="Edit">
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    )}
                     <IconButton
                       size="small"
                       onClick={() => {

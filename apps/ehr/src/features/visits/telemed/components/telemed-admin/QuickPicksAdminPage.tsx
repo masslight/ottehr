@@ -12,9 +12,6 @@ import {
   removeAllergyQuickPick,
   removeMedicalConditionQuickPick,
   removeMedicationQuickPick,
-  updateAllergyQuickPick,
-  updateMedicalConditionQuickPick,
-  updateMedicationQuickPick,
 } from 'src/api/api';
 import {
   ExtractObjectType,
@@ -260,15 +257,6 @@ export default function QuickPicksAdminPage(): ReactElement {
     [oystehrZambda]
   );
 
-  const updateAllergy = useCallback(
-    async (id: string, data: Omit<AllergyQuickPickData, 'id'>) => {
-      if (!oystehrZambda) throw new Error('Not connected');
-      const response = await updateAllergyQuickPick(oystehrZambda, id, data);
-      return response.quickPick;
-    },
-    [oystehrZambda]
-  );
-
   const removeAllergy = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('Not connected');
@@ -293,15 +281,6 @@ export default function QuickPicksAdminPage(): ReactElement {
     [oystehrZambda]
   );
 
-  const updateCondition = useCallback(
-    async (id: string, data: Omit<MedicalConditionQuickPickData, 'id'>) => {
-      if (!oystehrZambda) throw new Error('Not connected');
-      const response = await updateMedicalConditionQuickPick(oystehrZambda, id, data);
-      return response.quickPick;
-    },
-    [oystehrZambda]
-  );
-
   const removeCondition = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('Not connected');
@@ -321,15 +300,6 @@ export default function QuickPicksAdminPage(): ReactElement {
     async (data: Omit<MedicationQuickPickData, 'id'>) => {
       if (!oystehrZambda) throw new Error('Not connected');
       const response = await createMedicationQuickPick(oystehrZambda, { quickPick: data });
-      return response.quickPick;
-    },
-    [oystehrZambda]
-  );
-
-  const updateMedication = useCallback(
-    async (id: string, data: Omit<MedicationQuickPickData, 'id'>) => {
-      if (!oystehrZambda) throw new Error('Not connected');
-      const response = await updateMedicationQuickPick(oystehrZambda, id, data);
       return response.quickPick;
     },
     [oystehrZambda]
@@ -374,17 +344,13 @@ export default function QuickPicksAdminPage(): ReactElement {
                 ),
               },
             ]}
+            editable={false}
             fetchItems={fetchAllergies}
             createItem={createAllergy}
-            updateItem={updateAllergy}
             removeItem={removeAllergy}
             buildItemFromFields={(values) => ({
               name: values.name.trim(),
               ...(values.allergyId ? { allergyId: Number(values.allergyId) } : {}),
-            })}
-            getFieldValues={(item) => ({
-              name: item.name,
-              allergyId: item.allergyId?.toString() ?? '',
             })}
           />
         </TabPanel>
@@ -407,15 +373,14 @@ export default function QuickPicksAdminPage(): ReactElement {
                 ),
               },
             ]}
+            editable={false}
             fetchItems={fetchConditions}
             createItem={createCondition}
-            updateItem={updateCondition}
             removeItem={removeCondition}
             buildItemFromFields={(values) => ({
               display: values.display.trim(),
               ...(values.code?.trim() ? { code: values.code.trim() } : {}),
             })}
-            getFieldValues={(item) => ({ display: item.display, code: item.code ?? '' })}
           />
         </TabPanel>
 
@@ -437,19 +402,14 @@ export default function QuickPicksAdminPage(): ReactElement {
                 ),
               },
             ]}
+            editable={false}
             fetchItems={fetchMedications}
             createItem={createMedication}
-            updateItem={updateMedication}
             removeItem={removeMedication}
             buildItemFromFields={(values) => ({
               name: values.name.trim(),
               ...(values.strength?.trim() ? { strength: values.strength.trim() } : {}),
               ...(values.medicationId ? { medicationId: Number(values.medicationId) } : {}),
-            })}
-            getFieldValues={(item) => ({
-              name: item.name,
-              strength: item.strength ?? '',
-              medicationId: item.medicationId?.toString() ?? '',
             })}
           />
         </TabPanel>
