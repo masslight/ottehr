@@ -36,6 +36,11 @@ export interface QuickPickEditorField {
   label: string;
   required?: boolean;
   placeholder?: string;
+  renderField?: (
+    value: string,
+    onChange: (value: string) => void,
+    onExtraData?: (data: Record<string, string>) => void
+  ) => React.ReactNode;
 }
 
 interface QuickPickEditorProps<T extends { id?: string }> {
@@ -219,19 +224,29 @@ export default function QuickPickEditor<T extends { id?: string }>({
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingItem ? 'Edit Quick Pick' : 'Add Quick Pick'}</DialogTitle>
         <DialogContent>
-          {fields.map((field, index) => (
-            <TextField
-              key={field.key}
-              label={field.label}
-              value={fieldValues[field.key] ?? ''}
-              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-              fullWidth
-              sx={{ mt: index === 0 ? 1 : 2 }}
-              autoFocus={index === 0}
-              placeholder={field.placeholder}
-              required={field.required}
-            />
-          ))}
+          {fields.map((field, index) =>
+            field.renderField ? (
+              <Box key={field.key} sx={{ mt: index === 0 ? 1 : 2 }}>
+                {field.renderField(
+                  fieldValues[field.key] ?? '',
+                  (value) => setFieldValues((prev) => ({ ...prev, [field.key]: value })),
+                  (extraData) => setFieldValues((prev) => ({ ...prev, ...extraData }))
+                )}
+              </Box>
+            ) : (
+              <TextField
+                key={field.key}
+                label={field.label}
+                value={fieldValues[field.key] ?? ''}
+                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                fullWidth
+                sx={{ mt: index === 0 ? 1 : 2 }}
+                autoFocus={index === 0}
+                placeholder={field.placeholder}
+                required={field.required}
+              />
+            )
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <RoundedButton onClick={() => setDialogOpen(false)} disabled={saving}>

@@ -1,6 +1,7 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Tab } from '@mui/material';
-import React, { ReactElement, useCallback, useState } from 'react';
+import { Autocomplete, Box, debounce, Tab, TextField } from '@mui/material';
+import { ErxSearchAllergensResponse, ErxSearchMedicationsResponse } from '@oystehr/sdk';
+import React, { ReactElement, useCallback, useMemo, useState } from 'react';
 import {
   createAllergyQuickPick,
   createMedicalConditionQuickPick,
@@ -15,12 +16,229 @@ import {
   updateMedicalConditionQuickPick,
   updateMedicationQuickPick,
 } from 'src/api/api';
+import {
+  ExtractObjectType,
+  useGetAllergiesSearch,
+  useGetMedicationsSearch,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationQuickPickData } from 'utils';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 
 type SubTab = 'procedures' | 'allergies' | 'medical-conditions' | 'medications';
+
+const AllergenSearchField: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  onExtraData?: (data: Record<string, string>) => void;
+}> = ({ value, onChange, onExtraData }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
+
+  const options = useMemo(() => {
+    if (!data || isSearching) return [];
+    return data.map((allergy) => {
+      const brandName = allergy.brandName;
+      if (brandName && brandName !== allergy.name) {
+        return { ...allergy, name: `${allergy.name} (${brandName})` };
+      }
+      return allergy;
+    });
+  }, [data, isSearching]);
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        if (term.length > 2) {
+          setDebouncedSearchTerm(term);
+        }
+      }, 800),
+    []
+  );
+
+  const selectedOption = value ? ({ name: value } as ExtractObjectType<ErxSearchAllergensResponse>) : null;
+
+  return (
+    <Autocomplete
+      value={selectedOption}
+      inputValue={searchTerm || value}
+      onInputChange={(_e, newInputValue, reason) => {
+        if (reason === 'input') {
+          setSearchTerm(newInputValue);
+          debouncedSetSearch(newInputValue);
+        }
+      }}
+      onChange={(_e, selected) => {
+        if (selected) {
+          onChange(selected.name);
+          onExtraData?.({ allergyId: selected.id?.toString() ?? '' });
+          setSearchTerm('');
+        } else {
+          onChange('');
+          onExtraData?.({ allergyId: '' });
+        }
+      }}
+      getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
+      isOptionEqualToValue={(option, val) => option.name === val.name}
+      options={options}
+      loading={isSearching}
+      filterOptions={(x) => x}
+      fullWidth
+      noOptionsText={
+        debouncedSearchTerm && debouncedSearchTerm.length > 2 && options.length === 0
+          ? 'Nothing found for this search criteria'
+          : 'Start typing to load results'
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Agent/Substance"
+          placeholder="Search allergens..."
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+    />
+  );
+};
+
+const MedicationSearchField: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  onExtraData?: (data: Record<string, string>) => void;
+}> = ({ value, onChange, onExtraData }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
+  const options = data || [];
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        if (term.length > 2) {
+          setDebouncedSearchTerm(term);
+        }
+      }, 800),
+    []
+  );
+
+  const selectedOption = value ? ({ name: value } as ExtractObjectType<ErxSearchMedicationsResponse>) : null;
+
+  return (
+    <Autocomplete
+      value={selectedOption}
+      inputValue={searchTerm || value}
+      onInputChange={(_e, newInputValue, reason) => {
+        if (reason === 'input') {
+          setSearchTerm(newInputValue);
+          debouncedSetSearch(newInputValue);
+        }
+      }}
+      onChange={(_e, selected) => {
+        if (selected) {
+          onChange(selected.name);
+          onExtraData?.({
+            strength: selected.strength ?? '',
+            medicationId: selected.id?.toString() ?? '',
+          });
+          setSearchTerm('');
+        } else {
+          onChange('');
+          onExtraData?.({ strength: '', medicationId: '' });
+        }
+      }}
+      getOptionLabel={(option) =>
+        typeof option === 'string' ? option : `${option.name}${option.strength ? ` (${option.strength})` : ''}`
+      }
+      isOptionEqualToValue={(option, val) => option.name === val.name}
+      options={options}
+      loading={isSearching}
+      filterOptions={(x) => x}
+      fullWidth
+      noOptionsText={
+        debouncedSearchTerm && debouncedSearchTerm.length > 2 && options.length === 0
+          ? 'Nothing found for this search criteria'
+          : 'Start typing to load results'
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Medication"
+          placeholder="Search medications..."
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+    />
+  );
+};
+
+const MedicalConditionSearchField: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  onExtraData?: (data: Record<string, string>) => void;
+}> = ({ value, onChange, onExtraData }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
+  const options = data?.codes || [];
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        setDebouncedSearchTerm(term);
+      }, 800),
+    []
+  );
+
+  const selectedOption = value ? { display: value, code: '' } : null;
+
+  return (
+    <Autocomplete
+      value={selectedOption}
+      inputValue={searchTerm || value}
+      onInputChange={(_e, newInputValue, reason) => {
+        if (reason === 'input') {
+          setSearchTerm(newInputValue);
+          debouncedSetSearch(newInputValue);
+        }
+      }}
+      onChange={(_e, selected) => {
+        if (selected) {
+          onChange(selected.display);
+          onExtraData?.({ code: selected.code });
+          setSearchTerm('');
+        } else {
+          onChange('');
+          onExtraData?.({ code: '' });
+        }
+      }}
+      getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
+      isOptionEqualToValue={(option, val) => option.display === val.display}
+      options={options}
+      loading={isSearching}
+      filterOptions={(x) => x}
+      fullWidth
+      noOptionsText={
+        debouncedSearchTerm && options.length === 0
+          ? 'Nothing found for this search criteria'
+          : 'Start typing to load results'
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Medical Condition"
+          placeholder="Search ICD-10 codes..."
+          required
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+    />
+  );
+};
 
 export default function QuickPicksAdminPage(): ReactElement {
   const [subTab, setSubTab] = useState<SubTab>('procedures');
@@ -146,13 +364,28 @@ export default function QuickPicksAdminPage(): ReactElement {
             title="Allergy Quick Picks"
             description="Manage common allergies that appear as quick picks when documenting patient allergies."
             columns={[{ label: 'Name', getValue: (item) => item.name }]}
-            fields={[{ key: 'name', label: 'Allergy Name', required: true, placeholder: 'e.g. Amoxicillin' }]}
+            fields={[
+              {
+                key: 'name',
+                label: 'Agent/Substance',
+                required: true,
+                renderField: (value, onValueChange, onExtraData) => (
+                  <AllergenSearchField value={value} onChange={onValueChange} onExtraData={onExtraData} />
+                ),
+              },
+            ]}
             fetchItems={fetchAllergies}
             createItem={createAllergy}
             updateItem={updateAllergy}
             removeItem={removeAllergy}
-            buildItemFromFields={(values) => ({ name: values.name.trim() })}
-            getFieldValues={(item) => ({ name: item.name })}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
+              ...(values.allergyId ? { allergyId: Number(values.allergyId) } : {}),
+            })}
+            getFieldValues={(item) => ({
+              name: item.name,
+              allergyId: item.allergyId?.toString() ?? '',
+            })}
           />
         </TabPanel>
 
@@ -165,8 +398,14 @@ export default function QuickPicksAdminPage(): ReactElement {
               { label: 'ICD-10 Code', getValue: (item) => item.code ?? '', width: 150 },
             ]}
             fields={[
-              { key: 'display', label: 'Display Name', required: true, placeholder: 'e.g. Asthma' },
-              { key: 'code', label: 'ICD-10 Code (optional)', placeholder: 'e.g. J45.909' },
+              {
+                key: 'display',
+                label: 'Medical Condition',
+                required: true,
+                renderField: (value, onValueChange, onExtraData) => (
+                  <MedicalConditionSearchField value={value} onChange={onValueChange} onExtraData={onExtraData} />
+                ),
+              },
             ]}
             fetchItems={fetchConditions}
             createItem={createCondition}
@@ -189,8 +428,14 @@ export default function QuickPicksAdminPage(): ReactElement {
               { label: 'Strength', getValue: (item) => item.strength ?? '', width: 150 },
             ]}
             fields={[
-              { key: 'name', label: 'Medication Name', required: true, placeholder: 'e.g. Amoxicillin' },
-              { key: 'strength', label: 'Strength (optional)', placeholder: 'e.g. 500mg' },
+              {
+                key: 'name',
+                label: 'Medication',
+                required: true,
+                renderField: (value, onValueChange, onExtraData) => (
+                  <MedicationSearchField value={value} onChange={onValueChange} onExtraData={onExtraData} />
+                ),
+              },
             ]}
             fetchItems={fetchMedications}
             createItem={createMedication}
@@ -199,8 +444,13 @@ export default function QuickPicksAdminPage(): ReactElement {
             buildItemFromFields={(values) => ({
               name: values.name.trim(),
               ...(values.strength?.trim() ? { strength: values.strength.trim() } : {}),
+              ...(values.medicationId ? { medicationId: Number(values.medicationId) } : {}),
             })}
-            getFieldValues={(item) => ({ name: item.name, strength: item.strength ?? '' })}
+            getFieldValues={(item) => ({
+              name: item.name,
+              strength: item.strength ?? '',
+              medicationId: item.medicationId?.toString() ?? '',
+            })}
           />
         </TabPanel>
       </TabContext>
