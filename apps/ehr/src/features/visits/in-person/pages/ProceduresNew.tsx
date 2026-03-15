@@ -1170,35 +1170,47 @@ export default function ProceduresNew(): ReactElement {
             autoFocus
             placeholder="Enter a name for this quick pick"
           />
-          {existingQuickPicks.length > 0 && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Or select an existing quick pick to overwrite:
-              </Typography>
-              <List
-                dense
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  maxHeight: 200,
-                  overflow: 'auto',
-                }}
-              >
-                {existingQuickPicks.map((qp, index) => (
-                  <ListItemButton
-                    key={qp.id ?? index}
-                    onClick={() => {
-                      setQuickPickName(qp.name);
+          {existingQuickPicks.length > 0 &&
+            (() => {
+              const filtered = quickPickName.trim()
+                ? existingQuickPicks.filter((qp) => qp.name.toLowerCase().includes(quickPickName.trim().toLowerCase()))
+                : existingQuickPicks;
+              return (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Or select an existing quick pick to overwrite:
+                  </Typography>
+                  <List
+                    dense
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      maxHeight: 200,
+                      overflow: 'auto',
                     }}
-                    selected={quickPickName === qp.name}
                   >
-                    <ListItemText primary={qp.name} />
-                  </ListItemButton>
-                ))}
-              </List>
-            </Box>
-          )}
+                    {filtered.length > 0 ? (
+                      filtered.map((qp, index) => (
+                        <ListItemButton
+                          key={qp.id ?? index}
+                          onClick={() => {
+                            setQuickPickName(qp.name);
+                          }}
+                          selected={quickPickName === qp.name}
+                        >
+                          <ListItemText primary={qp.name} />
+                        </ListItemButton>
+                      ))
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ p: 1.5, textAlign: 'center' }}>
+                        No matching quick picks
+                      </Typography>
+                    )}
+                  </List>
+                </Box>
+              );
+            })()}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setQuickPickDialogOpen(false)} disabled={quickPickSaving}>
