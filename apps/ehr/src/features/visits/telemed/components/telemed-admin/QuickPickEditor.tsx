@@ -22,7 +22,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 
 export interface QuickPickEditorColumn<T> {
@@ -94,6 +94,12 @@ export default function QuickPickEditor<T extends { id?: string }>({
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
+
+  const sortedItems = useMemo(() => {
+    const firstCol = columns[0];
+    if (!firstCol) return items;
+    return [...items].sort((a, b) => firstCol.getValue(a).localeCompare(firstCol.getValue(b)));
+  }, [items, columns]);
 
   const openAddDialog = (): void => {
     setEditingItem(null);
@@ -177,7 +183,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
         </Button>
       </Box>
 
-      {items.length === 0 ? (
+      {sortedItems.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">No quick picks configured yet.</Typography>
         </Paper>
@@ -195,7 +201,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map((item, index) => (
+              {sortedItems.map((item, index) => (
                 <TableRow key={item.id ?? `item-${index}`} hover>
                   {columns.map((col) => (
                     <TableCell key={col.label}>{col.getValue(item) || '-'}</TableCell>

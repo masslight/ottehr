@@ -41,7 +41,7 @@ export default function ProcedureQuickPicksPage(): ReactElement {
     setLoading(true);
     try {
       const response = await getProcedureQuickPicks(oystehrZambda);
-      setQuickPicks(response.quickPicks);
+      setQuickPicks([...response.quickPicks].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Failed to fetch procedure quick picks:', error);
       enqueueSnackbar('Failed to load procedure quick picks', { variant: 'error' });
