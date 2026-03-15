@@ -231,17 +231,21 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  const aiResponseString = await invokeChatbotVertexAI(
-    [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
-    secrets
-  );
-  console.log(`AI response: "${aiResponseString}"`);
-  let aiResponse;
-  try {
-    aiResponse = JSON.parse(aiResponseString);
-  } catch (error) {
-    console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
-    aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+  let aiResponse = {};
+  if (chatTranscript.trim() !== 'No audio captured') {
+    const aiResponseString = await invokeChatbotVertexAI(
+      [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
+      secrets
+    );
+    console.log(`AI response: "${aiResponseString}"`);
+    try {
+      aiResponse = JSON.parse(aiResponseString);
+    } catch (error) {
+      console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
+      aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+    }
+  } else {
+    console.log('Skipping AI response generation as no audio was captured');
   }
 
   if (!encounter) {
