@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ExamType, MEDICAL_HISTORY_CONFIG, PROCEDURES_CONFIG } from 'utils';
+import { ExamType, MEDICAL_HISTORY_CONFIG } from 'utils';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
+import { useMergedProcedureQuickPicks } from './useMergedProcedureQuickPicks';
 
 /**
  * Registers all quick picks globally in the command palette so they're available
@@ -25,6 +26,7 @@ export function useGlobalQuickPicks(): void {
   const location = useLocation();
   const navigate = useNavigate();
   const setPendingQuickPick = useCommandPaletteStore((s) => s.setPendingQuickPick);
+  const { quickPicks: mergedProcedureQuickPicks } = useMergedProcedureQuickPicks();
 
   // Extract the in-person base path (e.g., "/in-person/abc123")
   const inPersonBase = useMemo(() => {
@@ -113,14 +115,14 @@ export function useGlobalQuickPicks(): void {
       }
     }
 
-    // Procedures
+    // Procedures (merged: hardcoded + FHIR-based)
     if (!isOnProceduresNew) {
-      for (const qp of PROCEDURES_CONFIG.quickPicks) {
+      for (const qp of mergedProcedureQuickPicks) {
         items.push({
-          id: `global-procedure-${qp.name}`,
+          id: `global-procedure-${qp.id ?? qp.name}`,
           label: qp.name,
           category: 'Add Procedure',
-          onSelect: () => navigateAndDefer('procedures/new', 'procedures', qp.name, qp),
+          onSelect: () => navigateAndDefer('procedures/new', 'procedures', qp.id ?? qp.name, qp),
         });
       }
     }
@@ -162,6 +164,7 @@ export function useGlobalQuickPicks(): void {
     isOnProceduresNew,
     isOnInHouseOrderNew,
     navigateAndDefer,
+    mergedProcedureQuickPicks,
     templates,
   ]);
 

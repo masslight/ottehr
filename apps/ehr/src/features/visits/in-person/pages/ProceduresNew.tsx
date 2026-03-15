@@ -822,7 +822,7 @@ export default function ProceduresNew(): ReactElement {
         });
       }
       Object.entries(quickPick).forEach(([key, value]) => {
-        if (key !== 'name' && key !== 'procedureType') {
+        if (key !== 'name' && key !== 'id' && key !== 'procedureType') {
           (state as any)[key] = value;
         }
       });
@@ -845,19 +845,19 @@ export default function ProceduresNew(): ReactElement {
     () =>
       procedureId
         ? []
-        : PROCEDURES_CONFIG.quickPicks
+        : mergedQuickPicks
             .filter((qp) => selectedProcedureTypeCode == null || selectedProcedureTypeCode === qp.procedureType)
             .map((qp) => ({
-              id: `procedure-${qp.name}`,
+              id: `procedure-${qp.id ?? qp.name}`,
               label: qp.name,
               category: 'Add Procedure',
               onSelect: () => onQuickPickSelectRef.current(qp),
             })),
-    [procedureId, selectedProcedureTypeCode]
+    [procedureId, selectedProcedureTypeCode, mergedQuickPicks]
   );
   useCommandPaletteSource('procedure-quick-picks', commandPaletteItems);
 
-  const handlePendingQuickPick = useCallback((payload: (typeof PROCEDURES_CONFIG.quickPicks)[number]) => {
+  const handlePendingQuickPick = useCallback((payload: ProcedureQuickPickData) => {
     onQuickPickSelectRef.current(payload);
   }, []);
   usePendingQuickPick('procedures', handlePendingQuickPick, !isSelectOptionsLoading);
