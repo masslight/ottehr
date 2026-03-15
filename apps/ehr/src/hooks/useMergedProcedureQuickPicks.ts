@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getProcedureQuickPicks } from 'src/api/api';
 import { ProcedureQuickPickData, PROCEDURES_CONFIG } from 'utils';
 import { useApiClients } from './useAppClients';
@@ -38,9 +38,12 @@ export function useMergedProcedureQuickPicks(): {
     void fetchFhirQuickPicks();
   }, [fetchFhirQuickPicks]);
 
-  // Hardcoded quick picks (no id field) come first, then FHIR quick picks
-  const hardcoded: ProcedureQuickPickData[] = PROCEDURES_CONFIG.quickPicks ?? [];
-  const merged = [...hardcoded, ...fhirQuickPicks];
+  // Memoize to provide a stable reference and prevent infinite re-render loops
+  // in consumers that use this array in useMemo/useEffect dependency arrays.
+  const quickPicks = useMemo(() => {
+    const hardcoded: ProcedureQuickPickData[] = PROCEDURES_CONFIG.quickPicks ?? [];
+    return [...hardcoded, ...fhirQuickPicks];
+  }, [fhirQuickPicks]);
 
-  return { quickPicks: merged, loading };
+  return { quickPicks, loading };
 }
