@@ -73,8 +73,8 @@ module "oystehr" {
   providers = {
     oystehr = oystehr
   }
-  sendgrid_template_ids       = one(module.sendgrid[*].template_ids)
-  sendgrid_send_email_api_key = one(module.sendgrid[*].sendgrid_api_key)
+  sendgrid_template_ids       = local.sendgrid_enabled ? one(module.sendgrid[*].template_ids) : null
+  sendgrid_send_email_api_key = local.sendgrid_enabled ? one(module.sendgrid[*].sendgrid_api_key) : null
   ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : one(module.infra[*].ehr_domain) : var.ehr_domain
   patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.infra[*].patient_portal_domain) : var.patient_portal_domain
 }
