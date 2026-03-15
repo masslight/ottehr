@@ -642,14 +642,12 @@ export const formValueSetsData = {
     { label: 'Email', value: 'Email' },
     { label: 'Phone', value: 'Phone' },
   ],
-  externalLabAdditionalCptCodesToAdd: [] as string[],
+  externalLabAdditionalCptCodesToAdd: [],
 };
 
-const insuranceTypeOptions = insuranceTypeOptionsData as unknown as InsurancePlanType[];
-
-const formValueSets = {
+const formValueSets: ValueSetsConfig = {
   ...formValueSetsData,
-  insuranceTypeOptions,
+  insuranceTypeOptions: insuranceTypeOptionsData,
 };
 
-export const VALUE_SETS = deepFreezeObject(formValueSets) as unknown as ValueSetsConfig;
+export const VALUE_SETS = deepFreezeObject(formValueSets);
