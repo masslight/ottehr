@@ -61,4 +61,4 @@ export * from './get-booking-questionnaire.types';
 export * from './erx.types';
 export * from './invoicing.types';
 export * from './patient-login-phone-numbers.types';
-export * from './procedure-quick-picks.types';
+export * from './quick-picks.types';

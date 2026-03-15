@@ -183,6 +183,90 @@
       "src": "src/ehr/admin-remove-procedure-quick-pick/index",
       "zip": ".dist/zips/admin-remove-procedure-quick-pick.zip"
     },
+    "ADMIN-GET-ALLERGY-QUICK-PICKS": {
+      "name": "admin-get-allergy-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-allergy-quick-picks/index",
+      "zip": ".dist/zips/admin-get-allergy-quick-picks.zip"
+    },
+    "ADMIN-CREATE-ALLERGY-QUICK-PICK": {
+      "name": "admin-create-allergy-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-allergy-quick-pick/index",
+      "zip": ".dist/zips/admin-create-allergy-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-ALLERGY-QUICK-PICK": {
+      "name": "admin-update-allergy-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-allergy-quick-pick/index",
+      "zip": ".dist/zips/admin-update-allergy-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-ALLERGY-QUICK-PICK": {
+      "name": "admin-remove-allergy-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-allergy-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-allergy-quick-pick.zip"
+    },
+    "ADMIN-GET-MEDICAL-CONDITION-QUICK-PICKS": {
+      "name": "admin-get-medical-condition-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-medical-condition-quick-picks/index",
+      "zip": ".dist/zips/admin-get-medical-condition-quick-picks.zip"
+    },
+    "ADMIN-CREATE-MEDICAL-CONDITION-QUICK-PICK": {
+      "name": "admin-create-medical-condition-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-medical-condition-quick-pick/index",
+      "zip": ".dist/zips/admin-create-medical-condition-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-MEDICAL-CONDITION-QUICK-PICK": {
+      "name": "admin-update-medical-condition-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-medical-condition-quick-pick/index",
+      "zip": ".dist/zips/admin-update-medical-condition-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-MEDICAL-CONDITION-QUICK-PICK": {
+      "name": "admin-remove-medical-condition-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-medical-condition-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-medical-condition-quick-pick.zip"
+    },
+    "ADMIN-GET-MEDICATION-QUICK-PICKS": {
+      "name": "admin-get-medication-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-medication-quick-picks/index",
+      "zip": ".dist/zips/admin-get-medication-quick-picks.zip"
+    },
+    "ADMIN-CREATE-MEDICATION-QUICK-PICK": {
+      "name": "admin-create-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-create-medication-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-MEDICATION-QUICK-PICK": {
+      "name": "admin-update-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-update-medication-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-MEDICATION-QUICK-PICK": {
+      "name": "admin-remove-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-medication-quick-pick.zip"
+    },
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",
