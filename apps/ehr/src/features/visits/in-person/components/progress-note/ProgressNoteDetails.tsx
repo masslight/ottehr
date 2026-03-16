@@ -73,7 +73,7 @@ export const ProgressNoteDetails: FC = () => {
   const { medications: inHouseMedications } = useMedicationAPI();
 
   const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
-    encounterId: encounter.id,
+    encounterIds: [encounter.id!],
   });
 
   const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>
