@@ -1,8 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { DocumentReference, List } from 'fhir/r4b';
+import { DocumentReference, List, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { addOperation, getSecret, replaceOperation, SecretsKeys } from 'utils';
+import { addOperation, FAX_TASK, getSecret, replaceOperation, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -15,21 +15,62 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`[${ZAMBDA_NAME}] handler start`);
 
   try {
-    const { secrets, taskId, patientId, folderId, documentName, pdfUrl } = validateRequestParameters(input);
+    const { secrets, taskId, communicationId, patientId, folderId, documentName, pdfUrl } =
+      validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    // Fetch the target folder List
-    const folderList = await oystehr.fhir.get<List>({
-      resourceType: 'List',
-      id: folderId,
-    });
+    // Verify the task exists and is an inbound-fax task
+    let task: Task;
+    try {
+      task = await oystehr.fhir.get<Task>({
+        resourceType: 'Task',
+        id: taskId,
+      });
+    } catch {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: `Task/${taskId} not found` }),
+      };
+    }
 
-    if (!folderList) {
+    if (task.groupIdentifier?.value !== FAX_TASK.category) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: `Task/${taskId} is not an inbound-fax task` }),
+      };
+    }
+
+    const taskBasedOn = task.basedOn?.some((ref) => ref.reference === `Communication/${communicationId}`);
+    if (!taskBasedOn) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: `Task/${taskId} is not associated with Communication/${communicationId}`,
+        }),
+      };
+    }
+
+    // Fetch the target folder List
+    let folderList: List;
+    try {
+      folderList = await oystehr.fhir.get<List>({
+        resourceType: 'List',
+        id: folderId,
+      });
+    } catch {
       return {
         statusCode: 404,
         body: JSON.stringify({ error: `Folder List/${folderId} not found` }),
+      };
+    }
+
+    // Verify the folder belongs to the specified patient
+    if (folderList.subject?.reference !== `Patient/${patientId}`) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: `Folder List/${folderId} does not belong to Patient/${patientId}` }),
       };
     }
 
