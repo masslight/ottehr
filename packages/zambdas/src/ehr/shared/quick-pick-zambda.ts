@@ -6,7 +6,6 @@ import {
   QuickPickListResponse,
   QuickPickRemoveResponse,
   QuickPickUpdateResponse,
-  Secrets,
   SecretsKeys,
 } from 'utils';
 import {
@@ -62,10 +61,11 @@ export function makeGetHandler<T extends { id?: string }>(
 export function makeCreateHandler<T extends { id?: string }>(
   zambdaName: string,
   category: QuickPickCategory<T>,
-  parseQuickPick: (body: string) => { quickPick: Omit<T, 'id'>; secrets: Secrets }
+  parseQuickPick: (body: string) => { quickPick: Omit<T, 'id'> }
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return makeHandler(zambdaName, async (oystehr, input): Promise<QuickPickCreateResponse<T>> => {
-    const { quickPick: quickPickData } = parseQuickPick(input.body!);
+    if (!input.body) throw new Error('No request body provided');
+    const { quickPick: quickPickData } = parseQuickPick(input.body);
     const quickPick = await createQuickPick(oystehr, quickPickData, category);
     const displayName = category.getDisplayName(quickPickData);
     return { message: `Successfully created quick pick: ${displayName}`, quickPick };
@@ -75,10 +75,11 @@ export function makeCreateHandler<T extends { id?: string }>(
 export function makeUpdateHandler<T extends { id?: string }>(
   zambdaName: string,
   category: QuickPickCategory<T>,
-  parseUpdate: (body: string) => { quickPickId: string; quickPick: Omit<T, 'id'>; secrets: Secrets }
+  parseUpdate: (body: string) => { quickPickId: string; quickPick: Omit<T, 'id'> }
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return makeHandler(zambdaName, async (oystehr, input): Promise<QuickPickUpdateResponse<T>> => {
-    const { quickPickId, quickPick: quickPickData } = parseUpdate(input.body!);
+    if (!input.body) throw new Error('No request body provided');
+    const { quickPickId, quickPick: quickPickData } = parseUpdate(input.body);
     const quickPick = await updateQuickPick(oystehr, quickPickId, quickPickData, category);
     const displayName = category.getDisplayName(quickPickData);
     return { message: `Successfully updated quick pick: ${displayName}`, quickPick };

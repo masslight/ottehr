@@ -8,6 +8,7 @@ import { QuickPickCategory } from './quick-pick-helpers';
 
 export const PROCEDURE_QUICK_PICK_CATEGORY: QuickPickCategory<ProcedureQuickPickData> = {
   tagCode: 'procedure-quick-pick',
+  displayNameKey: 'name',
   getDisplayName: (data) => data.name,
   fromParsed: (id, title, config) => ({
     id,
@@ -18,6 +19,7 @@ export const PROCEDURE_QUICK_PICK_CATEGORY: QuickPickCategory<ProcedureQuickPick
 
 export const ALLERGY_QUICK_PICK_CATEGORY: QuickPickCategory<AllergyQuickPickData> = {
   tagCode: 'allergy-quick-pick',
+  displayNameKey: 'name',
   getDisplayName: (data) => data.name,
   fromParsed: (id, title, config) => ({
     id,
@@ -28,6 +30,7 @@ export const ALLERGY_QUICK_PICK_CATEGORY: QuickPickCategory<AllergyQuickPickData
 
 export const MEDICAL_CONDITION_QUICK_PICK_CATEGORY: QuickPickCategory<MedicalConditionQuickPickData> = {
   tagCode: 'medical-condition-quick-pick',
+  displayNameKey: 'display',
   getDisplayName: (data) => data.display,
   fromParsed: (id, title, config) => ({
     id,
@@ -38,6 +41,7 @@ export const MEDICAL_CONDITION_QUICK_PICK_CATEGORY: QuickPickCategory<MedicalCon
 
 export const MEDICATION_QUICK_PICK_CATEGORY: QuickPickCategory<MedicationQuickPickData> = {
   tagCode: 'medication-quick-pick',
+  displayNameKey: 'name',
   getDisplayName: (data) => data.name,
   fromParsed: (id, title, config) => ({
     id,

@@ -18,6 +18,6 @@ export const index = makeUpdateHandler(
     if (!quickPick.display || typeof quickPick.display !== 'string') {
       throw INVALID_INPUT_ERROR('quickPick.display is required and must be a string');
     }
-    return { quickPickId, quickPick: quickPick as any, secrets: {} as any };
+    return { quickPickId, quickPick: quickPick as any };
   }
 );

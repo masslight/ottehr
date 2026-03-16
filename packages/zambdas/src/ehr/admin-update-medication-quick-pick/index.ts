@@ -15,5 +15,5 @@ export const index = makeUpdateHandler('admin-update-medication-quick-pick', MED
   if (!quickPick.name || typeof quickPick.name !== 'string') {
     throw INVALID_INPUT_ERROR('quickPick.name is required and must be a string');
   }
-  return { quickPickId, quickPick: quickPick as any, secrets: {} as any };
+  return { quickPickId, quickPick: quickPick as any };
 });

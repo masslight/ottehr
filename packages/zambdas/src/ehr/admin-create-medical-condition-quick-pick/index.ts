@@ -14,6 +14,6 @@ export const index = makeCreateHandler(
     if (!quickPick.display || typeof quickPick.display !== 'string') {
       throw INVALID_INPUT_ERROR('quickPick.display is required and must be a string');
     }
-    return { quickPick: quickPick as any, secrets: {} as any };
+    return { quickPick: quickPick as any };
   }
 );

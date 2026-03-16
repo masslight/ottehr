@@ -207,7 +207,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
                     <TableCell key={col.label}>{col.getValue(item) || '-'}</TableCell>
                   ))}
                   <TableCell>
-                    {editable && (
+                    {editable && getFieldValues && updateItem && (
                       <IconButton size="small" onClick={() => openEditDialog(item)} title="Edit">
                         <EditIcon fontSize="small" />
                       </IconButton>

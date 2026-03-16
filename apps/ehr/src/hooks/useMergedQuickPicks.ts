@@ -32,6 +32,7 @@ function useMergedQuickPicksGeneric<T>(
       setLoading(false);
       return;
     }
+    setLoading(true);
     try {
       const response = await fetchFn(oystehrZambda);
       setFhirItems(response.quickPicks);

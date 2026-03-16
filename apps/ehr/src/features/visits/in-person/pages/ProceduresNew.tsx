@@ -54,6 +54,7 @@ import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   AISuggestionNotes,
@@ -223,14 +224,7 @@ export default function ProceduresNew(): ReactElement {
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [fetchedQuickPicks, setFetchedQuickPicks] = useState<ProcedureQuickPickData[]>([]);
-
-  useEffect(() => {
-    if (!oystehrZambda) return;
-    getProcedureQuickPicks(oystehrZambda)
-      .then((response) => setFetchedQuickPicks(response.quickPicks))
-      .catch((error) => console.error('Failed to load quick picks:', error));
-  }, [oystehrZambda]);
+  const { quickPicks: mergedQuickPicks } = useMergedProcedureQuickPicks();
 
   const updateState = (stateMutator: (draft: PageState) => void): void => {
     setState((prev) => {
@@ -467,11 +461,10 @@ export default function ProceduresNew(): ReactElement {
     if (!oystehrZambda) return;
     try {
       const response = await getProcedureQuickPicks(oystehrZambda);
-      setFetchedQuickPicks(response.quickPicks);
       setExistingQuickPicks(response.quickPicks);
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(fetchedQuickPicks);
+      setExistingQuickPicks(mergedQuickPicks);
     }
     setQuickPickName('');
     setQuickPickDialogOpen(true);
@@ -520,10 +513,6 @@ export default function ProceduresNew(): ReactElement {
       }
 
       setQuickPickDialogOpen(false);
-
-      // Refresh the quick picks list
-      const response = await getProcedureQuickPicks(oystehrZambda);
-      setFetchedQuickPicks(response.quickPicks);
     } catch (error) {
       console.error('Failed to save quick pick:', error);
       enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
@@ -876,9 +865,9 @@ export default function ProceduresNew(): ReactElement {
               </Typography>
             </Box>
 
-            {!procedureId && fetchedQuickPicks.length > 0 ? (
+            {!procedureId && mergedQuickPicks.length > 0 ? (
               <QuickPicksButton
-                quickPicks={fetchedQuickPicks.filter(
+                quickPicks={mergedQuickPicks.filter(
                   (quickPick) =>
                     selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
                 )}

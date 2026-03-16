@@ -11,6 +11,8 @@ export const QUICK_PICK_CONFIG_EXTENSION_URL = 'https://extensions.fhir.oystehr.
  */
 export interface QuickPickCategory<T extends { id?: string }> {
   tagCode: string;
+  /** The key in T that holds the display name (e.g. 'name' or 'display'), stripped from config extension to avoid redundancy with title */
+  displayNameKey: string;
   /** Extract the human-readable name from a quick pick data object */
   getDisplayName: (data: Omit<T, 'id'>) => string;
   /** Build a quick pick data object from ActivityDefinition fields + parsed config */
@@ -38,8 +40,8 @@ export function quickPickToActivityDefinition<T extends { id?: string }>(
   existingId?: string
 ): ActivityDefinition {
   const displayName = category.getDisplayName(quickPick);
-  // Strip id and the name field before serializing config
-  const { ...configData } = quickPick as Record<string, unknown>;
+  // Strip id and the display-name field before serializing config (title already stores the display name)
+  const { id: _id, [category.displayNameKey]: _displayName, ...configData } = quickPick as Record<string, unknown>;
 
   const ad: ActivityDefinition = {
     resourceType: 'ActivityDefinition',
@@ -123,12 +125,18 @@ export async function updateQuickPick<T extends { id?: string }>(
 }
 
 export async function removeQuickPick(oystehr: Oystehr, quickPickId: string): Promise<void> {
-  const existing = await oystehr.fhir.get<ActivityDefinition>({
-    resourceType: 'ActivityDefinition',
-    id: quickPickId,
-  });
-  if (!existing) {
+  let existing: ActivityDefinition;
+  try {
+    existing = await oystehr.fhir.get<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      id: quickPickId,
+    });
+  } catch {
     throw new Error(`ActivityDefinition with id ${quickPickId} not found`);
+  }
+  const hasQuickPickTag = existing.meta?.tag?.some((t) => t.system === QUICK_PICK_TAG_SYSTEM);
+  if (!hasQuickPickTag) {
+    throw new Error(`ActivityDefinition ${quickPickId} is not a quick pick resource`);
   }
   existing.status = 'retired';
   await oystehr.fhir.update(existing);
