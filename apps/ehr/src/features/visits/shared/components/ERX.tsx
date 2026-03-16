@@ -252,9 +252,9 @@ export const ERX: FC<{
         tags: {
           system: 'erx',
           providerEnrollment: 'pending-review',
-          source: 'erx-module',
         },
         extra: {
+          source: 'erx-module',
           practitionerId: practitioner?.id,
           registered: practitionerEnrollmentStatus?.registered,
           confirmed: practitionerEnrollmentStatus?.confirmed,

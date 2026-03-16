@@ -73,9 +73,9 @@ export const UserMenu: FC = () => {
           tags: {
             system: 'erx',
             providerEnrollment: 'pending-review',
-            source: 'user-menu',
           },
           extra: {
+            source: 'user-menu',
             practitionerId: practitioner?.id,
             registered: data?.registered,
             confirmed: data?.confirmed,
