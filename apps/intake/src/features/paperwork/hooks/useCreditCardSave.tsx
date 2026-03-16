@@ -52,6 +52,10 @@ export const useCreditCardSave = (): UseCreditCardSaveReturn => {
       }
 
       if (!cardState?.complete && isCreditCardRequired && creditCardFieldValue !== true) {
+        const { creditCardFieldId, setFieldError } = useCreditCardStore.getState();
+        if (creditCardFieldId && setFieldError) {
+          setFieldError(creditCardFieldId, 'Please select or add a payment method to proceed.');
+        }
         return { shouldContinue: false };
       }
 
