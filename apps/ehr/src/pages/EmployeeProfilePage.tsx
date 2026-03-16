@@ -226,7 +226,7 @@ export default function EmployeeProfilePage(): JSX.Element {
                     variant="contained"
                     sx={{ borderRadius: 28, textTransform: 'none', fontWeight: 'bold', px: 4 }}
                     onClick={handleApplyNotifications}
-                    disabled={!notificationDirty || !phoneDirty || updateNotificationSettingsMutation.isPending}
+                    disabled={(!notificationDirty && !phoneDirty) || updateNotificationSettingsMutation.isPending}
                     loading={updateNotificationSettingsMutation.isPending}
                   >
                     Save changes
