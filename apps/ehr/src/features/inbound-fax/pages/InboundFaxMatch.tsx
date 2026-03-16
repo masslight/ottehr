@@ -215,7 +215,7 @@ export const InboundFaxMatch: React.FC = () => {
     }
   };
 
-  const readyToSubmit = !!confirmedSelectedPatient && !!selectedFolder && !!documentName.trim();
+  const readyToSubmit = !!confirmedSelectedPatient && !!selectedFolder && !!documentName.trim() && !!pdfUrl && !!taskId;
 
   if (error) {
     return (
@@ -254,6 +254,7 @@ export const InboundFaxMatch: React.FC = () => {
                   <Box
                     component="iframe"
                     src={presignedPdfUrl}
+                    title="Inbound fax PDF preview"
                     sx={{ width: '100%', height: 'calc(100% - 30px)', border: 'none' }}
                   />
                 ) : (
