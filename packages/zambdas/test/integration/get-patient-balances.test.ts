@@ -16,7 +16,7 @@ import { addProcessIdMetaTagToResource } from '../helpers/integration-test-seed-
 import { cleanupTestScheduleResources } from '../helpers/testScheduleUtils';
 
 function createMockCandidApiClient(
-  encounterResponses: Map<string, { claimId: string }> = new Map(),
+  encounterResponses: Map<string, { claimId: string | undefined }> = new Map(),
   claimResponses: Map<string, { patientBalanceCents: number }> = new Map(),
   pendingPaymentCents: number = 0
 ): CandidApiClient {
@@ -407,7 +407,7 @@ describe('get-patient-balances integration tests', () => {
       const appointment = await createMockAppointment({ patientId: patient.id!, processId });
 
       // Create encounter without Candid ID
-      const encounterInput = addProcessIdMetaTagToResource(
+      const missingCandidIdEncounterInput = addProcessIdMetaTagToResource(
         {
           resourceType: 'Encounter',
           status: 'finished',
@@ -427,7 +427,7 @@ describe('get-patient-balances integration tests', () => {
         processId
       ) as Encounter;
 
-      await oystehr.fhir.create(encounterInput);
+      await oystehr.fhir.create(missingCandidIdEncounterInput);
 
       const mockCandidClient = createMockCandidApiClient();
 
@@ -437,6 +437,62 @@ describe('get-patient-balances integration tests', () => {
       expect(response.encounters).toEqual([]);
       expect(response.totalBalanceCents).toBe(0);
       expect(response.pendingPaymentCents).toBe(0);
+    });
+
+    it('should return a balance when only one encounter has a Candid ID', async () => {
+      const patient = await createMockPatient();
+      const appointment = await createMockAppointment({ patientId: patient.id!, processId });
+
+      // Create encounter without Candid ID
+      const missingCandidIdEncounterInput = addProcessIdMetaTagToResource(
+        {
+          resourceType: 'Encounter',
+          status: 'finished',
+          subject: {
+            reference: `Patient/${patient.id}`,
+          },
+          appointment: [
+            {
+              reference: `Appointment/${appointment.id}`,
+            },
+          ],
+          class: {
+            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: 'AMB',
+          },
+        },
+        processId
+      ) as Encounter;
+      await oystehr.fhir.create(missingCandidIdEncounterInput);
+
+      const candidEncounterId = randomUUID();
+      const claimId = randomUUID();
+      await createMockEncounter({
+        patientId: patient.id!,
+        appointmentId: appointment.id!,
+        processId,
+        candidId: candidEncounterId,
+      });
+
+      const mockCandidClient = createMockCandidApiClient(
+        new Map([[candidEncounterId, { claimId: claimId }]]),
+        new Map([[claimId, { patientBalanceCents: 5000 }]]),
+        0
+      );
+
+      const response = await getPatientBalances(patient.id!, mockCandidClient);
+      expect(response).toBeDefined();
+      expect(response.totalBalanceCents).toBe(5000);
+      expect(response.pendingPaymentCents).toBe(0);
+      expect(response.encounters).toBeDefined();
+      expect(response.encounters.length).toBe(1);
+
+      expect(response.encounters[0]).toBeDefined();
+      expect(response.encounters[0]?.appointmentId).toBe(appointment.id);
+      expect(response.encounters[0]?.patientBalanceCents).toBe(5000);
+      expect(response.encounters[0]?.encounterDate).toBe(appointment.start);
+
+      expect(response.totalBalanceCents).toBe(response.encounters[0]?.patientBalanceCents);
     });
 
     it('should return balance for patient with an encounter', async () => {
