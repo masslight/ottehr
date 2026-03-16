@@ -150,8 +150,8 @@ describe('Schema20250925 generate()', () => {
       const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
       const outputs = JSON.parse(outputsContent);
 
-      expect(outputs.output.zambda_secrets).toBeDefined();
-      const value: string = outputs.output.zambda_secrets.value;
+      expect(outputs.output.zambda_secrets_for_local_server).toBeDefined();
+      const value: string = outputs.output.zambda_secrets_for_local_server.value;
       // Static secret references
       expect(value).toContain('"MY_API_KEY": oystehr_secret.MY_API_KEY.value');
       expect(value).toContain('"ANOTHER_SECRET": oystehr_secret.ANOTHER_SECRET.value');
@@ -186,7 +186,7 @@ describe('Schema20250925 generate()', () => {
       const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
       const outputs = JSON.parse(outputsContent);
 
-      expect(outputs.output.zambda_secrets).toBeUndefined();
+      expect(outputs.output.zambda_secrets_for_local_server).toBeUndefined();
     });
   });
 });

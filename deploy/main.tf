@@ -132,7 +132,7 @@ module "ottehr_apps" {
     SENTRY_DSN                    = module.oystehr.sentry_dsn
     SENTRY_ENV                    = var.environment
   }
-  zambda_secrets = module.oystehr.zambda_secrets
+  zambda_secrets_for_local_server = module.oystehr.zambda_secrets_for_local_server
 }
 
 module "apps_upload" {
