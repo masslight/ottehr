@@ -97,13 +97,13 @@ jobs:
 
       - name: Copy secrets to appropriate locations
         env:
-          REPO_SUFFIX: ${{ github.event.repository.name == 'ottehr' && format(' {0}', github.event.repository.name) || '' }}
+          PROJECT: ${{ github.event.repository.name == 'ottehr' && github.event.repository.name || '' }}
         run: |
           echo "Repository name: ${{ github.event.repository.name }}"
-          echo "REPO_SUFFIX: '${REPO_SUFFIX}'"
+          echo "PROJECT: '${PROJECT}'"
           shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          echo "Running: npm exec -- tsx ./scripts/secrets.ts populate '${{ inputs.environment }}${REPO_SUFFIX}'"
-          npm exec -- tsx ./scripts/secrets.ts populate "${{ inputs.environment }}${REPO_SUFFIX}"
+          echo "Running: npm exec -- tsx ./scripts/secrets.ts populate '${{ inputs.environment }}' '${PROJECT}'"
+          npm exec -- tsx ./scripts/secrets.ts populate "${{ inputs.environment }}" "${PROJECT}"
           npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
 
       - name: Configure AWS Credentials
