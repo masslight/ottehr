@@ -127,26 +127,36 @@ function copyConfiguration(project?: string): void {
     },
   ];
 
-  // Helper to backup preserved files before directory removal
-  function backupPreservedFiles(target: string, fileNames: string[]): Map<string, Uint8Array> {
-    const backups = new Map<string, Uint8Array>();
+  const TEMP_PRESERVE_DIR = path.join(repoRoot, '.tmp-preserve');
+
+  // Helper to backup preserved files to temp directory before directory removal
+  function backupPreservedFiles(target: string, fileNames: string[]): string[] {
+    const backed: string[] = [];
     for (const fileName of fileNames) {
       const filePath = path.join(target, fileName);
       if (fs.existsSync(filePath)) {
-        backups.set(fileName, new Uint8Array(fs.readFileSync(filePath)));
+        fs.mkdirSync(TEMP_PRESERVE_DIR, { recursive: true });
+        fs.copyFileSync(filePath, path.join(TEMP_PRESERVE_DIR, fileName));
+        backed.push(fileName);
         console.log(`  ↔ Backed up preserved file: ${fileName}`);
       }
     }
-    return backups;
+    return backed;
   }
 
-  // Helper to restore preserved files after directory recreation
-  function restorePreservedFiles(target: string, backups: Map<string, Uint8Array>): void {
-    for (const [fileName, content] of backups) {
+  // Helper to restore preserved files from temp directory after directory recreation
+  function restorePreservedFiles(target: string, backedFiles: string[]): void {
+    for (const fileName of backedFiles) {
+      const tempFilePath = path.join(TEMP_PRESERVE_DIR, fileName);
       const targetFilePath = path.join(target, fileName);
-      // Otherwise restore the backed-up version from target
-      fs.writeFileSync(targetFilePath, content);
-      console.log(`  ✓ Restored preserved file from backup: ${fileName}`);
+      if (fs.existsSync(tempFilePath)) {
+        fs.copyFileSync(tempFilePath, targetFilePath);
+        console.log(`  ✓ Restored preserved file from backup: ${fileName}`);
+      }
+    }
+    // Clean up temp directory
+    if (fs.existsSync(TEMP_PRESERVE_DIR)) {
+      fs.rmSync(TEMP_PRESERVE_DIR, { recursive: true, force: true });
     }
   }
 
@@ -158,7 +168,7 @@ function copyConfiguration(project?: string): void {
       }
 
       // Backup preserved files before removing directory
-      const backups = backupPreservedFiles(target, preserveFiles);
+      const backedFiles = backupPreservedFiles(target, preserveFiles);
 
       // Remove existing directory and create fresh one
       if (fs.existsSync(target)) {
@@ -173,7 +183,7 @@ function copyConfiguration(project?: string): void {
       );
 
       // Restore preserved files
-      restorePreservedFiles(target, backups);
+      restorePreservedFiles(target, backedFiles);
     } else if (type === 'selective') {
       // For ottehr-config-overrides: only replace directories that exist in both target and source
       if (!fs.existsSync(source)) {
