@@ -20,6 +20,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validatedInput = validateRequestParameters(input);
     const { searchTerm, locationBias, placesId, secrets } = validatedInput;
 
+    console.log('locationBias: ', JSON.stringify(locationBias));
+
     const googleApiKey = getSecret(SecretsKeys.GOOGLE_PLACES_API_KEY, secrets);
 
     if (!oystehrToken) {
@@ -93,7 +95,12 @@ const searchPharmaciesWithPlaces = async (
   };
 
   if (locationBias) {
-    body.locationBias = locationBias;
+    body.locationBias = {
+      circle: {
+        center: locationBias,
+        radius: 500.0,
+      },
+    };
   }
 
   const response = await fetch(`${PLACES_API_BASE_URL}:autocomplete`, {
