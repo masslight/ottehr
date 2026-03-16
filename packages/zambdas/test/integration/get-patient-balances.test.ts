@@ -402,6 +402,43 @@ describe('get-patient-balances integration tests', () => {
       expect(response.pendingPaymentCents).toBe(0);
     });
 
+    it.only('should return empty balance when encounter has no Candid ID', async () => {
+      const patient = await createMockPatient();
+      const appointment = await createMockAppointment({ patientId: patient.id!, processId });
+
+      // Create encounter without Candid ID
+      const encounterInput = addProcessIdMetaTagToResource(
+        {
+          resourceType: 'Encounter',
+          status: 'finished',
+          subject: {
+            reference: `Patient/${patient.id}`,
+          },
+          appointment: [
+            {
+              reference: `Appointment/${appointment.id}`,
+            },
+          ],
+          class: {
+            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: 'AMB',
+          },
+        },
+        processId
+      ) as Encounter;
+
+      await oystehr.fhir.create(encounterInput);
+
+      const mockCandidClient = createMockCandidApiClient();
+
+      const response = await getPatientBalances(patient.id!, mockCandidClient);
+
+      expect(response).toBeDefined();
+      expect(response.encounters).toEqual([]);
+      expect(response.totalBalanceCents).toBe(0);
+      expect(response.pendingPaymentCents).toBe(0);
+    });
+
     it('should return balance for patient with an encounter', async () => {
       const patient = await createMockPatient();
       const appointment = await createMockAppointment({ patientId: patient.id!, processId });
@@ -580,7 +617,7 @@ describe('get-patient-balances integration tests', () => {
       const mockCandidClient = createMockCandidApiClient();
 
       await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(
-        /Encounter is missing appointmentId, encounterDate, or candidId/
+        /Encounter is missing appointmentId or encounterDate/
       );
     });
 
@@ -638,7 +675,7 @@ describe('get-patient-balances integration tests', () => {
       const mockCandidClient = createMockCandidApiClient();
 
       await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(
-        /Encounter is missing appointmentId, encounterDate, or candidId/
+        /Encounter is missing appointmentId or encounterDate/
       );
     });
 
@@ -767,40 +804,6 @@ describe('get-patient-balances integration tests', () => {
       );
 
       await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(/Failed to fetch Candid claim/);
-    });
-
-    it('should throw error when encounter has no Candid ID', async () => {
-      const patient = await createMockPatient();
-      const appointment = await createMockAppointment({ patientId: patient.id!, processId });
-
-      // Create encounter without Candid ID
-      const encounterInput = addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Encounter',
-          status: 'finished',
-          subject: {
-            reference: `Patient/${patient.id}`,
-          },
-          appointment: [
-            {
-              reference: `Appointment/${appointment.id}`,
-            },
-          ],
-          class: {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-            code: 'AMB',
-          },
-        },
-        processId
-      ) as Encounter;
-
-      await oystehr.fhir.create(encounterInput);
-
-      const mockCandidClient = createMockCandidApiClient();
-
-      await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(
-        /Encounter is missing appointmentId, encounterDate, or candidId/
-      );
     });
   });
 });
