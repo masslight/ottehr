@@ -1,7 +1,7 @@
 import {
   AllergyQuickPickData,
   MedicalConditionQuickPickData,
-  MedicationQuickPickData,
+  MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
 } from 'utils';
 import { QuickPickCategory } from './quick-pick-helpers';
@@ -39,13 +39,13 @@ export const MEDICAL_CONDITION_QUICK_PICK_CATEGORY: QuickPickCategory<MedicalCon
   }),
 };
 
-export const MEDICATION_QUICK_PICK_CATEGORY: QuickPickCategory<MedicationQuickPickData> = {
-  tagCode: 'medication-quick-pick',
+export const MEDICATION_HISTORY_QUICK_PICK_CATEGORY: QuickPickCategory<MedicationHistoryQuickPickData> = {
+  tagCode: 'medication-history-quick-pick',
   displayNameKey: 'name',
   getDisplayName: (data) => data.name,
   fromParsed: (id, title, config) => ({
     id,
     name: title,
-    ...(config as Omit<MedicationQuickPickData, 'id' | 'name'>),
+    ...(config as Omit<MedicationHistoryQuickPickData, 'id' | 'name'>),
   }),
 };

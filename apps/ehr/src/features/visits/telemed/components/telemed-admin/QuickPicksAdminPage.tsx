@@ -5,13 +5,13 @@ import React, { ReactElement, useCallback, useMemo, useState } from 'react';
 import {
   createAllergyQuickPick,
   createMedicalConditionQuickPick,
-  createMedicationQuickPick,
+  createMedicationHistoryQuickPick,
   getAllergyQuickPicks,
   getMedicalConditionQuickPicks,
-  getMedicationQuickPicks,
+  getMedicationHistoryQuickPicks,
   removeAllergyQuickPick,
   removeMedicalConditionQuickPick,
-  removeMedicationQuickPick,
+  removeMedicationHistoryQuickPick,
 } from 'src/api/api';
 import {
   ExtractObjectType,
@@ -20,7 +20,7 @@ import {
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationQuickPickData } from 'utils';
+import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationHistoryQuickPickData } from 'utils';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 
@@ -292,14 +292,14 @@ export default function QuickPicksAdminPage(): ReactElement {
   // ── Medication callbacks ──
   const fetchMedications = useCallback(async () => {
     if (!oystehrZambda) return [];
-    const response = await getMedicationQuickPicks(oystehrZambda);
+    const response = await getMedicationHistoryQuickPicks(oystehrZambda);
     return response.quickPicks;
   }, [oystehrZambda]);
 
   const createMedication = useCallback(
-    async (data: Omit<MedicationQuickPickData, 'id'>) => {
+    async (data: Omit<MedicationHistoryQuickPickData, 'id'>) => {
       if (!oystehrZambda) throw new Error('Not connected');
-      const response = await createMedicationQuickPick(oystehrZambda, { quickPick: data });
+      const response = await createMedicationHistoryQuickPick(oystehrZambda, { quickPick: data });
       return response.quickPick;
     },
     [oystehrZambda]
@@ -308,7 +308,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeMedication = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('Not connected');
-      await removeMedicationQuickPick(oystehrZambda, id);
+      await removeMedicationHistoryQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -385,7 +385,7 @@ export default function QuickPicksAdminPage(): ReactElement {
         </TabPanel>
 
         <TabPanel value="medications" sx={{ px: 0 }}>
-          <QuickPickEditor<MedicationQuickPickData>
+          <QuickPickEditor<MedicationHistoryQuickPickData>
             title="Medication Quick Picks"
             description="Manage common medications that appear as quick picks when documenting current medications."
             columns={[

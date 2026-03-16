@@ -239,33 +239,33 @@
       "src": "src/ehr/admin-remove-medical-condition-quick-pick/index",
       "zip": ".dist/zips/admin-remove-medical-condition-quick-pick.zip"
     },
-    "ADMIN-GET-MEDICATION-QUICK-PICKS": {
-      "name": "admin-get-medication-quick-picks",
+    "ADMIN-GET-MEDICATION-HISTORY-QUICK-PICKS": {
+      "name": "admin-get-medication-history-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-medication-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medication-quick-picks.zip"
+      "src": "src/ehr/admin-get-medication-history-quick-picks/index",
+      "zip": ".dist/zips/admin-get-medication-history-quick-picks.zip"
     },
-    "ADMIN-CREATE-MEDICATION-QUICK-PICK": {
-      "name": "admin-create-medication-quick-pick",
+    "ADMIN-CREATE-MEDICATION-HISTORY-QUICK-PICK": {
+      "name": "admin-create-medication-history-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medication-quick-pick.zip"
+      "src": "src/ehr/admin-create-medication-history-quick-pick/index",
+      "zip": ".dist/zips/admin-create-medication-history-quick-pick.zip"
     },
-    "ADMIN-UPDATE-MEDICATION-QUICK-PICK": {
-      "name": "admin-update-medication-quick-pick",
+    "ADMIN-UPDATE-MEDICATION-HISTORY-QUICK-PICK": {
+      "name": "admin-update-medication-history-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medication-quick-pick.zip"
+      "src": "src/ehr/admin-update-medication-history-quick-pick/index",
+      "zip": ".dist/zips/admin-update-medication-history-quick-pick.zip"
     },
-    "ADMIN-REMOVE-MEDICATION-QUICK-PICK": {
-      "name": "admin-remove-medication-quick-pick",
+    "ADMIN-REMOVE-MEDICATION-HISTORY-QUICK-PICK": {
+      "name": "admin-remove-medication-history-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-medication-quick-pick.zip"
+      "src": "src/ehr/admin-remove-medication-history-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip"
     },
     "UPDATE-USER": {
       "name": "update-user",

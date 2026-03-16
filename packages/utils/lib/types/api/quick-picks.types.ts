@@ -105,19 +105,19 @@ export type GetMedicalConditionQuickPicksResponse = QuickPickListResponse<Medica
 export type RemoveMedicalConditionQuickPickInput = QuickPickRemoveInput;
 export type RemoveMedicalConditionQuickPickResponse = QuickPickRemoveResponse;
 
-// ── Medication Quick Picks ──
+// ── Medication History Quick Picks ──
 
-export interface MedicationQuickPickData {
+export interface MedicationHistoryQuickPickData {
   id?: string;
   name: string;
   strength?: string;
   medicationId?: number;
 }
 
-export type CreateMedicationQuickPickInput = QuickPickCreateInput<MedicationQuickPickData>;
-export type CreateMedicationQuickPickResponse = QuickPickCreateResponse<MedicationQuickPickData>;
-export type UpdateMedicationQuickPickInput = QuickPickUpdateInput<MedicationQuickPickData>;
-export type UpdateMedicationQuickPickResponse = QuickPickUpdateResponse<MedicationQuickPickData>;
-export type GetMedicationQuickPicksResponse = QuickPickListResponse<MedicationQuickPickData>;
-export type RemoveMedicationQuickPickInput = QuickPickRemoveInput;
-export type RemoveMedicationQuickPickResponse = QuickPickRemoveResponse;
+export type CreateMedicationHistoryQuickPickInput = QuickPickCreateInput<MedicationHistoryQuickPickData>;
+export type CreateMedicationHistoryQuickPickResponse = QuickPickCreateResponse<MedicationHistoryQuickPickData>;
+export type UpdateMedicationHistoryQuickPickInput = QuickPickUpdateInput<MedicationHistoryQuickPickData>;
+export type UpdateMedicationHistoryQuickPickResponse = QuickPickUpdateResponse<MedicationHistoryQuickPickData>;
+export type GetMedicationHistoryQuickPicksResponse = QuickPickListResponse<MedicationHistoryQuickPickData>;
+export type RemoveMedicationHistoryQuickPickInput = QuickPickRemoveInput;
+export type RemoveMedicationHistoryQuickPickResponse = QuickPickRemoveResponse;

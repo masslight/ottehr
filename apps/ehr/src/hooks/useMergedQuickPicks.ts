@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getAllergyQuickPicks,
   getMedicalConditionQuickPicks,
-  getMedicationQuickPicks,
+  getMedicationHistoryQuickPicks,
   getProcedureQuickPicks,
 } from 'src/api/api';
 import {
   AllergyQuickPickData,
   MEDICAL_HISTORY_CONFIG,
   MedicalConditionQuickPickData,
-  MedicationQuickPickData,
+  MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
   PROCEDURES_CONFIG,
 } from 'utils';
@@ -90,11 +90,11 @@ export function useMergedMedicalConditionQuickPicks(): {
   return useMergedQuickPicksGeneric(hardcoded, getMedicalConditionQuickPicks);
 }
 
-export function useMergedMedicationQuickPicks(): {
-  quickPicks: MedicationQuickPickData[];
+export function useMergedMedicationHistoryQuickPicks(): {
+  quickPicks: MedicationHistoryQuickPickData[];
   loading: boolean;
 } {
-  const hardcoded: MedicationQuickPickData[] = useMemo(
+  const hardcoded: MedicationHistoryQuickPickData[] = useMemo(
     () =>
       (MEDICAL_HISTORY_CONFIG.medications?.quickPicks ?? []).map((qp) => ({
         name: qp.name,
@@ -103,5 +103,5 @@ export function useMergedMedicationQuickPicks(): {
       })),
     []
   );
-  return useMergedQuickPicksGeneric(hardcoded, getMedicationQuickPicks);
+  return useMergedQuickPicksGeneric(hardcoded, getMedicationHistoryQuickPicks);
 }

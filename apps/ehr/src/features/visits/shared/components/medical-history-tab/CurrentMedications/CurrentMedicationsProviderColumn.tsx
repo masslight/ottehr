@@ -20,7 +20,7 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
-import { useMergedMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { MedicationDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
@@ -107,9 +107,9 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     }
   };
 
-  const { quickPicks: medicationQuickPicks } = useMergedMedicationQuickPicks();
+  const { quickPicks: medicationHistoryQuickPicks } = useMergedMedicationHistoryQuickPicks();
 
-  const handleQuickPickSelect = (quickPick: (typeof medicationQuickPicks)[number]): void => {
+  const handleQuickPickSelect = (quickPick: (typeof medicationHistoryQuickPicks)[number]): void => {
     const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
       name: quickPick.name,
       strength: quickPick.strength,
@@ -178,7 +178,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
             }}
           >
             <QuickPicksButton
-              quickPicks={medicationQuickPicks}
+              quickPicks={medicationHistoryQuickPicks}
               getLabel={(quickPick) => `${quickPick.name}${quickPick.strength ? ` (${quickPick.strength})` : ''}`}
               onSelect={handleQuickPickSelect}
               disabled={isLoading || isChartDataLoading}
