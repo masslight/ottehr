@@ -174,6 +174,12 @@ function copyConfiguration(project?: string): void {
         return;
       }
 
+      // List existing files in target directory before modification
+      if (fs.existsSync(target)) {
+        const existingFiles = fs.readdirSync(target);
+        console.log(`Existing files in ${path.relative(repoRoot, target)}: ${existingFiles.join(', ')}`);
+      }
+
       // Backup preserved files before removing directory
       const backedFiles = backupPreservedFiles(target, preserveFiles);
 
