@@ -402,7 +402,7 @@ describe('get-patient-balances integration tests', () => {
       expect(response.pendingPaymentCents).toBe(0);
     });
 
-    it.only('should return empty balance when encounter has no Candid ID', async () => {
+    it('should return empty balance when encounter has no Candid ID', async () => {
       const patient = await createMockPatient();
       const appointment = await createMockAppointment({ patientId: patient.id!, processId });
 
