@@ -93,7 +93,7 @@ interface PageState {
   bodySite?: string;
   otherBodySite?: string;
   bodySide?: string;
-  technique?: string;
+  technique?: string[];
   suppliesUsed?: string[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
@@ -900,7 +900,7 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.bodySide = value),
               dataTestIds.documentProcedurePage.sideOfBody
             )}
-            {dropdown(
+            {multiSelect(
               'Technique',
               selectOptions?.techniques,
               state.technique,
