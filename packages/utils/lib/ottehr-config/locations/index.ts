@@ -19,6 +19,7 @@ type ResolvedSupportDialog = {
   }>;
   emergencyNotice: string;
 };
+type ResolvedSupportDialogRow = ResolvedSupportDialog['sections'][number]['rows'][number];
 
 const LOCATION_DEFAULTS: LocationConfig = {
   inPersonLocations: [{ name: 'New York' }, { name: 'Los Angeles' }],
@@ -78,7 +79,7 @@ function resolveLocationPhone(location: string, suffixText?: string): { label: s
 function resolveSupportDialogRows(
   rows: SupportDialog['sections'][number]['rows']
 ): ResolvedSupportDialog['sections'][number]['rows'] {
-  return rows.flatMap((row) => {
+  return rows.flatMap<ResolvedSupportDialogRow>((row) => {
     switch (row.type) {
       case 'text':
         return [{ value: row.value, emphasized: row.emphasized }];
