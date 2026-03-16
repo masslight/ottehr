@@ -2,7 +2,7 @@ import { PATIENT_RECORD_CONFIG, patientScreeningQuestionsConfig } from 'utils';
 
 export const PHONE_NUMBER_REGEX = /^\d{10}$/;
 export const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
-export const ZIP_REGEX = /^\d{5}$/;
+export const ZIP_REGEX = /^\d{5}(?:-\d{4})?$/;
 
 export const MAXIMUM_CHARACTER_LIMIT = 155;
 
