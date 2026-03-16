@@ -131,6 +131,7 @@ function copyConfiguration(project?: string): void {
 
   // Helper to backup preserved files to temp directory before directory removal
   function backupPreservedFiles(target: string, fileNames: string[]): string[] {
+    console.log(`  Backing up preserved files from ${path.relative(repoRoot, target)}: ${fileNames.join(', ')}`);
     const backed: string[] = [];
     for (const fileName of fileNames) {
       const filePath = path.join(target, fileName);
