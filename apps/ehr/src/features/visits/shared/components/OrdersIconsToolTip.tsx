@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MappedStatusChip } from 'src/components/MappedStatusChip';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
 import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
 import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
 import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
@@ -210,19 +211,23 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['Immunization'],
       title: 'Immunization',
       tableUrl: getImmunizationMARUrl(appointment.id),
-      orders: immunizationOrders.map((order) => {
-        const isPending = order.status === 'pending';
-        const targetUrl = isPending
-          ? `${getImmunizationVaccineDetailsUrl(appointment.id)}?scrollTo=${order.id}`
-          : `${getImmunizationMARUrl(appointment.id)}?scrollTo=${order.id}`;
-        return {
-          fhirResourceId: order.id ?? '',
-          itemDescription: order.details.medication.name,
-          detailPageUrl: targetUrl,
-          statusChip: <></>,
-        };
-      }),
+      orders: immunizationOrders
+        .filter((order) => order.status !== 'cancelled')
+        .map((order) => {
+          const isPending = order.status === 'pending';
+          const targetUrl = isPending
+            ? `${getImmunizationVaccineDetailsUrl(appointment.id)}?scrollTo=${order.id}`
+            : `${getImmunizationMARUrl(appointment.id)}?scrollTo=${order.id}`;
+          return {
+            fhirResourceId: order.id ?? '',
+            itemDescription: order.details.medication.name,
+            detailPageUrl: targetUrl,
+            statusChip: <OrderStatusChip status={order.status} />,
+            unreadBadge: order.status === 'pending',
+          };
+        }),
     };
+    config.unreadBadge = config.orders.find((order) => order.unreadBadge) != null;
     orderConfigs.push(config);
   }
 

@@ -96,9 +96,14 @@ jobs:
           path: "secrets"
 
       - name: Copy secrets to appropriate locations
+        env:
+          PROJECT: ${{ github.event.repository.name == 'ottehr' && github.event.repository.name || '' }}
         run: |
+          echo "Repository name: ${{ github.event.repository.name }}"
+          echo "PROJECT: '${PROJECT}'"
           shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          npm exec -- tsx ./scripts/secrets.ts populate ${{ inputs.environment }}${{ github.event.repository.name == 'ottehr' && format(' {0}', github.event.repository.name) || '' }}
+          echo "Running: npm exec -- tsx ./scripts/secrets.ts populate '${{ inputs.environment }}' '${PROJECT}'"
+          npm exec -- tsx ./scripts/secrets.ts populate "${{ inputs.environment }}" "${PROJECT}"
           npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
 
       - name: Configure AWS Credentials
