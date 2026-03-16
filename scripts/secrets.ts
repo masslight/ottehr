@@ -141,19 +141,12 @@ function copyConfiguration(project?: string): void {
   }
 
   // Helper to restore preserved files after directory recreation
-  function restorePreservedFiles(target: string, backups: Map<string, Uint8Array>, source: string): void {
+  function restorePreservedFiles(target: string, backups: Map<string, Uint8Array>): void {
     for (const [fileName, content] of backups) {
-      const sourceFilePath = path.join(source, fileName);
       const targetFilePath = path.join(target, fileName);
-      // If the file exists in source, prefer the source version
-      if (fs.existsSync(sourceFilePath)) {
-        fs.copyFileSync(sourceFilePath, targetFilePath);
-        console.log(`  ✓ Copied preserved file from source: ${fileName}`);
-      } else {
-        // Otherwise restore the backed-up version from target
-        fs.writeFileSync(targetFilePath, content);
-        console.log(`  ✓ Restored preserved file from backup: ${fileName}`);
-      }
+      // Otherwise restore the backed-up version from target
+      fs.writeFileSync(targetFilePath, content);
+      console.log(`  ✓ Restored preserved file from backup: ${fileName}`);
     }
   }
 
@@ -180,7 +173,7 @@ function copyConfiguration(project?: string): void {
       );
 
       // Restore preserved files
-      restorePreservedFiles(target, backups, source);
+      restorePreservedFiles(target, backups);
     } else if (type === 'selective') {
       // For ottehr-config-overrides: only replace directories that exist in both target and source
       if (!fs.existsSync(source)) {
