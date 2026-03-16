@@ -8,6 +8,7 @@ import {
   getAllHcpcsCodesFromInHouseMedication,
   getCptCodeFromMedication,
   getFirstName,
+  getFullestAvailableName,
   getHcpcsCodeFromMedication,
   getLastName,
   getMedicationName,
@@ -652,5 +653,5 @@ async function createOrderForAdministration(medication: string, page: Page): Pro
 
 async function getCurrentPractitionerFirstLastName(): Promise<string> {
   const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
-  return getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner);
+  return getFullestAvailableName(testUserPractitioner)!;
 }
