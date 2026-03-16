@@ -17,6 +17,7 @@ interface CreditCardState {
   isCreditCardRequired: boolean;
   creditCardFieldValue: boolean | undefined;
   clearFieldErrors: ((fieldId: string) => void) | null;
+  setFieldError: ((fieldId: string, message: string) => void) | null;
   hasSavedCards: boolean;
 
   initializeContext: (params: {
@@ -26,6 +27,7 @@ interface CreditCardState {
     required: boolean;
     value: boolean | undefined;
     clearErrors: (fieldId: string) => void;
+    setError: (fieldId: string, message: string) => void;
     hasSavedCards: boolean;
   }) => void;
   handleCardChange: () => void;
@@ -49,9 +51,10 @@ export const useCreditCardStore = create<CreditCardState>((set, get) => ({
   isCreditCardRequired: false,
   creditCardFieldValue: undefined,
   clearFieldErrors: null,
+  setFieldError: null,
   hasSavedCards: false,
 
-  initializeContext: ({ cardFormRef, fieldId, onChange, required, value, clearErrors, hasSavedCards }) => {
+  initializeContext: ({ cardFormRef, fieldId, onChange, required, value, clearErrors, setError, hasSavedCards }) => {
     set({
       cardFormRef,
       creditCardFieldId: fieldId,
@@ -59,6 +62,7 @@ export const useCreditCardStore = create<CreditCardState>((set, get) => ({
       isCreditCardRequired: required,
       creditCardFieldValue: value,
       clearFieldErrors: clearErrors,
+      setFieldError: setError,
       hasSavedCards,
     });
   },

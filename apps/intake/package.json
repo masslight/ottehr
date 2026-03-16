@@ -21,6 +21,7 @@
     "build:testing": "ENV=testing ROBOTS_FILE=lowers npm run build-skeleton",
     "build:staging": "ENV=staging ROBOTS_FILE=lowers npm run build-skeleton",
     "build:demo": "ENV=demo ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:production": "ENV=production ROBOTS_FILE=production npm run build-skeleton",
     "build-skeleton": "tsc && VITE_APP_ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') vite build --mode ${ENV} && cp src/themes/ottehr/robots-${ROBOTS_FILE}.txt build/robots.txt",
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",

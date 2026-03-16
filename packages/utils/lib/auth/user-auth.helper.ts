@@ -51,7 +51,7 @@ export async function getRelatedPersonForPatient(
     })
   ).unbundle();
 
-  if (resources.length !== 1) {
+  if (resources.length === 0) {
     return undefined;
   }
   return resources[0] as RelatedPerson;
