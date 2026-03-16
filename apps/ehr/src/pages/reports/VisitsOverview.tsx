@@ -146,6 +146,9 @@ export default function VisitsOverview(): React.ReactElement {
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
     setDateFilter(newFilter);
+    if (newFilter === 'custom' || newFilter === 'customRange') {
+      setReportData(null);
+    }
   };
 
   const handleCustomDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
