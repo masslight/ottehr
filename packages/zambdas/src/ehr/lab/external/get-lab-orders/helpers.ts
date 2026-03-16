@@ -63,6 +63,7 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
+  parseLabInfoFromServiceRequest,
   PatientLabItem,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -224,7 +225,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
 
   const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
-  const { testItem, fillerLab } = parseLabInfo(serviceRequest);
+  const { testItem, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
   console.log('external lab orderStatus parsed', orderStatus);
 
@@ -1536,24 +1537,6 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
   }
 
   return providerName;
-};
-
-export const parseLabInfo = (serviceRequest: ServiceRequest): { testItem: string; fillerLab: string } => {
-  const activityDefinition = serviceRequest.contained?.find(
-    (resource) => resource.resourceType === 'ActivityDefinition'
-  ) as ActivityDefinition | undefined;
-
-  if (!activityDefinition) {
-    return {
-      testItem: 'Unknown Test',
-      fillerLab: 'Unknown Lab',
-    };
-  }
-
-  return {
-    testItem: activityDefinition.title || 'Unknown Test',
-    fillerLab: activityDefinition.publisher || 'Unknown Lab',
-  };
 };
 
 export const parseIsPSC = (serviceRequest: ServiceRequest): boolean => {

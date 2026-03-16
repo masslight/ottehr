@@ -70,6 +70,7 @@ import {
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  parseLabInfoFromServiceRequest,
   PATIENT_BILLING_ACCOUNT_TYPE,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
@@ -494,8 +495,8 @@ export const makeEncounterLabResults = async (
   inHouseLabResultConfig: EncounterInHouseLabResult;
 }> => {
   const documentReferences: DocumentReference[] = [];
-  const activeExternalLabServiceRequests: ServiceRequest[] = [];
-  const activeInHouseLabServiceRequests: ServiceRequest[] = [];
+  const activeExternalLabServiceRequestIds = new Set<string>();
+  const activeInHouseLabServiceRequestIds = new Set<string>();
   const reflexTestsPending: string[] = []; // array of test names pending;
   const serviceRequestMap: Record<string, { resource: ServiceRequest; type: LabType }> = {};
   const diagnosticReportMap: Record<string, DiagnosticReport> = {};
@@ -517,9 +518,9 @@ export const makeEncounterLabResults = async (
           if (isExternalLabServiceRequest) {
             const isManual = externalLabOrderIsManual(resource);
             // theres no guarantee that will we get electronic results back for manual labs so we can't validate
-            if (!isManual) activeExternalLabServiceRequests.push(resource);
+            if (!isManual) activeExternalLabServiceRequestIds.add(resource.id || 'missing id');
           }
-          if (isInHouseLabServiceRequest) activeInHouseLabServiceRequests.push(resource);
+          if (isInHouseLabServiceRequest) activeInHouseLabServiceRequestIds.add(resource?.id || 'missing id');
         }
 
         const reflexTestTriggered = resource.meta?.tag?.find(
@@ -629,16 +630,26 @@ export const makeEncounterLabResults = async (
     }
   });
 
-  const externalResultsPending = activeExternalLabServiceRequests.length > 0;
-  const inHouseResultsPending = activeInHouseLabServiceRequests.length > 0;
+  const externalResultsPending = Array.from(activeExternalLabServiceRequestIds).map((srId) => {
+    const srRef = `ServiceRequest/${srId}`;
+    const serviceRequest = serviceRequestMap[srRef].resource;
+    const { testItem: testName, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
+    return `${testName} / ${fillerLab}`;
+  });
+
+  const inHouseResultsPending = Array.from(activeInHouseLabServiceRequestIds).map((srId) => {
+    const srRef = `ServiceRequest/${srId}`;
+    const serviceRequest = serviceRequestMap[srRef].resource;
+    return serviceRequest?.code?.text || 'name missing';
+  });
 
   const externalLabResultConfig: EncounterExternalLabResult = {
-    resultsPending: externalResultsPending,
+    resultsPending: externalResultsPending.length > 0 ? externalResultsPending : undefined,
     labOrderResults: externalLabOrderResults,
   };
 
   const inHouseLabResultConfig: EncounterInHouseLabResult = {
-    resultsPending: inHouseResultsPending,
+    resultsPending: inHouseResultsPending.length > 0 ? inHouseResultsPending : undefined,
     reflexTestsPending: reflexTestsPending.length > 0 ? reflexTestsPending : undefined,
     labOrderResults: inHouseLabOrderResults,
   };
