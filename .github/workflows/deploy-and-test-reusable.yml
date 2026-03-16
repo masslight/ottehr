@@ -95,11 +95,10 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Copy secrets to appropriate locations
-        run: |
-          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          npm exec -- tsx ./scripts/secrets.ts populate ${{ inputs.environment }}${{ github.event.repository.name == 'ottehr' && format(' {0}', github.event.repository.name) || '' }}
-          npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials

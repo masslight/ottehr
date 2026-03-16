@@ -1,0 +1,104 @@
+name: "Populate Secrets from Repository"
+description: "Populate and validate secrets from the secrets repository, and optionally pull generated config from terraform state and copy E2E test config files."
+
+inputs:
+  environment:
+    description: "Environment to populate secrets for (local, staging, production, etc)"
+    required: true
+  source-dir:
+    description: "Directory in the source repo to copy secrets into (e.g. root, apps/ehr, etc)"
+    required: false
+    default: "."
+  copy-test-config-files:
+    description: "Whether to copy E2E test config files (tests.*.json) from secrets repo to source repo"
+    required: false
+    default: "false"
+  aws-deploy-role:
+    description: "AWS IAM Role to assume for pulling generated config from terraform state"
+    required: false
+  pull-generated-config-from-terraform-state:
+    description: "Whether to pull generated config from terraform state"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Populate and validate secrets
+      shell: bash
+      working-directory: ${{ inputs.source-dir }}
+      run: |
+        npm exec -- tsx scripts/secrets.ts populate ${{ inputs.environment }}
+        if [ "${{ inputs.environment }}" != "local" ]; then
+          npm exec -- tsx scripts/secrets.ts populate local
+        fi
+        npm exec -- tsx scripts/secrets.ts validate ${{ inputs.environment }}
+    - name: Copy E2E test config files
+      if: ${{ inputs.copy-test-config-files == 'true' }}
+      shell: bash
+      run: |
+        for app in ehr intake; do
+          if [ -d "secrets/${{ env.REPO }}/apps/$app/env" ]; then
+            mkdir -p "${{ inputs.source-dir }}/apps/$app/env"
+            cp secrets/${{ env.REPO }}/apps/$app/env/tests.*.json ${{ inputs.source-dir }}/apps/$app/env/ 2>/dev/null && \
+              echo "✓ Copied test config files for $app" || \
+              echo "⚠ No tests.*.json files found for $app"
+          fi
+        done
+
+        # Copy user.json for Playwright auth state (intake only)
+        if [ -f "secrets/${{ env.REPO }}/apps/intake/env/user.json" ]; then
+          mkdir -p ${{ inputs.source-dir }}/apps/intake/playwright
+          cp secrets/${{ env.REPO }}/apps/intake/env/user.json ${{ inputs.source-dir }}/apps/intake/playwright/user.json
+          echo "✓ Copied user.json for Playwright auth"
+        fi
+    - name: HashiCorp - Setup Terraform
+      if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
+      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      with:
+        terraform_version: "1.12.2"
+    - name: Configure AWS Credentials
+      if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
+      id: configure-aws-credentials
+      uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+      with:
+        role-to-assume: ${{ inputs.aws-deploy-role }}
+        aws-region: us-east-1
+        output-credentials: true
+    - name: Configure AWS CLI
+      if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
+      shell: bash
+      run: |
+        aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+        if [ -z "$aws_profile" ]; then
+          aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+        fi
+        profile="${aws_profile:-ottehr}"
+        echo "Using AWS profile: ${profile}"
+        aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
+        aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
+        aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
+        aws configure --profile "${profile}" set region us-east-1
+    - name: Pull generated config from terraform
+      if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
+      shell: /usr/bin/bash -xeo pipefail {0}
+      working-directory: ${{ inputs.source-dir }}/deploy
+      run: |
+        npm run terraform-init
+        terraform workspace select "${{ inputs.environment }}"
+        terraform show --json > /tmp/tfstate.json
+
+        mkdir -p "apps/ehr/env"
+        address="module.ottehr_apps.local_sensitive_file.ehr_env"
+        pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
+        jq -r "$pattern" /tmp/tfstate.json > "../apps/ehr/env/.env.${{ inputs.environment }}"
+
+        mkdir -p "apps/intake/env"
+        address="module.ottehr_apps.local_sensitive_file.patient_portal_env"
+        pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
+        jq -r "$pattern" /tmp/tfstate.json > "../apps/intake/env/.env.${{ inputs.environment }}"
+
+        mkdir -p "packages/zambdas/.env"
+        address="module.ottehr_apps.terraform_data.zambda_secrets_format"
+        pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
+        jq -r "$pattern" /tmp/tfstate.json > "../packages/zambdas/.env/zambda-secrets-${{ inputs.environment }}.json"
