@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, replaceOperation, SecretsKeys } from 'utils';
+import { Task } from 'fhir/r4b';
+import { FAX_TASK, getSecret, replaceOperation, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
@@ -17,6 +18,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
+
+    // Verify the task exists and is an inbound-fax task
+    let task: Task;
+    try {
+      task = await oystehr.fhir.get<Task>({
+        resourceType: 'Task',
+        id: taskId,
+      });
+    } catch {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: `Task/${taskId} not found` }),
+      };
+    }
+
+    if (task.groupIdentifier?.value !== FAX_TASK.category) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: `Task/${taskId} is not an inbound-fax task` }),
+      };
+    }
+
+    const taskBasedOn = task.basedOn?.some((ref) => ref.reference === `Communication/${communicationId}`);
+    if (!taskBasedOn) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: `Task/${taskId} is not associated with Communication/${communicationId}`,
+        }),
+      };
+    }
 
     // Delete the Z3 PDF object
     try {

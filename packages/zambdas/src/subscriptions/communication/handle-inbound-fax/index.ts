@@ -20,26 +20,34 @@ const FAX_PAGES_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/fax-pages';
 
 let oystehrToken: string;
 
-function getSenderFaxNumber(communication: Communication): string {
+export function getSenderFaxNumber(communication: Communication): string {
   const senderRef = communication.sender?.reference;
   if (senderRef?.startsWith('#')) {
-    // Phone number reference like "#+15165483859"
-    return senderRef.replace('#', '');
+    const containedId = senderRef.slice(1);
+    const containedDevice = communication.contained?.find((r) => r.resourceType === 'Device' && r.id === containedId);
+    if (containedDevice && 'identifier' in containedDevice) {
+      const phoneIdentifier = (containedDevice as any).identifier?.find((id: any) => id.system === 'phone' || id.value);
+      if (phoneIdentifier?.value) {
+        return phoneIdentifier.value;
+      }
+    }
+    // Fallback: use the contained ID itself (may be a phone number directly)
+    return containedId;
   }
   return senderRef ?? 'unknown';
 }
 
-function getPageCount(communication: Communication): number | undefined {
+export function getPageCount(communication: Communication): number | undefined {
   const ext = communication.extension?.find((e) => e.url === FAX_PAGES_EXTENSION_URL);
   return ext?.valueInteger;
 }
 
-function getPdfUrl(communication: Communication): string | undefined {
+export function getPdfUrl(communication: Communication): string | undefined {
   return communication.payload?.[0]?.contentAttachment?.url;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input, undefined, 2)}`);
+  console.log(`[${ZAMBDA_NAME}] handler start, body length: ${input.body?.length ?? 0}`);
 
   try {
     const { communication, secrets } = validateRequestParameters(input);
@@ -60,6 +68,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('senderFaxNumber:', senderFaxNumber);
     console.log('pageCount:', pageCount);
     console.log('pdfUrl:', pdfUrl);
+
+    if (!pdfUrl) {
+      console.error(`Communication/${communication.id} has no PDF attachment URL`);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Communication has no PDF attachment URL' }),
+      };
+    }
 
     const newTask = createTask(
       {

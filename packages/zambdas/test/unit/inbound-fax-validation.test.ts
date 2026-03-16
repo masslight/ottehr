@@ -147,7 +147,14 @@ describe('Handle Inbound Fax - validateRequestParameters', () => {
     id: 'comm-123',
     status: 'completed',
     received: '2026-03-13T10:00:00Z',
-    sender: { reference: '#+15551234567' },
+    sender: { reference: '#fax-sender' },
+    contained: [
+      {
+        resourceType: 'Device',
+        id: 'fax-sender',
+        identifier: [{ system: 'phone', value: '+15551234567' }],
+      },
+    ],
     payload: [{ contentAttachment: { url: 'https://z3.example.com/bucket/file.pdf' } }],
     extension: [{ url: 'https://extensions.fhir.oystehr.com/fax-pages', valueInteger: 3 }],
   };

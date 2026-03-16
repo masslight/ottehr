@@ -504,10 +504,12 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     if (code === FAX_TASK.code.matchInboundFax) {
       title = `Inbound fax from ${senderFaxNumber || 'unknown'} (${pageCount || '?'} pages)`;
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
-      action = {
-        name: 'Match',
-        link: `/inbound-fax/${communicationId}/match`,
-      };
+      if (communicationId) {
+        action = {
+          name: 'Match',
+          link: `/inbound-fax/${communicationId}/match`,
+        };
+      }
     }
   }
 

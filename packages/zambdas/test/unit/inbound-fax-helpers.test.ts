@@ -1,42 +1,56 @@
 import { Communication } from 'fhir/r4b';
 import { describe, expect, test } from 'vitest';
-
-/**
- * Tests for the helper functions used in handle-inbound-fax/index.ts.
- * Since these are module-private functions, we replicate them here to validate the logic.
- */
+import {
+  getPageCount,
+  getPdfUrl,
+  getSenderFaxNumber,
+} from '../../src/subscriptions/communication/handle-inbound-fax/index';
 
 const FAX_PAGES_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/fax-pages';
-
-function getSenderFaxNumber(communication: Communication): string {
-  const senderRef = communication.sender?.reference;
-  if (senderRef?.startsWith('#')) {
-    return senderRef.replace('#', '');
-  }
-  return senderRef ?? 'unknown';
-}
-
-function getPageCount(communication: Communication): number | undefined {
-  const ext = communication.extension?.find((e) => e.url === FAX_PAGES_EXTENSION_URL);
-  return ext?.valueInteger;
-}
-
-function getPdfUrl(communication: Communication): string | undefined {
-  return communication.payload?.[0]?.contentAttachment?.url;
-}
 
 // ============================================================================
 // getSenderFaxNumber
 // ============================================================================
 
 describe('getSenderFaxNumber', () => {
-  test('should extract phone number from contained reference', () => {
+  test('should extract phone number from contained Device identifier', () => {
     const comm: Communication = {
       resourceType: 'Communication',
       status: 'completed',
-      sender: { reference: '#+15551234567' },
+      sender: { reference: '#fax-device' },
+      contained: [
+        {
+          resourceType: 'Device',
+          id: 'fax-device',
+          identifier: [{ system: 'phone', value: '+15551234567' }],
+        },
+      ],
     };
     expect(getSenderFaxNumber(comm)).toBe('+15551234567');
+  });
+
+  test('should fall back to contained ID when Device has no identifier', () => {
+    const comm: Communication = {
+      resourceType: 'Communication',
+      status: 'completed',
+      sender: { reference: '#some-device-id' },
+      contained: [
+        {
+          resourceType: 'Device',
+          id: 'some-device-id',
+        },
+      ],
+    };
+    expect(getSenderFaxNumber(comm)).toBe('some-device-id');
+  });
+
+  test('should fall back to contained ID when no matching contained resource', () => {
+    const comm: Communication = {
+      resourceType: 'Communication',
+      status: 'completed',
+      sender: { reference: '#+15559999999' },
+    };
+    expect(getSenderFaxNumber(comm)).toBe('+15559999999');
   });
 
   test('should return direct reference when not a hash reference', () => {
