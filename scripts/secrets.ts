@@ -95,44 +95,92 @@ function copyConfiguration(project?: string): void {
   }
 
   // Clear and create target directories for configuration
-  const configPaths = [
+  const oystehrPreserveFiles = [
+    'apps.json',
+    'buckets.json',
+    'm2ms.json',
+    'outputs.json',
+    'project.json',
+    'roles.json',
+    'secrets.json',
+    'zambdas.json',
+  ];
+
+  const configPaths: { source: string; target: string; type: string; preserveFiles: string[] }[] = [
     {
       source: path.join(secretsPath, 'configuration', 'oystehr'),
       target: path.join(repoRoot, 'config', 'oystehr'),
       type: 'full',
+      preserveFiles: oystehrPreserveFiles,
     },
     {
       source: path.join(secretsPath, 'configuration', 'sendgrid'),
       target: path.join(repoRoot, 'config', 'sendgrid'),
       type: 'full',
+      preserveFiles: [],
     },
     {
       source: path.join(secretsPath, 'configuration', 'ottehr-config-overrides'),
       target: path.join(repoRoot, 'packages', 'utils', 'ottehr-config-overrides'),
       type: 'selective',
+      preserveFiles: [],
     },
   ];
 
-  configPaths.forEach(({ source, target, type }) => {
+  // Helper to backup preserved files before directory removal
+  function backupPreservedFiles(target: string, fileNames: string[]): Map<string, Uint8Array> {
+    const backups = new Map<string, Uint8Array>();
+    for (const fileName of fileNames) {
+      const filePath = path.join(target, fileName);
+      if (fs.existsSync(filePath)) {
+        backups.set(fileName, new Uint8Array(fs.readFileSync(filePath)));
+        console.log(`  ↔ Backed up preserved file: ${fileName}`);
+      }
+    }
+    return backups;
+  }
+
+  // Helper to restore preserved files after directory recreation
+  function restorePreservedFiles(target: string, backups: Map<string, Uint8Array>, source: string): void {
+    for (const [fileName, content] of backups) {
+      const sourceFilePath = path.join(source, fileName);
+      const targetFilePath = path.join(target, fileName);
+      // If the file exists in source, prefer the source version
+      if (fs.existsSync(sourceFilePath)) {
+        fs.copyFileSync(sourceFilePath, targetFilePath);
+        console.log(`  ✓ Copied preserved file from source: ${fileName}`);
+      } else {
+        // Otherwise restore the backed-up version from target
+        fs.writeFileSync(targetFilePath, content);
+        console.log(`  ✓ Restored preserved file from backup: ${fileName}`);
+      }
+    }
+  }
+
+  configPaths.forEach(({ source, target, type, preserveFiles }) => {
     if (type === 'full') {
-      // Remove existing directory and create fresh one
-      if (fs.existsSync(target) && fs.existsSync(source)) {
-        fs.rmSync(target, { recursive: true, force: true });
-      } else if (!fs.existsSync(source)) {
+      if (!fs.existsSync(source)) {
         console.log(`⚠ Secrets source config folder is missing: ${path.relative(repoRoot, source)}. Skipping copy.`);
         return;
       }
+
+      // Backup preserved files before removing directory
+      const backups = backupPreservedFiles(target, preserveFiles);
+
+      // Remove existing directory and create fresh one
+      if (fs.existsSync(target)) {
+        fs.rmSync(target, { recursive: true, force: true });
+      }
       fs.mkdirSync(target, { recursive: true });
 
-      // Copy if source exists
-      if (fs.existsSync(source)) {
-        fs.cpSync(source, target, { recursive: true });
-        console.log(
-          `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
-        );
-      } else {
-        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
-      }
+      // Copy from source
+      fs.cpSync(source, target, { recursive: true });
+      console.log(
+        `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
+      );
+
+      // Restore preserved files
+      restorePreservedFiles(target, backups, source);
     } else if (type === 'selective') {
       // For ottehr-config-overrides: only replace directories that exist in both target and source
       if (!fs.existsSync(source)) {
@@ -208,12 +256,12 @@ function populate(environment: string, project?: string): void {
     if (fs.existsSync(paths.ehr.public.source)) {
       fs.mkdirSync(paths.ehr.public.target, { recursive: true });
       fs.cpSync(paths.ehr.public.source, paths.ehr.public.target, { recursive: true });
-      console.log(`Successfully copied public assets to packages/ehr/public`);
+      console.log(`Successfully copied public assets to apps/ehr/public`);
     }
     if (fs.existsSync(paths.patientPortal.public.source)) {
       fs.mkdirSync(paths.patientPortal.public.target, { recursive: true });
       fs.cpSync(paths.patientPortal.public.source, paths.patientPortal.public.target, { recursive: true });
-      console.log(`Successfully copied public assets to packages/intake/public`);
+      console.log(`Successfully copied public assets to apps/intake/public`);
     }
     if (fs.existsSync(paths.terraform.source)) {
       fs.mkdirSync(path.dirname(paths.terraform.target), { recursive: true });
