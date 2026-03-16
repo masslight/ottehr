@@ -1,8 +1,11 @@
+import { LoadingButton } from '@mui/lab';
 import { Box, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AccordionCard } from 'src/components/AccordionCard';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
@@ -12,7 +15,11 @@ import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import { useAdministerImmunizationOrder } from 'src/features/visits/in-person/hooks/useImmunization';
+import {
+  useAdministerImmunizationOrder,
+  useCancelImmunizationOrder,
+} from 'src/features/visits/in-person/hooks/useImmunization';
+import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
@@ -20,7 +27,9 @@ import { ROUTE_OPTIONS } from 'src/shared/utils';
 import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE, UNIT_OPTIONS } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
+import { ImmunizationNotes } from './ImmunizationNotes';
 import { OrderDetailsSection } from './OrderDetailsSection';
+import { OrderHistoryTable } from './OrderHistoryTable';
 import { OrderStatusChip } from './OrderStatusChip';
 
 interface Props {
@@ -47,14 +56,31 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   }, [methods, order]);
 
   const theme = useTheme();
+  const navigate = useNavigate();
   const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
+  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { id: appointmentId } = useParams();
-  const { mappedData } = useAppointmentData(appointmentId);
+  const {
+    mappedData,
+    resources: { patient },
+  } = useAppointmentData(appointmentId);
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+
+  const handleDeleteOrder = async (): Promise<void> => {
+    try {
+      await cancelOrder({ orderId: order.id });
+      navigate(getImmunizationMARUrl(appointmentId!));
+    } catch {
+      enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
+        variant: 'error',
+      });
+    }
+  };
 
   const onSubmit = async (data: any): Promise<void> => {
     if (data.otherReason) {
@@ -97,13 +123,14 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     color: theme.palette.primary.dark,
                   }}
                 >
-                  Administering vaccine
+                  Administering immunization
                 </Typography>
               </Grid>
               <Grid xs={3} item>
                 <TextInput
                   name="administrationDetails.lot"
                   label="LOT number"
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
                 />
@@ -120,6 +147,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.mvx"
                   label="MVX code"
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
                 />
@@ -128,6 +156,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.cvx"
                   label="CVX code"
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
                 />
@@ -143,6 +172,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.ndc"
                   label="NDC code"
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
                 />
@@ -176,6 +206,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <CheckboxInput
                     name="visGiven"
                     label="VIS was given to the patient"
+                    required
                     validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.visCheckbox}
                   />
@@ -185,6 +216,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <DateInput
                   name="administrationDetails.visGivenDate"
                   label="VIS given date"
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.visGivenDate}
                 />
@@ -205,6 +237,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   label="Relationship"
                   options={RELATIONSHIP_OPTIONS.map((option) => option.value)}
                   getOptionLabel={(option) => RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option}
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                 />
@@ -213,6 +246,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.emergencyContact.fullName"
                   label="Full name"
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.fullName}
                 />
@@ -221,13 +255,31 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <PhoneInput
                   name="administrationDetails.emergencyContact.mobile"
                   label="Mobile"
+                  required
                   validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.mobile}
                 />
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <OrderStatusChip status={order.status} />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <OrderStatusChip status={order.status} />
+                    {order.status === 'pending' && (
+                      <LoadingButton
+                        variant="outlined"
+                        color="warning"
+                        size="large"
+                        loading={isDeleting}
+                        onClick={handleDeleteOrder}
+                        sx={{
+                          borderRadius: '20px',
+                          textTransform: 'none',
+                        }}
+                      >
+                        Delete Order
+                      </LoadingButton>
+                    )}
+                  </Stack>
                   <Stack direction="row">
                     <ButtonRounded
                       variant="outlined"
@@ -264,6 +316,15 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
               </Grid>
             </Grid>
           </Paper>
+          <AccordionCard
+            label="Immunization History"
+            collapsed={isImmunizationHistoryCollapsed}
+            onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
+            withBorder={false}
+          >
+            <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
+          </AccordionCard>
+          <ImmunizationNotes />
         </Stack>
         <AdministrationConfirmationDialog
           administrationType={administrationTypeRef.current}

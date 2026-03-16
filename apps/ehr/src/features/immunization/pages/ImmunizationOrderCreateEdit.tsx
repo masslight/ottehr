@@ -1,5 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import { Grid, Paper, Stack } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -8,13 +9,14 @@ import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
-import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
+  useCancelImmunizationOrder,
   useCreateUpdateImmunizationOrder,
   useGetImmunizationOrders,
 } from '../../visits/in-person/hooks/useImmunization';
@@ -30,15 +32,30 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   } = useAppointmentData(appointmentId);
 
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
+  const [isOrderSaved, setIsOrderSaved] = useState(false);
   const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
 
   const onSubmit = async (data: any): Promise<void> => {
-    const response = await createUpdateOrder({
+    await createUpdateOrder({
       encounterId: encounter?.id ?? '',
       orderId: orderId,
       ...(await cleanupProperties(data)),
     });
-    navigate(getImmunizationOrderEditUrl(appointmentId!, response.orderId));
+    setIsOrderSaved(true);
+    navigate(getImmunizationMARUrl(appointmentId!));
+  };
+
+  const handleDeleteOrder = async (): Promise<void> => {
+    if (!orderId) return;
+    try {
+      await cancelOrder({ orderId });
+      navigate(getImmunizationMARUrl(appointmentId!));
+    } catch {
+      enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
+        variant: 'error',
+      });
+    }
   };
 
   const { data: ordersResponse, isLoading: isOrderLoading } = useGetImmunizationOrders({
@@ -76,11 +93,11 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
           <BaseBreadcrumbs
-            sectionName={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'}
-            baseCrumb={{ label: 'Immunization', path: getImmunizationMARUrl(appointmentId ?? '') }}
+            sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
+            baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
           />
           <PageHeader
-            title={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'}
+            title={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
             variant="h3"
             component="h1"
             dataTestId={dataTestIds.orderVaccinePage.title}
@@ -98,17 +115,42 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <ButtonRounded
-                    variant="outlined"
-                    color="primary"
-                    size="large"
-                    onClick={() => navigate(getImmunizationMARUrl(appointmentId!))}
-                  >
-                    Cancel
-                  </ButtonRounded>
+                  <Stack direction="row" spacing={1}>
+                    <ButtonRounded
+                      variant="outlined"
+                      color="primary"
+                      size="large"
+                      onClick={() => navigate(getImmunizationMARUrl(appointmentId!))}
+                    >
+                      Back
+                    </ButtonRounded>
+                    <ButtonRounded
+                      variant="outlined"
+                      color="primary"
+                      size="large"
+                      onClick={() => navigate(getImmunizationMARUrl(appointmentId!))}
+                    >
+                      Cancel
+                    </ButtonRounded>
+                    {orderId && (
+                      <LoadingButton
+                        variant="outlined"
+                        color="warning"
+                        size="large"
+                        loading={isDeleting}
+                        onClick={handleDeleteOrder}
+                        sx={{
+                          borderRadius: '20px',
+                          textTransform: 'none',
+                        }}
+                      >
+                        Delete Order
+                      </LoadingButton>
+                    )}
+                  </Stack>
                   <LoadingButton
                     type="submit"
-                    disabled={isOrderLoading}
+                    disabled={isOrderLoading || isOrderSaved}
                     loading={isOrderSaving}
                     variant="contained"
                     color="primary"
@@ -119,7 +161,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
                     }}
                     data-testid={dataTestIds.orderVaccinePage.orderVaccineButton}
                   >
-                    {orderId ? 'Save changes' : 'Order Vaccine'}
+                    {orderId ? 'Save changes' : 'Order Immunization'}
                   </LoadingButton>
                 </Stack>
               </Grid>

@@ -37,6 +37,9 @@ export const OrderDetailsSection: React.FC = () => {
           dataTestId={dataTestIds.orderVaccinePage.vaccine}
         />
       </Grid>
+      <Grid xs={6} item>
+        <TextInput name="details.associatedDx" label="Associated Dx" />
+      </Grid>
       <Grid xs={3} item>
         <TextInput
           name="details.dose"
@@ -67,6 +70,9 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
+        <TextInput name="details.manufacturer" label="Manufacturer" />
+      </Grid>
+      <Grid xs={6} item>
         <AutocompleteInput
           name="details.location"
           label="Location"
@@ -77,14 +83,6 @@ export const OrderDetailsSection: React.FC = () => {
           dataTestId={dataTestIds.orderVaccinePage.location}
         />
       </Grid>
-      <Grid xs={12} item>
-        <TextInput
-          name="details.instructions"
-          label="Instructions"
-          multiline
-          dataTestId={dataTestIds.orderVaccinePage.instructions}
-        />
-      </Grid>
       <Grid xs={6} item>
         <EmployeeSelectInput
           name="details.orderedProvider"
@@ -92,6 +90,14 @@ export const OrderDetailsSection: React.FC = () => {
           required
           dataTestId={dataTestIds.orderVaccinePage.orderedBy}
           filter={PROVIDERS_FILTER}
+        />
+      </Grid>
+      <Grid xs={12} item>
+        <TextInput
+          name="details.instructions"
+          label="Instructions"
+          multiline
+          dataTestId={dataTestIds.orderVaccinePage.instructions}
         />
       </Grid>
     </Grid>
