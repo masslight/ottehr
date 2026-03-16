@@ -16,7 +16,7 @@ interface PathConfig {
   target: string;
 }
 
-interface AppConfig extends PathConfig {
+interface AppConfig {
   public: PathConfig;
 }
 
@@ -56,16 +56,12 @@ function getFilePaths(environment: string): GetFilePathConfig {
       },
     },
     ehr: {
-      source: path.join(secretsPath, 'apps', 'ehr', 'env', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'ehr', 'env', `.env.${environment}`),
       public: {
         source: path.join(secretsPath, 'apps', 'ehr', 'public'),
         target: path.join(repoRoot, 'apps', 'ehr', 'public'),
       },
     },
     patientPortal: {
-      source: path.join(secretsPath, 'apps', 'intake', 'env', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'intake', 'env', `.env.${environment}`),
       public: {
         source: path.join(secretsPath, 'apps', 'intake', 'public'),
         target: path.join(repoRoot, 'apps', 'intake', 'public'),
@@ -206,20 +202,10 @@ function populate(environment: string, project?: string): void {
       fs.copyFileSync(paths.zambdas.sentry.source, paths.zambdas.sentry.target);
       console.log(`Successfully copied .env.sentry-build-plugin to packages/zambdas/.env`);
     }
-    if (fs.existsSync(paths.ehr.source)) {
-      fs.mkdirSync(path.dirname(paths.ehr.target), { recursive: true });
-      fs.copyFileSync(paths.ehr.source, paths.ehr.target);
-      console.log(`Successfully copied .env.${environment} to packages/ehr/env`);
-    }
     if (fs.existsSync(paths.ehr.public.source)) {
       fs.mkdirSync(paths.ehr.public.target, { recursive: true });
       fs.cpSync(paths.ehr.public.source, paths.ehr.public.target, { recursive: true });
       console.log(`Successfully copied public assets to packages/ehr/public`);
-    }
-    if (fs.existsSync(paths.patientPortal.source)) {
-      fs.mkdirSync(path.dirname(paths.patientPortal.target), { recursive: true });
-      fs.copyFileSync(paths.patientPortal.source, paths.patientPortal.target);
-      console.log(`Successfully copied .env.${environment} to packages/intake/env`);
     }
     if (fs.existsSync(paths.patientPortal.public.source)) {
       fs.mkdirSync(paths.patientPortal.public.target, { recursive: true });
@@ -254,8 +240,6 @@ function validate(environment: string): void {
   [
     { path: paths.zambdas.target, name: 'Zambdas config' },
     ...(environment !== 'local' ? [{ path: paths.zambdas.sentry.target, name: 'Zambdas Sentry config' }] : []),
-    { path: paths.ehr.target, name: 'EHR env' },
-    { path: paths.patientPortal.target, name: 'Patient Portal env' },
     { path: paths.terraform.target, name: 'Terraform vars' },
     { path: paths.terraform.backend.target, name: 'Terraform backend config' },
   ].forEach(({ path: filePath, name }) => {
