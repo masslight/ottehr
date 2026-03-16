@@ -1,4 +1,4 @@
-import { CreateInHouseMedicationInput } from 'utils';
+import { CreateInHouseMedicationInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../../shared';
 
 export function validateRequestParameters(
@@ -7,21 +7,21 @@ export function validateRequestParameters(
   console.group('validateRequestParameters');
 
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('No request body provided');
   }
 
   const { name, ndc, medispanID } = JSON.parse(input.body);
 
   if (!name) {
-    throw new Error('Medication name is required');
+    throw MISSING_REQUIRED_PARAMETERS(['name']);
   }
 
   if (!ndc) {
-    throw new Error('NDC is required');
+    throw MISSING_REQUIRED_PARAMETERS(['ndc']);
   }
 
   if (!medispanID) {
-    throw new Error('Medispan ID is required');
+    throw MISSING_REQUIRED_PARAMETERS(['medispanID']);
   }
 
   console.groupEnd();

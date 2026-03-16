@@ -1,4 +1,4 @@
-import { UpdateInHouseMedicationInput } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, UpdateInHouseMedicationInput } from 'utils';
 import { ZambdaInput } from '../../../../shared';
 
 export function validateRequestParameters(
@@ -7,30 +7,30 @@ export function validateRequestParameters(
   console.group('validateRequestParameters');
 
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('No request body provided');
   }
 
   const { medicationID, status, name, ndc, medispanID } = JSON.parse(input.body);
 
   if (!medicationID) {
-    throw new Error('Medication ID is required');
+    throw MISSING_REQUIRED_PARAMETERS(['medicationID']);
   }
 
   if (status) {
     if (!['active', 'inactive'].includes(status)) {
-      throw new Error('Status must be either active or inactive');
+      throw INVALID_INPUT_ERROR('Status must be either active or inactive');
     }
   } else {
     if (!name) {
-      throw new Error('Medication name is required');
+      throw MISSING_REQUIRED_PARAMETERS(['name']);
     }
 
     if (!ndc) {
-      throw new Error('NDC is required');
+      throw MISSING_REQUIRED_PARAMETERS(['ndc']);
     }
 
     if (!medispanID) {
-      throw new Error('Medispan ID is required');
+      throw MISSING_REQUIRED_PARAMETERS(['medispanID']);
     }
   }
 

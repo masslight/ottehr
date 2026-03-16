@@ -8,6 +8,7 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   SecretsKeys,
+  UpdateInHouseMedicationInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -30,7 +31,7 @@ export const index = wrapHandler(
       const oystehr = createOystehrClient(m2mToken, secrets);
       console.log('Created Oystehr client');
 
-      const response = await performEffect(oystehr, medicationID, name, ndc, medispanID, status);
+      const response = await performEffect(oystehr, { medicationID, name, ndc, medispanID, status });
       return {
         statusCode: 200,
         body: JSON.stringify(response),
@@ -44,12 +45,9 @@ export const index = wrapHandler(
 
 export const performEffect = async (
   oystehr: Oystehr,
-  medicationID: string,
-  name?: string,
-  ndc?: string,
-  medispanID?: string,
-  status?: string
+  updateDetail: UpdateInHouseMedicationInput
 ): Promise<Medication> => {
+  const { medicationID, name, ndc, medispanID, status } = updateDetail;
   const medication = await oystehr.fhir.get<Medication>({
     resourceType: 'Medication',
     id: medicationID,

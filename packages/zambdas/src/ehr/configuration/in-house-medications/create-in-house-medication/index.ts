@@ -4,6 +4,7 @@ import { Medication } from 'fhir/r4b';
 import {
   CODE_SYSTEM_NDC,
   getSecret,
+  INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
@@ -62,7 +63,7 @@ export const performEffect = async (
     identifier: [
       {
         system: MEDICATION_TYPE_SYSTEM,
-        value: 'virtual-medication-inventory',
+        value: INVENTORY_MEDICATION_TYPE_CODE,
       },
       {
         system: MEDICATION_IDENTIFIER_NAME_SYSTEM,
