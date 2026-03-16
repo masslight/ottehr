@@ -327,6 +327,7 @@ export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
   task_assigned = 'task-assigned',
+  inbound_fax = 'inbound-fax',
 }
 
 export const PROVIDER_TYPE_VALUES = ['MD', 'DO', 'PA', 'NP', 'other'] as const;

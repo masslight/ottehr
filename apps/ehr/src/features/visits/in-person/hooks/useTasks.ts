@@ -6,6 +6,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   chooseJson,
   CreateManualTaskRequest,
+  FAX_TASK,
   getCoding,
   getExtension,
   IN_HOUSE_LAB_TASK,
@@ -491,6 +492,24 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
 
     if (code === RADIOLOGY_TASK.code.reviewFinalResultTask) {
       title = `Review Radiology Final Results ${studyTypeForTitle} for ${patientName}`;
+    }
+  }
+  if (category === FAX_TASK.category) {
+    const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';
+    const senderFaxNumber = getInputString(FAX_TASK.input.senderFaxNumber, task);
+    const pageCount = getInputString(FAX_TASK.input.pageCount, task);
+    const receivedDate = getInputString(FAX_TASK.input.receivedDate, task);
+    const communicationId = getInputString(FAX_TASK.input.communicationId, task);
+
+    if (code === FAX_TASK.code.matchInboundFax) {
+      title = `Inbound fax from ${senderFaxNumber || 'unknown'} (${pageCount || '?'} pages)`;
+      subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      if (communicationId) {
+        action = {
+          name: 'Match',
+          link: `/inbound-fax/${communicationId}/match`,
+        };
+      }
     }
   }
 
