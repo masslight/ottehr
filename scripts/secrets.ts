@@ -131,16 +131,22 @@ function copyConfiguration(project?: string): void {
 
   // Helper to backup preserved files to temp directory before directory removal
   function backupPreservedFiles(target: string, fileNames: string[]): string[] {
-    console.log(`  Backing up preserved files from ${path.relative(repoRoot, target)}: ${fileNames.join(', ')}`);
     const backed: string[] = [];
     for (const fileName of fileNames) {
       const filePath = path.join(target, fileName);
+      console.log(`Checking for preserved file: ${path.relative(repoRoot, filePath)}`);
       if (fs.existsSync(filePath)) {
+        console.log(`  → Found preserved file, backing up: ${fileName}`);
         fs.mkdirSync(TEMP_PRESERVE_DIR, { recursive: true });
         fs.copyFileSync(filePath, path.join(TEMP_PRESERVE_DIR, fileName));
         backed.push(fileName);
         console.log(`  ↔ Backed up preserved file: ${fileName}`);
       }
+    }
+    if (backed.length > 0) {
+      console.log(
+        `  Backed up ${backed.length} preserved files from ${path.relative(repoRoot, target)}: ${backed.join(', ')}`
+      );
     }
     return backed;
   }
