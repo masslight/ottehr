@@ -120,8 +120,11 @@ function copyConfiguration(project?: string): void {
   configPaths.forEach(({ source, target, type }) => {
     if (type === 'full') {
       // Remove existing directory and create fresh one
-      if (fs.existsSync(target)) {
+      if (fs.existsSync(target) && fs.existsSync(source)) {
         fs.rmSync(target, { recursive: true, force: true });
+      } else if (!fs.existsSync(source)) {
+        console.log(`⚠ Secrets source config folder is missing: ${path.relative(repoRoot, source)}. Skipping copy.`);
+        return;
       }
       fs.mkdirSync(target, { recursive: true });
 
