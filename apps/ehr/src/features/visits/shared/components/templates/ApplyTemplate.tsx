@@ -8,6 +8,9 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  List,
+  ListItem,
+  ListItemText,
   TextField,
   Typography,
   useTheme,
@@ -15,7 +18,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
-import { applyTemplate } from 'src/api/api';
+import { applyTemplate, createTemplate } from 'src/api/api';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ExamType } from 'utils';
@@ -24,11 +27,27 @@ import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { TemplateOption, useListTemplates } from './useListTemplates';
 
+const ADD_NEW_SENTINEL = '__ADD_NEW__';
+
+const TEMPLATE_SECTIONS = [
+  'HPI (History of Present Illness)',
+  'Review of Systems (ROS)',
+  'Exam findings',
+  'Medical Decision Making (MDM)',
+  'Assessment / ICD-10 Diagnoses',
+  'Patient Instructions',
+  'CPT Codes',
+  'E&M Code',
+];
+
 export const ApplyTemplate: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateOption | null>(null);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [pendingTemplate, setPendingTemplate] = useState<string>('');
   const [isApplyingTemplate, setIsApplyingTemplate] = useState<boolean>(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState<boolean>(false);
+  const [newTemplateName, setNewTemplateName] = useState<string>('');
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState<boolean>(false);
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
@@ -46,6 +65,9 @@ export const ApplyTemplate: React.FC = () => {
     }
   }, [templatesError]);
 
+  const addNewOption: TemplateOption = { value: ADD_NEW_SENTINEL, label: '+ Add Note As New Template' };
+  const allOptions: TemplateOption[] = [addNewOption, ...templates];
+
   const buttonSx = {
     fontWeight: 500,
     textTransform: 'none',
@@ -54,6 +76,10 @@ export const ApplyTemplate: React.FC = () => {
 
   const handleTemplateChange = (event: React.SyntheticEvent, newValue: TemplateOption | null): void => {
     if (newValue) {
+      if (newValue.value === ADD_NEW_SENTINEL) {
+        setCreateDialogOpen(true);
+        return;
+      }
       setPendingTemplate(newValue.value);
       setDialogOpen(true);
     } else {
@@ -108,22 +134,75 @@ export const ApplyTemplate: React.FC = () => {
     return templates.find((option) => option.value === value)?.label || '';
   };
 
+  const handleCreateDialogClose = (): void => {
+    setCreateDialogOpen(false);
+    setNewTemplateName('');
+  };
+
+  const handleCreateTemplate = async (): Promise<void> => {
+    if (!oystehrZambda || !encounter.id || !newTemplateName.trim()) return;
+
+    const trimmedName = newTemplateName.trim();
+
+    // Check for duplicate name
+    const existingTemplate = templates.find((t) => t.label.toLowerCase() === trimmedName.toLowerCase());
+    if (existingTemplate) {
+      enqueueSnackbar(`A template named "${trimmedName}" already exists. Please choose a different name.`, {
+        variant: 'warning',
+      });
+      return;
+    }
+
+    setIsCreatingTemplate(true);
+    try {
+      await createTemplate(oystehrZambda, {
+        encounterId: encounter.id,
+        templateName: trimmedName,
+        examType: ExamType.IN_PERSON,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['list-templates'] });
+      enqueueSnackbar('Template created successfully!', { variant: 'success' });
+      handleCreateDialogClose();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create template';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setIsCreatingTemplate(false);
+    }
+  };
+
   return (
     <Box sx={{ p: 2 }}>
       <Autocomplete
         id="template-select"
         sx={{ width: '50%', minWidth: 200 }}
         value={selectedTemplate}
-        options={templates}
+        options={allOptions}
         getOptionLabel={(option) => option.label}
         isOptionEqualToValue={(option, value) => option.value === value.value}
         onChange={handleTemplateChange}
         disabled={isLoadingTemplates || isReadOnly}
         filterOptions={(options, { inputValue }) => {
-          // Implement fuzzy search - filter by both label and value
           const query = inputValue.toLowerCase();
           return options.filter(
-            (option) => option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query)
+            (option) =>
+              option.value === ADD_NEW_SENTINEL ||
+              option.label.toLowerCase().includes(query) ||
+              option.value.toLowerCase().includes(query)
+          );
+        }}
+        renderOption={(props, option) => {
+          if (option.value === ADD_NEW_SENTINEL) {
+            return (
+              <li {...props} key={option.value}>
+                <Typography sx={{ fontWeight: 'bold', color: 'primary.main' }}>{option.label}</Typography>
+              </li>
+            );
+          }
+          return (
+            <li {...props} key={option.value}>
+              {option.label}
+            </li>
           );
         }}
         renderInput={(params) => (
@@ -144,6 +223,7 @@ export const ApplyTemplate: React.FC = () => {
         </Box>
       )}
 
+      {/* Apply Template Confirmation Dialog */}
       <Dialog
         open={dialogOpen}
         onClose={handleDialogClose}
@@ -185,6 +265,53 @@ export const ApplyTemplate: React.FC = () => {
             loading={isApplyingTemplate}
           >
             Apply Template
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create Template Dialog */}
+      <Dialog open={createDialogOpen} onClose={handleCreateDialogClose} disableScrollLock maxWidth="sm" fullWidth>
+        <DialogTitle variant="h4" color="primary.dark">
+          Save Note As Template
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Template name"
+            fullWidth
+            required
+            value={newTemplateName}
+            onChange={(e) => setNewTemplateName(e.target.value)}
+            disabled={isCreatingTemplate}
+            sx={{ mb: 2 }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            The following sections from the current note will be saved in the template:
+          </Typography>
+          <List dense disablePadding sx={{ mt: 1 }}>
+            {TEMPLATE_SECTIONS.map((section) => (
+              <ListItem key={section} sx={{ py: 0, pl: 2 }}>
+                <ListItemText
+                  primary={`\u2022 ${section}`}
+                  primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={handleCreateDialogClose} sx={buttonSx} disabled={isCreatingTemplate}>
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            onClick={handleCreateTemplate}
+            sx={buttonSx}
+            loading={isCreatingTemplate}
+            disabled={!newTemplateName.trim()}
+          >
+            Save
           </LoadingButton>
         </DialogActions>
       </Dialog>

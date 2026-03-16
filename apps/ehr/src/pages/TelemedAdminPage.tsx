@@ -2,8 +2,9 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Tab } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
-import { VIRTUAL_LOCATIONS_URL } from 'src/App';
+import { GLOBAL_TEMPLATES_URL, VIRTUAL_LOCATIONS_URL } from 'src/App';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import GlobalTemplatesAdminPage from '../features/visits/telemed/components/telemed-admin/GlobalTemplatesAdminPage';
 import Insurances from '../features/visits/telemed/components/telemed-admin/Insurance';
 import States from '../features/visits/telemed/components/telemed-admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
@@ -11,6 +12,7 @@ import PageContainer from '../layout/PageContainer';
 enum PageTab {
   insurance = 'insurances',
   'virtual-locations' = 'virtual-locations',
+  'global-templates' = 'global-templates',
 }
 
 export function TelemedAdminPage(): JSX.Element {
@@ -18,7 +20,12 @@ export function TelemedAdminPage(): JSX.Element {
   const navigate = useNavigate();
 
   const statesMatch = useMatch(VIRTUAL_LOCATIONS_URL);
-  const page = statesMatch ? PageTab['virtual-locations'] : PageTab.insurance;
+  const globalTemplatesMatch = useMatch(GLOBAL_TEMPLATES_URL);
+  const page = statesMatch
+    ? PageTab['virtual-locations']
+    : globalTemplatesMatch
+    ? PageTab['global-templates']
+    : PageTab.insurance;
 
   useEffect(() => {
     setPageTab(page);
@@ -47,6 +54,12 @@ export function TelemedAdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/telemed-admin/${PageTab['virtual-locations']}`)}
                 />
+                <Tab
+                  label="Global Templates"
+                  value={PageTab['global-templates']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/telemed-admin/${PageTab['global-templates']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -63,6 +76,7 @@ export function TelemedAdminPage(): JSX.Element {
             <TabPanel value={pageTab} sx={{ padding: 0 }}>
               {pageTab === PageTab.insurance && <Insurances />}
               {pageTab === PageTab['virtual-locations'] && <States />}
+              {pageTab === PageTab['global-templates'] && <GlobalTemplatesAdminPage />}
             </TabPanel>
           </Paper>
         </TabContext>

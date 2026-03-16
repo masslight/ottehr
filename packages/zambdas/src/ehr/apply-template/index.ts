@@ -5,7 +5,7 @@ import Oystehr, {
   FhirResource,
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
+import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
 import {
   ApplyTemplateZambdaInput,
   chunkThings,
@@ -106,6 +106,7 @@ const performEffect = async (
         { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
         { name: '_revinclude:iterate', value: 'Communication:encounter' },
         { name: '_revinclude:iterate', value: 'Condition:encounter' },
+        { name: '_revinclude:iterate', value: 'Procedure:encounter' },
       ],
     })
   ).unbundle();
@@ -140,7 +141,17 @@ const performEffect = async (
     (request) => request.method === 'POST' && request.resource.resourceType === 'Observation'
   );
 
+  const procedureRequests = createRequests.filter(
+    (request) => request.method === 'POST' && request.resource.resourceType === 'Procedure'
+  );
+
   const createObservationBatches = chunkThings(observationRequests, 5).map((chunk) =>
+    oystehr.fhir.batch({
+      requests: chunk,
+    })
+  );
+
+  const createProcedureBatches = chunkThings(procedureRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
     })
@@ -150,7 +161,12 @@ const performEffect = async (
     requests: miniTransactionRequests,
   });
 
-  const bundles = await Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]);
+  const bundles = await Promise.all([
+    ...deleteBatches,
+    ...createObservationBatches,
+    ...createProcedureBatches,
+    miniTransactionPromise,
+  ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 
@@ -176,7 +192,9 @@ const makeDeleteRequests = async (
         (tag) =>
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' ||
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision' ||
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction'
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction' ||
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' ||
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code'
         // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
       )
   );
@@ -198,10 +216,12 @@ const makeCreateRequests = (
   templateList: List,
   encounterBundle: FhirResource[]
 ): Array<
-  BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication> | BatchInputJSONPatchRequest
+  | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+  | BatchInputJSONPatchRequest
 > => {
   const createResourcesRequests: Array<
-    BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication> | BatchInputJSONPatchRequest
+    | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+    | BatchInputJSONPatchRequest
   > = [];
 
   if (templateList.entry === undefined || templateList.entry.length === 0) {
@@ -275,7 +295,8 @@ const makeCreateRequests = (
       resourceToCreate.resourceType === 'Observation' ||
       resourceToCreate.resourceType === 'ClinicalImpression' ||
       resourceToCreate.resourceType === 'Condition' ||
-      resourceToCreate.resourceType === 'Communication'
+      resourceToCreate.resourceType === 'Communication' ||
+      resourceToCreate.resourceType === 'Procedure'
     ) {
       resourceToCreate.subject = encounter.subject;
       resourceToCreate.encounter = { reference: `Encounter/${encounter.id}` };

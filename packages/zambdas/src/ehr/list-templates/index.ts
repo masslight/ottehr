@@ -11,6 +11,7 @@ import {
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   SecretsKeys,
+  TemplateInfo,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -35,7 +36,7 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('apply-template', error, ENVIRONMENT);
+    return topLevelCatch('list-templates', error, ENVIRONMENT);
   }
 });
 
@@ -62,33 +63,40 @@ const performEffect = async (
   }
 
   // Filter out the global templates holder List
-  let filteredTemplates = listSearchResult.filter(
+  const filteredTemplates = listSearchResult.filter(
     (template) => !template.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
   );
 
-  // Filter out the templates which are not for the requested examType and the latest version
-  filteredTemplates = filteredTemplates.filter((template) => {
-    if (examType === ExamType.IN_PERSON) {
-      return template.code?.coding?.some(
-        (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM && c.version === examConfig.inPerson.default.version
-      );
-    } else if (examType === ExamType.TELEMED) {
-      return template.code?.coding?.some(
-        (c) => c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM && c.version === examConfig.telemed.default.version
-      );
-    }
-    return false;
-  });
+  const codeSystem =
+    examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
+  const currentVersion =
+    examType === ExamType.IN_PERSON ? examConfig.inPerson.default.version : examConfig.telemed.default.version;
 
-  const templateTitles = filteredTemplates
+  // Filter to templates matching the requested exam type code system
+  const examTypeTemplates = filteredTemplates.filter(
+    (template) => template.code?.coding?.some((c) => c.system === codeSystem)
+  );
+
+  const templateInfos: TemplateInfo[] = examTypeTemplates
     .map((template) => {
-      return template.title;
+      const coding = template.code?.coding?.find((c) => c.system === codeSystem);
+      const examVersion = coding?.version ?? '';
+
+      return {
+        id: template.id!,
+        title: template.title ?? '',
+        examVersion,
+        isCurrentVersion: examVersion === currentVersion,
+      };
     })
-    .filter((title): title is string => typeof title === 'string'); // Filter out undefined titles
+    .filter((info) => info.title !== '');
 
-  templateTitles.sort((a, b) => a.localeCompare(b));
+  templateInfos.sort((a, b) => a.title.localeCompare(b.title));
 
-  console.log('Templates:', templateTitles);
+  console.log(
+    'Templates:',
+    templateInfos.map((t) => t.title)
+  );
 
-  return { templates: templateTitles };
+  return { templates: templateInfos };
 };

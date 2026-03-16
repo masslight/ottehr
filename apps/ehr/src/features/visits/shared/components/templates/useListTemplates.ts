@@ -32,8 +32,8 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
 
   const templates: TemplateOption[] = queryResult.data
     ? queryResult.data.templates.map((template) => ({
-        value: template,
-        label: template,
+        value: template.title,
+        label: template.title,
       }))
     : [];
 

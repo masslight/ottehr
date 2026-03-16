@@ -1075,6 +1075,27 @@
       "src": "src/ehr/list-templates/index",
       "zip": ".dist/zips/list-templates.zip"
     },
+    "ADMIN-CREATE-TEMPLATE": {
+      "name": "admin-create-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-template/index",
+      "zip": ".dist/zips/admin-create-template.zip"
+    },
+    "ADMIN-RENAME-TEMPLATE": {
+      "name": "admin-rename-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-rename-template/index",
+      "zip": ".dist/zips/admin-rename-template.zip"
+    },
+    "ADMIN-DELETE-TEMPLATE": {
+      "name": "admin-delete-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-template/index",
+      "zip": ".dist/zips/admin-delete-template.zip"
+    },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
       "type": "http_auth",
