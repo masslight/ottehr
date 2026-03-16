@@ -115,20 +115,20 @@ function copyConfiguration(project?: string): void {
 
   configPaths.forEach(({ source, target, type }) => {
     if (type === 'full') {
-      // Remove existing directory and create fresh one
-      if (fs.existsSync(target)) {
-        fs.rmSync(target, { recursive: true, force: true });
-      }
-      fs.mkdirSync(target, { recursive: true });
-
-      // Copy if source exists
+      // Only replace target if source exists; otherwise leave existing files intact
       if (fs.existsSync(source)) {
+        if (fs.existsSync(target)) {
+          fs.rmSync(target, { recursive: true, force: true });
+        }
+        fs.mkdirSync(target, { recursive: true });
         fs.cpSync(source, target, { recursive: true });
         console.log(
           `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
         );
       } else {
-        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
+        console.log(
+          `⚠ Configuration directory not found: ${path.relative(repoRoot, source)} — leaving existing target intact`
+        );
       }
     } else if (type === 'selective') {
       // For ottehr-config-overrides: only replace directories that exist in both target and source
