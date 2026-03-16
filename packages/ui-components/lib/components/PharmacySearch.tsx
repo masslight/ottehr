@@ -64,7 +64,6 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
     }
 
     const handleSearchPlaces = async (): Promise<void> => {
-      console.log('userLocation: ', userLocation);
       try {
         setSearching(true);
         const searchResponse = await searchPlaces({ searchTerm: debouncedSearchTerm, locationBias: userLocation });
