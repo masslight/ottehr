@@ -87,19 +87,27 @@ export type { LegalConfig } from './legal';
 export {
   LocationItemSchema,
   SupportScheduleGroupSchema,
+  SupportDialogTextRowSchema,
+  SupportDialogSupportPhoneRowSchema,
+  SupportDialogLocationPhoneRowSchema,
+  SupportDialogScheduleGroupHoursRowSchema,
+  SupportDialogLocationPhonesForGroupRowSchema,
   SupportDialogRowSchema,
   SupportDialogSectionSchema,
   SupportDialogSchema,
-  SupportDisplaySchema,
   LocationConfigSchema,
 } from './locations';
 export type {
   LocationItem,
   SupportScheduleGroup,
+  SupportDialogTextRow,
+  SupportDialogSupportPhoneRow,
+  SupportDialogLocationPhoneRow,
+  SupportDialogScheduleGroupHoursRow,
+  SupportDialogLocationPhonesForGroupRow,
   SupportDialogRow,
   SupportDialogSection,
   SupportDialog,
-  SupportDisplay,
   LocationConfig,
 } from './locations';
 
