@@ -65,7 +65,7 @@ export const UserMenu: FC = () => {
 
       const { data } = await refetchPractitionerEnrollmentStatus();
 
-      if (data?.registered && !data?.confirmed) {
+      if (data?.registered && !data?.confirmed && data?.identityVerified) {
         setPendingReviewOpen(true);
 
         safelyCaptureMessage('DoseSpot enrollment pending review', {
@@ -73,11 +73,13 @@ export const UserMenu: FC = () => {
           tags: {
             system: 'erx',
             providerEnrollment: 'pending-review',
+            source: 'user-menu',
           },
           extra: {
             practitionerId: practitioner?.id,
             registered: data?.registered,
             confirmed: data?.confirmed,
+            identityVerified: data?.identityVerified,
           },
         });
 

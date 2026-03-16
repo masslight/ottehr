@@ -1,10 +1,11 @@
 import { Alert, Box } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { PendingErxEnrollmentDialog } from 'src/components/dialogs/PendingErxEnrollmentDialog';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
 import { VitalFieldNames, VitalsObservationDTO } from 'utils';
-import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { useChartFields } from '../hooks/useChartFields';
 import {
@@ -41,6 +42,7 @@ export const ERX: FC<{
   }, [practitioner]);
 
   const [isTimeout, setIsTimeout] = useState<boolean>(false);
+  const [pendingErxEnrollmentDialogOpen, setPendingErxEnrollmentDialogOpen] = useState<boolean>(false);
 
   // Step 1: Get patient vitals
   const heightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalHeight, 'patient', 1);
@@ -240,6 +242,31 @@ export const ERX: FC<{
   useEffect(() => {
     if (
       practitionerEnrollmentStatus?.registered &&
+      !practitionerEnrollmentStatus.confirmed &&
+      practitionerEnrollmentStatus.identityVerified
+    ) {
+      setPendingErxEnrollmentDialogOpen(true);
+
+      safelyCaptureMessage('DoseSpot enrollment pending review', {
+        level: 'warning',
+        tags: {
+          system: 'erx',
+          providerEnrollment: 'pending-review',
+          source: 'erx-module',
+        },
+        extra: {
+          practitionerId: practitioner?.id,
+          registered: practitionerEnrollmentStatus?.registered,
+          confirmed: practitionerEnrollmentStatus?.confirmed,
+          identityVerified: practitionerEnrollmentStatus?.identityVerified,
+        },
+      });
+
+      return;
+    }
+
+    if (
+      practitionerEnrollmentStatus?.registered &&
       (!practitionerEnrollmentStatus?.confirmed || !practitionerEnrollmentStatus?.identityVerified) &&
       !isConnectingPractitionerForConfirmation &&
       !isPractitionerConnectedForConfirmation
@@ -252,6 +279,7 @@ export const ERX: FC<{
     isConnectingPractitionerForConfirmation,
     isPractitionerConnectedForConfirmation,
     practitionerEnrollmentStatus,
+    practitioner,
   ]);
 
   // Handle ready state
@@ -305,6 +333,10 @@ export const ERX: FC<{
           (alertMessage && <Alert severity="info">{alertMessage}</Alert>)}
         {(ssoLink || ssoLinkForEnrollment) && <ERXDialog ssoLink={ssoLink || ssoLinkForEnrollment || ''} />}
       </Box>
+      <PendingErxEnrollmentDialog
+        open={pendingErxEnrollmentDialogOpen}
+        handleClose={() => setPendingErxEnrollmentDialogOpen(false)}
+      />
     </>
   );
 };
