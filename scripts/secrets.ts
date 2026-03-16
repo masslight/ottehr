@@ -16,7 +16,7 @@ interface PathConfig {
   target: string;
 }
 
-interface AppConfig extends PathConfig {
+interface AppConfig {
   public: PathConfig;
 }
 
@@ -56,16 +56,12 @@ function getFilePaths(environment: string): GetFilePathConfig {
       },
     },
     ehr: {
-      source: path.join(secretsPath, 'apps', 'ehr', 'env', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'ehr', 'env', `.env.${environment}`),
       public: {
         source: path.join(secretsPath, 'apps', 'ehr', 'public'),
         target: path.join(repoRoot, 'apps', 'ehr', 'public'),
       },
     },
     patientPortal: {
-      source: path.join(secretsPath, 'apps', 'intake', 'env', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'intake', 'env', `.env.${environment}`),
       public: {
         source: path.join(secretsPath, 'apps', 'intake', 'public'),
         target: path.join(repoRoot, 'apps', 'intake', 'public'),
@@ -86,42 +82,98 @@ function getFilePaths(environment: string): GetFilePathConfig {
   };
 }
 
-function copyConfiguration(): void {
+function copyConfiguration(project?: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
 
   console.log('\n=== Copying configuration files ===');
 
+  // Skip configuration copying for ottehr project
+  if (project === 'ottehr') {
+    console.log('Skipping configuration copy for ottehr project');
+    return;
+  }
+
   // Clear and create target directories for configuration
   const configPaths = [
-    { source: path.join(secretsPath, 'configuration', 'oystehr'), target: path.join(repoRoot, 'config', 'oystehr') },
-    { source: path.join(secretsPath, 'configuration', 'sendgrid'), target: path.join(repoRoot, 'config', 'sendgrid') },
+    {
+      source: path.join(secretsPath, 'configuration', 'oystehr'),
+      target: path.join(repoRoot, 'config', 'oystehr'),
+      type: 'full',
+    },
+    {
+      source: path.join(secretsPath, 'configuration', 'sendgrid'),
+      target: path.join(repoRoot, 'config', 'sendgrid'),
+      type: 'full',
+    },
     {
       source: path.join(secretsPath, 'configuration', 'ottehr-config-overrides'),
       target: path.join(repoRoot, 'packages', 'utils', 'ottehr-config-overrides'),
+      type: 'selective',
     },
   ];
 
-  configPaths.forEach(({ source, target }) => {
-    // Remove existing directory and create fresh one
-    if (fs.existsSync(target)) {
-      fs.rmSync(target, { recursive: true, force: true });
-    }
-    fs.mkdirSync(target, { recursive: true });
+  configPaths.forEach(({ source, target, type }) => {
+    if (type === 'full') {
+      // Remove existing directory and create fresh one
+      if (fs.existsSync(target) && fs.existsSync(source)) {
+        fs.rmSync(target, { recursive: true, force: true });
+      } else if (!fs.existsSync(source)) {
+        console.log(`⚠ Secrets source config folder is missing: ${path.relative(repoRoot, source)}. Skipping copy.`);
+        return;
+      }
+      fs.mkdirSync(target, { recursive: true });
 
-    // Copy if source exists
-    if (fs.existsSync(source)) {
-      fs.cpSync(source, target, { recursive: true });
+      // Copy if source exists
+      if (fs.existsSync(source)) {
+        fs.cpSync(source, target, { recursive: true });
+        console.log(
+          `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
+        );
+      } else {
+        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
+      }
+    } else if (type === 'selective') {
+      // For ottehr-config-overrides: only replace directories that exist in both target and source
+      if (!fs.existsSync(source)) {
+        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
+        return;
+      }
+
+      // Ensure target directory exists
+      if (!fs.existsSync(target)) {
+        console.log(`⚠ Target directory not found: ${path.relative(repoRoot, target)}`);
+        return;
+      }
+
+      // Read all items in target directory (working copy)
+      const targetItems = fs.readdirSync(target, { withFileTypes: true });
+
+      targetItems.forEach((item) => {
+        const sourcePath = path.join(source, item.name);
+        const targetPath = path.join(target, item.name);
+
+        if (item.isDirectory() && fs.existsSync(sourcePath)) {
+          // Only replace if the directory also exists in source
+          fs.rmSync(targetPath, { recursive: true, force: true });
+          fs.cpSync(sourcePath, targetPath, { recursive: true });
+          console.log(`✓ Replaced override directory: ${item.name}`);
+        } else if (item.isDirectory()) {
+          console.log(`⚠ Skipping directory (not in secrets): ${item.name}`);
+        }
+      });
+
       console.log(
-        `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
+        `✓ Selectively copied ottehr-config-overrides from ${path.relative(repoRoot, source)} to ${path.relative(
+          repoRoot,
+          target
+        )}`
       );
-    } else {
-      console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
     }
   });
 }
 
-function populate(environment: string): void {
+function populate(environment: string, project?: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
   const paths = getFilePaths(environment);
@@ -132,7 +184,7 @@ function populate(environment: string): void {
   }
 
   // Copy configuration files first
-  copyConfiguration();
+  copyConfiguration(project);
 
   console.log('\n=== Populating environment-specific secrets ===');
 
@@ -153,20 +205,10 @@ function populate(environment: string): void {
       fs.copyFileSync(paths.zambdas.sentry.source, paths.zambdas.sentry.target);
       console.log(`Successfully copied .env.sentry-build-plugin to packages/zambdas/.env`);
     }
-    if (fs.existsSync(paths.ehr.source)) {
-      fs.mkdirSync(path.dirname(paths.ehr.target), { recursive: true });
-      fs.copyFileSync(paths.ehr.source, paths.ehr.target);
-      console.log(`Successfully copied .env.${environment} to packages/ehr/env`);
-    }
     if (fs.existsSync(paths.ehr.public.source)) {
       fs.mkdirSync(paths.ehr.public.target, { recursive: true });
       fs.cpSync(paths.ehr.public.source, paths.ehr.public.target, { recursive: true });
       console.log(`Successfully copied public assets to packages/ehr/public`);
-    }
-    if (fs.existsSync(paths.patientPortal.source)) {
-      fs.mkdirSync(path.dirname(paths.patientPortal.target), { recursive: true });
-      fs.copyFileSync(paths.patientPortal.source, paths.patientPortal.target);
-      console.log(`Successfully copied .env.${environment} to packages/intake/env`);
     }
     if (fs.existsSync(paths.patientPortal.public.source)) {
       fs.mkdirSync(paths.patientPortal.public.target, { recursive: true });
@@ -201,8 +243,6 @@ function validate(environment: string): void {
   [
     { path: paths.zambdas.target, name: 'Zambdas config' },
     ...(environment !== 'local' ? [{ path: paths.zambdas.sentry.target, name: 'Zambdas Sentry config' }] : []),
-    { path: paths.ehr.target, name: 'EHR env' },
-    { path: paths.patientPortal.target, name: 'Patient Portal env' },
     { path: paths.terraform.target, name: 'Terraform vars' },
     { path: paths.terraform.backend.target, name: 'Terraform backend config' },
   ].forEach(({ path: filePath, name }) => {
@@ -221,14 +261,17 @@ function validate(environment: string): void {
 function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
+  const project = process.argv[4];
+
   if (!environment) {
-    console.error('Error: environment parameter is required for populate command');
+    console.error('Error: environment parameter is required');
+    console.error('Usage: tsx scripts/secrets.ts <command> <environment> [project]');
     process.exit(1);
   }
 
   switch (command) {
     case 'populate':
-      populate(environment);
+      populate(environment, project);
       break;
     case 'validate':
       validate(environment);

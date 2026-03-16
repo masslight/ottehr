@@ -744,3 +744,6 @@ export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_UR
 
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';
+
+export const ACCIDENT_TYPE_SYSTEM = ottehrCodeSystemUrl('accident-type');
+export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');

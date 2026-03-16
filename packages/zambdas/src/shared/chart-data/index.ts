@@ -26,6 +26,9 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCIDENT_STATE_EXTENSION,
+  ACCIDENT_TYPE_SYSTEM,
+  AccidentDTO,
   ADDED_VIA_LAB_ORDER_SYSTEM,
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -1413,6 +1416,9 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
   // 6. Procedures
   data.procedures = makeProceduresDTOFromFhirResources(encounterResource, resources);
 
+  // 7. Accident
+  data.accident = makeAccidentDTOFromFhirResources(resources);
+
   return data;
 }
 
@@ -1593,7 +1599,9 @@ export function makeProceduresDTOFromFhirResources(
       medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
       bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
       bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
-      technique: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)?.valueString,
+      technique: getExtensions(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)
+        .map((extension) => extension.valueString)
+        .filter((value) => value != null),
       suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
       procedureDetails: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
       specimenSent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
@@ -1621,10 +1629,12 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.bodySide.url,
       valueString: procedure.bodySide,
     },
-    {
-      url: FHIR_EXTENSION.ServiceRequest.technique.url,
-      valueString: procedure.technique,
-    },
+    ...(procedure.technique?.map((technique) => {
+      return {
+        url: FHIR_EXTENSION.ServiceRequest.technique.url,
+        valueString: technique,
+      };
+    }) ?? []),
     {
       url: FHIR_EXTENSION.ServiceRequest.suppliesUsed.url,
       valueString: procedure.suppliesUsed,
@@ -1741,6 +1751,10 @@ function getExtension(resource: DomainResource, url: string): Extension | undefi
   return resource.extension?.find((extension) => extension.url === url);
 }
 
+function getExtensions(resource: DomainResource, url: string): Extension[] {
+  return resource.extension?.filter((extension) => extension.url === url) ?? [];
+}
+
 function getMedicationDosage(medication: MedicationStatement, medicationType: string): string | undefined {
   if (medicationType === 'in-house-medication') {
     const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
@@ -1765,3 +1779,52 @@ export function makeEncounterTaskResource(encounterId: string, coding: TaskCodin
     },
   };
 }
+
+export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): AccidentDTO | undefined {
+  const accidentCondition = resources.find(
+    (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
+  ) as Condition;
+  if (accidentCondition == null) {
+    return undefined;
+  }
+  return {
+    resourceId: accidentCondition.id,
+    type:
+      accidentCondition.code?.coding
+        ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
+        ?.map((coding) => coding.code as any) ?? [],
+    date: accidentCondition.onsetDateTime,
+    state: accidentCondition.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)?.valueString,
+  };
+}
+
+export const createAccidentCondition = (
+  accident: AccidentDTO,
+  encounterId: string,
+  patientId: string
+): BatchInputPutRequest<Condition> | BatchInputPostRequest<Condition> => {
+  return saveOrUpdateResourceRequest<Condition>({
+    resourceType: 'Condition',
+    id: accident.resourceId,
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    onsetDateTime: accident.date,
+    code: {
+      coding: accident.type.map((type) => {
+        return {
+          system: ACCIDENT_TYPE_SYSTEM,
+          code: type,
+        };
+      }),
+    },
+    extension: accident.state
+      ? [
+          {
+            url: ACCIDENT_STATE_EXTENSION,
+            valueString: accident.state,
+          },
+        ]
+      : undefined,
+    meta: getMetaWFieldName('accident'),
+  });
+};

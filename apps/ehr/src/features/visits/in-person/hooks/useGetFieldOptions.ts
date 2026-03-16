@@ -67,6 +67,8 @@ export type MedicationIdSelectOptions = {
   defaultOption?: Option;
   medispanCodeSet?: Set<string>;
   medispanCodeToMedicationId?: Record<string, string>;
+  ndcCodeSet?: Set<string>;
+  ndcToMedicationId?: Record<string, string>;
 };
 
 export type OrderFieldsSelectsOptions = Record<
@@ -202,6 +204,20 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     return map;
   }, [medicationList?.idToMedispanCode]);
 
+  const ndcCodeSet = useMemo(() => {
+    if (!medicationList?.idToNdc) return new Set<string>();
+    return new Set(Object.values(medicationList.idToNdc));
+  }, [medicationList?.idToNdc]);
+
+  const ndcToMedicationId = useMemo(() => {
+    if (!medicationList?.idToNdc) return {};
+    const map: Record<string, string> = {};
+    for (const [id, ndc] of Object.entries(medicationList.idToNdc)) {
+      if (ndc && !(ndc in map)) map[ndc] = id;
+    }
+    return map;
+  }, [medicationList?.idToNdc]);
+
   // Determine default provider (current user for Provider role)
   const currentUserProviderId = currentUser?.profile?.replace('Practitioner/', '');
   const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
@@ -216,6 +232,8 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       status: isMedicationLoading ? 'loading' : 'loaded',
       medispanCodeSet,
       medispanCodeToMedicationId,
+      ndcCodeSet,
+      ndcToMedicationId,
     },
     location: {
       options: locationsOptions,

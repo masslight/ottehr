@@ -32,6 +32,10 @@ describe('busy slots tests', () => {
   let processId: string | null = null;
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
+  // Use a fixed date that doesn't fall on a DST transition to avoid flaky slot count assertions.
+  // January 6, 2025 is a Monday in America/New_York with no DST change.
+  const NON_DST_DATE = DateTime.fromISO('2025-01-06T00:00:00', { zone: 'America/New_York' });
+
   beforeAll(async () => {
     processId = randomUUID();
     const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = SECRETS;
@@ -52,7 +56,7 @@ describe('busy slots tests', () => {
   });
 
   it('when capacity is 1, no slot will be available for an hour that has a booked slot', async () => {
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
+    const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
     let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
       {
@@ -73,7 +77,7 @@ describe('busy slots tests', () => {
     assert(scheduleExtension);
     const timezone = getTimezone(schedule);
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     let getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -172,7 +176,7 @@ describe('busy slots tests', () => {
   });
 
   it('removes busy slots from list returned by getAvailableSlotsForSchedules', async () => {
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
+    const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
     let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
       {
@@ -225,7 +229,7 @@ describe('busy slots tests', () => {
     expect(owner).toBeDefined();
     assert(owner);
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -328,7 +332,7 @@ describe('busy slots tests', () => {
     expect(slotStartTimes).toEqual(expectedList2);
   });
   it('removes busy-tentative and busy-unavailable slots from list returned by getAvailableSlotsForSchedules', async () => {
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
+    const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
     let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
       {
@@ -405,7 +409,7 @@ describe('busy slots tests', () => {
     }));
     await oystehr.fhir.batch({ requests: slotInputs });
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
     const getBusySlotsInput: GetSlotsInWindowInput = {
       scheduleIds: [schedule.id],
       fromISO: startDate.toISO()!,
@@ -444,7 +448,7 @@ describe('busy slots tests', () => {
     expect(slotStartTimes).toEqual(expectedList);
   });
   it('makes busy-tentative slots available again after 10 minutes', async () => {
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
+    const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
     let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
       {
@@ -521,7 +525,7 @@ describe('busy slots tests', () => {
     }));
     await oystehr.fhir.batch({ requests: slotInputs });
 
-    const startDate = startOfDayWithTimezone({ timezone });
+    const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
     const getBusySlotsInput: GetSlotsInWindowInput = {
       scheduleIds: [schedule.id],
       fromISO: startDate.toISO()!,

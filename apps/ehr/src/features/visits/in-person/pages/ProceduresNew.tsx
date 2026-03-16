@@ -89,7 +89,7 @@ interface PageState {
   bodySite?: string;
   otherBodySite?: string;
   bodySide?: string;
-  technique?: string;
+  technique?: string[];
   suppliesUsed?: string[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
@@ -735,6 +735,11 @@ export default function ProceduresNew(): ReactElement {
           (state as any)[key] = value;
         }
       });
+      Object.entries(state).forEach(([key, _value]) => {
+        if ((quickPick as any)[key] == null) {
+          (state as any)[key] = undefined;
+        }
+      });
     });
   };
 
@@ -866,7 +871,7 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.bodySide = value),
               dataTestIds.documentProcedurePage.sideOfBody
             )}
-            {dropdown(
+            {multiSelect(
               'Technique',
               selectOptions?.techniques,
               state.technique,

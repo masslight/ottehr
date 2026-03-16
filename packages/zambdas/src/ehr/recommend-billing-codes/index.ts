@@ -46,7 +46,7 @@ export const index = wrapHandler(
         prompt += ` The side of the body for the procedure is: ${bodySide}.`;
       }
       if (technique) {
-        prompt += ` The technique used in the procedure is: ${technique}.`;
+        prompt += ` The techniques used in the procedure are: ${technique.join(', ')}.`;
       }
       if (suppliesUsed) {
         prompt += ` The supplies used during the procedure are: ${suppliesUsed}.`;

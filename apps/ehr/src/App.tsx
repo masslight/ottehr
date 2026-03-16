@@ -13,6 +13,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
+import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
@@ -30,8 +31,10 @@ import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
+import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
+import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
@@ -40,6 +43,7 @@ import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
+  CompleteEncounters,
   DailyPayments,
   DataExports,
   IncompleteEncounters,
@@ -189,6 +193,7 @@ function App(): ReactElement {
                   <Route path="/tasks-observability" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
+                  <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
                   <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
                   <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
@@ -213,6 +218,7 @@ function App(): ReactElement {
                   <Route path="/employees" element={<EmployeesPage />} />
                   <Route path="/employees/add" element={<AddEmployeePage />} />
                   <Route path="/employee/:id" element={<EditEmployeePage />} />
+                  <Route path="/profile" element={<EmployeeProfilePage />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
@@ -241,6 +247,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
@@ -252,6 +259,7 @@ function App(): ReactElement {
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
+                  <Route path="/profile" element={<EmployeeProfilePage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
@@ -286,6 +294,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>

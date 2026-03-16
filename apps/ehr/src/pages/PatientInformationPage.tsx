@@ -2,7 +2,7 @@ import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
+import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
@@ -196,7 +196,7 @@ const usePatientData = (
     const isFetching = accountFetching;
 
     let defaultFormVals: any;
-    if (!isFetching && accountData && questionnaire) {
+    if (accountData && questionnaire) {
       const prepopulatedForm = prepopulatePatientRecordItems({
         ...accountData,
         coverages: {},
@@ -253,11 +253,20 @@ const useFormData = (
 
   const methods = useForm({
     defaultValues: defaultFormVals,
-    values: defaultFormVals,
     mode: 'onBlur',
     reValidateMode: 'onChange',
     resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
+
+  // Populate form when data first loads (defaultValues only applies at mount time,
+  // and the form mounts before data is available)
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (defaultFormVals && !initializedRef.current) {
+      methods.reset(defaultFormVals);
+      initializedRef.current = true;
+    }
+  }, [defaultFormVals, methods]);
 
   const { coveragesFormValues } = useMemo(() => {
     let coveragesFormValues: any;
@@ -354,12 +363,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const { dirtyFields } = formState;
 
   useEffect(() => {
-    if (defaultFormVals && formState.isSubmitSuccessful && submitQR.isSuccess) {
-      methods.reset();
-    }
-  }, [defaultFormVals, methods, formState.isSubmitSuccessful, submitQR.isSuccess]);
-
-  useEffect(() => {
     if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
 
     Object.entries(coveragesFormValues).forEach(([key, value]) => {
@@ -401,7 +404,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
         reference: 'Encounter/' + appointmentContext.encounterId,
       };
     }
-    submitQR.mutate(qr);
+    await submitQR.mutateAsync(qr);
+    methods.reset(values);
   };
 
   const handleRemoveCoverage = (coverageId: string): void => {
@@ -430,7 +434,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     return loadingComponent;
   }
 
-  if (!patient) return null;
+  if (!patient || !defaultFormVals) return loadingComponent;
 
   const currentlyAssignedPriorities = watch(InsurancePriorityFields);
 
