@@ -24,46 +24,29 @@ export const SupportScheduleGroupSchema = z
 
 export type SupportScheduleGroup = z.infer<typeof SupportScheduleGroupSchema>;
 
-export const SupportDialogTextRowSchema = z.object({
-  type: z.literal('text'),
-  value: z.string().min(1),
-  emphasized: z.boolean().optional(),
-});
-
-export type SupportDialogTextRow = z.infer<typeof SupportDialogTextRowSchema>;
-
-export const SupportDialogSupportPhoneRowSchema = z.object({
+const SupportDialogSupportPhoneRowSchema = z.object({
   type: z.literal('supportPhone'),
   label: z.string().min(1).optional(),
   suffixText: z.string().min(1).optional(),
 });
 
-export type SupportDialogSupportPhoneRow = z.infer<typeof SupportDialogSupportPhoneRowSchema>;
-
-export const SupportDialogLocationPhoneRowSchema = z.object({
+const SupportDialogLocationPhoneRowSchema = z.object({
   type: z.literal('locationPhone'),
   location: z.string().min(1),
   suffixText: z.string().min(1).optional(),
 });
 
-export type SupportDialogLocationPhoneRow = z.infer<typeof SupportDialogLocationPhoneRowSchema>;
-
-export const SupportDialogScheduleGroupHoursRowSchema = z.object({
+const SupportDialogScheduleGroupHoursRowSchema = z.object({
   type: z.literal('scheduleGroupHours'),
   groupIndex: z.number().int().nonnegative(),
 });
 
-export type SupportDialogScheduleGroupHoursRow = z.infer<typeof SupportDialogScheduleGroupHoursRowSchema>;
-
-export const SupportDialogLocationPhonesForGroupRowSchema = z.object({
+const SupportDialogLocationPhonesForGroupRowSchema = z.object({
   type: z.literal('locationPhonesForGroup'),
   groupIndex: z.number().int().nonnegative(),
 });
 
-export type SupportDialogLocationPhonesForGroupRow = z.infer<typeof SupportDialogLocationPhonesForGroupRowSchema>;
-
 export const SupportDialogRowSchema = z.discriminatedUnion('type', [
-  SupportDialogTextRowSchema,
   SupportDialogSupportPhoneRowSchema,
   SupportDialogLocationPhoneRowSchema,
   SupportDialogScheduleGroupHoursRowSchema,

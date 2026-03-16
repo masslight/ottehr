@@ -87,11 +87,6 @@ export type { LegalConfig } from './legal';
 export {
   LocationItemSchema,
   SupportScheduleGroupSchema,
-  SupportDialogTextRowSchema,
-  SupportDialogSupportPhoneRowSchema,
-  SupportDialogLocationPhoneRowSchema,
-  SupportDialogScheduleGroupHoursRowSchema,
-  SupportDialogLocationPhonesForGroupRowSchema,
   SupportDialogRowSchema,
   SupportDialogSectionSchema,
   SupportDialogSchema,
@@ -100,11 +95,6 @@ export {
 export type {
   LocationItem,
   SupportScheduleGroup,
-  SupportDialogTextRow,
-  SupportDialogSupportPhoneRow,
-  SupportDialogLocationPhoneRow,
-  SupportDialogScheduleGroupHoursRow,
-  SupportDialogLocationPhonesForGroupRow,
   SupportDialogRow,
   SupportDialogSection,
   SupportDialog,

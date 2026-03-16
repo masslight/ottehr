@@ -81,8 +81,6 @@ function resolveSupportDialogRows(
 ): ResolvedSupportDialog['sections'][number]['rows'] {
   return rows.flatMap<ResolvedSupportDialogRow>((row) => {
     switch (row.type) {
-      case 'text':
-        return [{ value: row.value, emphasized: row.emphasized }];
       case 'supportPhone': {
         const supportPhone = getSupportPhoneFor();
 
