@@ -167,6 +167,7 @@ function validate(environment: string): void {
 function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
+  const project: string | undefined = process.argv[3];
 
   if (!environment) {
     console.error('Error: environment parameter is required');
@@ -176,7 +177,7 @@ function main(): void {
 
   switch (command) {
     case 'populate':
-      populate(environment);
+      populate(environment, project);
       break;
     case 'validate':
       validate(environment);
