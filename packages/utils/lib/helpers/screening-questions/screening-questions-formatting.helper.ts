@@ -39,7 +39,6 @@ export function formatScreeningQuestionValue(fieldId: string, rawValue: any): st
 
     case 'date':
       if (typeof rawValue === 'string') {
-        // Date is stored as YYYY-MM-DD (date-only format) in FHIR valueDateTime
         const dateTime = DateTime.fromISO(rawValue);
         if (dateTime.isValid) {
           return dateTime.toFormat('MM/dd/yyyy');
@@ -53,12 +52,14 @@ export function formatScreeningQuestionValue(fieldId: string, rawValue: any): st
         const formatDate = (dateStr: string): string => {
           if (!dateStr) return 'N/A';
 
-          // Date is stored as YYYY-MM-DD (date-only format) in FHIR effectivePeriod
+          // Handle ISO date strings using Luxon
           const dateTime = DateTime.fromISO(dateStr);
           if (dateTime.isValid) {
+            // Format as MM/dd/yyyy to match DateRangePicker format
             return dateTime.toFormat('MM/dd/yyyy');
           }
 
+          // If Luxon can't parse it, return as-is
           return dateStr;
         };
         return `${formatDate(start)} - ${formatDate(end)}`;

@@ -39,9 +39,7 @@
           {
             "name": {
               "family": "Smith",
-              "given": [
-                "John"
-              ]
+              "given": ["John"]
             },
             "telecom": [
               {
@@ -62,6 +60,7 @@
         ]
       }
     },
+
     "ISSUE_REPORT_GROUP": {
       "resource": {
         "resourceType": "Group",
@@ -80,14 +79,12 @@
         "member": [],
         "actual": true
       },
-      "managedFields": [
-        "name"
-      ]
+      "managedFields": ["name"]
     },
     "DEFAULT_BILLING_RESOURCE": {
       "resource": {
         "resourceType": "Organization",
-        "name": "Ottehr Clinic",
+        "name": "Default Billing Provider",
         "identifier": [
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
@@ -113,45 +110,15 @@
             "value": "99-9999999"
           }
         ],
-        "telecom": [
-          {
-            "system": "phone",
-            "value": "+1-206-555-1212",
-            "use": "work"
-          },
-          {
-            "system": "email",
-            "value": "billing@ottehr.com",
-            "use": "work"
-          },
-          {
-            "system": "url",
-            "value": "ottehr.com",
-            "use": "work"
-          }
-        ],
         "address": [
           {
             "use": "billing",
-            "type": "physical",
-            "line": [
-              "371 Pine St"
-            ],
             "city": "Seattle",
             "state": "WA",
             "postalCode": "98105",
-            "country": "US"
-          },
-          {
-            "use": "work",
-            "type": "postal",
-            "line": [
-              "PO Box 1234"
-            ],
-            "city": "Seattle",
-            "state": "WA",
-            "postalCode": "98101",
-            "country": "US"
+            "country": "United States",
+            "type": "physical",
+            "line": ["371 Pine St"]
           }
         ]
       }

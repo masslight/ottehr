@@ -1190,53 +1190,6 @@
       "src": "src/ehr/get-invoices-tasks/index",
       "zip": ".dist/zips/get-invoices-tasks.zip"
     },
-    "GET-STATEMENT-TEMPLATE": {
-      "name": "get-statement-template",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/statements/get-template/index",
-      "zip": ".dist/zips/get-statement-template.zip"
-    },
-    "GET-STATEMENT-DETAILS": {
-      "name": "get-statement-details",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/statements/get-details/index",
-      "zip": ".dist/zips/get-statement-details.zip"
-    },
-    "GET-STATEMENT-STATUS": {
-      "name": "get-statement-status",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/statements/get-status/index",
-      "zip": ".dist/zips/get-statement-status.zip"
-    },
-    "CREATE-MAIL-STATEMENT-TASK": {
-      "name": "create-mail-statement-task",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/statements/create-mail-statement-task/index",
-      "zip": ".dist/zips/create-mail-statement-task.zip"
-    },
-    "SUB-SEND-PATIENT-STATEMENT-BY-MAIL": {
-      "name": "sub-send-patient-statement-by-mail",
-      "type": "subscription",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/task/sub-send-patient-statement-by-mail/index",
-      "zip": ".dist/zips/sub-send-patient-statement-by-mail.zip",
-      "subscription": {
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-statement-mail|send-patient-statement-by-mail&status=requested",
-        "reason": "Send patient statement by mail",
-        "event": "create"
-      }
-    },
-    "CREATE-GENERATE-STATEMENT-TASK": {
-      "name": "create-generate-statement-task",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/statements/create-generate-statement-task/index",
-      "zip": ".dist/zips/create-generate-statement-task.zip"
-    },
     "SUB-REFRESH-INVOICE-TASK": {
       "name": "sub-refresh-invoice-task",
       "type": "subscription",
@@ -1271,17 +1224,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
       "zip": ".dist/zips/make-medication-history-pdf.zip"
-    },
-    "ERX_NOTIFICATION": {
-      "name": "erx-notification-subscription",
-      "type": "subscription",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/communication/erx-notification/index",
-      "zip": ".dist/zips/erx-notification.zip",
-      "subscription": {
-        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
-        "reason": "Create Task for eRX notification"
-      }
     }
   },
   "fhirResources": {
@@ -1547,59 +1489,15 @@
         ]
       }
     },
-    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE": {
+    "SUB_GENERATE_STATEMENT_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "Generate statement on invoice creation",
+        "reason": "Generate statement",
         "criteria": "Task?code=|send-invoice-to-patient&status=completed",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          },
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "update"
-          }
-        ]
-      }
-    },
-    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_DEMAND": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Generate statement on demand",
-        "criteria": "Task?code=|generate-statement&status=requested",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          },
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "update"
-          }
-        ]
-      }
-    },    
-    "SUB_SEND_PATIENT_STATEMENT_BY_MAIL_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Send patient statement by mail",
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-statement-mail|send-patient-statement-by-mail&status=requested",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-PATIENT-STATEMENT-BY-MAIL/id}"
         },
         "extension": [
           {
@@ -1643,24 +1541,6 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "update"
-          }
-        ]
-      }
-    },
-    "SUB_ERX_NOTIFICATION_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "eRX notification",
-        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX_NOTIFICATION/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
           }
         ]
       }

@@ -119,20 +119,48 @@ export class DocumentProcedurePage {
     );
   }
 
-  async selectTechnique(technique: string[]): Promise<void> {
-    await this.#selectFromMultiselect(dataTestIds.documentProcedurePage.technique, technique);
+  async selectTechnique(technique: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.documentProcedurePage.technique).click();
+    await this.#page.getByText(technique, { exact: true }).click();
   }
 
-  async verifyTechnique(technique: string[]): Promise<void> {
-    await this.#verifyMultiselect(dataTestIds.documentProcedurePage.technique, technique);
+  async verifyTechnique(technique: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.technique).locator('input')).toHaveValue(
+      technique
+    );
   }
 
   async selectInstruments(instruments: string[]): Promise<void> {
-    await this.#selectFromMultiselect(dataTestIds.documentProcedurePage.instruments, instruments);
+    const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
+    await field.click();
+
+    const clearButton = field.locator('button[aria-label="Clear"]');
+    if (await clearButton.isVisible()) {
+      await clearButton.click();
+    }
+
+    for (const instrument of instruments) {
+      await this.#page.getByText(instrument, { exact: true }).click();
+    }
+
+    await this.#page.keyboard.press('Escape');
   }
 
   async verifyInstruments(expected: string[]): Promise<void> {
-    await this.#verifyMultiselect(dataTestIds.documentProcedurePage.instruments, expected);
+    const instrumentsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
+    const selectedOptions = instrumentsField.locator('.MuiChip-label');
+    const count = await selectedOptions.count();
+    const actualValues: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      actualValues.push(await selectedOptions.nth(i).innerText());
+    }
+
+    expect(actualValues.length).toBe(expected.length);
+
+    for (const value of expected) {
+      expect(actualValues).toContain(value);
+    }
   }
 
   async enterProcedureDetails(procedureDetails: string): Promise<void> {
@@ -191,14 +219,36 @@ export class DocumentProcedurePage {
   }
 
   async selectPostProcedureInstructions(postProcedureInstructions: string[]): Promise<void> {
-    await this.#selectFromMultiselect(
-      dataTestIds.documentProcedurePage.postProcedureInstructions,
-      postProcedureInstructions
-    );
+    const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
+    await field.click();
+
+    const clearButton = field.locator('button[aria-label="Clear"]');
+    if (await clearButton.isVisible()) {
+      await clearButton.click();
+    }
+
+    for (const instruction of postProcedureInstructions) {
+      await this.#page.getByText(instruction, { exact: true }).click();
+    }
+
+    await this.#page.keyboard.press('Escape');
   }
 
   async verifyPostProcedureInstructions(expected: string[]): Promise<void> {
-    await this.#verifyMultiselect(dataTestIds.documentProcedurePage.postProcedureInstructions, expected);
+    const instructionsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
+    const selectedOptions = instructionsField.locator('.MuiChip-label');
+    const count = await selectedOptions.count();
+    const actualValues: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      actualValues.push(await selectedOptions.nth(i).innerText());
+    }
+
+    expect(actualValues.length).toBe(expected.length);
+
+    for (const value of expected) {
+      expect(actualValues).toContain(value);
+    }
   }
 
   async selectTimeSpent(timeSpent: string): Promise<void> {
@@ -231,39 +281,6 @@ export class DocumentProcedurePage {
   async clickSaveButton(): Promise<ProceduresPage> {
     await this.#page.getByTestId(dataTestIds.documentProcedurePage.saveButton).click();
     return await expectProceduresPage(this.#page);
-  }
-
-  async #selectFromMultiselect(testId: string, values: string[]): Promise<void> {
-    const field = this.#page.getByTestId(testId);
-    await field.click();
-
-    const clearButton = field.locator('button[aria-label="Clear"]');
-    if (await clearButton.isVisible()) {
-      await clearButton.click();
-    }
-
-    for (const value of values) {
-      await this.#page.getByText(value, { exact: true }).click();
-    }
-
-    await this.#page.keyboard.press('Escape');
-  }
-
-  async #verifyMultiselect(testId: string, expectedValues: string[]): Promise<void> {
-    const field = this.#page.getByTestId(testId);
-    const selectedOptions = field.locator('.MuiChip-label');
-    const count = await selectedOptions.count();
-    const actualValues: string[] = [];
-
-    for (let i = 0; i < count; i++) {
-      actualValues.push(await selectedOptions.nth(i).innerText());
-    }
-
-    expect(actualValues.length).toBe(expectedValues.length);
-
-    for (const expectedValue of expectedValues) {
-      expect(actualValues).toContain(expectedValue);
-    }
   }
 }
 

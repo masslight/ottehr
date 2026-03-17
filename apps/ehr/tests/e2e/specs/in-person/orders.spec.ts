@@ -42,7 +42,7 @@ interface ProcedureInfo {
   anaesthesia: string;
   bodySite: string;
   bodySide: string;
-  technique: string[];
+  technique: string;
   instruments: string[];
   details: string;
   specimenSent: string;
@@ -100,7 +100,7 @@ const PROCEDURE_A: ProcedureInfo = {
   anaesthesia: PROCEDURE_MEDICATIONS_USED_CODINGS[0].display,
   bodySite: PROCEDURE_BODY_SITES_CODINGS[0].display,
   bodySide: PROCEDURE_BODY_SIDES_CODINGS[0].display,
-  technique: [PROCEDURE_TECHNIQUES_CODINGS[0].display],
+  technique: PROCEDURE_TECHNIQUES_CODINGS[0].display,
   instruments: [PROCEDURE_SUPPLIES_CODINGS[0].display],
   details: 'test details a',
   specimenSent: 'Yes',
@@ -123,7 +123,7 @@ const PROCEDURE_B: ProcedureInfo = {
   anaesthesia: PROCEDURE_MEDICATIONS_USED_CODINGS[1].display,
   bodySite: PROCEDURE_BODY_SITES_CODINGS[1].display,
   bodySide: PROCEDURE_BODY_SIDES_CODINGS[1].display,
-  technique: [PROCEDURE_TECHNIQUES_CODINGS[1].display],
+  technique: PROCEDURE_TECHNIQUES_CODINGS[1].display,
   instruments: [PROCEDURE_SUPPLIES_CODINGS[1].display],
   details: 'test details b',
   specimenSent: 'No',
