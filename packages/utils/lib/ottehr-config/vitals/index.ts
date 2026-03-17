@@ -584,6 +584,17 @@ const AgeSchema = z.object({
   unit: z.enum(['years', 'months', 'days']),
   value: z.number().int().nonnegative(),
 });
+
+function ageToDays(age: z.infer<typeof AgeSchema>): number {
+  switch (age.unit) {
+    case 'years':
+      return age.value * 365;
+    case 'months':
+      return age.value * 30;
+    case 'days':
+      return age.value;
+  }
+}
 const BaseConstraintSchema = z.object({
   type: z.enum(['min', 'max']),
   units: z.string().optional(),
@@ -650,7 +661,7 @@ const AlertThresholdSchema = z
   .refine(
     (data) => {
       if (data.minAge && data.maxAge) {
-        return data.minAge.value <= data.maxAge.value;
+        return ageToDays(data.minAge) <= ageToDays(data.maxAge);
       }
       return true;
     },
