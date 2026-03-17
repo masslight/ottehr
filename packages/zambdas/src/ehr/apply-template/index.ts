@@ -192,10 +192,9 @@ const makeDeleteRequests = async (
         (tag) =>
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' ||
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision' ||
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction'
-        // CPT and E&M codes are additive (like ICD diagnoses), not replaced
-        // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' ||
-        // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code'
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction' ||
+          // E&M code is replaced (one per visit); CPT codes are additive (like ICD diagnoses)
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code'
         // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
       )
   );
