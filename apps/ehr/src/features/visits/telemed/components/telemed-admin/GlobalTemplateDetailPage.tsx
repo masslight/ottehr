@@ -28,6 +28,7 @@ import PageContainer from 'src/layout/PageContainer';
 
 interface ExamFinding {
   fieldName: string;
+  label: string;
   isAbnormal: boolean;
   note: string;
 }
@@ -56,13 +57,6 @@ interface TemplateDetailData {
     cptCodes: CodeInfo[];
     emCode: CodeInfo | null;
   };
-}
-
-function formatFieldName(fieldName: string): string {
-  return fieldName
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 function SectionCard({ title, children }: { title: string; children: ReactElement | string }): ReactElement {
@@ -189,7 +183,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                   <TableBody>
                     {sections.examFindings.map((finding, index) => (
                       <TableRow key={index}>
-                        <TableCell>{formatFieldName(finding.fieldName)}</TableCell>
+                        <TableCell>{finding.label}</TableCell>
                         <TableCell>
                           <Chip
                             label={finding.isAbnormal ? 'Abnormal' : 'Normal'}

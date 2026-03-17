@@ -1,13 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, List, Observation, Procedure, Resource } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
+import { examConfig, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { AdminGetTemplateDetailInput, validateRequestParameters } from './validateRequestParameters';
 
 interface ExamFinding {
   fieldName: string;
+  label: string;
   isAbnormal: boolean;
   note: string;
 }
@@ -72,6 +73,61 @@ function getTagCode(resource: Resource, tagSystem: string): string | undefined {
   return resource.meta?.tag?.find((tag) => tag.system === tagSystem)?.code;
 }
 
+// Build a set of all field codes that appear under 'abnormal' sections in the exam config
+function buildAbnormalFieldCodes(): Set<string> {
+  const abnormalCodes = new Set<string>();
+  const config = examConfig.inPerson.default.config;
+
+  function collectAbnormalCodes(obj: Record<string, any>): void {
+    for (const [key, value] of Object.entries(obj)) {
+      if (key === 'abnormal' && typeof value === 'object') {
+        collectFieldCodes(value, abnormalCodes);
+      } else if (typeof value === 'object' && value !== null && 'components' in value) {
+        collectAbnormalCodes(value.components);
+      }
+    }
+  }
+
+  function collectFieldCodes(obj: Record<string, any>, codes: Set<string>): void {
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === 'object' && value !== null) {
+        if ('type' in value && value.type === 'checkbox') {
+          codes.add(key);
+        } else if ('components' in value) {
+          collectFieldCodes(value.components, codes);
+        } else if ('type' in value && value.type === 'column') {
+          collectFieldCodes(value.components, codes);
+        }
+      }
+    }
+  }
+
+  collectAbnormalCodes(config);
+  return abnormalCodes;
+}
+
+// Build a map of field codes to their display labels from the exam config
+function buildFieldLabels(): Map<string, string> {
+  const labels = new Map<string, string>();
+  const config = examConfig.inPerson.default.config;
+
+  function collect(obj: Record<string, any>): void {
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === 'object' && value !== null) {
+        if ('label' in value && 'type' in value && (value.type === 'checkbox' || value.type === 'text')) {
+          labels.set(key, value.label as string);
+        }
+        if ('components' in value) {
+          collect(value.components);
+        }
+      }
+    }
+  }
+
+  collect(config);
+  return labels;
+}
+
 const performEffect = async (
   validatedInput: AdminGetTemplateDetailInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr
@@ -112,12 +168,16 @@ const performEffect = async (
       hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field')
   ) as Observation[];
 
+  const abnormalFieldCodes = buildAbnormalFieldCodes();
+  const fieldLabels = buildFieldLabels();
+
   const examFindings: ExamFinding[] = examObservations.map((obs) => {
-    const fieldName =
+    const fieldCode =
       getTagCode(obs, 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field') ?? 'unknown';
-    const isAbnormal = obs.valueBoolean === false;
+    const isAbnormal = abnormalFieldCodes.has(fieldCode);
     const note = obs.note?.[0]?.text ?? '';
-    return { fieldName, isAbnormal, note };
+    const label = fieldLabels.get(fieldCode) ?? obs.code?.text ?? fieldCode;
+    return { fieldName: fieldCode, label, isAbnormal, note };
   });
 
   // Parse MDM
