@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
 
-export const QUICK_PICK_TAG_SYSTEM = 'https://extensions.fhir.oystehr.com/resource-tag';
-export const QUICK_PICK_CONFIG_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/quick-pick-config';
+export const QUICK_PICK_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/quick-pick-category';
+export const QUICK_PICK_CONFIG_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/quick-pick-config';
 
 /**
  * Configuration for a quick pick category. Each category uses the same

@@ -12,10 +12,9 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'admin-get-procedure-quick-picks';
-export const PROCEDURE_QUICK_PICK_TAG_SYSTEM = 'https://extensions.fhir.oystehr.com/resource-tag';
+export const PROCEDURE_QUICK_PICK_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/quick-pick-category';
 export const PROCEDURE_QUICK_PICK_TAG_CODE = 'procedure-quick-pick';
-export const PROCEDURE_QUICK_PICK_CONFIG_EXTENSION_URL =
-  'https://extensions.fhir.oystehr.com/procedure-quick-pick-config';
+export const PROCEDURE_QUICK_PICK_CONFIG_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/quick-pick-config';
 
 let m2mToken: string;
 
