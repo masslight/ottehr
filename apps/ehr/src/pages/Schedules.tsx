@@ -1,39 +1,29 @@
-import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Tab } from '@mui/material';
+import { Box, Button, ButtonGroup } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ScheduleInformation } from '../components/ScheduleInformation';
-import PageContainer from '../layout/PageContainer';
+import { ScheduleInformation, ScheduleType } from '../components/ScheduleInformation';
 
 export default function SchedulesPage(): ReactElement {
   const location = useLocation();
-  const [tab, setTab] = useState<string>(location.state?.defaultTab || 'location');
+  const [tab, setTab] = useState<ScheduleType>(location.state?.defaultTab || 'location');
 
   return (
-    <PageContainer>
-      <>
-        <TabContext value={tab}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mx: 3 }}>
-            <TabList
-              onChange={(event, tabTemp) => setTab(tabTemp)}
-              aria-label="Switch between different schedule options"
-            >
-              <Tab label="Locations" value="location" sx={{ textTransform: 'none', fontWeight: 500 }} />
-              <Tab label="Providers" value="provider" sx={{ textTransform: 'none', fontWeight: 500 }} />
-              <Tab label="Groups" value="group" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            </TabList>
-          </Box>
-          <TabPanel value="location">
-            <ScheduleInformation scheduleType="location"></ScheduleInformation>
-          </TabPanel>
-          <TabPanel value="provider">
-            <ScheduleInformation scheduleType="provider"></ScheduleInformation>
-          </TabPanel>
-          <TabPanel value="group">
-            <ScheduleInformation scheduleType="group"></ScheduleInformation>
-          </TabPanel>
-        </TabContext>
-      </>
-    </PageContainer>
+    <Box sx={{ marginTop: 2 }}>
+      <ButtonGroup size="medium" aria-label="Switch between different schedule options" sx={{ marginBottom: 2 }}>
+        <Button variant={tab === 'location' ? 'contained' : 'outlined'} onClick={() => setTab('location')}>
+          Locations
+        </Button>
+        <Button variant={tab === 'provider' ? 'contained' : 'outlined'} onClick={() => setTab('provider')}>
+          Providers
+        </Button>
+        <Button variant={tab === 'group' ? 'contained' : 'outlined'} onClick={() => setTab('group')}>
+          Groups
+        </Button>
+      </ButtonGroup>
+      {/* <ScheduleInformation scheduleType={tab}></ScheduleInformation> */}
+      {tab === 'location' && <ScheduleInformation scheduleType="location" />}
+      {tab === 'provider' && <ScheduleInformation scheduleType="provider" />}
+      {tab === 'group' && <ScheduleInformation scheduleType="group" />}
+    </Box>
   );
 }
