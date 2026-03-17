@@ -71,7 +71,7 @@ runs:
         output-credentials: true
     - name: Configure AWS CLI
       if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
-      shell: bash
+      shell: /usr/bin/bash --noprofile --norc {0}
       run: |
         aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
         if [ -z "$aws_profile" ]; then
