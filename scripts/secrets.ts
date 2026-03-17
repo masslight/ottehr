@@ -16,7 +16,7 @@ interface PathConfig {
   target: string;
 }
 
-interface AppConfig extends PathConfig {
+interface AppConfig {
   public: PathConfig;
 }
 
@@ -56,16 +56,12 @@ function getFilePaths(environment: string): GetFilePathConfig {
       },
     },
     ehr: {
-      source: path.join(secretsPath, 'apps', 'ehr', 'env', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'ehr', 'env', `.env.${environment}`),
       public: {
         source: path.join(secretsPath, 'apps', 'ehr', 'public'),
         target: path.join(repoRoot, 'apps', 'ehr', 'public'),
       },
     },
     patientPortal: {
-      source: path.join(secretsPath, 'apps', 'intake', 'env', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'intake', 'env', `.env.${environment}`),
       public: {
         source: path.join(secretsPath, 'apps', 'intake', 'public'),
         target: path.join(repoRoot, 'apps', 'intake', 'public'),
@@ -99,41 +95,108 @@ function copyConfiguration(project?: string): void {
   }
 
   // Clear and create target directories for configuration
-  const configPaths = [
+  const oystehrPreserveFiles = [
+    'apps.json',
+    'buckets.json',
+    'm2ms.json',
+    'outputs.json',
+    'project.json',
+    'roles.json',
+    'secrets.json',
+    'zambdas.json',
+  ];
+
+  const configPaths: { source: string; target: string; type: string; preserveFiles: string[] }[] = [
     {
       source: path.join(secretsPath, 'configuration', 'oystehr'),
       target: path.join(repoRoot, 'config', 'oystehr'),
       type: 'full',
+      preserveFiles: oystehrPreserveFiles,
     },
     {
       source: path.join(secretsPath, 'configuration', 'sendgrid'),
       target: path.join(repoRoot, 'config', 'sendgrid'),
       type: 'full',
+      preserveFiles: [],
     },
     {
       source: path.join(secretsPath, 'configuration', 'ottehr-config-overrides'),
       target: path.join(repoRoot, 'packages', 'utils', 'ottehr-config-overrides'),
       type: 'selective',
+      preserveFiles: [],
     },
   ];
 
-  configPaths.forEach(({ source, target, type }) => {
+  const TEMP_PRESERVE_DIR = path.join(repoRoot, '.tmp-preserve');
+
+  // Helper to backup preserved files to temp directory before directory removal
+  function backupPreservedFiles(target: string, fileNames: string[]): string[] {
+    const backed: string[] = [];
+    for (const fileName of fileNames) {
+      const filePath = path.join(target, fileName);
+      console.log(`Checking for preserved file: ${path.relative(repoRoot, filePath)}`);
+      if (fs.existsSync(filePath)) {
+        console.log(`  → Found preserved file, backing up: ${fileName}`);
+        fs.mkdirSync(TEMP_PRESERVE_DIR, { recursive: true });
+        fs.copyFileSync(filePath, path.join(TEMP_PRESERVE_DIR, fileName));
+        backed.push(fileName);
+        console.log(`  ↔ Backed up preserved file: ${fileName}`);
+      }
+    }
+    if (backed.length > 0) {
+      console.log(
+        `  Backed up ${backed.length} preserved files from ${path.relative(repoRoot, target)}: ${backed.join(', ')}`
+      );
+    }
+    return backed;
+  }
+
+  // Helper to restore preserved files from temp directory after directory recreation
+  function restorePreservedFiles(target: string, backedFiles: string[]): void {
+    for (const fileName of backedFiles) {
+      const tempFilePath = path.join(TEMP_PRESERVE_DIR, fileName);
+      const targetFilePath = path.join(target, fileName);
+      if (fs.existsSync(tempFilePath)) {
+        fs.copyFileSync(tempFilePath, targetFilePath);
+        console.log(`  ✓ Restored preserved file from backup: ${fileName}`);
+      }
+    }
+    // Clean up temp directory
+    if (fs.existsSync(TEMP_PRESERVE_DIR)) {
+      fs.rmSync(TEMP_PRESERVE_DIR, { recursive: true, force: true });
+    }
+  }
+
+  configPaths.forEach(({ source, target, type, preserveFiles }) => {
     if (type === 'full') {
+      if (!fs.existsSync(source)) {
+        console.log(`⚠ Secrets source config folder is missing: ${path.relative(repoRoot, source)}. Skipping copy.`);
+        return;
+      }
+
+      // List existing files in target directory before modification
+      if (fs.existsSync(target)) {
+        const existingFiles = fs.readdirSync(target);
+        console.log(`Existing files in ${path.relative(repoRoot, target)}: ${existingFiles.join(', ')}`);
+      }
+
+      // Backup preserved files before removing directory
+      const backedFiles = backupPreservedFiles(target, preserveFiles);
+
       // Remove existing directory and create fresh one
       if (fs.existsSync(target)) {
         fs.rmSync(target, { recursive: true, force: true });
       }
       fs.mkdirSync(target, { recursive: true });
 
-      // Copy if source exists
-      if (fs.existsSync(source)) {
-        fs.cpSync(source, target, { recursive: true });
-        console.log(
-          `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
-        );
-      } else {
-        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
-      }
+      // Copy from source
+      fs.cpSync(source, target, { recursive: true });
+      console.log(
+        `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
+      );
+
+      // Restore preserved files
+      restorePreservedFiles(target, backedFiles);
     } else if (type === 'selective') {
       // For ottehr-config-overrides: only replace directories that exist in both target and source
       if (!fs.existsSync(source)) {
@@ -206,25 +269,15 @@ function populate(environment: string, project?: string): void {
       fs.copyFileSync(paths.zambdas.sentry.source, paths.zambdas.sentry.target);
       console.log(`Successfully copied .env.sentry-build-plugin to packages/zambdas/.env`);
     }
-    if (fs.existsSync(paths.ehr.source)) {
-      fs.mkdirSync(path.dirname(paths.ehr.target), { recursive: true });
-      fs.copyFileSync(paths.ehr.source, paths.ehr.target);
-      console.log(`Successfully copied .env.${environment} to packages/ehr/env`);
-    }
     if (fs.existsSync(paths.ehr.public.source)) {
       fs.mkdirSync(paths.ehr.public.target, { recursive: true });
       fs.cpSync(paths.ehr.public.source, paths.ehr.public.target, { recursive: true });
-      console.log(`Successfully copied public assets to packages/ehr/public`);
-    }
-    if (fs.existsSync(paths.patientPortal.source)) {
-      fs.mkdirSync(path.dirname(paths.patientPortal.target), { recursive: true });
-      fs.copyFileSync(paths.patientPortal.source, paths.patientPortal.target);
-      console.log(`Successfully copied .env.${environment} to packages/intake/env`);
+      console.log(`Successfully copied public assets to apps/ehr/public`);
     }
     if (fs.existsSync(paths.patientPortal.public.source)) {
       fs.mkdirSync(paths.patientPortal.public.target, { recursive: true });
       fs.cpSync(paths.patientPortal.public.source, paths.patientPortal.public.target, { recursive: true });
-      console.log(`Successfully copied public assets to packages/intake/public`);
+      console.log(`Successfully copied public assets to apps/intake/public`);
     }
     if (fs.existsSync(paths.terraform.source)) {
       fs.mkdirSync(path.dirname(paths.terraform.target), { recursive: true });
@@ -254,8 +307,6 @@ function validate(environment: string): void {
   [
     { path: paths.zambdas.target, name: 'Zambdas config' },
     ...(environment !== 'local' ? [{ path: paths.zambdas.sentry.target, name: 'Zambdas Sentry config' }] : []),
-    { path: paths.ehr.target, name: 'EHR env' },
-    { path: paths.patientPortal.target, name: 'Patient Portal env' },
     { path: paths.terraform.target, name: 'Terraform vars' },
     { path: paths.terraform.backend.target, name: 'Terraform backend config' },
   ].forEach(({ path: filePath, name }) => {

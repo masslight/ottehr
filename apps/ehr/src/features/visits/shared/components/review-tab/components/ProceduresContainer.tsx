@@ -54,7 +54,7 @@ export const ProceduresContainer: FC = () => {
             {renderProperty('Anaesthesia / medication used', procedure.medicationUsed)}
             {renderProperty('Site/location', procedure.bodySite)}
             {renderProperty('Side of body', procedure.bodySide)}
-            {renderProperty('Technique', procedure.technique)}
+            {renderProperty('Technique', procedure.technique ? procedure.technique.join(', ') : undefined)}
             {renderProperty('Instruments / supplies used', procedure.suppliesUsed)}
             {renderProperty('Procedure details', procedure.procedureDetails)}
             {renderProperty(

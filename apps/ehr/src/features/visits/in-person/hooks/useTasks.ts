@@ -6,6 +6,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   chooseJson,
   CreateManualTaskRequest,
+  ERX_TASK,
   getCoding,
   getExtension,
   IN_HOUSE_LAB_TASK,
@@ -28,6 +29,7 @@ export const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
+const OPEN_DOSESPOT = 'Open DoseSpot';
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -305,6 +307,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
   let action: any = undefined;
   let title = '';
   let subtitle = '';
+  let completable = false;
   let details: string | undefined = undefined;
 
   // Extract encounterId and check if it's a follow-up encounter
@@ -426,6 +429,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
       (patientReference ? ' for ' + patientReference.display?.replaceAll(',', '') : '');
     subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
     details = getInputString(MANUAL_TASK.input.details, task) ?? '';
+    completable = true;
     if (orderId) {
       if (category === MANUAL_TASK.category.inHouseLab) {
         action = {
@@ -493,6 +497,12 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
       title = `Review Radiology Final Results ${studyTypeForTitle} for ${patientName}`;
     }
   }
+  if (category === ERX_TASK.category) {
+    const providerName = getInputString(ERX_TASK.input.providerName, task);
+    title = `Provider ${providerName} has notifications in DoseSpot`;
+    completable = true;
+    action = { name: OPEN_DOSESPOT, link: '/todo' };
+  }
 
   return {
     id: task.id ?? '',
@@ -511,7 +521,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
         }
       : undefined,
     alert: getAlertCode(task),
-    completable: category.startsWith('manual'),
+    completable: completable,
   };
 }
 

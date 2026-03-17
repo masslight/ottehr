@@ -307,11 +307,7 @@
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
-      "zip": ".dist/zips/handle-lab-result.zip",
-      "subscription": {
-        "criteria": "DiagnosticReport?category=OSL",
-        "reason": "Received new preliminary or final lab result"
-      }
+      "zip": ".dist/zips/handle-lab-result.zip"
     },
     "PAPERWORK-TO-PDF": {
       "name": "paperwork-to-pdf",
@@ -621,155 +617,91 @@
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/communication/communication-subscription/index",
-      "zip": ".dist/zips/communication-subscription.zip",
-      "subscription": {
-        "criteria": "Communication?category=intra-communication|intake-issue-report&status=in-progress",
-        "reason": "Internal communication",
-        "event": "create"
-      }
+      "zip": ".dist/zips/communication-subscription.zip"
     },
     "PROCESS-ERX-RESOURCES": {
       "name": "process-erx-resources",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/medication-request/process-erx-resources/index",
-      "zip": ".dist/zips/process-erx-resources.zip",
-      "subscription": {
-        "criteria": "MedicationRequest?identifier=https://identifiers.fhir.oystehr.com/erx-prescription-id|",
-        "reason": "ERX incoming resources processor",
-        "event": "create"
-      }
+      "zip": ".dist/zips/process-erx-resources.zip"
     },
     "APPOINTMENT-CHART-DATA-PREFILLING": {
       "name": "appointment-chart-data-prefilling",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
-      "zip": ".dist/zips/appointment-chart-data-prefilling.zip",
-      "subscription": {
-        "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
-        "reason": "Appointment pre-processor",
-        "event": "create"
-      }
+      "zip": ".dist/zips/appointment-chart-data-prefilling.zip"
     },
     "SUB-CANCELLATION-EMAIL": {
       "name": "sub-cancellation-email",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-cancellation-email/index",
-      "zip": ".dist/zips/sub-cancellation-email.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-email|&status=requested",
-        "reason": "in person communication",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-cancellation-email.zip"
     },
     "SUB-CHECK-IN-TEXT": {
       "name": "sub-check-in-text",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-check-in-text/index",
-      "zip": ".dist/zips/sub-check-in-text.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-text|checkin&status=requested",
-        "reason": "in person communication",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-check-in-text.zip"
     },
     "SUB-READY-TEXT": {
       "name": "sub-ready-text",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-ready-text/index",
-      "zip": ".dist/zips/sub-ready-text.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-text|ready&status=requested",
-        "reason": "in person communication",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-ready-text.zip"
     },
     "SUB-UPDATE-APPOINTMENTS": {
       "name": "sub-update-appointments",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-update-appointments/index",
-      "zip": ".dist/zips/sub-update-appointments.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-update-appointment|&status=requested",
-        "reason": "in person appointment update",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-update-appointments.zip"
     },
     "SUB-CONFIRMATION-MESSAGES": {
       "name": "sub-confirmation-messages",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-confirmation-messages/index",
-      "zip": ".dist/zips/sub-confirmation-messages.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-send-messages|&status=requested",
-        "reason": "in person appointment confirmation messages",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-confirmation-messages.zip"
     },
     "SUB-INTAKE-HARVEST": {
       "name": "sub-intake-harvest",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
-      "zip": ".dist/zips/sub-intake-harvest.zip",
-      "subscription": {
-        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "reason": "paperwork harvest",
-        "event": "update"
-      }
+      "zip": ".dist/zips/sub-intake-harvest.zip"
     },
     "SUB-HARVEST-PAPERWORK-PAGE": {
       "name": "sub-harvest-paperwork-page",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-harvest-paperwork/index",
-      "zip": ".dist/zips/sub-harvest-paperwork-page.zip",
-      "subscription": {
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|harvest-paperwork&status=requested",
-        "reason": "incremental paperwork harvest",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-harvest-paperwork-page.zip"
     },
     "SUB-SEND-CLAIM": {
       "name": "sub-send-claim",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-send-claim/index",
-      "zip": ".dist/zips/sub-send-claim.zip",
-      "subscription": {
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/claim-sync|send-claim&status=requested",
-        "reason": "send claim"
-      }
+      "zip": ".dist/zips/sub-send-claim.zip"
     },
     "SUB-VISIT-NOTE-PDF-AND-EMAIL": {
       "name": "sub-visit-note-pdf-and-email",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-visit-note-pdf-and-email/index",
-      "zip": ".dist/zips/sub-visit-note-pdf-and-email.zip",
-      "subscription": {
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
-        "reason": "create visit note PDF and send email",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-visit-note-pdf-and-email.zip"
     },
     "SUB-PATIENT-PAYMENT-CANDID-SYNC-AND-RECEIPT": {
       "name": "sub-patient-payment-candid-sync-and-receipt",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index",
-      "zip": ".dist/zips/sub-patient-payment-candid-sync-and-receipt.zip",
-      "subscription": {
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-payment-candid-sync-and-receipt|patient-payment-candid-sync-and-receipt&status=requested",
-        "reason": "perform Candid sync and create receipt PDF for patient payment",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-patient-payment-candid-sync-and-receipt.zip"
     },
     "AI-INTERVIEW-START": {
       "name": "ai-interview-start",
@@ -938,12 +870,7 @@
       "runtime": "nodejs22.x",
       "timeout": "300",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
-      "zip": ".dist/zips/ai-interview-summary.zip",
-      "subscription": {
-        "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
-        "reason": "Generate summary of chat with AI",
-        "event": "update"
-      }
+      "zip": ".dist/zips/ai-interview-summary.zip"
     },
     "SEND-FAX": {
       "name": "send-fax",
@@ -1209,12 +1136,7 @@
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-send-invoice-to-patient/index",
-      "zip": ".dist/zips/sub-send-invoice-to-patient.zip",
-      "subscription": {
-        "criteria": "Task?code=send-invoice-to-patient|&status=in-progress",
-        "reason": "Send invoice to patient",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-send-invoice-to-patient.zip"
     },
     "CREATE-INVOICES-TASKS": {
       "name": "create-invoices-tasks",
@@ -1252,12 +1174,7 @@
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-generate-statement/index",
-      "zip": ".dist/zips/generate-statement.zip",
-      "subscription": {
-        "criteria": "Task?code=|send-invoice-to-patient&status=completed",
-        "reason": "Generate statement",
-        "event": "update"
-      }
+      "zip": ".dist/zips/generate-statement.zip"
     },
     "GET_ERX_ORDERS": {
       "name": "get-erx-orders",
@@ -1273,17 +1190,59 @@
       "src": "src/ehr/get-invoices-tasks/index",
       "zip": ".dist/zips/get-invoices-tasks.zip"
     },
+    "GET-STATEMENT-TEMPLATE": {
+      "name": "get-statement-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/get-template/index",
+      "zip": ".dist/zips/get-statement-template.zip"
+    },
+    "GET-STATEMENT-DETAILS": {
+      "name": "get-statement-details",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/get-details/index",
+      "zip": ".dist/zips/get-statement-details.zip"
+    },
+    "GET-STATEMENT-STATUS": {
+      "name": "get-statement-status",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/get-status/index",
+      "zip": ".dist/zips/get-statement-status.zip"
+    },
+    "CREATE-MAIL-STATEMENT-TASK": {
+      "name": "create-mail-statement-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/create-mail-statement-task/index",
+      "zip": ".dist/zips/create-mail-statement-task.zip"
+    },
+    "SUB-SEND-PATIENT-STATEMENT-BY-MAIL": {
+      "name": "sub-send-patient-statement-by-mail",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-send-patient-statement-by-mail/index",
+      "zip": ".dist/zips/sub-send-patient-statement-by-mail.zip",
+      "subscription": {
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-statement-mail|send-patient-statement-by-mail&status=requested",
+        "reason": "Send patient statement by mail",
+        "event": "create"
+      }
+    },
+    "CREATE-GENERATE-STATEMENT-TASK": {
+      "name": "create-generate-statement-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/statements/create-generate-statement-task/index",
+      "zip": ".dist/zips/create-generate-statement-task.zip"
+    },
     "SUB-REFRESH-INVOICE-TASK": {
       "name": "sub-refresh-invoice-task",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-refresh-invoice-task/index",
-      "zip": ".dist/zips/sub-refresh-invoice-task.zip",
-      "subscription": {
-        "criteria": "Task?code=send-invoice-to-patient|&status=requested",
-        "reason": "Refresh invoice task",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-refresh-invoice-task.zip"
     },
     "GET_PATIENT_BALANCES": {
       "name": "get-patient-balances",
@@ -1312,6 +1271,17 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
       "zip": ".dist/zips/make-medication-history-pdf.zip"
+    },
+    "ERX_NOTIFICATION": {
+      "name": "erx-notification-subscription",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/communication/erx-notification/index",
+      "zip": ".dist/zips/erx-notification.zip",
+      "subscription": {
+        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
+        "reason": "Create Task for eRX notification"
+      }
     }
   },
   "fhirResources": {
@@ -1577,15 +1547,59 @@
         ]
       }
     },
-    "SUB_GENERATE_STATEMENT_SUBSCRIPTION": {
+    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "Generate statement",
+        "reason": "Generate statement on invoice creation",
         "criteria": "Task?code=|send-invoice-to-patient&status=completed",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_DEMAND": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate statement on demand",
+        "criteria": "Task?code=|generate-statement&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },    
+    "SUB_SEND_PATIENT_STATEMENT_BY_MAIL_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Send patient statement by mail",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-statement-mail|send-patient-statement-by-mail&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-PATIENT-STATEMENT-BY-MAIL/id}"
         },
         "extension": [
           {
@@ -1629,6 +1643,24 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRX notification",
+        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX_NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
           }
         ]
       }
