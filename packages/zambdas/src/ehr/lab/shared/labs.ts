@@ -518,9 +518,9 @@ export const makeEncounterLabResults = async (
           if (isExternalLabServiceRequest) {
             const isManual = externalLabOrderIsManual(resource);
             // theres no guarantee that will we get electronic results back for manual labs so we can't validate
-            if (!isManual) activeExternalLabServiceRequestIds.add(resource.id || 'missing id');
+            if (!isManual && resource.id) activeExternalLabServiceRequestIds.add(resource.id);
           }
-          if (isInHouseLabServiceRequest) activeInHouseLabServiceRequestIds.add(resource?.id || 'missing id');
+          if (isInHouseLabServiceRequest && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
         }
 
         const reflexTestTriggered = resource.meta?.tag?.find(
