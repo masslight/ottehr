@@ -751,7 +751,7 @@ export default function ProceduresNew(): ReactElement {
     <FormProvider {...methods}>
       <Stack spacing={1}>
         <PageTitle
-          label="Document Procedure"
+          label="Document Procedure 2"
           showIntakeNotesButton={false}
           dataTestId={dataTestIds.documentProcedurePage.title}
         />
