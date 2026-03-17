@@ -53,7 +53,7 @@ export const performEffect = async (
 
   const activityDefinition = quickPickToActivityDefinition(quickPick);
 
-  const created = (await oystehr.fhir.create(activityDefinition)) as ActivityDefinition;
+  const created = await oystehr.fhir.create<ActivityDefinition>(activityDefinition);
   console.log(`Created ActivityDefinition with id: ${created.id}`);
 
   const createdQuickPick = activityDefinitionToQuickPick(created);

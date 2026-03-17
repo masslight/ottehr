@@ -53,7 +53,7 @@ export const performEffect = async (
 
   const activityDefinition = quickPickToActivityDefinition(quickPick, quickPickId);
 
-  const updated = (await oystehr.fhir.update(activityDefinition)) as ActivityDefinition;
+  const updated = await oystehr.fhir.update<ActivityDefinition>(activityDefinition);
   console.log(`Updated ActivityDefinition with id: ${updated.id}`);
 
   const updatedQuickPick = activityDefinitionToQuickPick(updated);

@@ -89,7 +89,7 @@ export async function createQuickPick<T extends { id?: string }>(
   category: QuickPickCategory<T>
 ): Promise<T> {
   const ad = quickPickToActivityDefinition(quickPick, category);
-  const created = (await oystehr.fhir.create(ad)) as ActivityDefinition;
+  const created = await oystehr.fhir.create<ActivityDefinition>(ad);
   return activityDefinitionToQuickPick(created, category);
 }
 
@@ -100,7 +100,7 @@ export async function updateQuickPick<T extends { id?: string }>(
   category: QuickPickCategory<T>
 ): Promise<T> {
   const ad = quickPickToActivityDefinition(quickPick, category, quickPickId);
-  const updated = (await oystehr.fhir.update(ad)) as ActivityDefinition;
+  const updated = await oystehr.fhir.update<ActivityDefinition>(ad);
   return activityDefinitionToQuickPick(updated, category);
 }
 
