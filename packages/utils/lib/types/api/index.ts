@@ -59,5 +59,6 @@ export * from './bulk-update-insurance-status.types';
 export * from './visit-details';
 export * from './get-booking-questionnaire.types';
 export * from './erx.types';
+export * from './external-orders-report.types';
 export * from './invoicing.types';
 export * from './patient-login-phone-numbers.types';

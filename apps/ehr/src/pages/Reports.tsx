@@ -5,6 +5,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import InsightsIcon from '@mui/icons-material/Insights';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import ScienceIcon from '@mui/icons-material/Science';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
@@ -129,6 +130,12 @@ export default function Reports(): React.ReactElement {
       description: 'View list of recent patients with contact information and visit details',
       icon: <PeopleIcon />,
       path: '/reports/recent-patients',
+    },
+    {
+      title: 'Labs, Rads, and Procs',
+      description: 'View lab orders, radiology orders, and procedures from completed encounters',
+      icon: <ScienceIcon />,
+      path: '/reports/lab-rad-proc-orders',
     },
     {
       title: 'Invoiceable patients',

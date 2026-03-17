@@ -48,6 +48,7 @@ import {
   DataExports,
   IncompleteEncounters,
   InvoiceablePatients,
+  LabRadProcOrders,
   PracticeKpis,
   RecentPatients,
   VisitsOverview,
@@ -200,6 +201,7 @@ function App(): ReactElement {
                   <Route path="/reports/data-exports" element={<DataExports />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                   <Route path="/reports/recent-patients" element={<RecentPatients />} />
+                  <Route path="/reports/lab-rad-proc-orders" element={<LabRadProcOrders />} />
                   <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
                 </>
               )}
