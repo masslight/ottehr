@@ -178,7 +178,7 @@ export async function getEncountersWithoutTaskFhir(
       });
     }
   });
-  console.log('Getting amounts for encounters and filtering zero amounts:');
+  console.log('Getting amounts for encounters and populating packages with patient balances:');
   return await populateAmountInPackages(candid, result);
 }
 
