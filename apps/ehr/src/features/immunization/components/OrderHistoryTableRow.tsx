@@ -55,18 +55,22 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
   const isPending = order.status === 'pending';
 
   const handleRowClick = (): void => {
-    if (!isPending || !showActions) {
+    if (!showActions) {
       return;
     }
-    requestAnimationFrame(() => {
-      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
-    });
+    if (isPending) {
+      requestAnimationFrame(() => {
+        navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
+      });
+    } else {
+      navigateToEditOrder();
+    }
   };
 
   return (
     <TableRow
       sx={{
-        ...(isPending && showActions
+        ...(showActions
           ? {
               '&:hover': {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
@@ -115,25 +119,29 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
               {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
             </span>
           </Stack>
-          {showActions && order.status === 'pending' ? (
+          {showActions ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
               <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />
               </IconButton>
-              <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
-                <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
-              </IconButton>
-              <CustomDialog
-                open={isDeleteDialogOpened}
-                handleClose={() => setIsDeleteDialogOpened(false)}
-                title="Delete vaccine order"
-                description={`Are you sure you want to delete the vaccine order?`}
-                closeButtonText="Cancel"
-                closeButton={false}
-                handleConfirm={handleConfirmDelete}
-                confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-                confirmLoading={isDeleting}
-              />
+              {isPending && (
+                <>
+                  <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
+                    <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
+                  </IconButton>
+                  <CustomDialog
+                    open={isDeleteDialogOpened}
+                    handleClose={() => setIsDeleteDialogOpened(false)}
+                    title="Delete vaccine order"
+                    description={`Are you sure you want to delete the vaccine order?`}
+                    closeButtonText="Cancel"
+                    closeButton={false}
+                    handleConfirm={handleConfirmDelete}
+                    confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                    confirmLoading={isDeleting}
+                  />
+                </>
+              )}
             </Stack>
           ) : null}
         </Stack>
