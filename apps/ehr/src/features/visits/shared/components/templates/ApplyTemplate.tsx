@@ -187,8 +187,8 @@ export const ApplyTemplate: React.FC = () => {
           return options.filter(
             (option) =>
               option.value === ADD_NEW_SENTINEL ||
-              option.label.toLowerCase().includes(query) ||
-              option.value.toLowerCase().includes(query)
+              (option.label || '').toLowerCase().includes(query) ||
+              (option.value || '').toLowerCase().includes(query)
           );
         }}
         renderOption={(props, option) => {

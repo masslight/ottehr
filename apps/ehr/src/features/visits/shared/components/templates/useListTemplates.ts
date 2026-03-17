@@ -31,10 +31,12 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
   });
 
   const templates: TemplateOption[] = queryResult.data
-    ? queryResult.data.templates.map((template) => ({
-        value: template.title,
-        label: template.title,
-      }))
+    ? queryResult.data.templates
+        .filter((template) => template.title)
+        .map((template) => ({
+          value: template.title,
+          label: template.title,
+        }))
     : [];
 
   return {
