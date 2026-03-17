@@ -247,6 +247,8 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
   };
 }
 
+const PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE = 'Patient could not confirm dosage';
+
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
@@ -265,6 +267,9 @@ export function makeMedicationResource(
     effectiveDateTime: data.intakeInfo.date,
     informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
+    ...(data.intakeInfo.patientCouldNotConfirmDosage && {
+      note: [{ text: PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE }],
+    }),
     medicationCodeableConcept: {
       coding: [
         {
@@ -291,6 +296,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     intakeInfo: {
       dose: getMedicationDosage(medication, medication.meta?.tag?.[0].code || ''),
       date: medication.effectiveDateTime,
+      patientCouldNotConfirmDosage: medication.note?.[0]?.text === PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE || undefined,
     },
     status: ['active', 'completed'].includes(medication.status)
       ? (medication.status as 'active' | 'completed')
