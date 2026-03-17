@@ -8,6 +8,7 @@ import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAcc
 import { useChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { AiPotentialDiagnosesCard } from '../AiPotentialDiagnosesCard';
+import { AiIcdSuggestionsInline } from './AiIcdSuggestionsInline';
 import { BillingCodesContainer } from './BillingCodesContainer';
 import { DiagnosesContainer } from './DiagnosesContainer';
 import { EMCodeField } from './EMCodeField';
@@ -29,6 +30,7 @@ export const AssessmentCard: FC = () => {
           divider
           leftColumn={
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <AiIcdSuggestionsInline />
               <DiagnosesContainer />
               {isInPerson && <MedicalDecisionContainer />}
             </Box>

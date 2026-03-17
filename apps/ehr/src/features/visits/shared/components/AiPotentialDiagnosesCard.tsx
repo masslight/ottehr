@@ -15,10 +15,10 @@ import {
   PATIENT_INFO_META_DATA_SYSTEM,
 } from 'utils';
 import { useChartFields } from '../hooks/useChartFields';
+import { useAiSuggestionsStore } from '../stores/ai-suggestions.store';
 import { useRecommendBillingSuggestions } from '../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { useAddCptCode, useUpdateEMCode } from './assessment-tab/BillingCodesContainer';
-import { useAddDiagnosis } from './assessment-tab/DiagnosesContainer';
 
 export const AiPotentialDiagnosesCard: FC = () => {
   const theme = useTheme();
@@ -46,7 +46,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
     },
   });
 
-  const { onAdd: onAddDiagnosis } = useAddDiagnosis();
   const { onAdd: onAddCptCode } = useAddCptCode();
   const { onEMCodeChange } = useUpdateEMCode();
 
@@ -61,12 +60,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
   });
 
   const { mutateAsync: recommendBillingSuggestions } = useRecommendBillingSuggestions();
-  const [icdCodes, setIcdCodes] = useState<{ code: string; description: string; reason: string }[] | undefined>(
-    undefined
-  );
-  const icdCodesSuggest = icdCodes?.filter(
-    (code) => !currentDiagnoses?.some((diagnosis) => diagnosis.code === code.code)
-  );
   const [cptCodes, setCptCodes] = useState<{ code: string; description: string; reason: string }[] | undefined>(
     undefined
   );
@@ -126,7 +119,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
         radiologyOrders: radiologyOrdersString,
         procedures: proceduresString,
       });
-      setIcdCodes(billingSuggestionTemp.icdCodes);
+      useAiSuggestionsStore.getState().setIcdSuggestions(billingSuggestionTemp.icdCodes);
       setCptCodes(billingSuggestionTemp.cptCodes);
       setEmCode(billingSuggestionTemp.emCode);
       setCodingSuggestions(billingSuggestionTemp.codingSuggestions);
@@ -154,10 +147,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
     setVisible(false);
   };
 
-  const addIcdCode = (icdCode: { code: string; description: string; reason: string }): void => {
-    onAddDiagnosis({ code: icdCode.code, display: icdCode.description });
-  };
-
   const addCptCode = (cptCode: { code: string; description: string; reason: string }): void => {
     onAddCptCode({ code: cptCode.code, display: cptCode.description });
   };
@@ -166,11 +155,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
     onEMCodeChange({ code: emCode.code, display: emCode.description });
   };
 
-  return visible &&
-    ((icdCodes && icdCodes.length > 0) ||
-      (cptCodes && cptCodes.length > 0) ||
-      (emCode && emCode.length > 0) ||
-      codingSuggestions) ? (
+  return visible && ((cptCodes && cptCodes.length > 0) || (emCode && emCode.length > 0) || codingSuggestions) ? (
     <Box
       sx={{
         display: 'flex',
@@ -207,42 +192,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
           <CloseIcon />
         </IconButton>
       </Box>
-      {icdCodesSuggest && icdCodesSuggest.length > 0 && (
-        <Box
-          style={{
-            background: '#E1F5FECC',
-            borderRadius: '8px',
-            padding: '8px',
-            marginBottom: '10px',
-          }}
-        >
-          <Typography variant="body1" style={{ fontWeight: 700, marginBottom: '8px' }}>
-            Potential Diagnoses with ICD-10 Codes
-          </Typography>
-          <ul>
-            {icdCodesSuggest.map((icdCode) => {
-              return (
-                <li key={icdCode.code}>
-                  <Grid container alignItems="center">
-                    <Grid item sx={{ cursor: 'pointer' }}>
-                      <Link onClick={(_event) => addIcdCode(icdCode)}>
-                        <Typography variant="body1">{icdCode.code + ': ' + icdCode.description}</Typography>
-                      </Link>
-                    </Grid>
-                    <Grid item>
-                      <Tooltip title={icdCode.reason}>
-                        <IconButton size="small">
-                          <InfoOutlined sx={{ fontSize: '17px' }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Grid>
-                  </Grid>
-                </li>
-              );
-            })}
-          </ul>
-        </Box>
-      )}
       {cptCodesSuggest && cptCodesSuggest.length > 0 && (
         <Box
           style={{
