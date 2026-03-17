@@ -40,7 +40,13 @@ import {
   TIMEZONES,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { accountMatchesType } from '../shared/harvest';
 import { validateRequestParameters } from './validateRequestParameters';
 
