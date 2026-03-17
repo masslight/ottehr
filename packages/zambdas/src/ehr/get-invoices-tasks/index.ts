@@ -16,6 +16,8 @@ import {
   FHIR_EXTENSION,
   formatDateConfigurable,
   GET_INVOICES_TASKS_ZAMBDA_KEY,
+  getAddressForIndividual,
+  getAddressString,
   getEmailForIndividual,
   getFullName,
   GetInvoicesTasksInput,
@@ -104,6 +106,11 @@ function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasks
     const responsiblePartyName = responsibleParty && getFullName(responsibleParty);
     const responsiblePartyPhoneNumber = responsibleParty && getPhoneNumberForIndividual(responsibleParty);
     const responsiblePartyEmail = responsibleParty && getEmailForIndividual(responsibleParty);
+    const responsiblePartyAddress = responsibleParty && getAddressForIndividual(responsibleParty);
+    const responsiblePartyFullAddress = getAddressString(responsiblePartyAddress);
+
+    const patientAddress = getAddressForIndividual(patient);
+    const patientFullAddress = getAddressString(patientAddress);
 
     let timezone = TIMEZONES[0]; // default timezone
     if (slot && slot.start) {
@@ -129,12 +136,18 @@ function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasks
         dob: patientDob,
         gender: patientGenderLabel,
         phoneNumber: patientPhoneNumber ?? '---',
+        fullAddress: patientFullAddress || undefined,
+        city: patientAddress?.city,
+        state: patientAddress?.state,
       },
       responsibleParty: {
         fullName: responsiblePartyName,
         email: responsiblePartyEmail,
         phoneNumber: responsiblePartyPhoneNumber,
         relationshipToPatient: responsibleParty && getResponsiblePartyRelationship(responsibleParty)?.toLowerCase(),
+        fullAddress: responsiblePartyFullAddress || undefined,
+        city: responsiblePartyAddress?.city,
+        state: responsiblePartyAddress?.state,
       },
     });
   });

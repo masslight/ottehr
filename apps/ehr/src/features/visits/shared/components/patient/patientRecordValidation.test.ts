@@ -560,6 +560,51 @@ describe('patientRecordValidation', () => {
       });
     };
 
+    /**
+     * Builds form values that should keep a section DISABLED. For sections using
+     * 'exists' with answerBoolean: false (enabled when field is absent), we must
+     * provide the trigger target with a non-matching value so the field exists
+     * (defeating exists:false) but doesn't match any '=' trigger.
+     */
+    const buildSectionDisableValues = (section: any): Record<string, any> => {
+      const triggers = section.triggers;
+      if (!triggers?.length) return {};
+
+      const enableTriggers = triggers.filter((t: any) => t.effect.includes('enable'));
+
+      // Collect all trigger target keys and their '=' match values
+      const targetKeys = new Set<string>();
+      const matchValues = new Set<string>();
+
+      for (const trigger of enableTriggers) {
+        const targetKey = trigger.targetQuestionLinkId.includes('.')
+          ? trigger.targetQuestionLinkId.split('.').pop()!
+          : trigger.targetQuestionLinkId;
+        targetKeys.add(targetKey);
+        if (trigger.operator === '=' && trigger.answerString !== undefined) {
+          matchValues.add(trigger.answerString);
+        }
+      }
+
+      // If any trigger uses 'exists' with answerBoolean: false, we need to
+      // provide the field with a value that doesn't match any '=' trigger
+      const hasExistsFalse = enableTriggers.some((t: any) => t.operator === 'exists' && t.answerBoolean === false);
+
+      if (hasExistsFalse) {
+        const result: Record<string, any> = {};
+        for (const key of targetKeys) {
+          let disableValue = '__disable_value__';
+          while (matchValues.has(disableValue)) {
+            disableValue += '_x';
+          }
+          result[key] = disableValue;
+        }
+        return result;
+      }
+
+      return {};
+    };
+
     const hasSectionEnableTriggers = (section: any): boolean => {
       return !!section.triggers?.some((t: any) => t.effect.includes('enable'));
     };
@@ -720,6 +765,7 @@ describe('patientRecordValidation', () => {
       const sec = triggeredEntry[1] as any;
       const requiredFields = getUnconditionallyRequiredFields(sec);
       const enableValues = buildSectionEnableValues(sec);
+      const disableValues = buildSectionDisableValues(sec);
 
       const resolver = createDynamicValidationResolver();
 
@@ -728,8 +774,8 @@ describe('patientRecordValidation', () => {
         emptyValues[f] = '';
       });
 
-      // Without trigger values the section is disabled — no validation errors expected
-      const resultDisabled = await resolver({ ...emptyValues });
+      // With disable values the section is disabled — no validation errors expected
+      const resultDisabled = await resolver({ ...emptyValues, ...disableValues });
       requiredFields.forEach((field) => {
         expect(resultDisabled.errors[field]).toBeUndefined();
       });

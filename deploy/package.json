@@ -1,6 +1,6 @@
 {
   "name": "deploy",
-  "version": "1.29.11",
+  "version": "1.30.2",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
@@ -19,6 +19,7 @@
     "apply-production": "./apply.sh production",
     "terraform-init": "terraform init --backend-config=./backend.config",
     "terraform-setup": "npm run terraform-init && terraform workspace new e2e && terraform workspace new e2e2 && terraform workspace new e2e3 && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace new production && terraform workspace select local",
+    "fill-env-with-created-resources-data": "tsx fill-env-with-created-resources-data.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

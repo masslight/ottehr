@@ -11,7 +11,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   testMatch: /.*\.spec\.ts/,
-  testIgnore: ['**/component/**', '**/unit/**', 'tests/e2e/specs/employees.spec.ts'],
+  testIgnore: ['**/component/**', '**/unit/**'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   reporter: [['html'], ['list'], ['junit', { outputFile: 'test-results/results.xml' }]],
