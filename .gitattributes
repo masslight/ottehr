@@ -8,11 +8,11 @@ apps/ehr/tests/e2e-utils/seed-data/resources/*.json merge=ours
 
 # Keep current branch version of all config files during merges
 config/oystehr/*.json merge=ours
-config/oystehr/apps.json merge=union
-config/oystehr/buckets.json merge=union
-config/oystehr/m2ms.json merge=union
-config/oystehr/outputs.json merge=union
-config/oystehr/project.json merge=union
-config/oystehr/roles.json merge=union
-config/oystehr/secrets.json merge=union
-config/oystehr/zambdas.json merge=union
+config/oystehr-core/apps.json merge=union
+config/oystehr-core/buckets.json merge=union
+config/oystehr-core/m2ms.json merge=union
+config/oystehr-core/outputs.json merge=union
+config/oystehr-core/project.json merge=union
+config/oystehr-core/roles.json merge=union
+config/oystehr-core/secrets.json merge=union
+config/oystehr-core/zambdas.json merge=union
