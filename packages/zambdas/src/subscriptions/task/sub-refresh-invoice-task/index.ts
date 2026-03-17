@@ -58,7 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       console.log('Updating task input...', JSON.stringify(createInvoiceTaskInput(invoiceTaskInput), null, 2));
 
-      const isZeroBalance = (invoiceTaskInput.amountCents ?? 0) === 0;
+      const isZeroBalance = invoiceTaskInput.amountCents === 0;
       const updateOperations: Operation[] = [
         { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
         {
@@ -85,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           path: '/businessStatus',
           value: ZERO_BALANCE_BUSINESS_STATUS,
         });
-      } else if (task.businessStatus) {
+      } else if (invoiceTaskInput.amountCents !== undefined && task.businessStatus) {
         updateOperations.push({ op: 'remove', path: '/businessStatus' });
       }
 

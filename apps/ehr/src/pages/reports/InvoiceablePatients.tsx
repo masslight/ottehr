@@ -128,7 +128,9 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
 
-  const pageSP = Number(searchParams.get(SP.page) ?? '0');
+  const pageParam = searchParams.get(SP.page);
+  const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
+  const pageSP = Number.isFinite(parsedPage) && parsedPage >= 0 ? parsedPage : 0;
   const [pageInputValue, setPageInputValue] = useState(String(pageSP + 1));
   const statusSP = searchParams.get(SP.status);
   const patientSP = searchParams.get(SP.patient);
