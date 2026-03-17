@@ -24,10 +24,14 @@ function main(): void {
 
   console.log(`Loading secrets for project: ${projectName} (branch: ${branchName}, environment: ${environment})`);
 
-  // Remove existing secrets directory if it exists
+  // Remove existing secrets and temp directories if they exist
   if (fs.existsSync(SECRETS_DIR)) {
     console.log('Removing existing secrets directory...');
     fs.rmSync(SECRETS_DIR, { recursive: true, force: true });
+  }
+  if (fs.existsSync(TEMP_DIR)) {
+    console.log('Removing existing temp directory...');
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
   }
 
   // Clone the secrets repository to temp directory
@@ -59,7 +63,7 @@ function main(): void {
 
   // Run the populate script
   console.log('Running secrets populate script...');
-  exec(`npm exec -- tsx ./scripts/secrets.ts populate ${environment}`);
+  exec(`npm exec -- tsx ./scripts/secrets.ts populate ${environment} ${projectName}`);
 
   // Remove .terraform directory to force reinitialization
   const terraformDir = './deploy/.terraform';

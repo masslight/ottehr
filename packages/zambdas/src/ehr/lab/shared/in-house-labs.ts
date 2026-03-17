@@ -260,8 +260,8 @@ export const fetchResultResourcesForRelatedServiceRequest = async (
           value: 'DiagnosticReport:based-on',
         },
         {
-          name: '_revinclude',
-          value: 'Observation:based-on',
+          name: '_include:iterate',
+          value: 'DiagnosticReport:result',
         },
         {
           name: '_revinclude',
@@ -282,12 +282,14 @@ export const fetchResultResourcesForRelatedServiceRequest = async (
       ],
     })
   ).unbundle();
+
   const additionalDiagnosticReports: DiagnosticReport[] = [];
   const additionalObservations: Observation[] = [];
   const additionalProvenances: Provenance[] = [];
   const additionalTasks: Task[] = [];
   const additionalSpecimens: Specimen[] = [];
   const additionalActivityDefinitions: ActivityDefinition[] = []; // reflex tests will have different ADs so we need to do this
+
   resources.forEach((r) => {
     if (r.resourceType === 'DiagnosticReport' && r.status !== 'entered-in-error') {
       additionalDiagnosticReports.push(r);
@@ -313,7 +315,9 @@ export const fetchResultResourcesForRelatedServiceRequest = async (
       additionalActivityDefinitions.push(r);
     }
   });
+
   console.log('srResourceMap', JSON.stringify(srResourceMap));
+
   return {
     additionalDiagnosticReports,
     additionalObservations,

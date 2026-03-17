@@ -1,5 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
 import { DocumentInfo } from 'utils';
 
@@ -13,12 +13,26 @@ interface CardGridItemProps {
 }
 
 export default function CardGridItem({ card, aspectRatio, handleClick, isLoading }: CardGridItemProps): ReactElement {
+  const theme = useTheme();
   return (
     <Box
-      onClick={() => {
-        handleClick();
+      role="button"
+      tabIndex={0}
+      aria-label={`View ${card.type} image`}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
       }}
-      sx={{ cursor: 'pointer', aspectRatio, overflow: 'hidden', position: 'relative' }}
+      sx={{
+        cursor: 'pointer',
+        aspectRatio,
+        overflow: 'hidden',
+        position: 'relative',
+        '&:focus-visible': { outline: `2px dashed ${theme.palette.primary.main}`, outlineOffset: '2px' },
+      }}
       display="flex"
       justifyContent="center"
       alignItems="center"

@@ -17,15 +17,16 @@ export const composeHistoryOfPresentIllness: DataComposer<{ allChartData: AllCha
 export const createHistoryOfPresentIllnessSection = <
   TData extends {
     encounter?: EncounterInfo;
-    historyOfPresentIllness: HistoryOfPresentIllness;
+    historyOfPresentIllness?: HistoryOfPresentIllness;
   },
 >(): PdfSection<TData, HistoryOfPresentIllness> => {
   return createConfiguredSection(null, () => ({
-    title: 'History of present illness',
+    title: 'History of Present Illness',
     dataSelector: (data) => data.historyOfPresentIllness,
     shouldRender: (sectionData, rootData) => !rootData?.encounter?.isFollowup && !!sectionData.historyOfPresentIllness,
     render: (client, data, styles) => {
       drawRegularText(client, styles, data.historyOfPresentIllness);
+
       client.drawSeparatedLine(styles.lineStyles.separator);
     },
   }));

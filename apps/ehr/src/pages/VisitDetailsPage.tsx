@@ -13,6 +13,7 @@ import {
   CircularProgress,
   FormControl,
   Grid,
+  IconButton,
   Link as MUILink,
   MenuItem,
   Paper,
@@ -104,6 +105,7 @@ import PatientPaymentList from '../components/PatientPaymentsList';
 import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { ChangeStatusDropdown } from '../features/visits/in-person/components/ChangeStatusDropdown';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
@@ -911,7 +913,7 @@ export default function VisitDetailsPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <Grid item container xs={6} justifyContent="flex-end">
+              <Grid item container xs={6} justifyContent="flex-end" gap={1}>
                 <LoadingButton
                   variant="outlined"
                   sx={{
@@ -925,6 +927,28 @@ export default function VisitDetailsPage(): ReactElement {
                 >
                   Visit Details PDF
                 </LoadingButton>
+                {FEATURE_FLAGS.LEGACY_DATA_ENABLED && (
+                  <Button
+                    variant="outlined"
+                    sx={{ borderRadius: '20px', textTransform: 'none' }}
+                    disabled={!patient}
+                    onClick={() => {
+                      const patientLastName = patient?.name?.[0]?.family ?? '';
+                      const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
+                      const rawDob = patient?.birthDate ?? '';
+                      // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
+                      const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
+                      const params = new URLSearchParams({
+                        lastName: patientLastName,
+                        firstName: patientFirstName,
+                        dob,
+                      });
+                      navigate(`/legacy-data?${params.toString()}`);
+                    }}
+                  >
+                    Legacy Data
+                  </Button>
+                )}
               </Grid>
             </Grid>
             {/* page title row */}
@@ -1770,7 +1794,17 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
           .filter(([key]) => key !== 'frontId' && key !== 'backId')
           .map(([key, card]) =>
             card ? (
-              <Grid item key={card.type} xs={5.5} position={'relative'}>
+              <Grid
+                item
+                key={card.type}
+                xs={5.5}
+                position={'relative'}
+                sx={{
+                  '&:hover .card-cancel-icon, &:focus-within .card-cancel-icon': {
+                    visibility: 'visible',
+                  },
+                }}
+              >
                 <CardGridItem
                   card={card}
                   appointmentID={appointmentID}
@@ -1779,7 +1813,10 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                   handleClick={() => handleImageClick(card.type)}
                   isLoading={key === 'front' ? isDeletingFront : isDeletingBack}
                 />
-                <CancelIcon
+                <IconButton
+                  className="card-cancel-icon"
+                  aria-label={`Delete ${key} card`}
+                  size="small"
                   sx={{
                     position: 'absolute',
                     inset: '-4px -12px auto auto',
@@ -1787,9 +1824,14 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     backgroundColor: theme.palette.background.paper,
                     borderRadius: '50%',
                     cursor: 'pointer',
+                    '&:hover, &:focus-within': { backgroundColor: theme.palette.background.paper },
+                    padding: 0,
+                    visibility: 'hidden',
                   }}
                   onClick={() => setDeleteDialogOpen(key as 'front' | 'back')}
-                />
+                >
+                  <CancelIcon />
+                </IconButton>
                 <CustomDialog
                   open={deleteDialogOpen === key}
                   handleClose={() => setDeleteDialogOpen(null)}

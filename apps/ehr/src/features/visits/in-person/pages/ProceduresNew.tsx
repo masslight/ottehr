@@ -735,6 +735,11 @@ export default function ProceduresNew(): ReactElement {
           (state as any)[key] = value;
         }
       });
+      Object.entries(state).forEach(([key, _value]) => {
+        if ((quickPick as any)[key] == null) {
+          (state as any)[key] = undefined;
+        }
+      });
     });
   };
 

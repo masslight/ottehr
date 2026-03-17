@@ -51,9 +51,23 @@ let chatbot: ChatAnthropic;
 function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
 Patient details: ${patientInfoDetails} 
-Please generate ${fields} with ICD-10 codes for the patient. 
-Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
-Use a single string property in JSON for each section except potential diagnoses. 
+Please generate ${fields} based on the trancsript.
+Please present a response in JSON format. Don't add markdown. Use property names in camel case.
+Use a single string property in JSON for each section.
+Here is an example response:
+{
+  "historyOfPresentIllness": "example",
+  "pastMedicalHistory": "example",
+  "pastSurgicalHistory": "example",
+  "medicationsHistory": "example",
+  "allergies": "example",
+  "socialHistory": "example",
+  "familyHistory": "example",
+  "hospitalizationsHistory": "example",
+  "labs": "example",
+  "erx": "example",
+  "procedures": "example"
+}
 The transcript: `;
 }
 
@@ -80,15 +94,26 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
 
+  const shouldRetry = (status: number): boolean => {
+    // Retry on rate limiting and server errors
+    // these http status codes were chosen by an AI and while they look reasonable they are suspect
+    return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+  };
+
   const backoffTimes = Array.from({ length: RETRY_COUNT }, (_, i) =>
     // This ends up with an array of exponential backoff times with small perturbations like [ 0, 3002, 5964, 12077, 24109 ]
     // for more information about this approach see https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
     i === 0 ? 0 : 2 ** (i - 1) * FIRST_DELAY_MS * (1 - JITTER + Math.random() * JITTER * 2)
   );
+
+  let resolved = false;
   const requests = backoffTimes.map(async (backoffTime) => {
+    await new Promise((resolve) => setTimeout(resolve, backoffTime));
+
+    if (resolved) return null; // Skip if already resolved
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, backoffTime));
-      return fetch(
+      const response = await fetch(
         `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
@@ -100,13 +125,23 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
           }),
         }
       );
+
+      if (!response.ok && shouldRetry(response.status)) {
+        throw new Error(`Retryable error: ${response.status}`);
+      }
+
+      if (response.ok) {
+        resolved = true;
+      }
+      return response;
     } catch (error) {
       console.error('Error invoking Vertex AI:', error);
       captureException(error);
       throw error;
     }
   });
-  const response = await (await Promise.any(requests)).json();
+
+  const response = await (await Promise.any(requests))?.json();
 
   console.log(JSON.stringify(response));
   return response.candidates[0].content.parts[0].text;
@@ -138,7 +173,7 @@ export async function createResourcesFromAiInterview(
   secrets: Secrets | null
 ): Promise<string> {
   let fields =
-    'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
+    'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history';
   // if there is a provider user profile, it is a recording
   const resources = (
     await oystehr.fhir.search<Encounter | Appointment | Patient>({

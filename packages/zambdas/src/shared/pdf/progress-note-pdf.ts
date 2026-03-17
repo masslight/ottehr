@@ -58,6 +58,10 @@ import {
   createSurgicalHistorySection,
   createVitalsSection,
 } from './sections';
+import {
+  composeHistoryOfPresentIllness,
+  createHistoryOfPresentIllnessSection,
+} from './sections/visit-note/historyOfPresentIllness';
 import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
 
 const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
@@ -71,7 +75,9 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
       allChartData,
       appointmentPackage,
     }),
-    historyOfPresentIllness: composeHistoryOfPresentIllness({ allChartData }),
+    historyOfPresentIllness: composeHistoryOfPresentIllness({
+      allChartData,
+    }),
     mechanismOfInjury: composeMechanismOfInjury({
       allChartData,
     }),

@@ -108,6 +108,7 @@ module "ottehr_apps" {
     CREATE_DEMO_VISITS_FEATURE_FLAG             = module.oystehr.CREATE_DEMO_VISITS_FEATURE_FLAG
     IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG    = module.oystehr.IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG
     IS_FORMS_ENABLED_FEATURE_FLAG               = module.oystehr.IS_FORMS_ENABLED_FEATURE_FLAG
+    IS_LEGACY_DATA_ENABLED_FEATURE_FLAG         = module.oystehr.IS_LEGACY_DATA_ENABLED_FEATURE_FLAG
   }
   patient_portal_vars = {
     ENV                           = var.environment

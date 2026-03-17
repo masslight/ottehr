@@ -21,6 +21,7 @@ import {
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   REPEAT_TEST_CPT_CODE_MODIFIER,
+  REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   TestItem,
 } from 'utils';
 import { fillMeta, makeCptModifierExtension } from '../../../../shared';
@@ -167,7 +168,7 @@ const makeServiceRequestConfig = (
   }
 
   if (orderMode === 'repeat') {
-    serviceRequestConfig.meta = { tag: [REPEAT_TEST_CPT_CODE_MODIFIER] };
+    serviceRequestConfig.meta = { tag: [REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG] };
   }
 
   return serviceRequestConfig;
