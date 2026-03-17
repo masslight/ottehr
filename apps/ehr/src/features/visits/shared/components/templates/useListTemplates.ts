@@ -7,6 +7,7 @@ import { ExamType, ListTemplatesZambdaOutput } from 'utils';
 export interface TemplateOption {
   value: string;
   label: string;
+  id?: string;
 }
 
 export interface UseListTemplatesResult {
@@ -42,9 +43,11 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
         .map((template) => {
           // Handle both old format (string) and new format (TemplateInfo object)
           const title = typeof template === 'string' ? template : template.title;
+          const id = typeof template === 'string' ? undefined : template.id;
           return {
             value: title,
             label: title,
+            id,
           };
         })
     : [];

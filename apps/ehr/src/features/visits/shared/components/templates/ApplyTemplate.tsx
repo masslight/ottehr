@@ -18,7 +18,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
-import { applyTemplate, createTemplate } from 'src/api/api';
+import { applyTemplate, createTemplate, deleteTemplate } from 'src/api/api';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ExamType } from 'utils';
@@ -39,6 +39,8 @@ const TEMPLATE_SECTIONS = [
   'CPT Codes',
   'E&M Code',
 ];
+
+const ADD_OR_UPDATE_LABEL = '+ Add or Update Template From Note';
 
 export const ApplyTemplate: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateOption | null>(null);
@@ -65,7 +67,7 @@ export const ApplyTemplate: React.FC = () => {
     }
   }, [templatesError]);
 
-  const addNewOption: TemplateOption = { value: ADD_NEW_SENTINEL, label: '+ Add Note As New Template' };
+  const addNewOption: TemplateOption = { value: ADD_NEW_SENTINEL, label: ADD_OR_UPDATE_LABEL };
   const allOptions: TemplateOption[] = [addNewOption, ...templates];
 
   const buttonSx = {
@@ -134,37 +136,51 @@ export const ApplyTemplate: React.FC = () => {
     return templates.find((option) => option.value === value)?.label || '';
   };
 
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [overwriteTemplateName, setOverwriteTemplateName] = useState('');
+
   const handleCreateDialogClose = (): void => {
     setCreateDialogOpen(false);
     setNewTemplateName('');
+    setShowOverwriteConfirm(false);
+    setOverwriteTemplateName('');
   };
 
-  const handleCreateTemplate = async (): Promise<void> => {
+  const handleSaveTemplate = async (): Promise<void> => {
     if (!oystehrZambda || !encounter.id || !newTemplateName.trim()) return;
 
     const trimmedName = newTemplateName.trim();
 
-    // Check for duplicate name
+    // Check for duplicate name — if exists, show overwrite confirmation
     const existingTemplate = templates.find((t) => t.label.toLowerCase() === trimmedName.toLowerCase());
-    if (existingTemplate) {
-      enqueueSnackbar(`A template named "${trimmedName}" already exists. Please choose a different name.`, {
-        variant: 'warning',
-      });
+    if (existingTemplate && !showOverwriteConfirm) {
+      setOverwriteTemplateName(trimmedName);
+      setShowOverwriteConfirm(true);
       return;
     }
 
     setIsCreatingTemplate(true);
     try {
+      // If overwriting, delete the old template first
+      if (existingTemplate && existingTemplate.id) {
+        await deleteTemplate(oystehrZambda, { templateId: existingTemplate.id });
+      }
+
       await createTemplate(oystehrZambda, {
         encounterId: encounter.id,
         templateName: trimmedName,
         examType: ExamType.IN_PERSON,
       });
       await queryClient.invalidateQueries({ queryKey: ['list-templates'] });
-      enqueueSnackbar('Template created successfully!', { variant: 'success' });
+      enqueueSnackbar(
+        existingTemplate
+          ? `Template "${trimmedName}" updated successfully!`
+          : `Template "${trimmedName}" created successfully!`,
+        { variant: 'success' }
+      );
       handleCreateDialogClose();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create template';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save template';
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setIsCreatingTemplate(false);
@@ -269,49 +285,76 @@ export const ApplyTemplate: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Create Template Dialog */}
+      {/* Create/Update Template Dialog */}
       <Dialog open={createDialogOpen} onClose={handleCreateDialogClose} disableScrollLock maxWidth="sm" fullWidth>
         <DialogTitle variant="h4" color="primary.dark">
-          Save Note As Template
+          {showOverwriteConfirm ? 'Update Existing Template?' : 'Save Note As Template'}
         </DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Template name"
-            fullWidth
-            required
-            value={newTemplateName}
-            onChange={(e) => setNewTemplateName(e.target.value)}
-            disabled={isCreatingTemplate}
-            sx={{ mb: 2 }}
-          />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            The following sections from the current note will be saved in the template:
-          </Typography>
-          <List dense disablePadding sx={{ mt: 1 }}>
-            {TEMPLATE_SECTIONS.map((section) => (
-              <ListItem key={section} sx={{ py: 0, pl: 2 }}>
-                <ListItemText
-                  primary={`\u2022 ${section}`}
-                  primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                />
-              </ListItem>
-            ))}
-          </List>
+          {showOverwriteConfirm ? (
+            <DialogContentText sx={{ color: theme.palette.text.primary }}>
+              A template named <strong>{overwriteTemplateName}</strong> already exists. Do you want to replace it with
+              the current note&apos;s data?
+            </DialogContentText>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Enter a new name to create a template, or select an existing template to update it.
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={templates.map((t) => t.label)}
+                value={newTemplateName}
+                onInputChange={(_e, value) => setNewTemplateName(value)}
+                onChange={(_e, value) => {
+                  if (value) setNewTemplateName(value);
+                }}
+                disabled={isCreatingTemplate}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    autoFocus
+                    label="Template name"
+                    fullWidth
+                    required
+                    placeholder="Type a new name or select existing..."
+                  />
+                )}
+                sx={{ mb: 2 }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                The following sections from the current note will be saved in the template:
+              </Typography>
+              <List dense disablePadding sx={{ mt: 1 }}>
+                {TEMPLATE_SECTIONS.map((section) => (
+                  <ListItem key={section} sx={{ py: 0, pl: 2 }}>
+                    <ListItemText
+                      primary={`\u2022 ${section}`}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-          <Button variant="outlined" onClick={handleCreateDialogClose} sx={buttonSx} disabled={isCreatingTemplate}>
-            Cancel
+          <Button
+            variant="outlined"
+            onClick={showOverwriteConfirm ? () => setShowOverwriteConfirm(false) : handleCreateDialogClose}
+            sx={buttonSx}
+            disabled={isCreatingTemplate}
+          >
+            {showOverwriteConfirm ? 'Back' : 'Cancel'}
           </Button>
           <LoadingButton
             variant="contained"
-            onClick={handleCreateTemplate}
+            onClick={handleSaveTemplate}
             sx={buttonSx}
             loading={isCreatingTemplate}
             disabled={!newTemplateName.trim()}
           >
-            Save
+            {showOverwriteConfirm ? 'Replace' : 'Save'}
           </LoadingButton>
         </DialogActions>
       </Dialog>
