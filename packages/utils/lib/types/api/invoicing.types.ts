@@ -14,6 +14,17 @@ export const ZERO_BALANCE_BUSINESS_STATUS: CodeableConcept = {
 
 export const InvoiceSortFields = ['finalizationDate', 'appointmentDate'] as const;
 export type InvoiceSortField = (typeof InvoiceSortFields)[number];
+export const InvoiceSortFieldValues = {
+  finalizationDate: 'finalizationDate',
+  appointmentDate: 'appointmentDate',
+} as const satisfies Record<InvoiceSortField, InvoiceSortField>;
+
+export const InvoiceSortDirections = ['asc', 'desc'] as const;
+export type InvoiceSortDirection = (typeof InvoiceSortDirections)[number];
+export const InvoiceSortDirectionValues = {
+  asc: 'asc',
+  desc: 'desc',
+} as const satisfies Record<InvoiceSortDirection, InvoiceSortDirection>;
 
 export const InvoiceTaskDisplayStatuses = ['ready', 'updating', 'sending', 'sent', 'error'] as const;
 export type InvoiceTaskDisplayStatus = (typeof InvoiceTaskDisplayStatuses)[number];
@@ -73,7 +84,7 @@ export const GetInvoicesTasksZambdaInputSchema = z.object({
   status: z.enum(allowedStatuses).optional(),
   patientId: z.string().optional(),
   sortField: z.enum(InvoiceSortFields).optional(),
-  sortDirection: z.enum(['asc', 'desc']).optional(),
+  sortDirection: z.enum(InvoiceSortDirections).optional(),
   hideZeroBalance: z.boolean().optional(),
 });
 export const GetInvoicesTasksZambdaValidatedInputSchema = GetInvoicesTasksZambdaInputSchema.extend({

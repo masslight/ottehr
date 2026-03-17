@@ -36,7 +36,10 @@ import {
   getLatestTaskOutput,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
+  InvoiceSortDirection,
+  InvoiceSortDirectionValues,
   InvoiceSortField,
+  InvoiceSortFieldValues,
   InvoiceTaskDisplayStatus,
   InvoiceTaskDisplayStatuses,
   InvoiceTaskInput,
@@ -51,6 +54,15 @@ import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
+
+const SP = {
+  page: 'page',
+  status: 'status',
+  patient: 'patient',
+  sortField: 'sortField',
+  sortDirection: 'sortDirection',
+  hideZeroBalance: 'hideZeroBalance',
+} as const;
 
 const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
   [status in InvoiceTaskDisplayStatus]: {
@@ -116,53 +128,15 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
 
-  const pageSP = Number(searchParams.get('page') ?? '0');
+  const pageSP = Number(searchParams.get(SP.page) ?? '0');
   const [pageInputValue, setPageInputValue] = useState(String(pageSP + 1));
-  const statusSP = searchParams.get('status');
-  const patientSP = searchParams.get('patient');
-  const sortFieldSP = (searchParams.get('sortField') as InvoiceSortField | null) ?? 'finalizationDate';
-  const sortDirectionSP = (searchParams.get('sortDirection') as 'asc' | 'desc' | null) ?? 'desc';
-  const hideZeroBalanceSP = searchParams.get('hideZeroBalance') !== 'false';
-
-  const handleBack = (): void => {
-    navigate('/reports');
-  };
-
-  const setPage = (page: number): void => {
-    searchParams.set('page', page.toString());
-    setSearchParams(searchParams);
-  };
-
-  const handlePageJump = (
-    e: React.KeyboardEvent<HTMLDivElement> | React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>
-  ): void => {
-    if ('key' in e && e.key !== 'Enter') return;
-    let targetPage = parseInt(pageInputValue, 10);
-
-    if (isNaN(targetPage) || targetPage < 1) {
-      targetPage = 1;
-    } else if (targetPage > totalPages) {
-      targetPage = totalPages;
-    }
-
-    setPageInputValue(String(targetPage));
-
-    if (targetPage - 1 !== pageSP) {
-      setPage(targetPage - 1);
-    }
-  };
-
-  const setSortField = (field: InvoiceSortField): void => {
-    if (field === sortFieldSP) {
-      searchParams.set('sortDirection', sortDirectionSP === 'desc' ? 'asc' : 'desc');
-    } else {
-      searchParams.set('sortField', field);
-      searchParams.set('sortDirection', 'desc');
-    }
-    searchParams.set('page', '0');
-    setSearchParams(searchParams);
-  };
-
+  const statusSP = searchParams.get(SP.status);
+  const patientSP = searchParams.get(SP.patient);
+  const sortFieldSP =
+    (searchParams.get(SP.sortField) as InvoiceSortField | null) ?? InvoiceSortFieldValues.finalizationDate;
+  const sortDirectionSP =
+    (searchParams.get(SP.sortDirection) as InvoiceSortDirection | null) ?? InvoiceSortDirectionValues.desc;
+  const hideZeroBalanceSP = searchParams.get(SP.hideZeroBalance) !== 'false';
   const {
     data: invoiceablePatients,
     isLoading: isInvoiceablePatientsLoading,
@@ -200,6 +174,52 @@ export default function InvoiceablePatients(): React.ReactElement {
   });
 
   const totalPages = Math.ceil((invoiceablePatients?.totalCount ?? 0) / INVOICEABLE_PATIENTS_PAGE_SIZE);
+
+  const handleBack = (): void => {
+    navigate('/reports');
+  };
+
+  const setPage = (page: number): void => {
+    searchParams.set(SP.page, page.toString());
+    setSearchParams(searchParams);
+  };
+
+  const handlePageJump = (
+    e: React.KeyboardEvent<HTMLDivElement> | React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>
+  ): void => {
+    if ('key' in e && e.key !== 'Enter') return;
+    if (totalPages === 0) return;
+
+    let targetPage = parseInt(pageInputValue, 10);
+
+    if (isNaN(targetPage) || targetPage < 1) {
+      targetPage = 1;
+    } else if (targetPage > totalPages) {
+      targetPage = totalPages;
+    }
+
+    setPageInputValue(String(targetPage));
+
+    if (targetPage - 1 !== pageSP) {
+      setPage(targetPage - 1);
+    }
+  };
+
+  const setSortField = (field: InvoiceSortField): void => {
+    if (field === sortFieldSP) {
+      searchParams.set(
+        SP.sortDirection,
+        sortDirectionSP === InvoiceSortDirectionValues.desc
+          ? InvoiceSortDirectionValues.asc
+          : InvoiceSortDirectionValues.desc
+      );
+    } else {
+      searchParams.set(SP.sortField, field);
+      searchParams.set(SP.sortDirection, InvoiceSortDirectionValues.desc);
+    }
+    searchParams.set(SP.page, '0');
+    setSearchParams(searchParams);
+  };
 
   const sendInvoice = async (taskId: string, invoiceTaskInput: InvoiceTaskInput): Promise<void> => {
     try {
@@ -253,9 +273,13 @@ export default function InvoiceablePatients(): React.ReactElement {
   };
 
   useEffect(() => {
+    setPageInputValue(String(pageSP + 1));
+  }, [pageSP]);
+
+  useEffect(() => {
     const filtersValues = {
-      status: searchParams.get('status'),
-      patient: searchParams.get('patient'),
+      status: searchParams.get(SP.status),
+      patient: searchParams.get(SP.patient),
     };
     methods.reset(filtersValues);
   }, [searchParams, methods]);
@@ -276,10 +300,10 @@ export default function InvoiceablePatients(): React.ReactElement {
           }
         }
         // Preserve sort and hideZeroBalance params — they are managed separately from the form
-        if (searchParams.has('sortField')) queryParams.set('sortField', searchParams.get('sortField')!);
-        if (searchParams.has('sortDirection')) queryParams.set('sortDirection', searchParams.get('sortDirection')!);
-        if (searchParams.has('hideZeroBalance'))
-          queryParams.set('hideZeroBalance', searchParams.get('hideZeroBalance')!);
+        if (searchParams.has(SP.sortField)) queryParams.set(SP.sortField, searchParams.get(SP.sortField)!);
+        if (searchParams.has(SP.sortDirection)) queryParams.set(SP.sortDirection, searchParams.get(SP.sortDirection)!);
+        if (searchParams.has(SP.hideZeroBalance))
+          queryParams.set(SP.hideZeroBalance, searchParams.get(SP.hideZeroBalance)!);
         setSearchParams(queryParams);
         if (Object.keys(filtersToPersist).length > 0) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
@@ -301,9 +325,9 @@ export default function InvoiceablePatients(): React.ReactElement {
           queryParams.set(key, filters[key]);
         }
       }
-      if (!queryParams.has('sortField')) queryParams.set('sortField', 'finalizationDate');
-      if (!queryParams.has('sortDirection')) queryParams.set('sortDirection', 'desc');
-      if (!queryParams.has('hideZeroBalance')) queryParams.set('hideZeroBalance', 'true');
+      if (!queryParams.has(SP.sortField)) queryParams.set(SP.sortField, InvoiceSortFieldValues.finalizationDate);
+      if (!queryParams.has(SP.sortDirection)) queryParams.set(SP.sortDirection, InvoiceSortDirectionValues.desc);
+      if (!queryParams.has(SP.hideZeroBalance)) queryParams.set(SP.hideZeroBalance, 'true');
       setSearchParams(queryParams);
     }
   }, [searchParams, setSearchParams]);
@@ -340,8 +364,8 @@ export default function InvoiceablePatients(): React.ReactElement {
                   <Checkbox
                     checked={hideZeroBalanceSP}
                     onChange={(e) => {
-                      searchParams.set('hideZeroBalance', e.target.checked ? 'true' : 'false');
-                      searchParams.set('page', '0');
+                      searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
+                      searchParams.set(SP.page, '0');
                       setSearchParams(searchParams);
                     }}
                   />
@@ -363,9 +387,13 @@ export default function InvoiceablePatients(): React.ReactElement {
                 </TableCell>
                 <TableCell style={{ width: '150px' }}>
                   <TableSortLabel
-                    active={sortFieldSP === 'appointmentDate'}
-                    direction={sortFieldSP === 'appointmentDate' ? sortDirectionSP : 'desc'}
-                    onClick={() => setSortField('appointmentDate')}
+                    active={sortFieldSP === InvoiceSortFieldValues.appointmentDate}
+                    direction={
+                      sortFieldSP === InvoiceSortFieldValues.appointmentDate
+                        ? sortDirectionSP
+                        : InvoiceSortDirectionValues.desc
+                    }
+                    onClick={() => setSortField(InvoiceSortFieldValues.appointmentDate)}
                   >
                     <Typography fontWeight="500" fontSize="14px">
                       Date of Service
@@ -374,9 +402,13 @@ export default function InvoiceablePatients(): React.ReactElement {
                 </TableCell>
                 <TableCell style={{ width: '150px' }}>
                   <TableSortLabel
-                    active={sortFieldSP === 'finalizationDate'}
-                    direction={sortFieldSP === 'finalizationDate' ? sortDirectionSP : 'desc'}
-                    onClick={() => setSortField('finalizationDate')}
+                    active={sortFieldSP === InvoiceSortFieldValues.finalizationDate}
+                    direction={
+                      sortFieldSP === InvoiceSortFieldValues.finalizationDate
+                        ? sortDirectionSP
+                        : InvoiceSortDirectionValues.desc
+                    }
+                    onClick={() => setSortField(InvoiceSortFieldValues.finalizationDate)}
                   >
                     <Typography fontWeight="500" fontSize="14px">
                       Finalization Date
@@ -575,6 +607,9 @@ export default function InvoiceablePatients(): React.ReactElement {
                   'aria-label': 'Go to page',
                 }}
               />
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                of {totalPages}
+              </Typography>
             </Box>
           </Box>
         </Paper>

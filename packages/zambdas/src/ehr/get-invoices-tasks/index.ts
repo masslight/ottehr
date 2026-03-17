@@ -29,6 +29,8 @@ import {
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
+  InvoiceSortDirectionValues,
+  InvoiceSortFieldValues,
   mapGenderToLabel,
   parseInvoiceTaskInput,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -156,15 +158,15 @@ async function getFhirResourcesGrouped(
   complexValidatedInput: GetInvoicesTasksInput
 ): Promise<{ taskGroups: TaskGroup[]; bundleTotal: number }> {
   const { page, status, patientId, sortField, sortDirection, hideZeroBalance } = complexValidatedInput;
-  const resolvedSortField = sortField ?? 'finalizationDate';
-  const resolvedSortDirection = sortDirection ?? 'desc';
-  const sortPrefix = resolvedSortDirection === 'desc' ? '-' : '';
+  const resolvedSortField = sortField ?? InvoiceSortFieldValues.finalizationDate;
+  const resolvedSortDirection = sortDirection ?? InvoiceSortDirectionValues.desc;
+  const sortPrefix = resolvedSortDirection === InvoiceSortDirectionValues.desc ? '-' : '';
   // finalizationDate is stored in authoredOn; appointmentDate in executionPeriod (start == end).
   // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
   // both directions sort by the appointment date correctly.
   // _id tiebreaker ensures stable ordering across pages when multiple records share the same date.
   const fhirSortParam =
-    resolvedSortField === 'finalizationDate'
+    resolvedSortField === InvoiceSortFieldValues.finalizationDate
       ? `${sortPrefix}authored-on,${sortPrefix}_id`
       : `${sortPrefix}period,${sortPrefix}_id`;
 
