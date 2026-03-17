@@ -250,7 +250,7 @@ export default function QuickPicksAdminPage(): ReactElement {
 
   const createAllergy = useCallback(
     async (data: Omit<AllergyQuickPickData, 'id'>) => {
-      if (!oystehrZambda) throw new Error('Not connected');
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
       const response = await createAllergyQuickPick(oystehrZambda, { quickPick: data });
       return response.quickPick;
     },
@@ -259,7 +259,7 @@ export default function QuickPicksAdminPage(): ReactElement {
 
   const removeAllergy = useCallback(
     async (id: string) => {
-      if (!oystehrZambda) throw new Error('Not connected');
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
       await removeAllergyQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
@@ -274,7 +274,7 @@ export default function QuickPicksAdminPage(): ReactElement {
 
   const createCondition = useCallback(
     async (data: Omit<MedicalConditionQuickPickData, 'id'>) => {
-      if (!oystehrZambda) throw new Error('Not connected');
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
       const response = await createMedicalConditionQuickPick(oystehrZambda, { quickPick: data });
       return response.quickPick;
     },
@@ -283,7 +283,7 @@ export default function QuickPicksAdminPage(): ReactElement {
 
   const removeCondition = useCallback(
     async (id: string) => {
-      if (!oystehrZambda) throw new Error('Not connected');
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
       await removeMedicalConditionQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
@@ -298,7 +298,7 @@ export default function QuickPicksAdminPage(): ReactElement {
 
   const createMedication = useCallback(
     async (data: Omit<MedicationHistoryQuickPickData, 'id'>) => {
-      if (!oystehrZambda) throw new Error('Not connected');
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
       const response = await createMedicationHistoryQuickPick(oystehrZambda, { quickPick: data });
       return response.quickPick;
     },
@@ -307,7 +307,7 @@ export default function QuickPicksAdminPage(): ReactElement {
 
   const removeMedication = useCallback(
     async (id: string) => {
-      if (!oystehrZambda) throw new Error('Not connected');
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
       await removeMedicationHistoryQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
