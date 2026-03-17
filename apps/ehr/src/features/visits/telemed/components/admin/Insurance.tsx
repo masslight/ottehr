@@ -36,7 +36,7 @@ import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { INSURANCE_ROWS_PER_PAGE } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useBulkInsuranceStatusMutation, useInsurancesQuery } from './telemed-admin.queries';
+import { useBulkInsuranceStatusMutation, useInsurancesQuery } from './admin.queries';
 
 enum IsActiveStatus {
   active,
@@ -214,10 +214,10 @@ export default function Insurances(): ReactElement {
   );
 
   return (
-    <Paper sx={{ padding: 2 }}>
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
       <TableContainer>
-        <Grid container spacing={2} paddingTop={1} display="flex" alignItems="center">
-          <Grid item xs={12} sm={5} marginTop={-0.5}>
+        <Grid container spacing={2} display="flex" alignItems="center">
+          <Grid item xs={12} sm={5}>
             <TextField
               fullWidth
               id="outlined-basic"
@@ -230,7 +230,7 @@ export default function Insurances(): ReactElement {
               margin="dense"
             />
           </Grid>
-          <Grid item xs={12} sm={5} paddingTop={5}>
+          <Grid item xs={12} sm={5}>
             <FormControl fullWidth>
               <InputLabel id="select-insurance-status-filter">Status</InputLabel>
               <Select
