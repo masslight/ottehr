@@ -82,73 +82,7 @@ function getFilePaths(environment: string): GetFilePathConfig {
   };
 }
 
-function copyConfiguration(project?: string): void {
-  const repoRoot = process.cwd();
-  const secretsPath = path.join(repoRoot, 'secrets');
-
-  console.log('\n=== Copying configuration files ===');
-
-  // Skip configuration copying for ottehr project
-  if (project === 'ottehr') {
-    console.log('Skipping configuration copy for ottehr project');
-    return;
-  }
-
-  // Clear and create target directories for configuration
-  const configPaths = [
-    {
-      source: path.join(secretsPath, 'configuration', 'oystehr'),
-      target: path.join(repoRoot, 'config', 'oystehr'),
-      type: 'full',
-    },
-    {
-      source: path.join(secretsPath, 'configuration', 'sendgrid'),
-      target: path.join(repoRoot, 'config', 'sendgrid'),
-      type: 'full',
-    },
-    {
-      source: path.join(secretsPath, 'configuration', 'ottehr-config'),
-      target: path.join(repoRoot, 'packages', 'utils', 'lib', 'ottehr-config'),
-      type: 'overlay',
-    },
-  ];
-
-  configPaths.forEach(({ source, target, type }) => {
-    if (type === 'full') {
-      // Remove existing directory and create fresh one
-      if (fs.existsSync(target) && fs.existsSync(source)) {
-        fs.rmSync(target, { recursive: true, force: true });
-      } else if (!fs.existsSync(source)) {
-        console.log(`⚠ Secrets source config folder is missing: ${path.relative(repoRoot, source)}. Skipping copy.`);
-        return;
-      }
-      fs.mkdirSync(target, { recursive: true });
-
-      // Copy if source exists
-      if (fs.existsSync(source)) {
-        fs.cpSync(source, target, { recursive: true });
-        console.log(
-          `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
-        );
-      } else {
-        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
-      }
-    } else if (type === 'overlay') {
-      // Overlay source onto target without deleting existing files
-      if (!fs.existsSync(source)) {
-        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
-        return;
-      }
-
-      fs.cpSync(source, target, { recursive: true });
-      console.log(
-        `✓ Overlaid configuration from ${path.relative(repoRoot, source)} onto ${path.relative(repoRoot, target)}`
-      );
-    }
-  });
-}
-
-function populate(environment: string, project?: string): void {
+function populate(environment: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
   const paths = getFilePaths(environment);
@@ -157,9 +91,6 @@ function populate(environment: string, project?: string): void {
     console.error('Error: secrets directory not found in repository root');
     process.exit(1);
   }
-
-  // Copy configuration files first
-  copyConfiguration(project);
 
   console.log('\n=== Populating environment-specific secrets ===');
 
@@ -236,7 +167,6 @@ function validate(environment: string): void {
 function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
-  const project = process.argv[4];
 
   if (!environment) {
     console.error('Error: environment parameter is required');
@@ -246,7 +176,7 @@ function main(): void {
 
   switch (command) {
     case 'populate':
-      populate(environment, project);
+      populate(environment);
       break;
     case 'validate':
       validate(environment);
