@@ -5,6 +5,10 @@ inputs:
   environment:
     description: "Environment to populate secrets for (local, staging, production, etc)"
     required: true
+  project:
+    description: "Project to grab secrets for"
+    required: false
+    default: "ottehr"
   source-dir:
     description: "Directory in the source repo to copy secrets into (e.g. root, apps/ehr, etc)"
     required: false
@@ -28,7 +32,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.source-dir }}
       run: |
-        npm exec -- tsx scripts/secrets.ts populate ${{ inputs.environment }}
+        npm exec -- tsx scripts/secrets.ts populate ${{ inputs.environment }} ${{ inputs.project }}
         if [ "${{ inputs.environment }}" != "local" ]; then
           npm exec -- tsx scripts/secrets.ts populate local
         fi
