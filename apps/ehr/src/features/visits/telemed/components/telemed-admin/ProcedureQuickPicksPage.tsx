@@ -61,7 +61,8 @@ export default function ProcedureQuickPicksPage(): ReactElement {
   };
 
   const handleRename = async (): Promise<void> => {
-    if (!oystehrZambda || !renamingQuickPick?.id) return;
+    if (!oystehrZambda) throw new Error('oystehrZambda was null');
+    if (!renamingQuickPick?.id) throw new Error('renamingQuickPick or its id was undefined');
     if (!newName.trim()) {
       enqueueSnackbar('Name is required', { variant: 'warning' });
       return;
@@ -84,7 +85,8 @@ export default function ProcedureQuickPicksPage(): ReactElement {
   };
 
   const handleDelete = async (qp: ProcedureQuickPickData): Promise<void> => {
-    if (!oystehrZambda || !qp.id) return;
+    if (!oystehrZambda) throw new Error('oystehrZambda was null');
+    if (!qp.id) throw new Error('quick pick id was undefined');
 
     try {
       await removeProcedureQuickPick(oystehrZambda, qp.id);
