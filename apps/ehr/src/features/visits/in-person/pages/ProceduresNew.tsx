@@ -498,7 +498,13 @@ export default function ProceduresNew(): ReactElement {
   };
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
-    if (!oystehrZambda || !quickPickName.trim()) return;
+    if (!quickPickName.trim()) {
+      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    if (!oystehrZambda) {
+      throw new Error('oystehrZambda was null');
+    }
 
     setQuickPickSaving(true);
     try {

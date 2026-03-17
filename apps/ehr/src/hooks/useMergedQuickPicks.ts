@@ -1,3 +1,4 @@
+import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getAllergyQuickPicks,
@@ -37,7 +38,8 @@ function useMergedQuickPicksGeneric<T>(
       const response = await fetchFn(oystehrZambda);
       setFhirItems(response.quickPicks);
     } catch (error) {
-      console.log('FHIR quick picks not available, using hardcoded only:', error);
+      console.error('Failed to load quick picks:', error);
+      enqueueSnackbar('Failed to load quick picks', { variant: 'error' });
     } finally {
       setLoading(false);
     }
