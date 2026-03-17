@@ -21,7 +21,8 @@ import React, { useState } from 'react';
 import { applyTemplate, createTemplate, deleteTemplate } from 'src/api/api';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ExamType } from 'utils';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { ExamType, RoleType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
@@ -55,6 +56,8 @@ export const ApplyTemplate: React.FC = () => {
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const currentUser = useEvolveUser();
+  const isAdmin = currentUser?.hasRole?.([RoleType.Administrator]) ?? false;
 
   // Load templates using custom react-query hook
   const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
@@ -67,7 +70,10 @@ export const ApplyTemplate: React.FC = () => {
     }
   }, [templatesError]);
 
-  const addNewOption: TemplateOption = { value: ADD_NEW_SENTINEL, label: ADD_OR_UPDATE_LABEL };
+  const addNewOption: TemplateOption = {
+    value: ADD_NEW_SENTINEL,
+    label: isAdmin ? ADD_OR_UPDATE_LABEL : 'Add Template Requires Admin Role',
+  };
   const allOptions: TemplateOption[] = [addNewOption, ...templates];
 
   const buttonSx = {
@@ -79,6 +85,7 @@ export const ApplyTemplate: React.FC = () => {
   const handleTemplateChange = (event: React.SyntheticEvent, newValue: TemplateOption | null): void => {
     if (newValue) {
       if (newValue.value === ADD_NEW_SENTINEL) {
+        if (!isAdmin) return;
         setCreateDialogOpen(true);
         return;
       }
@@ -210,8 +217,21 @@ export const ApplyTemplate: React.FC = () => {
         renderOption={(props, option) => {
           if (option.value === ADD_NEW_SENTINEL) {
             return (
-              <li {...props} key={option.value}>
-                <Typography sx={{ fontWeight: 'bold', color: 'primary.main' }}>{option.label}</Typography>
+              <li
+                {...props}
+                key={option.value}
+                aria-disabled={!isAdmin}
+                style={{ ...props.style, pointerEvents: isAdmin ? 'auto' : 'none' }}
+              >
+                <Typography
+                  sx={{
+                    fontWeight: 'bold',
+                    color: isAdmin ? 'primary.main' : 'text.disabled',
+                    fontStyle: isAdmin ? 'normal' : 'italic',
+                  }}
+                >
+                  {option.label}
+                </Typography>
               </li>
             );
           }
