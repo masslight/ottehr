@@ -49,13 +49,6 @@ runs:
               echo "⚠ No tests.*.json files found for $app"
           fi
         done
-
-        # Copy user.json for Playwright auth state (intake only)
-        if [ -f "secrets/${{ inputs.project }}/apps/intake/env/user.json" ]; then
-          mkdir -p ${{ inputs.source-dir }}/apps/intake/playwright
-          cp secrets/${{ inputs.project }}/apps/intake/env/user.json ${{ inputs.source-dir }}/apps/intake/playwright/user.json
-          echo "✓ Copied user.json for Playwright auth"
-        fi
     - name: HashiCorp - Setup Terraform
       if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
       uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
