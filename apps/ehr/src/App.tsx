@@ -24,6 +24,7 @@ import PatientFollowup from './features/visits/shared/components/patient/Patient
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
 import EditInsurance from './features/visits/telemed/components/telemed-admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/telemed-admin/EditVirtualLocationPage';
+import GlobalTemplateDetailPage from './features/visits/telemed/components/telemed-admin/GlobalTemplateDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -232,6 +233,7 @@ function App(): ReactElement {
                   <Route path={INSURANCES_URL} element={<TelemedAdminPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
                   <Route path={GLOBAL_TEMPLATES_URL} element={<TelemedAdminPage />} />
+                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"

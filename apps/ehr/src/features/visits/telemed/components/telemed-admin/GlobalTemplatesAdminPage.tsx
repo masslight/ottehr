@@ -25,7 +25,9 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { deleteTemplate, listTemplates, renameTemplate } from 'src/api/api';
+import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
@@ -153,7 +155,22 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
             <TableBody>
               {sortedTemplates.map((template) => (
                 <TableRow key={template.id}>
-                  <TableCell>{template.title}</TableCell>
+                  <TableCell>
+                    <RouterLink
+                      to={`${GLOBAL_TEMPLATES_URL}/${template.id}`}
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': { textDecoration: 'underline', color: 'primary.main' },
+                        }}
+                      >
+                        {template.title}
+                      </Typography>
+                    </RouterLink>
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={template.isCurrentVersion ? 'Current' : 'Stale'}

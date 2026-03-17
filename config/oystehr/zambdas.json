@@ -1096,6 +1096,13 @@
       "src": "src/ehr/admin-delete-template/index",
       "zip": ".dist/zips/admin-delete-template.zip"
     },
+    "ADMIN-GET-TEMPLATE-DETAIL": {
+      "name": "admin-get-template-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-template-detail/index",
+      "zip": ".dist/zips/admin-get-template-detail.zip"
+    },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
       "type": "http_auth",
