@@ -221,13 +221,13 @@ export default function GlobalTemplateDetailPage(): ReactElement {
           </SectionCard>
 
           {/* Assessment / Diagnoses */}
-          <SectionCard title="Assessment / Diagnoses">
+          <SectionCard title="Assessment / ICD-10 Diagnoses">
             {sections.diagnoses.length > 0 ? (
               <TableContainer>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>ICD-10 Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                     </TableRow>
                   </TableHead>
@@ -246,25 +246,27 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             )}
           </SectionCard>
 
-          {/* Patient Instructions */}
-          <SectionCard title="Patient Instructions">
-            {sections.patientInstructions ? (
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {sections.patientInstructions}
-              </Typography>
-            ) : (
-              <NotIncluded />
-            )}
-          </SectionCard>
-
           {/* CPT Codes */}
           <SectionCard title="CPT Codes">
             {sections.cptCodes.length > 0 ? (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {sections.cptCodes.map((cpt, index) => (
-                  <Chip key={index} label={`${cpt.code}${cpt.display ? ` - ${cpt.display}` : ''}`} variant="outlined" />
-                ))}
-              </Box>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sections.cptCodes.map((cpt, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{cpt.code}</TableCell>
+                        <TableCell>{cpt.display || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             ) : (
               <NotIncluded />
             )}
@@ -273,10 +275,33 @@ export default function GlobalTemplateDetailPage(): ReactElement {
           {/* E&M Code */}
           <SectionCard title="E&M Code">
             {sections.emCode ? (
-              <Chip
-                label={`${sections.emCode.code}${sections.emCode.display ? ` - ${sections.emCode.display}` : ''}`}
-                variant="outlined"
-              />
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>{sections.emCode.code}</TableCell>
+                      <TableCell>{sections.emCode.display || '—'}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* Patient Instructions */}
+          <SectionCard title="Patient Instructions">
+            {sections.patientInstructions ? (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {sections.patientInstructions}
+              </Typography>
             ) : (
               <NotIncluded />
             )}
