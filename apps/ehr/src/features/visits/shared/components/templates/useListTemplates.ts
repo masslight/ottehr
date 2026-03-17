@@ -7,7 +7,7 @@ import { ExamType, ListTemplatesZambdaOutput } from 'utils';
 export interface TemplateOption {
   value: string;
   label: string;
-  id?: string;
+  id: string;
 }
 
 export interface UseListTemplatesResult {

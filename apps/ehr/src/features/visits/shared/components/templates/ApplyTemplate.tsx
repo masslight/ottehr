@@ -170,7 +170,11 @@ export const ApplyTemplate: React.FC = () => {
     setIsCreatingTemplate(true);
     try {
       // If overwriting, delete the old template first
-      if (existingTemplate && existingTemplate.id) {
+      if (existingTemplate) {
+        if (!existingTemplate.id) {
+          enqueueSnackbar('Cannot overwrite template: missing template ID', { variant: 'error' });
+          return;
+        }
         await deleteTemplate(oystehrZambda, { templateId: existingTemplate.id });
       }
 

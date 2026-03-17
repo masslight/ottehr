@@ -86,7 +86,7 @@ const performEffect = async (
     },
     // Note: individual template Lists do NOT get the GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM tag.
     // That tag is only on the "holder list" that references all templates.
-    // Templates are discovered via the holder list's _include: List:item search.
+    // Templates are discovered by being referenced in the holder list's entries, which are fetched via _id search.
     status: 'current',
     mode: 'working',
     title: templateName,
@@ -118,7 +118,7 @@ const performEffect = async (
   encounterBundle.entry.sort((a, b) => {
     if (!a.resource || !b.resource) return 0;
     if (!a.resource.meta?.lastUpdated || !b.resource.meta?.lastUpdated) return 0;
-    return a.resource.meta.lastUpdated > b.resource.meta.lastUpdated ? 1 : -1;
+    return a.resource.meta.lastUpdated > b.resource.meta.lastUpdated ? -1 : 1;
   });
 
   const seenTags = new Set<string>();
@@ -177,17 +177,22 @@ const performEffect = async (
       code: 'AMB',
       display: 'Ambulatory',
     },
-    diagnosis: oldEncounter.resource?.diagnosis?.map((diagnosis) => {
-      if (!diagnosis.condition?.reference) {
-        throw new Error('Unexpectedly found no condition reference in diagnosis');
-      }
-      return {
-        ...diagnosis,
-        condition: {
-          reference: `Condition/${oldIdToNewIdMap.get(diagnosis.condition.reference.split('/')[1])}`,
-        },
-      };
-    }),
+    diagnosis: oldEncounter.resource?.diagnosis
+      ?.map((diagnosis) => {
+        if (!diagnosis.condition?.reference) {
+          throw new Error('Unexpectedly found no condition reference in diagnosis');
+        }
+        const mappedId = oldIdToNewIdMap.get(diagnosis.condition.reference.split('/')[1]);
+        if (!mappedId) {
+          console.warn('Could not map diagnosis condition reference, skipping:', diagnosis.condition.reference);
+          return null;
+        }
+        return {
+          ...diagnosis,
+          condition: { reference: `Condition/${mappedId}` },
+        };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null),
   };
   listToCreate.contained!.push(stubEncounter);
   listToCreate.entry!.push({

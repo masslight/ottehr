@@ -49,6 +49,7 @@ interface TemplateDetailData {
   templateName: string;
   templateId: string;
   examVersion: string;
+  isCurrentVersion: boolean;
   sections: {
     hpiNote: string | null;
     moiNote: string | null;
@@ -204,8 +205,8 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             {data.templateName}
           </Typography>
           <Chip
-            label={data.examVersion ? 'Current' : 'Stale'}
-            color={data.examVersion ? 'success' : 'warning'}
+            label={data.isCurrentVersion ? 'Current' : 'Stale'}
+            color={data.isCurrentVersion ? 'success' : 'warning'}
             size="small"
             sx={{ ml: 1 }}
           />

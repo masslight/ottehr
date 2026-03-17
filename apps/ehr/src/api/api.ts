@@ -1653,13 +1653,16 @@ export const deleteTemplate = async (
   }
 };
 
-export const getTemplateDetail = async (oystehr: Oystehr, parameters: { templateId: string }): Promise<any> => {
+export const getTemplateDetail = async (
+  oystehr: Oystehr,
+  parameters: { templateId: string }
+): Promise<Record<string, unknown>> => {
   try {
     const response = await oystehr.zambda.execute({
       id: ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response);
+    return chooseJson<Record<string, unknown>>(response);
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);

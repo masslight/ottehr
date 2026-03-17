@@ -1,7 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, List, Observation, Procedure, Resource } from 'fhir/r4b';
-import { ACCIDENT_TYPE_SYSTEM, examConfig, getSecret, SecretsKeys } from 'utils';
+import {
+  ACCIDENT_TYPE_SYSTEM,
+  examConfig,
+  getSecret,
+  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { AdminGetTemplateDetailInput, validateRequestParameters } from './validateRequestParameters';
@@ -35,6 +42,7 @@ interface TemplateDetailOutput {
   templateName: string;
   templateId: string;
   examVersion: string;
+  isCurrentVersion: boolean;
   sections: {
     hpiNote: string | null;
     moiNote: string | null;
@@ -84,9 +92,8 @@ function getTagCode(resource: Resource, tagSystem: string): string | undefined {
 }
 
 // Build a set of all field codes that appear under 'abnormal' sections in the exam config
-function buildAbnormalFieldCodes(): Set<string> {
+function buildAbnormalFieldCodes(config: Record<string, any>): Set<string> {
   const abnormalCodes = new Set<string>();
-  const config = examConfig.inPerson.default.components;
 
   function collectAbnormalCodes(obj: Record<string, any>): void {
     for (const [key, value] of Object.entries(obj)) {
@@ -117,9 +124,8 @@ function buildAbnormalFieldCodes(): Set<string> {
 }
 
 // Build a map of field codes to their display labels from the exam config
-function buildFieldLabels(): Map<string, string> {
+function buildFieldLabels(config: Record<string, any>): Map<string, string> {
   const labels = new Map<string, string>();
-  const config = examConfig.inPerson.default.components;
 
   function collect(obj: Record<string, any>): void {
     for (const [key, value] of Object.entries(obj)) {
@@ -149,6 +155,14 @@ const performEffect = async (
     id: templateId,
   });
 
+  // Verify this is a template List (has exam type coding)
+  const isTemplate = templateList.code?.coding?.some(
+    (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM || c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM
+  );
+  if (!isTemplate) {
+    throw new Error(`List ${templateId} is not a global template`);
+  }
+
   if (!templateList.contained || templateList.contained.length === 0) {
     throw new Error(`Template ${templateId} has no contained resources`);
   }
@@ -157,6 +171,12 @@ const performEffect = async (
 
   // Extract exam version from the List's code coding
   const examVersion = templateList.code?.coding?.[0]?.version ?? '';
+
+  // Determine exam type from template coding and select appropriate config
+  const isInPerson = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
+  const examTypeConfig = isInPerson ? examConfig.inPerson.default : examConfig.telemed.default;
+  const currentVersion = examTypeConfig.version;
+  const isCurrentVersion = examVersion === currentVersion;
 
   // Parse HPI note
   const hpiCondition = contained.find(
@@ -185,8 +205,8 @@ const performEffect = async (
       hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field')
   ) as Observation[];
 
-  const abnormalFieldCodes = buildAbnormalFieldCodes();
-  const fieldLabels = buildFieldLabels();
+  const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
+  const fieldLabels = buildFieldLabels(examTypeConfig.components);
 
   const examFindings: ExamFinding[] = examObservations.map((obs) => {
     const fieldCode =
@@ -277,6 +297,7 @@ const performEffect = async (
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
     examVersion,
+    isCurrentVersion,
     sections: {
       hpiNote,
       moiNote,

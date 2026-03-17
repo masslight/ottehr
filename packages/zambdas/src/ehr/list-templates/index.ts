@@ -62,10 +62,12 @@ const performEffect = async (
     return { templates: [] };
   }
 
-  // Get all template IDs from the holder list entries
-  const templateIds = holderList.entry
-    .map((entry) => entry.item.reference?.replace('List/', ''))
-    .filter((id): id is string => !!id);
+  // Get all template IDs from the holder list entries (deduplicated)
+  const templateIds = [
+    ...new Set(
+      holderList.entry.map((entry) => entry.item.reference?.replace('List/', '')).filter((id): id is string => !!id)
+    ),
+  ];
 
   if (templateIds.length === 0) {
     return { templates: [] };
