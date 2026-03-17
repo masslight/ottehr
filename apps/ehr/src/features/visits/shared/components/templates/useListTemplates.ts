@@ -32,11 +32,21 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
 
   const templates: TemplateOption[] = queryResult.data
     ? queryResult.data.templates
-        .filter((template) => template.title)
-        .map((template) => ({
-          value: template.title,
-          label: template.title,
-        }))
+        .filter((template) => {
+          // Handle both old format (string) and new format (TemplateInfo object)
+          if (typeof template === 'string') {
+            return template.length > 0;
+          }
+          return !!template.title;
+        })
+        .map((template) => {
+          // Handle both old format (string) and new format (TemplateInfo object)
+          const title = typeof template === 'string' ? template : template.title;
+          return {
+            value: title,
+            label: title,
+          };
+        })
     : [];
 
   return {
