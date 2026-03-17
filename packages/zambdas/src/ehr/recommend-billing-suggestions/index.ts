@@ -55,7 +55,7 @@ export const index = wrapHandler(
 
       Also take on a persona of a medical biller and coder looking for errors that might cause a claim to be rejected in an urgent care setting. Review the following claim based on provided ICD and CPT codes and provide a very concise single sentence explaining any possible issues or say "No coding changes."
 
-      Return the response in the following JSON:
+      Return the response in the following JSON format only, with no additional text or markdown formatting:
 
       {
         "icdCodes": [
@@ -120,15 +120,27 @@ export const index = wrapHandler(
 
       console.log(prompt);
 
-      const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+      let aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
       // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+
+      // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+      const jsonBlockMatch = aiResponseString.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      if (jsonBlockMatch) {
+        aiResponseString = jsonBlockMatch[1].trim();
+      }
 
       let suggestions: BillingSuggestionOutput | undefined;
       try {
         suggestions = JSON.parse(aiResponseString);
       } catch (parseError) {
         console.warn('Failed to parse AI CPT codes response, attempting to fix JSON format:', parseError);
-        suggestions = fixAndParseJsonObjectFromString(aiResponseString) as unknown as BillingSuggestionOutput;
+        try {
+          suggestions = fixAndParseJsonObjectFromString(aiResponseString) as unknown as BillingSuggestionOutput;
+        } catch (fixError) {
+          console.error('Failed to fix and parse AI response:', fixError);
+          console.error('Raw AI response:', aiResponseString);
+          throw new Error(`Invalid JSON string: result is not valid JSON - ${fixError}`);
+        }
       }
 
       const icdSuggestions: { code: string; description: string; reason: string }[] = [];
