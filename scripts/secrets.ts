@@ -114,12 +114,12 @@ function populate(environment: string, project?: string): void {
     if (fs.existsSync(paths.ehr.public.source)) {
       fs.mkdirSync(paths.ehr.public.target, { recursive: true });
       fs.cpSync(paths.ehr.public.source, paths.ehr.public.target, { recursive: true });
-      console.log(`Successfully copied public assets to packages/ehr/public`);
+      console.log(`Successfully copied public assets to apps/ehr/public`);
     }
     if (fs.existsSync(paths.patientPortal.public.source)) {
       fs.mkdirSync(paths.patientPortal.public.target, { recursive: true });
       fs.cpSync(paths.patientPortal.public.source, paths.patientPortal.public.target, { recursive: true });
-      console.log(`Successfully copied public assets to packages/intake/public`);
+      console.log(`Successfully copied public assets to apps/intake/public`);
     }
     if (fs.existsSync(paths.terraform.source)) {
       fs.mkdirSync(path.dirname(paths.terraform.target), { recursive: true });
