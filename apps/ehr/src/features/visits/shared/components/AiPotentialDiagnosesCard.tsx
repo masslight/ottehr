@@ -1,8 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { aiIcon } from '@ehrTheme/icons';
-import { InfoOutlined } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Grid, IconButton, Link, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, IconButton, Link, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import React from 'react';
 import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
@@ -18,7 +17,7 @@ import { useChartFields } from '../hooks/useChartFields';
 import { useAiSuggestionsStore } from '../stores/ai-suggestions.store';
 import { useRecommendBillingSuggestions } from '../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
-import { useAddCptCode, useUpdateEMCode } from './assessment-tab/BillingCodesContainer';
+import { useUpdateEMCode } from './assessment-tab/BillingCodesContainer';
 
 export const AiPotentialDiagnosesCard: FC = () => {
   const theme = useTheme();
@@ -46,7 +45,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
     },
   });
 
-  const { onAdd: onAddCptCode } = useAddCptCode();
   const { onEMCodeChange } = useUpdateEMCode();
 
   const { groupedLabOrdersForChartTable } = usePatientLabOrders({
@@ -60,10 +58,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
   });
 
   const { mutateAsync: recommendBillingSuggestions } = useRecommendBillingSuggestions();
-  const [cptCodes, setCptCodes] = useState<{ code: string; description: string; reason: string }[] | undefined>(
-    undefined
-  );
-  const cptCodesSuggest = cptCodes?.filter((code) => !currentCptCodes?.some((cptCode) => cptCode.code === code.code));
   const [emCode, setEmCode] = useState<{ code: string; description: string; upcodingSuggestion: string }[] | undefined>(
     undefined
   );
@@ -120,7 +114,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
         procedures: proceduresString,
       });
       useAiSuggestionsStore.getState().setIcdSuggestions(billingSuggestionTemp.icdCodes);
-      setCptCodes(billingSuggestionTemp.cptCodes);
+      useAiSuggestionsStore.getState().setCptSuggestions(billingSuggestionTemp.cptCodes);
       setEmCode(billingSuggestionTemp.emCode);
       setCodingSuggestions(billingSuggestionTemp.codingSuggestions);
     };
@@ -147,15 +141,11 @@ export const AiPotentialDiagnosesCard: FC = () => {
     setVisible(false);
   };
 
-  const addCptCode = (cptCode: { code: string; description: string; reason: string }): void => {
-    onAddCptCode({ code: cptCode.code, display: cptCode.description });
-  };
-
   const updateEMCode = (emCode: { code: string; description: string; upcodingSuggestion: string }): void => {
     onEMCodeChange({ code: emCode.code, display: emCode.description });
   };
 
-  return visible && ((cptCodes && cptCodes.length > 0) || (emCode && emCode.length > 0) || codingSuggestions) ? (
+  return visible && ((emCode && emCode.length > 0) || codingSuggestions) ? (
     <Box
       sx={{
         display: 'flex',
@@ -192,42 +182,6 @@ export const AiPotentialDiagnosesCard: FC = () => {
           <CloseIcon />
         </IconButton>
       </Box>
-      {cptCodesSuggest && cptCodesSuggest.length > 0 && (
-        <Box
-          style={{
-            background: '#E1F5FECC',
-            borderRadius: '8px',
-            padding: '8px',
-            marginBottom: '10px',
-          }}
-        >
-          <Typography variant="body1" style={{ fontWeight: 700, marginBottom: '8px' }}>
-            CPT Codes
-          </Typography>
-          <ul>
-            {cptCodesSuggest.map((cptCode) => {
-              return (
-                <li key={cptCode.code}>
-                  <Grid container alignItems="center">
-                    <Grid item sx={{ cursor: 'pointer' }}>
-                      <Link onClick={(_event) => addCptCode(cptCode)}>
-                        <Typography variant="body1">{cptCode.code + ': ' + cptCode.description}</Typography>
-                      </Link>
-                    </Grid>
-                    <Grid item>
-                      <Tooltip title={cptCode.reason}>
-                        <IconButton size="small">
-                          <InfoOutlined sx={{ fontSize: '17px' }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Grid>
-                  </Grid>
-                </li>
-              );
-            })}
-          </ul>
-        </Box>
-      )}
       {emCode && emCode.length > 0 && (
         <Box
           style={{

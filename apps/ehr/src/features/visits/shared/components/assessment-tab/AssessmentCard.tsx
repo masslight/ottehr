@@ -8,6 +8,7 @@ import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAcc
 import { useChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { AiPotentialDiagnosesCard } from '../AiPotentialDiagnosesCard';
+import { AiCptSuggestionsInline } from './AiCptSuggestionsInline';
 import { AiIcdSuggestionsInline } from './AiIcdSuggestionsInline';
 import { BillingCodesContainer } from './BillingCodesContainer';
 import { DiagnosesContainer } from './DiagnosesContainer';
@@ -39,7 +40,10 @@ export const AssessmentCard: FC = () => {
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               {!isInPerson && <MedicalDecisionContainer />}
               {isInPerson ? (
-                <BillingCodesContainer />
+                <>
+                  <AiCptSuggestionsInline />
+                  <BillingCodesContainer />
+                </>
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <AssessmentTitle>E&M code</AssessmentTitle>
