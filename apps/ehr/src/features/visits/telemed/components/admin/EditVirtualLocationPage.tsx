@@ -134,6 +134,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
+                { link: '/admin', children: 'Admin' },
                 { link: VIRTUAL_LOCATIONS_URL, children: 'Virtual Locations' },
                 { link: '#', children: fullLabel || <Skeleton width={150} /> },
               ]}
@@ -243,7 +244,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
 
               {getVirtualLocationDataQueryResult.data?.schedule && (
                 <Box sx={{ marginTop: '10px' }}>
-                  <Link to={`/schedule/id/${getVirtualLocationDataQueryResult.data.schedule.id}`}>
+                  <Link to={`/admin/schedule/id/${getVirtualLocationDataQueryResult.data.schedule.id}`}>
                     <Button variant="contained" sx={{ marginTop: 1, marginBottom: 1 }}>
                       Edit schedule
                     </Button>
