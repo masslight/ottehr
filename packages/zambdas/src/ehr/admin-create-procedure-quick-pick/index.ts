@@ -57,9 +57,6 @@ export const performEffect = async (
   console.log(`Created ActivityDefinition with id: ${created.id}`);
 
   const createdQuickPick = activityDefinitionToQuickPick(created);
-  if (!createdQuickPick) {
-    throw new Error('Failed to parse created quick pick');
-  }
 
   return {
     message: `Successfully created procedure quick pick: ${quickPick.name}`,

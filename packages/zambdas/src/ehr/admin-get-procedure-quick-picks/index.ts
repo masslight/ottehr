@@ -39,22 +39,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-export function activityDefinitionToQuickPick(ad: ActivityDefinition): ProcedureQuickPickData | null {
+export function activityDefinitionToQuickPick(ad: ActivityDefinition): ProcedureQuickPickData {
   const configExtension = ad.extension?.find((ext) => ext.url === PROCEDURE_QUICK_PICK_CONFIG_EXTENSION_URL);
   if (!configExtension?.valueString) {
-    return null;
+    throw new Error(`ActivityDefinition ${ad.id} is missing quick pick config extension`);
   }
-  try {
-    const config = JSON.parse(configExtension.valueString) as Omit<ProcedureQuickPickData, 'id' | 'name'>;
-    return {
-      id: ad.id,
-      name: ad.title ?? ad.name ?? '',
-      ...config,
-    };
-  } catch {
-    console.error(`Failed to parse quick pick config for ActivityDefinition ${ad.id}`);
-    return null;
-  }
+  const config = JSON.parse(configExtension.valueString) as Omit<ProcedureQuickPickData, 'id' | 'name'>;
+  return {
+    id: ad.id,
+    name: ad.title ?? ad.name ?? '',
+    ...config,
+  };
 }
 
 export function quickPickToActivityDefinition(
@@ -106,13 +101,7 @@ export const performEffect = async (oystehr: Oystehr): Promise<GetProcedureQuick
 
   console.log(`Found ${activityDefinitions.length} procedure quick pick ActivityDefinitions`);
 
-  const quickPicks: ProcedureQuickPickData[] = [];
-  for (const ad of activityDefinitions) {
-    const quickPick = activityDefinitionToQuickPick(ad);
-    if (quickPick) {
-      quickPicks.push(quickPick);
-    }
-  }
+  const quickPicks = activityDefinitions.map((ad) => activityDefinitionToQuickPick(ad));
 
   return {
     message: `Found ${quickPicks.length} procedure quick picks`,

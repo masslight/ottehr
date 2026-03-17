@@ -57,9 +57,6 @@ export const performEffect = async (
   console.log(`Updated ActivityDefinition with id: ${updated.id}`);
 
   const updatedQuickPick = activityDefinitionToQuickPick(updated);
-  if (!updatedQuickPick) {
-    throw new Error('Failed to parse updated quick pick');
-  }
 
   return {
     message: `Successfully updated procedure quick pick: ${quickPick.name}`,

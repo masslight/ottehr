@@ -22,16 +22,11 @@ export interface QuickPickCategory<T extends { id?: string }> {
 export function activityDefinitionToQuickPick<T extends { id?: string }>(
   ad: ActivityDefinition,
   category: QuickPickCategory<T>
-): T | null {
+): T {
   const configExtension = ad.extension?.find((ext) => ext.url === QUICK_PICK_CONFIG_EXTENSION_URL);
   const configString = configExtension?.valueString ?? '{}';
-  try {
-    const config = JSON.parse(configString) as Record<string, unknown>;
-    return category.fromParsed(ad.id, ad.title ?? ad.name ?? '', config);
-  } catch {
-    console.error(`Failed to parse quick pick config for ActivityDefinition ${ad.id}`);
-    return null;
-  }
+  const config = JSON.parse(configString) as Record<string, unknown>;
+  return category.fromParsed(ad.id, ad.title ?? ad.name ?? '', config);
 }
 
 export function quickPickToActivityDefinition<T extends { id?: string }>(
@@ -85,14 +80,7 @@ export async function searchQuickPicks<T extends { id?: string }>(
     })
   ).unbundle();
 
-  const quickPicks: T[] = [];
-  for (const ad of activityDefinitions) {
-    const qp = activityDefinitionToQuickPick(ad, category);
-    if (qp) {
-      quickPicks.push(qp);
-    }
-  }
-  return quickPicks;
+  return activityDefinitions.map((ad) => activityDefinitionToQuickPick(ad, category));
 }
 
 export async function createQuickPick<T extends { id?: string }>(
@@ -102,11 +90,7 @@ export async function createQuickPick<T extends { id?: string }>(
 ): Promise<T> {
   const ad = quickPickToActivityDefinition(quickPick, category);
   const created = (await oystehr.fhir.create(ad)) as ActivityDefinition;
-  const result = activityDefinitionToQuickPick(created, category);
-  if (!result) {
-    throw new Error('Failed to parse created quick pick');
-  }
-  return result;
+  return activityDefinitionToQuickPick(created, category);
 }
 
 export async function updateQuickPick<T extends { id?: string }>(
@@ -117,11 +101,7 @@ export async function updateQuickPick<T extends { id?: string }>(
 ): Promise<T> {
   const ad = quickPickToActivityDefinition(quickPick, category, quickPickId);
   const updated = (await oystehr.fhir.update(ad)) as ActivityDefinition;
-  const result = activityDefinitionToQuickPick(updated, category);
-  if (!result) {
-    throw new Error('Failed to parse updated quick pick');
-  }
-  return result;
+  return activityDefinitionToQuickPick(updated, category);
 }
 
 export async function removeQuickPick(oystehr: Oystehr, quickPickId: string): Promise<void> {
