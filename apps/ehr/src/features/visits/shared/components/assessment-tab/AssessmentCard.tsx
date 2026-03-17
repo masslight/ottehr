@@ -23,12 +23,12 @@ export const AssessmentCard: FC = () => {
   return (
     <Stack spacing={1}>
       <PageTitle label="Assessment" showIntakeNotesButton={false} />
-      <AiPotentialDiagnosesCard />
       <AccordionCard label={isInPerson ? undefined : 'Assessment'}>
         <DoubleColumnContainer
           divider
           leftColumn={
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <AiPotentialDiagnosesCard />
               <DiagnosesContainer />
               {isInPerson && <MedicalDecisionContainer />}
             </Box>
