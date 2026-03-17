@@ -4,8 +4,10 @@ import {
   Box,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   Stack,
   Table,
@@ -57,6 +59,13 @@ interface TemplateDetailData {
     patientInstructions: string | null;
     cptCodes: CodeInfo[];
     emCode: CodeInfo | null;
+    accident: {
+      autoAccident: boolean;
+      employment: boolean;
+      otherAccident: boolean;
+      date?: string;
+      state?: string;
+    } | null;
   };
 }
 
@@ -209,6 +218,38 @@ export default function GlobalTemplateDetailPage(): ReactElement {
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                 {sections.hpiNote}
               </Typography>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* Condition Related To */}
+          <SectionCard title="Patient's Condition Related To">
+            {sections.accident ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <FormControlLabel
+                  control={<Checkbox checked={sections.accident.autoAccident} disabled size="small" />}
+                  label={<Typography variant="body2">Auto Accident</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={sections.accident.employment} disabled size="small" />}
+                  label={<Typography variant="body2">Employment</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={sections.accident.otherAccident} disabled size="small" />}
+                  label={<Typography variant="body2">Other Accident</Typography>}
+                />
+                {sections.accident.date && (
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                    Date: {sections.accident.date}
+                  </Typography>
+                )}
+                {sections.accident.state && (
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                    State: {sections.accident.state}
+                  </Typography>
+                )}
+              </Box>
             ) : (
               <NotIncluded />
             )}

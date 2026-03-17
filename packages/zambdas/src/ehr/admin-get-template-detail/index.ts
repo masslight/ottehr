@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, List, Observation, Procedure, Resource } from 'fhir/r4b';
-import { examConfig, getSecret, SecretsKeys } from 'utils';
+import { ACCIDENT_TYPE_SYSTEM, examConfig, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { AdminGetTemplateDetailInput, validateRequestParameters } from './validateRequestParameters';
@@ -23,6 +23,14 @@ interface CodeInfo {
   display: string;
 }
 
+interface AccidentInfo {
+  autoAccident: boolean;
+  employment: boolean;
+  otherAccident: boolean;
+  date?: string;
+  state?: string;
+}
+
 interface TemplateDetailOutput {
   templateName: string;
   templateId: string;
@@ -37,6 +45,7 @@ interface TemplateDetailOutput {
     patientInstructions: string | null;
     cptCodes: CodeInfo[];
     emCode: CodeInfo | null;
+    accident: AccidentInfo | null;
   };
 }
 
@@ -244,6 +253,26 @@ const performEffect = async (
       }
     : null;
 
+  // Parse accident / condition related to
+  const accidentCondition = contained.find(
+    (r) => r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/accident')
+  ) as Condition | undefined;
+
+  const accident: AccidentInfo | null = accidentCondition
+    ? {
+        autoAccident:
+          accidentCondition.code?.coding?.some((c) => c.system === ACCIDENT_TYPE_SYSTEM && c.code === 'AA') ?? false,
+        employment:
+          accidentCondition.code?.coding?.some((c) => c.system === ACCIDENT_TYPE_SYSTEM && c.code === 'EM') ?? false,
+        otherAccident:
+          accidentCondition.code?.coding?.some((c) => c.system === ACCIDENT_TYPE_SYSTEM && c.code === 'OA') ?? false,
+        date: accidentCondition.onsetDateTime ?? undefined,
+        state: accidentCondition.extension?.find(
+          (ext) => ext.url === 'https://fhir.ottehr.com/r4/Extension/accident-state'
+        )?.valueString,
+      }
+    : null;
+
   return {
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
@@ -258,6 +287,7 @@ const performEffect = async (
       patientInstructions,
       cptCodes,
       emCode,
+      accident,
     },
   };
 };
