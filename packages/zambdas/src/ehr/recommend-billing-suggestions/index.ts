@@ -51,7 +51,7 @@ export const index = wrapHandler(
 
       ${PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
 
-      Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level and a sample MDM paragraph that would satisfy that level.
+      Include in one or two sentences how this visit would differ if coded at a higher complexity E&M level and a line break with a sample MDM paragraph that would satisfy that level.
 
       Also take on a persona of a medical biller and coder looking for errors that might cause a claim to be rejected in an urgent care setting. Review the following claim based on provided ICD and CPT codes and provide a very concise single sentence explaining any possible issues or say "No coding changes."
 
