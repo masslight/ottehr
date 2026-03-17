@@ -34,7 +34,7 @@ runs:
       run: |
         npm exec -- tsx scripts/secrets.ts populate ${{ inputs.environment }} ${{ inputs.project }}
         if [ "${{ inputs.environment }}" != "local" ]; then
-          npm exec -- tsx scripts/secrets.ts populate local
+          npm exec -- tsx scripts/secrets.ts populate local ${{ inputs.project }}
         fi
         npm exec -- tsx scripts/secrets.ts validate ${{ inputs.environment }}
     - name: Copy E2E test config files
