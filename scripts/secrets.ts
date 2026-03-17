@@ -37,10 +37,10 @@ interface GetFilePathConfig {
   terraform: TerraformConfig;
 }
 
-function getFilePaths(environment: string): GetFilePathConfig {
+function getFilePaths(environment: string, project?: string): GetFilePathConfig {
   const repoRoot = process.cwd();
   console.log('Working directory:', repoRoot);
-  const secretsPath = path.join(repoRoot, 'secrets');
+  const secretsPath = path.join(repoRoot, 'secrets', project ?? '');
   console.log('Secrets path:', secretsPath);
   return {
     zambdas: {
@@ -173,7 +173,7 @@ function copyConfiguration(project?: string): void {
 function populate(environment: string, project?: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
-  const paths = getFilePaths(environment);
+  const paths = getFilePaths(environment, project);
 
   if (!checkDirectory(secretsPath)) {
     console.error('Error: secrets directory not found in repository root');
