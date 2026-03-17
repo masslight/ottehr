@@ -223,6 +223,22 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             )}
           </SectionCard>
 
+          {/* Mechanism of Injury */}
+          <SectionCard title="Mechanism of Injury (MOI)">
+            {sections.moiNote ? (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {sections.moiNote}
+              </Typography>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* Review of Systems */}
+          <SectionCard title="Review of Systems (ROS)">
+            {sections.rosNote ? renderMarkdown(sections.rosNote) : <NotIncluded />}
+          </SectionCard>
+
           {/* Condition Related To */}
           <SectionCard title="Patient's Condition Related To">
             {sections.accident ? (
@@ -253,22 +269,6 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             ) : (
               <NotIncluded />
             )}
-          </SectionCard>
-
-          {/* Mechanism of Injury */}
-          <SectionCard title="Mechanism of Injury (MOI)">
-            {sections.moiNote ? (
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {sections.moiNote}
-              </Typography>
-            ) : (
-              <NotIncluded />
-            )}
-          </SectionCard>
-
-          {/* Review of Systems */}
-          <SectionCard title="Review of Systems (ROS)">
-            {sections.rosNote ? renderMarkdown(sections.rosNote) : <NotIncluded />}
           </SectionCard>
 
           {/* Exam Findings */}
