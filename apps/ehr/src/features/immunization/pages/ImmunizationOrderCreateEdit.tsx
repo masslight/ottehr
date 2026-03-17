@@ -132,7 +132,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
                       <>
                         <LoadingButton
                           variant="outlined"
-                          color="warning"
+                          color="error"
                           size="large"
                           loading={isDeleting}
                           onClick={() => setIsDeleteDialogOpen(true)}

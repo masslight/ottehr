@@ -133,7 +133,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, show
               {isPending && (
                 <>
                   <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
-                    <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
+                    <DeleteIcon sx={{ color: theme.palette.error.main }} />
                   </IconButton>
                   <CustomDialog
                     open={isDeleteDialogOpened}

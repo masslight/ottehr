@@ -272,7 +272,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       <>
                         <LoadingButton
                           variant="outlined"
-                          color="warning"
+                          color="error"
                           size="large"
                           loading={isDeleting}
                           onClick={() => setIsDeleteDialogOpen(true)}
