@@ -1628,6 +1628,12 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
   return { type };
 }
 
+export function makeAbbreviation(str: string): string {
+  return str.split(/[\s-]+/).reduce((previousValue: string, currentValue: string) => {
+    return previousValue + currentValue.charAt(0).toUpperCase();
+  }, '');
+}
+
 export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | undefined {
   if (!serviceCategory) return undefined;
 
