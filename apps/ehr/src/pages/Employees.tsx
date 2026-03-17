@@ -1,7 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Add } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
   Box,
@@ -11,7 +10,6 @@ import {
   FormControlLabel,
   Grid,
   Paper,
-  Tab,
   Table,
   TableBody,
   TableCell,
@@ -42,21 +40,19 @@ import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../hooks/useEvolveUser';
-import PageContainer from '../layout/PageContainer';
 
-enum PageTab {
+export enum EmployeeTypes {
   employees = 'employees',
   providers = 'providers',
 }
 
-export default function EmployeesPage(): ReactElement {
+export default function EmployeesPage({ employeeType }: { employeeType: EmployeeTypes }): ReactElement {
   const { oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
-  const [pageTab, setPageTab] = useState<PageTab>(PageTab.employees);
   const [employees, setEmployees] = useState<EmployeeDetails[]>([]);
 
   const [pageStates, setPageStates] = useState<{
-    [key in PageTab]: {
+    [key in EmployeeTypes]: {
       pageNumber: number;
       rowsPerPage: number;
       searchText: string;
@@ -64,13 +60,13 @@ export default function EmployeesPage(): ReactElement {
       selectedState?: State | null;
     };
   }>({
-    [PageTab.employees]: {
+    [EmployeeTypes.employees]: {
       pageNumber: 0,
       rowsPerPage: EMPLOYEE_ROWS_PER_PAGE,
       searchText: '',
       lastLoginFilterChecked: false,
     },
-    [PageTab.providers]: {
+    [EmployeeTypes.providers]: {
       pageNumber: 0,
       rowsPerPage: PROVIDER_ROWS_PER_PAGE,
       searchText: '',
@@ -79,14 +75,10 @@ export default function EmployeesPage(): ReactElement {
     },
   });
 
-  const handleTabChange = useCallback((_: any, newValue: PageTab) => {
-    setPageTab(newValue);
-  }, []);
-
   const emptyEmployeeList: EmployeeDetails[] = [];
 
   const handlePageStateChange = useCallback(
-    (tab: PageTab, newPageState: Partial<(typeof pageStates)[PageTab.providers]>) => {
+    (tab: EmployeeTypes, newPageState: Partial<(typeof pageStates)[EmployeeTypes.providers]>) => {
       setPageStates((prev) => ({
         ...prev,
         [tab]: {
@@ -112,46 +104,27 @@ export default function EmployeesPage(): ReactElement {
   const { isFetching } = queryResult;
 
   return (
-    <PageContainer>
-      <Box sx={{ width: '100%', marginTop: 3 }}>
-        <TabContext value={pageTab}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <TabList onChange={handleTabChange} aria-label="employees tabs">
-              <Tab label="Employees" value={PageTab.employees} sx={{ textTransform: 'none', fontWeight: 500 }} />
-              <Tab
-                label="Providers"
-                value={PageTab.providers}
-                sx={{ textTransform: 'none', fontWeight: 500 }}
-                data-testid={dataTestIds.employeesPage.providersTabButton}
-              />
-              {isFetching && <Loading />}
-            </TabList>
-          </Box>
-          <Paper sx={{ marginTop: 5 }}>
-            <TabPanel value={pageTab} sx={{ padding: 0 }}>
-              <EmployeesTable
-                employees={employees}
-                currentUser={currentUser}
-                currentTab={pageTab}
-                pageNumber={pageStates[pageTab].pageNumber}
-                rowsPerPage={pageStates[pageTab].rowsPerPage}
-                searchText={pageStates[pageTab].searchText}
-                lastLoginFilterChecked={pageStates[pageTab].lastLoginFilterChecked}
-                selectedState={pageStates[pageTab].selectedState}
-                onPageStateChange={(newPageState) => handlePageStateChange(pageTab, newPageState)}
-              />
-            </TabPanel>
-          </Paper>
-        </TabContext>
-      </Box>
-    </PageContainer>
+    <Box sx={{ width: '100%', marginTop: 2 }}>
+      {isFetching && <Loading />}
+      <EmployeesTable
+        employees={employees}
+        currentUser={currentUser}
+        currentTab={employeeType}
+        pageNumber={pageStates[employeeType].pageNumber}
+        rowsPerPage={pageStates[employeeType].rowsPerPage}
+        searchText={pageStates[employeeType].searchText}
+        lastLoginFilterChecked={pageStates[employeeType].lastLoginFilterChecked}
+        selectedState={pageStates[employeeType].selectedState}
+        onPageStateChange={(newPageState) => handlePageStateChange(employeeType, newPageState)}
+      />
+    </Box>
   );
 }
 
 interface EmployeesTableProps {
   employees: EmployeeDetails[];
   currentUser: EvolveUser | undefined;
-  currentTab: PageTab;
+  currentTab: EmployeeTypes;
   pageNumber: number;
   rowsPerPage: number;
   searchText: string;
@@ -197,8 +170,8 @@ function EmployeesTable({
 
         return (
           name.toLowerCase().includes(searchText.toLowerCase()) &&
-          (currentTab === PageTab.providers ? employee.isProvider : true) &&
-          (currentTab === PageTab.providers && selectedState && selectedState.value !== ''
+          (currentTab === EmployeeTypes.providers ? employee.isProvider : true) &&
+          (currentTab === EmployeeTypes.providers && selectedState && selectedState.value !== ''
             ? employee.licenses.some((license) => license.state === selectedState.value)
             : true) &&
           lastLoginFilter
@@ -274,7 +247,7 @@ function EmployeesTable({
               />
             </Box>
             {/* States drop-down */}
-            {currentTab === PageTab.providers && (
+            {currentTab === EmployeeTypes.providers && (
               <Box sx={{ display: 'flex', flex: 2, paddingRight: 3 }}>
                 <StateSelect onChange={handleChangeStateSelect} selectedState={selectedState} />
               </Box>
@@ -289,7 +262,7 @@ function EmployeesTable({
             </Box>
             {/* todo reduce code duplicate */}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
-              <Link to={`/employees/add`}>
+              <Link to={`/admin/employees/add`}>
                 <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
                   Add user
                 </Button>
@@ -315,7 +288,7 @@ function EmployeesTable({
                 <TableCell>Email</TableCell>
                 <TableCell>Last Login</TableCell>
                 <TableCell>Status</TableCell>
-                {currentTab === PageTab.providers && (
+                {currentTab === EmployeeTypes.providers && (
                   <>
                     <TableCell sx={{ maxWidth: '150px' }}>Getting alerts</TableCell>
                     <TableCell sx={{ maxWidth: '150px' }}>Seen patient last 30 mins</TableCell>
@@ -337,7 +310,7 @@ function EmployeesTable({
                   <TableRow key={employee.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
                     <TableCell>
                       <Link
-                        to={`/employee/${employee.id}`}
+                        to={`/admin/employee/${employee.id}`}
                         style={{
                           display: 'contents',
                           color: theme.palette.primary.main,
@@ -389,7 +362,7 @@ function EmployeesTable({
                         }}
                       />
                     </TableCell>
-                    {currentTab === PageTab.providers && (
+                    {currentTab === EmployeeTypes.providers && (
                       <>
                         <TableCell
                           sx={{
