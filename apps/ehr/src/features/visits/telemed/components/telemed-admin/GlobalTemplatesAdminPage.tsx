@@ -42,6 +42,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   const [newName, setNewName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchFilter, setSearchFilter] = useState('');
 
   const { data, isLoading, error } = useQuery<ListTemplatesZambdaOutput, Error>({
     queryKey: ['list-templates', ExamType.IN_PERSON],
@@ -64,8 +65,11 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
 
   const sortedTemplates = useMemo(() => {
     if (!data?.templates) return [];
-    return [...data.templates].sort((a, b) => a.title.localeCompare(b.title));
-  }, [data]);
+    const sorted = [...data.templates].sort((a, b) => a.title.localeCompare(b.title));
+    if (!searchFilter.trim()) return sorted;
+    const query = searchFilter.toLowerCase();
+    return sorted.filter((t) => t.title.toLowerCase().includes(query));
+  }, [data, searchFilter]);
 
   const handleOpenRenameDialog = (template: TemplateInfo): void => {
     setSelectedTemplate(template);
@@ -128,9 +132,17 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
 
   return (
     <Paper sx={{ padding: 3 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Templates are created from the progress note. Use this page to manage existing templates.
       </Typography>
+
+      <TextField
+        size="small"
+        placeholder="Filter templates..."
+        value={searchFilter}
+        onChange={(e) => setSearchFilter(e.target.value)}
+        sx={{ mb: 2, width: 300 }}
+      />
 
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
