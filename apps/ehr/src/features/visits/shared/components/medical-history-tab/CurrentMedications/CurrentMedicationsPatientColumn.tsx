@@ -3,10 +3,19 @@ import { FC } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, getQuestionnaireResponseByLinkId, MedicationDTO, ObservationTextFieldDTO } from 'utils';
 import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
+import { ExternalMedicationSelection, ExternalRxSuggestions } from './ExternalRxSuggestions';
 
-export const CurrentMedicationsPatientColumn: FC = () => {
+interface CurrentMedicationsPatientColumnProps {
+  chartedMedications?: MedicationDTO[];
+  onSelectMedication?: (selection: ExternalMedicationSelection) => void;
+}
+
+export const CurrentMedicationsPatientColumn: FC<CurrentMedicationsPatientColumnProps> = ({
+  chartedMedications = [],
+  onSelectMedication,
+}) => {
   const theme = useTheme();
   const { questionnaireResponse, isAppointmentLoading } = useAppointmentData();
   const { chartData } = useChartData();
@@ -45,6 +54,8 @@ export const CurrentMedicationsPatientColumn: FC = () => {
           <AiSuggestion title={'Medications'} chartData={chartData} content={aiMedicationsHistory} />
         </>
       )}
+      <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
+      <ExternalRxSuggestions chartedMedications={chartedMedications} onSelectMedication={onSelectMedication} />
     </Box>
   );
 };
