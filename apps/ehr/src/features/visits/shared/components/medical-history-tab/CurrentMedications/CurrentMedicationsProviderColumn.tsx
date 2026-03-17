@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
   debounce,
   FormControlLabel,
   Radio,
@@ -34,11 +35,18 @@ interface CurrentMedicationsProviderColumnForm {
   type: MedicationDTO['type'];
   date: DateTime | null;
   dose: string | null;
+  patientCouldNotConfirmDosage: boolean;
 }
 
 export const CurrentMedicationsProviderColumn: FC = () => {
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
-    defaultValues: { medication: null, dose: null, date: null, type: 'scheduled' },
+    defaultValues: {
+      medication: null,
+      dose: null,
+      date: null,
+      type: 'scheduled',
+      patientCouldNotConfirmDosage: false,
+    },
   });
   const { isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
@@ -96,11 +104,18 @@ export const CurrentMedicationsProviderColumn: FC = () => {
         intakeInfo: {
           date: data.date?.toUTC().toString(),
           dose: data.dose ?? undefined,
+          patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage || undefined,
         },
         status: 'active',
       });
       if (success) {
-        reset({ medication: null, date: null, dose: null, type: 'scheduled' });
+        reset({
+          medication: null,
+          date: null,
+          dose: null,
+          type: 'scheduled',
+          patientCouldNotConfirmDosage: false,
+        });
         void refetchHistory();
       }
     }
@@ -230,6 +245,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                     onChange={(_e, data) => {
                       onChange(data);
                     }}
+                    sx={{ gridColumn: 'span 2' }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
@@ -266,6 +282,23 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                   />
                 )}
               ></Controller>
+              <Controller
+                name="patientCouldNotConfirmDosage"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!value}
+                        onChange={(e) => onChange(e.target.checked)}
+                        disabled={isLoading || isChartDataLoading}
+                        size="small"
+                      />
+                    }
+                    label="Patient could not confirm dosage"
+                  />
+                )}
+              />
               <Controller
                 name="date"
                 control={control}
