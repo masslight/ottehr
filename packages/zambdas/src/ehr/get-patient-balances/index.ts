@@ -86,8 +86,12 @@ export async function performEffect(
     const candidId = encounter.identifier?.find(
       (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM && identifier.value != null
     )?.value;
-    if (!appointmentId || !encounterDate || !candidId) {
-      throw new Error(`Encounter is missing appointmentId, encounterDate, or candidId: ${encounter.id}`);
+    if (!appointmentId || !encounterDate) {
+      throw new Error(`Encounter is missing appointmentId or encounterDate: ${encounter.id}`);
+    }
+    if (!candidId) {
+      console.warn(`Encounter ${encounter.id} is missing Candid ID, skipping...`);
+      return;
     }
     encounterDataMap.set(encounter.id!, {
       encounterDate,
