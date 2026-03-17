@@ -79,12 +79,18 @@ export const InvoiceablePatientReportSchema = z.object({
     dob: z.string().optional(),
     gender: z.string().optional(),
     phoneNumber: z.string(),
+    fullAddress: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
   }),
   responsibleParty: z.object({
     fullName: z.string().optional(),
     phoneNumber: z.string().optional(),
     email: z.string().optional(),
     relationshipToPatient: z.string().optional(),
+    fullAddress: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
   }),
 });
 export const GetInvoicesTasksZambdaResponseSchema = z.object({
