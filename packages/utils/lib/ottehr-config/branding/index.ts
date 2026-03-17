@@ -3,7 +3,6 @@ import type { BrandingConfig, LogoConfig } from 'config-types';
 const BRANDING_DATA: BrandingConfig = {
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',
-  primaryIconAlt: 'Ottehr icon',
   email: {
     logoURL: '',
     palette: {
@@ -21,6 +20,9 @@ const BRANDING_DATA: BrandingConfig = {
     pdf: '',
   },
   intake: {
+    primaryIconAlt: 'Ottehr icon',
+    welcomeTitleBreak: false,
+    primaryIconSize: 90,
     appBar: {
       backgroundColor: '#0a2243',
       logoHeight: '39px',

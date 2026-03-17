@@ -17,7 +17,7 @@ import {
   VisitType,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
-import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
@@ -195,9 +195,7 @@ const Reschedule = (): JSX.Element => {
       subtitle={loading ? 'Loading...' : `${location?.name}`}
       subtext={loading ? '' : t('modify.selectNew')}
       isFirstPage
-      img={primaryIcon}
-      imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={150}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.RESCHEDULE)}
     >
       <>
         <Schedule
