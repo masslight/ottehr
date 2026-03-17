@@ -26,10 +26,11 @@ import {
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
+export const OPEN_DOSESPOT = 'Open DoseSpot';
+
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
-const OPEN_DOSESPOT = 'Open DoseSpot';
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -501,7 +502,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     const providerName = getInputString(ERX_TASK.input.providerName, task);
     title = `Provider ${providerName} has notifications in DoseSpot`;
     completable = true;
-    action = { name: OPEN_DOSESPOT, link: '/todo' };
+    action = { name: OPEN_DOSESPOT, link: '' };
   }
 
   return {
