@@ -109,6 +109,7 @@ module "ottehr_apps" {
     IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG    = module.oystehr.IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG
     IS_FORMS_ENABLED_FEATURE_FLAG               = module.oystehr.IS_FORMS_ENABLED_FEATURE_FLAG
     IS_LEGACY_DATA_ENABLED_FEATURE_FLAG         = module.oystehr.IS_LEGACY_DATA_ENABLED_FEATURE_FLAG
+    IS_MAILING_PAPER_STATEMENTS_ENABLED_FEATURE_FLAG = module.oystehr.IS_MAILING_PAPER_STATEMENTS_ENABLED_FEATURE_FLAG
   }
   patient_portal_vars = {
     ENV                           = var.environment
