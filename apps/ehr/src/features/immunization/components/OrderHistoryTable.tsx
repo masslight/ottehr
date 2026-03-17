@@ -41,7 +41,7 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Vaccine</TableCell>
+              <TableCell>Immunization</TableCell>
               <TableCell>Dose / Route / Instructions</TableCell>
               <TableCell>Ordered</TableCell>
               <TableCell>Given</TableCell>
@@ -99,7 +99,7 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Vaccine</TableCell>
+                      <TableCell>Immunization</TableCell>
                       <TableCell>Dose / Route / Instructions</TableCell>
                       <TableCell>Ordered</TableCell>
                       <TableCell>Status</TableCell>
@@ -107,7 +107,7 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
                   </TableHead>
                   <TableBody>
                     {pendingOrders.map((order) => (
-                      <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} />
+                      <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} showGiven={false} />
                     ))}
                   </TableBody>
                 </Table>
@@ -125,7 +125,7 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Vaccine</TableCell>
+                      <TableCell>Immunization</TableCell>
                       <TableCell>Dose / Route / Instructions</TableCell>
                       <TableCell>Ordered</TableCell>
                       <TableCell>Given</TableCell>

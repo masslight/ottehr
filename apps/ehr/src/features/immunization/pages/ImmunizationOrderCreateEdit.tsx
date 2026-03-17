@@ -6,6 +6,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
+import { CustomDialog } from 'src/components/dialogs';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
@@ -33,6 +34,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
 
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const [isOrderSaved, setIsOrderSaved] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
 
@@ -55,6 +57,8 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
         variant: 'error',
       });
+    } finally {
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -124,28 +128,33 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
                     >
                       Back
                     </ButtonRounded>
-                    <ButtonRounded
-                      variant="outlined"
-                      color="primary"
-                      size="large"
-                      onClick={() => navigate(getImmunizationMARUrl(appointmentId!))}
-                    >
-                      Cancel
-                    </ButtonRounded>
                     {orderId && (
-                      <LoadingButton
-                        variant="outlined"
-                        color="warning"
-                        size="large"
-                        loading={isDeleting}
-                        onClick={handleDeleteOrder}
-                        sx={{
-                          borderRadius: '20px',
-                          textTransform: 'none',
-                        }}
-                      >
-                        Delete Order
-                      </LoadingButton>
+                      <>
+                        <LoadingButton
+                          variant="outlined"
+                          color="warning"
+                          size="large"
+                          loading={isDeleting}
+                          onClick={() => setIsDeleteDialogOpen(true)}
+                          sx={{
+                            borderRadius: '20px',
+                            textTransform: 'none',
+                          }}
+                        >
+                          Delete Order
+                        </LoadingButton>
+                        <CustomDialog
+                          open={isDeleteDialogOpen}
+                          handleClose={() => setIsDeleteDialogOpen(false)}
+                          title="Delete immunization order"
+                          description="Are you sure you want to delete the immunization order?"
+                          closeButtonText="Cancel"
+                          closeButton={false}
+                          handleConfirm={handleDeleteOrder}
+                          confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                          confirmLoading={isDeleting}
+                        />
+                      </>
                     )}
                   </Stack>
                   <LoadingButton

@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { CustomDialog } from 'src/components/dialogs';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
@@ -58,6 +59,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
@@ -79,6 +81,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
         variant: 'error',
       });
+    } finally {
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -264,20 +268,33 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" spacing={1} alignItems="center">
                     <OrderStatusChip status={order.status} />
-                    {order.status === 'pending' && (
-                      <LoadingButton
-                        variant="outlined"
-                        color="warning"
-                        size="large"
-                        loading={isDeleting}
-                        onClick={handleDeleteOrder}
-                        sx={{
-                          borderRadius: '20px',
-                          textTransform: 'none',
-                        }}
-                      >
-                        Delete Order
-                      </LoadingButton>
+                    {order.status === 'pending' && !isReadOnly && (
+                      <>
+                        <LoadingButton
+                          variant="outlined"
+                          color="warning"
+                          size="large"
+                          loading={isDeleting}
+                          onClick={() => setIsDeleteDialogOpen(true)}
+                          sx={{
+                            borderRadius: '20px',
+                            textTransform: 'none',
+                          }}
+                        >
+                          Delete Order
+                        </LoadingButton>
+                        <CustomDialog
+                          open={isDeleteDialogOpen}
+                          handleClose={() => setIsDeleteDialogOpen(false)}
+                          title="Delete immunization order"
+                          description="Are you sure you want to delete the immunization order?"
+                          closeButtonText="Cancel"
+                          closeButton={false}
+                          handleConfirm={handleDeleteOrder}
+                          confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                          confirmLoading={isDeleting}
+                        />
+                      </>
                     )}
                   </Stack>
                   <Stack direction="row">

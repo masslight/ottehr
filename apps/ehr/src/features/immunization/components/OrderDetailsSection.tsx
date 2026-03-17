@@ -38,7 +38,11 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
-        <TextInput name="details.associatedDx" label="Associated Dx" />
+        <TextInput
+          name="details.associatedDx"
+          label="Associated Dx"
+          dataTestId={dataTestIds.orderVaccinePage.associatedDx}
+        />
       </Grid>
       <Grid xs={3} item>
         <TextInput
@@ -70,7 +74,11 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
-        <TextInput name="details.manufacturer" label="Manufacturer" />
+        <TextInput
+          name="details.manufacturer"
+          label="Manufacturer"
+          dataTestId={dataTestIds.orderVaccinePage.manufacturer}
+        />
       </Grid>
       <Grid xs={6} item>
         <AutocompleteInput

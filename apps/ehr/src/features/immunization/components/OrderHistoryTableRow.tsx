@@ -22,9 +22,10 @@ import { ImmunizationOrder, searchRouteByCode } from 'utils';
 interface Props {
   order: ImmunizationOrder;
   showActions: boolean;
+  showGiven?: boolean;
 }
 
-export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) => {
+export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, showGiven = true }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -103,14 +104,16 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           {grayText(order.details.orderedProvider.name)}
         </span>
       </TableCell>
-      <TableCell>
-        <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
-          {formatDateTime(order.administrationDetails?.administeredDateTime)}
-        </span>
-        <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
-          {grayText(order.administrationDetails?.administeredProvider?.name)}
-        </span>
-      </TableCell>
+      {showGiven && (
+        <TableCell>
+          <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
+            {formatDateTime(order.administrationDetails?.administeredDateTime)}
+          </span>
+          <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
+            {grayText(order.administrationDetails?.administeredProvider?.name)}
+          </span>
+        </TableCell>
+      )}
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
@@ -132,8 +135,8 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
                   <CustomDialog
                     open={isDeleteDialogOpened}
                     handleClose={() => setIsDeleteDialogOpened(false)}
-                    title="Delete vaccine order"
-                    description={`Are you sure you want to delete the vaccine order?`}
+                    title="Delete immunization order"
+                    description={`Are you sure you want to delete the immunization order?`}
                     closeButtonText="Cancel"
                     closeButton={false}
                     handleConfirm={handleConfirmDelete}
