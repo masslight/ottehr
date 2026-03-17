@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { getSecret, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM, SecretsKeys } from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { AdminRenameTemplateInput, validateRequestParameters } from './validateRequestParameters';
@@ -43,11 +43,13 @@ const performEffect = async (
     id: templateId,
   });
 
-  // Verify this is a global template
-  const hasGlobalTemplateTag = templateList.meta?.tag?.some(
-    (tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM
+  // Verify this is a template List (has exam type coding)
+  const isTemplate = templateList.code?.coding?.some(
+    (c) =>
+      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-in-person' ||
+      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-telemed'
   );
-  if (!hasGlobalTemplateTag) {
+  if (!isTemplate) {
     throw new Error(`List ${templateId} is not a global template`);
   }
 

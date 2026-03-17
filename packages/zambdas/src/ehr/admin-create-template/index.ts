@@ -84,13 +84,9 @@ const performEffect = async (
         },
       ],
     },
-    meta: {
-      tag: [
-        {
-          system: GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-        },
-      ],
-    },
+    // Note: individual template Lists do NOT get the GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM tag.
+    // That tag is only on the "holder list" that references all templates.
+    // Templates are discovered via the holder list's _include: List:item search.
     status: 'current',
     mode: 'working',
     title: templateName,
@@ -205,6 +201,29 @@ const performEffect = async (
   const createdList = await oystehr.fhir.create<List>(listToCreate);
 
   console.log('Created template:', createdList.id, createdList.title);
+
+  // Add the new template to the global templates holder list so it's discoverable
+  const holderLists = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
+    })
+  ).unbundle();
+
+  const holderList = holderLists.find(
+    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  );
+
+  if (holderList) {
+    const updatedEntries = [...(holderList.entry ?? []), { item: { reference: `List/${createdList.id}` } }];
+    await oystehr.fhir.update<List>({
+      ...holderList,
+      entry: updatedEntries,
+    });
+    console.log('Added template to holder list');
+  } else {
+    console.warn('No global templates holder list found — template created but not linked to holder');
+  }
 
   return {
     templateName: createdList.title ?? templateName,

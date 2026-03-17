@@ -43,12 +43,35 @@ const performEffect = async (
     id: templateId,
   });
 
-  // Verify this is a global template
-  const hasGlobalTemplateTag = templateList.meta?.tag?.some(
-    (tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM
+  // Verify this is a template List (has exam type coding)
+  const isTemplate = templateList.code?.coding?.some(
+    (c) =>
+      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-in-person' ||
+      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-telemed'
   );
-  if (!hasGlobalTemplateTag) {
+  if (!isTemplate) {
     throw new Error(`List ${templateId} is not a global template`);
+  }
+
+  // Remove the template reference from the holder list
+  const holderLists = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
+    })
+  ).unbundle();
+
+  const holderList = holderLists.find(
+    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  );
+
+  if (holderList) {
+    const updatedEntries = (holderList.entry ?? []).filter((entry) => entry.item.reference !== `List/${templateId}`);
+    await oystehr.fhir.update<List>({
+      ...holderList,
+      entry: updatedEntries,
+    });
+    console.log('Removed template from holder list');
   }
 
   await oystehr.fhir.delete({

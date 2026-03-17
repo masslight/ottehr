@@ -46,26 +46,41 @@ const performEffect = async (
 ): Promise<ListTemplatesZambdaOutput> => {
   const { examType } = validatedInput;
 
-  const listSearchResult = (
+  // Find the holder list (tagged with GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  const holderLists = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
-      params: [
-        { name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` },
-        { name: '_include', value: 'List:item' },
-        // Beware, this may tip over the 6MB limit on lambda response payload if you have a lot of templates.
-        // Then paginate the results if necessary
-      ],
+      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
     })
   ).unbundle();
 
-  if (!listSearchResult || listSearchResult.length === 0) {
-    throw new Error(`Could not fetch templates.`);
+  const holderList = holderLists.find(
+    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  );
+
+  if (!holderList || !holderList.entry?.length) {
+    return { templates: [] };
   }
 
-  // Filter out the global templates holder List
-  const filteredTemplates = listSearchResult.filter(
-    (template) => !template.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
-  );
+  // Get all template IDs from the holder list entries
+  const templateIds = holderList.entry
+    .map((entry) => entry.item.reference?.replace('List/', ''))
+    .filter((id): id is string => !!id);
+
+  if (templateIds.length === 0) {
+    return { templates: [] };
+  }
+
+  // Fetch all template Lists by their IDs
+  const filteredTemplates = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        { name: '_id', value: templateIds.join(',') },
+        { name: '_count', value: '200' },
+      ],
+    })
+  ).unbundle();
 
   const codeSystem =
     examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
