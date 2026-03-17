@@ -1,6 +1,7 @@
 export { default as AiAssistedEncounters } from './AiAssistedEncounters';
 export { default as CompleteEncounters } from './CompleteEncounters';
 export { default as DailyPayments } from './DailyPayments';
+export { default as ImmunizationReport } from './ImmunizationReport';
 export { default as DataExports } from './DataExports';
 export { default as IncompleteEncounters } from './IncompleteEncounters';
 export { default as PracticeKpis } from './PracticeKpis';
