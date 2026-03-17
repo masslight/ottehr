@@ -55,16 +55,19 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, show
 
   const isPending = order.status === 'pending';
 
+  const navigateToDetails = (): void => {
+    if (!appointmentId) return;
+    requestAnimationFrame(() => {
+      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId)}?scrollTo=${order.id}`);
+    });
+  };
+
   const handleRowClick = (): void => {
-    if (!showActions) {
-      return;
-    }
+    if (!showActions) return;
     if (isPending) {
-      requestAnimationFrame(() => {
-        navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
-      });
+      navigateToDetails();
     } else {
-      navigateToEditOrder();
+      navigateToDetails();
     }
   };
 
@@ -124,7 +127,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, show
           </Stack>
           {showActions ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
-              <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
+              <IconButton size="small" aria-label="edit" onClick={isPending ? navigateToEditOrder : navigateToDetails}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />
               </IconButton>
               {isPending && (
