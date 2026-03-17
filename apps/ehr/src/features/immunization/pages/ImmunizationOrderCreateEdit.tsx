@@ -168,7 +168,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
             </Grid>
           </Paper>
           <AccordionCard
-            label="Pre-visit immunization history"
+            label="Immunization history"
             collapsed={isImmunizationHistoryCollapsed}
             onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
             withBorder={false}

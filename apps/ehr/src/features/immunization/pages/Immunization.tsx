@@ -112,7 +112,7 @@ export const Immunization: React.FC = () => {
 
         <TabContent isActive={tabName === 'mar'}>
           <AccordionCard
-            label="Pre-visit immunization history"
+            label="Immunization history"
             collapsed={isImmunizationHistoryCollapsed}
             onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
             withBorder={false}
