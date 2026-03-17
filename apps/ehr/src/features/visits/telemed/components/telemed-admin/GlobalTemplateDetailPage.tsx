@@ -212,6 +212,11 @@ export default function GlobalTemplateDetailPage(): ReactElement {
           />
         </Box>
 
+        <Alert severity="info" sx={{ mb: 3 }}>
+          To update this template, use a test patient, apply this template, make any changes, and save them with the
+          template menu.
+        </Alert>
+
         <Stack spacing={3}>
           {/* HPI */}
           <SectionCard title="HPI">
