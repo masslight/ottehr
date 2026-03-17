@@ -8,7 +8,8 @@ import { AdminGetTemplateDetailInput, validateRequestParameters } from './valida
 
 interface ExamFinding {
   fieldName: string;
-  value: string;
+  isAbnormal: boolean;
+  note: string;
 }
 
 interface DiagnosisInfo {
@@ -114,15 +115,9 @@ const performEffect = async (
   const examFindings: ExamFinding[] = examObservations.map((obs) => {
     const fieldName =
       getTagCode(obs, 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field') ?? 'unknown';
-    let value = '';
-    if (obs.valueString) {
-      value = obs.valueString;
-    } else if (obs.valueCodeableConcept?.text) {
-      value = obs.valueCodeableConcept.text;
-    } else if (obs.valueCodeableConcept?.coding?.[0]?.display) {
-      value = obs.valueCodeableConcept.coding[0].display;
-    }
-    return { fieldName, value };
+    const isAbnormal = obs.valueBoolean === false;
+    const note = obs.note?.[0]?.text ?? '';
+    return { fieldName, isAbnormal, note };
   });
 
   // Parse MDM

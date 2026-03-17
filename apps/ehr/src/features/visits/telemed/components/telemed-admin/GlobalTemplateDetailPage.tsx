@@ -28,7 +28,8 @@ import PageContainer from 'src/layout/PageContainer';
 
 interface ExamFinding {
   fieldName: string;
-  value: string;
+  isAbnormal: boolean;
+  note: string;
 }
 
 interface DiagnosisInfo {
@@ -180,15 +181,30 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Field Name</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Value</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Field</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {sections.examFindings.map((finding, index) => (
                       <TableRow key={index}>
                         <TableCell>{formatFieldName(finding.fieldName)}</TableCell>
-                        <TableCell>{finding.value}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={finding.isAbnormal ? 'Abnormal' : 'Normal'}
+                            size="small"
+                            color={finding.isAbnormal ? 'error' : 'success'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
+                          {finding.note || (
+                            <Typography variant="body2" color="text.disabled">
+                              —
+                            </Typography>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
