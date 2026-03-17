@@ -144,6 +144,13 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
   const response = await (await Promise.any(requests))?.json();
 
   console.log(JSON.stringify(response));
+
+  if (!response?.candidates?.[0]?.content?.parts?.[0]?.text) {
+    const errorMessage = response?.error?.message || 'No response from AI model';
+    console.error('Vertex AI did not return a valid response:', errorMessage);
+    throw new Error(`AI service unavailable: ${errorMessage}`);
+  }
+
   return response.candidates[0].content.parts[0].text;
 }
 
