@@ -1,5 +1,5 @@
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getAllergyQuickPicks,
   getMedicalConditionQuickPicks,
@@ -8,24 +8,21 @@ import {
 } from 'src/api/api';
 import {
   AllergyQuickPickData,
-  MEDICAL_HISTORY_CONFIG,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
-  PROCEDURES_CONFIG,
 } from 'utils';
 import { useApiClients } from './useAppClients';
 
 /**
- * Generic hook that fetches FHIR-based quick picks and merges with hardcoded defaults.
- * Falls back gracefully if the zambda is not deployed.
+ * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
  */
-function useMergedQuickPicksGeneric<T>(
-  hardcoded: T[],
-  fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>
-): { quickPicks: T[]; loading: boolean } {
+function useFhirQuickPicks<T>(fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>): {
+  quickPicks: T[];
+  loading: boolean;
+} {
   const { oystehrZambda } = useApiClients();
-  const [fhirItems, setFhirItems] = useState<T[]>([]);
+  const [quickPicks, setQuickPicks] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
   const doFetch = useCallback(async () => {
@@ -36,7 +33,7 @@ function useMergedQuickPicksGeneric<T>(
     setLoading(true);
     try {
       const response = await fetchFn(oystehrZambda);
-      setFhirItems(response.quickPicks);
+      setQuickPicks(response.quickPicks);
     } catch (error) {
       console.error('Failed to load quick picks:', error);
       enqueueSnackbar('Failed to load quick picks', { variant: 'error' });
@@ -49,8 +46,6 @@ function useMergedQuickPicksGeneric<T>(
     void doFetch();
   }, [doFetch]);
 
-  const quickPicks = useMemo(() => [...hardcoded, ...fhirItems], [hardcoded, fhirItems]);
-
   return { quickPicks, loading };
 }
 
@@ -58,52 +53,26 @@ export function useMergedProcedureQuickPicks(): {
   quickPicks: ProcedureQuickPickData[];
   loading: boolean;
 } {
-  const hardcoded: ProcedureQuickPickData[] = useMemo(() => PROCEDURES_CONFIG.quickPicks ?? [], []);
-  return useMergedQuickPicksGeneric(hardcoded, getProcedureQuickPicks);
+  return useFhirQuickPicks(getProcedureQuickPicks);
 }
 
 export function useMergedAllergyQuickPicks(): {
   quickPicks: AllergyQuickPickData[];
   loading: boolean;
 } {
-  const hardcoded: AllergyQuickPickData[] = useMemo(
-    () =>
-      (MEDICAL_HISTORY_CONFIG.allergies?.quickPicks ?? []).map((qp) => ({
-        name: qp.name,
-        allergyId: 'id' in qp ? (qp.id as number) : undefined,
-      })),
-    []
-  );
-  return useMergedQuickPicksGeneric(hardcoded, getAllergyQuickPicks);
+  return useFhirQuickPicks(getAllergyQuickPicks);
 }
 
 export function useMergedMedicalConditionQuickPicks(): {
   quickPicks: MedicalConditionQuickPickData[];
   loading: boolean;
 } {
-  const hardcoded: MedicalConditionQuickPickData[] = useMemo(
-    () =>
-      (MEDICAL_HISTORY_CONFIG.medicalConditions?.quickPicks ?? []).map((qp) => ({
-        display: qp.display,
-        code: 'code' in qp ? (qp.code as string) : undefined,
-      })),
-    []
-  );
-  return useMergedQuickPicksGeneric(hardcoded, getMedicalConditionQuickPicks);
+  return useFhirQuickPicks(getMedicalConditionQuickPicks);
 }
 
 export function useMergedMedicationHistoryQuickPicks(): {
   quickPicks: MedicationHistoryQuickPickData[];
   loading: boolean;
 } {
-  const hardcoded: MedicationHistoryQuickPickData[] = useMemo(
-    () =>
-      (MEDICAL_HISTORY_CONFIG.medications?.quickPicks ?? []).map((qp) => ({
-        name: qp.name,
-        strength: 'strength' in qp ? (qp.strength as string) : undefined,
-        medicationId: 'id' in qp ? (qp.id as number) : undefined,
-      })),
-    []
-  );
-  return useMergedQuickPicksGeneric(hardcoded, getMedicationHistoryQuickPicks);
+  return useFhirQuickPicks(getMedicationHistoryQuickPicks);
 }
