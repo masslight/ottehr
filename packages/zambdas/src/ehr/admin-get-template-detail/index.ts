@@ -29,6 +29,7 @@ interface TemplateDetailOutput {
   examVersion: string;
   sections: {
     hpiNote: string | null;
+    moiNote: string | null;
     rosNote: string | null;
     examFindings: ExamFinding[];
     mdm: string | null;
@@ -155,6 +156,13 @@ const performEffect = async (
   ) as Condition | undefined;
   const hpiNote = hpiCondition?.note?.[0]?.text ?? null;
 
+  // Parse MOI note
+  const moiCondition = contained.find(
+    (r) =>
+      r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury')
+  ) as Condition | undefined;
+  const moiNote = moiCondition?.note?.[0]?.text ?? null;
+
   // Parse ROS note
   const rosCondition = contained.find(
     (r) => r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/ros')
@@ -242,6 +250,7 @@ const performEffect = async (
     examVersion,
     sections: {
       hpiNote,
+      moiNote,
       rosNote,
       examFindings,
       mdm,

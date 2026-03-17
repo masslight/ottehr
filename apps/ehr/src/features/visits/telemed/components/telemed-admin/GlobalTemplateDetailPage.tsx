@@ -49,6 +49,7 @@ interface TemplateDetailData {
   examVersion: string;
   sections: {
     hpiNote: string | null;
+    moiNote: string | null;
     rosNote: string | null;
     examFindings: ExamFinding[];
     mdm: string | null;
@@ -57,6 +58,62 @@ interface TemplateDetailData {
     cptCodes: CodeInfo[];
     emCode: CodeInfo | null;
   };
+}
+
+function renderMarkdown(text: string): ReactElement {
+  // Convert markdown task lists and basic formatting to HTML-like rendering
+  const lines = text.split('\n');
+  return (
+    <Box
+      sx={{
+        '& ul': { listStyle: 'none', pl: 0 },
+        '& li': { display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 },
+      }}
+    >
+      {lines.map((line, i) => {
+        const checkedMatch = line.match(/^[-*]\s*\[x\]\s*(.*)/i);
+        const uncheckedMatch = line.match(/^[-*]\s*\[\s*\]\s*(.*)/);
+        if (checkedMatch) {
+          return (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
+              <input type="checkbox" checked disabled style={{ width: 16, height: 16 }} />
+              <Typography variant="body2">{checkedMatch[1]}</Typography>
+            </Box>
+          );
+        }
+        if (uncheckedMatch) {
+          return (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
+              <input type="checkbox" disabled style={{ width: 16, height: 16 }} />
+              <Typography variant="body2">{uncheckedMatch[1]}</Typography>
+            </Box>
+          );
+        }
+        if (line.startsWith('# ')) {
+          return (
+            <Typography key={i} variant="subtitle1" sx={{ fontWeight: 600, mt: 1 }}>
+              {line.slice(2)}
+            </Typography>
+          );
+        }
+        if (line.startsWith('## ')) {
+          return (
+            <Typography key={i} variant="subtitle2" sx={{ fontWeight: 600, mt: 1 }}>
+              {line.slice(3)}
+            </Typography>
+          );
+        }
+        if (line.trim() === '') {
+          return <Box key={i} sx={{ height: 8 }} />;
+        }
+        return (
+          <Typography key={i} variant="body2">
+            {line}
+          </Typography>
+        );
+      })}
+    </Box>
+  );
 }
 
 function SectionCard({ title, children }: { title: string; children: ReactElement | string }): ReactElement {
@@ -157,15 +214,20 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             )}
           </SectionCard>
 
-          {/* Review of Systems */}
-          <SectionCard title="Review of Systems">
-            {sections.rosNote ? (
+          {/* Mechanism of Injury */}
+          <SectionCard title="Mechanism of Injury (MOI)">
+            {sections.moiNote ? (
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {sections.rosNote}
+                {sections.moiNote}
               </Typography>
             ) : (
               <NotIncluded />
             )}
+          </SectionCard>
+
+          {/* Review of Systems */}
+          <SectionCard title="Review of Systems (ROS)">
+            {sections.rosNote ? renderMarkdown(sections.rosNote) : <NotIncluded />}
           </SectionCard>
 
           {/* Exam Findings */}

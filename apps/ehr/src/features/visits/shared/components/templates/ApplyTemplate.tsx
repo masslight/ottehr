@@ -32,6 +32,7 @@ const ADD_NEW_SENTINEL = '__ADD_NEW__';
 
 const TEMPLATE_SECTIONS = [
   'HPI (History of Present Illness)',
+  'MOI (Mechanism of Injury)',
   'Review of Systems (ROS)',
   'Exam findings',
   'Medical Decision Making (MDM)',
