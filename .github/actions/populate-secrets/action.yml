@@ -42,18 +42,18 @@ runs:
       shell: bash
       run: |
         for app in ehr intake; do
-          if [ -d "secrets/${{ env.REPO }}/apps/$app/env" ]; then
+          if [ -d "secrets/${{ inputs.project }}/apps/$app/env" ]; then
             mkdir -p "${{ inputs.source-dir }}/apps/$app/env"
-            cp secrets/${{ env.REPO }}/apps/$app/env/tests.*.json ${{ inputs.source-dir }}/apps/$app/env/ 2>/dev/null && \
+            cp secrets/${{ inputs.project }}/apps/$app/env/tests.*.json ${{ inputs.source-dir }}/apps/$app/env/ 2>/dev/null && \
               echo "✓ Copied test config files for $app" || \
               echo "⚠ No tests.*.json files found for $app"
           fi
         done
 
         # Copy user.json for Playwright auth state (intake only)
-        if [ -f "secrets/${{ env.REPO }}/apps/intake/env/user.json" ]; then
+        if [ -f "secrets/${{ inputs.project }}/apps/intake/env/user.json" ]; then
           mkdir -p ${{ inputs.source-dir }}/apps/intake/playwright
-          cp secrets/${{ env.REPO }}/apps/intake/env/user.json ${{ inputs.source-dir }}/apps/intake/playwright/user.json
+          cp secrets/${{ inputs.project }}/apps/intake/env/user.json ${{ inputs.source-dir }}/apps/intake/playwright/user.json
           echo "✓ Copied user.json for Playwright auth"
         fi
     - name: HashiCorp - Setup Terraform

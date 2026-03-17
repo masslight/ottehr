@@ -173,15 +173,13 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Setup environment
-        run: |
-          mkdir -p packages/zambdas/.env
-          cp -r secrets/ottehr/zambdas/.env packages/zambdas/
-          mkdir -p apps/ehr/env apps/intake/env
-          cp secrets/ottehr/apps/ehr/env/tests.*.json apps/ehr/env/
-          cp secrets/ottehr/apps/ehr/env/.env* apps/ehr/env/
-          cp secrets/ottehr/apps/intake/env/tests.*.json apps/intake/env/
-          cp secrets/ottehr/apps/intake/env/.env* apps/intake/env/
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
 
       - name: Restore Playwright browsers
         id: playwright-cache-restore
