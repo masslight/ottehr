@@ -1,9 +1,9 @@
 /**
  * Generates Terraform JSON configuration files from Ottehr spec files.
  *
- * This script reads JSON spec files from config/oystehr/ and optionally from
- * config/oystehr/env/<env>/ for environment-specific resources, then generates
- * Terraform-compatible JSON files in the output directory.
+ * This script reads JSON spec files from config/oystehr/ and config/oystehr-core/,
+ * and optionally from config/oystehr/env/<env>/ for environment-specific resources,
+ * then generates Terraform-compatible JSON files in the output directory.
  *
  * Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path>
  *
@@ -26,7 +26,13 @@ async function generate(input: GenerateResourcesArgs): Promise<void> {
   const { configDir, env, outputPath } = input;
   await generateSendgridResources({ configDir, env });
   const varFile = `../packages/zambdas/.env/${env}.json`;
-  await generateOystehrResources({ configDir: `${configDir}/oystehr`, varFile, outputPath, env });
+  await generateOystehrResources({
+    configDir: `${configDir}/oystehr`,
+    coreConfigDir: `${configDir}/oystehr-core`,
+    varFile,
+    outputPath,
+    env,
+  });
 }
 interface GenerateSendgridResources {
   configDir: string;
@@ -65,12 +71,13 @@ async function generateSendgridResources(input: GenerateSendgridResources): Prom
 
 interface GenerateFhirResourcesArgs {
   configDir: string;
+  coreConfigDir: string;
   varFile: string;
   outputPath: string;
   env: string;
 }
 async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promise<void> {
-  const { configDir, varFile, outputPath, env } = input;
+  const { configDir, coreConfigDir, varFile, outputPath, env } = input;
 
   if (!configDir) {
     throw new Error('Config directory is required.');
@@ -92,6 +99,20 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   const jsonSpecFiles = specFiles
     .filter((file) => file.isFile() && file.name.endsWith('.json'))
     .map((file) => path.join(configDir, file.name));
+
+  // Read core config spec files if the directory exists
+  try {
+    const coreSpecFiles = await fs.readdir(coreConfigDir, { withFileTypes: true });
+    const coreJsonSpecFiles = coreSpecFiles
+      .filter((file) => file.isFile() && file.name.endsWith('.json'))
+      .map((file) => path.join(coreConfigDir, file.name));
+    jsonSpecFiles.push(...coreJsonSpecFiles);
+  } catch (err: any) {
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+    console.log(`No core config directory found at: ${coreConfigDir}`);
+  }
 
   // Read environment-specific specs if directory exists
   const envConfigDir = path.join(configDir, 'env', env);
