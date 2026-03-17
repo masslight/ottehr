@@ -137,6 +137,9 @@ jobs:
       (inputs.environment == 'local' || inputs.environment == 'e2e' || inputs.environment == 'e2e2' || inputs.environment == 'e2e3')
     runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
