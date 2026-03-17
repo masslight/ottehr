@@ -76,7 +76,7 @@ function getTagCode(resource: Resource, tagSystem: string): string | undefined {
 // Build a set of all field codes that appear under 'abnormal' sections in the exam config
 function buildAbnormalFieldCodes(): Set<string> {
   const abnormalCodes = new Set<string>();
-  const config = examConfig.inPerson.default.config;
+  const config = examConfig.inPerson.default.components;
 
   function collectAbnormalCodes(obj: Record<string, any>): void {
     for (const [key, value] of Object.entries(obj)) {
@@ -109,7 +109,7 @@ function buildAbnormalFieldCodes(): Set<string> {
 // Build a map of field codes to their display labels from the exam config
 function buildFieldLabels(): Map<string, string> {
   const labels = new Map<string, string>();
-  const config = examConfig.inPerson.default.config;
+  const config = examConfig.inPerson.default.components;
 
   function collect(obj: Record<string, any>): void {
     for (const [key, value] of Object.entries(obj)) {
