@@ -26,6 +26,7 @@ import {
   getPhoneNumberForIndividual,
   getResponsiblePartyFromAccount,
   getSecret,
+  INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
   mapGenderToLabel,
@@ -35,14 +36,9 @@ import {
   RcmTaskCode,
   SecretsKeys,
   TIMEZONES,
+  ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { accountMatchesType } from '../shared/harvest';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -152,15 +148,6 @@ function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasks
     });
   });
 
-  reports.sort((a, b) => {
-    const luxonDateA = DateTime.fromISO(a.finalizationDateISO);
-    const luxonDateB = DateTime.fromISO(b.finalizationDateISO);
-    if (!luxonDateA.isValid && !luxonDateB.isValid) return 0;
-    if (!luxonDateA.isValid) return 1;
-    if (!luxonDateB.isValid) return -1;
-    return luxonDateB.toMillis() - luxonDateA.toMillis();
-  });
-
   return { reports, totalCount: total };
 }
 
@@ -168,11 +155,23 @@ async function getFhirResourcesGrouped(
   oystehr: Oystehr,
   complexValidatedInput: GetInvoicesTasksInput
 ): Promise<{ taskGroups: TaskGroup[]; bundleTotal: number }> {
-  const { page, status, patientId } = complexValidatedInput;
+  const { page, status, patientId, sortField, sortDirection, hideZeroBalance } = complexValidatedInput;
+  const resolvedSortField = sortField ?? 'finalizationDate';
+  const resolvedSortDirection = sortDirection ?? 'desc';
+  const sortPrefix = resolvedSortDirection === 'desc' ? '-' : '';
+  // finalizationDate is stored in authoredOn; appointmentDate in executionPeriod (start == end).
+  // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
+  // both directions sort by the appointment date correctly.
+  // _id tiebreaker ensures stable ordering across pages when multiple records share the same date.
+  const fhirSortParam =
+    resolvedSortField === 'finalizationDate'
+      ? `${sortPrefix}authored-on,${sortPrefix}_id`
+      : `${sortPrefix}period,${sortPrefix}_id`;
+
   const params: SearchParam[] = [
     {
       name: '_sort',
-      value: '-authored-on',
+      value: fhirSortParam,
     },
     {
       name: '_total',
@@ -181,6 +180,10 @@ async function getFhirResourcesGrouped(
     {
       name: '_count',
       value: INVOICEABLE_PATIENTS_PAGE_SIZE,
+    },
+    {
+      name: 'authored-on:missing',
+      value: 'false',
     },
     {
       name: 'code',
@@ -232,6 +235,12 @@ async function getFhirResourcesGrouped(
     params.push({
       name: 'patient',
       value: `Patient/${patientId}`,
+    });
+  }
+  if (hideZeroBalance) {
+    params.push({
+      name: 'business-status:not',
+      value: `${INVOICE_TASK_BUSINESS_STATUS_SYSTEM}|${ZERO_BALANCE_BUSINESS_STATUS_CODE}`,
     });
   }
   const bundle = await oystehr.fhir.search({

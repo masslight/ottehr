@@ -1,9 +1,19 @@
-import { Task } from 'fhir/r4b';
+import { CodeableConcept, Task } from 'fhir/r4b';
 import z from 'zod';
+import { ottehrCodeSystemUrl } from '../../fhir/systemUrls';
 import { Secrets } from '../../secrets';
 
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
+
+export const INVOICE_TASK_BUSINESS_STATUS_SYSTEM = ottehrCodeSystemUrl('invoice-task-business-status');
+export const ZERO_BALANCE_BUSINESS_STATUS_CODE = 'zero-balance';
+export const ZERO_BALANCE_BUSINESS_STATUS: CodeableConcept = {
+  coding: [{ system: INVOICE_TASK_BUSINESS_STATUS_SYSTEM, code: ZERO_BALANCE_BUSINESS_STATUS_CODE }],
+};
+
+export const InvoiceSortFields = ['finalizationDate', 'appointmentDate'] as const;
+export type InvoiceSortField = (typeof InvoiceSortFields)[number];
 
 export const InvoiceTaskDisplayStatuses = ['ready', 'updating', 'sending', 'sent', 'error'] as const;
 export type InvoiceTaskDisplayStatus = (typeof InvoiceTaskDisplayStatuses)[number];
@@ -62,6 +72,9 @@ export const GetInvoicesTasksZambdaInputSchema = z.object({
   page: z.number().min(0).optional(),
   status: z.enum(allowedStatuses).optional(),
   patientId: z.string().optional(),
+  sortField: z.enum(InvoiceSortFields).optional(),
+  sortDirection: z.enum(['asc', 'desc']).optional(),
+  hideZeroBalance: z.boolean().optional(),
 });
 export const GetInvoicesTasksZambdaValidatedInputSchema = GetInvoicesTasksZambdaInputSchema.extend({
   secrets: z.custom<Secrets>().nullable(),

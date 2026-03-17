@@ -3,7 +3,9 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import {
   Button,
+  Checkbox,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   Paper,
   Table,
@@ -12,6 +14,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Tooltip,
   Typography,
@@ -33,6 +36,7 @@ import {
   getLatestTaskOutput,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
+  InvoiceSortField,
   InvoiceTaskDisplayStatus,
   InvoiceTaskDisplayStatuses,
   InvoiceTaskInput,
@@ -111,9 +115,14 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [selectedReportForStatement, setSelectedReportForStatement] = useState<InvoiceablePatientReport | undefined>();
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
+
   const pageSP = Number(searchParams.get('page') ?? '0');
+  const [pageInputValue, setPageInputValue] = useState(String(pageSP + 1));
   const statusSP = searchParams.get('status');
   const patientSP = searchParams.get('patient');
+  const sortFieldSP = (searchParams.get('sortField') as InvoiceSortField | null) ?? 'finalizationDate';
+  const sortDirectionSP = (searchParams.get('sortDirection') as 'asc' | 'desc' | null) ?? 'desc';
+  const hideZeroBalanceSP = searchParams.get('hideZeroBalance') !== 'false';
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -124,18 +133,59 @@ export default function InvoiceablePatients(): React.ReactElement {
     setSearchParams(searchParams);
   };
 
+  const handlePageJump = (
+    e: React.KeyboardEvent<HTMLDivElement> | React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>
+  ): void => {
+    if ('key' in e && e.key !== 'Enter') return;
+    let targetPage = parseInt(pageInputValue, 10);
+
+    if (isNaN(targetPage) || targetPage < 1) {
+      targetPage = 1;
+    } else if (targetPage > totalPages) {
+      targetPage = totalPages;
+    }
+
+    setPageInputValue(String(targetPage));
+
+    if (targetPage - 1 !== pageSP) {
+      setPage(targetPage - 1);
+    }
+  };
+
+  const setSortField = (field: InvoiceSortField): void => {
+    if (field === sortFieldSP) {
+      searchParams.set('sortDirection', sortDirectionSP === 'desc' ? 'asc' : 'desc');
+    } else {
+      searchParams.set('sortField', field);
+      searchParams.set('sortDirection', 'desc');
+    }
+    searchParams.set('page', '0');
+    setSearchParams(searchParams);
+  };
+
   const {
     data: invoiceablePatients,
     isLoading: isInvoiceablePatientsLoading,
     refetch: refetchInvoiceablePatients,
   } = useQuery<GetInvoicesTasksResponse>({
-    queryKey: [GET_INVOICES_TASKS_ZAMBDA_KEY, pageSP, statusSP, patientSP],
+    queryKey: [
+      GET_INVOICES_TASKS_ZAMBDA_KEY,
+      pageSP,
+      statusSP,
+      patientSP,
+      sortFieldSP,
+      sortDirectionSP,
+      hideZeroBalanceSP,
+    ],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const params: GetInvoicesTasksInput = {
         page: pageSP,
         status: statusSP ? mapDisplayToInvoiceTaskStatus(statusSP as InvoiceTaskDisplayStatus) : undefined,
         patientId: patientSP ?? undefined,
+        sortField: sortFieldSP,
+        sortDirection: sortDirectionSP,
+        hideZeroBalance: hideZeroBalanceSP,
       };
       const response = await oystehrZambda.zambda.execute({
         id: GET_INVOICES_TASKS_ZAMBDA_KEY,
@@ -148,6 +198,8 @@ export default function InvoiceablePatients(): React.ReactElement {
     staleTime: 5 * 1000,
     refetchInterval: 5 * 1000,
   });
+
+  const totalPages = Math.ceil((invoiceablePatients?.totalCount ?? 0) / INVOICEABLE_PATIENTS_PAGE_SIZE);
 
   const sendInvoice = async (taskId: string, invoiceTaskInput: InvoiceTaskInput): Promise<void> => {
     try {
@@ -223,6 +275,11 @@ export default function InvoiceablePatients(): React.ReactElement {
             filtersToPersist[key] = value;
           }
         }
+        // Preserve sort and hideZeroBalance params — they are managed separately from the form
+        if (searchParams.has('sortField')) queryParams.set('sortField', searchParams.get('sortField')!);
+        if (searchParams.has('sortDirection')) queryParams.set('sortDirection', searchParams.get('sortDirection')!);
+        if (searchParams.has('hideZeroBalance'))
+          queryParams.set('hideZeroBalance', searchParams.get('hideZeroBalance')!);
         setSearchParams(queryParams);
         if (Object.keys(filtersToPersist).length > 0) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
@@ -232,16 +289,21 @@ export default function InvoiceablePatients(): React.ReactElement {
       },
     });
     return () => callback();
-  }, [methods, navigate, setSearchParams]);
+  }, [methods, navigate, searchParams, setSearchParams]);
 
   useEffect(() => {
     const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
-    if (searchParams.size === 0 && persistedFilters != null) {
-      const filters = JSON.parse(persistedFilters);
+    if (searchParams.size === 0) {
       const queryParams = new URLSearchParams();
-      for (const key in filters) {
-        queryParams.set(key, filters[key]);
+      if (persistedFilters != null) {
+        const filters = JSON.parse(persistedFilters) as Record<string, string>;
+        for (const key in filters) {
+          queryParams.set(key, filters[key]);
+        }
       }
+      if (!queryParams.has('sortField')) queryParams.set('sortField', 'finalizationDate');
+      if (!queryParams.has('sortDirection')) queryParams.set('sortDirection', 'desc');
+      if (!queryParams.has('hideZeroBalance')) queryParams.set('hideZeroBalance', 'true');
       setSearchParams(queryParams);
     }
   }, [searchParams, setSearchParams]);
@@ -263,9 +325,30 @@ export default function InvoiceablePatients(): React.ReactElement {
 
         <FormProvider {...methods}>
           <Paper>
-            <Stack direction="row" spacing={2} padding="8px">
-              <SelectInput name="status" label="Status" options={InvoiceTaskDisplayStatuses as unknown as string[]} />
-              <TextField {...methods.register('patient')} label="Patient id" sx={{ width: '100%' }} size="small" />
+            <Stack direction="row" spacing={2} padding="8px" alignItems="center" flexWrap="wrap">
+              <Box sx={{ width: '30%' }}>
+                <SelectInput name="status" label="Status" options={InvoiceTaskDisplayStatuses as unknown as string[]} />
+              </Box>
+              <TextField
+                {...methods.register('patient')}
+                label="Patient id"
+                sx={{ width: '30%', flex: 1 }}
+                size="small"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hideZeroBalanceSP}
+                    onChange={(e) => {
+                      searchParams.set('hideZeroBalance', e.target.checked ? 'true' : 'false');
+                      searchParams.set('page', '0');
+                      setSearchParams(searchParams);
+                    }}
+                  />
+                }
+                label="Hide $0 balances"
+                sx={{ whiteSpace: 'nowrap' }}
+              />
             </Stack>
           </Paper>
         </FormProvider>
@@ -279,14 +362,26 @@ export default function InvoiceablePatients(): React.ReactElement {
                   </Typography>
                 </TableCell>
                 <TableCell style={{ width: '150px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Date of Service
-                  </Typography>
+                  <TableSortLabel
+                    active={sortFieldSP === 'appointmentDate'}
+                    direction={sortFieldSP === 'appointmentDate' ? sortDirectionSP : 'desc'}
+                    onClick={() => setSortField('appointmentDate')}
+                  >
+                    <Typography fontWeight="500" fontSize="14px">
+                      Date of Service
+                    </Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell style={{ width: '150px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Finalization Date
-                  </Typography>
+                  <TableSortLabel
+                    active={sortFieldSP === 'finalizationDate'}
+                    direction={sortFieldSP === 'finalizationDate' ? sortDirectionSP : 'desc'}
+                    onClick={() => setSortField('finalizationDate')}
+                  >
+                    <Typography fontWeight="500" fontSize="14px">
+                      Finalization Date
+                    </Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell style={{ width: '120px' }}>
                   <Typography fontWeight="500" fontSize="14px">
@@ -453,16 +548,35 @@ export default function InvoiceablePatients(): React.ReactElement {
                 })}
             </TableBody>
           </Table>
-          <TablePagination
-            rowsPerPageOptions={[INVOICEABLE_PATIENTS_PAGE_SIZE]}
-            component="div"
-            count={invoiceablePatients?.totalCount ?? -1}
-            rowsPerPage={INVOICEABLE_PATIENTS_PAGE_SIZE}
-            page={pageSP}
-            onPageChange={(_e, newPageNumber) => {
-              setPage(newPageNumber);
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 2 }}>
+            <TablePagination
+              rowsPerPageOptions={[INVOICEABLE_PATIENTS_PAGE_SIZE]}
+              component="div"
+              count={invoiceablePatients?.totalCount ?? -1}
+              rowsPerPage={INVOICEABLE_PATIENTS_PAGE_SIZE}
+              page={pageSP}
+              onPageChange={(_e, newPageNumber) => {
+                setPage(newPageNumber);
+              }}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                Go to page
+              </Typography>
+              <TextField
+                size="small"
+                value={pageInputValue}
+                onChange={(e) => setPageInputValue(e.target.value)}
+                onKeyDown={handlePageJump}
+                onBlur={handlePageJump}
+                disabled={isInvoiceablePatientsLoading || totalPages <= 1}
+                inputProps={{
+                  style: { padding: '4px 8px', width: '35px', textAlign: 'center' },
+                  'aria-label': 'Go to page',
+                }}
+              />
+            </Box>
+          </Box>
         </Paper>
         <SendInvoiceToPatientDialog
           title="Send invoice"

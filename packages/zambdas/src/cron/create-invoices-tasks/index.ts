@@ -16,6 +16,7 @@ import {
   RcmTaskCodings,
   SecretsKeys,
   TEXTING_CONFIG,
+  ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
@@ -117,7 +118,12 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
       for: { reference: `Patient/${patientId}` },
-      authoredOn: DateTime.now().toISO(),
+      authoredOn: prefilledInvoiceInfo.finalizationDate ?? DateTime.now().toISO(),
+      executionPeriod: {
+        start: encounter.period?.start,
+        end: encounter.period?.start,
+      },
+      ...(amountCents === 0 ? { businessStatus: ZERO_BALANCE_BUSINESS_STATUS } : {}),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
