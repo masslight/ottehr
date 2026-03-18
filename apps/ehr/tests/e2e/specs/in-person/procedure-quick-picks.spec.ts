@@ -136,6 +136,23 @@ test.describe('Procedure Quick Picks E2E', () => {
       await expect(page.getByText(QUICK_PICK_NAME)).toBeVisible(DEFAULT_TIMEOUT);
     });
 
+    await test.step('Verify quick pick appears in charting experience', async () => {
+      // Navigate to a new procedure form on the same appointment
+      await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
+
+      // Open the Quick Picks menu
+      const quickPicksButton = page.getByRole('button', { name: /Quick Picks/i });
+      await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
+      await quickPicksButton.click();
+
+      // Verify the quick pick we created appears in the dropdown
+      const quickPickMenuItem = page.getByRole('menuitem', { name: QUICK_PICK_NAME });
+      await expect(quickPickMenuItem).toBeVisible(DEFAULT_TIMEOUT);
+
+      // Close the menu
+      await page.keyboard.press('Escape');
+    });
+
     await test.step('Delete the quick pick from admin', async () => {
       // Find the row with our quick pick and click the Remove button
       const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
