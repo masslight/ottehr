@@ -18,7 +18,7 @@ export function validateRequestParameters(
 
   const missingFields = [];
   if (documentRefId === undefined) {
-    missingFields.push('examType');
+    missingFields.push('documentRefId');
   }
 
   if (missingFields.length > 0) {
