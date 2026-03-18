@@ -1,12 +1,9 @@
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import {
   Autocomplete,
   Backdrop,
   Button,
-  ButtonGroup,
   Checkbox,
   CircularProgress,
-  ClickAwayListener,
   Container,
   Dialog,
   DialogActions,
@@ -17,15 +14,8 @@ import {
   FormControlLabel,
   FormHelperText,
   FormLabel,
-  Grow,
   InputLabel,
-  List,
-  ListItemButton,
-  ListItemText,
   MenuItem,
-  MenuList,
-  Paper,
-  Popper,
   Radio,
   RadioGroup,
   Select,
@@ -40,7 +30,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -218,8 +208,8 @@ export default function ProceduresNew(): ReactElement {
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
   const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
   const [suggestionNote, setSuggestionNote] = useState<AISuggestionNotes | null>(null);
-  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
-  const saveMenuAnchorRef = useRef<HTMLDivElement>(null);
+  const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
+  const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
@@ -871,16 +861,21 @@ export default function ProceduresNew(): ReactElement {
               </Typography>
             </Box>
 
-            {!procedureId && mergedQuickPicks.length > 0 ? (
-              <QuickPicksButton
-                quickPicks={mergedQuickPicks.filter(
-                  (quickPick) =>
-                    selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
-                )}
-                getLabel={(quickPick) => quickPick.name}
-                onSelect={onQuickPickSelect}
-              />
-            ) : null}
+            <QuickPicksButton
+              quickPicks={
+                !procedureId
+                  ? mergedQuickPicks.filter(
+                      (quickPick) =>
+                        selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
+                    )
+                  : []
+              }
+              getLabel={(quickPick) => quickPick.name}
+              onSelect={onQuickPickSelect}
+              showAddOption
+              isAdmin={isAdmin}
+              onAddOrUpdate={() => void openQuickPickDialog()}
+            />
 
             <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
@@ -1093,57 +1088,15 @@ export default function ProceduresNew(): ReactElement {
               <RoundedButton color="primary" onClick={onCancel}>
                 Cancel
               </RoundedButton>
-              <ButtonGroup variant="contained" ref={saveMenuAnchorRef}>
-                <RoundedButton
-                  color="primary"
-                  variant="contained"
-                  disabled={isReadOnly}
-                  onClick={onSave}
-                  data-testid={dataTestIds.documentProcedurePage.saveButton}
-                >
-                  Save
-                </RoundedButton>
-                <Button
-                  color="primary"
-                  size="small"
-                  disabled={isReadOnly}
-                  onClick={() => setSaveMenuOpen((prev) => !prev)}
-                  sx={{ px: 0.5, minWidth: 'unset' }}
-                >
-                  <ArrowDropDownIcon />
-                </Button>
-              </ButtonGroup>
-              <Popper
-                open={saveMenuOpen}
-                anchorEl={saveMenuAnchorRef.current}
-                role={undefined}
-                transition
-                disablePortal
-                sx={{ zIndex: 1 }}
+              <RoundedButton
+                color="primary"
+                variant="contained"
+                disabled={isReadOnly}
+                onClick={onSave}
+                data-testid={dataTestIds.documentProcedurePage.saveButton}
               >
-                {({ TransitionProps, placement }) => (
-                  <Grow
-                    {...TransitionProps}
-                    style={{ transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom' }}
-                  >
-                    <Paper>
-                      <ClickAwayListener onClickAway={() => setSaveMenuOpen(false)}>
-                        <MenuList autoFocusItem>
-                          <MenuItem
-                            disabled={!isAdmin}
-                            onClick={() => {
-                              setSaveMenuOpen(false);
-                              void openQuickPickDialog();
-                            }}
-                          >
-                            {isAdmin ? 'Add To Quick Picks' : 'Add To Quick Picks Requires Admin Role'}
-                          </MenuItem>
-                        </MenuList>
-                      </ClickAwayListener>
-                    </Paper>
-                  </Grow>
-                )}
-              </Popper>
+                Save
+              </RoundedButton>
             </Box>
           </Stack>
         </AccordionCard>
@@ -1156,56 +1109,23 @@ export default function ProceduresNew(): ReactElement {
       <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add to Quick Picks</DialogTitle>
         <DialogContent>
-          <TextField
-            label="Quick Pick Name"
+          <Autocomplete
+            freeSolo
+            options={existingQuickPicks.map((qp) => qp.name)}
             value={quickPickName}
-            onChange={(e) => setQuickPickName(e.target.value)}
-            fullWidth
-            sx={{ mt: 1 }}
-            autoFocus
-            placeholder="Enter a name for this quick pick"
+            onChange={(_e, newValue) => setQuickPickName(newValue ?? '')}
+            onInputChange={(_e, newInputValue) => setQuickPickName(newInputValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Quick Pick Name"
+                fullWidth
+                sx={{ mt: 1 }}
+                autoFocus
+                placeholder="Enter a name or select an existing quick pick"
+              />
+            )}
           />
-          {existingQuickPicks.length > 0 &&
-            (() => {
-              const filtered = quickPickName.trim()
-                ? existingQuickPicks.filter((qp) => qp.name.toLowerCase().includes(quickPickName.trim().toLowerCase()))
-                : existingQuickPicks;
-              return (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Or select an existing quick pick to overwrite:
-                  </Typography>
-                  <List
-                    dense
-                    sx={{
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      maxHeight: 200,
-                      overflow: 'auto',
-                    }}
-                  >
-                    {filtered.length > 0 ? (
-                      filtered.map((qp, index) => (
-                        <ListItemButton
-                          key={qp.id ?? index}
-                          onClick={() => {
-                            setQuickPickName(qp.name);
-                          }}
-                          selected={quickPickName === qp.name}
-                        >
-                          <ListItemText primary={qp.name} />
-                        </ListItemButton>
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="text.secondary" sx={{ p: 1.5, textAlign: 'center' }}>
-                        No matching quick picks
-                      </Typography>
-                    )}
-                  </List>
-                </Box>
-              );
-            })()}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setQuickPickDialogOpen(false)} disabled={quickPickSaving}>
@@ -1219,15 +1139,39 @@ export default function ProceduresNew(): ReactElement {
                 (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
               );
               if (existing?.id) {
-                if (window.confirm(`Overwrite existing quick pick "${existing.name}"?`)) {
-                  void onSaveAsQuickPick(existing.id);
-                }
+                setOverwriteTarget(existing);
+                setConfirmOverwriteOpen(true);
               } else {
                 void onSaveAsQuickPick();
               }
             }}
           >
             {quickPickSaving ? <CircularProgress size={20} /> : 'Save Quick Pick'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Overwrite Confirmation Dialog */}
+      <Dialog open={confirmOverwriteOpen} onClose={() => setConfirmOverwriteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Update Existing Quick Pick?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            A quick pick named &ldquo;{overwriteTarget?.name}&rdquo; already exists. Do you want to replace it with the
+            current procedure data?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmOverwriteOpen(false)}>Back</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setConfirmOverwriteOpen(false);
+              if (overwriteTarget?.id) {
+                void onSaveAsQuickPick(overwriteTarget.id);
+              }
+            }}
+          >
+            Replace
           </Button>
         </DialogActions>
       </Dialog>
