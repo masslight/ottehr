@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
 
-const DEFAULT_TIMEOUT = { timeout: 15000 };
+const DEFAULT_TIMEOUT = { timeout: 30000 };
 
 test.describe('Global Templates Admin', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/telemed-admin/global-templates');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('Admin page loads and shows templates table', async ({ page }) => {

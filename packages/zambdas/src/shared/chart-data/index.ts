@@ -1144,7 +1144,7 @@ export function makeObservationDTO(observation: Observation): null | Observation
 export async function saveOrUpdateResource<Savable extends FhirResource>(
   resource: Savable,
   oystehr: Oystehr
-): Promise<Savable> {
+): Promise<Omit<Savable, 'id'> & { id: string }> {
   if (resource.id === undefined) return oystehr.fhir.create(resource);
   return oystehr.fhir.update(resource);
 }
