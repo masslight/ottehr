@@ -3,12 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
+import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   lambdaResponse,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -49,8 +50,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
     return lambdaResponse(200, response);
   } catch (error: any) {
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets);
     console.log('Error: ', JSON.stringify(error.message));
-    return lambdaResponse(500, { error: error.message });
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 
