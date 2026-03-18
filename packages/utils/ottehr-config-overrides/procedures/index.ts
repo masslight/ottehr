@@ -1,1 +1,0 @@
-export const PROCEDURES_CONFIG_OVERRIDE = {};

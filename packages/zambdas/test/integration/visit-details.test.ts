@@ -16,6 +16,7 @@ import {
   UpdateVisitDetailsInput,
   VALUE_SETS,
 } from 'utils';
+import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
 import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
 import { getAuth0Token } from '../../src/shared';
@@ -877,31 +878,37 @@ describe('saving and getting visit details', () => {
         `reasonForVisit "gum in my hair" is not valid for service category "urgent-care"`
       );
     }
-    try {
-      await updateVisitDetails({
-        appointmentId: appointment.id!,
-        bookingDetails: {
-          reasonForVisit: 'gum in my hair',
-          serviceCategory: 'workers-comp',
-        },
-      });
-    } catch (error) {
-      expect((error as Error).message).toBe(
-        `reasonForVisit "gum in my hair" is not valid for service category "workers-comp"`
-      );
+    const availableCodes = SERVICE_CATEGORIES_AVAILABLE.map((c) => c.code);
+
+    if (availableCodes.includes('workers-comp')) {
+      try {
+        await updateVisitDetails({
+          appointmentId: appointment.id!,
+          bookingDetails: {
+            reasonForVisit: 'gum in my hair',
+            serviceCategory: 'workers-comp',
+          },
+        });
+      } catch (error) {
+        expect((error as Error).message).toBe(
+          `reasonForVisit "gum in my hair" is not valid for service category "workers-comp"`
+        );
+      }
     }
-    try {
-      await updateVisitDetails({
-        appointmentId: appointment.id!,
-        bookingDetails: {
-          reasonForVisit: 'gum in my hair',
-          serviceCategory: 'occupational-medicine',
-        },
-      });
-    } catch (error) {
-      expect((error as Error).message).toBe(
-        `reasonForVisit "gum in my hair" is not valid for service category "occupational-medicine"`
-      );
+    if (availableCodes.includes('occupational-medicine')) {
+      try {
+        await updateVisitDetails({
+          appointmentId: appointment.id!,
+          bookingDetails: {
+            reasonForVisit: 'gum in my hair',
+            serviceCategory: 'occupational-medicine',
+          },
+        });
+      } catch (error) {
+        expect((error as Error).message).toBe(
+          `reasonForVisit "gum in my hair" is not valid for service category "occupational-medicine"`
+        );
+      }
     }
   });
 

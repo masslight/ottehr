@@ -12,7 +12,7 @@ let context: BrowserContext;
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
-  await page.goto('/telemed-admin/virtual-locations');
+  await page.goto('/admin/virtual-locations');
 });
 
 test.afterAll(async () => {

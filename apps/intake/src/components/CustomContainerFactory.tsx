@@ -1,7 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, IconButton, Typography, useTheme } from '@mui/material';
 import { lighten } from '@mui/material/styles';
-import { FC, ReactElement, useCallback } from 'react';
+import { FC, ReactElement, ReactNode, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { home } from 'src/themes/ottehr';
@@ -9,7 +9,7 @@ import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 
 export interface ContainerProps {
-  title?: string;
+  title?: ReactNode;
   logo: string;
   alt: string;
   subtitle?: string;

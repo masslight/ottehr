@@ -82,162 +82,7 @@ function getFilePaths(environment: string): GetFilePathConfig {
   };
 }
 
-function copyConfiguration(project?: string): void {
-  const repoRoot = process.cwd();
-  const secretsPath = path.join(repoRoot, 'secrets');
-
-  console.log('\n=== Copying configuration files ===');
-
-  // Skip configuration copying for ottehr project
-  if (project === 'ottehr') {
-    console.log('Skipping configuration copy for ottehr project');
-    return;
-  }
-
-  // Clear and create target directories for configuration
-  const oystehrPreserveFiles = [
-    'apps.json',
-    'buckets.json',
-    'm2ms.json',
-    'outputs.json',
-    'project.json',
-    'roles.json',
-    'secrets.json',
-    'zambdas.json',
-  ];
-
-  const configPaths: { source: string; target: string; type: string; preserveFiles: string[] }[] = [
-    {
-      source: path.join(secretsPath, 'configuration', 'oystehr'),
-      target: path.join(repoRoot, 'config', 'oystehr'),
-      type: 'full',
-      preserveFiles: oystehrPreserveFiles,
-    },
-    {
-      source: path.join(secretsPath, 'configuration', 'sendgrid'),
-      target: path.join(repoRoot, 'config', 'sendgrid'),
-      type: 'full',
-      preserveFiles: [],
-    },
-    {
-      source: path.join(secretsPath, 'configuration', 'ottehr-config-overrides'),
-      target: path.join(repoRoot, 'packages', 'utils', 'ottehr-config-overrides'),
-      type: 'selective',
-      preserveFiles: [],
-    },
-  ];
-
-  const TEMP_PRESERVE_DIR = path.join(repoRoot, '.tmp-preserve');
-
-  // Helper to backup preserved files to temp directory before directory removal
-  function backupPreservedFiles(target: string, fileNames: string[]): string[] {
-    const backed: string[] = [];
-    for (const fileName of fileNames) {
-      const filePath = path.join(target, fileName);
-      console.log(`Checking for preserved file: ${path.relative(repoRoot, filePath)}`);
-      if (fs.existsSync(filePath)) {
-        console.log(`  → Found preserved file, backing up: ${fileName}`);
-        fs.mkdirSync(TEMP_PRESERVE_DIR, { recursive: true });
-        fs.copyFileSync(filePath, path.join(TEMP_PRESERVE_DIR, fileName));
-        backed.push(fileName);
-        console.log(`  ↔ Backed up preserved file: ${fileName}`);
-      }
-    }
-    if (backed.length > 0) {
-      console.log(
-        `  Backed up ${backed.length} preserved files from ${path.relative(repoRoot, target)}: ${backed.join(', ')}`
-      );
-    }
-    return backed;
-  }
-
-  // Helper to restore preserved files from temp directory after directory recreation
-  function restorePreservedFiles(target: string, backedFiles: string[]): void {
-    for (const fileName of backedFiles) {
-      const tempFilePath = path.join(TEMP_PRESERVE_DIR, fileName);
-      const targetFilePath = path.join(target, fileName);
-      if (fs.existsSync(tempFilePath)) {
-        fs.copyFileSync(tempFilePath, targetFilePath);
-        console.log(`  ✓ Restored preserved file from backup: ${fileName}`);
-      }
-    }
-    // Clean up temp directory
-    if (fs.existsSync(TEMP_PRESERVE_DIR)) {
-      fs.rmSync(TEMP_PRESERVE_DIR, { recursive: true, force: true });
-    }
-  }
-
-  configPaths.forEach(({ source, target, type, preserveFiles }) => {
-    if (type === 'full') {
-      if (!fs.existsSync(source)) {
-        console.log(`⚠ Secrets source config folder is missing: ${path.relative(repoRoot, source)}. Skipping copy.`);
-        return;
-      }
-
-      // List existing files in target directory before modification
-      if (fs.existsSync(target)) {
-        const existingFiles = fs.readdirSync(target);
-        console.log(`Existing files in ${path.relative(repoRoot, target)}: ${existingFiles.join(', ')}`);
-      }
-
-      // Backup preserved files before removing directory
-      const backedFiles = backupPreservedFiles(target, preserveFiles);
-
-      // Remove existing directory and create fresh one
-      if (fs.existsSync(target)) {
-        fs.rmSync(target, { recursive: true, force: true });
-      }
-      fs.mkdirSync(target, { recursive: true });
-
-      // Copy from source
-      fs.cpSync(source, target, { recursive: true });
-      console.log(
-        `✓ Copied configuration from ${path.relative(repoRoot, source)} to ${path.relative(repoRoot, target)}`
-      );
-
-      // Restore preserved files
-      restorePreservedFiles(target, backedFiles);
-    } else if (type === 'selective') {
-      // For ottehr-config-overrides: only replace directories that exist in both target and source
-      if (!fs.existsSync(source)) {
-        console.log(`⚠ Configuration directory not found: ${path.relative(repoRoot, source)}`);
-        return;
-      }
-
-      // Ensure target directory exists
-      if (!fs.existsSync(target)) {
-        console.log(`⚠ Target directory not found: ${path.relative(repoRoot, target)}`);
-        return;
-      }
-
-      // Read all items in target directory (working copy)
-      const targetItems = fs.readdirSync(target, { withFileTypes: true });
-
-      targetItems.forEach((item) => {
-        const sourcePath = path.join(source, item.name);
-        const targetPath = path.join(target, item.name);
-
-        if (item.isDirectory() && fs.existsSync(sourcePath)) {
-          // Only replace if the directory also exists in source
-          fs.rmSync(targetPath, { recursive: true, force: true });
-          fs.cpSync(sourcePath, targetPath, { recursive: true });
-          console.log(`✓ Replaced override directory: ${item.name}`);
-        } else if (item.isDirectory()) {
-          console.log(`⚠ Skipping directory (not in secrets): ${item.name}`);
-        }
-      });
-
-      console.log(
-        `✓ Selectively copied ottehr-config-overrides from ${path.relative(repoRoot, source)} to ${path.relative(
-          repoRoot,
-          target
-        )}`
-      );
-    }
-  });
-}
-
-function populate(environment: string, project?: string): void {
+function populate(environment: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
   const paths = getFilePaths(environment);
@@ -246,9 +91,6 @@ function populate(environment: string, project?: string): void {
     console.error('Error: secrets directory not found in repository root');
     process.exit(1);
   }
-
-  // Copy configuration files first
-  copyConfiguration(project);
 
   console.log('\n=== Populating environment-specific secrets ===');
 
@@ -325,7 +167,6 @@ function validate(environment: string): void {
 function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
-  const project = process.argv[4];
 
   if (!environment) {
     console.error('Error: environment parameter is required');
@@ -335,7 +176,7 @@ function main(): void {
 
   switch (command) {
     case 'populate':
-      populate(environment, project);
+      populate(environment);
       break;
     case 'validate':
       validate(environment);

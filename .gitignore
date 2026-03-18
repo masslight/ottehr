@@ -13,6 +13,7 @@ out.log
 .dist
 
 .turbo
+.overlay-project
 test-results/
 playwright/
 playwright-report/

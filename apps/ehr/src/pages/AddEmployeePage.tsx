@@ -32,7 +32,7 @@ export default function AddEmployeePage(): ReactElement {
         lastName,
         applicationID,
       });
-      navigate(`/employee/${createUserResponse.userID}`);
+      navigate(`/admin/employee/${createUserResponse.userID}`);
     } catch (error: any) {
       let parsedError = error;
 
@@ -62,7 +62,8 @@ export default function AddEmployeePage(): ReactElement {
           {/* Breadcrumbs */}
           <CustomBreadcrumbs
             chain={[
-              { link: '/employees', children: 'Employees' },
+              { link: '/admin', children: 'Admin' },
+              { link: '/admin/employees', children: 'Employees' },
               { link: '#', children: 'Add user' },
             ]}
           />
