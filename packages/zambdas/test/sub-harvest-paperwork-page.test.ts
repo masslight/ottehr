@@ -162,9 +162,10 @@ describe('executePageHarvest', () => {
     expect(result).toBe('pharmacy updated');
   });
 
-  it('dispatches account-coverage strategy for payment-option-page', async () => {
+  it('dispatches account-coverage and documents strategies for payment-option-page', async () => {
     const result = await executePageHarvest(buildContext('payment-option-page'));
-    expect(result).toBe('account / coverage updated');
+    expect(result).toContain('account / coverage updated');
+    expect(result).toContain('documents created');
   });
 
   it('dispatches documents strategy for photo-id-page', async () => {
@@ -182,7 +183,7 @@ describe('executePageHarvest', () => {
 
 describe('pageHarvestStrategy completeness', () => {
   it('every strategy referenced in pageHarvestStrategy has a handler in strategyHandlers', () => {
-    const strategies = new Set(Object.values(pageHarvestStrategy));
+    const strategies = new Set(Object.values(pageHarvestStrategy).flat());
     for (const strategy of strategies) {
       expect(strategyHandlers).toHaveProperty(strategy);
     }

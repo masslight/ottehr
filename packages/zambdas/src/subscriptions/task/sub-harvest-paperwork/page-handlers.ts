@@ -175,10 +175,14 @@ export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> =
 };
 
 export const executePageHarvest = async (ctx: HarvestContext): Promise<string> => {
-  const strategy = pageHarvestStrategy[ctx.pageLinkId];
-  if (!strategy) {
+  const strategies = pageHarvestStrategy[ctx.pageLinkId];
+  if (!strategies || strategies.length === 0) {
     return `no harvest strategy registered for ${ctx.pageLinkId}, skipping`;
   }
-  const handler = strategyHandlers[strategy];
-  return handler(ctx);
+  const results = [];
+  for (const strategy of strategies) {
+    const handler = strategyHandlers[strategy];
+    results.push(await handler(ctx));
+  }
+  return results.join(', ');
 };

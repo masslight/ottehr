@@ -52,20 +52,20 @@ export type HarvestStrategy = 'master-record' | 'pharmacy' | 'account-coverage' 
  * Maps intake paperwork page linkIds to their harvest strategy.
  * Pages not present in this map require no incremental harvesting.
  */
-export const pageHarvestStrategy: Record<string, HarvestStrategy> = {
-  'contact-information-page': 'master-record',
-  'patient-details-page': 'master-record',
-  'primary-care-physician-page': 'master-record',
-  'pharmacy-page': 'pharmacy',
-  'payment-option-page': 'account-coverage',
-  'payment-option-occ-med-page': 'account-coverage',
-  'occupational-medicine-employer-information-page': 'account-coverage',
-  'responsible-party-page': 'account-coverage',
-  'employer-information-page': 'account-coverage',
-  'emergency-contact-page': 'account-coverage',
-  'attorney-mva-page': 'account-coverage',
-  'photo-id-page': 'documents',
-  'patient-condition-page': 'documents',
-  'school-work-note-page': 'documents',
-  'consent-forms-page': 'consent',
+export const pageHarvestStrategy: Record<string, HarvestStrategy[]> = {
+  'contact-information-page': ['master-record'],
+  'patient-details-page': ['master-record'],
+  'primary-care-physician-page': ['master-record'],
+  'pharmacy-page': ['pharmacy'],
+  'payment-option-page': ['account-coverage', 'documents'],
+  'payment-option-occ-med-page': ['account-coverage'],
+  'occupational-medicine-employer-information-page': ['account-coverage'],
+  'responsible-party-page': ['account-coverage'],
+  'employer-information-page': ['account-coverage'],
+  'emergency-contact-page': ['account-coverage'],
+  'attorney-mva-page': ['account-coverage'],
+  'photo-id-page': ['documents'],
+  'patient-condition-page': ['documents'],
+  'school-work-note-page': ['documents'],
+  'consent-forms-page': ['consent'],
 };
