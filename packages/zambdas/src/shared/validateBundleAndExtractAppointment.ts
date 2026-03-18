@@ -6,12 +6,14 @@ import {
   Patient,
   Practitioner,
   QuestionnaireResponse,
+  Schedule,
 } from 'fhir/r4b';
 import { SCHEDULE_NOT_FOUND_ERROR } from 'utils';
 
 interface ValidateBundleOutput {
   appointment: Appointment;
   scheduleResource: Location | HealthcareService | Practitioner;
+  schedule: Schedule | undefined;
   questionnaireResponse: QuestionnaireResponse;
   patient: Patient;
 }
@@ -53,6 +55,9 @@ export const validateBundleAndExtractAppointment = (bundle: Bundle): ValidateBun
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
 
+  const schedule: Schedule | undefined = entry.find((e) => e.resource?.resourceType === 'Schedule')
+    ?.resource as Schedule | undefined;
+
   const patient: Patient = entry.find((appt) => {
     return appt.resource && appt.resource.resourceType === 'Patient';
   })?.resource as Patient;
@@ -69,5 +74,5 @@ export const validateBundleAndExtractAppointment = (bundle: Bundle): ValidateBun
   // questionnaireResponse associated with the encounter, but it is still
   // valid for them to check-in.
 
-  return { appointment, scheduleResource, questionnaireResponse, patient };
+  return { appointment, scheduleResource, schedule, questionnaireResponse, patient };
 };

@@ -214,7 +214,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     }
 
     const getAppointmentRequest: BatchInputGetRequest = {
-      url: `/Appointment?_id=${appointmentID}&_include=Appointment:patient&_include=Appointment:actor`,
+      url: `/Appointment?_id=${appointmentID}&_include=Appointment:patient&_include=Appointment:actor&_revinclude%3Aiterate=Schedule%3Aactor`,
       method: 'GET',
     };
     console.log('making transaction request for getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest');
@@ -227,10 +227,11 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     const {
       appointment: appointmentUpdated,
       scheduleResource,
+      schedule: fhirSchedule,
       patient,
     } = validateBundleAndExtractAppointment(transactionBundle);
 
-    const { startTime, email } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
+    const { startTime, email } = await getCancellationDetails(appointmentUpdated, patient, fhirSchedule);
     console.groupEnd();
     console.debug('gettingEmailProps success');
 
@@ -335,14 +336,14 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
 const getCancellationDetails = async (
   appointment: Appointment,
   patient: Patient,
-  scheduleResource: Location | HealthcareService | Practitioner
+  schedule: Schedule | undefined
 ): Promise<CancellationDetails> => {
   try {
     if (!appointment.start) {
       throw new Error(`These fields are required for the cancelation email: appointment.start`);
     }
     const email = getPatientContactEmail(patient);
-    const timezone = scheduleResource.extension?.find(
+    const timezone = schedule?.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
     const visitType = appointment.appointmentType?.text ?? 'Unknown';

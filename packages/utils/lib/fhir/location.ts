@@ -180,14 +180,12 @@ export const defaultLocation: Location = {
   ],
 };
 
-// todo 1.8: this needs to take a schedule (or be async and go get a schedule), have a better name
-// also check that this data is truly needed everywhere it is used
 export function getLocationInformation(
   scheduleResource: Location | Practitioner | HealthcareService,
-  schedule?: Schedule
+  schedule: Schedule
 ): AvailableLocationInformation {
   const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
-  const timezone = schedule ? getTimezone(schedule) : getTimezone(scheduleResource);
+  const timezone = getTimezone(schedule);
 
   let scheduleType: ScheduleType;
   switch (scheduleResource?.resourceType) {

@@ -1,6 +1,6 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { Appointment, Location, Patient, RelatedPerson, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   addWaitingMinutesToAppointment,
@@ -48,9 +48,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('appointment ID parsed: ', appointmentID);
 
     console.log('searching for appointment, location and patient resources related to this task');
-    let fhirAppointment: Appointment | undefined, fhirLocation: Location | undefined, fhirPatient: Patient | undefined;
+    let fhirAppointment: Appointment | undefined,
+      fhirLocation: Location | undefined,
+      fhirPatient: Patient | undefined,
+      fhirSchedule: Schedule | undefined;
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
+      await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson | Schedule>({
         resourceType: 'Appointment',
         params: [
           {
@@ -69,6 +72,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             name: '_revinclude:iterate',
             value: 'RelatedPerson:patient',
           },
+          {
+            name: '_revinclude:iterate',
+            value: 'Schedule:actor',
+          },
         ],
       })
     ).unbundle();
@@ -84,6 +91,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (resource.resourceType === 'Patient') {
         fhirPatient = resource as Patient;
       }
+      if (resource.resourceType === 'Schedule') {
+        fhirSchedule = resource as Schedule;
+      }
     });
 
     const missingResources = [];
@@ -97,7 +107,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('formatting information included in email');
     const email = getPatientContactEmail(fhirPatient);
-    const timezone = fhirLocation.extension?.find(
+    const timezone = fhirSchedule?.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
     const startTime = DateTime.fromISO(fhirAppointment?.start || '')

@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Location } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Location, Schedule } from 'fhir/r4b';
 import {
   getEncounterForAppointment,
   getVirtualServiceResourceExtension,
   SLUG_SYSTEM,
   TELEMED_VIDEO_ROOM_CODE,
+  TIMEZONE_EXTENSION_URL,
   VisitType,
 } from 'utils';
 import { getParticipantFromAppointment } from '../shared';
@@ -72,14 +73,20 @@ export const getEncounterDetails = async (appointmentID: string, oystehr: Oysteh
       resourceType: 'Location',
       id: locationId,
     });
+    const schedules = (
+      await oystehr.fhir.search<Schedule>({
+        resourceType: 'Schedule',
+        params: [{ name: 'actor', value: `Location/${locationId}` }],
+      })
+    ).unbundle();
+    const fhirSchedule = schedules?.[0];
     location = {
       name: fhirLocation?.name || 'Unknown',
       slug:
         fhirLocation.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown',
       state: fhirLocation.address?.state || 'Unknown',
       timezone:
-        fhirLocation.extension?.find((extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone')
-          ?.valueString || 'Unknown',
+        fhirSchedule?.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)?.valueString || 'Unknown',
       address: fhirLocation?.address ?? undefined,
     };
   } catch {

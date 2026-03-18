@@ -1,6 +1,6 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
+import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BRANDING_CONFIG,
@@ -63,11 +63,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('searching for appointment, location and patient resources related to this task');
     let fhirAppointment: Appointment | undefined,
-      fhirSchedule: Location | HealthcareService | Practitioner | undefined,
+      fhirScheduleOwner: Location | HealthcareService | Practitioner | undefined,
       fhirPatient: Patient | undefined,
-      fhirRelatedPerson: RelatedPerson | undefined;
+      fhirRelatedPerson: RelatedPerson | undefined,
+      fhirSchedule: Schedule | undefined;
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | HealthcareService | Practitioner | Patient | RelatedPerson>({
+      await oystehr.fhir.search<
+        Appointment | Location | HealthcareService | Practitioner | Patient | RelatedPerson | Schedule
+      >({
         resourceType: 'Appointment',
         params: [
           {
@@ -94,6 +97,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             name: '_revinclude:iterate',
             value: 'RelatedPerson:patient',
           },
+          {
+            name: '_revinclude:iterate',
+            value: 'Schedule:actor',
+          },
         ],
       })
     ).unbundle();
@@ -104,13 +111,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         fhirAppointment = resource as Appointment;
       }
       if (resource.resourceType === 'Location') {
-        fhirSchedule = resource as Location;
+        fhirScheduleOwner = resource as Location;
       }
       if (resource.resourceType === 'HealthcareService') {
-        fhirSchedule = resource as HealthcareService;
+        fhirScheduleOwner = resource as HealthcareService;
       }
       if (resource.resourceType === 'Practitioner') {
-        fhirSchedule = resource as Practitioner;
+        fhirScheduleOwner = resource as Practitioner;
+      }
+      if (resource.resourceType === 'Schedule') {
+        fhirSchedule = resource as Schedule;
       }
       if (resource.resourceType === 'Patient') {
         fhirPatient = resource as Patient;
@@ -128,14 +138,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const missingResources = [];
     if (!fhirAppointment) missingResources.push('appointment');
-    if (!fhirSchedule) missingResources.push('location, healthcare service, or practitioner');
+    if (!fhirScheduleOwner) missingResources.push('location, healthcare service, or practitioner');
     if (!fhirPatient) missingResources.push('patient');
 
-    if (!fhirAppointment || !fhirSchedule || !fhirPatient) {
+    if (!fhirAppointment || !fhirScheduleOwner || !fhirPatient) {
       throw new Error(`missing the following vital resources: ${missingResources.join(';')}`);
     }
 
-    const timezone = fhirSchedule.extension?.find(
+    const timezone = fhirSchedule?.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
@@ -153,7 +163,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const isTelemed = isTelemedAppointment(fhirAppointment);
       const patientEmail = getPatientContactEmail(fhirPatient);
       const firstName = getPatientFirstName(fhirPatient);
-      let ownerName = getNameFromScheduleResource(fhirSchedule);
+      let ownerName = getNameFromScheduleResource(fhirScheduleOwner);
       try {
         if (isTelemed) {
           if (patientEmail) {
@@ -186,7 +196,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               throw new Error('Location with name is required to send confirmation message');
             }
             const url = makeVisitLandingUrl(fhirAppointment.id, secrets);
-            const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
+            const prep = fhirScheduleOwner.resourceType === 'Location' ? 'at' : 'with';
             const message = `You're confirmed! Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Use this URL ${url} to: 1. Complete your pre-visit paperwork 2. Once you've completed the paperwork, you may join the session.`;
             const messageRecipient = `RelatedPerson/${fhirRelatedPerson?.id}`;
             const commId = await oystehr.transactionalSMS.send({
@@ -208,7 +218,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               const emailClient = getEmailClient(secrets);
               const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
               // todo handle these when scheduleResource is a healthcare service or a practitioner
-              let address = getAddressStringForScheduleResource(fhirSchedule);
+              let address = getAddressStringForScheduleResource(fhirScheduleOwner);
               if (!address) {
                 if (emailClient.getFeatureFlag()) {
                   throw new Error('Address is required to send reminder email');
@@ -247,7 +257,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             const appointmentType = fhirAppointment.appointmentType?.text || '';
             const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
             const firstName = getPatientFirstName(fhirPatient);
-            const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
+            const prep = fhirScheduleOwner.resourceType === 'Location' ? 'at' : 'with';
             const messageAll = `Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Please save time at check-in by completing your pre-visit paperwork`;
             const message =
               appointmentType === 'walkin' || appointmentType === 'posttelemed'

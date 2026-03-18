@@ -133,6 +133,10 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       return owner && `${owner.resourceType}/${owner.id}` === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
     })?.schedule;
 
+    if (!scheduleMatch) {
+      throw new Error(`Schedule not found for ${scheduleOwner.resourceType}/${scheduleOwner.id}`);
+    }
+
     const locationInformationWithClosures: AvailableLocationInformation = getLocationInformation(
       scheduleOwner,
       scheduleMatch

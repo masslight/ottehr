@@ -1,5 +1,14 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
-import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import {
+  Appointment,
+  Encounter,
+  Extension,
+  FhirResource,
+  HealthcareService,
+  Location,
+  Practitioner,
+  Schedule,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentParticipants,
@@ -10,6 +19,7 @@ import {
   ProviderTypeCode,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
@@ -124,12 +134,15 @@ export const getTimezone = async ({
 
   if (!timezoneMap.has(resourceId)) {
     try {
-      const resource = await oystehr.fhir.get<Location | Practitioner | HealthcareService>({
-        resourceType,
-        id: resourceId,
-      });
-      timezone = resource?.extension?.find(
-        (extensionTemp: Extension) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
+      const schedules = (
+        await oystehr.fhir.search<Schedule>({
+          resourceType: 'Schedule',
+          params: [{ name: 'actor', value: `${resourceType}/${resourceId}` }],
+        })
+      ).unbundle();
+      const schedule = schedules?.[0];
+      timezone = schedule?.extension?.find(
+        (extensionTemp: Extension) => extensionTemp.url === TIMEZONE_EXTENSION_URL
       )?.valueString;
 
       if (timezone) {
@@ -139,8 +152,8 @@ export const getTimezone = async ({
         console.error(`timezone not set for ${resourceId}`);
       }
     } catch (e) {
-      console.log('error getting location', JSON.stringify(e));
-      throw new Error('location is not found');
+      console.log('error getting schedule for resource', JSON.stringify(e));
+      throw new Error('schedule is not found');
     }
   }
   return timezoneMap.get(resourceId);

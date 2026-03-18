@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
+import { Appointment, Location, Patient, RelatedPerson, Schedule, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
@@ -52,9 +52,10 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
     let fhirAppointment: Appointment | undefined,
       fhirLocation: Location | undefined,
       fhirPatient: Patient | undefined,
-      fhirRelatedPerson: RelatedPerson | undefined;
+      fhirRelatedPerson: RelatedPerson | undefined,
+      fhirSchedule: Schedule | undefined;
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
+      await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson | Schedule>({
         resourceType: 'Appointment',
         params: [
           {
@@ -72,6 +73,10 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
           {
             name: '_revinclude:iterate',
             value: 'RelatedPerson:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Schedule:actor',
           },
         ],
       })
@@ -97,6 +102,9 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
           fhirRelatedPerson = relatedPerson;
         }
       }
+      if (resource.resourceType === 'Schedule') {
+        fhirSchedule = resource as Schedule;
+      }
     });
 
     const missingResources = [];
@@ -110,7 +118,7 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
 
     console.log('formatting information included in email');
     const email = getPatientContactEmail(fhirPatient);
-    const timezone = fhirLocation.extension?.find(
+    const timezone = fhirSchedule?.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
     const startTime = DateTime.fromISO(fhirAppointment?.start || '')

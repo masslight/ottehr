@@ -229,7 +229,7 @@ export function getWaitingMinutes(now: DateTime, encounters: Encounter[]): numbe
 }
 
 export function getScheduleExtension(
-  scheduleResource: Location | Practitioner | HealthcareService | Schedule
+  scheduleResource: Practitioner | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
   console.log(
     `extracting schedule and possible overrides from extension on ${scheduleResource.resourceType}`,

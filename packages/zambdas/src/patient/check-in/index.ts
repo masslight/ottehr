@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Schedule, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -69,7 +69,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     console.log('getting all fhir resources');
     console.time('resource search for check in');
     const allResources = (
-      await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse>({
+      await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse | Schedule>({
         resourceType: 'Appointment',
         params: [
           {
@@ -92,6 +92,10 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
             name: '_revinclude:iterate',
             value: 'QuestionnaireResponse:encounter',
           },
+          {
+            name: '_revinclude:iterate',
+            value: 'Schedule:actor',
+          },
         ],
       })
     )
@@ -103,7 +107,8 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
       patient: Patient | undefined,
       encounter: Encounter | undefined,
       questionnaireResponse: QuestionnaireResponse | undefined,
-      location: Location | undefined;
+      location: Location | undefined,
+      schedule: Schedule | undefined;
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
@@ -120,6 +125,9 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
       }
       if (resource.resourceType === 'QuestionnaireResponse') {
         questionnaireResponse = resource as QuestionnaireResponse;
+      }
+      if (resource.resourceType === 'Schedule') {
+        schedule = resource as Schedule;
       }
     });
 
@@ -149,7 +157,10 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     }
 
     console.log('organizing location information');
-    const locationInformation = getLocationInformation(location);
+    if (!schedule) {
+      throw new Error('Schedule resource is missing for location');
+    }
+    const locationInformation = getLocationInformation(location, schedule);
 
     console.timeEnd('check-in-zambda');
 

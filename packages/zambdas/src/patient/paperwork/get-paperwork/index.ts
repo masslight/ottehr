@@ -8,6 +8,7 @@ import {
   Patient,
   Practitioner,
   QuestionnaireResponse,
+  Schedule,
 } from 'fhir/r4b';
 import {
   AppointmentSummary,
@@ -20,6 +21,7 @@ import {
   getQuestionnaireAndValueSets,
   getScheduleExtension,
   getSecret,
+  getTimezone,
   getUnconfirmedDOBForAppointment,
   HealthcareServiceWithLocationContext,
   isNonPaperworkQuestionnaireResponse,
@@ -27,7 +29,6 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PaperworkSupportingInfo,
   PersonSex,
-  ScheduleExtension,
   ScheduleType,
   Secrets,
   SecretsKeys,
@@ -92,13 +93,14 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     let location: Location | undefined = undefined;
     let hsResources: HealthcareServiceWithLocationContext | undefined = undefined;
     let practitioner: Practitioner | undefined;
+    let fhirSchedule: Schedule | undefined;
 
     // only prebooked appointments will have an appointment id (is this true??)
     console.log(`getting appointment, encounter, location, and patient resources for appointment id ${appointmentID}`);
     console.time('get-appointment-encounter-location-patient');
     const baseCategoryResources = (
       await oystehr.fhir.search<
-        Appointment | Encounter | Location | HealthcareService | Patient | QuestionnaireResponse | Practitioner
+        Appointment | Encounter | Location | HealthcareService | Patient | QuestionnaireResponse | Practitioner | Schedule
       >({
         resourceType: 'Encounter',
         params: [
@@ -164,6 +166,9 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
         return resource.resourceType == 'Practitioner';
       }) as Practitioner;
     }
+    fhirSchedule = baseCategoryResources.find((resource) => {
+      return resource.resourceType == 'Schedule';
+    }) as Schedule | undefined;
     const questionnaireResponseResource: QuestionnaireResponse = baseCategoryResources.find((resource) => {
       return resource.resourceType == 'QuestionnaireResponse';
     }) as QuestionnaireResponse;
@@ -264,6 +269,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
         hsResources,
         practitioner,
         encounter,
+        schedule: fhirSchedule,
       });
 
       console.log('building get paperwork response');
@@ -306,6 +312,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
         hsResources,
         practitioner,
         encounter,
+        schedule: fhirSchedule,
       });
       const response = {
         appointment: app,
@@ -332,10 +339,11 @@ interface GetPaperworkSupportingInfoInput {
   location: Location | undefined;
   hsResources: { hs: HealthcareService; locations?: Location[]; serviceArea?: Location } | undefined;
   practitioner?: Practitioner;
+  schedule?: Schedule;
 }
 
 function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupportingInfoInput): PaperworkSupportingInfo {
-  const { appointment, patient, location, hsResources, practitioner, encounter } = input;
+  const { appointment, patient, location, hsResources, practitioner, encounter, schedule } = input;
   const serviceMode: ServiceMode = checkEncounterIsVirtual(encounter)
     ? ServiceMode['virtual']
     : ServiceMode['in-person'];
@@ -344,7 +352,7 @@ function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupporti
     appointment: {
       id: appointment?.id ?? 'Unknown', // i hate this
       start: appointment?.start || 'Unknown',
-      location: makeLocationSummary({ appointment, location, hsResources, practitioner }),
+      location: makeLocationSummary({ appointment, location, hsResources, practitioner, schedule }),
       visitType: appointment?.appointmentType?.text as VisitType,
       status: appointment?.status,
       unconfirmedDateOfBirth: appointment ? getUnconfirmedDOBForAppointment(appointment) : undefined,
@@ -396,21 +404,19 @@ interface LocationSummaryInput {
   location?: Location;
   hsResources?: HealthcareServiceWithLocationContext;
   practitioner?: Practitioner;
+  schedule?: Schedule;
 }
-// todo: consider whether all the location config stuff needs to be on here
 const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['location'] => {
-  const { appointment, location, hsResources, practitioner } = input;
+  const { appointment, location, hsResources, practitioner, schedule } = input;
+  const timezone = schedule ? getTimezone(schedule) : undefined;
+  const scheduleExtension = schedule ? getScheduleExtension(schedule) : undefined;
+
   if (hsResources) {
-    // do a thing
     const { hs, locations, coverageArea } = hsResources;
     const otherOffices: AvailableLocationInformation['otherOffices'] = [];
     const serviceMode = serviceModeForHealthcareService(hs);
-    let scheduleExtension: ScheduleExtension | undefined = undefined;
     let loc: Location | undefined;
-    // note there's not really any clear notion what to do here if the HS pools provider schedules
-    // this is to be addressed in a future release
     if (serviceMode === ServiceMode['in-person']) {
-      // this is most likely a fictional use case...
       loc = locations?.find((tempLoc) => {
         return appointment?.participant?.some((maybeLoc) => {
           const reference = maybeLoc.actor?.reference;
@@ -423,9 +429,6 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       if (loc === undefined) {
         loc = locations?.length === 1 ? locations[0] : undefined;
       }
-      if (loc) {
-        scheduleExtension = getScheduleExtension(loc);
-      }
     } else {
       loc = coverageArea?.length === 1 ? coverageArea[0] : undefined;
     }
@@ -436,15 +439,12 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       description: loc?.description,
       address: loc?.address,
       telecom: loc?.telecom,
-      timezone: loc?.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString,
+      timezone,
       otherOffices,
       scheduleOwnerType: ScheduleType['group'],
       scheduleExtension,
     };
   } else if (practitioner) {
-    // todo build out practitioner scheduling more
     return {
       id: practitioner?.id,
       slug: practitioner?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
@@ -452,19 +452,14 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       description: undefined,
       address: undefined,
       telecom: [],
-      timezone: practitioner?.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString,
+      timezone,
       otherOffices: [],
       scheduleOwnerType: ScheduleType['provider'],
     };
   } else {
     const closures: Closure[] = [];
-    if (location) {
-      const schedule = getScheduleExtension(location);
-      if (schedule && schedule.closures) {
-        closures.push(...schedule.closures);
-      }
+    if (scheduleExtension && scheduleExtension.closures) {
+      closures.push(...scheduleExtension.closures);
     }
     return {
       id: location?.id,
@@ -473,9 +468,7 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       description: location?.description,
       address: location?.address,
       telecom: location?.telecom,
-      timezone: location?.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString,
+      timezone,
       otherOffices: location ? getOtherOfficesForLocation(location) : [],
       scheduleOwnerType: ScheduleType['location'],
     };

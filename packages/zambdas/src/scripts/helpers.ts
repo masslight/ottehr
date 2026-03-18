@@ -6,7 +6,6 @@ import {
   FhirResource,
   Group,
   List,
-  Location,
   Medication,
   Patient,
   Practitioner,
@@ -161,11 +160,6 @@ export async function sleep(period: number): Promise<void> {
   console.log(`resuming program`);
 }
 
-export const getTimezoneFromLocation = (location: Location): string | undefined => {
-  return (location.extension ?? []).find((ext) => {
-    return ext.url === 'http://hl7.org/fhir/StructureDefinition/timezone';
-  })?.valueString;
-};
 
 const getBatchParams = (batchNo: number, params: SearchParam[]): SearchParam[] => {
   return [

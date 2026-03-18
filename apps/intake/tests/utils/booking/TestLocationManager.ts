@@ -782,10 +782,6 @@ export class TestLocationManager {
             display: 'Virtual',
           },
         },
-        {
-          url: 'http://hl7.org/fhir/StructureDefinition/timezone',
-          valueString: 'America/Los_Angeles',
-        },
       ],
       meta: {
         tag: [

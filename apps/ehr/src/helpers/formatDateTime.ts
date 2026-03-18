@@ -1,4 +1,4 @@
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TIMEZONE_EXTENSION_URL } from 'utils';
 
@@ -44,7 +44,7 @@ export function formatISOStringToDateAndTime(isoString: string, timezone?: strin
   return formattedDateTime;
 }
 
-export function getTimezone(resource: Location | Practitioner | HealthcareService | undefined): string {
+export function getTimezone(resource: Schedule | Location | Practitioner | HealthcareService | undefined): string {
   let timezone = 'America/New_York';
   if (resource) {
     const timezoneTemp = resource.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)

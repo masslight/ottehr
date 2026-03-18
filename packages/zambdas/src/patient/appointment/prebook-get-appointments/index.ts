@@ -1,5 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment as FhirAppointment, Encounter, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import {
+  Appointment as FhirAppointment,
+  Encounter,
+  Location,
+  Patient,
+  QuestionnaireResponse,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getInPersonVisitStatus,
@@ -11,6 +19,7 @@ import {
   Secrets,
   SecretsKeys,
   SLUG_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import {
   checkPaperworkComplete,
@@ -92,6 +101,10 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         value: 'QuestionnaireResponse:encounter',
       },
       {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor',
+      },
+      {
         name: 'status:not',
         value: 'cancelled',
       },
@@ -145,7 +158,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
     console.log('getting all appointment resources');
     const allResources = (
-      await oystehr.fhir.search<FhirAppointment | Encounter | Patient | QuestionnaireResponse | Slot>({
+      await oystehr.fhir.search<FhirAppointment | Encounter | Patient | QuestionnaireResponse | Slot | Schedule>({
         resourceType: 'Appointment',
         params,
       })
@@ -175,6 +188,11 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           ) as QuestionnaireResponse;
         const patient = allResources.find((resourceTemp) => resourceTemp.id === patientID) as Patient | undefined;
         const location = allResources.find((resourceTemp) => resourceTemp.id === locationID) as Location | undefined;
+        const schedule = allResources.find(
+          (resourceTemp) =>
+            resourceTemp.resourceType === 'Schedule' &&
+            (resourceTemp as Schedule).actor?.some((actor) => actor.reference === `Location/${locationID}`)
+        ) as Schedule | undefined;
         console.log(`build appointment resource for appointment with id ${fhirAppointment.id}`);
         const appointment: PatientAppointmentDTO = {
           id: fhirAppointment.id || 'Unknown',
@@ -191,8 +209,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
               location?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown',
             state: location?.address?.state?.toLocaleLowerCase() || 'Unknown',
             timezone:
-              location?.extension?.find((extTemp) => extTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone')
-                ?.valueString || 'Unknown',
+              schedule?.extension?.find((extTemp) => extTemp.url === TIMEZONE_EXTENSION_URL)?.valueString || 'Unknown',
           },
           paperworkComplete: checkPaperworkComplete(questionnaireResponse),
           checkedIn: fhirAppointment.status !== 'booked',

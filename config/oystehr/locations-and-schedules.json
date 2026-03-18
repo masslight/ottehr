@@ -18,10 +18,6 @@
             }
           },
           {
-            "url": "http://hl7.org/fhir/StructureDefinition/timezone",
-            "valueString": "America/New_York"
-          },
-          {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
             "valueString": "#{var/stripe-account-2}"
           },
@@ -76,10 +72,6 @@
               "code": "vi",
               "display": "Virtual"
             }
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/timezone",
-            "valueString": "America/New_York"
           },
           {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
@@ -163,13 +155,9 @@
         ],
         "extension": [
           {
-            "url": "http://hl7.org/fhir/StructureDefinition/timezone",
-            "valueString": "America/New_York"
-          },
-          {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
             "valueString": "#{var/stripe-account-3}"
-          },          
+          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/room",
             "valueString": "1"
@@ -334,10 +322,6 @@
           }
         ],
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/timezone",
-            "valueString": "America/New_York"
-          },           
           {
             "url": "http://hl7.org/fhir/StructureDefinition/room",
             "valueString": "1"

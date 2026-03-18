@@ -93,32 +93,15 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       valueString: timezone,
     });
   }
-  // todo: this isn't very "RESTful" but works for now while further decoupling the schedule from the owner a potential
-  // future task. note timezone is duplication on both schedule and owner for now.
   console.log('owner slug', ownerSlug);
-  if (owner && (timezone || ownerSlug)) {
-    const ownerExtension = (owner.extension ?? []).filter((ext: Extension) => {
-      if (ext.url === TIMEZONE_EXTENSION_URL) {
-        return false;
-      }
-      return true;
-    });
+  if (owner && ownerSlug) {
     const ownerIdentifier = (owner.identifier ?? []).filter((id) => id.system !== SLUG_SYSTEM);
-    if (timezone) {
-      ownerExtension.push({
-        url: TIMEZONE_EXTENSION_URL,
-        valueString: timezone,
-      });
-    }
-    if (ownerSlug) {
-      ownerIdentifier.push({
-        system: SLUG_SYSTEM,
-        value: ownerSlug,
-      });
-    }
+    ownerIdentifier.push({
+      system: SLUG_SYSTEM,
+      value: ownerSlug,
+    });
     await oystehr.fhir.update({
       ...owner,
-      extension: ownerExtension,
       identifier: ownerIdentifier,
     });
   }
