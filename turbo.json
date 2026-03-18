@@ -20,7 +20,6 @@
       "dependsOn": ["build", "lint"]
     },
     "test": {
-      "env": ["ENV"],
       "inputs": [
         "apps/**/*.tsx",
         "apps/**/*.ts",
