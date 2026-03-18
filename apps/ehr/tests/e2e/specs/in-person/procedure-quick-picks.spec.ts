@@ -67,9 +67,10 @@ test.describe('Procedure Quick Picks E2E', () => {
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible(DEFAULT_TIMEOUT);
 
-      // Type the quick pick name in the autocomplete
+      // Type the quick pick name in the autocomplete and close the dropdown
       const nameInput = dialog.locator('input').first();
       await nameInput.fill(QUICK_PICK_NAME);
+      await page.keyboard.press('Escape');
 
       // Click Save
       const saveButton = dialog.getByRole('button', { name: /Save/i });
