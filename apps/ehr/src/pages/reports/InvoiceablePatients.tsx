@@ -538,8 +538,17 @@ export default function InvoiceablePatients(): React.ReactElement {
                         <Typography variant="body1">${(report.amountInvoiceable / 100).toFixed(2)}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Tooltip title={statusTooltipMessage}>
-                          <span>
+                        <Tooltip title={`${statusTooltipMessage} (click to copy)`}>
+                          <span
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void navigator.clipboard
+                                .writeText(statusTooltipMessage)
+                                .then(() => enqueueSnackbar('Status copied to clipboard', { variant: 'success' }));
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
                             <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
                           </span>
                         </Tooltip>
