@@ -84,7 +84,12 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   };
 
   const handleRename = async (): Promise<void> => {
-    if (!oystehrZambda || !selectedTemplate || !newName.trim()) return;
+    if (!oystehrZambda) throw new Error('oystehrZambda was null');
+    if (!selectedTemplate) throw new Error('selectedTemplate was undefined');
+    if (!newName.trim()) {
+      enqueueSnackbar('Template name is required', { variant: 'warning' });
+      return;
+    }
 
     setIsRenaming(true);
     try {
@@ -114,7 +119,8 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   };
 
   const handleDelete = async (): Promise<void> => {
-    if (!oystehrZambda || !selectedTemplate) return;
+    if (!oystehrZambda) throw new Error('oystehrZambda was null');
+    if (!selectedTemplate) throw new Error('selectedTemplate was undefined');
 
     setIsDeleting(true);
     try {
