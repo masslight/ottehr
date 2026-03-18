@@ -9,7 +9,7 @@ export const composeChiefComplaint: DataComposer<ProgressNoteVisitDataInput, Chi
 }) => {
   const { chartData } = allChartData;
   const { encounter, appointment } = appointmentPackage;
-  const chiefComplaint = chartData.chiefComplaint?.text;
+  const chiefComplaint = chartData.historyOfPresentIllness?.text;
   const spentTime = chartData.addToVisitNote?.value ? getSpentTime(encounter.statusHistory) ?? '' : '';
   const isInPerson = isInPersonAppointment(appointment);
 

@@ -7,7 +7,7 @@ export const composeHistoryOfPresentIllness: DataComposer<{ allChartData: AllCha
   allChartData,
 }) => {
   const { chartData } = allChartData;
-  const historyOfPresentIllness = chartData.historyOfPresentIllness?.text;
+  const historyOfPresentIllness = chartData.chiefComplaint?.text;
 
   return {
     historyOfPresentIllness,
