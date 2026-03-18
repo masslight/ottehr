@@ -79,11 +79,11 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
         stashedValueRef.current = currentValue;
-        setValue(item.key, sourceFieldValue, { shouldDirty: true });
+        setValue(item.key, sourceFieldValue, { shouldDirty: false });
       }
     } else if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && !isDisabled) {
       if (stashedValueRef.current !== null) {
-        setValue(item.key, stashedValueRef.current, { shouldDirty: true });
+        setValue(item.key, stashedValueRef.current, { shouldDirty: false });
         stashedValueRef.current = null;
       }
     }
