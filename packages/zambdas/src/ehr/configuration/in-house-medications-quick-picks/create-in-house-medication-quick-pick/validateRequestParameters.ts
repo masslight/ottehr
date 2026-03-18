@@ -10,7 +10,7 @@ export function validateRequestParameters(
     throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { name, medicationID, dose, units, route, instructions, update } = JSON.parse(input.body);
+  const { name, medicationID, dose, units, route, instructions } = JSON.parse(input.body);
 
   if (!name) {
     throw MISSING_REQUIRED_PARAMETERS(['name']);
@@ -44,7 +44,6 @@ export function validateRequestParameters(
     units,
     route,
     instructions,
-    update,
     secrets: input.secrets,
   };
 }

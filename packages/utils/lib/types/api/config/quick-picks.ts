@@ -11,7 +11,6 @@ export interface CreateInHouseMedicationQuickPickInput {
   units: string;
   route: string;
   instructions?: string;
-  update?: boolean;
 }
 
 export type UpdateInHouseMedicationQuickPickInput = Partial<CreateInHouseMedicationQuickPickInput> & {
