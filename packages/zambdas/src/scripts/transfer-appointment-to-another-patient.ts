@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, MedicationAdministration, Patient, Resource } from 'fhir/r4b';
 import * as fs from 'fs';
+import * as path from 'path';
 import { ChartDataRequestedFields } from 'utils';
 import { getChartData } from '../ehr/get-chart-data';
 import { getAuth0Token } from '../shared';
@@ -126,18 +127,31 @@ function resourceReferencesEncounter(resource: Resource, encounterId: string): b
   return false;
 }
 
+/**
+ * Detect which patient-reference fields exist on a resource WITHOUT mutating it.
+ */
+function detectPatientRefFields(resource: Resource): string[] {
+  const fields: string[] = [];
+  const r = resource as any;
+
+  if (r.subject?.reference?.startsWith('Patient/')) fields.push('subject');
+  if (r.patient?.reference?.startsWith('Patient/')) fields.push('patient');
+
+  return fields;
+}
+
+/**
+ * Mutate patient-reference fields on a resource. Returns the list of fields changed.
+ */
 function patchPatientRef(resource: Resource, newPatientRef: string): string[] {
   const updated: string[] = [];
   const r = resource as any;
 
-  // subject: { reference: "Patient/..." }  – used by Condition, Procedure, Observation,
-  // Communication, ClinicalImpression, ServiceRequest, DocumentReference, MedicationStatement
   if (r.subject?.reference?.startsWith('Patient/')) {
     r.subject.reference = newPatientRef;
     updated.push('subject');
   }
 
-  // patient: { reference: "Patient/..." }  – used by AllergyIntolerance, EpisodeOfCare
   if (r.patient?.reference?.startsWith('Patient/')) {
     r.patient.reference = newPatientRef;
     updated.push('patient');
@@ -149,16 +163,28 @@ function patchPatientRef(resource: Resource, newPatientRef: string): string[] {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const env = process.argv[2];
-  const appointmentId = process.argv[3];
-  const newPatientId = process.argv[4];
+  // Parse --dry-run or dry-run flag (can appear anywhere in args)
+  // Note: `npm run` intercepts `--dry-run` as its own flag, so either use
+  //   npm run <script> -- <args> --dry-run
+  // or simply pass `dry-run` without dashes.
+  const args = process.argv.slice(2);
+  const dryRun = args.includes('--dry-run') || args.includes('dry-run');
+  const positionalArgs = args.filter((a) => a !== '--dry-run' && a !== 'dry-run');
+
+  const env = positionalArgs[0];
+  const appointmentId = positionalArgs[1];
+  const newPatientId = positionalArgs[2];
 
   if (!env || !appointmentId || !newPatientId) {
     console.error(
-      '❌ Usage: npx ts-node <script> <env> <appointmentId> <newPatientId>\n' +
-        '   Example: npx ts-node transfer-appointment-to-another-patient.ts staging abc123 def456'
+      '❌ Usage: npx ts-node <script> <env> <appointmentId> <newPatientId> [--dry-run]\n' +
+        '   Example: npx ts-node transfer-appointment-to-another-patient.ts staging abc123 def456 --dry-run'
     );
     process.exit(1);
+  }
+
+  if (dryRun) {
+    console.log('\n🔍 DRY RUN MODE — no resources will be modified\n');
   }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -230,9 +256,42 @@ async function main(): Promise<void> {
   );
   console.log(`   Found ${conditionalResources.length} resources from conditional fields`);
 
+  // Fetch immunization orders (MedicationAdministration with _tag=immunization)
+  // These are not part of chart data, so we fetch them separately.
+  console.log(`🔍 Fetching immunization orders for encounter ${encounterId}...`);
+  const immunizationResources = (
+    await oystehr.fhir.search<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      params: [
+        { name: '_tag', value: 'immunization' },
+        { name: 'context', value: `Encounter/${encounterId}` },
+      ],
+    })
+  ).unbundle();
+  console.log(`   Found ${immunizationResources.length} immunization order(s)`);
+
+  // Fetch medication orders (MedicationAdministration with _tag=in-house-medication-administration-order)
+  // These are also not part of chart data.
+  console.log(`🔍 Fetching medication orders for encounter ${encounterId}...`);
+  const medicationOrderResources = (
+    await oystehr.fhir.search<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      params: [
+        { name: '_tag', value: 'in-house-medication-administration-order' },
+        { name: 'context', value: `Encounter/${encounterId}` },
+      ],
+    })
+  ).unbundle();
+  console.log(`   Found ${medicationOrderResources.length} medication order(s)`);
+
   // Merge and deduplicate resources by type/id
   const resourceMap = new Map<string, Resource>();
-  for (const resource of [...defaultResources, ...conditionalResources]) {
+  for (const resource of [
+    ...defaultResources,
+    ...conditionalResources,
+    ...immunizationResources,
+    ...medicationOrderResources,
+  ]) {
     if (resource.id) {
       resourceMap.set(`${resource.resourceType}/${resource.id}`, resource);
     }
@@ -269,6 +328,111 @@ async function main(): Promise<void> {
     });
   console.log(`   ${'─'.repeat(35)}`);
   console.log(`   ${'Total'.padEnd(25)} ${allResources.length}`);
+
+  // ── Dry-run report / real updates ─────────────────────────────────────────
+
+  if (dryRun) {
+    // Build a report of what WOULD change without touching any resources
+    interface PlannedChange {
+      resource: string;
+      fieldsToUpdate: string[];
+      currentValues: Record<string, string>;
+      newValue: string;
+    }
+
+    const plannedChanges: PlannedChange[] = [];
+
+    // Appointment
+    const appointmentPatientParticipant = appointment.participant.find(
+      (p) => p.actor?.reference === `Patient/${oldPatientId}`
+    );
+    if (appointmentPatientParticipant) {
+      plannedChanges.push({
+        resource: `Appointment/${appointmentId}`,
+        fieldsToUpdate: ['participant.actor'],
+        currentValues: { 'participant.actor': `Patient/${oldPatientId}` },
+        newValue: newPatientRef,
+      });
+    }
+
+    // Encounter
+    plannedChanges.push({
+      resource: `Encounter/${encounterId}`,
+      fieldsToUpdate: ['subject'],
+      currentValues: { subject: encounter.subject?.reference || 'N/A' },
+      newValue: newPatientRef,
+    });
+
+    // Chart data resources
+    let wouldUpdate = 0;
+    let wouldSkip = 0;
+
+    for (const resource of allResources) {
+      const resourceId = resource.id;
+      const resourceType = resource.resourceType;
+      if (!resourceId) {
+        wouldSkip++;
+        continue;
+      }
+
+      const fields = detectPatientRefFields(resource);
+      if (fields.length === 0) {
+        wouldSkip++;
+        continue;
+      }
+
+      const currentValues: Record<string, string> = {};
+      const r = resource as any;
+      for (const field of fields) {
+        currentValues[field] = r[field]?.reference || 'N/A';
+      }
+
+      plannedChanges.push({
+        resource: `${resourceType}/${resourceId}`,
+        fieldsToUpdate: fields,
+        currentValues,
+        newValue: newPatientRef,
+      });
+      wouldUpdate++;
+    }
+
+    // Write report file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const reportFilename = `transfer-dry-run-${appointmentId}-${timestamp}.json`;
+    const reportPath = path.join(__dirname, reportFilename);
+
+    const report = {
+      dryRun: true,
+      timestamp: new Date().toISOString(),
+      appointmentId,
+      encounterId,
+      oldPatientId,
+      newPatientId,
+      newPatientName,
+      totalResourcesFound: allResources.length,
+      filteredOutFromOtherVisits: skippedByFilter,
+      wouldUpdate: wouldUpdate + 2, // +2 for Appointment + Encounter
+      wouldSkip,
+      plannedChanges,
+    };
+
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+
+    console.log(`\n════════════════════════════════════════════`);
+    console.log(`📋 Dry Run Summary`);
+    console.log(`════════════════════════════════════════════`);
+    console.log(`   Appointment:  ${appointmentId}`);
+    console.log(`   Encounter:    ${encounterId}`);
+    console.log(`   Old Patient:  ${oldPatientId}`);
+    console.log(`   New Patient:  ${newPatientId} (${newPatientName})`);
+    console.log(`   ─────────────────────────────`);
+    console.log(`   Would update: ${wouldUpdate + 2} resource(s) (incl. Appointment + Encounter)`);
+    console.log(`   Would skip:   ${wouldSkip} (no patient ref)`);
+    console.log(`════════════════════════════════════════════`);
+    console.log(`\n📄 Report written to: ${reportPath}`);
+    console.log('\n✅ Dry run complete — no changes were made.');
+    return;
+  }
 
   // ── Update Appointment ────────────────────────────────────────────────────
   console.log(`\n🔄 Updating Appointment/${appointmentId}...`);
