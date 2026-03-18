@@ -1,9 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { otherColors } from '@ehrTheme/colors';
-import Add from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
-  Button,
   capitalize,
   Chip,
   Grid,
@@ -16,23 +15,22 @@ import {
   TablePagination,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
-import { Medication } from 'fhir/r4b';
+import { InHouseMedicationQuickPick } from 'config-types';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getInHouseMedications } from 'src/api/api';
+import { getInHouseMedicationsQuickPicks } from 'src/api/api';
 import Loading from 'src/components/Loading';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from 'src/hooks/useEvolveUser';
-import { MEDICATION_IDENTIFIER_NAME_SYSTEM, RoleType } from 'utils';
-import MedicationsQuickPicksConfiguration from './MedicationsQuickPicksConfiguration';
 
-export default function MedicationsConfigurationPage(): ReactElement {
+export default function MedicationsQuickPicksConfiguration(): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [medications, setMedications] = useState<Medication[] | undefined>(undefined);
+  const [medicationsQuickPicks, setMedicationsQuickPicks] = useState<InHouseMedicationQuickPick[] | undefined>(
+    undefined
+  );
   const currentUser = useEvolveUser();
   const [pageState, setPageState] = useState({
     pageNumber: 0,
@@ -46,33 +44,34 @@ export default function MedicationsConfigurationPage(): ReactElement {
     []
   );
   useEffect(() => {
-    async function fetchMedications(): Promise<void> {
+    async function fetchMedicationsQuickPicks(): Promise<void> {
       if (!oystehrZambda) {
         return;
       }
-      const medicationsTemp = await getInHouseMedications(oystehrZambda);
-      setMedications(medicationsTemp);
+      const medicationsQuickPicksTemp = await getInHouseMedicationsQuickPicks(oystehrZambda);
+      setMedicationsQuickPicks(medicationsQuickPicksTemp);
     }
-    fetchMedications().catch((error) => console.log('Error fetching medications', error));
+    fetchMedicationsQuickPicks().catch((error) =>
+      console.log('Error fetching in house quick picks medications', error)
+    );
   }, [oystehrZambda]);
 
   return (
     <Box sx={{ marginTop: 2 }}>
-      <MedicationsTable
-        medications={medications}
+      <MedicationsQuickPicksTable
+        medicationsQuickPicks={medicationsQuickPicks}
         currentUser={currentUser}
         pageNumber={pageState.pageNumber}
         rowsPerPage={pageState.rowsPerPage}
         searchText={pageState.searchText}
         onPageStateChange={handlePageStateChange}
       />
-      <MedicationsQuickPicksConfiguration />
     </Box>
   );
 }
 
-interface MedicationsTableProps {
-  medications: Medication[] | undefined;
+interface MedicationsQuickPicksTableProps {
+  medicationsQuickPicks: InHouseMedicationQuickPick[] | undefined;
   currentUser: EvolveUser | undefined;
   pageNumber: number;
   rowsPerPage: number;
@@ -80,36 +79,33 @@ interface MedicationsTableProps {
   onPageStateChange: (newPageState: { pageNumber?: number; rowsPerPage?: number; searchText?: string }) => void;
 }
 
-function MedicationsTable({
-  medications,
+function MedicationsQuickPicksTable({
+  medicationsQuickPicks,
   currentUser,
   pageNumber,
   rowsPerPage,
   searchText,
   onPageStateChange,
-}: MedicationsTableProps): ReactElement {
+}: MedicationsQuickPicksTableProps): ReactElement {
   const theme = useTheme();
-
   // Filter the medications based on the search text
-  const filteredMedications: Medication[] = useMemo(
+  const filteredMedicationsQuickPicks: InHouseMedicationQuickPick[] = useMemo(
     () =>
-      medications?.filter((medication: Medication) => {
-        const name = medication.identifier?.find(
-          (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-        )?.value;
+      medicationsQuickPicks?.filter((medicationQuickPick: InHouseMedicationQuickPick) => {
+        const name = medicationQuickPick.name;
         return name?.toLowerCase().includes(searchText.toLowerCase());
       }) || [],
-    [medications, searchText]
+    [medicationsQuickPicks, searchText]
   );
 
   // For pagination, only include the rows that are on the current page
-  const pageMedications: Medication[] = useMemo(
+  const pageQuickPicks: InHouseMedicationQuickPick[] = useMemo(
     () =>
-      filteredMedications.slice(
+      filteredMedicationsQuickPicks.slice(
         pageNumber * rowsPerPage, // skip over the rows from previous pages
         (pageNumber + 1) * rowsPerPage // only show the rows from the current page
       ),
-    [filteredMedications, pageNumber, rowsPerPage]
+    [filteredMedicationsQuickPicks, pageNumber, rowsPerPage]
   );
 
   // Handle pagination
@@ -139,7 +135,7 @@ function MedicationsTable({
   return (
     <>
       <Paper sx={{ padding: 2 }}>
-        <Typography variant="h4">Medications</Typography>
+        <Typography variant="h4">Medications Quick Picks</Typography>
         <TableContainer>
           <Grid container direction="row" justifyContent="start" alignItems="center" marginTop={1}>
             {/* Medication Name Search Box */}
@@ -155,25 +151,7 @@ function MedicationsTable({
               />
             </Grid>
             <Grid item xs={3}>
-              {currentUser?.hasRole([RoleType.Administrator]) ? (
-                <Link to={`/admin/medications/add`}>
-                  <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-                    Add medication
-                  </Button>
-                </Link>
-              ) : (
-                <Tooltip title="You must be an administrator to add new medications" placement="top">
-                  <span>
-                    {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
-                    <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />} disabled>
-                      Add medication
-                    </Button>
-                  </span>
-                </Tooltip>
-              )}
-            </Grid>
-            <Grid item xs={3}>
-              {medications === undefined && (
+              {medicationsQuickPicks === undefined && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                   <Loading />
                 </Box>
@@ -181,30 +159,30 @@ function MedicationsTable({
             </Grid>
           </Grid>
 
-          {/* Medications Table */}
-          <Table sx={{ minWidth: 650 }} aria-label="medicationsTable">
+          {/* Quick Picks Medications Table */}
+          <Table sx={{ minWidth: 650 }} aria-label="medicationsQuickPicksTable">
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
                 <TableCell sx={{ width: '25%' }}>Name</TableCell>
+                <TableCell sx={{ width: '25%' }}>Dose</TableCell>
+                <TableCell sx={{ width: '25%' }}>Route</TableCell>
                 <TableCell sx={{ width: '25%' }}>Status</TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
-              {pageMedications.map((medication) => {
-                const name = medication.identifier?.find(
-                  (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-                )?.value;
-                let status = medication.status;
+              {pageQuickPicks.map((quickpick) => {
+                const name = quickpick.name;
+                let status = quickpick.status;
                 if (status === undefined) {
                   status = 'active';
                 }
 
                 return (
-                  <TableRow key={medication.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
+                  <TableRow key={quickpick.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
                     <TableCell>
                       <Link
-                        to={`/admin/medication/${medication.id}`}
+                        to={`/admin/medication-quick-pick/${quickpick.id}`}
                         style={{
                           display: 'contents',
                           color: theme.palette.primary.main,
@@ -213,6 +191,10 @@ function MedicationsTable({
                         {name}
                       </Link>
                     </TableCell>
+                    <TableCell>
+                      {quickpick.dose || 'Unknown'} {quickpick.units || 'Unknown'}
+                    </TableCell>
+                    <TableCell>{quickpick.routeName || 'Unknown'}</TableCell>
                     <TableCell>
                       <Chip
                         label={status ? capitalize(status) : 'Unknown'}
@@ -239,7 +221,7 @@ function MedicationsTable({
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
-            count={filteredMedications.length}
+            count={filteredMedicationsQuickPicks.length}
             rowsPerPage={rowsPerPage}
             page={pageNumber}
             onPageChange={handleChangePage}

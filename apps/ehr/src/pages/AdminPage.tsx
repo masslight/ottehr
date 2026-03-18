@@ -79,6 +79,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.medications}`)}
                 />
+                {/* <Tab
+                  label="Medications"
+                  value={PageTab.quickPicksMedications}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.quickPicksMedications}`)}
+                /> */}
               </TabList>
             </Box>
             <ButtonRounded

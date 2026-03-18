@@ -33,6 +33,7 @@ import { AdminPage } from './pages/AdminPage';
 import AppointmentsPage from './pages/Appointments';
 import AddMedicationPage from './pages/configuration/AddMedicationPage';
 import UpdateMedicationPage from './pages/configuration/UpdateMedicationPage';
+import UpdateMedicationQuickPickPage from './pages/configuration/UpdateMedicationQuickPickPage';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import GroupPage from './pages/GroupPage';
@@ -227,6 +228,10 @@ function App(): ReactElement {
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
                   <Route path="/admin/medications/add" element={<AddMedicationPage />} />
                   <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
+                  <Route
+                    path="/admin/medication-quick-pick/:quick-pick-id"
+                    element={<UpdateMedicationQuickPickPage />}
+                  />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
                   {/** telemed */}

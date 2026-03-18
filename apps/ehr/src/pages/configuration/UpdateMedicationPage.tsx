@@ -39,8 +39,12 @@ export default function UpdateMedicationPage(): ReactElement {
         medicationTemp?.code?.coding?.find((identifier) => identifier.system === MEDICATION_DISPENSABLE_DRUG_ID)
           ?.code || '';
       setMedispanID(medicationMedispanID);
-      const status = medicationTemp?.status || '';
-      setStatus(status);
+      let statusTemp = medicationTemp?.status;
+
+      if (statusTemp === undefined) {
+        statusTemp = 'active';
+      }
+      setStatus(statusTemp);
     }
     fetchMedication().catch((error) => console.log('Error fetching medications', error));
   }, [medicationId, oystehrZambda]);

@@ -53,23 +53,29 @@ export const MedicationQuickPickSchema: z.ZodType<MedicationQuickPick, z.ZodType
  * Must have either dosespotId or ndc or both (enforced by InHouseMedicationQuickPickSchema).
  */
 export interface InHouseMedicationQuickPick {
+  id?: string;
   name: string;
+  status?: string;
   dosespotId?: number;
   ndc?: string;
   dose?: number;
   units?: string;
   route?: string;
+  routeName?: string;
   instructions?: string;
 }
 
 export const InHouseMedicationQuickPickSchema: z.ZodType<InHouseMedicationQuickPick, z.ZodTypeDef, unknown> = z
   .object({
+    id: z.string().optional(),
     name: z.string().min(1),
+    status: z.string().optional(),
     dosespotId: z.number().optional(),
     ndc: z.string().optional(),
     dose: z.number().optional(),
     units: z.string().optional(),
     route: z.string().optional(),
+    routeName: z.string().optional(),
     instructions: z.string().optional(),
   })
   .refine((data) => data.dosespotId !== undefined || data.ndc !== undefined, {
