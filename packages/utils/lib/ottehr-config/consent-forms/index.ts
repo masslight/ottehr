@@ -1,16 +1,8 @@
-import {
-  type ConsentFormConfig,
-  type ConsentFormsConfig,
-  ConsentFormsConfigSchema,
-  type PathConfig,
-  type ResolvedConsentFormConfig,
-} from 'config-types';
-import { CONSENT_FORMS_OVERRIDE } from '../../../ottehr-config-overrides/consent-forms';
-// Import directly from the specific file to avoid circular dependency through types barrel
-import { PRIVACY_POLICY_CODE } from '../../types/data/paperwork/paperwork.constants';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import type { ConsentFormConfig, ConsentFormsConfig, PathConfig, ResolvedConsentFormConfig } from 'config-types';
 
-const DEFAULT_CONSENT_FORMS = {
+const PRIVACY_POLICY_CODE = '64292-6';
+
+const CONSENT_FORMS_DATA: ConsentFormsConfig = {
   forms: [
     {
       id: 'hipaa-acknowledgement',
@@ -59,13 +51,11 @@ const DEFAULT_CONSENT_FORMS = {
       createsConsentResource: true,
     },
   ],
-} as const satisfies ConsentFormsConfig;
+};
 
-// Merge defaults with instance-specific overrides (from ottehr-config-overrides)
-// Config is baked in at deploy time, no runtime injection needed
-const mergedConsentForms = mergeAndFreezeConfigObjects(DEFAULT_CONSENT_FORMS, CONSENT_FORMS_OVERRIDE);
+export { CONSENT_FORMS_DATA };
 
-export const CONSENT_FORMS_CONFIG = ConsentFormsConfigSchema.parse(mergedConsentForms) as typeof mergedConsentForms;
+export const CONSENT_FORMS_CONFIG = Object.freeze(CONSENT_FORMS_DATA) as typeof CONSENT_FORMS_DATA;
 
 const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
   if (typeof path === 'string') {
@@ -78,8 +68,6 @@ const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
 
   return path.default;
 };
-
-// ResolvedConsentFormConfig is now imported from config-types
 
 /**
  * Resolve state-conditional paths for a given array of consent forms.

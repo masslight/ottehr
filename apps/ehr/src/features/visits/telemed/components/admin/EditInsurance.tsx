@@ -20,7 +20,7 @@ import { INSURANCES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
 import { FHIR_EXTENSION, INSURANCE_SETTINGS_MAP } from 'utils';
-import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './telemed-admin.queries';
+import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './admin.queries';
 
 // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
 // const INSURANCE_SETTINGS_CHECKBOXES: Array<
@@ -176,6 +176,7 @@ export default function EditInsurance(): JSX.Element {
         <Grid item maxWidth={'584px'} width={'100%'}>
           <CustomBreadcrumbs
             chain={[
+              { link: '/admin', children: 'Admin' },
               { link: INSURANCES_URL, children: 'Insurance' },
               {
                 link: '#',
