@@ -102,8 +102,7 @@ jobs:
           echo "Repository name: ${{ github.event.repository.name }}"
           echo "PROJECT: '${PROJECT}'"
           shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          echo "Running: npm exec -- tsx ./scripts/secrets.ts populate '${{ inputs.environment }}' '${PROJECT}'"
-          npm exec -- tsx ./scripts/secrets.ts populate "${{ inputs.environment }}" "${PROJECT}"
+          npm exec -- tsx ./scripts/secrets.ts populate "${{ inputs.environment }}"
           npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
 
       - name: Configure AWS Credentials
