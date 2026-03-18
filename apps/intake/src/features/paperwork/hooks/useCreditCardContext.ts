@@ -20,7 +20,7 @@ export const useCreditCardContext = ({
   hasSavedCards = false,
 }: UseCreditCardContextParams): RefObject<AddCreditCardFormHandle> => {
   const cardFormRef = useRef<AddCreditCardFormHandle>(null);
-  const { clearErrors } = useFormContext();
+  const { clearErrors, setError } = useFormContext();
 
   useEffect(() => {
     useCreditCardStore.getState().initializeContext({
@@ -30,6 +30,7 @@ export const useCreditCardContext = ({
       required,
       value,
       clearErrors: (id) => clearErrors(id),
+      setError: (id, message) => setError(id, { type: 'required', message }),
       hasSavedCards,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

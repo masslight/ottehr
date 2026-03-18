@@ -52,6 +52,7 @@ export const ValueSetsConfigSchema = z.object({
   reasonForVisitOptions: FormFieldOptionsSchema,
   reasonForVisitOptionsOccMed: FormFieldOptionsSchema,
   reasonForVisitOptionsWorkersComp: FormFieldOptionsSchema,
+  reasonForVisitOptionsPreOp: FormFieldOptionsSchema.optional(),
   schoolWorkNoteOptions: FormFieldOptionsSchema,
 
   // Relationships
@@ -92,7 +93,7 @@ export const ValueSetsConfigSchema = z.object({
   inviteContactOptions: FormFieldOptionsSchema,
 
   // External Labs
-  externalLabAdditionalCptCodesToAdd: FormFieldOptionsSchema,
+  externalLabAdditionalCptCodesToAdd: FormFieldOptionsSchema.optional(),
 });
 
 export type ValueSetsConfig = z.infer<typeof ValueSetsConfigSchema>;

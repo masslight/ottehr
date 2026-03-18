@@ -4,8 +4,9 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import { Box } from '@mui/material';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BOOKING_CONFIG, BRANDING_CONFIG } from 'utils';
+import { BOOKING_CONFIG } from 'utils';
 // import { intakeFlowPageRoute } from '../App';
+import { getWelcomeTitle } from '../branding/welcomeTitle';
 import HomepageOption from '../components/HomepageOption';
 import { CustomContainer } from '../telemed/features/common';
 
@@ -33,7 +34,7 @@ const SelectServiceCategoryPage = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer title={`Welcome to ${BRANDING_CONFIG.projectName}`} description="" isFirstPage={true}>
+    <CustomContainer title={getWelcomeTitle()} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {BOOKING_CONFIG.serviceCategories?.map((category) => (
           <HomepageOption

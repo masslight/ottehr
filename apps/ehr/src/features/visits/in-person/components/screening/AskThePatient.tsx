@@ -15,6 +15,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { SingleInputDateRangeField } from '@mui/x-date-pickers-pro';
 import { DateRangePicker } from '@mui/x-date-pickers-pro/DateRangePicker';
@@ -266,7 +267,10 @@ const AskThePatient = (): React.ReactElement => {
     Object.entries(initialValues).forEach(([fieldId, value]) => {
       const fieldConfig = patientScreeningQuestionsConfig.fields.find((f) => f.id === fieldId);
 
-      if (fieldConfig?.type === 'dateRange' && Array.isArray(value) && value.length === 2) {
+      if (fieldConfig?.type === 'date' && typeof value === 'string') {
+        const convertedValue = DateTime.fromISO(value).isValid ? DateTime.fromISO(value) : null;
+        setValue(fieldId, convertedValue);
+      } else if (fieldConfig?.type === 'dateRange' && Array.isArray(value) && value.length === 2) {
         const convertedValue: [DateTime | null, DateTime | null] = [
           value[0] && typeof value[0] === 'string'
             ? DateTime.fromISO(value[0]).isValid
@@ -401,6 +405,57 @@ const AskThePatient = (): React.ReactElement => {
           </Grid>
         );
 
+      case 'date':
+        return (
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
+            <Grid item xs={6}>
+              <Typography
+                sx={{
+                  color: theme.palette.primary.dark,
+                  mt: 2,
+                  mb: 1,
+                  fontWeight: 'bold',
+                }}
+              >
+                {field.question}
+                {field.required && '*'}
+              </Typography>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <Controller
+                  name={field.id}
+                  control={control}
+                  defaultValue={null}
+                  render={({ field: formField }) => {
+                    const dateValue = formField.value || null;
+                    return (
+                      <DatePicker
+                        value={dateValue}
+                        disabled={isFieldDisabled}
+                        onChange={(newValue: DateTime | null) => {
+                          formField.onChange(newValue);
+                          if (newValue && newValue.isValid) {
+                            handleFieldChange?.(field.id, newValue.toISODate());
+                          } else if (newValue === null) {
+                            handleFieldChange?.(field.id, null);
+                          }
+                        }}
+                        format="MM/dd/yyyy"
+                        slotProps={{
+                          textField: {
+                            placeholder: field.placeholder,
+                            variant: 'outlined',
+                            fullWidth: true,
+                          },
+                        }}
+                      />
+                    );
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+          </Grid>
+        );
+
       case 'dateRange':
         return (
           <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
@@ -472,10 +527,9 @@ const AskThePatient = (): React.ReactElement => {
                       const hasAllDates = finalValue[0] && finalValue[1];
 
                       if (hasAllDates) {
-                        const stringValue = finalValue.map((date) => (date && date.isValid ? date.toISO() : null)) as [
-                          string | null,
-                          string | null,
-                        ];
+                        const stringValue = finalValue.map((date) =>
+                          date && date.isValid ? date.toISODate() : null
+                        ) as [string | null, string | null];
                         handleFieldChange?.(field.id, stringValue);
                       } else {
                         enqueueSnackbar('Please select both start and end dates.', {

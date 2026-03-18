@@ -153,13 +153,13 @@ export default function EditEmployeePage(): JSX.Element {
                     Provider schedule
                   </Typography>
                   {scheduleId ? (
-                    <Link to={`/schedule/id/${scheduleId}`}>
+                    <Link to={`/admin/schedule/id/${scheduleId}`}>
                       <Button variant="contained" sx={{ marginTop: 1 }}>
                         Edit schedule
                       </Button>
                     </Link>
                   ) : (
-                    <Link to={`/schedule/new/provider/${user?.profileResource?.id}`}>
+                    <Link to={`/admin/schedule/new/provider/${user?.profileResource?.id}`}>
                       <Button variant="contained" sx={{ marginTop: 1 }}>
                         Create schedule
                       </Button>

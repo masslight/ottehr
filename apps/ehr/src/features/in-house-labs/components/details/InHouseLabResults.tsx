@@ -3,6 +3,7 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { DiagnosisDTO, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
 import { InHouseLabResultCard } from './InHouseLabResultCard';
 
@@ -20,6 +21,7 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
   entryMode,
 }) => {
   const navigate = useNavigate();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // we sort the tests on the back end, most recent will always be first
   // const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
@@ -39,8 +41,11 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
 
   const buttonsToDisplay = testDetails?.reduce(
     (acc: { repeat: boolean; reflexTest: string | undefined }, detail) => {
+      if (isReadOnly) return acc;
+
       const labDetails = detail.labDetails;
       if (labDetails.repeatable) acc.repeat = true;
+
       // todo labs if theres every a case where more than one test can be triggered, some work will have to be done here.
       // but also the design might change at that point so i wont handle now
       if (labDetails?.reflexAlert) {
@@ -53,6 +58,7 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
         // this drives if we show the button or not, if its already been run currently we don't show the button
         if (reflexTestName && !reflexTestWasRun) acc.reflexTest = reflexTestName;
       }
+
       return acc;
     },
     { repeat: false, reflexTest: undefined }

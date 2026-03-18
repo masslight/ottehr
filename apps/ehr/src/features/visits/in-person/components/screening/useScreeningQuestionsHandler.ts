@@ -147,7 +147,7 @@ export const useScreeningQuestionsHandler = (
       }
 
       if (field) {
-        const shouldDebounce = field.noteField !== undefined;
+        const shouldDebounce = field.noteField !== undefined || field.debounced === true;
 
         if (shouldDebounce) {
           const saveAction = (): Promise<void> => {

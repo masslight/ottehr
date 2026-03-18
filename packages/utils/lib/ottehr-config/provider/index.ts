@@ -1,9 +1,6 @@
-import { ProviderConfig, ProviderConfigSchema } from 'config-types';
-import { PROVIDER_CONFIG_OVERRIDE as OVERRIDES } from '../../../ottehr-config-overrides';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import type { ProviderConfig } from 'config-types';
 
-const overrides: any = OVERRIDES || {};
-const PROVIDER_DEFAULTS: ProviderConfig = {
+const PROVIDER_DATA: ProviderConfig = {
   assessment: {
     emCodeOptions: [
       { display: '99202 New Patient - E/M Level 2', code: '99202' },
@@ -15,10 +12,9 @@ const PROVIDER_DEFAULTS: ProviderConfig = {
       { display: '99214 Established Patient - E/M Level 4', code: '99214' },
       { display: '99215 Established Patient - E/M Level 5', code: '99215' },
       { display: '99499 - Unlisted E&M Service', code: '99499' },
+      { display: '99080 Preparation of special reports beyond what is found in the medical record', code: '99080' },
     ],
   },
 };
 
-const mergedProviderConfig = mergeAndFreezeConfigObjects(PROVIDER_DEFAULTS, overrides);
-
-export const PROVIDER_CONFIG = Object.freeze(ProviderConfigSchema.parse(mergedProviderConfig));
+export const PROVIDER_CONFIG = Object.freeze(PROVIDER_DATA);
