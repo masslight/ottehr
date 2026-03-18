@@ -36,7 +36,10 @@ const DynamicPopulationHarness = (): JSX.Element => {
 
   return (
     <>
-      <PatientRecordFormField item={{ key: 'source', label: 'Source', type: 'string' }} isLoading={false} />
+      <PatientRecordFormField
+        item={{ key: 'source', label: 'Source', type: 'string', disabledDisplay: 'disabled' }}
+        isLoading={false}
+      />
       <PatientRecordFormField
         item={{
           key: 'target',
