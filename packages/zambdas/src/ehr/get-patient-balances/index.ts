@@ -234,8 +234,9 @@ async function getAllCandidClaims(
   const chunkedClaimIds = chunkThings(claimIds, CANDID_API_CONCURRENCY_LIMIT);
   const claims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[] =
     [];
-  for (const chunk of chunkedClaimIds) {
-    console.log(`Fetching ${chunk.length} of ${claimIds.length} claims from Candid`);
+  for (let i = 0; i < chunkedClaimIds.length; i++) {
+    const chunk = chunkedClaimIds[i];
+    console.log(`Fetching chunk ${i + 1}/${chunkedClaimIds.length} (${claimIds.length} claims) from Candid`);
     const currentClaims = await Promise.all(
       chunk.map((claimId) => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId)))
     );
