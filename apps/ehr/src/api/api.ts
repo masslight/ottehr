@@ -64,6 +64,7 @@ import {
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
+  GetProcedureQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -188,6 +189,7 @@ const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
+const ADMIN_GET_PROCEDURE_QUICK_PICKS_ZAMBDA_ID = 'admin-get-procedure-quick-picks';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1597,5 +1599,17 @@ export const searchLegacyRecords = async (
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
+  }
+};
+
+export const getProcedureQuickPicks = async (oystehr: Oystehr): Promise<GetProcedureQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_PROCEDURE_QUICK_PICKS_ZAMBDA_ID,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
   }
 };

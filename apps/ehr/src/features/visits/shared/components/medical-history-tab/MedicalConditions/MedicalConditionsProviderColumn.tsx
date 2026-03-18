@@ -13,11 +13,13 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
@@ -310,6 +312,29 @@ const AddMedicalConditionField: FC = () => {
     };
     await handleSelectOption(quickPickAsIcdCode);
   };
+
+  const handleQuickPickSelectRef = useRef(handleQuickPickSelect);
+  handleQuickPickSelectRef.current = handleQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks.map((qp) => ({
+        id: `condition-${'code' in qp ? qp.code : qp.display}`,
+        label: `${'code' in qp ? `${qp.code} ` : ''}${qp.display}`,
+        category: 'Add Medical Condition',
+        onSelect: () => void handleQuickPickSelectRef.current(qp),
+      })),
+    []
+  );
+  useCommandPaletteSource('medical-condition-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback(
+    (payload: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks)[number]) => {
+      void handleQuickPickSelectRef.current(payload);
+    },
+    []
+  );
+  usePendingQuickPick('medical-conditions', handlePendingQuickPick);
 
   if (isChartDataLoading) {
     return <Skeleton variant="rectangular" width="100%" height={56} />;

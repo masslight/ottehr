@@ -8,6 +8,7 @@ import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { RoleType, setupSentry } from 'utils';
 import Banner from './components/Banner';
+import { CommandPalette } from './components/CommandPalette';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -297,6 +298,7 @@ function App(): ReactElement {
             </Route>
             <Route path="/test-error" element={<TestErrorPage />} />
           </Routes>
+          <CommandPalette />
           <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
         </BrowserRouter>
       </AppFlagsProvider>
