@@ -23,7 +23,7 @@ import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import Loading from 'src/components/Loading';
 import { STATES_ROWS_PER_PAGE } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useVirtualLocationsQuery } from './telemed-admin.queries';
+import { useVirtualLocationsQuery } from './admin.queries';
 
 export default function VirtualLocationsPage(): ReactElement {
   const theme = useTheme();
@@ -68,7 +68,7 @@ export default function VirtualLocationsPage(): ReactElement {
     setSearchText(event.target.value);
 
   return (
-    <Paper sx={{ padding: 2 }}>
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
       <TableContainer>
         <Grid container spacing={2} paddingTop={1}>
           {/* Locations Search Box */}
