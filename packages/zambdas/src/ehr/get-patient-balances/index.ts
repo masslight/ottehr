@@ -30,7 +30,8 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-patient-balances';
 // https://docs.joincandidhealth.com/introduction/getting-started#rate-limiting rate limited to 1000/10s
-const CANDID_API_CONCURRENCY_LIMIT = 10;
+// this threw a 429 from candid, so cutting it down to half
+const CANDID_API_CONCURRENCY_LIMIT = 5;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -234,6 +235,7 @@ async function getAllCandidClaims(
   const claims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[] =
     [];
   for (const chunk of chunkedClaimIds) {
+    console.log(`Fetching ${chunk.length} of ${claimIds.length} claims from Candid`);
     const currentClaims = await Promise.all(
       chunk.map((claimId) => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId)))
     );
