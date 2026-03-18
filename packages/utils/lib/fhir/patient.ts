@@ -299,15 +299,15 @@ export function getPatientLastName(patient: Patient): string | undefined {
 }
 
 export function getFirstName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual?.name?.[0]?.given?.[0];
+  return individual.name?.[0]?.given?.[0];
 }
 
 export function getMiddleName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual?.name?.[0].given?.[1];
+  return individual.name?.[0].given?.[1];
 }
 
 export function getLastName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual?.name?.[0]?.family;
+  return individual.name?.[0]?.family;
 }
 
 export function getNickname(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
