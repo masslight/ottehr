@@ -95,16 +95,15 @@ test.describe('Procedure Quick Picks E2E', () => {
     });
 
     await test.step('Delete the quick pick from admin', async () => {
-      // Find the row with our quick pick and click delete
+      // Find the row with our quick pick and click the Remove button
       const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
       await expect(row).toBeVisible(DEFAULT_TIMEOUT);
 
-      const deleteButton = row.getByRole('button', { name: /delete/i });
-      await deleteButton.click();
+      // Accept the window.confirm dialog that appears when clicking Remove
+      page.on('dialog', (dialog) => dialog.accept());
 
-      // Confirm deletion in the dialog
-      const confirmButton = page.getByRole('button', { name: /delete/i }).last();
-      await confirmButton.click();
+      const removeButton = row.getByRole('button', { name: /remove/i });
+      await removeButton.click();
 
       // Wait for success snackbar
       const snackbar = page.locator('div[id=notistack-snackbar]');
