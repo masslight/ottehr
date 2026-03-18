@@ -9,7 +9,7 @@ export const composeChiefComplaint: DataComposer<ProgressNoteVisitDataInput, Chi
 }) => {
   const { chartData } = allChartData;
   const { encounter, appointment } = appointmentPackage;
-  const chiefComplaint = chartData.historyOfPresentIllness?.text;
+  const chiefComplaint = chartData.chiefComplaint?.text;
   const spentTime = chartData.addToVisitNote?.value ? getSpentTime(encounter.statusHistory) ?? '' : '';
   const isInPerson = isInPersonAppointment(appointment);
 
@@ -27,7 +27,7 @@ export const createChiefComplaintSection = <
   },
 >(): PdfSection<TData, ChiefComplaint> => {
   return createConfiguredSection(null, () => ({
-    title: 'Chief complaint',
+    title: 'Additional information',
     dataSelector: (data) => data.chiefComplaint,
     shouldRender: (sectionData, rootData) =>
       !rootData?.encounter?.isFollowup && (!!sectionData.chiefComplaint || !!sectionData.spentTime),
