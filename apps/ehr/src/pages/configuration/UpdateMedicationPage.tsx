@@ -179,7 +179,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   inputValue={cptInputValue}
                   onChange={(_e, value) => setCptCodes(value)}
                   onInputChange={(_e, value) => setCptInputValue(value)}
-                  renderInput={(params) => <TextField {...params} label="CPT" placeholder="Type and press Enter" />}
+                  renderInput={(params) => <TextField {...params} label="CPT" />}
                 />
               </Grid>
               <Grid item xs={6} />
@@ -192,7 +192,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   inputValue={hcpcsInputValue}
                   onChange={(_e, value) => setHcpcsCodes(value)}
                   onInputChange={(_e, value) => setHcpcsInputValue(value)}
-                  renderInput={(params) => <TextField {...params} label="HCPCS" placeholder="Type and press Enter" />}
+                  renderInput={(params) => <TextField {...params} label="HCPCS" />}
                 />
               </Grid>
               <Grid item xs={6} />
