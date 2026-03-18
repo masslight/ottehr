@@ -35,6 +35,9 @@ export const autoAddVisionCptCodes = async ({
   if (!hasNumericVisionValue(vitals) || visionAutoCptCodes.length === 0) {
     return;
   }
+  if (!oystehr || !apiClient || !apiClient.saveChartData) {
+    return;
+  }
 
   const codesToAdd = visionAutoCptCodes.filter((code: string) => !existingCptCodes.has(code));
 
@@ -44,21 +47,26 @@ export const autoAddVisionCptCodes = async ({
 
   const cptCodesWithDisplay = await Promise.all(
     codesToAdd.map(async (code: string) => {
-      const result = await oystehr?.terminology.searchCpt({
-        searchType: 'code',
-        query: code,
-        strictMatch: true,
-      });
-      const codeMatch = result?.codes.find((c: Coding) => c.code === code);
-      if (!codeMatch?.display) {
-        console.warn(`Configured vision auto CPT code ${code} was not found in CPT terminology`);
+      try {
+        const result = await oystehr?.terminology.searchCpt({
+          searchType: 'code',
+          query: code,
+          strictMatch: true,
+        });
+        const codeMatch = result?.codes.find((c: Coding) => c.code === code);
+        if (!codeMatch?.display) {
+          console.warn(`Configured vision auto CPT code ${code} was not found in CPT terminology`);
+          return null;
+        }
+        return { code, display: codeMatch.display };
+      } catch (error) {
+        console.error(`Failed to look up vision auto CPT code ${code} in terminology`, error);
         return null;
       }
-      return { code, display: codeMatch.display };
     })
   );
 
-  const validCptCodes = cptCodesWithDisplay.filter((c): c is { code: string; display: string } => c !== null);
+  const validCptCodes = cptCodesWithDisplay.filter((c) => c !== null);
 
   if (validCptCodes.length > 0) {
     await apiClient?.saveChartData?.({
