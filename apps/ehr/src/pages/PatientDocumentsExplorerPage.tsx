@@ -236,8 +236,9 @@ const PatientDocumentsExplorerPage: FC = () => {
       },
       onDocumentDownload: downloadDocument,
       onDocumentRename: renameDocument,
+      onDocumentDelete: documentActions.deleteDocumentAction,
     };
-  }, [downloadDocument, renameDocument]);
+  }, [documentActions.deleteDocumentAction, downloadDocument, renameDocument]);
 
   if (isLoadingPatientData) return <LoadingScreen />;
 
