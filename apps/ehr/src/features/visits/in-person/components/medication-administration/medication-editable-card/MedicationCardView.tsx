@@ -101,7 +101,7 @@ const CreateQuickPickDialog = ({
     if (!oystehrZambda) {
       return;
     }
-    if (!medicationId || !dose || !units || !route) {
+    if (!medicationId || dose == undefined || !units || !route) {
       setCreateQuickPickError('Medication, dose, units, and route are required');
       return;
     }
@@ -144,14 +144,12 @@ const CreateQuickPickDialog = ({
     setCreateQuickPickLoading(false);
   }
 
-  const isUpdate = Boolean(selectedQuickPick?.id);
-
   return (
     <CustomDialog
       open={createQuickPickOpen}
       confirmLoading={createQuickPickLoading}
       handleConfirm={saveQuickPick}
-      confirmText={isUpdate ? 'Update quick pick' : 'Create quick pick'}
+      confirmText="Save quick pick"
       handleClose={async () => {
         setQuickPickName('');
         setSelectedQuickPick(null);
@@ -259,7 +257,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   }, [oystehrZambda]);
 
   const isAdministrator = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]);
-  const canAddQuickPick = localValues.medicationId && localValues.dose && localValues.units && localValues.route;
+  const canAddQuickPick =
+    localValues.medicationId && localValues.dose !== undefined && localValues.units && localValues.route;
 
   const showQuickPicksButton =
     (type === 'order-new' || type === 'order-edit') && inHouseMedicationsQuickPicksOptions != null;

@@ -63,12 +63,6 @@ export const QuickPicksButton = <T,>({
         Quick Picks
       </Button>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        {quickPicks.map((item, index) => (
-          <MenuItem key={index} onClick={() => handleSelect(item)}>
-            {getLabel(item)}
-          </MenuItem>
-        ))}
-        {onSaveQuickPick != null && quickPicks.length > 0 && <Divider />}
         {onSaveQuickPick != null && (
           <Tooltip title={saveQuickPickDisabled ? saveQuickPickTooltip : ''} placement="right">
             <span>
@@ -77,11 +71,17 @@ export const QuickPicksButton = <T,>({
                 disabled={saveQuickPickDisabled}
                 sx={{ fontWeight: 500, color: saveQuickPickDisabled ? 'text.disabled' : 'primary.main' }}
               >
-                + Save as Quick Pick
+                + Add or Update Quick Pick
               </MenuItem>
             </span>
           </Tooltip>
         )}
+        {onSaveQuickPick != null && quickPicks.length > 0 && <Divider />}
+        {quickPicks.map((item, index) => (
+          <MenuItem key={index} onClick={() => handleSelect(item)}>
+            {getLabel(item)}
+          </MenuItem>
+        ))}
       </Menu>
     </Stack>
   );

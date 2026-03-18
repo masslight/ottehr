@@ -20,7 +20,7 @@ export function validateRequestParameters(
     throw MISSING_REQUIRED_PARAMETERS(['medicationID']);
   }
 
-  if (!dose) {
+  if (dose == undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['dose']);
   }
 
