@@ -1,8 +1,17 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
+import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
+import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
+import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
+import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
+import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json' assert { type: 'json' };
+import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json' assert { type: 'json' };
+import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json' assert { type: 'json' };
+import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json' assert { type: 'json' };
+import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' assert { type: 'json' };
+import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' assert { type: 'json' };
 import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
@@ -13,6 +22,40 @@ const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(
   key.startsWith('value-set-procedure-type')
 )?.[1].resource.expansion.contains;
 const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS![0].display;
+
+const BODY_SITES = procedureBodySites.fhirResources['value-set-procedure-body-sites'].resource.expansion.contains;
+const BODY_SIDES = procedureBodySides.fhirResources['value-set-procedure-body-sides'].resource.expansion.contains;
+const TECHNIQUES = procedureTechniques.fhirResources['value-set-procedure-techniques'].resource.expansion.contains;
+const SUPPLIES = procedureSupplies.fhirResources['value-set-procedure-supplies'].resource.expansion.contains;
+const MEDICATIONS_USED =
+  procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
+const COMPLICATIONS =
+  procedureComplications.fhirResources['value-set-procedure-complications'].resource.expansion.contains;
+const PATIENT_RESPONSES =
+  procedurePatientResponses.fhirResources['value-set-procedure-patient-responses'].resource.expansion.contains;
+const POST_INSTRUCTIONS =
+  procedurePostInstructions.fhirResources['value-set-procedure-post-instructions'].resource.expansion.contains;
+const TIME_SPENT = procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
+
+async function fillProcedureForm(documentProcedurePage: DocumentProcedurePage): Promise<void> {
+  await documentProcedurePage.setConsentForProcedureChecked(true);
+  await documentProcedurePage.selectProcedureType(FIRST_PROCEDURE_TYPE);
+  await documentProcedurePage.selectCptCode('73000');
+  await documentProcedurePage.selectDiagnosis('D51.0');
+  await documentProcedurePage.selectPerformedBy('Healthcare staff');
+  await documentProcedurePage.selectAnaesthesia(MEDICATIONS_USED[0].display);
+  await documentProcedurePage.selectSite(BODY_SITES[0].display);
+  await documentProcedurePage.selectSideOfBody(BODY_SIDES[0].display);
+  await documentProcedurePage.selectTechnique([TECHNIQUES[0].display]);
+  await documentProcedurePage.selectInstruments([SUPPLIES[0].display]);
+  await documentProcedurePage.enterProcedureDetails('E2E quick pick test - detailed procedure notes');
+  await documentProcedurePage.selectSpecimenSent('Yes');
+  await documentProcedurePage.selectComplications(COMPLICATIONS[1].display);
+  await documentProcedurePage.selectPatientResponse(PATIENT_RESPONSES[0].display);
+  await documentProcedurePage.selectPostProcedureInstructions([POST_INSTRUCTIONS[0].display]);
+  await documentProcedurePage.selectTimeSpent(TIME_SPENT[0].display);
+  await documentProcedurePage.selectDocumentedBy('Provider');
+}
 
 const resourceHandler = new ResourceHandler(PROCESS_ID);
 
@@ -46,10 +89,9 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('Procedure Quick Picks E2E', () => {
   test('Create a quick pick from procedure form, verify in admin, then delete', async () => {
-    await test.step('Navigate to Document Procedure page and fill in procedure type', async () => {
+    await test.step('Navigate to Document Procedure page and fill in all fields', async () => {
       const documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
-      await documentProcedurePage.selectProcedureType(FIRST_PROCEDURE_TYPE);
-      await documentProcedurePage.enterProcedureDetails('E2E test procedure details');
+      await fillProcedureForm(documentProcedurePage);
     });
 
     await test.step('Open Quick Picks menu and click Add or Update Quick Pick', async () => {
