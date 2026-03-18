@@ -14,6 +14,7 @@ const PROVIDER_DATA: ProviderConfig = {
       { display: '99499 - Unlisted E&M Service', code: '99499' },
       { display: '99080 Preparation of special reports beyond what is found in the medical record', code: '99080' },
     ],
+    visionAutoCptCodes: ['99173'],
   },
 };
 
