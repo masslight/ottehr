@@ -16,6 +16,9 @@ on:
       environment:
         required: false
         type: string
+      aws_deploy_role:
+        required: false
+        type: string
 
 env:
   SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
@@ -24,6 +27,9 @@ jobs:
   automated-tests:
     runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     strategy:
       matrix:
         node-version:
@@ -52,15 +58,13 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Setup secrets
-        run: |
-          mkdir -p config/.env
-          cp -r secrets/ottehr/zambdas/.env config/
-          mkdir -p apps/ehr/env apps/intake/env
-          cp secrets/ottehr/apps/ehr/env/.env.local apps/ehr/env/
-          cp secrets/ottehr/apps/ehr/env/tests.*.json apps/ehr/env/
-          cp secrets/ottehr/apps/intake/env/.env.local apps/intake/env/
-          cp secrets/ottehr/apps/intake/env/tests.*.json apps/intake/env/
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
 
       - name: Cache node modules
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0

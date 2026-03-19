@@ -21,7 +21,6 @@ import { DateTime } from 'luxon';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE, M2MClientMockType, RoleType } from 'utils';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
-import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
@@ -219,8 +218,8 @@ export const setupIntegrationTest = async (
   // Get authentication token
   const token = await getAuth0Token({
     AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-    AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-    AUTH0_SECRET: AUTH0_SECRET_TESTS,
+    AUTH0_CLIENT: SECRETS.AUTH0_CLIENT_TESTS,
+    AUTH0_SECRET: SECRETS.AUTH0_SECRET_TESTS,
     AUTH0_AUDIENCE: AUTH0_AUDIENCE,
   });
 

@@ -63,7 +63,7 @@ function main(): void {
 
   // Run the populate script
   console.log('Running secrets populate script...');
-  exec(`npm exec -- tsx ./scripts/secrets.ts populate ${environment} ${projectName}`);
+  exec(`npm exec -- tsx ./scripts/secrets.ts populate ${environment}`);
 
   // Remove .terraform directory to force reinitialization
   const terraformDir = './deploy/.terraform';

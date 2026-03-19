@@ -26,8 +26,10 @@ import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'rea
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
+import { zipRegex } from 'src/helpers';
 import { usePaperworkStore } from 'src/pages/PaperworkPage';
 import {
+  formatZipcodeForDisplay,
   IntakeQuestionnaireItem,
   makeValidationSchema,
   pickFirstValueFromAnswerItem,
@@ -617,7 +619,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         return (
           <TextField
             id={fieldId}
-            value={unwrappedValue}
+            value={item.dataType === 'ZIP' ? formatZipcodeForDisplay(unwrappedValue) : unwrappedValue}
             type={getUCInputType(item?.dataType)}
             aria-labelledby={`${item.linkId}-label`}
             aria-describedby={`${item.linkId}-helper-text`}
@@ -630,7 +632,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
                   : item.type === 'integer' || item.dataType === 'ZIP'
                   ? 'numeric'
                   : 'text'),
-              ...(item.dataType === 'ZIP' && { pattern: '[0-9]*', maxLength: 5 }),
+              ...(item.dataType === 'ZIP' && { pattern: zipRegex, maxLength: 10 }),
             }}
             placeholder={item.placeholder}
             required={item.required}

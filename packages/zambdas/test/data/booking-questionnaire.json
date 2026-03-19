@@ -100,13 +100,7 @@
           "linkId": "patient-preferred-name",
           "type": "string",
           "text": "Chosen or preferred name (optional)",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "patient-birthdate",
@@ -124,10 +118,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "DOB"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -162,12 +152,6 @@
             },
             {
               "valueString": "Intersex"
-            }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         },
@@ -239,10 +223,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Email"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         },
@@ -468,10 +448,6 @@
           "required": false,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
               "extension": [
                 {
@@ -494,13 +470,7 @@
           "linkId": "authorized-non-legal-guardian",
           "type": "string",
           "text": "Who, besides the parent or legal guardian, is allowed to bring in the patient?",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "should-display-ssn-field",

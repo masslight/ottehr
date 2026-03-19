@@ -59,6 +59,7 @@ const createEnoentError = (): NodeJS.ErrnoException => {
 // Helper to create test args
 const createTestArgs = (overrides: Partial<GenerateFhirResourcesArgs> = {}): GenerateFhirResourcesArgs => ({
   configDir: '/config/oystehr',
+  coreConfigDir: '/config/oystehr-core',
   varFile: '/config/.env/local.json',
   outputPath: '/output',
   env: 'local',

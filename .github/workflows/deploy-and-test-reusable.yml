@@ -95,11 +95,10 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Copy secrets to appropriate locations
-        run: |
-          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          npm exec -- tsx ./scripts/secrets.ts populate ${{ inputs.environment }}${{ github.event.repository.name == 'ottehr' && format(' {0}', github.event.repository.name) || '' }}
-          npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials
@@ -138,6 +137,9 @@ jobs:
       (inputs.environment == 'local' || inputs.environment == 'e2e' || inputs.environment == 'e2e2' || inputs.environment == 'e2e3')
     runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
@@ -174,15 +176,13 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Setup environment
-        run: |
-          mkdir -p config/.env
-          cp -r secrets/ottehr/zambdas/.env config/
-          mkdir -p apps/ehr/env apps/intake/env
-          cp secrets/ottehr/apps/ehr/env/tests.*.json apps/ehr/env/
-          cp secrets/ottehr/apps/ehr/env/.env* apps/ehr/env/
-          cp secrets/ottehr/apps/intake/env/tests.*.json apps/intake/env/
-          cp secrets/ottehr/apps/intake/env/.env* apps/intake/env/
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
 
       - name: Restore Playwright browsers
         id: playwright-cache-restore

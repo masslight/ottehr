@@ -51,17 +51,14 @@ There are npm scripts for deploying to local, staging, and production, as well a
 - Create an s3 bucket for your terraform state (example: ottehr-terraform-state)
 - Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
 - Configure your local Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)).
-<<<<<<< HEAD
-- Configure your application variables ([`config/.env/${env}.json`](/config/.env/local.template.json)).
-=======
-- Configure your application variables ([`packages/zambda/.env/${env}.json`](/packages/zambdas/.env/local.template.json)):
+- Configure your application variables ([`config/.env/${env}.json`](/config/.env/local.template.json)):
     - AUTH0_CLIENT
     - AUTH0_SECRET
     - ENVIRONMENT
     - PROJECT_ID
     - PATIENT_APP_NAME
     - EHR_APP_NAME
-    - lab-autolab-account-number - globally unique, can be for example `ottehr-local` and so on for every env 
+    - lab-autolab-account-number - globally unique, can be for example `ottehr-local` and so on for every env
     - non-prod env: "lab-autolab-lab-id": "790b282d-77e9-4697-9f59-0cef8238033a"
     - prod env: "lab-autolab-lab-id": "713d14ef-c30a-4b9a-a13a-4ad4648ff3ed"
     - for prod case: first create project, convert it to live mode for Autolabs to work properly, and then run apply
@@ -69,9 +66,6 @@ There are npm scripts for deploying to local, staging, and production, as well a
     - Set up Anthropic API key
     - Set up Sentry secrets and vars
 - Change env names in the terraform-setup script in deploy/packages.json for envs that you want to create
-
-
->>>>>>> 9b0abf87e404df23c0330188a68c95cf3e57aaa0
 
 All three of those configuration files have examples with the `.template` extension that you can copy to start.
 

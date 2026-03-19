@@ -7,7 +7,7 @@ import { getAuth0Token } from '../packages/zambdas/src/shared';
 async function main(): Promise<void> {
   const env = process.argv[2];
 
-  const envFilePath = `../packages/zambdas/.env/${env}.json`;
+  const envFilePath = `../config/.env/${env}.json`;
   const secrets = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
 
   const token = await getAuth0Token(secrets);

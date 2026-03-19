@@ -482,10 +482,10 @@ const { homepageOptions } = BOOKING_CONFIG;
 
 ### Instance-Specific Testing
 
-The test framework uses `ottehr-config-overrides` for instance customization:
+The test framework uses `ottehr-config` for instance customization:
 
-1. **Upstream repo**: `ottehr-config-overrides` contains default values
-2. **Downstream deployment**: Private CI overwrites with instance-specific values
+1. **Upstream repo**: `ottehr-config` contains default configuration values
+2. **Downstream deployment**: Private CI overlays instance-specific `defaults.ts` files
 3. **Tests run**: Same test suite adapts to instance configuration
 
 ### Key Benefits
