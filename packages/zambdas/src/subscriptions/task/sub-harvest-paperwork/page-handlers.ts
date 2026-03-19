@@ -15,9 +15,11 @@ import {
   flattenQuestionnaireAnswers,
   getEncounterPaymentVariantExtension,
   getPaymentVariantFromEncounter,
+  getPhoneNumberForIndividual,
   getRelatedPersonForPatient,
   type HarvestStrategy,
   INSURANCE_PAY_OPTION,
+  OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   pageHarvestStrategy,
   PaymentVariant,
@@ -122,7 +124,7 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
       paymentVariant = PaymentVariant.insurance;
     }
-    if (selectedPaymentOption === 'Employer') {
+    if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
       paymentVariant = PaymentVariant.employer;
     }
 
@@ -251,6 +253,12 @@ const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
     return 'erx-contact skipped (no RelatedPerson)';
   }
 
+  const verifiedPhone = getPhoneNumberForIndividual(relatedPerson);
+  if (!verifiedPhone) {
+    console.log(`No verified phone number for patient ${patient.id}, skipping erx-contact harvest`);
+    return 'erx-contact skipped (no verified phone)';
+  }
+
   const erxContactOp = createErxContactOperation(relatedPerson, patient);
   if (!erxContactOp) {
     return 'erx-contact already up-to-date';
@@ -281,7 +289,7 @@ export const executePageHarvest = async (ctx: HarvestContext): Promise<string> =
   if (!strategies || strategies.length === 0) {
     return `no harvest strategy registered for ${ctx.pageLinkId}, skipping`;
   }
-  const results = [];
+  const results: string[] = [];
   for (const strategy of strategies) {
     const handler = strategyHandlers[strategy];
     results.push(await handler(ctx));
