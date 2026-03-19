@@ -46,12 +46,12 @@ export class VirtualLocationsPage extends PageWithTablePagination {
 }
 
 export async function expectVirtualLocationsPage(page: Page): Promise<VirtualLocationsPage> {
-  await page.waitForURL(`/telemed-admin/virtual-locations`);
+  await page.waitForURL(`/admin/virtual-locations`);
   await expect(page.locator('th').getByText('Location')).toBeVisible();
   return new VirtualLocationsPage(page);
 }
 
 export async function openVirtualLocationsPage(page: Page): Promise<VirtualLocationsPage> {
-  await page.goto('/telemed-admin/virtual-locations');
+  await page.goto('/admin/virtual-locations');
   return expectVirtualLocationsPage(page);
 }

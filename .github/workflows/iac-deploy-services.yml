@@ -42,7 +42,7 @@ jobs:
       GITHUB_APP_ID: ${{ secrets.OTTEHR_GITHUB_APP_ID }} # Ottehr GitHub App ID
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }} # Ottehr GitHub App Private Key
 
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest-4-cores
     timeout-minutes: 25
 
     permissions:
@@ -121,9 +121,13 @@ jobs:
           path: "secrets"
 
       - name: Copy secrets to appropriate locations
+        env:
+          PROJECT: ${{ github.event.repository.name == 'ottehr' && github.event.repository.name || '' }}
         run: |
+          echo "Repository name: ${{ github.event.repository.name }}"
+          echo "PROJECT: '${PROJECT}'"
           shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          npm exec -- tsx ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}${{ github.event.repository.name == 'ottehr' && format(' {0}', github.event.repository.name) || '' }}
+          npm exec -- tsx ./scripts/secrets.ts populate "${{ env.ENVIRONMENT }}"
           npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 
       # TODO: Remove this step and references to it once transition to TF is complete

@@ -7,6 +7,7 @@ import {
   EmailTemplate,
   ErrorReportTemplateData,
   getPatientContactEmail,
+  getRelatedPersonForPatient,
   getSecret,
   getSupportPhoneFor,
   InPersonCancelationTemplateData,
@@ -25,7 +26,6 @@ import {
   TelemedInvitationTemplateData,
 } from 'utils';
 import { sendErrors } from './errors';
-import { getRelatedPersonForPatient } from './patients';
 
 export async function getMessageRecipientForAppointment(
   appointment: Appointment,
