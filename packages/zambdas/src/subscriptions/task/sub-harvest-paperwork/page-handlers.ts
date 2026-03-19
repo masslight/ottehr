@@ -293,6 +293,7 @@ export const executePageHarvest = async (ctx: HarvestContext): Promise<string> =
   if (!strategies || strategies.length === 0) {
     return `no harvest strategy registered for ${ctx.pageLinkId}, skipping`;
   }
+  console.log(`harvest strategies for page ${ctx.pageLinkId}: ${strategies.join(', ')}`);
   const results: string[] = [];
   for (const strategy of strategies) {
     const handler = strategyHandlers[strategy];
