@@ -1325,6 +1325,13 @@
       "src": "src/rcm/fee-schedules/designate-charge-master/index",
       "zip": ".dist/zips/designate-charge-master.zip"
     },
+    "GET-CHARGE-MASTER": {
+      "name": "get-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/get-charge-master/index",
+      "zip": ".dist/zips/get-charge-master.zip"
+    },
     "ASSOCIATE-PAYER": {
       "name": "associate-payer",
       "type": "http_auth",

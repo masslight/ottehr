@@ -5,36 +5,42 @@ import {
   capitalize,
   CircularProgress,
   Container,
-  FormControlLabel,
   Paper,
-  Radio,
-  RadioGroup,
   Skeleton,
   Snackbar,
   Table,
   TableBody,
   TableCell,
   TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { Appointment, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
+import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
+import { FC, Fragment, ReactElement, useEffect, useMemo, useState } from 'react';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
+import { useGetChargeMasterQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CreditCardBrandIcon } from 'ui-components';
 import {
   APIError,
   APIErrorCode,
   CashOrCardPayment,
   CoverageCheckWithDetails,
+  CPT_CODE_SYSTEM,
+  CPT_MODIFIER_EXTENSION_URL,
   FHIR_EXTENSION,
   getCoding,
   getPaymentVariantFromEncounter,
@@ -96,6 +102,45 @@ const formatUsd = (amount: number | string | undefined | null): string | null =>
   return usdFormatter.format(numericAmount);
 };
 
+interface LineItem {
+  code: string;
+  modifier?: string;
+  description: string;
+  amount: number;
+}
+
+function buildLineItems(
+  feeSchedule: ChargeItemDefinition | null | undefined,
+  cptCodes: { code: string; display: string; modifier?: { code: string; display: string }[] }[] | undefined,
+  emCode: { code: string; display: string; modifier?: { code: string; display: string }[] } | undefined
+): LineItem[] {
+  if (!feeSchedule?.propertyGroup || (!cptCodes?.length && !emCode)) return [];
+
+  const allCodes = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
+  const items: LineItem[] = [];
+
+  for (const cpt of allCodes) {
+    for (const pg of feeSchedule.propertyGroup) {
+      const pc = pg.priceComponent?.[0];
+      if (!pc) continue;
+      const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
+      if (!fsCoding || fsCoding.code !== cpt.code) continue;
+      const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
+      const cptModifier = cpt.modifier?.[0]?.code;
+      if ((fsModifier || '') !== (cptModifier || '')) continue;
+      items.push({
+        code: cpt.code,
+        modifier: cptModifier,
+        description: cpt.display || fsCoding.display || '',
+        amount: pc.amount?.value ?? 0,
+      });
+      break;
+    }
+  }
+
+  return items;
+}
+
 export default function PatientPaymentList({
   loading,
   patient,
@@ -122,6 +167,8 @@ export default function PatientPaymentList({
     isRefetching: isEncounterRefetching,
   } = useGetEncounter({ encounterId });
 
+  const paymentVariant = encounter ? getPaymentVariantFromEncounter(encounter) : undefined;
+
   const {
     data: receiptDocRef,
     refetch: refetchReceipt,
@@ -132,6 +179,71 @@ export default function PatientPaymentList({
     apiClient,
     patientId: patient?.id ?? null,
   });
+
+  const insuranceOrgId = insuranceCoverages?.coverages?.primary?.identifier
+    ?.find((id) => id.type?.coding?.find((c) => c.code === 'MB'))
+    ?.assigner?.reference?.replace('Organization/', '');
+
+  const {
+    data: selfPayResult,
+    isLoading: selfPayLoading,
+    isFetched: selfPayFetched,
+  } = useGetChargeMasterQuery(paymentVariant === PaymentVariant.selfPay ? 'self-pay' : undefined);
+  const selfPayFeeSchedule = selfPayResult?.feeSchedule;
+  const selfPayChargeDescription = selfPayFeeSchedule?.description || '';
+
+  const {
+    data: insurancePayResult,
+    isLoading: insurancePayLoading,
+    isFetched: insurancePayFetched,
+  } = useGetChargeMasterQuery(
+    paymentVariant === PaymentVariant.insurance ? 'insurance-pay' : undefined,
+    insuranceOrgId
+  );
+  const insuranceFeeSchedule = insurancePayResult?.feeSchedule;
+  const insuranceFeeScheduleSource = insurancePayResult?.source;
+  const insuranceFeeScheduleDescription = insuranceFeeSchedule?.description || '';
+
+  const selfPayDescriptionEditor = useEditor({
+    extensions: [StarterKit, TiptapMarkdown],
+    editable: false,
+    content: '',
+  });
+
+  const insuranceFeeScheduleEditor = useEditor({
+    extensions: [StarterKit, TiptapMarkdown],
+    editable: false,
+    content: '',
+  });
+
+  useEffect(() => {
+    if (selfPayDescriptionEditor && selfPayChargeDescription) {
+      selfPayDescriptionEditor.commands.setContent(selfPayChargeDescription, {
+        contentType: 'markdown',
+        emitUpdate: false,
+      });
+    }
+  }, [selfPayDescriptionEditor, selfPayChargeDescription]);
+
+  useEffect(() => {
+    if (insuranceFeeScheduleEditor && insuranceFeeScheduleDescription) {
+      insuranceFeeScheduleEditor.commands.setContent(insuranceFeeScheduleDescription, {
+        contentType: 'markdown',
+        emitUpdate: false,
+      });
+    }
+  }, [insuranceFeeScheduleEditor, insuranceFeeScheduleDescription]);
+
+  const { chartData } = useChartData({ encounterId });
+
+  const activeFeeSchedule = paymentVariant === PaymentVariant.selfPay ? selfPayFeeSchedule : insuranceFeeSchedule;
+
+  const lineItems = useMemo(
+    () => buildLineItems(activeFeeSchedule, chartData?.cptCodes, chartData?.emCode),
+    [activeFeeSchedule, chartData?.cptCodes, chartData?.emCode]
+  );
+
+  const lineItemsTotal = useMemo(() => lineItems.reduce((sum, item) => sum + item.amount, 0), [lineItems]);
 
   function getPaymentAmountFromPatientBenefit({
     coverage,
@@ -162,6 +274,12 @@ export default function PatientPaymentList({
   }
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
+
+  const totalPaid = useMemo(
+    () => (paymentData?.payments ?? []).reduce((sum, p) => sum + p.amountInCents, 0) / 100,
+    [paymentData?.payments]
+  );
+  const remainingBalance = lineItemsTotal - totalPaid;
 
   const cardOnFileStatusStroke = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#2E7D32' : '#8A1538') : '#90A4AE';
   const cardOnFileStatusFill = cardOnFileKnown ? (hasCreditCardOnFileFromList ? '#E8F5E9' : '#FBE9E7') : '#D9D9D9';
@@ -406,13 +524,6 @@ export default function PatientPaymentList({
     retry: 0,
   });
 
-  const paymentVariant = (() => {
-    if (encounter) {
-      return getPaymentVariantFromEncounter(encounter);
-    }
-    return undefined;
-  })();
-
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
     if (networkError) {
@@ -478,42 +589,97 @@ export default function PatientPaymentList({
           Payer/Responsible for Claim
         </Typography>
       </Box>
-      <RadioGroup
-        row
-        name="options"
+      <ToggleButtonGroup
+        exclusive
         value={paymentVariant ?? null}
-        onChange={async (e) => {
-          if (encounter) {
+        onChange={async (_e, newValue) => {
+          if (newValue !== null && encounter) {
             await updateEncounter.mutateAsync(
-              updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant)
+              updateEncounterPaymentVariantExtension(encounter, newValue as PaymentVariant)
             );
           }
         }}
-        sx={{ mt: 2 }}
+        sx={{
+          mt: 2,
+          backgroundColor: theme.palette.grey[200],
+          borderRadius: '8px',
+          padding: '3px',
+          gap: 0,
+          '& .MuiToggleButtonGroup-grouped': {
+            border: 'none',
+            '&:not(:first-of-type)': { borderRadius: '6px', marginLeft: '2px' },
+            '&:first-of-type': { borderRadius: '6px' },
+          },
+        }}
       >
         {isUrgentCare ? (
-          <FormControlLabel
+          <ToggleButton
             disabled={updateEncounter.isPending || isEncounterRefetching}
             value={PaymentVariant.insurance}
-            control={<Radio />}
-            label="Insurance"
-          />
+            sx={{
+              px: 3,
+              py: 0.75,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '14px',
+              color: theme.palette.text.secondary,
+              '&.Mui-selected': {
+                backgroundColor: theme.palette.common.white,
+                color: theme.palette.primary.main,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                '&:hover': { backgroundColor: theme.palette.common.white },
+              },
+              '&:hover': { backgroundColor: 'transparent' },
+            }}
+          >
+            Insurance
+          </ToggleButton>
         ) : null}
-        <FormControlLabel
+        <ToggleButton
           disabled={updateEncounter.isPending || isEncounterRefetching}
           value={PaymentVariant.selfPay}
-          control={<Radio />}
-          label="Self"
-        />
+          sx={{
+            px: 3,
+            py: 0.75,
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '14px',
+            color: theme.palette.text.secondary,
+            '&.Mui-selected': {
+              backgroundColor: theme.palette.common.white,
+              color: theme.palette.primary.main,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+              '&:hover': { backgroundColor: theme.palette.common.white },
+            },
+            '&:hover': { backgroundColor: 'transparent' },
+          }}
+        >
+          Self Pay
+        </ToggleButton>
         {isOccupationalMedicine || isWorkmansComp ? (
-          <FormControlLabel
+          <ToggleButton
             disabled={updateEncounter.isPending || isEncounterRefetching}
             value={PaymentVariant.employer}
-            control={<Radio />}
-            label="Employer"
-          />
+            sx={{
+              px: 3,
+              py: 0.75,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '14px',
+              color: theme.palette.text.secondary,
+              '&.Mui-selected': {
+                backgroundColor: theme.palette.common.white,
+                color: theme.palette.primary.main,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                '&:hover': { backgroundColor: theme.palette.common.white },
+              },
+              '&:hover': { backgroundColor: 'transparent' },
+            }}
+          >
+            Employer
+          </ToggleButton>
         ) : null}
-      </RadioGroup>
+      </ToggleButtonGroup>
       <Container
         style={{
           backgroundColor: theme.palette.background.default,
@@ -525,32 +691,98 @@ export default function PatientPaymentList({
         <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
           Payment Considerations
         </Typography>
-        {insuranceData ? (
+        {paymentVariant === PaymentVariant.selfPay ? (
+          selfPayLoading || !selfPayFetched ? (
+            <CircularProgress size={20} sx={{ mt: 1 }} />
+          ) : selfPayFeeSchedule ? (
+            <>
+              {selfPayChargeDescription ? (
+                <Box sx={{ mt: 1, '& .tiptap': { outline: 'none' }, '& .tiptap p': { margin: 0 } }}>
+                  <EditorContent editor={selfPayDescriptionEditor} />
+                </Box>
+              ) : (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Self-pay rates apply.
+                </Typography>
+              )}
+              {lineItems.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Table size="small" sx={{ '& td': { borderBottom: 'none', py: 0.25, px: 0 } }}>
+                    <TableBody>
+                      {lineItems.map((item, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell sx={{ width: '30%' }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              {item.code}
+                              {item.modifier ? ` (${item.modifier})` : ''}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {item.description}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ textAlign: 'right', width: '20%' }}>
+                            <Typography variant="body2">{formatUsd(item.amount)}</Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell colSpan={2} sx={{ pt: '8px !important' }}>
+                          <Typography variant="body2" fontWeight={700}>
+                            Remaining Balance
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'right', pt: '8px !important' }}>
+                          <Typography variant="body2" fontWeight={700}>
+                            {formatUsd(remainingBalance)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+            </>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              No self-pay charge master configured.
+            </Typography>
+          )
+        ) : insuranceData ? (
           <>
-            <Table style={{ tableLayout: 'fixed' }}>
-              <TableBody>
-                <TableRow>
-                  <TableCell style={{ fontSize: '16px' }}>Insurance Carrier</TableCell>
-                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
-                    {insuranceName ? insuranceName : 'Unknown'}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell style={{ fontSize: '16px' }}>Copay</TableCell>
-                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
-                    {formattedCopayAmount && copayAmount?.periodDescription
-                      ? `${formattedCopayAmount} / ${copayAmount.periodDescription}`
-                      : 'Unknown'}
-                  </TableCell>
-                </TableRow>
-                <TableRow sx={{ '&:last-child td': { borderBottom: 'none' } }}>
-                  <TableCell style={{ fontSize: '16px' }}>Remaining Deductible</TableCell>
-                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
-                    {formattedRemainingDeductibleAmount ?? 'Unknown'}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
+              {insuranceName && (
+                <Box sx={{ minWidth: 120 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Carrier
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {insuranceName}
+                  </Typography>
+                </Box>
+              )}
+              {formattedCopayAmount && copayAmount?.periodDescription && (
+                <Box sx={{ minWidth: 100 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Copay
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {`${formattedCopayAmount} / ${copayAmount.periodDescription}`}
+                  </Typography>
+                </Box>
+              )}
+              {formattedRemainingDeductibleAmount && (
+                <Box sx={{ minWidth: 100 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Remaining Deductible
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {formattedRemainingDeductibleAmount}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
             {insuranceNotes && (
               <Container
                 style={{
@@ -569,6 +801,59 @@ export default function PatientPaymentList({
                 </Typography>
               </Container>
             )}
+            {insurancePayLoading || !insurancePayFetched ? (
+              <CircularProgress size={20} sx={{ mt: 1 }} />
+            ) : insuranceFeeSchedule ? (
+              <>
+                {insuranceFeeScheduleDescription ? (
+                  <Box sx={{ mt: 1, '& .tiptap': { outline: 'none' }, '& .tiptap p': { margin: 0 } }}>
+                    <EditorContent editor={insuranceFeeScheduleEditor} />
+                  </Box>
+                ) : (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    {insuranceFeeScheduleSource === 'payer' ? 'Insurance rates apply.' : 'Chargemaster rates apply.'}
+                  </Typography>
+                )}
+                {lineItems.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Table size="small" sx={{ '& td': { borderBottom: 'none', py: 0.25, px: 0 } }}>
+                      <TableBody>
+                        {lineItems.map((item, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell sx={{ width: '30%' }}>
+                              <Typography variant="body2" fontWeight={600}>
+                                {item.code}
+                                {item.modifier ? ` (${item.modifier})` : ''}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary">
+                                {item.description}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ textAlign: 'right', width: '20%' }}>
+                              <Typography variant="body2">{formatUsd(item.amount)}</Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow>
+                          <TableCell colSpan={2} sx={{ pt: '8px !important' }}>
+                            <Typography variant="body2" fontWeight={700}>
+                              Remaining Balance
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ textAlign: 'right', pt: '8px !important' }}>
+                            <Typography variant="body2" fontWeight={700}>
+                              {formatUsd(remainingBalance)}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
+              </>
+            ) : null}
           </>
         ) : (
           <CircularProgress />
