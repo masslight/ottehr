@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": ["ENV", "PLAYWRIGHT_SUITE_ID", "PLAYWRIGHT_REPORT_SUFFIX", "PLAYWRIGHT_EXTRA_ARGS", "IS_LOGIN_TEST", "INTEGRATION_TEST", "SMOKE_TEST"],
   "tasks": {
     "start": {
       "cache": false,
