@@ -1,34 +1,16 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
-import {
-  Account,
-  Appointment,
-  Coding,
-  Encounter,
-  Location,
-  Observation,
-  Patient,
-  QuestionnaireResponseItem,
-  Task,
-} from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Location, Observation, Patient, Task } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
-  flattenIntakeQuestionnaireItems,
   getPatchOperationsForNewMetaTags,
-  getRelatedPersonForPatient,
   getSecret,
-  INSURANCE_PAY_OPTION,
-  IntakeQuestionnaireItem,
-  PaymentVariant,
   SecretsKeys,
   TaskIndicator,
-  updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
-  createErxContactOperation,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updateStripeCustomer,
@@ -141,16 +123,9 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   await waitForPageHarvestTasks(qr.id!, oystehr);
 
   // ── Stripe customer sync ──────────────────────────────────────────────
-  let updatedAccount: Account | undefined;
-  let workersCompAccount: Account | undefined;
   try {
-    const {
-      account: latestAccount,
-      guarantorResource: updatedGuarantorResource,
-      workersCompAccount: latestWorkersCompAccount,
-    } = await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
-    updatedAccount = latestAccount;
-    workersCompAccount = latestWorkersCompAccount;
+    const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
+      await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
     if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
@@ -181,102 +156,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     }
   }
 
-  // ── Encounter payment variant + account references ────────────────────
-  const paperwork = qr.item ?? [];
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    paperwork as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-
-  if (qr.status === 'completed' || qr.status === 'amended') {
-    try {
-      console.log('updating encounter payment variant and account references');
-      const paymentOption = flattenedPaperwork.find(
-        (response: QuestionnaireResponseItem) =>
-          response.linkId === 'payment-option' || response.linkId === 'payment-option-occupational'
-      )?.answer?.[0]?.valueString;
-      let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
-      if (paymentOption === INSURANCE_PAY_OPTION) {
-        paymentVariant = PaymentVariant.insurance;
-      }
-      if (paymentOption === 'Employer') {
-        paymentVariant = PaymentVariant.employer;
-      }
-      const updatedEncounter = updateEncounterPaymentVariantExtension(encounterResource, paymentVariant);
-      const encounterPatchOperations: Operation[] = [
-        {
-          op: encounterResource.extension !== undefined ? 'replace' : 'add',
-          path: '/extension',
-          value: updatedEncounter.extension,
-        },
-      ];
-
-      const patientAccountReference = updatedAccount?.id ? `Account/${updatedAccount.id}` : undefined;
-      const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
-      const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
-        encounterResource.account,
-        [patientAccountReference, workersCompAccountReference]
-      );
-
-      if (accountsChanged && updatedEncounterAccounts) {
-        encounterPatchOperations.push({
-          op: encounterResource.account ? 'replace' : 'add',
-          path: '/account',
-          value: updatedEncounterAccounts,
-        });
-      }
-
-      if (encounterPatchOperations.length) {
-        await oystehr.fhir.patch<Encounter>({
-          id: encounterResource.id,
-          resourceType: 'Encounter',
-          operations: encounterPatchOperations,
-        });
-      }
-      console.log('payment variant and account references updated on encounter');
-    } catch (error: unknown) {
-      tasksFailed.push('update encounter payment variant/accounts');
-      console.log(`Failed to update encounter payment variant/accounts: ${error}`);
-      captureException(error);
-    }
-  }
-
-  // ── ERx contact + default country ─────────────────────────────────────
-  console.time('querying for related person for patient self');
-  const relatedPerson = await getRelatedPersonForPatient(patientResource.id, oystehr);
-  console.timeEnd('querying for related person for patient self');
-
-  if (!relatedPerson || !relatedPerson.id) {
-    throw new Error('RelatedPerson for patient is not defined or does not have ID');
-  }
-
-  const patientPatches: Operation[] = [];
-  const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
-  if (erxContactOperation) patientPatches.push(erxContactOperation);
-  //TODO: remove addDefaultCountryOperation after country selection is supported in paperwork
-  // to improve: this operation will fail if earlier patch operation necessary to insert an address fails
-  const addDefaultCountryOperation: Operation = {
-    op: 'add',
-    path: '/address/0/country',
-    value: 'US',
-  };
-  patientPatches.push(addDefaultCountryOperation);
-  if (patientPatches.length > 0) {
-    try {
-      console.time('patching patient resource');
-      await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patientResource.id,
-        operations: patientPatches,
-      });
-      console.timeEnd('patching patient resource');
-    } catch (error: unknown) {
-      tasksFailed.push(JSON.stringify(error));
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-      captureException(error);
-    }
-  }
-
   // ── Additional questions + HARVESTING_COMPLETED tag ───────────────────
+  // todo: this should probably be moved to the page harvest Task subscription, but it is tightly
+  // coupled to some "harvest completed" meta tag so leaving it here for now.
+  // Some day it will be worth asking why we need a harvesting completed tag on the appointment at all
+  // when we have the questionnaire response status, but again leaving that for another day.
   try {
     const additionalQuestions = createAdditionalQuestions(qr);
     const saveOrUpdateChartDataResourceRequests: (
@@ -336,37 +220,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   return response;
-};
-
-export const mergeEncounterAccounts = (
-  existingAccounts: Encounter['account'],
-  references: (string | undefined)[]
-): { accounts?: Encounter['account']; changed: boolean } => {
-  const sanitizedReferences = references.filter((reference): reference is string => Boolean(reference));
-  if (!sanitizedReferences.length) {
-    return { accounts: existingAccounts, changed: false };
-  }
-
-  const normalizedAccounts: Encounter['account'] = existingAccounts ? [...existingAccounts] : [];
-  const existingRefSet = new Set(
-    (existingAccounts ?? [])
-      .map((account) => account.reference)
-      .filter((reference): reference is string => Boolean(reference))
-  );
-  let changed = false;
-
-  sanitizedReferences.forEach((reference) => {
-    if (!existingRefSet.has(reference)) {
-      normalizedAccounts.push({ reference });
-      existingRefSet.add(reference);
-      changed = true;
-    }
-  });
-
-  return {
-    accounts: changed ? normalizedAccounts : existingAccounts,
-    changed,
-  };
 };
 
 async function waitForPageHarvestTasks(qrId: string, oystehr: Oystehr): Promise<void> {
