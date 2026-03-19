@@ -8,8 +8,9 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { HomepageOptions } from 'config-types';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { BOOKING_CONFIG, BRANDING_CONFIG, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
+import { BOOKING_CONFIG, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
+import { getWelcomeTitle } from '../branding/welcomeTitle';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { otherColors } from '../IntakeThemeProvider';
@@ -158,7 +159,7 @@ const Homepage = (): JSX.Element => {
   const startInPersonLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.StartInPersonVisit)?.label;
 
   return (
-    <CustomContainer title={`Welcome to ${BRANDING_CONFIG.projectName}`} description="" isFirstPage={true}>
+    <CustomContainer title={getWelcomeTitle()} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isAppointmentsFetching ? (
           <Skeleton

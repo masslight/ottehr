@@ -53,6 +53,7 @@ export const OrderStatusChip: React.FC<Props> = ({ status, dataTestId }) => {
         borderRadius: '4px',
         height: '20px',
         border: status === 'cancelled' ? '1px solid #BFC2C6' : 'none',
+        whiteSpace: 'nowrap',
       }}
       display="flex"
       alignItems="center"
