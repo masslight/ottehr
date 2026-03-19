@@ -324,7 +324,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       if (persistedFilters != null) {
         const filters = JSON.parse(persistedFilters) as Record<string, string>;
         for (const key in filters) {
-          queryParams.set(key, filters[key]);
+          if (key && filters[key]) queryParams.set(key, filters[key]);
         }
       }
       if (!queryParams.has(SP.sortField)) queryParams.set(SP.sortField, InvoiceSortFieldValues.finalizationDate);

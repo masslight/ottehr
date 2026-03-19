@@ -70,7 +70,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       // Ensure executionPeriod.end stays in sync with start (appointment date).
       // executionPeriod encodes the appointment date on both bounds so FHIR _sort=period
-      // works correctly for both ascending (lower bound) and descending (upper bound).
+      // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
+      // both directions sort by the appointment date correctly.
       if (task.executionPeriod?.start && task.executionPeriod.end !== task.executionPeriod.start) {
         updateOperations.push({
           op: task.executionPeriod.end ? 'replace' : 'add',
