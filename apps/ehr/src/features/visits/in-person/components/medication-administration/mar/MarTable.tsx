@@ -17,7 +17,7 @@ const cellStyles = {
   padding: '8px',
   wordWrap: 'break-word',
   wordBreak: 'break-word',
-  hyphens: 'auto',
+  // hyphens: 'auto',
   verticalAlign: 'top',
 } as CSSProperties;
 
