@@ -1,11 +1,29 @@
+import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import SearchIcon from '@mui/icons-material/Search';
-import { Box, Dialog, InputAdornment, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
+import {
+  Box,
+  Dialog,
+  InputAdornment,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGlobalQuickPicks } from '../hooks/useGlobalQuickPicks';
+import { useNavigationQuickPicks } from '../hooks/useNavigationQuickPicks';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
+
+/** Sentinel item shown when the query doesn't match any items */
+const PATIENT_SEARCH_ID = '__patient-search__';
 
 export const CommandPalette: FC = () => {
   useGlobalQuickPicks();
+  useNavigationQuickPicks();
+  const navigate = useNavigate();
   const { isOpen, close, toggle, sources } = useCommandPaletteStore();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -24,27 +42,46 @@ export const CommandPalette: FC = () => {
     if (!query.trim()) return allItems;
     const lower = query.toLowerCase();
     return allItems.filter(
-      (item) => item.label.toLowerCase().includes(lower) || item.category.toLowerCase().includes(lower)
+      (item) =>
+        item.label.toLowerCase().includes(lower) ||
+        item.category.toLowerCase().includes(lower) ||
+        item.keywords?.some((kw) => kw.toLowerCase().includes(lower))
     );
   }, [allItems, query]);
 
+  // When the user has typed something that doesn't match any items,
+  // show a "Search patients for ..." fallback option
+  const showPatientSearchFallback = query.trim().length > 0 && filteredItems.length === 0;
+  const displayItems = useMemo(() => {
+    if (!showPatientSearchFallback) return filteredItems;
+    return [
+      {
+        id: PATIENT_SEARCH_ID,
+        label: `Search patients for "${query.trim()}"`,
+        category: 'Search',
+        onSelect: () => {
+          /* handled in handleSelect */
+        },
+      },
+    ];
+  }, [filteredItems, showPatientSearchFallback, query]);
+
   const groupedItems = useMemo(() => {
     const groups: Record<string, CommandPaletteItem[]> = {};
-    for (const item of filteredItems) {
+    for (const item of displayItems) {
       if (!groups[item.category]) {
         groups[item.category] = [];
       }
       groups[item.category].push(item);
     }
     return groups;
-  }, [filteredItems]);
+  }, [displayItems]);
 
   // Reset state and ensure focus when opened
   useEffect(() => {
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
-      // Ensure the input gets focus even after page navigation
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
@@ -53,10 +90,10 @@ export const CommandPalette: FC = () => {
 
   // Keep selectedIndex in bounds
   useEffect(() => {
-    if (selectedIndex >= filteredItems.length) {
-      setSelectedIndex(Math.max(0, filteredItems.length - 1));
+    if (selectedIndex >= displayItems.length) {
+      setSelectedIndex(Math.max(0, displayItems.length - 1));
     }
-  }, [filteredItems.length, selectedIndex]);
+  }, [displayItems.length, selectedIndex]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -67,12 +104,39 @@ export const CommandPalette: FC = () => {
     }
   }, [selectedIndex]);
 
+  const handlePatientSearch = useCallback(
+    (searchQuery: string) => {
+      const trimmed = searchQuery.trim();
+      // If it looks like a numeric ID, search by PID; otherwise search by name
+      const isNumeric = /^\d+$/.test(trimmed);
+      if (isNumeric) {
+        navigate(`/patients?pid=${encodeURIComponent(trimmed)}`);
+      } else {
+        // Split into first/last name parts
+        const parts = trimmed.split(/\s+/);
+        const params = new URLSearchParams();
+        if (parts.length >= 2) {
+          params.set('givenNames', parts.slice(0, -1).join(' '));
+          params.set('lastName', parts[parts.length - 1]);
+        } else {
+          params.set('lastName', trimmed);
+        }
+        navigate(`/patients?${params.toString()}`);
+      }
+    },
+    [navigate]
+  );
+
   const handleSelect = useCallback(
     (item: CommandPaletteItem) => {
-      item.onSelect();
+      if (item.id === PATIENT_SEARCH_ID) {
+        handlePatientSearch(query);
+      } else {
+        item.onSelect();
+      }
       close();
     },
-    [close]
+    [close, query, handlePatientSearch]
   );
 
   const handleKeyDown = useCallback(
@@ -80,7 +144,7 @@ export const CommandPalette: FC = () => {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex((i) => Math.min(i + 1, filteredItems.length - 1));
+          setSelectedIndex((i) => Math.min(i + 1, displayItems.length - 1));
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -88,8 +152,8 @@ export const CommandPalette: FC = () => {
           break;
         case 'Enter':
           e.preventDefault();
-          if (filteredItems[selectedIndex]) {
-            handleSelect(filteredItems[selectedIndex]);
+          if (displayItems[selectedIndex]) {
+            handleSelect(displayItems[selectedIndex]);
           }
           break;
         case 'Escape':
@@ -98,7 +162,7 @@ export const CommandPalette: FC = () => {
           break;
       }
     },
-    [filteredItems, selectedIndex, handleSelect, close]
+    [displayItems, selectedIndex, handleSelect, close]
   );
 
   // Global keyboard shortcut — skip when focus is in an editable element
@@ -117,8 +181,6 @@ export const CommandPalette: FC = () => {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [toggle, isOpen]);
-
-  const hasItems = allItems.length > 0;
 
   return (
     <Dialog
@@ -145,9 +207,7 @@ export const CommandPalette: FC = () => {
           autoFocus
           fullWidth
           onKeyDown={handleKeyDown}
-          placeholder={
-            hasItems ? 'Search quick picks... (type a category like "allergies")' : 'No quick picks available'
-          }
+          placeholder="Search by patient name/ID or jump to..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -174,56 +234,68 @@ export const CommandPalette: FC = () => {
             borderColor: 'divider',
           }}
         />
-        {hasItems && (
-          <List ref={listRef} sx={{ maxHeight: 'calc(60vh - 64px)', overflow: 'auto', py: 1 }}>
-            {filteredItems.length === 0 ? (
-              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-                <Typography color="text.secondary">No results for &ldquo;{query}&rdquo;</Typography>
-              </Box>
-            ) : (
-              Object.entries(groupedItems)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([category, items]) => (
-                  <Box key={category}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        px: 2,
-                        py: 0.5,
-                        display: 'block',
-                        color: 'text.secondary',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        fontSize: '11px',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
-                      {category}
-                    </Typography>
-                    {items.map((item) => {
-                      const flatIndex = filteredItems.indexOf(item);
-                      const isSelected = flatIndex === selectedIndex;
-                      return (
-                        <ListItemButton
-                          key={item.id}
-                          data-selected={isSelected}
-                          selected={isSelected}
-                          onClick={() => handleSelect(item)}
-                          sx={{
-                            mx: 1,
-                            borderRadius: 1,
-                            py: 0.75,
+        <List ref={listRef} sx={{ maxHeight: 'calc(60vh - 64px)', overflow: 'auto', py: 1 }}>
+          {displayItems.length === 0 ? (
+            <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                {query.trim() ? `No results for \u201c${query}\u201d` : 'Type to search or navigate'}
+              </Typography>
+            </Box>
+          ) : (
+            Object.entries(groupedItems)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([category, items]) => (
+                <Box key={category}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      px: 2,
+                      py: 0.5,
+                      display: 'block',
+                      color: 'text.secondary',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      fontSize: '11px',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    {category}
+                  </Typography>
+                  {items.map((item) => {
+                    const flatIndex = displayItems.indexOf(item);
+                    const isSelected = flatIndex === selectedIndex;
+                    const isPatientSearch = item.id === PATIENT_SEARCH_ID;
+                    return (
+                      <ListItemButton
+                        key={item.id}
+                        data-selected={isSelected}
+                        selected={isSelected}
+                        onClick={() => handleSelect(item)}
+                        sx={{
+                          mx: 1,
+                          borderRadius: 1,
+                          py: 0.75,
+                        }}
+                      >
+                        {isPatientSearch && (
+                          <ListItemIcon sx={{ minWidth: 36 }}>
+                            <PersonSearchIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                          </ListItemIcon>
+                        )}
+                        <ListItemText
+                          primary={item.label}
+                          primaryTypographyProps={{
+                            fontSize: '14px',
+                            ...(isPatientSearch && { color: 'primary.main', fontWeight: 500 }),
                           }}
-                        >
-                          <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '14px' }} />
-                        </ListItemButton>
-                      );
-                    })}
-                  </Box>
-                ))
-            )}
-          </List>
-        )}
+                        />
+                      </ListItemButton>
+                    );
+                  })}
+                </Box>
+              ))
+          )}
+        </List>
       </Box>
     </Dialog>
   );

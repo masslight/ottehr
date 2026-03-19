@@ -5,6 +5,8 @@ export interface CommandPaletteItem {
   label: string;
   category: string;
   onSelect: () => void;
+  /** Additional search terms beyond label and category */
+  keywords?: string[];
 }
 
 interface CommandPaletteSource {
