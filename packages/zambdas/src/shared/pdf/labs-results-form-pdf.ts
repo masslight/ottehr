@@ -1556,7 +1556,8 @@ const getFormattedInHouseLabResults = async (
     throw new Error('in-house lab collection date is not defined');
   }
 
-  const specimenSource = specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || '';
+  const specimenSource =
+    specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || 'Not provided';
   const finalResultDateTime = DateTime.fromISO(provenance.recorded);
 
   const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
