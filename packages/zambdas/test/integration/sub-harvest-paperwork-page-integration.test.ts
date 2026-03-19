@@ -11,7 +11,8 @@ import questionnaireResponse from '../data/base-qr.json';
 const DEFAULT_TIMEOUT = 40000;
 
 describe('sub-harvest-paperwork-page integration', () => {
-  const envConfig = JSON.parse(fs.readFileSync('.env/local.json', 'utf8'));
+  const env = process.env.ENV || 'local';
+  const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
   let oystehr: Oystehr;
   let token: string;
   let BASE_QR: QuestionnaireResponse;
