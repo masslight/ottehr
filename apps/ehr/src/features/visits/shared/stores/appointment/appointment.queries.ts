@@ -5,22 +5,12 @@ import {
   ErxSearchMedicationsResponse,
 } from '@oystehr/sdk';
 import { keepPreviousData, useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import {
-  Appointment,
-  Bundle,
-  Coding,
-  Encounter,
-  FhirResource,
-  InsurancePlan,
-  Medication,
-  Patient,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { Appointment, Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { icd10Search } from 'src/api/api';
-import { CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from 'src/constants';
+import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { extractReviewAndSignAppointmentData } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -32,8 +22,6 @@ import {
   CancelMatchUnsolicitedResultTask,
   CODE_SYSTEM_NDC,
   CPTSearchRequestParams,
-  createSmsModel,
-  filterResources,
   FinalizeUnsolicitedResultMatch,
   GetCreateInHouseLabOrderResourcesInput,
   GetCreateInHouseLabOrderResourcesOutput,
@@ -63,9 +51,7 @@ import {
   MeetingData,
   ProcedureDetail,
   PromiseReturnType,
-  relatedPersonAndCommunicationMaps,
   ReviewAndSignData,
-  TelemedAppointmentInformation,
   UpdateMedicationOrderInput,
   useErrorQuery,
   useSuccessQuery,
@@ -153,60 +139,6 @@ export const useGetDocumentReferences = (
   useSuccessQuery(queryResult.data, (data) => onSuccess?.(data as Bundle<FhirResource>));
 
   return queryResult;
-};
-
-export const useGetTelemedAppointmentWithSMSModel = (
-  {
-    appointmentId,
-    patientId,
-  }: {
-    appointmentId: string | undefined;
-    patientId: string | undefined;
-  },
-  onSuccess: (data: TelemedAppointmentInformation) => void
-): { data: TelemedAppointmentInformation | undefined; isFetching: boolean } => {
-  const { oystehr } = useApiClients();
-
-  const queryResult = useQuery({
-    queryKey: ['telemed-appointment-messaging', appointmentId],
-
-    queryFn: async () => {
-      if (oystehr && appointmentId) {
-        const appointmentResources = (
-          await oystehr.fhir.search<Appointment | Patient | RelatedPerson>({
-            resourceType: 'Appointment',
-            params: [
-              { name: '_id', value: appointmentId },
-              {
-                name: '_include',
-                value: 'Appointment:patient',
-              },
-              {
-                name: '_revinclude:iterate',
-                value: 'RelatedPerson:patient',
-              },
-            ],
-          })
-        ).unbundle();
-
-        const appointment = filterResources(appointmentResources, 'Appointment')[0];
-
-        const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(oystehr, appointmentResources);
-
-        const smsModel = createSmsModel(patientId!, allRelatedPersonMaps);
-
-        return { ...appointment, smsModel };
-      }
-      throw new Error('fhir client is not defined or appointmentId and patientId are not provided');
-    },
-
-    refetchInterval: CHAT_REFETCH_INTERVAL,
-    enabled: !!oystehr && !!appointmentId,
-  });
-
-  useSuccessQuery(queryResult.data, (data) => onSuccess?.(data as unknown as TelemedAppointmentInformation));
-
-  return queryResult as unknown as { data: TelemedAppointmentInformation | undefined; isFetching: boolean };
 };
 
 export const useGetMeetingData = (
