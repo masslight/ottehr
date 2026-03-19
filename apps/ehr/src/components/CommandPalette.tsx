@@ -181,44 +181,46 @@ export const CommandPalette: FC = () => {
                 <Typography color="text.secondary">No results for &ldquo;{query}&rdquo;</Typography>
               </Box>
             ) : (
-              Object.entries(groupedItems).map(([category, items]) => (
-                <Box key={category}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      px: 2,
-                      py: 0.5,
-                      display: 'block',
-                      color: 'text.secondary',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      fontSize: '11px',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    {category}
-                  </Typography>
-                  {items.map((item) => {
-                    const flatIndex = filteredItems.indexOf(item);
-                    const isSelected = flatIndex === selectedIndex;
-                    return (
-                      <ListItemButton
-                        key={item.id}
-                        data-selected={isSelected}
-                        selected={isSelected}
-                        onClick={() => handleSelect(item)}
-                        sx={{
-                          mx: 1,
-                          borderRadius: 1,
-                          py: 0.75,
-                        }}
-                      >
-                        <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '14px' }} />
-                      </ListItemButton>
-                    );
-                  })}
-                </Box>
-              ))
+              Object.entries(groupedItems)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([category, items]) => (
+                  <Box key={category}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        px: 2,
+                        py: 0.5,
+                        display: 'block',
+                        color: 'text.secondary',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        fontSize: '11px',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      {category}
+                    </Typography>
+                    {items.map((item) => {
+                      const flatIndex = filteredItems.indexOf(item);
+                      const isSelected = flatIndex === selectedIndex;
+                      return (
+                        <ListItemButton
+                          key={item.id}
+                          data-selected={isSelected}
+                          selected={isSelected}
+                          onClick={() => handleSelect(item)}
+                          sx={{
+                            mx: 1,
+                            borderRadius: 1,
+                            py: 0.75,
+                          }}
+                        >
+                          <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '14px' }} />
+                        </ListItemButton>
+                      );
+                    })}
+                  </Box>
+                ))
             )}
           </List>
         )}
