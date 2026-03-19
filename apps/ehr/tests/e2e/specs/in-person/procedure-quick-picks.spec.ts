@@ -82,7 +82,7 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   // Clean up any leftover E2E quick picks (in case the test failed mid-way)
   try {
-    await page.goto('/telemed-admin/quick-picks');
+    await page.goto('/admin/quick-picks');
     await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible({ timeout: 10000 });
     const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
     if (await row.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -142,7 +142,7 @@ test.describe('Procedure Quick Picks E2E', () => {
     });
 
     await test.step('Navigate to admin and verify quick pick exists', async () => {
-      await page.goto('/telemed-admin/quick-picks');
+      await page.goto('/admin/quick-picks');
       await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible(DEFAULT_TIMEOUT);
 
       // Procedures tab should be selected by default

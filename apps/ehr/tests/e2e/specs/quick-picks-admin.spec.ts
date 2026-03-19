@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 test('Quick picks admin page loads with tabs', async ({ page }) => {
-  await page.goto('telemed-admin/quick-picks');
+  await page.goto('admin/quick-picks');
 
   await test.step('Page loads and loading spinner disappears', async () => {
     // Wait for the Quick Picks top-level tab to be visible, confirming page load
@@ -19,7 +19,7 @@ test('Quick picks admin page loads with tabs', async ({ page }) => {
 });
 
 test('Can switch between quick pick sub-tabs', async ({ page }) => {
-  await page.goto('telemed-admin/quick-picks');
+  await page.goto('admin/quick-picks');
   await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible(DEFAULT_TIMEOUT);
 
   await test.step('Switch to Allergies tab', async () => {
@@ -45,7 +45,7 @@ test('Can switch between quick pick sub-tabs', async ({ page }) => {
 });
 
 test('Procedures tab displays quick picks content', async ({ page }) => {
-  await page.goto('telemed-admin/quick-picks');
+  await page.goto('admin/quick-picks');
   await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible(DEFAULT_TIMEOUT);
 
   await test.step('Procedures tab is selected by default', async () => {
@@ -54,13 +54,16 @@ test('Procedures tab displays quick picks content', async ({ page }) => {
 
   await test.step('Procedures content is visible', async () => {
     // Wait for loading to finish - either a table or empty state should appear
-    const contentLocator = page.locator('table, text=No quick picks configured yet., text=Procedure Quick Picks');
+    const contentLocator = page
+      .locator('table')
+      .or(page.getByText('No quick picks configured yet.'))
+      .or(page.getByText('Procedure Quick Picks'));
     await expect(contentLocator.first()).toBeVisible(DEFAULT_TIMEOUT);
   });
 });
 
 test('Allergies tab shows add functionality', async ({ page }) => {
-  await page.goto('telemed-admin/quick-picks');
+  await page.goto('admin/quick-picks');
   await expect(page.getByRole('tab', { name: 'Allergies' })).toBeVisible(DEFAULT_TIMEOUT);
 
   await test.step('Navigate to Allergies tab', async () => {
@@ -87,7 +90,7 @@ test('Allergies tab shows add functionality', async ({ page }) => {
 });
 
 test('Tab navigation preserves loaded content', async ({ page }) => {
-  await page.goto('telemed-admin/quick-picks');
+  await page.goto('admin/quick-picks');
   await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible(DEFAULT_TIMEOUT);
 
   await test.step('Load Allergies tab content', async () => {
