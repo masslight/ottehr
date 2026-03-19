@@ -14,7 +14,7 @@ type EncounterSwitcherProps = {
 export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
   const { followUpOriginEncounter, followupEncounters, selectedEncounterId, setSelectedEncounter } =
     useAppointmentData();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const { setInteractionMode } = useInPersonNavigationContext();
 
   const sortedFollowupEncounters = [...(followupEncounters || [])].filter(Boolean).sort((a, b) => {

@@ -74,7 +74,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     logIt(`Folder name => [${folderName}]`);
 
-    const fileZ3Url = makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName });
+    const sanitizedFileName = sanitizeFileNameForZ3(fileName);
+    const fileZ3Url = makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName: sanitizedFileName });
     const presignedFileUploadUrl = await createPresignedUrl(m2mToken, fileZ3Url, 'upload');
 
     logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
@@ -256,4 +257,8 @@ function createDocumentReferenceRequest(input: CreateDocRefInput): BatchInputPos
 const resolveDocumentReferenceType = ({ folder }: { folder: List }): CodeableConcept | undefined => {
   console.log(folder);
   return;
+};
+
+const sanitizeFileNameForZ3 = (fileName: string): string => {
+  return fileName.replace(/[^a-zA-Z0-9+!\-_'()\\.@$]/g, '_');
 };

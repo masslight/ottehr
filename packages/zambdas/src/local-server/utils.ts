@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
-import secretsSpec from '../../../../config/oystehr/secrets.json';
+import secretsSpec from '../../../../config/oystehr-core/secrets.json';
 import { Schema } from '../../../spec/src/schema';
 import { REF_REGEX, Schema20250925 } from '../../../spec/src/schema-20250925';
 import { ZambdaInput } from '../shared';
@@ -107,7 +107,7 @@ async function populateSecrets({ pathToEnvFile, useIac }: { pathToEnvFile: strin
   const envFileContents = configString.length > 2 ? JSON.parse(configString) : null;
 
   const schema = new Schema20250925(
-    [{ path: '../../../../config/oystehr/secrets.json', spec: secretsSpec }],
+    [{ path: '../../../../config/oystehr-core/secrets.json', spec: secretsSpec }],
     envFileContents,
     '',
     ''

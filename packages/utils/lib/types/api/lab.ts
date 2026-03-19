@@ -44,7 +44,7 @@ export interface ExternalLabOrderResult extends ExternalLabOrderResultConfig {
 }
 
 export interface EncounterExternalLabResult {
-  resultsPending: boolean;
+  resultsPending: string[] | undefined; // names of all the tests pending;
   labOrderResults: ExternalLabOrderResult[];
 }
 
@@ -56,7 +56,7 @@ export interface InHouseLabResult extends LabOrderPDFDetail {
   simpleResultValue?: string;
 }
 export interface EncounterInHouseLabResult {
-  resultsPending: boolean;
+  resultsPending: string[] | undefined; // names of all the tests pending
   reflexTestsPending: string[] | undefined; // some test triggered a reflex test and it has not been created
   labOrderResults: InHouseLabResult[];
 }

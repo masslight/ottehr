@@ -127,8 +127,7 @@ jobs:
           echo "Repository name: ${{ github.event.repository.name }}"
           echo "PROJECT: '${PROJECT}'"
           shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          echo "Running: npm exec -- tsx ./scripts/secrets.ts populate '${{ env.ENVIRONMENT }}' '${PROJECT}'"
-          npm exec -- tsx ./scripts/secrets.ts populate "${{ env.ENVIRONMENT }}" "${PROJECT}"
+          npm exec -- tsx ./scripts/secrets.ts populate "${{ env.ENVIRONMENT }}"
           npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 
       # TODO: Remove this step and references to it once transition to TF is complete
