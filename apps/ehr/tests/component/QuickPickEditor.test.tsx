@@ -25,7 +25,7 @@ vi.mock('src/components/RoundedButton', () => ({
 import QuickPickEditor, {
   QuickPickEditorColumn,
   QuickPickEditorField,
-} from '../../src/features/visits/telemed/components/telemed-admin/QuickPickEditor';
+} from '../../src/features/visits/telemed/components/admin/QuickPickEditor';
 
 // ============================================================================
 // HELPERS

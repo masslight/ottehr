@@ -19,8 +19,6 @@ import {
 import { getChartData } from '../../../ehr/get-chart-data';
 import { getMedicationOrders } from '../../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
-import { getLabResources } from '../../../ehr/lab/external/get-lab-orders/helpers';
-import { getInHouseResources } from '../../../ehr/lab/in-house/get-in-house-orders/helpers';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
@@ -133,39 +131,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
   });
 
-  const externalLabOrdersPromise = getLabResources(
-    oystehr,
-    {
-      searchBy: { field: 'encounterId', value: encounter.id! },
-      itemsPerPage: 10,
-      pageIndex: 0,
-      secrets,
-    },
-    oystehrToken,
-    { searchBy: { field: 'encounterId', value: encounter.id! } }
-  );
-
-  const inHouseOrdersPromise = getInHouseResources(
-    oystehr,
-    {
-      searchBy: { field: 'encounterId', value: encounter.id! },
-      itemsPerPage: 10,
-      pageIndex: 0,
-      secrets,
-      userToken: '',
-    },
-    { searchBy: { field: 'encounterId', value: encounter.id! } },
-    oystehrToken
-  );
-
-  const [chartDataResult, additionalChartDataResult, externalLabsData, inHouseOrdersData, medicationOrdersData] =
-    await Promise.all([
-      chartDataPromise,
-      additionalChartDataPromise,
-      externalLabOrdersPromise,
-      inHouseOrdersPromise,
-      medicationOrdersPromise,
-    ]);
+  const [chartDataResult, additionalChartDataResult, medicationOrdersData] = await Promise.all([
+    chartDataPromise,
+    additionalChartDataPromise,
+    medicationOrdersPromise,
+  ]);
   const immunizationOrders = (
     await getImmunizationOrders(oystehr, {
       encounterIds: [visitResources.encounter.id!],
@@ -186,8 +156,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           additionalChartData,
           medicationOrders,
           immunizationOrders,
-          externalLabsData,
-          inHouseOrdersData,
         },
         appointmentPackage: visitResources,
         questionnaireResponse: visitResources.questionnaireResponse,
