@@ -107,9 +107,10 @@ export const CommandPalette: FC = () => {
   const handlePatientSearch = useCallback(
     (searchQuery: string) => {
       const trimmed = searchQuery.trim();
-      // If it looks like a numeric ID, search by PID; otherwise search by name
-      const isNumeric = /^\d+$/.test(trimmed);
-      if (isNumeric) {
+      // If it looks like an ID (UUID or numeric), search by PID; otherwise search by name
+      const isId =
+        /^\d+$/.test(trimmed) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+      if (isId) {
         navigate(`/patients?pid=${encodeURIComponent(trimmed)}`);
       } else {
         // Split into first/last name parts
