@@ -1324,6 +1324,41 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/designate-charge-master/index",
       "zip": ".dist/zips/designate-charge-master.zip"
+    },
+    "ASSOCIATE-PAYER": {
+      "name": "associate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/associate-payer/index",
+      "zip": ".dist/zips/associate-payer.zip"
+    },
+    "DISASSOCIATE-PAYER": {
+      "name": "disassociate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/disassociate-payer/index",
+      "zip": ".dist/zips/disassociate-payer.zip"
+    },
+    "ADD-PROCEDURE-CODE": {
+      "name": "add-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/add-procedure-code/index",
+      "zip": ".dist/zips/add-procedure-code.zip"
+    },
+    "UPDATE-PROCEDURE-CODE": {
+      "name": "update-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/update-procedure-code/index",
+      "zip": ".dist/zips/update-procedure-code.zip"
+    },
+    "DELETE-PROCEDURE-CODE": {
+      "name": "delete-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/delete-procedure-code/index",
+      "zip": ".dist/zips/delete-procedure-code.zip"
     }
   },
   "fhirResources": {

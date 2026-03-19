@@ -2,13 +2,22 @@ import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanst
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  addProcedureCode,
+  AddProcedureCodeInput,
+  associatePayer,
+  AssociatePayerInput,
   createFeeSchedule,
   CreateFeeScheduleInput,
+  deleteProcedureCode,
+  DeleteProcedureCodeInput,
   designateChargeMaster,
   DesignateChargeMasterInput,
+  disassociatePayer,
   listFeeSchedules,
   updateFeeSchedule,
   UpdateFeeScheduleInput,
+  updateProcedureCode,
+  UpdateProcedureCodeInput,
 } from './fee-schedule.api';
 
 export const useListFeeSchedulesQuery = (): UseQueryResult<ChargeItemDefinition[], Error> => {
@@ -73,6 +82,88 @@ export const useDesignateChargeMasterMutation = (): UseMutationResult<
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
 
       return designateChargeMaster(oystehrZambda, data);
+    },
+  });
+};
+
+export const useAssociatePayerMutation = (): UseMutationResult<ChargeItemDefinition, Error, AssociatePayerInput> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['associate-payer'],
+
+    mutationFn: async (data: AssociatePayerInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return associatePayer(oystehrZambda, data);
+    },
+  });
+};
+
+export const useDisassociatePayerMutation = (): UseMutationResult<ChargeItemDefinition, Error, AssociatePayerInput> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['disassociate-payer'],
+
+    mutationFn: async (data: AssociatePayerInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return disassociatePayer(oystehrZambda, data);
+    },
+  });
+};
+
+export const useAddProcedureCodeMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  AddProcedureCodeInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['add-procedure-code'],
+
+    mutationFn: async (data: AddProcedureCodeInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return addProcedureCode(oystehrZambda, data);
+    },
+  });
+};
+
+export const useUpdateProcedureCodeMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  UpdateProcedureCodeInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['update-procedure-code'],
+
+    mutationFn: async (data: UpdateProcedureCodeInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return updateProcedureCode(oystehrZambda, data);
+    },
+  });
+};
+
+export const useDeleteProcedureCodeMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  DeleteProcedureCodeInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['delete-procedure-code'],
+
+    mutationFn: async (data: DeleteProcedureCodeInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return deleteProcedureCode(oystehrZambda, data);
     },
   });
 };

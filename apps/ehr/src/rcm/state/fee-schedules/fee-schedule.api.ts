@@ -6,6 +6,11 @@ const CREATE_FEE_SCHEDULE_ZAMBDA_ID = 'create-fee-schedule';
 const UPDATE_FEE_SCHEDULE_ZAMBDA_ID = 'update-fee-schedule';
 const LIST_FEE_SCHEDULES_ZAMBDA_ID = 'list-fee-schedules';
 const DESIGNATE_CHARGE_MASTER_ZAMBDA_ID = 'designate-charge-master';
+const ASSOCIATE_PAYER_ZAMBDA_ID = 'associate-payer';
+const DISASSOCIATE_PAYER_ZAMBDA_ID = 'disassociate-payer';
+const ADD_PROCEDURE_CODE_ZAMBDA_ID = 'add-procedure-code';
+const UPDATE_PROCEDURE_CODE_ZAMBDA_ID = 'update-procedure-code';
+const DELETE_PROCEDURE_CODE_ZAMBDA_ID = 'delete-procedure-code';
 
 export interface CreateFeeScheduleInput {
   name: string;
@@ -85,6 +90,114 @@ export const designateChargeMaster = async (
     }
     const response = await oystehr.zambda.execute({
       id: DESIGNATE_CHARGE_MASTER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface AssociatePayerInput {
+  feeScheduleId: string;
+  organizationId: string;
+}
+
+export const associatePayer = async (
+  oystehr: Oystehr,
+  parameters: AssociatePayerInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    if (ASSOCIATE_PAYER_ZAMBDA_ID == null) {
+      throw new Error('associate payer zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ASSOCIATE_PAYER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const disassociatePayer = async (
+  oystehr: Oystehr,
+  parameters: AssociatePayerInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    if (DISASSOCIATE_PAYER_ZAMBDA_ID == null) {
+      throw new Error('disassociate payer zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: DISASSOCIATE_PAYER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface AddProcedureCodeInput {
+  feeScheduleId: string;
+  code: string;
+  description?: string;
+  modifier?: string;
+  amount: number;
+}
+
+export interface UpdateProcedureCodeInput extends AddProcedureCodeInput {
+  index: number;
+}
+
+export interface DeleteProcedureCodeInput {
+  feeScheduleId: string;
+  index: number;
+}
+
+export const addProcedureCode = async (
+  oystehr: Oystehr,
+  parameters: AddProcedureCodeInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADD_PROCEDURE_CODE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateProcedureCode = async (
+  oystehr: Oystehr,
+  parameters: UpdateProcedureCodeInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_PROCEDURE_CODE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteProcedureCode = async (
+  oystehr: Oystehr,
+  parameters: DeleteProcedureCodeInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_PROCEDURE_CODE_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

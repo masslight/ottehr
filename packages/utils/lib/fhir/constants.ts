@@ -750,3 +750,6 @@ export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');
 
 export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');
 export type ChargeMasterDesignation = 'insurance-pay' | 'self-pay';
+
+export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
+export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
