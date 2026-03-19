@@ -219,7 +219,7 @@ describe('sub-harvest-paperwork-page integration', () => {
       const ctx = buildContext(qr, 'payment-option-page', patient, encounter, appointment);
       const result = await executePageHarvest(ctx);
 
-      expect(result).toBe('account / coverage updated');
+      expect(result).toBe('account / coverage updated, documents created');
 
       // Verify that account resources were created for the patient
       const accounts = (
