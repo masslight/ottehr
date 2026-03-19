@@ -4,7 +4,7 @@ import { ExamType, MEDICAL_HISTORY_CONFIG } from 'utils';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
-import { useMergedProcedureQuickPicks } from './useMergedProcedureQuickPicks';
+import { useMergedProcedureQuickPicks } from './useMergedQuickPicks';
 
 /**
  * Registers all quick picks globally in the command palette so they're available

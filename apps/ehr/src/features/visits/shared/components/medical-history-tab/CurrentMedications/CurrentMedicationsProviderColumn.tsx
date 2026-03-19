@@ -112,7 +112,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const { quickPicks: medicationHistoryQuickPicks } = useMergedMedicationHistoryQuickPicks();
 
   const handleQuickPickSelect = useCallback(
-    (quickPick: (typeof medicationHistoryQuickPicks)[number]): void => {
+    (quickPick: { name: string; strength?: string; medicationId?: number }): void => {
       const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
         name: quickPick.name,
         strength: quickPick.strength,
@@ -121,7 +121,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
 
       setValue('medication', quickPickAsMedication);
     },
-    [setValue, medicationHistoryQuickPicks]
+    [setValue]
   );
 
   const commandPaletteItems = useMemo(

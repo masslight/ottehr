@@ -38,7 +38,6 @@ export * from './practitioner.types';
 export * from './create-discharge-summary';
 export * from './prebook-create-appointment';
 export * from './print-chart-data';
-export * from './procedure-quick-picks.types';
 export * from './procedures.types';
 export * from './procedures.constants';
 export * from './radiology';

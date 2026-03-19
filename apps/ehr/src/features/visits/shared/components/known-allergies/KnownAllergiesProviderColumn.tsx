@@ -321,7 +321,7 @@ const AddAllergyField: FC = () => {
     }
   };
 
-  const handleQuickPickSelect = async (quickPick: (typeof allergyQuickPicks)[number]): Promise<void> => {
+  const handleQuickPickSelect = async (quickPick: { name: string; allergyId?: number }): Promise<void> => {
     const quickPickAsAllergy = {
       name: quickPick.name,
       id: quickPick.allergyId,
