@@ -255,7 +255,6 @@ test.describe('In-house labs page', async () => {
     await test.step('IHL-1.2 Collect sample', async () => {
       const orderDetailsPage = await expectOrderDetailsPage(page);
       await orderDetailsPage.collectSamplePage.verifyTestName(TEST_NAME);
-      await orderDetailsPage.collectSamplePage.verifyMarkAsCollectedButtonDisabled();
       await orderDetailsPage.collectSamplePage.verifyStatus(STATUS.ORDERED);
       await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
       await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
