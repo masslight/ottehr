@@ -2,6 +2,10 @@
  * One-time migration script: converts hardcoded quick picks from MEDICAL_HISTORY_CONFIG
  * into FHIR ActivityDefinition resources.
  *
+ * The script reads the instance's actual MEDICAL_HISTORY_CONFIG (including any
+ * overrides applied via MEDICAL_HISTORY_OVERRIDES) so it migrates whatever quick
+ * picks that instance is currently using — not a fixed set.
+ *
  * Usage:
  *   npx env-cmd -f apps/ehr/env/tests.local.json npx tsx scripts/migrate-quick-picks-to-fhir.ts
  *   npx env-cmd -f apps/ehr/env/tests.e2e.json npx tsx scripts/migrate-quick-picks-to-fhir.ts
@@ -14,6 +18,7 @@
 
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
+import { MEDICAL_HISTORY_CONFIG } from 'utils';
 
 // ── Constants (must match quick-pick-helpers.ts) ──
 
@@ -24,67 +29,7 @@ const TAG_CODES = {
   allergy: 'allergy-quick-pick',
   medicalCondition: 'medical-condition-quick-pick',
   medicationHistory: 'medication-history-quick-pick',
-  procedure: 'procedure-quick-pick',
 } as const;
-
-// ── Hardcoded quick picks (copied from packages/utils/lib/ottehr-config/medical-history/index.ts) ──
-
-const ALLERGY_QUICK_PICKS = [
-  { name: 'Acetaminophen', allergyId: 26 },
-  { name: 'Amoxicillin', allergyId: 138 },
-  { name: 'Amoxicillin / Clavulanate', allergyId: 250 },
-  { name: 'Aspirin', allergyId: 229 },
-  { name: 'Azithromycin', allergyId: 285 },
-  { name: 'Cephalexin', allergyId: 545 },
-  { name: 'Ciprofloxacin', allergyId: 605 },
-  { name: 'Clindamycin', allergyId: 622 },
-  { name: 'Codeine', allergyId: 647 },
-  { name: 'Levofloxacin', allergyId: 1717 },
-  { name: 'Ibuprofen', allergyId: 1469 },
-  { name: 'Naproxen', allergyId: 2047 },
-  { name: 'Sulfamethoxazole / Trimethoprim', allergyId: 293 },
-];
-
-const MEDICAL_CONDITION_QUICK_PICKS = [
-  { display: 'Arthritis' },
-  { display: 'Blood Disorder' },
-  { display: 'Cancer' },
-  { display: 'Diabetes' },
-  { display: 'Gastrointestinal' },
-  { display: 'Genitourinary' },
-  { display: 'Heart Disorders' },
-  { display: 'High Blood Pressure' },
-  { display: 'High Cholesterol' },
-  { display: 'Kidney Disorders' },
-  { display: 'Live Disorders, Hepatitis' },
-  { display: 'Lung Disorders' },
-  { display: 'Musculokskeletal Diseases' },
-  { display: 'Neurological' },
-  { display: 'Psychiatric' },
-  { display: 'Sexually Transmitted Diseases' },
-  { display: 'Skin Disorders' },
-  { display: 'Thyroid' },
-  { display: 'Diabetes type 2', code: 'E11.9' },
-  { display: 'Diabetes Type 1', code: 'E10.9' },
-  { display: 'High Blood pressure', code: 'i10' },
-  { display: 'Heart Disease', code: 'I51.9' },
-  { display: 'Elevated Cholesterol', code: 'E78.5' },
-  { display: 'Asthma', code: 'J45.909' },
-  { display: 'COPD', code: 'J44.9' },
-  { display: 'Back Pain', code: 'M54.50' },
-  { display: 'HypoThyroid', code: 'E03.9' },
-  { display: 'Gout', code: 'M10.9' },
-  { display: 'Arthritis', code: 'M19.90' },
-];
-
-const MEDICATION_HISTORY_QUICK_PICKS = [
-  { name: 'Toradol', strength: '60 mg', medicationId: 10098 },
-  { name: 'Toradol', strength: '30 mg', medicationId: 81146 },
-  { name: 'Decadron', strength: '8 mg', medicationId: 39039 },
-  { name: 'Decadron', strength: '4 mg', medicationId: 39038 },
-  { name: 'Rocephin', strength: '1 g', medicationId: 30900 },
-  { name: 'Rocephin', strength: '500 mg', medicationId: 30901 },
-];
 
 // ── Auth ──
 
@@ -168,21 +113,31 @@ function buildMigrationItems(): MigrationItem[] {
   const items: MigrationItem[] = [];
 
   // Allergies — display name key is 'name', so strip it from config
-  for (const qp of ALLERGY_QUICK_PICKS) {
-    const { name, ...config } = qp;
-    items.push({ title: name, tagCode: TAG_CODES.allergy, config });
+  // Remap 'id' (hardcoded config field) to 'allergyId' (FHIR quick pick schema)
+  for (const qp of MEDICAL_HISTORY_CONFIG.allergies.quickPicks) {
+    const { name, id: allergyId, ...rest } = qp;
+    items.push({
+      title: name,
+      tagCode: TAG_CODES.allergy,
+      config: { ...rest, ...(allergyId != null ? { allergyId } : {}) },
+    });
   }
 
   // Medical Conditions — display name key is 'display', so strip it from config
-  for (const qp of MEDICAL_CONDITION_QUICK_PICKS) {
+  for (const qp of MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks) {
     const { display, ...config } = qp;
     items.push({ title: display, tagCode: TAG_CODES.medicalCondition, config });
   }
 
   // Medications — display name key is 'name', so strip it from config
-  for (const qp of MEDICATION_HISTORY_QUICK_PICKS) {
-    const { name, ...config } = qp;
-    items.push({ title: name, tagCode: TAG_CODES.medicationHistory, config });
+  // Map 'id' to 'medicationId' to match the FHIR quick pick schema
+  for (const qp of MEDICAL_HISTORY_CONFIG.medications.quickPicks) {
+    const { name, id, ...rest } = qp;
+    items.push({
+      title: name,
+      tagCode: TAG_CODES.medicationHistory,
+      config: { ...rest, ...(id != null ? { medicationId: id } : {}) },
+    });
   }
 
   // Note: Procedure quick picks are not included because they are created
@@ -211,12 +166,16 @@ async function migrate(): Promise<void> {
   console.log('Authenticated successfully.');
   console.log();
 
-  // Build the full list of items to migrate
+  // Build items from the instance's MEDICAL_HISTORY_CONFIG (includes overrides)
   const migrationItems = buildMigrationItems();
-  console.log(`Total items to migrate: ${migrationItems.length}`);
-  console.log(`  Allergies: ${ALLERGY_QUICK_PICKS.length}`);
-  console.log(`  Medical Conditions: ${MEDICAL_CONDITION_QUICK_PICKS.length}`);
-  console.log(`  Medications: ${MEDICATION_HISTORY_QUICK_PICKS.length}`);
+  const allergyCount = migrationItems.filter((i) => i.tagCode === TAG_CODES.allergy).length;
+  const conditionCount = migrationItems.filter((i) => i.tagCode === TAG_CODES.medicalCondition).length;
+  const medicationCount = migrationItems.filter((i) => i.tagCode === TAG_CODES.medicationHistory).length;
+
+  console.log(`Quick picks found in MEDICAL_HISTORY_CONFIG: ${migrationItems.length}`);
+  console.log(`  Allergies: ${allergyCount}`);
+  console.log(`  Medical Conditions: ${conditionCount}`);
+  console.log(`  Medications: ${medicationCount}`);
   console.log();
 
   // Fetch existing quick picks to avoid duplicates
@@ -226,7 +185,7 @@ async function migrate(): Promise<void> {
     existingByTag[tagCode] = await getExistingQuickPicks(oystehr, tagCode);
     const count = existingByTag[tagCode].size;
     if (count > 0) {
-      console.log(`  Found ${count} existing ${tagCode} quick picks`);
+      console.log(`  Found ${count} existing ${tagCode} resources`);
     }
   }
   console.log();
