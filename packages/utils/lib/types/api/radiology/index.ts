@@ -7,6 +7,7 @@ export interface CreateRadiologyZambdaOrderInput {
   lateralityModifier: { display: string; code: string } | undefined;
   stat: boolean;
   clinicalHistory: string;
+  consentObtained: boolean;
 }
 
 export interface CreateRadiologyZambdaOrderOutput {
@@ -59,6 +60,7 @@ export interface GetRadiologyOrderListZambdaOrder {
   clinicalHistory?: string;
   history?: RadiologyOrderHistoryRow[];
   task?: Task;
+  consentObtained: boolean;
 }
 
 export type RadiologyOrderHistoryRow = {

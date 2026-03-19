@@ -25,11 +25,14 @@ import {
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
 import { BRANDING_CONFIG, getFullestAvailableName, RoleType } from 'utils';
+import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
+import { PendingErxEnrollmentDialog } from '../dialogs/PendingErxEnrollmentDialog';
 
 export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
+  const [pendingReviewOpen, setPendingReviewOpen] = useState<boolean>(false);
   const user = useEvolveUser();
   const userIsProvider = user?.hasRole([RoleType.Provider]);
 
@@ -39,10 +42,13 @@ export const UserMenu: FC = () => {
     return practitioner ? getPractitionerMissingFields(practitioner) : [];
   }, [practitioner]);
 
-  const { data: practitionerEnrollmentStatus, isFetched: isPractitionerEnrollmentChecked } =
-    useCheckPractitionerEnrollment({
-      enabled: Boolean(practitioner),
-    });
+  const {
+    data: practitionerEnrollmentStatus,
+    isFetched: isPractitionerEnrollmentChecked,
+    refetch: refetchPractitionerEnrollmentStatus,
+  } = useCheckPractitionerEnrollment({
+    enabled: Boolean(practitioner),
+  });
 
   const { mutateAsync: enrollPractitioner, isPending: isEnrollingPractitioner } = useEnrollPractitionerToERX({
     onError: () => {
@@ -56,13 +62,37 @@ export const UserMenu: FC = () => {
   const handleConnectPractitioner = useCallback(async () => {
     try {
       await enrollPractitioner(practitioner!.id!);
+
+      const { data } = await refetchPractitionerEnrollmentStatus();
+
+      if (data?.registered && !data?.confirmed && data?.identityVerified) {
+        setPendingReviewOpen(true);
+
+        safelyCaptureMessage('DoseSpot enrollment pending review', {
+          level: 'warning',
+          tags: {
+            system: 'erx',
+            providerEnrollment: 'pending-review',
+          },
+          extra: {
+            source: 'user-menu',
+            practitionerId: practitioner?.id,
+            registered: data?.registered,
+            confirmed: data?.confirmed,
+            identityVerified: data?.identityVerified,
+          },
+        });
+
+        return;
+      }
+
       const ssoLink = await connectPractitionerForConfirmation();
       void Promise.resolve().then(() => window.open(ssoLink, '_blank'));
     } catch (error) {
       enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
       console.error('Error trying to connect practitioner to eRx: ', error);
     }
-  }, [connectPractitionerForConfirmation, enrollPractitioner, practitioner]);
+  }, [connectPractitionerForConfirmation, enrollPractitioner, practitioner, refetchPractitionerEnrollmentStatus]);
 
   const name =
     user?.profileResource &&
@@ -142,6 +172,7 @@ export const UserMenu: FC = () => {
           </MenuItem>
         </Link>
       </Menu>
+      <PendingErxEnrollmentDialog open={pendingReviewOpen} handleClose={() => setPendingReviewOpen(false)} />
     </>
   );
 };
