@@ -1,7 +1,7 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_23": {
+    "questionnaire-virtual-previsit-1_0_22": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
@@ -325,7 +325,7 @@
               {
                 "linkId": "mobile-opt-in",
                 "type": "boolean",
-                "text": "Yes! I would like to receive helpful text messages from Quality Urgent Care regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
+                "text": "Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
                 "required": false
               },
               {
@@ -446,52 +446,64 @@
                 "readOnly": true,
                 "answerOption": [
                   {
-                    "valueString": "Allergies or Allergic reaction"
+                    "valueString": "Cough and/or congestion"
                   },
                   {
-                    "valueString": "Asthma flare up or Shortness of Breath"
+                    "valueString": "Throat pain"
                   },
                   {
-                    "valueString": "Auto accident"
-                  },
-                  {
-                    "valueString": "Back Pain"
-                  },
-                  {
-                    "valueString": "COVID or Flu-like Symptoms"
-                  },
-                  {
-                    "valueString": "Ear pain"
-                  },
-                  {
-                    "valueString": "Eye issue"
+                    "valueString": "Eye concern"
                   },
                   {
                     "valueString": "Fever"
                   },
                   {
-                    "valueString": "GI issues or Abdominal Pain"
+                    "valueString": "Ear pain"
                   },
                   {
-                    "valueString": "Headache"
+                    "valueString": "Vomiting and/or diarrhea"
                   },
                   {
-                    "valueString": "Immigration Screening"
+                    "valueString": "Abdominal (belly) pain"
                   },
                   {
-                    "valueString": "Injury"
+                    "valueString": "Rash or skin issue"
                   },
                   {
-                    "valueString": "Pain"
+                    "valueString": "Urinary problem"
                   },
                   {
-                    "valueString": "Rash"
+                    "valueString": "Breathing problem"
                   },
                   {
-                    "valueString": "Sore Throat"
+                    "valueString": "Injury to arm"
                   },
                   {
-                    "valueString": "UTI"
+                    "valueString": "Injury to leg"
+                  },
+                  {
+                    "valueString": "Injury to head"
+                  },
+                  {
+                    "valueString": "Injury (Other)"
+                  },
+                  {
+                    "valueString": "Cut to arm or leg"
+                  },
+                  {
+                    "valueString": "Cut to face or head"
+                  },
+                  {
+                    "valueString": "Removal of sutures/stitches/staples"
+                  },
+                  {
+                    "valueString": "Choked or swallowed something"
+                  },
+                  {
+                    "valueString": "Allergic reaction to medication or food"
+                  },
+                  {
+                    "valueString": "Auto accident"
                   },
                   {
                     "valueString": "Other"
@@ -1891,6 +1903,73 @@
                     "question": "surgical-history-yes-no",
                     "operator": "=",
                     "answerString": "Patient has surgical history"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "additional-page",
+            "type": "group",
+            "text": "Additional questions",
+            "item": [
+              {
+                "linkId": "covid-symptoms",
+                "type": "choice",
+                "text": "Do you have any COVID symptoms?",
+                "required": false,
+                "answerOption": [
+                  {
+                    "valueString": "Yes"
+                  },
+                  {
+                    "valueString": "No"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Radio List"
+                  }
+                ]
+              },
+              {
+                "linkId": "tested-positive-covid",
+                "type": "choice",
+                "text": "Have you tested positive for COVID?",
+                "required": false,
+                "answerOption": [
+                  {
+                    "valueString": "Yes"
+                  },
+                  {
+                    "valueString": "No"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Radio List"
+                  }
+                ]
+              },
+              {
+                "linkId": "travel-usa",
+                "type": "choice",
+                "text": "Have you traveled out of the USA in the last 2 weeks?",
+                "required": false,
+                "answerOption": [
+                  {
+                    "valueString": "Yes"
+                  },
+                  {
+                    "valueString": "No"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Radio List"
                   }
                 ]
               }
@@ -5126,6 +5205,190 @@
             ]
           },
           {
+            "linkId": "patient-condition-page",
+            "type": "group",
+            "text": "Patient condition",
+            "item": [
+              {
+                "linkId": "patient-photos",
+                "type": "attachment",
+                "text": "Photo of patient's condition (optional)",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Image"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                    "valueString": "72170-4"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "school-work-note-page",
+            "type": "group",
+            "text": "Do you need a school or work note?",
+            "item": [
+              {
+                "linkId": "school-work-note-choice",
+                "type": "choice",
+                "text": "Select option:",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "Neither"
+                  },
+                  {
+                    "valueString": "School only"
+                  },
+                  {
+                    "valueString": "Work only"
+                  },
+                  {
+                    "valueString": "Both school and work notes"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Radio"
+                  }
+                ]
+              },
+              {
+                "linkId": "school-work-note-template-upload-group",
+                "type": "group",
+                "item": [
+                  {
+                    "linkId": "school-work-note-template",
+                    "type": "display",
+                    "text": "I have a template",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                        "valueString": "h3"
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "school-work-note-template-text",
+                    "type": "display",
+                    "text": "Most institutions accept standard healthcare notes. If you require a specific form please upload it here and discuss it with your provider during the visit.",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                        "valueString": "p"
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "school-work-note-template-school",
+                    "type": "attachment",
+                    "text": "School Template",
+                    "required": false,
+                    "enableWhen": [
+                      {
+                        "question": "school-work-note-choice",
+                        "operator": "=",
+                        "answerString": "School only"
+                      },
+                      {
+                        "question": "school-work-note-choice",
+                        "operator": "=",
+                        "answerString": "Both school and work notes"
+                      }
+                    ],
+                    "enableBehavior": "any",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                        "valueString": "PDF"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                        "valueString": "47420-5"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                        "extension": [
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                            "valueString": "school-work-note-choice"
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                            "valueString": "="
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                            "valueString": "Work only"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "school-work-note-template-work",
+                    "type": "attachment",
+                    "text": "Work Template",
+                    "required": false,
+                    "enableWhen": [
+                      {
+                        "question": "school-work-note-choice",
+                        "operator": "=",
+                        "answerString": "Work only"
+                      },
+                      {
+                        "question": "school-work-note-choice",
+                        "operator": "=",
+                        "answerString": "Both school and work notes"
+                      }
+                    ],
+                    "enableBehavior": "any",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                        "valueString": "PDF"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                        "valueString": "47420-5"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+                        "extension": [
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                            "valueString": "school-work-note-choice"
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                            "valueString": "="
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                            "valueString": "School only"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "text": "Do you need a school or work note?",
+                "enableWhen": [
+                  {
+                    "question": "school-work-note-choice",
+                    "operator": "!=",
+                    "answerString": "Neither"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "consent-forms-page",
             "type": "group",
             "text": "Complete consent forms",
@@ -5135,9 +5398,9 @@
                 "type": "group",
                 "item": [
                   {
-                    "linkId": "notice-of-privacy-practices",
+                    "linkId": "hipaa-acknowledgement",
                     "type": "boolean",
-                    "text": "I have reviewed and accept [Notice of Privacy Practices](/QUC_Notice_of_Privacy_Practices.pdf)",
+                    "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
                     "required": true,
                     "extension": [
                       {
@@ -5149,19 +5412,7 @@
                   {
                     "linkId": "consent-to-treat",
                     "type": "boolean",
-                    "text": "I have reviewed and accept [Insurance Agreement](/QUC_Insurance_Agreement.pdf)",
-                    "required": true,
-                    "extension": [
-                      {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
-                        "valueBoolean": true
-                      }
-                    ]
-                  },
-                  {
-                    "linkId": "visit-follow-up-communication",
-                    "type": "boolean",
-                    "text": "I have reviewed and accept [Visit Follow-up Communication](/QUC_Visit_Follow-up_Communication.pdf)",
+                    "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
                     "required": true,
                     "extension": [
                       {
