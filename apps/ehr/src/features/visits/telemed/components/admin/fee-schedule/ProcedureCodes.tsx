@@ -3,6 +3,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Autocomplete,
   Box,
@@ -16,12 +17,6 @@ import {
   InputAdornment,
   Paper,
   Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -29,10 +24,12 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useMemo, useState } from 'react';
+import React, { ReactElement, useCallback, useMemo, useRef, useState } from 'react';
+import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   useAddProcedureCodeMutation,
+  useBulkAddProcedureCodesMutation,
   useDeleteProcedureCodeMutation,
   useUpdateProcedureCodeMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
@@ -57,7 +54,37 @@ interface ProcedureCodeRow {
   amount: number;
 }
 
+const ROW_HEIGHT = 45;
+const MAX_VISIBLE_ROWS = 20;
 const DESCRIPTION_TRUNCATE_LENGTH = 60;
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      result.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
 
 function extractProcedureCodes(feeSchedule: ChargeItemDefinition | undefined): ProcedureCodeRow[] {
   if (!feeSchedule?.propertyGroup) return [];
@@ -95,6 +122,8 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
   const { mutateAsync: addCode, isPending: adding } = useAddProcedureCodeMutation();
   const { mutateAsync: updateCode, isPending: updating } = useUpdateProcedureCodeMutation();
   const { mutateAsync: deleteCode, isPending: deleting } = useDeleteProcedureCodeMutation();
+  const { mutateAsync: bulkAdd, isPending: bulkAdding } = useBulkAddProcedureCodesMutation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const procedureCodes = useMemo(() => extractProcedureCodes(feeSchedule), [feeSchedule]);
 
@@ -117,7 +146,7 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
     setDialogOpen(true);
   };
 
-  const openEditDialog = (row: ProcedureCodeRow): void => {
+  const openEditDialog = useCallback((row: ProcedureCodeRow): void => {
     setEditIndex(row.index);
     setFormData({
       code: row.code,
@@ -128,7 +157,7 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
     setCptSearchTerm('');
     setCptInputValue('');
     setDialogOpen(true);
-  };
+  }, []);
 
   const closeDialog = (): void => {
     setDialogOpen(false);
@@ -171,18 +200,68 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
     }
   };
 
-  const handleDelete = async (index: number): Promise<void> => {
-    if (!feeSchedule?.id) return;
-    try {
-      await deleteCode({ feeScheduleId: feeSchedule.id, index });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
-      enqueueSnackbar('Procedure code removed', { variant: 'success' });
-    } catch {
-      enqueueSnackbar('Error removing procedure code. Please try again.', { variant: 'error' });
-    }
-  };
+  const handleDelete = useCallback(
+    async (index: number): Promise<void> => {
+      if (!feeSchedule?.id) return;
+      try {
+        await deleteCode({ feeScheduleId: feeSchedule.id, index });
+        await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+        enqueueSnackbar('Procedure code removed', { variant: 'success' });
+      } catch {
+        enqueueSnackbar('Error removing procedure code. Please try again.', { variant: 'error' });
+      }
+    },
+    [feeSchedule?.id, deleteCode, queryClient]
+  );
 
   const isSaving = adding || updating;
+
+  const handleUploadCsv = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0];
+    if (!file || !feeSchedule?.id) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length < 2) {
+        enqueueSnackbar('CSV file must have a header row and at least one data row.', { variant: 'error' });
+        return;
+      }
+
+      const header = lines[0].toLowerCase();
+      if (!header.includes('procedure code') || !header.includes('amount')) {
+        enqueueSnackbar('CSV must have "Procedure Code" and "Amount" columns.', { variant: 'error' });
+        return;
+      }
+
+      const codes: { code: string; modifier?: string; amount: number }[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCsvLine(lines[i]);
+        if (values.length < 3) continue;
+        const code = values[0].trim();
+        const modifier = values[1].trim() || undefined;
+        const amount = parseFloat(values[2].trim());
+        if (!code || isNaN(amount)) {
+          enqueueSnackbar(`Row ${i + 1}: invalid code or amount, skipping.`, { variant: 'warning' });
+          continue;
+        }
+        codes.push({ code, modifier, amount });
+      }
+
+      if (codes.length === 0) {
+        enqueueSnackbar('No valid rows found in CSV.', { variant: 'error' });
+        return;
+      }
+
+      await bulkAdd({ feeScheduleId: feeSchedule.id, codes });
+      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+      enqueueSnackbar(`${codes.length} procedure code(s) uploaded successfully.`, { variant: 'success' });
+    } catch {
+      enqueueSnackbar('Error uploading CSV. Please try again.', { variant: 'error' });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleDownloadTemplate = (): void => {
     const link = document.createElement('a');
@@ -207,6 +286,59 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
     URL.revokeObjectURL(url);
   };
 
+  const renderRow = useCallback(
+    ({ index: rowIdx, style }: ListChildComponentProps) => {
+      const row = filteredCodes[rowIdx];
+      const isTruncated = row.description.length > DESCRIPTION_TRUNCATE_LENGTH;
+      const displayDescription = isTruncated
+        ? `${row.description.substring(0, DESCRIPTION_TRUNCATE_LENGTH)}...`
+        : row.description;
+
+      return (
+        <Box
+          style={style}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            '&:hover': { backgroundColor: 'action.hover' },
+          }}
+        >
+          <Box sx={{ width: '15%', px: 2, fontFamily: 'monospace', fontSize: '0.875rem' }}>{row.code}</Box>
+          <Box sx={{ width: '35%', px: 2, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {isTruncated ? (
+              <Tooltip title={row.description} arrow>
+                <Typography variant="body2" component="span">
+                  {displayDescription}
+                </Typography>
+              </Tooltip>
+            ) : (
+              <Typography variant="body2" component="span">
+                {displayDescription || '—'}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ width: '15%', px: 2, fontFamily: 'monospace', fontSize: '0.875rem' }}>{row.modifier || '—'}</Box>
+          <Box sx={{ width: '20%', px: 2, fontSize: '0.875rem' }}>${row.amount.toFixed(2)}</Box>
+          <Box sx={{ width: '15%', px: 2, display: 'flex', gap: 0.5 }}>
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => openEditDialog(row)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete">
+              <IconButton size="small" color="error" onClick={() => handleDelete(row.index)} disabled={deleting}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      );
+    },
+    [filteredCodes, deleting, openEditDialog, handleDelete]
+  );
+
   if (isFetching) {
     return <Skeleton height={300} sx={{ marginY: -5 }} />;
   }
@@ -220,6 +352,9 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
       <Paper sx={{ padding: 3 }}>
         <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important', mb: 1 }}>
           Procedure Codes &amp; Amounts
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1, fontWeight: 400 }}>
+            ({procedureCodes.length} total)
+          </Typography>
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Manage the procedure codes (CPT/HCPCS) and their associated amounts for this fee schedule.
@@ -254,6 +389,16 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
           </Button>
           <Button
             variant="outlined"
+            startIcon={<UploadFileIcon />}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={bulkAdding}
+          >
+            {bulkAdding ? 'Uploading...' : 'Upload CSV'}
+          </Button>
+          <input ref={fileInputRef} type="file" accept=".csv" hidden onChange={(e) => void handleUploadCsv(e)} />
+          <Button
+            variant="outlined"
             startIcon={<AddIcon />}
             sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
             onClick={openAddDialog}
@@ -261,77 +406,48 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
             Add procedure code
           </Button>
         </Box>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Modifier</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 90 }} />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredCodes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    {procedureCodes.length === 0
-                      ? 'No procedure codes yet. Click "Add procedure code" to add a code and amount.'
-                      : 'No matching procedure codes found.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredCodes.map((row) => {
-                  const isTruncated = row.description.length > DESCRIPTION_TRUNCATE_LENGTH;
-                  const displayDescription = isTruncated
-                    ? `${row.description.substring(0, DESCRIPTION_TRUNCATE_LENGTH)}...`
-                    : row.description;
-
-                  return (
-                    <TableRow key={row.index} hover>
-                      <TableCell sx={{ fontFamily: 'monospace' }}>{row.code}</TableCell>
-                      <TableCell>
-                        {isTruncated ? (
-                          <Tooltip title={row.description} arrow>
-                            <Typography variant="body2" component="span">
-                              {displayDescription}
-                            </Typography>
-                          </Tooltip>
-                        ) : (
-                          <Typography variant="body2" component="span">
-                            {displayDescription || '—'}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace' }}>{row.modifier || '—'}</TableCell>
-                      <TableCell>${row.amount.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Tooltip title="Edit">
-                            <IconButton size="small" onClick={() => openEditDialog(row)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDelete(row.index)}
-                              disabled={deleting}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: 'grey.50',
+              height: ROW_HEIGHT,
+            }}
+          >
+            <Box sx={{ width: '15%', px: 2, fontWeight: 600, fontSize: '0.875rem' }}>Code</Box>
+            <Box sx={{ width: '35%', px: 2, fontWeight: 600, fontSize: '0.875rem' }}>Description</Box>
+            <Box sx={{ width: '15%', px: 2, fontWeight: 600, fontSize: '0.875rem' }}>Modifier</Box>
+            <Box sx={{ width: '20%', px: 2, fontWeight: 600, fontSize: '0.875rem' }}>Amount</Box>
+            <Box sx={{ width: '15%', px: 2 }} />
+          </Box>
+          {filteredCodes.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
+              {procedureCodes.length === 0
+                ? 'No procedure codes yet. Click "Add procedure code" to add a code and amount.'
+                : 'No matching procedure codes found.'}
+            </Box>
+          ) : (
+            <FixedSizeList
+              height={Math.min(filteredCodes.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT}
+              itemCount={filteredCodes.length}
+              itemSize={ROW_HEIGHT}
+              width="100%"
+              overscanCount={10}
+            >
+              {renderRow}
+            </FixedSizeList>
+          )}
+          {searchText && filteredCodes.length > 0 && filteredCodes.length !== procedureCodes.length && (
+            <Box sx={{ px: 2, py: 1, backgroundColor: 'grey.50', borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="caption" color="text.secondary">
+                Showing {filteredCodes.length} of {procedureCodes.length} codes
+              </Typography>
+            </Box>
+          )}
+        </Box>
       </Paper>
 
       <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="xs" fullWidth>

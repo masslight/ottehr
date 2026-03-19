@@ -6,6 +6,8 @@ import {
   AddProcedureCodeInput,
   associatePayer,
   AssociatePayerInput,
+  bulkAddProcedureCodes,
+  BulkAddProcedureCodesInput,
   createFeeSchedule,
   CreateFeeScheduleInput,
   deleteProcedureCode,
@@ -164,6 +166,24 @@ export const useDeleteProcedureCodeMutation = (): UseMutationResult<
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
 
       return deleteProcedureCode(oystehrZambda, data);
+    },
+  });
+};
+
+export const useBulkAddProcedureCodesMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  BulkAddProcedureCodesInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['bulk-add-procedure-codes'],
+
+    mutationFn: async (data: BulkAddProcedureCodesInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return bulkAddProcedureCodes(oystehrZambda, data);
     },
   });
 };

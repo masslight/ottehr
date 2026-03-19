@@ -1359,6 +1359,13 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/delete-procedure-code/index",
       "zip": ".dist/zips/delete-procedure-code.zip"
+    },
+    "BULK-ADD-PROCEDURE-CODES": {
+      "name": "bulk-add-procedure-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/bulk-add-procedure-codes/index",
+      "zip": ".dist/zips/bulk-add-procedure-codes.zip"
     }
   },
   "fhirResources": {

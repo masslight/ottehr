@@ -11,6 +11,7 @@ const DISASSOCIATE_PAYER_ZAMBDA_ID = 'disassociate-payer';
 const ADD_PROCEDURE_CODE_ZAMBDA_ID = 'add-procedure-code';
 const UPDATE_PROCEDURE_CODE_ZAMBDA_ID = 'update-procedure-code';
 const DELETE_PROCEDURE_CODE_ZAMBDA_ID = 'delete-procedure-code';
+const BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID = 'bulk-add-procedure-codes';
 
 export interface CreateFeeScheduleInput {
   name: string;
@@ -159,6 +160,11 @@ export interface DeleteProcedureCodeInput {
   index: number;
 }
 
+export interface BulkAddProcedureCodesInput {
+  feeScheduleId: string;
+  codes: { code: string; modifier?: string; amount: number }[];
+}
+
 export const addProcedureCode = async (
   oystehr: Oystehr,
   parameters: AddProcedureCodeInput
@@ -198,6 +204,22 @@ export const deleteProcedureCode = async (
   try {
     const response = await oystehr.zambda.execute({
       id: DELETE_PROCEDURE_CODE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const bulkAddProcedureCodes = async (
+  oystehr: Oystehr,
+  parameters: BulkAddProcedureCodesInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

@@ -6,12 +6,18 @@ import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import FormatStrikethroughIcon from '@mui/icons-material/FormatStrikethrough';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   FormLabel,
   Grid,
@@ -57,6 +63,7 @@ export default function EditFeeSchedule(): ReactElement {
   const [formData, setFormData] = React.useState({ name: '', effectiveDate: '', description: '' });
   const [error, setError] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('settings');
+  const [pendingDesignation, setPendingDesignation] = React.useState<ChargeMasterDesignation | null>(null);
   const didInit = useRef(false);
 
   const isActive = feeSchedule?.status === 'active';
@@ -249,327 +256,366 @@ export default function EditFeeSchedule(): ReactElement {
 
   return (
     <PageContainer tabTitle="Edit Fee Schedule">
-      <Grid container direction="row" alignItems="center" justifyContent="center">
-        <Grid item maxWidth="1100px" width="100%">
-          <CustomBreadcrumbs
-            chain={[
-              { link: '/admin', children: 'Admin' },
-              { link: '/admin/fee-schedule', children: 'Fee Schedule' },
-              {
-                link: '#',
-                children: isFetching ? <Skeleton width={150} /> : feeSchedule?.title || '',
-              },
-            ]}
-          />
-          <Typography
-            variant="h3"
-            color="primary.dark"
-            marginTop={2}
-            marginBottom={2}
-            sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
-          >
-            {isFetching ? <Skeleton width={250} /> : feeSchedule?.title || ''}
-          </Typography>
-          <TabContext value={activeTab}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-              <TabList onChange={(_, v) => setActiveTab(v)} aria-label="Fee schedule sections">
-                <Tab label="Settings" value="settings" sx={{ textTransform: 'none', fontWeight: 500 }} />
-                <Tab label="Payer Associations" value="payers" sx={{ textTransform: 'none', fontWeight: 500 }} />
-                <Tab label="Procedure Codes" value="procedures" sx={{ textTransform: 'none', fontWeight: 500 }} />
-              </TabList>
-            </Box>
-            <TabPanel value="settings" sx={{ p: 0 }}>
-              {isFetching ? (
-                <Skeleton height={400} sx={{ marginY: -5 }} />
-              ) : (
-                <Paper sx={{ padding: 3 }}>
-                  <form onSubmit={onSubmit}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Typography
-                        sx={{
-                          ...theme.typography.h4,
-                          color: theme.palette.primary.dark,
-                          fontWeight: '600 !important',
-                        }}
-                      >
-                        Fee schedule settings
-                      </Typography>
-                      <Box sx={{ flex: 1 }} />
-                      {currentDesignation === 'insurance-pay' && (
-                        <Chip
-                          label="Insurance CM"
-                          size="small"
+      <>
+        <Grid container direction="row" alignItems="center" justifyContent="center">
+          <Grid item maxWidth="1100px" width="100%">
+            <CustomBreadcrumbs
+              chain={[
+                { link: '/admin', children: 'Admin' },
+                { link: '/admin/fee-schedule', children: 'Fee Schedule' },
+                {
+                  link: '#',
+                  children: isFetching ? <Skeleton width={150} /> : feeSchedule?.title || '',
+                },
+              ]}
+            />
+            <Typography
+              variant="h3"
+              color="primary.dark"
+              marginTop={2}
+              marginBottom={2}
+              sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
+            >
+              {isFetching ? <Skeleton width={250} /> : feeSchedule?.title || ''}
+            </Typography>
+            <TabContext value={activeTab}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                <TabList onChange={(_, v) => setActiveTab(v)} aria-label="Fee schedule sections">
+                  <Tab label="Settings" value="settings" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                  <Tab label="Payer Associations" value="payers" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                  <Tab label="Procedure Codes" value="procedures" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                </TabList>
+              </Box>
+              <TabPanel value="settings" sx={{ p: 0 }}>
+                {isFetching ? (
+                  <Skeleton height={400} sx={{ marginY: -5 }} />
+                ) : (
+                  <Paper sx={{ padding: 3 }}>
+                    <form onSubmit={onSubmit}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Typography
                           sx={{
-                            fontSize: '0.65rem',
-                            height: 20,
-                            backgroundColor: '#6A1B9A',
-                            color: '#fff',
-                          }}
-                        />
-                      )}
-                      {currentDesignation === 'self-pay' && (
-                        <Chip
-                          label="Self-Pay CM"
-                          size="small"
-                          sx={{
-                            fontSize: '0.65rem',
-                            height: 20,
-                            backgroundColor: '#E91E90',
-                            color: '#fff',
-                          }}
-                        />
-                      )}
-                    </Box>
-                    <TextField
-                      label="Name"
-                      value={formData.name}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                      fullWidth
-                      required
-                      margin="dense"
-                    />
-                    <TextField
-                      label="Effective Date"
-                      type="date"
-                      value={formData.effectiveDate}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, effectiveDate: e.target.value }))}
-                      fullWidth
-                      required
-                      margin="dense"
-                      InputLabelProps={{ shrink: true }}
-                      sx={{ marginTop: 2 }}
-                    />
-                    <FormLabel
-                      sx={{
-                        ...theme.typography.subtitle2,
-                        color: theme.palette.text.secondary,
-                        mt: 2,
-                        mb: 0.5,
-                        display: 'block',
-                      }}
-                    >
-                      Notes (Markdown)
-                    </FormLabel>
-                    <Box
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '&:focus-within': {
-                          borderColor: 'primary.main',
-                          borderWidth: '2px',
-                          margin: '-1px',
-                        },
-                      }}
-                    >
-                      {editor && (
-                        <Box
-                          sx={{
-                            px: 1,
-                            py: 0.5,
-                            borderBottom: '1px solid',
-                            borderColor: 'divider',
-                            backgroundColor: 'grey.50',
-                            borderTopLeftRadius: 'inherit',
-                            borderTopRightRadius: 'inherit',
+                            ...theme.typography.h4,
+                            color: theme.palette.primary.dark,
+                            fontWeight: '600 !important',
                           }}
                         >
-                          <ToolbarButtons ed={editor} />
-                        </Box>
-                      )}
+                          Fee schedule settings
+                        </Typography>
+                        <Box sx={{ flex: 1 }} />
+                        {currentDesignation === 'insurance-pay' && (
+                          <Chip
+                            label="Insurance CM"
+                            size="small"
+                            sx={{
+                              fontSize: '0.65rem',
+                              height: 20,
+                              backgroundColor: '#6A1B9A',
+                              color: '#fff',
+                            }}
+                          />
+                        )}
+                        {currentDesignation === 'self-pay' && (
+                          <Chip
+                            label="Self-Pay CM"
+                            size="small"
+                            sx={{
+                              fontSize: '0.65rem',
+                              height: 20,
+                              backgroundColor: '#E91E90',
+                              color: '#fff',
+                            }}
+                          />
+                        )}
+                      </Box>
+                      <TextField
+                        label="Name"
+                        value={formData.name}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                        fullWidth
+                        required
+                        margin="dense"
+                      />
+                      <TextField
+                        label="Effective Date"
+                        type="date"
+                        value={formData.effectiveDate}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, effectiveDate: e.target.value }))}
+                        fullWidth
+                        required
+                        margin="dense"
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ marginTop: 2 }}
+                      />
+                      <FormLabel
+                        sx={{
+                          ...theme.typography.subtitle2,
+                          color: theme.palette.text.secondary,
+                          mt: 2,
+                          mb: 0.5,
+                          display: 'block',
+                        }}
+                      >
+                        Notes (Markdown)
+                      </FormLabel>
                       <Box
                         sx={{
-                          p: 2,
-                          '& .ProseMirror': {
-                            outline: 'none',
-                            minHeight: '120px',
-                            '& p.is-editor-empty:first-of-type::before': {
-                              color: 'text.disabled',
-                              content: 'attr(data-placeholder)',
-                              float: 'left',
-                              height: 0,
-                              pointerEvents: 'none',
-                            },
-                            '& ul, & ol': {
-                              paddingLeft: '1.5rem',
-                            },
-                            '& h1, & h2, & h3, & h4, & h5, & h6': {
-                              fontWeight: 600,
-                              marginTop: '1rem',
-                              marginBottom: '0.5rem',
-                            },
-                            '& code': {
-                              backgroundColor: 'action.hover',
-                              borderRadius: '0.25rem',
-                              padding: '0.125rem 0.25rem',
-                              fontFamily: 'monospace',
-                            },
-                            '& pre': {
-                              backgroundColor: 'action.hover',
-                              borderRadius: '0.5rem',
-                              padding: '0.75rem',
-                              overflow: 'auto',
-                              '& code': {
-                                backgroundColor: 'transparent',
-                                padding: 0,
-                              },
-                            },
-                            '& blockquote': {
-                              borderLeft: '3px solid',
-                              borderColor: 'divider',
-                              paddingLeft: '1rem',
-                              marginLeft: 0,
-                            },
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          '&:focus-within': {
+                            borderColor: 'primary.main',
+                            borderWidth: '2px',
+                            margin: '-1px',
                           },
                         }}
                       >
-                        <EditorContent editor={editor} />
+                        {editor && (
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.5,
+                              borderBottom: '1px solid',
+                              borderColor: 'divider',
+                              backgroundColor: 'grey.50',
+                              borderTopLeftRadius: 'inherit',
+                              borderTopRightRadius: 'inherit',
+                            }}
+                          >
+                            <ToolbarButtons ed={editor} />
+                          </Box>
+                        )}
+                        <Box
+                          sx={{
+                            p: 2,
+                            '& .ProseMirror': {
+                              outline: 'none',
+                              minHeight: '120px',
+                              '& p.is-editor-empty:first-of-type::before': {
+                                color: 'text.disabled',
+                                content: 'attr(data-placeholder)',
+                                float: 'left',
+                                height: 0,
+                                pointerEvents: 'none',
+                              },
+                              '& ul, & ol': {
+                                paddingLeft: '1.5rem',
+                              },
+                              '& h1, & h2, & h3, & h4, & h5, & h6': {
+                                fontWeight: 600,
+                                marginTop: '1rem',
+                                marginBottom: '0.5rem',
+                              },
+                              '& code': {
+                                backgroundColor: 'action.hover',
+                                borderRadius: '0.25rem',
+                                padding: '0.125rem 0.25rem',
+                                fontFamily: 'monospace',
+                              },
+                              '& pre': {
+                                backgroundColor: 'action.hover',
+                                borderRadius: '0.5rem',
+                                padding: '0.75rem',
+                                overflow: 'auto',
+                                '& code': {
+                                  backgroundColor: 'transparent',
+                                  padding: 0,
+                                },
+                              },
+                              '& blockquote': {
+                                borderLeft: '3px solid',
+                                borderColor: 'divider',
+                                paddingLeft: '1rem',
+                                marginLeft: 0,
+                              },
+                            },
+                          }}
+                        >
+                          <EditorContent editor={editor} />
+                        </Box>
                       </Box>
-                    </Box>
-                    {error && (
-                      <Box color="error.main" width="100%" marginTop={2}>
-                        {error}
-                      </Box>
-                    )}
-                    <LoadingButton
-                      variant="contained"
-                      color="primary"
-                      loading={updatePending}
-                      sx={{
-                        textTransform: 'none',
-                        borderRadius: 28,
-                        marginTop: 3,
-                        fontWeight: 'bold',
-                        marginRight: 1,
-                      }}
-                      type="submit"
-                      disabled={!formData.name || !formData.effectiveDate}
-                    >
-                      Save changes
-                    </LoadingButton>
-                    <Link to={FEE_SCHEDULES_URL}>
-                      <Button
-                        variant="text"
+                      {error && (
+                        <Box color="error.main" width="100%" marginTop={2}>
+                          {error}
+                        </Box>
+                      )}
+                      <LoadingButton
+                        variant="contained"
                         color="primary"
+                        loading={updatePending}
                         sx={{
                           textTransform: 'none',
                           borderRadius: 28,
                           marginTop: 3,
                           fontWeight: 'bold',
+                          marginRight: 1,
                         }}
+                        type="submit"
+                        disabled={!formData.name || !formData.effectiveDate}
                       >
-                        Cancel
-                      </Button>
-                    </Link>
-                  </form>
-                </Paper>
-              )}
-              {!isFetching && feeSchedule && (
-                <Paper sx={{ padding: 3, marginTop: 3 }}>
-                  <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                    Charge Master Designation
-                  </Typography>
-                  <Typography variant="body1" marginTop={1}>
-                    Designate this fee schedule as the active charge master for insurance or self-pay billing. Only one
-                    fee schedule can hold each designation at a time.
-                  </Typography>
-                  {currentDesignation && (
-                    <Typography variant="body2" color="success.main" sx={{ mt: 1, fontWeight: 600 }}>
-                      Currently designated as:{' '}
-                      {currentDesignation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master'}
+                        Save changes
+                      </LoadingButton>
+                      <Link to={FEE_SCHEDULES_URL}>
+                        <Button
+                          variant="text"
+                          color="primary"
+                          sx={{
+                            textTransform: 'none',
+                            borderRadius: 28,
+                            marginTop: 3,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </Link>
+                    </form>
+                  </Paper>
+                )}
+                {!isFetching && feeSchedule && (
+                  <Paper sx={{ padding: 3, marginTop: 3 }}>
+                    <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                      Charge Master Designation
                     </Typography>
-                  )}
-                  <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
+                    <Typography variant="body1" marginTop={1}>
+                      Designate this fee schedule as the active charge master for insurance or self-pay billing. Only
+                      one fee schedule can hold each designation at a time.
+                    </Typography>
+                    {currentDesignation && (
+                      <Typography variant="body2" color="success.main" sx={{ mt: 1, fontWeight: 600 }}>
+                        Currently designated as:{' '}
+                        {currentDesignation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master'}
+                      </Typography>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
+                      <LoadingButton
+                        variant={currentDesignation === 'insurance-pay' ? 'contained' : 'outlined'}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: 28,
+                          fontWeight: 'bold',
+                          ...(currentDesignation === 'insurance-pay'
+                            ? {
+                                backgroundColor: 'grey.400',
+                                color: 'grey.700',
+                                '&.Mui-disabled': { backgroundColor: 'grey.300', color: 'grey.600' },
+                              }
+                            : {
+                                borderColor: '#6A1B9A',
+                                color: '#6A1B9A',
+                                '&:hover': { backgroundColor: '#6A1B9A', color: '#fff', borderColor: '#6A1B9A' },
+                              }),
+                        }}
+                        loading={designatePending}
+                        onClick={() => setPendingDesignation('insurance-pay')}
+                        disabled={currentDesignation === 'insurance-pay'}
+                      >
+                        {currentDesignation === 'insurance-pay'
+                          ? 'Insurance Charge Master ✓'
+                          : 'Set as Insurance Charge Master'}
+                      </LoadingButton>
+                      <LoadingButton
+                        variant={currentDesignation === 'self-pay' ? 'contained' : 'outlined'}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: 28,
+                          fontWeight: 'bold',
+                          ...(currentDesignation === 'self-pay'
+                            ? {
+                                backgroundColor: 'grey.400',
+                                color: 'grey.700',
+                                '&.Mui-disabled': { backgroundColor: 'grey.300', color: 'grey.600' },
+                              }
+                            : {
+                                borderColor: '#E91E90',
+                                color: '#E91E90',
+                                '&:hover': { backgroundColor: '#E91E90', color: '#fff', borderColor: '#E91E90' },
+                              }),
+                        }}
+                        loading={designatePending}
+                        onClick={() => setPendingDesignation('self-pay')}
+                        disabled={currentDesignation === 'self-pay'}
+                      >
+                        {currentDesignation === 'self-pay'
+                          ? 'Self-Pay Charge Master ✓'
+                          : 'Set as Self-Pay Charge Master'}
+                      </LoadingButton>
+                    </Box>
+                  </Paper>
+                )}
+                {!isFetching && feeSchedule && (
+                  <Paper sx={{ padding: 3, marginTop: 3 }}>
+                    <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                      {isActive ? 'Deactivate fee schedule' : 'Activate fee schedule'}
+                    </Typography>
+                    <Typography variant="body1" marginTop={1}>
+                      {isActive
+                        ? 'When you deactivate this fee schedule, it will no longer be available for use.'
+                        : 'Activate this fee schedule to make it available for use.'}
+                    </Typography>
                     <LoadingButton
-                      variant={currentDesignation === 'insurance-pay' ? 'contained' : 'outlined'}
+                      variant="contained"
+                      color={isActive ? 'error' : 'primary'}
                       sx={{
                         textTransform: 'none',
                         borderRadius: 28,
+                        marginTop: 4,
                         fontWeight: 'bold',
-                        ...(currentDesignation === 'insurance-pay'
-                          ? {
-                              backgroundColor: 'grey.400',
-                              color: 'grey.700',
-                              '&.Mui-disabled': { backgroundColor: 'grey.300', color: 'grey.600' },
-                            }
-                          : {
-                              borderColor: '#6A1B9A',
-                              color: '#6A1B9A',
-                              '&:hover': { backgroundColor: '#6A1B9A', color: '#fff', borderColor: '#6A1B9A' },
-                            }),
+                        marginRight: 1,
                       }}
-                      loading={designatePending}
-                      onClick={() => handleDesignate('insurance-pay')}
-                      disabled={currentDesignation === 'insurance-pay'}
+                      loading={updatePending}
+                      onClick={() => handleStatusChange(isActive ? 'retired' : 'active')}
                     >
-                      {currentDesignation === 'insurance-pay'
-                        ? 'Insurance Charge Master ✓'
-                        : 'Set as Insurance Charge Master'}
+                      {isActive ? 'Deactivate' : 'Activate'}
                     </LoadingButton>
-                    <LoadingButton
-                      variant={currentDesignation === 'self-pay' ? 'contained' : 'outlined'}
-                      sx={{
-                        textTransform: 'none',
-                        borderRadius: 28,
-                        fontWeight: 'bold',
-                        ...(currentDesignation === 'self-pay'
-                          ? {
-                              backgroundColor: 'grey.400',
-                              color: 'grey.700',
-                              '&.Mui-disabled': { backgroundColor: 'grey.300', color: 'grey.600' },
-                            }
-                          : {
-                              borderColor: '#E91E90',
-                              color: '#E91E90',
-                              '&:hover': { backgroundColor: '#E91E90', color: '#fff', borderColor: '#E91E90' },
-                            }),
-                      }}
-                      loading={designatePending}
-                      onClick={() => handleDesignate('self-pay')}
-                      disabled={currentDesignation === 'self-pay'}
-                    >
-                      {currentDesignation === 'self-pay' ? 'Self-Pay Charge Master ✓' : 'Set as Self-Pay Charge Master'}
-                    </LoadingButton>
-                  </Box>
-                </Paper>
-              )}
-              {!isFetching && feeSchedule && (
-                <Paper sx={{ padding: 3, marginTop: 3 }}>
-                  <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                    {isActive ? 'Deactivate fee schedule' : 'Activate fee schedule'}
-                  </Typography>
-                  <Typography variant="body1" marginTop={1}>
-                    {isActive
-                      ? 'When you deactivate this fee schedule, it will no longer be available for use.'
-                      : 'Activate this fee schedule to make it available for use.'}
-                  </Typography>
-                  <LoadingButton
-                    variant="contained"
-                    color={isActive ? 'error' : 'primary'}
-                    sx={{
-                      textTransform: 'none',
-                      borderRadius: 28,
-                      marginTop: 4,
-                      fontWeight: 'bold',
-                      marginRight: 1,
-                    }}
-                    loading={updatePending}
-                    onClick={() => handleStatusChange(isActive ? 'retired' : 'active')}
-                  >
-                    {isActive ? 'Deactivate' : 'Activate'}
-                  </LoadingButton>
-                </Paper>
-              )}
-            </TabPanel>
-            <TabPanel value="payers" sx={{ p: 0 }}>
-              <PayerAssociations feeSchedule={feeSchedule} isFetching={isFetching} />
-            </TabPanel>
-            <TabPanel value="procedures" sx={{ p: 0 }}>
-              <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} />
-            </TabPanel>
-          </TabContext>
+                  </Paper>
+                )}
+              </TabPanel>
+              <TabPanel value="payers" sx={{ p: 0 }}>
+                <PayerAssociations feeSchedule={feeSchedule} isFetching={isFetching} />
+              </TabPanel>
+              <TabPanel value="procedures" sx={{ p: 0 }}>
+                <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} />
+              </TabPanel>
+            </TabContext>
+          </Grid>
         </Grid>
-      </Grid>
+        <Dialog open={!!pendingDesignation} onClose={() => setPendingDesignation(null)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <WarningAmberIcon color="warning" />
+            Confirm Charge Master Designation
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              You are about to designate this fee schedule as the{' '}
+              <strong>
+                {pendingDesignation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master'}
+              </strong>
+              . Any other fee schedule currently holding this designation will have it removed. This action affects
+              billing across the system.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setPendingDesignation(null)} sx={{ textTransform: 'none' }}>
+              Cancel
+            </Button>
+            <LoadingButton
+              variant="contained"
+              color="warning"
+              loading={designatePending}
+              onClick={async () => {
+                if (pendingDesignation) {
+                  await handleDesignate(pendingDesignation);
+                  setPendingDesignation(null);
+                }
+              }}
+              sx={{ textTransform: 'none', fontWeight: 'bold' }}
+            >
+              Proceed
+            </LoadingButton>
+          </DialogActions>
+        </Dialog>
+      </>
     </PageContainer>
   );
 }

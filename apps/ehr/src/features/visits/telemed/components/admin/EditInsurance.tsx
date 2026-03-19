@@ -13,12 +13,13 @@ import {
 } from '@mui/material';
 import { Address, Identifier, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { INSURANCES_URL } from 'src/App';
+import { FEE_SCHEDULES_URL, INSURANCES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
+import { useListFeeSchedulesQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { FHIR_EXTENSION, INSURANCE_SETTINGS_MAP } from 'utils';
 import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './admin.queries';
 
@@ -90,6 +91,14 @@ export default function EditInsurance(): JSX.Element {
   const isActive = insuranceDetails?.active ?? true;
 
   const [payerNameInputValue, setPayerNameInputValue] = useState('');
+
+  const { data: feeSchedules, isFetching: feeSchedulesFetching } = useListFeeSchedulesQuery();
+  const associatedFeeSchedules = useMemo(() => {
+    if (!feeSchedules || !insuranceId) return [];
+    return feeSchedules.filter(
+      (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${insuranceId}`)
+    );
+  }, [feeSchedules, insuranceId]);
 
   const settingsMap = Object.fromEntries(
     Object.entries(INSURANCE_SETTINGS_MAP).map(([key, _]) => [key as keyof typeof INSURANCE_SETTINGS_MAP, false])
@@ -386,6 +395,54 @@ export default function EditInsurance(): JSX.Element {
                 </LoadingButton>
               </Paper>
             ))}
+          {!isNew && (
+            <Paper sx={{ padding: 3, marginTop: 3 }}>
+              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                Fee Schedule Associations
+              </Typography>
+              <Typography variant="body1" marginTop={1}>
+                Fee schedules that include this insurance as an associated payer.
+              </Typography>
+              {feeSchedulesFetching ? (
+                <Skeleton height={80} sx={{ marginTop: -1 }} />
+              ) : associatedFeeSchedules.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  This insurance is not associated with any fee schedules.
+                </Typography>
+              ) : (
+                <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {associatedFeeSchedules.map((fs) => (
+                    <Box
+                      key={fs.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1.5,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {fs.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Status: {fs.status} · {fs.propertyGroup?.length ?? 0} procedure codes
+                        </Typography>
+                      </Box>
+                      <Link to={`${FEE_SCHEDULES_URL}/${fs.id}`}>
+                        <Button size="small" sx={{ textTransform: 'none' }}>
+                          View
+                        </Button>
+                      </Link>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Paper>
+          )}
         </Grid>
       </Grid>
     </PageContainer>
