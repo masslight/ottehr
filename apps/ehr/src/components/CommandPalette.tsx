@@ -26,7 +26,7 @@ export const CommandPalette: FC = () => {
   const navigate = useNavigate();
   const { isOpen, close, toggle, sources } = useCommandPaletteStore();
   const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -66,7 +66,9 @@ export const CommandPalette: FC = () => {
     ];
   }, [filteredItems, showPatientSearchFallback, query]);
 
-  const groupedItems = useMemo(() => {
+  // Compute a flat ordered list of IDs for keyboard navigation.
+  // This uses the same sort order as the rendered groups.
+  const orderedIds = useMemo(() => {
     const groups: Record<string, CommandPaletteItem[]> = {};
     for (const item of displayItems) {
       if (!groups[item.category]) {
@@ -74,26 +76,44 @@ export const CommandPalette: FC = () => {
       }
       groups[item.category].push(item);
     }
-    return groups;
+    const ids: string[] = [];
+    Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([, items]) => {
+        for (const item of items) {
+          ids.push(item.id);
+        }
+      });
+    return ids;
   }, [displayItems]);
+
+  const itemById = useMemo(() => {
+    const map = new Map<string, CommandPaletteItem>();
+    for (const item of displayItems) {
+      map.set(item.id, item);
+    }
+    return map;
+  }, [displayItems]);
+
+  const selectedIndex = selectedId ? orderedIds.indexOf(selectedId) : 0;
+
+  // If the selected item disappeared (source re-registered), fall back to first item
+  useEffect(() => {
+    if (selectedId && !itemById.has(selectedId) && orderedIds.length > 0) {
+      setSelectedId(orderedIds[0]);
+    }
+  }, [selectedId, itemById, orderedIds]);
 
   // Reset state and ensure focus when opened
   useEffect(() => {
     if (isOpen) {
       setQuery('');
-      setSelectedIndex(0);
+      setSelectedId(null);
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
     }
   }, [isOpen]);
-
-  // Keep selectedIndex in bounds
-  useEffect(() => {
-    if (selectedIndex >= displayItems.length) {
-      setSelectedIndex(Math.max(0, displayItems.length - 1));
-    }
-  }, [displayItems.length, selectedIndex]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -102,7 +122,7 @@ export const CommandPalette: FC = () => {
     if (selectedEl) {
       selectedEl.scrollIntoView({ block: 'nearest' });
     }
-  }, [selectedIndex]);
+  }, [selectedId]);
 
   const handlePatientSearch = useCallback(
     (searchQuery: string) => {
@@ -143,27 +163,34 @@ export const CommandPalette: FC = () => {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       switch (e.key) {
-        case 'ArrowDown':
+        case 'ArrowDown': {
           e.preventDefault();
-          setSelectedIndex((i) => Math.min(i + 1, displayItems.length - 1));
+          const nextIndex = Math.min(selectedIndex + 1, orderedIds.length - 1);
+          setSelectedId(orderedIds[nextIndex] ?? null);
           break;
-        case 'ArrowUp':
+        }
+        case 'ArrowUp': {
           e.preventDefault();
-          setSelectedIndex((i) => Math.max(i - 1, 0));
+          const prevIndex = Math.max(selectedIndex - 1, 0);
+          setSelectedId(orderedIds[prevIndex] ?? null);
           break;
-        case 'Enter':
+        }
+        case 'Enter': {
           e.preventDefault();
-          if (displayItems[selectedIndex]) {
-            handleSelect(displayItems[selectedIndex]);
+          const currentId = selectedId ?? orderedIds[0];
+          const item = currentId ? itemById.get(currentId) : undefined;
+          if (item) {
+            handleSelect(item);
           }
           break;
+        }
         case 'Escape':
           e.preventDefault();
           close();
           break;
       }
     },
-    [displayItems, selectedIndex, handleSelect, close]
+    [orderedIds, selectedIndex, selectedId, itemById, handleSelect, close]
   );
 
   // Global keyboard shortcut — skip when focus is in an editable element
@@ -182,6 +209,18 @@ export const CommandPalette: FC = () => {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [toggle, isOpen]);
+
+  // Build grouped items for rendering (same sort as orderedIds)
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, CommandPaletteItem[]> = {};
+    for (const item of displayItems) {
+      if (!groups[item.category]) {
+        groups[item.category] = [];
+      }
+      groups[item.category].push(item);
+    }
+    return groups;
+  }, [displayItems]);
 
   return (
     <Dialog
@@ -212,7 +251,7 @@ export const CommandPalette: FC = () => {
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
-            setSelectedIndex(0);
+            setSelectedId(null);
           }}
           InputProps={{
             startAdornment: (
@@ -263,8 +302,7 @@ export const CommandPalette: FC = () => {
                     {category}
                   </Typography>
                   {items.map((item) => {
-                    const flatIndex = displayItems.indexOf(item);
-                    const isSelected = flatIndex === selectedIndex;
+                    const isSelected = item.id === (selectedId ?? orderedIds[0]);
                     const isPatientSearch = item.id === PATIENT_SEARCH_ID;
                     return (
                       <ListItemButton
