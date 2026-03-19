@@ -20,8 +20,6 @@ import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
-import { getLabResources } from '../lab/external/get-lab-orders/helpers';
-import { getInHouseResources } from '../lab/in-house/get-in-house-orders/helpers';
 import { getRadiologyOrders } from '../radiology/order-list';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -95,31 +93,6 @@ export const performEffect = async (
     encounterIds: [encounter.id!],
   });
 
-  const externalLabOrdersPromise = getLabResources(
-    oystehr,
-    {
-      searchBy: { field: 'encounterId', value: encounter.id! },
-      itemsPerPage: 10,
-      pageIndex: 0,
-      secrets,
-    },
-    m2mToken,
-    { searchBy: { field: 'encounterId', value: encounter.id! } }
-  );
-
-  const inHouseOrdersPromise = getInHouseResources(
-    oystehr,
-    {
-      searchBy: { field: 'encounterId', value: encounter.id! },
-      itemsPerPage: 10,
-      pageIndex: 0,
-      secrets,
-      userToken: '',
-    },
-    { searchBy: { field: 'encounterId', value: encounter.id! } },
-    m2mToken
-  );
-
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {
       field: 'encounterId',
@@ -127,19 +100,10 @@ export const performEffect = async (
     },
   });
 
-  const [
-    chartDataResult,
-    additionalChartDataResult,
-    radiologyData,
-    externalLabsData,
-    inHouseOrdersData,
-    medicationOrdersData,
-  ] = await Promise.all([
+  const [chartDataResult, additionalChartDataResult, radiologyData, medicationOrdersData] = await Promise.all([
     chartDataPromise,
     additionalChartDataPromise,
     radiologyOrdersPromise,
-    externalLabOrdersPromise,
-    inHouseOrdersPromise,
     medicationOrdersPromise,
   ]);
   const chartData = chartDataResult.response;
@@ -153,8 +117,6 @@ export const performEffect = async (
         chartData,
         additionalChartData,
         radiologyData,
-        externalLabsData,
-        inHouseOrdersData,
         medicationOrders,
       },
       appointmentPackage: visitResources,

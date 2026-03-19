@@ -47,6 +47,8 @@ import {
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
+  DeletePatientDocumentInput,
+  DeletePatientDocumentOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
@@ -1334,6 +1336,22 @@ export const applyTemplate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'apply-template',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deletePatientDocument = async (
+  oystehr: Oystehr,
+  parameters: DeletePatientDocumentInput
+): Promise<DeletePatientDocumentOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'delete-patient-document',
       ...parameters,
     });
     return chooseJson(response);

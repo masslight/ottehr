@@ -27,7 +27,7 @@ import {
   testTextComponent,
   waitForFieldSave,
 } from 'tests/e2e-utils/helpers/exam-tab.test-helpers';
-import { getFirstName, getLastName, MDM_FIELD_DEFAULT_TEXT } from 'utils';
+import { getFirstName, getLastName, MDM_FIELD_DEFAULT_TEXT, PROVIDER_CONFIG } from 'utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { AllergiesPage, expectAllergiesPage } from '../../page/in-person/AllergiesPage';
 
@@ -61,6 +61,7 @@ const WEIGHT_KG = '70';
 const HEIGHT_CM = '175';
 const VISION_LEFT = '2.5';
 const VISION_RIGHT = '3.1';
+const VISION_CPT_CODE = PROVIDER_CONFIG.assessment.visionAutoCptCodes[0];
 const LMP_DATE = '01/15/2024';
 const VITALS_NOTE_1 = 'Test vitals note 1';
 const VITALS_NOTE_2 = 'Test vitals note 2';
@@ -237,6 +238,21 @@ test.describe('In-Person Visit Chart Data', async () => {
           await abnormalVitalDialog.verifyAlertIconVisible();
           await abnormalVitalDialog.clickCancelButton(); // clickCancelButton() is used because it corresponds to 'Continue' button in UI.
           await expectAllergiesPage(page);
+        });
+      });
+
+      test('VIT-2. Vitals billing codes', async () => {
+        await test.step('Check that billing code is created when vision is added', async () => {
+          // Navigate to Assessment to verify CPT code was auto-added
+          const assessmentPage = new InPersonAssessmentPage(page);
+          await sideMenu.clickAssessment();
+          await assessmentPage.expectBillingCodesElement();
+
+          // Verify the vision CPT code (99173) was automatically added
+          await assessmentPage.verifyCptCode(VISION_CPT_CODE);
+
+          // Clean up by deleting the code
+          await assessmentPage.deleteCptCode(VISION_CPT_CODE);
         });
       });
     });
