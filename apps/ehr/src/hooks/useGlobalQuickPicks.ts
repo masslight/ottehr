@@ -4,7 +4,12 @@ import { ExamType, MEDICAL_HISTORY_CONFIG } from 'utils';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
-import { useMergedProcedureQuickPicks } from './useMergedQuickPicks';
+import {
+  useMergedAllergyQuickPicks,
+  useMergedMedicalConditionQuickPicks,
+  useMergedMedicationHistoryQuickPicks,
+  useMergedProcedureQuickPicks,
+} from './useMergedQuickPicks';
 
 /**
  * Registers all quick picks globally in the command palette so they're available
@@ -26,7 +31,10 @@ export function useGlobalQuickPicks(): void {
   const location = useLocation();
   const navigate = useNavigate();
   const setPendingQuickPick = useCommandPaletteStore((s) => s.setPendingQuickPick);
-  const { quickPicks: mergedProcedureQuickPicks } = useMergedProcedureQuickPicks();
+  const { quickPicks: procedureQuickPicks } = useMergedProcedureQuickPicks();
+  const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks();
+  const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks();
+  const { quickPicks: medicationQuickPicks } = useMergedMedicationHistoryQuickPicks();
 
   // Extract the in-person base path (e.g., "/in-person/abc123")
   const inPersonBase = useMemo(() => {
@@ -78,9 +86,9 @@ export function useGlobalQuickPicks(): void {
 
     const items: CommandPaletteItem[] = [];
 
-    // Allergies
+    // Allergies (FHIR-based)
     if (!isOnAllergies) {
-      for (const qp of MEDICAL_HISTORY_CONFIG.allergies.quickPicks) {
+      for (const qp of allergyQuickPicks) {
         items.push({
           id: `global-allergy-${qp.name}`,
           label: qp.name,
@@ -90,21 +98,21 @@ export function useGlobalQuickPicks(): void {
       }
     }
 
-    // Medical Conditions
+    // Medical Conditions (FHIR-based)
     if (!isOnMedicalConditions) {
-      for (const qp of MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks) {
+      for (const qp of conditionQuickPicks) {
         items.push({
-          id: `global-condition-${qp.display}`,
-          label: qp.display,
+          id: `global-condition-${qp.code ?? qp.display}`,
+          label: `${qp.code ? `${qp.code} ` : ''}${qp.display}`,
           category: 'Add Medical Condition',
-          onSelect: () => navigateAndDefer('medical-conditions', 'medical-conditions', qp.display, qp),
+          onSelect: () => navigateAndDefer('medical-conditions', 'medical-conditions', qp.code ?? qp.display, qp),
         });
       }
     }
 
-    // Medications (current/prescribed)
+    // Medications (FHIR-based)
     if (!isOnMedications) {
-      for (const qp of MEDICAL_HISTORY_CONFIG.medications.quickPicks) {
+      for (const qp of medicationQuickPicks) {
         const label = qp.strength ? `${qp.name} ${qp.strength}` : qp.name;
         items.push({
           id: `global-medication-${qp.name}-${qp.strength ?? ''}`,
@@ -115,9 +123,9 @@ export function useGlobalQuickPicks(): void {
       }
     }
 
-    // Procedures (merged: hardcoded + FHIR-based)
+    // Procedures (FHIR-based)
     if (!isOnProceduresNew) {
-      for (const qp of mergedProcedureQuickPicks) {
+      for (const qp of procedureQuickPicks) {
         items.push({
           id: `global-procedure-${qp.id ?? qp.name}`,
           label: qp.name,
@@ -127,7 +135,7 @@ export function useGlobalQuickPicks(): void {
       }
     }
 
-    // In-House Medications
+    // In-House Medications (hardcoded — no FHIR admin for this category yet)
     if (!isOnInHouseOrderNew) {
       const filtered = MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter(
         (qp) => qp.dosespotId != null || qp.ndc != null
@@ -164,7 +172,10 @@ export function useGlobalQuickPicks(): void {
     isOnProceduresNew,
     isOnInHouseOrderNew,
     navigateAndDefer,
-    mergedProcedureQuickPicks,
+    allergyQuickPicks,
+    conditionQuickPicks,
+    medicationQuickPicks,
+    procedureQuickPicks,
     templates,
   ]);
 

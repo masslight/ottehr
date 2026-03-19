@@ -23,7 +23,7 @@ import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMed
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { MEDICAL_HISTORY_CONFIG, MedicationDTO } from 'utils';
+import { MedicationDTO, MedicationHistoryQuickPickData } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
@@ -128,18 +128,18 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     () =>
       isReadOnly
         ? []
-        : MEDICAL_HISTORY_CONFIG.medications.quickPicks.map((qp) => ({
+        : medicationHistoryQuickPicks.map((qp) => ({
             id: `medication-${qp.name}-${qp.strength ?? ''}`,
             label: `${qp.name}${qp.strength ? ` (${qp.strength})` : ''}`,
             category: 'Add Medication',
             onSelect: () => handleQuickPickSelect(qp),
           })),
-    [handleQuickPickSelect, isReadOnly]
+    [handleQuickPickSelect, isReadOnly, medicationHistoryQuickPicks]
   );
   useCommandPaletteSource('medication-quick-picks', commandPaletteItems);
 
   const handlePendingQuickPick = useCallback(
-    (payload: (typeof MEDICAL_HISTORY_CONFIG.medications.quickPicks)[number]) => {
+    (payload: MedicationHistoryQuickPickData) => {
       if (isReadOnly) return;
       handleQuickPickSelect(payload);
     },

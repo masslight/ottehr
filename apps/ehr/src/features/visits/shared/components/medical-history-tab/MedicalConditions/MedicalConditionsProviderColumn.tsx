@@ -21,7 +21,7 @@ import { sortByRecencyAndStatus } from 'src/helpers';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
+import { IcdSearchResponse, MedicalConditionDTO, MedicalConditionQuickPickData } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -318,22 +318,19 @@ const AddMedicalConditionField: FC = () => {
 
   const commandPaletteItems = useMemo(
     () =>
-      MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks.map((qp) => ({
-        id: `condition-${'code' in qp ? qp.code : qp.display}`,
-        label: `${'code' in qp ? `${qp.code} ` : ''}${qp.display}`,
+      conditionQuickPicks.map((qp) => ({
+        id: `condition-${qp.code ?? qp.display}`,
+        label: `${qp.code ? `${qp.code} ` : ''}${qp.display}`,
         category: 'Add Medical Condition',
         onSelect: () => void handleQuickPickSelectRef.current(qp),
       })),
-    []
+    [conditionQuickPicks]
   );
   useCommandPaletteSource('medical-condition-quick-picks', commandPaletteItems);
 
-  const handlePendingQuickPick = useCallback(
-    (payload: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks)[number]) => {
-      void handleQuickPickSelectRef.current(payload);
-    },
-    []
-  );
+  const handlePendingQuickPick = useCallback((payload: MedicalConditionQuickPickData) => {
+    void handleQuickPickSelectRef.current(payload);
+  }, []);
   usePendingQuickPick('medical-conditions', handlePendingQuickPick);
 
   if (isChartDataLoading) {

@@ -22,7 +22,7 @@ import { sortByRecencyAndStatus } from 'src/helpers';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
+import { AllergyDTO, AllergyQuickPickData } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -334,22 +334,19 @@ const AddAllergyField: FC = () => {
 
   const commandPaletteItems = useMemo(
     () =>
-      MEDICAL_HISTORY_CONFIG.allergies.quickPicks.map((qp) => ({
+      allergyQuickPicks.map((qp) => ({
         id: `allergy-${qp.name}`,
         label: qp.name,
         category: 'Add Allergy',
         onSelect: () => void handleQuickPickSelectRef.current(qp),
       })),
-    []
+    [allergyQuickPicks]
   );
   useCommandPaletteSource('allergy-quick-picks', commandPaletteItems);
 
-  const handlePendingQuickPick = useCallback(
-    (payload: (typeof MEDICAL_HISTORY_CONFIG.allergies.quickPicks)[number]) => {
-      void handleQuickPickSelectRef.current(payload);
-    },
-    []
-  );
+  const handlePendingQuickPick = useCallback((payload: AllergyQuickPickData) => {
+    void handleQuickPickSelectRef.current(payload);
+  }, []);
   usePendingQuickPick('allergies', handlePendingQuickPick);
 
   const onSubmitForm = async (data: {
