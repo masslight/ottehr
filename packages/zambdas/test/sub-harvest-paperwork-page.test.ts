@@ -19,6 +19,7 @@ vi.mock('../src/ehr/shared/harvest', () => ({
   createDocumentResources: vi.fn(async () => {}),
   createConsentResources: vi.fn(async () => {}),
   createErxContactOperation: vi.fn(() => null),
+  mergeEncounterAccounts: vi.fn(() => ({ accounts: undefined, changed: false })),
 }));
 
 vi.mock('utils', async (importOriginal) => {
@@ -165,7 +166,7 @@ describe('executePageHarvest', () => {
     const result = await executePageHarvest(buildContext('contact-information-page'));
     expect(result).toContain('master record updated');
     expect(result).toContain('contact-information-page');
-    expect(result).toContain('erx-contact');
+    expect(result).toContain('erx-contact skipped (no RelatedPerson)');
   });
 
   it('dispatches pharmacy strategy for pharmacy-page', async () => {

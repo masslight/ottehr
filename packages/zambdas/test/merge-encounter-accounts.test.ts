@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeEncounterAccounts } from '../src/subscriptions/task/sub-harvest-paperwork/page-handlers';
+import { mergeEncounterAccounts } from '../src/ehr/shared/harvest';
 
 describe('mergeEncounterAccounts', () => {
   it('returns changed: false when all references are undefined', () => {

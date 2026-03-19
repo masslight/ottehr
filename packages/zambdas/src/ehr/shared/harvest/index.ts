@@ -19,6 +19,7 @@ import {
   ContactPoint,
   Coverage,
   DocumentReference,
+  Encounter,
   Extension,
   FhirResource,
   Flag,
@@ -2398,6 +2399,10 @@ export function createErxContactOperation(
   const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
   console.log(`patient verified phone number ${verifiedPhoneNumber}`);
 
+  if (!verifiedPhoneNumber) {
+    console.log('no verified phone number found for eRx contact; skipping eRx contact update');
+    return undefined;
+  }
   console.log('reviewing patient erx contact telecom phone number');
   // find existing erx contact info and it's index so that the contact array can be updated
   const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
@@ -4086,3 +4091,34 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
 function getAnswer(linkId: string, items: QuestionnaireResponseItem[]): QuestionnaireResponseItemAnswer | undefined {
   return items.find((data) => data.linkId === linkId)?.answer?.[0];
 }
+
+export const mergeEncounterAccounts = (
+  existingAccounts: Encounter['account'],
+  references: (string | undefined)[]
+): { accounts?: Encounter['account']; changed: boolean } => {
+  const sanitizedReferences = references.filter((reference): reference is string => Boolean(reference));
+  if (!sanitizedReferences.length) {
+    return { accounts: existingAccounts, changed: false };
+  }
+
+  const normalizedAccounts: Encounter['account'] = existingAccounts ? [...existingAccounts] : [];
+  const existingRefSet = new Set(
+    (existingAccounts ?? [])
+      .map((account) => account.reference)
+      .filter((reference): reference is string => Boolean(reference))
+  );
+  let changed = false;
+
+  sanitizedReferences.forEach((reference) => {
+    if (!existingRefSet.has(reference)) {
+      normalizedAccounts.push({ reference });
+      existingRefSet.add(reference);
+      changed = true;
+    }
+  });
+
+  return {
+    accounts: changed ? normalizedAccounts : existingAccounts,
+    changed,
+  };
+};

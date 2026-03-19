@@ -32,7 +32,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { mergeEncounterAccounts } from '../../../subscriptions/task/sub-harvest-paperwork/page-handlers';
+import { mergeEncounterAccounts } from '../../shared/harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,

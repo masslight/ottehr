@@ -11,7 +11,10 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import {
+  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
   flattenQuestionnaireAnswers,
+  getEncounterPaymentVariantExtension,
+  getPaymentVariantFromEncounter,
   getRelatedPersonForPatient,
   type HarvestStrategy,
   INSURANCE_PAY_OPTION,
@@ -20,7 +23,6 @@ import {
   PaymentVariant,
   Secrets,
   SELF_PAY_OPTION,
-  updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
   createConsentResources,
@@ -29,6 +31,7 @@ import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
+  mergeEncounterAccounts,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
 import { getAuth0Token } from '../../../shared';
@@ -110,25 +113,46 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     oystehr
   );
 
-  // Update encounter payment variant and account references
+  // Update encounter payment variant only when a payment option answer is present
   const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
-  let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
-  if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
-    paymentVariant = PaymentVariant.insurance;
-  }
-  if (selectedPaymentOption === 'Employer') {
-    paymentVariant = PaymentVariant.employer;
+  const encounterPatchOperations: Operation[] = [];
+
+  if (selectedPaymentOption) {
+    let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
+    if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
+      paymentVariant = PaymentVariant.insurance;
+    }
+    if (selectedPaymentOption === 'Employer') {
+      paymentVariant = PaymentVariant.employer;
+    }
+
+    const currentVariant = getPaymentVariantFromEncounter(encounter);
+    if (currentVariant !== paymentVariant) {
+      const extIndex = encounter.extension?.findIndex((ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL);
+
+      if (extIndex !== undefined && extIndex >= 0) {
+        encounterPatchOperations.push({
+          op: 'replace',
+          path: `/extension/${extIndex}`,
+          value: getEncounterPaymentVariantExtension(paymentVariant),
+        });
+      } else if (encounter.extension) {
+        encounterPatchOperations.push({
+          op: 'add',
+          path: '/extension/-',
+          value: getEncounterPaymentVariantExtension(paymentVariant),
+        });
+      } else {
+        encounterPatchOperations.push({
+          op: 'add',
+          path: '/extension',
+          value: [getEncounterPaymentVariantExtension(paymentVariant)],
+        });
+      }
+    }
   }
 
-  const updatedEncounter = updateEncounterPaymentVariantExtension(encounter, paymentVariant);
-  const encounterPatchOperations: Operation[] = [
-    {
-      op: encounter.extension !== undefined ? 'replace' : 'add',
-      path: '/extension',
-      value: updatedEncounter.extension,
-    },
-  ];
-
+  // Update encounter account references
   const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
     patient.id!,
     oystehr
@@ -228,13 +252,15 @@ const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
   }
 
   const erxContactOp = createErxContactOperation(relatedPerson, patient);
-  if (erxContactOp) {
-    await oystehr.fhir.patch({
-      resourceType: 'Patient',
-      id: patient.id!,
-      operations: [erxContactOp],
-    });
+  if (!erxContactOp) {
+    return 'erx-contact already up-to-date';
   }
+
+  await oystehr.fhir.patch({
+    resourceType: 'Patient',
+    id: patient.id!,
+    operations: [erxContactOp],
+  });
 
   return 'erx-contact updated';
 };
@@ -248,37 +274,6 @@ export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> =
   documents: documentsStrategy,
   consent: consentStrategy,
   'erx-contact': erxContactStrategy,
-};
-
-export const mergeEncounterAccounts = (
-  existingAccounts: Encounter['account'],
-  references: (string | undefined)[]
-): { accounts?: Encounter['account']; changed: boolean } => {
-  const sanitizedReferences = references.filter((reference): reference is string => Boolean(reference));
-  if (!sanitizedReferences.length) {
-    return { accounts: existingAccounts, changed: false };
-  }
-
-  const normalizedAccounts: Encounter['account'] = existingAccounts ? [...existingAccounts] : [];
-  const existingRefSet = new Set(
-    (existingAccounts ?? [])
-      .map((account) => account.reference)
-      .filter((reference): reference is string => Boolean(reference))
-  );
-  let changed = false;
-
-  sanitizedReferences.forEach((reference) => {
-    if (!existingRefSet.has(reference)) {
-      normalizedAccounts.push({ reference });
-      existingRefSet.add(reference);
-      changed = true;
-    }
-  });
-
-  return {
-    accounts: changed ? normalizedAccounts : existingAccounts,
-    changed,
-  };
 };
 
 export const executePageHarvest = async (ctx: HarvestContext): Promise<string> => {
