@@ -81,6 +81,7 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
     params.push(`address:contains=${encodeURIComponent(filter.address)}`);
   }
 
+  if (filter.pid) params.push(`_id=${encodeURIComponent(filter.pid)}`);
   if (filter.dob) params.push(`birthdate=${encodeURIComponent(filter.dob)}`);
   if (filter.email) params.push(`email=${encodeURIComponent(filter.email)}`);
 
