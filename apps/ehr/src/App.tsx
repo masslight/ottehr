@@ -22,6 +22,7 @@ import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
+import EditFeeSchedule from './features/visits/telemed/components/admin/EditFeeSchedule';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
 import { useApiClients } from './hooks/useAppClients';
@@ -78,6 +79,7 @@ const TelemedAppointmentPageLazy = lazy(async () => {
 });
 
 export const INSURANCES_URL = '/admin/insurances';
+export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -225,6 +227,7 @@ function App(): ReactElement {
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                  <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditFeeSchedule />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"

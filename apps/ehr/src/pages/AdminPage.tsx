@@ -3,6 +3,7 @@ import { Box, Tab } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import FeeSchedule from '../features/visits/telemed/components/admin/FeeSchedule';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
@@ -15,6 +16,7 @@ enum PageTab {
   employees = 'employees',
   providers = 'providers',
   insurance = 'insurances',
+  feeSchedule = 'fee-schedule',
 }
 
 export function AdminPage(): JSX.Element {
@@ -71,6 +73,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.insurance}`)}
                 />
+                <Tab
+                  label="Fee Schedule"
+                  value={PageTab.feeSchedule}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.feeSchedule}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -97,6 +105,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
             <Insurances />
+          </TabPanel>
+          <TabPanel value={PageTab.feeSchedule} sx={{ padding: 0 }}>
+            <FeeSchedule />
           </TabPanel>
         </TabContext>
       </Box>

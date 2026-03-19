@@ -747,3 +747,6 @@ export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waitin
 
 export const ACCIDENT_TYPE_SYSTEM = ottehrCodeSystemUrl('accident-type');
 export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');
+
+export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');
+export type ChargeMasterDesignation = 'insurance-pay' | 'self-pay';
