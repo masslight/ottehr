@@ -183,6 +183,10 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     });
   }
 
+  console.log(
+    `account and coverage resources ${accountsChanged ? 'updated' : 'unchanged'} for encounter ${encounter.id}`
+  );
+
   return 'account / coverage updated';
 };
 
