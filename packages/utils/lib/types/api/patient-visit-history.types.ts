@@ -18,6 +18,7 @@ interface BaseAppointmentHistoryRow {
   type: AppointmentType | undefined;
   length: number;
   serviceMode: ServiceMode;
+  serviceCategory?: string;
   visitReason: string | undefined;
   office: string | undefined;
   dateTime: string | undefined;
@@ -37,6 +38,7 @@ export interface FollowUpVisitHistoryRow {
   originalAppointmentId: string | undefined;
   status: Encounter['status'];
   type: string | undefined;
+  serviceCategory?: string;
   dateTime: string | undefined;
   visitReason: string | undefined;
   office: string | undefined;
