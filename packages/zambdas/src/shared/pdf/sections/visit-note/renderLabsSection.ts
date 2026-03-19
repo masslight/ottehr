@@ -1,12 +1,12 @@
 import { NonNormalResult, NonNormalResultContained } from 'utils';
 import { ICON_STYLE } from '../../pdf-consts';
 import { rgbNormalized } from '../../pdf-utils';
-import { LabOrder, PdfAssets, PdfClient, PdfStyles, TextStyle } from '../../types';
+import { PdfAssets, PdfClient, PdfStyles, TextStyle } from '../../types';
 
 export type LabType = 'inhouse' | 'external';
 
 export type LabsRenderData = {
-  orders: LabOrder[];
+  orders: string[]; // names of all the tests ordered
   results: {
     name: string;
     nonNormalResultContained: NonNormalResultContained;
@@ -92,8 +92,11 @@ export function renderLabsSection(
   };
 
   if (labsData.orders.length) {
-    client.drawText('Orders:', styles.textStyles.subHeader);
-    labsData.orders.forEach((order) => client.drawText(order.testItemName, styles.textStyles.regularText));
+    client.drawText('Pending Results:', styles.textStyles.subHeader);
+    labsData.orders.forEach((order) => client.drawText(order, styles.textStyles.regularText));
+    if (labsData.results.length) {
+      client.newLine(8);
+    }
   }
 
   if (labsData.results.length) {
