@@ -35,13 +35,9 @@ export function validateRequestParameters(
     throw new Error('specimen is required');
   }
 
-  if (!params.data.specimen.source) {
-    throw new Error('specimen.source is required');
-  }
-
   // spaces are not valid for Specimen.source in FHIR
   // regex matches a string of all repeated whitespace characters
-  if (params.data.specimen.source.match(RegExp('^\\s+$'))) {
+  if (params.data.specimen.source && params.data.specimen.source.match(RegExp('^\\s+$'))) {
     throw new Error(`specimen.source must be a valid string. '${params.data.specimen.source}' is not valid`);
   }
 

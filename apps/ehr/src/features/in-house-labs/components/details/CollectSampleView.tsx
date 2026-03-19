@@ -449,7 +449,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
-                disabled={!sourceType || !collectedById || !date.isValid || isReadOnly}
+                disabled={!collectedById || !date.isValid || isReadOnly}
                 sx={{
                   borderRadius: '20px',
                   px: 3,
