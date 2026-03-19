@@ -1,10 +1,9 @@
 /**
  * One-time migration script: converts hardcoded quick picks from MEDICAL_HISTORY_CONFIG
- * into FHIR ActivityDefinition resources.
+ * and PROCEDURES_CONFIG into FHIR ActivityDefinition resources.
  *
- * The script reads the instance's actual MEDICAL_HISTORY_CONFIG (including any
- * overrides applied via MEDICAL_HISTORY_OVERRIDES) so it migrates whatever quick
- * picks that instance is currently using — not a fixed set.
+ * The script reads the instance's actual configs (including any overrides) so it
+ * migrates whatever quick picks that specific instance is currently using.
  *
  * Usage:
  *   npx env-cmd -f apps/ehr/env/tests.local.json npx tsx scripts/migrate-quick-picks-to-fhir.ts
@@ -18,7 +17,7 @@
 
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
-import { MEDICAL_HISTORY_CONFIG } from 'utils';
+import { MEDICAL_HISTORY_CONFIG, PROCEDURES_CONFIG } from 'utils';
 
 // ── Constants (must match quick-pick-helpers.ts) ──
 
@@ -29,6 +28,7 @@ const TAG_CODES = {
   allergy: 'allergy-quick-pick',
   medicalCondition: 'medical-condition-quick-pick',
   medicationHistory: 'medication-history-quick-pick',
+  procedure: 'procedure-quick-pick',
 } as const;
 
 // ── Auth ──
@@ -140,9 +140,13 @@ function buildMigrationItems(): MigrationItem[] {
     });
   }
 
-  // Note: Procedure quick picks are not included because they are created
-  // by providers from the Document Procedure page, not from hardcoded defaults.
-  // In-house medication quick picks are also excluded because they don't have
+  // Procedures — display name key is 'name', so strip it from config
+  for (const qp of PROCEDURES_CONFIG.quickPicks) {
+    const { name, ...config } = qp;
+    items.push({ title: name, tagCode: TAG_CODES.procedure, config: config as Record<string, unknown> });
+  }
+
+  // Note: In-house medication quick picks are excluded because they don't have
   // a FHIR admin category yet.
 
   return items;
@@ -166,16 +170,18 @@ async function migrate(): Promise<void> {
   console.log('Authenticated successfully.');
   console.log();
 
-  // Build items from the instance's MEDICAL_HISTORY_CONFIG (includes overrides)
+  // Build items from the instance's configs (includes overrides)
   const migrationItems = buildMigrationItems();
   const allergyCount = migrationItems.filter((i) => i.tagCode === TAG_CODES.allergy).length;
   const conditionCount = migrationItems.filter((i) => i.tagCode === TAG_CODES.medicalCondition).length;
   const medicationCount = migrationItems.filter((i) => i.tagCode === TAG_CODES.medicationHistory).length;
+  const procedureCount = migrationItems.filter((i) => i.tagCode === TAG_CODES.procedure).length;
 
-  console.log(`Quick picks found in MEDICAL_HISTORY_CONFIG: ${migrationItems.length}`);
+  console.log(`Quick picks found in config: ${migrationItems.length}`);
   console.log(`  Allergies: ${allergyCount}`);
   console.log(`  Medical Conditions: ${conditionCount}`);
   console.log(`  Medications: ${medicationCount}`);
+  console.log(`  Procedures: ${procedureCount}`);
   console.log();
 
   // Fetch existing quick picks to avoid duplicates
