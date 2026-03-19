@@ -79,7 +79,6 @@ const TelemedAppointmentPageLazy = lazy(async () => {
 
 export const INSURANCES_URL = '/admin/insurances';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
-export const QUICK_PICKS_URL = '/admin/quick-picks';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
