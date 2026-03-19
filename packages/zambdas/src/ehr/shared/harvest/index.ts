@@ -2397,12 +2397,14 @@ export function createErxContactOperation(
   patientResource: Patient
 ): Operation | undefined {
   const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
-  console.log(`patient verified phone number ${verifiedPhoneNumber}`);
 
   if (!verifiedPhoneNumber) {
     console.log('no verified phone number found for eRx contact; skipping eRx contact update');
     return undefined;
   }
+  const lastFourDigits = verifiedPhoneNumber.slice(-4);
+  console.log(`patient verified phone number ending with ${lastFourDigits}`);
+
   console.log('reviewing patient erx contact telecom phone number');
   // find existing erx contact info and it's index so that the contact array can be updated
   const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
