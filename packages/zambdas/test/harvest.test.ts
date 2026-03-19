@@ -30,6 +30,7 @@ describe('Patient Master Record Tests', () => {
             city: 'Pembroke Pine',
             state: 'CA',
             postalCode: '06001',
+            country: 'US',
           },
         ],
       },

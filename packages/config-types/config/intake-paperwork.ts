@@ -46,14 +46,14 @@ export const PaperworkConfigSchema = QuestionnaireConfigSchema.extend({
  * but this indirection exists so it can eventually be lifted into an extension on
  * the Questionnaire item definitions themselves.
  */
-export type HarvestStrategy = 'master-record' | 'pharmacy' | 'account-coverage' | 'documents' | 'consent';
+export type HarvestStrategy = 'master-record' | 'pharmacy' | 'account-coverage' | 'documents' | 'consent' | 'erx-contact';
 
 /**
  * Maps intake paperwork page linkIds to their harvest strategy.
  * Pages not present in this map require no incremental harvesting.
  */
 export const pageHarvestStrategy: Record<string, HarvestStrategy[]> = {
-  'contact-information-page': ['master-record'],
+  'contact-information-page': ['master-record', 'erx-contact'],
   'patient-details-page': ['master-record'],
   'primary-care-physician-page': ['master-record'],
   'pharmacy-page': ['pharmacy'],

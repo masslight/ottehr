@@ -1045,6 +1045,18 @@ export function createMasterRecordPatchOperations(
     });
   }
 
+  const hasAddressOp = tempOperations.some((op) => op.path?.startsWith('/address'));
+  if (hasAddressOp) {
+    const currentCountry = getCurrentValue(patient, '/address/0/country');
+    if (!currentCountry) {
+      tempOperations.push({
+        op: 'add',
+        path: '/address/0/country',
+        value: 'US',
+      });
+    }
+  }
+
   result.patient.patchOpsForDirectUpdate = tempOperations.filter((op) => {
     const { path, op: innerOperation } = op;
     return path != undefined && innerOperation != undefined;
@@ -2396,15 +2408,16 @@ export function createErxContactOperation(
     )
   );
 
+  const hasExistingErxContact = erxContactIdx !== undefined && erxContactIdx >= 0;
   let updateErxContact = false;
-  const erxContact = erxContactIdx && erxContactIdx >= 0 ? patientResource?.contact?.[erxContactIdx] : undefined;
+  const erxContact = hasExistingErxContact ? patientResource?.contact?.[erxContactIdx] : undefined;
   const erxTelecom =
     erxContact &&
     erxContact.telecom?.find((telecom) =>
       Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
     );
 
-  if (erxContactIdx && erxContactIdx >= 0) {
+  if (hasExistingErxContact) {
     if (!(erxTelecom && erxTelecom.system === 'phone' && erxTelecom.value === verifiedPhoneNumber)) {
       updateErxContact = true;
     }
@@ -2418,7 +2431,7 @@ export function createErxContactOperation(
       system: 'phone',
       extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
     };
-    if (erxContactIdx && erxContactIdx >= 0) {
+    if (hasExistingErxContact) {
       console.log('building patient patch operations: update patient erx contact telecom');
       return {
         op: 'replace',

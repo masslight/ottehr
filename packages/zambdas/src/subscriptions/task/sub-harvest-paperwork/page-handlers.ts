@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   DocumentReference,
@@ -11,17 +12,23 @@ import {
 } from 'fhir/r4b';
 import {
   flattenQuestionnaireAnswers,
+  getRelatedPersonForPatient,
   type HarvestStrategy,
+  INSURANCE_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   pageHarvestStrategy,
+  PaymentVariant,
   Secrets,
   SELF_PAY_OPTION,
+  updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
   createConsentResources,
   createDocumentResources,
+  createErxContactOperation,
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
+  getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
 import { getAuth0Token } from '../../../shared';
@@ -81,7 +88,7 @@ const pharmacyStrategy: HarvestStrategyHandler = async (ctx) => {
 };
 
 const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, questionnaire, oystehr } = ctx;
+  const { qr, patient, encounter, questionnaire, oystehr } = ctx;
 
   const paymentOption = qr.item
     ?.find((item) => item.linkId === 'payment-option-page')
@@ -102,6 +109,53 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     },
     oystehr
   );
+
+  // Update encounter payment variant and account references
+  const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
+  let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
+  if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
+    paymentVariant = PaymentVariant.insurance;
+  }
+  if (selectedPaymentOption === 'Employer') {
+    paymentVariant = PaymentVariant.employer;
+  }
+
+  const updatedEncounter = updateEncounterPaymentVariantExtension(encounter, paymentVariant);
+  const encounterPatchOperations: Operation[] = [
+    {
+      op: encounter.extension !== undefined ? 'replace' : 'add',
+      path: '/extension',
+      value: updatedEncounter.extension,
+    },
+  ];
+
+  const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
+    patient.id!,
+    oystehr
+  );
+
+  const patientAccountReference = latestAccount?.id ? `Account/${latestAccount.id}` : undefined;
+  const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+  const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(encounter.account, [
+    patientAccountReference,
+    workersCompAccountReference,
+  ]);
+
+  if (accountsChanged && updatedEncounterAccounts) {
+    encounterPatchOperations.push({
+      op: encounter.account ? 'replace' : 'add',
+      path: '/account',
+      value: updatedEncounterAccounts,
+    });
+  }
+
+  if (encounterPatchOperations.length) {
+    await oystehr.fhir.patch<Encounter>({
+      id: encounter.id!,
+      resourceType: 'Encounter',
+      operations: encounterPatchOperations,
+    });
+  }
 
   return 'account / coverage updated';
 };
@@ -164,6 +218,27 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
   return 'consent resources created';
 };
 
+const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
+  const { patient, oystehr } = ctx;
+
+  const relatedPerson = await getRelatedPersonForPatient(patient.id!, oystehr);
+  if (!relatedPerson || !relatedPerson.id) {
+    console.log(`No RelatedPerson found for patient ${patient.id}, skipping erx-contact harvest`);
+    return 'erx-contact skipped (no RelatedPerson)';
+  }
+
+  const erxContactOp = createErxContactOperation(relatedPerson, patient);
+  if (erxContactOp) {
+    await oystehr.fhir.patch({
+      resourceType: 'Patient',
+      id: patient.id!,
+      operations: [erxContactOp],
+    });
+  }
+
+  return 'erx-contact updated';
+};
+
 // ── Strategy registry ───────────────────────────────────────────────────
 
 export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> = {
@@ -172,6 +247,38 @@ export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> =
   'account-coverage': accountCoverageStrategy,
   documents: documentsStrategy,
   consent: consentStrategy,
+  'erx-contact': erxContactStrategy,
+};
+
+export const mergeEncounterAccounts = (
+  existingAccounts: Encounter['account'],
+  references: (string | undefined)[]
+): { accounts?: Encounter['account']; changed: boolean } => {
+  const sanitizedReferences = references.filter((reference): reference is string => Boolean(reference));
+  if (!sanitizedReferences.length) {
+    return { accounts: existingAccounts, changed: false };
+  }
+
+  const normalizedAccounts: Encounter['account'] = existingAccounts ? [...existingAccounts] : [];
+  const existingRefSet = new Set(
+    (existingAccounts ?? [])
+      .map((account) => account.reference)
+      .filter((reference): reference is string => Boolean(reference))
+  );
+  let changed = false;
+
+  sanitizedReferences.forEach((reference) => {
+    if (!existingRefSet.has(reference)) {
+      normalizedAccounts.push({ reference });
+      existingRefSet.add(reference);
+      changed = true;
+    }
+  });
+
+  return {
+    accounts: changed ? normalizedAccounts : existingAccounts,
+    changed,
+  };
 };
 
 export const executePageHarvest = async (ctx: HarvestContext): Promise<string> => {

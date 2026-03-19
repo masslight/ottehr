@@ -15,9 +15,19 @@ vi.mock('../src/ehr/shared/harvest', () => ({
   })),
   createUpdatePharmacyPatchOps: vi.fn(() => []),
   updatePatientAccountFromQuestionnaire: vi.fn(async () => {}),
+  getAccountAndCoverageResourcesForPatient: vi.fn(async () => ({ account: undefined, workersCompAccount: undefined })),
   createDocumentResources: vi.fn(async () => {}),
   createConsentResources: vi.fn(async () => {}),
+  createErxContactOperation: vi.fn(() => null),
 }));
+
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils')>();
+  return {
+    ...actual,
+    getRelatedPersonForPatient: vi.fn(async () => null),
+  };
+});
 
 vi.mock('../src/shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/shared')>();
@@ -151,10 +161,11 @@ describe('executePageHarvest', () => {
     expect(result).toContain('medical-history-page');
   });
 
-  it('dispatches master-record strategy for contact-information-page', async () => {
+  it('dispatches master-record and erx-contact strategies for contact-information-page', async () => {
     const result = await executePageHarvest(buildContext('contact-information-page'));
     expect(result).toContain('master record updated');
     expect(result).toContain('contact-information-page');
+    expect(result).toContain('erx-contact');
   });
 
   it('dispatches pharmacy strategy for pharmacy-page', async () => {
