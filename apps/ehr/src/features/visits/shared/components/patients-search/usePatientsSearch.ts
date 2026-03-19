@@ -132,6 +132,23 @@ export const usePatientsSearch = (): {
     pagination: getPaginationFromUrl(searchParams),
   });
 
+  // Sync search options when URL params change externally (e.g., from the command palette)
+  useEffect(() => {
+    const urlFilters = getFiltersFromUrl(searchParams);
+    setSearchOptions((prev) => {
+      const filtersChanged = Object.entries(urlFilters).some(
+        ([key, value]) => value && prev.filters[key as keyof SearchOptionsFilters] !== value
+      );
+      if (!filtersChanged) return prev;
+      return {
+        ...prev,
+        filters: urlFilters,
+        sort: getSortFromUrl(searchParams),
+        pagination: getPaginationFromUrl(searchParams),
+      };
+    });
+  }, [searchParams]);
+
   const setSearchField = useCallback(
     ({ field, value }: { field: keyof SearchOptionsFilters; value: string }): void => {
       setSearchOptions((prev) => ({
