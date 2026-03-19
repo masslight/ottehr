@@ -1,14 +1,13 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { createLocationSupportHelpers, LOCATION_CONFIG } from 'utils';
+import { getSupportDialog } from 'utils';
 import { CustomDialog } from './CustomDialog';
 import PageForm from './PageForm';
 
 type ContactSupportDialogProps = { onClose: () => void };
 
 export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose }) => {
-  const locationSupportHelpers = createLocationSupportHelpers(LOCATION_CONFIG);
-  const supportDialog = locationSupportHelpers.getSupportDialog();
+  const supportDialog = getSupportDialog();
 
   return (
     <CustomDialog open={true} onClose={onClose}>
