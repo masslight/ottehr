@@ -80,6 +80,22 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test.afterAll(async () => {
+  // Clean up any leftover E2E quick picks (in case the test failed mid-way)
+  try {
+    await page.goto('/telemed-admin/quick-picks');
+    await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible({ timeout: 10000 });
+    const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
+    if (await row.isVisible({ timeout: 3000 }).catch(() => false)) {
+      page.on('dialog', (dialog) => dialog.accept());
+      await row.getByRole('button', { name: /remove/i }).click();
+      await page
+        .locator('div[id=notistack-snackbar]')
+        .waitFor({ state: 'visible', timeout: 5000 })
+        .catch(() => {});
+    }
+  } catch {
+    // Best-effort cleanup; don't fail teardown
+  }
   await page.close();
   await context.close();
   await resourceHandler.cleanupResources();
