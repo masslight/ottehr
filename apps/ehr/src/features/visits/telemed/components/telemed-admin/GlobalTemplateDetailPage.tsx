@@ -158,7 +158,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
       if (!oystehrZambda || !templateId) {
         throw new Error('API client or template ID not available');
       }
-      return await getTemplateDetail(oystehrZambda, { templateId });
+      return (await getTemplateDetail(oystehrZambda, { templateId })) as unknown as TemplateDetailData;
     },
     enabled: !!oystehrZambda && !!templateId,
     staleTime: QUERY_STALE_TIME,

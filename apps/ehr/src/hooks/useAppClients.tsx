@@ -45,7 +45,7 @@ export function useApiClients(): ApiClientsState {
       if (import.meta.env.VITE_APP_IS_LOCAL === 'true') {
         zambdaConfig.services = {
           zambdaApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
-        };
+        } as typeof zambdaConfig.services;
       }
       useApiClientsStore.setState({
         oystehrZambda: new Oystehr(zambdaConfig),
