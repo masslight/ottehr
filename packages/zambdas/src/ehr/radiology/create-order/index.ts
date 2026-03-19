@@ -11,6 +11,7 @@ import {
   CPTCodeDTO,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
+  FHIR_EXTENSION,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getAdvaPACSLocationForAppointmentOrEncounter,
   getCallerUserWithAccessToken,
@@ -151,7 +152,7 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory } = validatedBody;
+  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory, consentObtained } = validatedBody;
   const now = DateTime.now();
 
   const srCodeCoding = lateralityModifier
@@ -314,8 +315,13 @@ const writeOurServiceRequest = (
         url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
         valueDateTime: now.toISO(),
       },
+      {
+        url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
+        valueBoolean: consentObtained,
+      },
     ],
   };
+
   return oystehr.fhir.create<ServiceRequest>(serviceRequest);
 };
 
