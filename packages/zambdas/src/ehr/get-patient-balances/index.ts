@@ -286,12 +286,13 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
 async function retryWithBackoff<T, E>(
   fn: () => Promise<APIResponse<T, E>>,
   maxRetries = 4,
-  baseDelayMs = 500
+  baseDelayMs = 200
 ): Promise<APIResponse<T, E>> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const response = await fn();
-    if (response.ok || attempt === maxRetries) return response;
-    const delay = baseDelayMs * Math.pow(2, attempt) * (0.5 + Math.random() * 0.5);
+    if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
+      return response;
+    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
     console.warn(
       `Candid API request failed, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
     );
