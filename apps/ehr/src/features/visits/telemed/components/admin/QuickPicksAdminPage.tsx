@@ -7,11 +7,9 @@ import {
   createMedicalConditionQuickPick,
   createMedicationHistoryQuickPick,
   getAllergyQuickPicks,
-  getImmunizationQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   removeAllergyQuickPick,
-  removeImmunizationQuickPick,
   removeMedicalConditionQuickPick,
   removeMedicationHistoryQuickPick,
 } from 'src/api/api';
@@ -22,12 +20,8 @@ import {
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  AllergyQuickPickData,
-  ImmunizationQuickPickData,
-  MedicalConditionQuickPickData,
-  MedicationHistoryQuickPickData,
-} from 'utils';
+import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationHistoryQuickPickData } from 'utils';
+import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 
@@ -320,21 +314,6 @@ export default function QuickPicksAdminPage(): ReactElement {
     [oystehrZambda]
   );
 
-  // ── Immunization callbacks ──
-  const fetchImmunizations = useCallback(async () => {
-    if (!oystehrZambda) return [];
-    const response = await getImmunizationQuickPicks(oystehrZambda);
-    return response.quickPicks;
-  }, [oystehrZambda]);
-
-  const removeImmunization = useCallback(
-    async (id: string) => {
-      if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeImmunizationQuickPick(oystehrZambda, id);
-    },
-    [oystehrZambda]
-  );
-
   return (
     <Box>
       <TabContext value={subTab}>
@@ -437,35 +416,7 @@ export default function QuickPicksAdminPage(): ReactElement {
           />
         </TabPanel>
         <TabPanel value="immunizations" sx={{ px: 0 }}>
-          <QuickPickEditor<ImmunizationQuickPickData>
-            title="Immunization Quick Picks"
-            description="Manage immunization quick picks. Quick picks are created from the immunization order page and can be renamed or removed here."
-            columns={[
-              { label: 'Name', getValue: (item) => item.name },
-              { label: 'Vaccine', getValue: (item) => item.vaccine?.name ?? '', width: 200 },
-              {
-                label: 'Dose',
-                getValue: (item) => (item.dose ? `${item.dose} ${item.units ?? ''}`.trim() : ''),
-                width: 100,
-              },
-            ]}
-            fields={[
-              {
-                key: 'name',
-                label: 'Name',
-                required: true,
-              },
-            ]}
-            editable={false}
-            fetchItems={fetchImmunizations}
-            createItem={async () => {
-              throw new Error('Immunization quick picks are created from the ordering page');
-            }}
-            removeItem={removeImmunization}
-            buildItemFromFields={(values) => ({
-              name: values.name.trim(),
-            })}
-          />
+          <ImmunizationQuickPicksPage />
         </TabPanel>
       </TabContext>
     </Box>
