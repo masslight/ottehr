@@ -46,7 +46,14 @@ describe('busy slots tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({ accessToken: token, fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API });
+    oystehr = new Oystehr({
+      accessToken: token,
+      fhirApiUrl: FHIR_API,
+      projectApiUrl: PROJECT_API,
+      services: {
+        zambdaApiUrl: PROJECT_API,
+      },
+    });
   });
   afterAll(async () => {
     if (!oystehr || !processId) {
