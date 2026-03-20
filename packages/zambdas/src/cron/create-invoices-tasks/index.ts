@@ -16,6 +16,7 @@ import {
   RcmTaskCodings,
   SecretsKeys,
   TEXTING_CONFIG,
+  ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
@@ -117,7 +118,12 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
       for: { reference: `Patient/${patientId}` },
-      authoredOn: DateTime.now().toISO(),
+      authoredOn: prefilledInvoiceInfo.finalizationDate ?? DateTime.now().toISO(),
+      executionPeriod: {
+        start: encounter.period?.start,
+        end: encounter.period?.start,
+      },
+      ...(amountCents === 0 ? { businessStatus: ZERO_BALANCE_BUSINESS_STATUS } : {}),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
@@ -172,11 +178,11 @@ export async function getEncountersWithoutTaskFhir(
       });
     }
   });
-  console.log('Getting amounts for encounters and filtering zero amounts:');
-  return await populateAmountInPackagesAndFilterZeroAmount(candid, result);
+  console.log('Getting amounts for encounters and populating packages with patient balances:');
+  return await populateAmountInPackages(candid, result);
 }
 
-export async function populateAmountInPackagesAndFilterZeroAmount(
+export async function populateAmountInPackages(
   candid: CandidApiClient,
   packages: Omit<EncounterPackage, 'amountCents'>[]
 ): Promise<EncounterPackage[]> {
@@ -188,12 +194,7 @@ export async function populateAmountInPackagesAndFilterZeroAmount(
     if (res && res.ok && res.body) {
       const itemization = res.body as InvoiceItemizationResponse;
       const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
-      if (
-        itemization.claimId &&
-        itemization.patientBalanceCents &&
-        itemization.patientBalanceCents > 0 &&
-        incomingPkg
-      ) {
+      if (itemization.claimId && itemization.patientBalanceCents && incomingPkg) {
         resultPackages.push({
           ...incomingPkg,
           amountCents: itemization.patientBalanceCents,

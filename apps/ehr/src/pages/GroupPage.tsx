@@ -286,7 +286,8 @@ function GroupPageContent(): ReactElement {
     <>
       <CustomBreadcrumbs
         chain={[
-          { link: '/schedules', state: { defaultTab: 'group' }, children: 'Schedules' },
+          { link: '/admin', state: { defaultTab: 'group' }, children: 'Admin' },
+          { link: '/admin/schedules', state: { defaultTab: 'group' }, children: 'Schedules' },
           { link: '#', children: group.name || <Skeleton width={150} /> },
         ]}
       />

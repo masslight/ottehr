@@ -40,6 +40,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       status: RadiologyOrderStatus.pending,
       appointmentId: 'appt1',
       isStat: false,
+      consentObtained: true,
     },
     {
       serviceRequestId: 'order2',
@@ -51,6 +52,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       status: RadiologyOrderStatus.final,
       appointmentId: 'appt2',
       isStat: true,
+      consentObtained: false,
     },
   ];
 

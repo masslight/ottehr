@@ -1,8 +1,19 @@
 // import ErrorIcon from '@mui/icons-material/Error';
+import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { Box, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, TextField, useTheme } from '@mui/material';
+import {
+  Box,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -16,23 +27,27 @@ import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
 export enum DocumentTableActionType {
   ActionDownload = 'ActionDownload',
   ActionRename = 'ActionRename',
+  ActionDelete = 'ActionDelete',
 }
 
 export type DocumentTableActions = {
   isActionAllowed: (documentId: string, actionType: DocumentTableActionType) => boolean;
   onDocumentDownload: (documentId: string) => Promise<void>;
   onDocumentRename: (documentId: string, newName: string) => Promise<void>;
+  onDocumentDelete: (documentId: string) => Promise<void>;
 };
 
 const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableActions }> = ({ docInfo, actions }) => {
-  const { isActionAllowed, onDocumentDownload, onDocumentRename } = actions;
+  const { isActionAllowed, onDocumentDownload, onDocumentRename, onDocumentDelete } = actions;
   const theme = useTheme();
   const lineColor = theme.palette.primary.main;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isRenameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [newName, setNewName] = useState(stripFileExtension(docInfo.docName));
-  const [renameLoading, setRenameLoading] = useState(false);
+  const [isRenameDialogOpen, setRenameDialogOpen] = useState<boolean>(false);
+  const [newName, setNewName] = useState<string>(stripFileExtension(docInfo.docName));
+  const [renameLoading, setRenameLoading] = useState<boolean>(false);
+  const [isDeleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
 
   const openMenu = (event: React.MouseEvent<HTMLElement>): void => {
     setAnchorEl(event.currentTarget);
@@ -67,6 +82,28 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
       enqueueSnackbar(`Can't rename document. Try again later`, { variant: 'error' });
     } finally {
       setRenameLoading(false);
+    }
+  };
+
+  const handleDeleteDialogOpen = (): void => {
+    closeMenu();
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDialogClose = (): void => {
+    setDeleteDialogOpen(false);
+  };
+
+  const handleDeleteSubmit = async (): Promise<void> => {
+    setDeleteLoading(true);
+
+    try {
+      await onDocumentDelete(docInfo.id);
+      setDeleteDialogOpen(false);
+    } catch {
+      enqueueSnackbar(`Can't delete document. Try again later`, { variant: 'error' });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -108,6 +145,14 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
             <ListItemText>Rename document</ListItemText>
           </MenuItem>
         )}
+        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionDelete) && (
+          <MenuItem onClick={handleDeleteDialogOpen}>
+            <ListItemIcon>
+              <DeleteIcon color="error" />
+            </ListItemIcon>
+            <ListItemText>Delete document</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
       <CustomDialog
@@ -145,6 +190,31 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
               disabled={!newName.trim()}
             >
               Save
+            </RoundedButton>
+          </Box>
+        }
+      />
+
+      <CustomDialog
+        open={isDeleteDialogOpen}
+        handleClose={handleDeleteDialogClose}
+        title="Delete Document"
+        description={
+          <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography>{`"${docInfo.docName}" will be permanently deleted. This action cannot be undone.`}</Typography>
+          </Box>
+        }
+        actions={
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+            }}
+          >
+            <RoundedButton onClick={handleDeleteDialogClose}>Cancel</RoundedButton>
+            <RoundedButton variant="contained" onClick={handleDeleteSubmit} loading={deleteLoading}>
+              Delete
             </RoundedButton>
           </Box>
         }

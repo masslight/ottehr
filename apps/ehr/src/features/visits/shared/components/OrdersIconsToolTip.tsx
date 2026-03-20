@@ -228,7 +228,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
         }),
     };
     config.unreadBadge = config.orders.find((order) => order.unreadBadge) != null;
-    orderConfigs.push(config);
+    if (config.orders.length > 0) orderConfigs.push(config);
   }
 
   return (

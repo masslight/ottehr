@@ -2,6 +2,7 @@ import { Skeleton } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { BRANDING_CONFIG } from 'utils';
 import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
 import { otherColors } from '../IntakeThemeProvider';
 import CardWithDescription from './CardWithDescription';
 
@@ -10,6 +11,8 @@ interface WaitingEstimateCardProps {
 }
 
 export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps): JSX.Element => {
+  const showPrimaryIcon = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.WAITING_ESTIMATE_CARD);
+  const primaryIconSize = getPrimaryIconSize();
   let formattedWaitingMinutes;
   if (waitingMinutes !== undefined) {
     formattedWaitingMinutes = Math.floor(waitingMinutes / 5) * 5;
@@ -18,9 +21,9 @@ export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps
 
   return (
     <CardWithDescription
-      icon={primaryIcon}
-      iconAlt={BRANDING_CONFIG.primaryIconAlt}
-      iconHeight={70}
+      icon={showPrimaryIcon ? primaryIcon : undefined}
+      iconAlt={showPrimaryIcon ? BRANDING_CONFIG.intake.primaryIconAlt : undefined}
+      iconHeight={primaryIconSize}
       mainText={t('waitingEstimate.title')}
       descText={
         waitingMinutes && waitingMinutes > 40 ? (
