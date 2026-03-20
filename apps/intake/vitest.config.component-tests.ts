@@ -4,7 +4,8 @@ import path from 'path';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
-dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
+const envName = process.env.ENV || 'local';
+dotenv.config({ path: path.resolve(__dirname, `env/.env.${envName}`) });
 
 export default defineConfig({
   test: {

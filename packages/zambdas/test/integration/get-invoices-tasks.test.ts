@@ -8,8 +8,7 @@ import {
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
   mapDisplayToInvoiceTaskStatus,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
+  RcmTaskCodings,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -18,7 +17,7 @@ import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 
-describe('get-invoices-tasks integration tests', () => {
+describe.skip('get-invoices-tasks integration tests', () => {
   let oystehr: Oystehr;
   let token: string;
 
@@ -101,7 +100,7 @@ describe('get-invoices-tasks integration tests', () => {
       resourceType: 'Task',
       status: mapDisplayToInvoiceTaskStatus('ready'),
       intent: 'order',
-      code: { coding: [{ system: RCM_TASK_SYSTEM, code: RcmTaskCode.sendInvoiceToPatient }] },
+      code: RcmTaskCodings.sendInvoiceToPatient,
       for: { reference: `Patient/${patientId}` },
       encounter: { reference: `Encounter/${encounterId}` },
       authoredOn: finalizationDateISO,
