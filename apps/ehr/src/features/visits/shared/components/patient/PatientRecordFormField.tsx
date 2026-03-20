@@ -71,6 +71,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   // Dynamic population: when field is disabled, copy value from source field
   const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
   const stashedValueRef = useRef<any>(null);
+  const hasStashedValueRef = useRef(false);
 
   useEffect(() => {
     if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && isDisabled) {
@@ -78,13 +79,17 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
-        stashedValueRef.current = currentValue;
-        setValue(item.key, sourceFieldValue, { shouldDirty: true });
+        if (!hasStashedValueRef.current) {
+          stashedValueRef.current = currentValue;
+          hasStashedValueRef.current = true;
+        }
+        setValue(item.key, sourceFieldValue, { shouldDirty: false });
       }
     } else if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && !isDisabled) {
-      if (stashedValueRef.current !== null) {
-        setValue(item.key, stashedValueRef.current, { shouldDirty: true });
+      if (hasStashedValueRef.current) {
+        setValue(item.key, stashedValueRef.current, { shouldDirty: false });
         stashedValueRef.current = null;
+        hasStashedValueRef.current = false;
       }
     }
   }, [sourceFieldValue, isDisabled, dynamicPopulation, item.key, setValue, getValues]);
