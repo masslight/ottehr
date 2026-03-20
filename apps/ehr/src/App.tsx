@@ -24,6 +24,7 @@ import PatientFollowup from './features/visits/shared/components/patient/Patient
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
+import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -79,6 +80,7 @@ const TelemedAppointmentPageLazy = lazy(async () => {
 
 export const INSURANCES_URL = '/admin/insurances';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
+export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -225,6 +227,7 @@ function App(): ReactElement {
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"

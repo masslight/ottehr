@@ -11,6 +11,7 @@ import {
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   SecretsKeys,
+  TemplateInfo,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -35,7 +36,7 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('apply-template', error, ENVIRONMENT);
+    return topLevelCatch('list-templates', error, ENVIRONMENT);
   }
 });
 
@@ -45,50 +46,74 @@ const performEffect = async (
 ): Promise<ListTemplatesZambdaOutput> => {
   const { examType } = validatedInput;
 
-  const listSearchResult = (
+  // Find the holder list (tagged with GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  const holderLists = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
+    })
+  ).unbundle();
+
+  const holderList = holderLists.find(
+    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  );
+
+  if (!holderList || !holderList.entry?.length) {
+    return { templates: [] };
+  }
+
+  // Get all template IDs from the holder list entries (deduplicated)
+  const templateIds = [
+    ...new Set(
+      holderList.entry.map((entry) => entry.item.reference?.replace('List/', '')).filter((id): id is string => !!id)
+    ),
+  ];
+
+  if (templateIds.length === 0) {
+    return { templates: [] };
+  }
+
+  // Fetch all template Lists by their IDs
+  const filteredTemplates = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
       params: [
-        { name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` },
-        { name: '_include', value: 'List:item' },
-        // Beware, this may tip over the 6MB limit on lambda response payload if you have a lot of templates.
-        // Then paginate the results if necessary
+        { name: '_id', value: templateIds.join(',') },
+        { name: '_count', value: '200' },
       ],
     })
   ).unbundle();
 
-  if (!listSearchResult || listSearchResult.length === 0) {
-    throw new Error(`Could not fetch templates.`);
-  }
+  const codeSystem =
+    examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
+  const currentVersion =
+    examType === ExamType.IN_PERSON ? examConfig.inPerson.default.version : examConfig.telemed.default.version;
 
-  // Filter out the global templates holder List
-  let filteredTemplates = listSearchResult.filter(
-    (template) => !template.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  // Filter to templates matching the requested exam type code system
+  const examTypeTemplates = filteredTemplates.filter(
+    (template) => template.code?.coding?.some((c) => c.system === codeSystem)
   );
 
-  // Filter out the templates which are not for the requested examType and the latest version
-  filteredTemplates = filteredTemplates.filter((template) => {
-    if (examType === ExamType.IN_PERSON) {
-      return template.code?.coding?.some(
-        (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM && c.version === examConfig.inPerson.default.version
-      );
-    } else if (examType === ExamType.TELEMED) {
-      return template.code?.coding?.some(
-        (c) => c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM && c.version === examConfig.telemed.default.version
-      );
-    }
-    return false;
-  });
-
-  const templateTitles = filteredTemplates
+  const templateInfos: TemplateInfo[] = examTypeTemplates
     .map((template) => {
-      return template.title;
+      const coding = template.code?.coding?.find((c) => c.system === codeSystem);
+      const examVersion = coding?.version ?? '';
+
+      return {
+        id: template.id!,
+        title: template.title ?? '',
+        examVersion,
+        isCurrentVersion: examVersion === currentVersion,
+      };
     })
-    .filter((title): title is string => typeof title === 'string'); // Filter out undefined titles
+    .filter((info) => info.title !== '');
 
-  templateTitles.sort((a, b) => a.localeCompare(b));
+  templateInfos.sort((a, b) => a.title.localeCompare(b.title));
 
-  console.log('Templates:', templateTitles);
+  console.log(
+    'Templates:',
+    templateInfos.map((t) => t.title)
+  );
 
-  return { templates: templateTitles };
+  return { templates: templateInfos };
 };

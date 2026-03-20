@@ -3,6 +3,7 @@ import { Box, Tab } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
@@ -15,6 +16,7 @@ enum PageTab {
   employees = 'employees',
   providers = 'providers',
   insurance = 'insurances',
+  'global-templates' = 'global-templates',
 }
 
 export function AdminPage(): JSX.Element {
@@ -71,6 +73,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.insurance}`)}
                 />
+                <Tab
+                  label="Global Templates"
+                  value={PageTab['global-templates']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['global-templates']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -97,6 +105,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
             <Insurances />
+          </TabPanel>
+          <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
+            <GlobalTemplatesAdminPage />
           </TabPanel>
         </TabContext>
       </Box>
