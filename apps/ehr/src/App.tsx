@@ -31,6 +31,8 @@ import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import { AdminPage } from './pages/AdminPage';
 import AppointmentsPage from './pages/Appointments';
+import AddMedicationPage from './pages/configuration/AddMedicationPage';
+import UpdateMedicationPage from './pages/configuration/UpdateMedicationPage';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import GroupPage from './pages/GroupPage';
@@ -223,6 +225,8 @@ function App(): ReactElement {
                   <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
                   <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
+                  <Route path="/admin/medications/add" element={<AddMedicationPage />} />
+                  <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
                   {/** telemed */}
