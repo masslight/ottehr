@@ -193,11 +193,14 @@ async function getAllCandidEncounters(
   const chunkedCandidIds = chunkThings(candidIds, CANDID_API_CONCURRENCY_LIMIT);
   const candidEncounters: APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[] =
     [];
-  for (const chunk of chunkedCandidIds) {
+  for (let i = 0; i < chunkedCandidIds.length; i++) {
+    const chunk = chunkedCandidIds[i];
+    console.log(`Fetching chunk ${i + 1}/${chunkedCandidIds.length} (${candidIds.length} encounters) from Candid`);
     const currentCandidEncounters = await Promise.all(
       chunk.map((candidId) => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
     );
     candidEncounters.push(...currentCandidEncounters);
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   console.log(`Fetched ${candidEncounters.length} Candid encounters`);
   return candidEncounters;
@@ -241,6 +244,7 @@ async function getAllCandidClaims(
       chunk.map((claimId) => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId)))
     );
     claims.push(...currentClaims);
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   console.log(`Fetched ${claims.length} claims`);
   return claims;
