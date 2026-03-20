@@ -2,6 +2,10 @@ import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
+import {
+  configInHouseLabDeleteButtonTestId,
+  configInHouseLabTableRowTestId,
+} from 'tests/e2e/page/lab/in-house/helpers';
 import { formatDateForLabs, InHouseOrderListPageItemDTO } from 'utils';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
@@ -63,6 +67,7 @@ export const InHouseLabsTableRow = ({
         if (allowDelete) {
           return (
             <Button
+              data-testid={configInHouseLabDeleteButtonTestId(labOrderData.serviceRequestId)}
               onClick={(e) => {
                 e.stopPropagation();
                 onDeleteOrder?.();
@@ -85,6 +90,7 @@ export const InHouseLabsTableRow = ({
 
   return (
     <TableRow
+      data-testid={configInHouseLabTableRowTestId(labOrderData.serviceRequestId)}
       sx={{
         '&:hover': { backgroundColor: '#f5f5f5' },
         cursor: 'pointer',

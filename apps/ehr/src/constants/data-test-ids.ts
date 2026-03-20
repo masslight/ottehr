@@ -506,7 +506,9 @@ export const dataTestIds = {
   inHouseLabsPage: {
     title: 'in-house-labs-title',
     orderButton: 'order-button',
-    deleteButton: 'delete-button',
+    deleteButtonPrefix: 'delete-button',
+    tableRowPrefix: 'in-house-lab-table-row',
+    loading: 'in-house-labs-table-loading',
   },
   orderInHouseLabPage: {
     title: 'order-in-house-labs-title',
@@ -518,6 +520,7 @@ export const dataTestIds = {
     diagnosis: 'diagnosis',
     additionalDx: 'additionalDx',
     notes: 'in-house-labs-notes',
+    loading: 'in-house-lab-orders-loading',
   },
   collectSamplePage: {
     testName: 'test-name',
@@ -532,7 +535,10 @@ export const dataTestIds = {
     title: 'page-title',
     testName: 'test-name',
     status: 'order-status',
-    testResult: (result: string) => `test-result-${result.toLowerCase().replace(/\s+/g, '-')}`,
+    testResult: (result?: string) => {
+      const idPrefix = 'test-result';
+      return result ? `${idPrefix}-${result.toLowerCase().replace(/\s+/g, '-')}` : idPrefix;
+    },
     submitButton: 'submit-button',
   },
   finalResultPage: {
@@ -665,5 +671,9 @@ export const dataTestIds = {
     submitOrderButton: 'radiology-submit-order-button',
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
+  },
+
+  commonLabOrder: {
+    deleteDialogButton: 'delete-lab-order-dialog-btn',
   },
 };

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExternalLabsStatus } from 'utils';
 
 interface UseDeleteCommonLabOrderDialogProps {
@@ -161,6 +162,7 @@ export const useDeleteCommonLabOrderDialog = ({
             {locales.deleteOrderDialogKeepButton}
           </Button>
           <Button
+            data-testid={dataTestIds.commonLabOrder.deleteDialogButton}
             type="submit"
             variant="contained"
             color="error"
