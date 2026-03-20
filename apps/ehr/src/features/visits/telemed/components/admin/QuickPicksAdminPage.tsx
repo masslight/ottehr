@@ -7,9 +7,11 @@ import {
   createMedicalConditionQuickPick,
   createMedicationHistoryQuickPick,
   getAllergyQuickPicks,
+  getImmunizationQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   removeAllergyQuickPick,
+  removeImmunizationQuickPick,
   removeMedicalConditionQuickPick,
   removeMedicationHistoryQuickPick,
 } from 'src/api/api';
@@ -20,11 +22,16 @@ import {
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationHistoryQuickPickData } from 'utils';
+import {
+  AllergyQuickPickData,
+  ImmunizationQuickPickData,
+  MedicalConditionQuickPickData,
+  MedicationHistoryQuickPickData,
+} from 'utils';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 
-type SubTab = 'procedures' | 'allergies' | 'medical-conditions' | 'medications';
+type SubTab = 'procedures' | 'allergies' | 'medical-conditions' | 'medications' | 'immunizations';
 
 const AllergenSearchField: React.FC<{
   value: string;
@@ -313,6 +320,21 @@ export default function QuickPicksAdminPage(): ReactElement {
     [oystehrZambda]
   );
 
+  // ── Immunization callbacks ──
+  const fetchImmunizations = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getImmunizationQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const removeImmunization = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removeImmunizationQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
   return (
     <Box>
       <TabContext value={subTab}>
@@ -322,6 +344,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Allergies" value="allergies" sx={{ textTransform: 'none' }} />
             <Tab label="Medical Conditions" value="medical-conditions" sx={{ textTransform: 'none' }} />
             <Tab label="Medications" value="medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
           </TabList>
         </Box>
 
@@ -410,6 +433,37 @@ export default function QuickPicksAdminPage(): ReactElement {
               name: values.name.trim(),
               ...(values.strength?.trim() ? { strength: values.strength.trim() } : {}),
               ...(values.medicationId ? { medicationId: Number(values.medicationId) } : {}),
+            })}
+          />
+        </TabPanel>
+        <TabPanel value="immunizations" sx={{ px: 0 }}>
+          <QuickPickEditor<ImmunizationQuickPickData>
+            title="Immunization Quick Picks"
+            description="Manage immunization quick picks. Quick picks are created from the immunization order page and can be renamed or removed here."
+            columns={[
+              { label: 'Name', getValue: (item) => item.name },
+              { label: 'Vaccine', getValue: (item) => item.vaccine?.name ?? '', width: 200 },
+              {
+                label: 'Dose',
+                getValue: (item) => (item.dose ? `${item.dose} ${item.units ?? ''}`.trim() : ''),
+                width: 100,
+              },
+            ]}
+            fields={[
+              {
+                key: 'name',
+                label: 'Name',
+                required: true,
+              },
+            ]}
+            editable={false}
+            fetchItems={fetchImmunizations}
+            createItem={async () => {
+              throw new Error('Immunization quick picks are created from the ordering page');
+            }}
+            removeItem={removeImmunization}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
             })}
           />
         </TabPanel>
