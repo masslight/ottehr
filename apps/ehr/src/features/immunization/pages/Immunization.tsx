@@ -2,13 +2,16 @@ import AddIcon from '@mui/icons-material/Add';
 import { AppBar, Box, Stack, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { Loader } from 'src/features/visits/shared/components/Loader';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { PageTitle } from '../../visits/shared/components/PageTitle';
+import { ImmunizationNotes } from '../components/ImmunizationNotes';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { VaccineDetailsCardList } from '../components/VaccineDetailsCardList';
 
@@ -37,7 +40,11 @@ export const Immunization: React.FC = () => {
   const tabsRef = useRef<HTMLDivElement>(null);
   const isTabTransitionRef = useRef(false);
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
+  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const {
+    resources: { patient },
+  } = useAppointmentData(appointmentId);
 
   const onNewOrderClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_ORDER_CREATE}`);
@@ -65,10 +72,14 @@ export const Immunization: React.FC = () => {
   return (
     <Stack>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <PageTitle label="Immunization" showIntakeNotesButton={false} dataTestId={dataTestIds.immunizationPage.title} />
+        <PageTitle
+          label="Immunizations"
+          showIntakeNotesButton={false}
+          dataTestId={dataTestIds.immunizationPage.title}
+        />
         {!isReadOnly && (
           <RoundedButton variant="contained" onClick={onNewOrderClick} startIcon={<AddIcon />}>
-            New Order
+            Order
           </RoundedButton>
         )}
       </Stack>
@@ -94,12 +105,23 @@ export const Immunization: React.FC = () => {
           >
             <Tabs value={tabName === 'mar' ? 0 : 1} onChange={onTabChanged} aria-label="medication tabs">
               <Tab label="MAR" data-testid={dataTestIds.immunizationPage.marTab} />
-              <Tab label="Vaccine Details" data-testid={dataTestIds.immunizationPage.vaccineDetailsTab} />
+              <Tab label="Immunization Details" data-testid={dataTestIds.immunizationPage.vaccineDetailsTab} />
             </Tabs>
           </Box>
         </AppBar>
 
-        <TabContent isActive={tabName === 'mar'}>{content.mar}</TabContent>
+        <TabContent isActive={tabName === 'mar'}>
+          <AccordionCard
+            label="Immunization history"
+            collapsed={isImmunizationHistoryCollapsed}
+            onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
+            withBorder={false}
+          >
+            <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
+          </AccordionCard>
+          {content.mar}
+          <ImmunizationNotes />
+        </TabContent>
         <TabContent isActive={tabName === 'vaccine-details'}>{content.details}</TabContent>
       </Box>
     </Stack>

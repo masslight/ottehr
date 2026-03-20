@@ -577,6 +577,8 @@ export const dataTestIds = {
     instructions: 'order-vaccine-instructions',
     orderedBy: 'order-vaccine-ordered-by',
     orderVaccineButton: 'order-vaccine-button',
+    associatedDx: 'order-vaccine-associated-dx',
+    manufacturer: 'order-vaccine-manufacturer',
   },
 
   immunizationPage: {
