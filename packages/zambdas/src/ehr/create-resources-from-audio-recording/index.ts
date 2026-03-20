@@ -16,7 +16,7 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-resources-from-audio-recording';
 
 const TRANSCRIPT_PROMPT =
-  'give a transcript of this file, include only the transcript without other input, include who the speaker is with labels for the provider and the patient';
+  'give a transcript of this file, include only the transcript without other input, include who the speaker is with labels for the provider and the patient. If the audio is silent or contains no speech, respond with exactly "No audio captured".';
 export interface CreateResourcesFromAudioRecordingInputValidated extends CreateResourcesFromAudioRecordingInput {
   userToken: string;
   secrets: Secrets | null;
