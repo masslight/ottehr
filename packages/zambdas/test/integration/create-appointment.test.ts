@@ -358,6 +358,9 @@ describe('prebook integration - from getting list of slots to booking with selec
       accessToken: token,
       fhirApiUrl: FHIR_API,
       projectApiUrl: EXECUTE_ZAMBDA_URL,
+      services: {
+        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+      },
       projectId: PROJECT_ID,
     });
   });

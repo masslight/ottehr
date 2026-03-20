@@ -192,6 +192,9 @@ describe('complete-encounters-report zambda', () => {
       accessToken: token,
       fhirApiUrl: FHIR_API,
       projectApiUrl: EXECUTE_ZAMBDA_URL,
+      services: {
+        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+      },
       projectId: PROJECT_ID,
     });
 

@@ -770,7 +770,7 @@ export const useChartData = ({
       queryKey: [CHART_DATA_QUERY_KEY, encounter?.id],
       exact: false,
     });
-  }, [queryClient, encounter.id]);
+  }, [queryClient, encounter?.id]);
 
   return {
     refetch: chartDataRefetch,
