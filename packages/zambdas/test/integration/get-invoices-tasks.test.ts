@@ -17,7 +17,7 @@ import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 
-describe.skip('get-invoices-tasks integration tests', () => {
+describe('get-invoices-tasks integration tests', () => {
   let oystehr: Oystehr;
   let token: string;
 
@@ -239,6 +239,7 @@ describe.skip('get-invoices-tasks integration tests', () => {
         sortField: InvoiceSortFieldValues.finalizationDate,
         sortDirection: InvoiceSortDirectionValues.desc,
       });
+      console.log('Resources tasks fetched: ' + result.reports.length);
 
       const ids = result.reports.map((r) => r.task.id);
       // task3 (2024-03-01) > task2 (2024-02-01) > task1 (2024-01-01)
