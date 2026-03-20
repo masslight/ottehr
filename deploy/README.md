@@ -51,14 +51,14 @@ There are npm scripts for deploying to local, staging, and production, as well a
 - Create an s3 bucket for your terraform state (example: ottehr-terraform-state)
 - Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
 - Configure your local Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)).
-- Configure your application variables ([`packages/zambda/.env/${env}.json`](/packages/zambdas/.env/local.template.json)):
+- Configure your application variables ([`config/.env/${env}.json`](/config/.env/local.template.json)):
     - AUTH0_CLIENT
     - AUTH0_SECRET
     - ENVIRONMENT
     - PROJECT_ID
     - PATIENT_APP_NAME
     - EHR_APP_NAME
-    - lab-autolab-account-number - globally unique, can be for example `ottehr-local` and so on for every env 
+    - lab-autolab-account-number - globally unique, can be for example `ottehr-local` and so on for every env
     - non-prod env: "lab-autolab-lab-id": "790b282d-77e9-4697-9f59-0cef8238033a"
     - prod env: "lab-autolab-lab-id": "713d14ef-c30a-4b9a-a13a-4ad4648ff3ed"
     - for prod case: first create project, convert it to live mode for Autolabs to work properly, and then run apply
@@ -66,8 +66,6 @@ There are npm scripts for deploying to local, staging, and production, as well a
     - Set up Anthropic API key
     - Set up Sentry secrets and vars
 - Change env names in the terraform-setup script in deploy/packages.json for envs that you want to create
-
-
 
 All three of those configuration files have examples with the `.template` extension that you can copy to start.
 
@@ -179,11 +177,11 @@ Once set up, you should always use the same values for a given environment, othe
 
 ### Application Variables
 
-The environment file `packages/zambdas/.env/${env}.json` contains configuration values that control how the application works. When you run `npm run generate`, these values are combined with the resource definitions in `config/` to create `.tf.json` files in `deploy/oystehr/`. The values are also used as input for filling in environment variable templates
+The environment file `config/.env/${env}.json` contains configuration values that control how the application works. When you run `npm run generate`, these values are combined with the resource definitions in `config/` to create `.tf.json` files in `deploy/oystehr/`. The values are also used as input for filling in environment variable templates
 
 Each environment will have its own application configuration file because you will want to use different names, secrets, and API keys in your local, test, and production environments.
 
-There is a sample configuration file stored in [`packages/zambdas/.env/local.template.json`](/packages/zambdas/.env/local.template.json).
+There is a sample configuration file stored in [`config/.env/local.template.json`](/config/.env/local.template.json).
 
 You can verify that all required configuration variables have been found by searching `deploy/oystehr` for the string `#{var/` after running `npm run generate`. There will be 0 results when all variable values have been substituted.
 

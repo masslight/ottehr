@@ -7,11 +7,11 @@
  * This key structure enables prefix-based search by patient name and DOB.
  *
  * Usage:
- *   npx env-cmd -f packages/zambdas/.env/{ENV}.json \
+ *   npx env-cmd -f config/.env/{ENV}.json \
  *   npx tsx scripts/import-legacy-data.ts [--dry-run] [--data-dir <path>]
  *
  * Example:
- *   npx env-cmd -f packages/zambdas/.env/local.json tsx scripts/import-legacy-data.ts --dry-run
+ *   npx env-cmd -f config/.env/local.json tsx scripts/import-legacy-data.ts --dry-run
  *
  * The env file must contain: AUTH0_CLIENT, AUTH0_SECRET, AUTH0_ENDPOINT, AUTH0_AUDIENCE,
  * PROJECT_ID, PROJECT_API. The zambdas .env files already include all of these.
