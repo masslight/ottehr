@@ -1,5 +1,5 @@
 variable "sendgrid_template_ids" {
-  description = "sendgrid template IDs"
+  description = "sendgrid template IDs; null when SendGrid feature flag is disabled"
   type = object({
     SENDGRID_ERROR_REPORT_TEMPLATE_ID           = string
     SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID  = string
@@ -13,14 +13,16 @@ variable "sendgrid_template_ids" {
     SENDGRID_TELEMED_INVITATION_TEMPLATE_ID     = string
     SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID     = string
   })
-  nullable  = false
+  nullable  = true
+  default   = null
   sensitive = false
 }
 
 variable "sendgrid_send_email_api_key" {
-  description = "api key used to send emails via sendgrid"
+  description = "api key used to send emails via sendgrid; null when SendGrid feature flag is disabled"
   type        = string
-  nullable    = false
+  nullable    = true
+  default     = null
   sensitive   = true
 }
 

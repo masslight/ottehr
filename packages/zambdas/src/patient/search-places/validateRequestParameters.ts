@@ -6,7 +6,7 @@ export function validateRequestParameters(input: ZambdaInput): SearchPlacesInput
     throw MISSING_REQUEST_BODY;
   }
 
-  const { searchTerm, placesId } = JSON.parse(input.body);
+  const { searchTerm, locationBias, placesId } = JSON.parse(input.body);
 
   if (!searchTerm && !placesId) {
     throw INVALID_INPUT_ERROR('searchTerm or placesId must be sent');
@@ -26,6 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): SearchPlacesInput
 
   return {
     searchTerm,
+    locationBias,
     placesId,
     secrets: input.secrets,
   };

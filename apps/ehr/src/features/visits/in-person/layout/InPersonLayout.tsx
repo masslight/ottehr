@@ -15,7 +15,7 @@ import { BottomNavigation } from './BottomNavigation';
 const layoutStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  minHeight: '100vh',
+  height: '100vh',
 };
 
 const mainBlocksStyle: React.CSSProperties = {

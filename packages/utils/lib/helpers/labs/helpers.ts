@@ -1,4 +1,12 @@
-import { Coverage, DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Coverage,
+  DiagnosticReport,
+  DocumentReference,
+  Location,
+  Organization,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
@@ -164,6 +172,26 @@ export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
   });
   return result;
 }
+
+export const parseLabInfoFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { testItem: string; fillerLab: string } => {
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource) => resource.resourceType === 'ActivityDefinition'
+  ) as ActivityDefinition | undefined;
+
+  if (!activityDefinition) {
+    return {
+      testItem: 'Unknown Test',
+      fillerLab: 'Unknown Lab',
+    };
+  }
+
+  return {
+    testItem: activityDefinition.title || 'Unknown Test',
+    fillerLab: activityDefinition.publisher || 'Unknown Lab',
+  };
+};
 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
   const testName =
