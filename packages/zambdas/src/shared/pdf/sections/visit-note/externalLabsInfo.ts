@@ -1,18 +1,14 @@
-import { mapResourcesToExternalLabOrders } from '../../helpers/mappers';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { ExternalLabs, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 import { renderLabsSection } from './renderLabsSection';
 
 export const composeExternalLabs: DataComposer<{ allChartData: AllChartData }, ExternalLabs> = ({ allChartData }) => {
-  const { additionalChartData, externalLabsData } = allChartData;
+  const { additionalChartData } = allChartData;
   const externalLabResults = additionalChartData?.externalLabResults?.labOrderResults ?? [];
+  const externalLabOrdersWithoutResults = additionalChartData?.externalLabResults?.resultsPending ?? [];
 
-  const externalLabOrders = externalLabsData?.serviceRequests?.length
-    ? mapResourcesToExternalLabOrders(externalLabsData?.serviceRequests)
-    : [];
-
-  return { externalLabResults, externalLabOrders };
+  return { externalLabResults, externalLabOrders: externalLabOrdersWithoutResults };
 };
 
 export const createExternalLabsSection = <TData extends { externalLabs?: ExternalLabs }>(): PdfSection<

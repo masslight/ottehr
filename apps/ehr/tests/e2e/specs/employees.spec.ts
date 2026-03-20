@@ -178,7 +178,7 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 }
 
 test('Employee page is working', async ({ page }) => {
-  await page.goto(`employees`);
+  await page.goto('admin/employees');
   await expect(page.getByTestId('PersonIcon')).toBeVisible(DEFAULT_TIMEOUT);
   await expect(page.getByTestId(dataTestIds.header.userName)).toBeAttached(DEFAULT_TIMEOUT);
 
@@ -186,7 +186,7 @@ test('Employee page is working', async ({ page }) => {
 });
 
 test('Employees list is loading', async ({ page }) => {
-  await page.goto(`employees`);
+  await page.goto('admin/employees');
 
   // WE GET ALL STATUS CHIPS FROM EMPLOYEES RECORDS, SO IF THERE ARE SOME WE HAVE EMPLOYEES
   await waitUntilEmployeeProviderTableLoaded(page);
@@ -196,9 +196,7 @@ test('Employees list is loading', async ({ page }) => {
 });
 
 test('Providers tab filters are working', async ({ page }) => {
-  await page.goto(`employees`);
-  await page.getByTestId(dataTestIds.employeesPage.providersTabButton).click(DEFAULT_TIMEOUT);
-  await waitUntilEmployeeProviderTableLoaded(page);
+  await page.goto('admin/providers');
   const table = page.getByTestId(dataTestIds.employeesPage.table);
 
   await test.step('Check name search filed', async () => {
@@ -233,7 +231,7 @@ test('Providers tab filters are working', async ({ page }) => {
 
 // disabling because flaky
 test.skip('Employee editing is working', { tag: '@flaky' }, async ({ page }) => {
-  await page.goto(`employees`);
+  await page.goto('admin/employees');
   await waitUntilEmployeeProviderTableLoaded(page);
   await goToTestEmployeePage(page, resourceHandler.testEmployee1);
   const submitButton = page.getByTestId(dataTestIds.employeesPage.submitButton);
@@ -268,7 +266,7 @@ test.skip('Employee editing is working', { tag: '@flaky' }, async ({ page }) => 
 });
 
 test('Deactivating employee success', async ({ page }) => {
-  await page.goto(`employees`);
+  await page.goto('admin/employees');
   await waitUntilEmployeeProviderTableLoaded(page);
 
   await test.step('Go to employee page and click deactivate', async () => {
@@ -280,7 +278,7 @@ test('Deactivating employee success', async ({ page }) => {
   });
 
   await test.step('Checking provider deactivated successfully', async () => {
-    await page.goto(`employees`);
+    await page.goto('admin/employees');
     await waitUntilEmployeeProviderTableLoaded(page);
     await page
       .getByTestId(dataTestIds.employeesPage.searchByName)

@@ -3,12 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
+import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   lambdaResponse,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -29,7 +30,8 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-patient-balances';
 // https://docs.joincandidhealth.com/introduction/getting-started#rate-limiting rate limited to 1000/10s
-const CANDID_API_CONCURRENCY_LIMIT = 10;
+// this threw a 429 from candid, so cutting it down to half
+const CANDID_API_CONCURRENCY_LIMIT = 5;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -49,8 +51,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
     return lambdaResponse(200, response);
   } catch (error: any) {
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets);
     console.log('Error: ', JSON.stringify(error.message));
-    return lambdaResponse(500, { error: error.message });
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 
@@ -231,7 +234,9 @@ async function getAllCandidClaims(
   const chunkedClaimIds = chunkThings(claimIds, CANDID_API_CONCURRENCY_LIMIT);
   const claims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[] =
     [];
-  for (const chunk of chunkedClaimIds) {
+  for (let i = 0; i < chunkedClaimIds.length; i++) {
+    const chunk = chunkedClaimIds[i];
+    console.log(`Fetching chunk ${i + 1}/${chunkedClaimIds.length} (${claimIds.length} claims) from Candid`);
     const currentClaims = await Promise.all(
       chunk.map((claimId) => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId)))
     );

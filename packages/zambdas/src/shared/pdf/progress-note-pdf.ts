@@ -12,6 +12,7 @@ import {
   composeExamination,
   composeExternalLabs,
   composeFollowupCompleted,
+  composeHistoryOfPresentIllness,
   composeHospitalization,
   composeImmunizationOrders,
   composeInHouseLabs,
@@ -38,6 +39,7 @@ import {
   createExaminationSection,
   createExternalLabsSection,
   createFollowupCompletedSection,
+  createHistoryOfPresentIllnessSection,
   createHospitalizationSection,
   createImmunizationOrdersSection,
   createInHouseLabsSection,
@@ -56,10 +58,6 @@ import {
   createSurgicalHistorySection,
   createVitalsSection,
 } from './sections';
-import {
-  composeHistoryOfPresentIllness,
-  createHistoryOfPresentIllnessSection,
-} from './sections/visit-note/historyOfPresentIllness';
 import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
 
 const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
