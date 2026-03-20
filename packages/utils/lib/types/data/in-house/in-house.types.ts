@@ -203,7 +203,7 @@ export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
 
 export type MarkAsCollectedData = {
   specimen: {
-    source: string;
+    source?: string;
     collectedBy: { id: string; name: string };
     collectionDate: string;
   };
