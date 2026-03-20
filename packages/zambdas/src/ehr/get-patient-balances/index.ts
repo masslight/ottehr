@@ -197,10 +197,11 @@ async function getAllCandidEncounters(
     const chunk = chunkedCandidIds[i];
     console.log(`Fetching chunk ${i + 1}/${chunkedCandidIds.length} (${candidIds.length} encounters) from Candid`);
     const currentCandidEncounters = await Promise.all(
-      chunk.map((candidId) => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
+      chunk.map((candidId) =>
+        retryWithBackoff(() => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
+      )
     );
     candidEncounters.push(...currentCandidEncounters);
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   console.log(`Fetched ${candidEncounters.length} Candid encounters`);
   return candidEncounters;
@@ -241,10 +242,9 @@ async function getAllCandidClaims(
     const chunk = chunkedClaimIds[i];
     console.log(`Fetching chunk ${i + 1}/${chunkedClaimIds.length} (${claimIds.length} claims) from Candid`);
     const currentClaims = await Promise.all(
-      chunk.map((claimId) => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId)))
+      chunk.map((claimId) => retryWithBackoff(() => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId))))
     );
     claims.push(...currentClaims);
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   console.log(`Fetched ${claims.length} claims`);
   return claims;
@@ -292,4 +292,21 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
   });
 
   return pendingPayments.reduce((acc, amount) => acc + amount, 0);
+}
+
+async function retryWithBackoff<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 4,
+  baseDelayMs = 500
+): Promise<APIResponse<T, E>> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fn();
+    if (response.ok || attempt === maxRetries) return response;
+    const delay = baseDelayMs * Math.pow(2, attempt) * (0.5 + Math.random() * 0.5);
+    console.warn(
+      `Candid API request failed, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  return fn();
 }
