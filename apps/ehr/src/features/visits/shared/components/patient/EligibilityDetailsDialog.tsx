@@ -120,7 +120,16 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
   }
 
   const statusDisplay = getStatusDisplay(eligibilityCheck.status);
-  const copayBenefits = eligibilityCheck.copay || [];
+  
+  // Filter copay benefits for the view details popup
+  // Filter by: benefit_coverage_code=B, benefit_level_code=IND, benefit_code=UC
+  const copayBenefits = eligibilityCheck.copay?.filter((benefit) => {
+    const isCopay = benefit.coverageCode === 'B';
+    const isIndividualLevel = benefit.levelCode === 'IND';
+    const isUrgentCare = benefit.code === 'UC';
+    
+    return isCopay && isIndividualLevel && isUrgentCare;
+  }) || [];
 
   const hasErrors = errorDetails && errorDetails.length > 0;
   const hasFailedStatus =
