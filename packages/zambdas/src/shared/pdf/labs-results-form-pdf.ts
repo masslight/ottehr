@@ -65,7 +65,6 @@ import {
   quantityRangeFormat,
   Secrets,
   SupportedObsImgAttachmentTypes,
-  TestItemComponent,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { getObservationsForDiagnosticReportResults } from '../../ehr/lab/shared/helpers';
@@ -1566,7 +1565,7 @@ const getFormattedInHouseLabResults = async (
 
   const results: InHouseLabResult[] = [];
   const components = convertActivityDefinitionToTestItem(activityDefinition, observations).components;
-  const componentsAll: TestItemComponent[] = [...components.radioComponents, ...components.groupedComponents];
+  const componentsAll = components.type === 'grouped' || components.type === 'radio' ? components.components : [];
   const interpretationByComponentIdMap = new Map<string, Coding | undefined>(
     observations
       .map((ob) => {

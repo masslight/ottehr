@@ -242,12 +242,12 @@ test.describe('In-house labs page', async () => {
       const fhirActivityDefinition = ad as ActivityDefinition;
       const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
 
-      if (testItem.components.radioComponents.length > 0 && testItem.components.groupedComponents.length === 0) {
+      if (testItem.components.type === 'radio') {
         radioEntryTestItems.push(testItem);
         if (testItem.repeatable) {
           repeatableRadioEntryTestItems.push(testItem);
         }
-      } else if (testItem.components.radioComponents.length === 0 && testItem.components.groupedComponents.length > 0) {
+      } else if (testItem.components.type === 'grouped') {
         selectAndNumericTestItems.push(testItem);
       }
 
@@ -587,7 +587,8 @@ test.describe('In-house labs page', async () => {
         await test.step('IHL-5.1.3 Enter results', async () => {
           const performTestPage = await PerformTestPage.isOpen(page);
 
-          const groupedComponents = reflexTest.parent.test.components.groupedComponents;
+          const groupedComponents =
+            reflexTest.child.test.components.type === 'grouped' ? reflexTest.child.test.components.components : [];
           const containsGroupedComponents = groupedComponents.length > 0;
           if (!containsGroupedComponents) {
             throw new Error(
@@ -643,7 +644,8 @@ test.describe('In-house labs page', async () => {
         await test.step('IHL-5.2.3 Enter results', async () => {
           const performTestPage = await PerformTestPage.isOpen(page);
 
-          const groupedComponents = reflexTest.child.test.components.groupedComponents;
+          const groupedComponents =
+            reflexTest.child.test.components.type === 'grouped' ? reflexTest.child.test.components.components : [];
           const containsGroupedComponents = groupedComponents.length > 0;
           if (!containsGroupedComponents) {
             throw new Error(

@@ -1,18 +1,5 @@
 import { CPTCodeDTO, DiagnosisDTO, InHouseLabListDTO, LabListsDTO, OBSERVATION_CODES, Pagination } from 'utils';
 
-export interface TestItemMethods {
-  manual?: { device: string };
-  analyzer?: { device: string };
-  machine?: { device: string };
-}
-
-export interface QuantityRange {
-  low: number;
-  high: number;
-  unit: string;
-  precision?: number;
-}
-
 export const EntryMode = {
   Initial: 'initial',
   Edit: 'edit',
@@ -29,14 +16,15 @@ export interface TestComponentResult {
   entry: string;
   interpretationCode: ObservationCode;
 }
-export interface BaseComponent {
+
+interface BaseDataEntryComponent {
   componentName: string;
   loincCode: string[];
   observationDefinitionId: string;
   result?: TestComponentResult;
 }
 
-export interface CodeableConceptComponent extends BaseComponent {
+export interface CodeableConceptDataEntryComponent extends BaseDataEntryComponent {
   dataType: 'CodeableConcept';
   valueSet: LabComponentValueSetConfig[];
   abnormalValues: LabComponentValueSetConfig[];
@@ -49,7 +37,7 @@ export interface CodeableConceptComponent extends BaseComponent {
   referenceRangeValues?: LabComponentValueSetConfig[];
 }
 
-export interface QuantityComponent extends BaseComponent {
+export interface QuantityDataEntryComponent extends BaseDataEntryComponent {
   dataType: 'Quantity';
   unit: string;
   normalRange: QuantityRange;
@@ -65,13 +53,30 @@ export interface Validation {
   // minLength?: number; // labs todo: can include these in the future but omitted now for sake of time
   // maxLength?: number;
 }
-export interface StringComponent extends BaseComponent {
+export interface StringDataEntryComponent extends BaseDataEntryComponent {
   dataType: 'string';
   displayType: 'Free Text';
   validations?: Validation;
 }
 
-export type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
+export type DataEntryComponent =
+  | CodeableConceptDataEntryComponent
+  | QuantityDataEntryComponent
+  | StringDataEntryComponent;
+
+export type DataEntryComponentType =
+  | {
+      type: 'grouped';
+      components: DataEntryComponent[];
+    }
+  | {
+      type: 'radio';
+      components: CodeableConceptDataEntryComponent[];
+    }
+  | {
+      type: 'empty';
+      components: undefined;
+    };
 
 export interface TestItem {
   name: string;
@@ -81,13 +86,9 @@ export interface TestItem {
   cptCode: CPTCodeDTO[];
   repeatable: boolean; // this test CAN be run as a repeat test
   orderMode: 'repeat' | 'reflex' | 'standard';
-  components: {
-    // todo labs im not sure we ever have an instance where a test has both of these and i think we should assert that in this type
-    groupedComponents: TestItemComponent[];
-    radioComponents: CodeableConceptComponent[];
-  };
   // reflexAlert is only defined IF results have been inputted that triggered the reflex test be run
   // todo labs it might make more sense to break this up, have a "reflexTriggered" bool AND this alert can always be passed
+  components: DataEntryComponentType;
   reflexAlert: { alert: string; testName: string; canonicalUrl: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
   adUrl: string;
   adVersion: string;
@@ -217,3 +218,16 @@ export type MarkAsCollectedData = {
     collectionDate: string;
   };
 };
+
+// types - there are separated types and seed object which is used for the creation script only:
+export interface QuantityRange {
+  low: number;
+  high: number;
+  unit: string;
+  precision?: number;
+}
+export interface TestItemMethods {
+  manual?: { device: string };
+  analyzer?: { device: string };
+  machine?: { device: string };
+}
