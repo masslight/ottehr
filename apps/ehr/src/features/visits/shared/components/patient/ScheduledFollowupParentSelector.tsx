@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Autocomplete, Box, Button, Grid, Paper, TextField } from '@mui/material';
+import { Autocomplete, Box, Button, Grid, TextField } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -20,10 +20,12 @@ interface EncounterRow {
 
 interface ScheduledFollowupParentSelectorProps {
   patient: Patient;
+  initialEncounterId?: string;
 }
 
 export default function ScheduledFollowupParentSelector({
   patient,
+  initialEncounterId,
 }: ScheduledFollowupParentSelectorProps): JSX.Element {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
@@ -90,6 +92,20 @@ export default function ScheduledFollowupParentSelector({
           });
 
         setPreviousEncounters(encounterRows);
+
+        if (initialEncounterId && encounterRows.length > 0) {
+          console.log(
+            '[ScheduledSelector] Looking for initialEncounterId:',
+            initialEncounterId,
+            'in',
+            encounterRows.map((r) => r.id)
+          );
+          const matchingVisit = encounterRows.find((row) => row.encounter?.id === initialEncounterId);
+          console.log('[ScheduledSelector] Match:', matchingVisit?.id);
+          if (matchingVisit) {
+            setSelectedParentEncounter(matchingVisit);
+          }
+        }
       } catch (err) {
         console.error('Error fetching previous encounters:', err);
       }
@@ -98,7 +114,7 @@ export default function ScheduledFollowupParentSelector({
     if (oystehrZambda && patientId) {
       void getPreviousEncounters(oystehrZambda);
     }
-  }, [oystehrZambda, patientId]);
+  }, [oystehrZambda, patientId, initialEncounterId]);
 
   const handleContinue = (): void => {
     if (!selectedParentEncounter) {
@@ -135,55 +151,53 @@ export default function ScheduledFollowupParentSelector({
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-      <Grid container spacing={2} columns={10}>
-        <Grid item xs={10}>
-          <Autocomplete
-            options={previousEncounters}
-            fullWidth
-            size="small"
-            getOptionLabel={(option) => {
-              const dateTime = option.dateTime ? formatISOStringToDateAndTime(option.dateTime) : 'Unknown date/time';
-              const type = option.typeLabel || 'Visit';
-              return `${dateTime} - ${type}`;
-            }}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-            value={selectedParentEncounter ?? null}
-            onChange={(_, newVal) => {
-              setSelectedParentEncounter(newVal || undefined);
-              setError(undefined);
-            }}
-            renderInput={(params) => (
-              <TextField
-                placeholder="Select initial visit"
-                name="parentVisit"
-                {...params}
-                label="Initial visit *"
-                error={!!error}
-                helperText={error}
-              />
-            )}
-          />
-        </Grid>
-
-        <Grid item xs={10}>
-          <Box display="flex" flexDirection="row" justifyContent="space-between" gap={2}>
-            <Button
-              sx={{ minWidth: 80, border: 1, borderRadius: 100, textTransform: 'none', fontWeight: 600 }}
-              onClick={handleCancel}
-            >
-              Cancel
-            </Button>
-            <LoadingButton
-              variant="contained"
-              onClick={handleContinue}
-              sx={{ borderRadius: 100, textTransform: 'none', fontWeight: 600 }}
-            >
-              Continue to Add Visit
-            </LoadingButton>
-          </Box>
-        </Grid>
+    <Grid container spacing={2} columns={10}>
+      <Grid item xs={10}>
+        <Autocomplete
+          options={previousEncounters}
+          fullWidth
+          size="small"
+          getOptionLabel={(option) => {
+            const dateTime = option.dateTime ? formatISOStringToDateAndTime(option.dateTime) : 'Unknown date/time';
+            const type = option.typeLabel || 'Visit';
+            return `${dateTime} - ${type}`;
+          }}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          value={selectedParentEncounter ?? null}
+          onChange={(_, newVal) => {
+            setSelectedParentEncounter(newVal || undefined);
+            setError(undefined);
+          }}
+          renderInput={(params) => (
+            <TextField
+              placeholder="Select initial visit"
+              name="parentVisit"
+              {...params}
+              label="Initial visit *"
+              error={!!error}
+              helperText={error}
+            />
+          )}
+        />
       </Grid>
-    </Paper>
+
+      <Grid item xs={10}>
+        <Box display="flex" flexDirection="row" justifyContent="space-between" gap={2}>
+          <Button
+            sx={{ minWidth: 80, border: 1, borderRadius: 100, textTransform: 'none', fontWeight: 600 }}
+            onClick={handleCancel}
+          >
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            onClick={handleContinue}
+            sx={{ borderRadius: 100, textTransform: 'none', fontWeight: 600 }}
+          >
+            Continue to Add Visit
+          </LoadingButton>
+        </Box>
+      </Grid>
+    </Grid>
   );
 }

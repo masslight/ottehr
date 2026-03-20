@@ -148,6 +148,7 @@ export const Header = (): JSX.Element => {
     location,
     locations,
     encounter,
+    followUpOriginEncounter,
     appointmentRefetch,
     selectedEncounterId,
   } = useAppointmentData();
@@ -568,7 +569,18 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        navigate(`/patient/${patient.id}/followup/add`);
+                        // If viewing a follow-up, the initial visit is the parent encounter.
+                        // Otherwise, the current encounter is the initial visit.
+                        const initialEncounterId = encounter?.partOf ? followUpOriginEncounter?.id : encounter?.id;
+                        console.log('[Header] Create Follow-Up:', {
+                          encounterId: encounter?.id,
+                          partOf: encounter?.partOf,
+                          followUpOriginId: followUpOriginEncounter?.id,
+                          initialEncounterId,
+                        });
+                        navigate(`/patient/${patient.id}/followup/add`, {
+                          state: { initialEncounterId },
+                        });
                       }
                     }}
                     disabled={!patient?.id}
