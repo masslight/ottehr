@@ -21,11 +21,19 @@ import {
   useCancelImmunizationOrder,
 } from 'src/features/visits/in-person/hooks/useImmunization';
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
+import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
+import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils';
-import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE, UNIT_OPTIONS } from 'utils';
+import {
+  EMERGENCY_CONTACT_RELATIONSHIPS,
+  ImmunizationOrder,
+  ImmunizationQuickPickData,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+  UNIT_OPTIONS,
+} from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import { ImmunizationNotes } from './ImmunizationNotes';
@@ -72,6 +80,34 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+  const { quickPicks: mergedQuickPicks } = useMergedImmunizationQuickPicks();
+
+  const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
+    const currentValues = methods.getValues();
+    methods.reset({
+      ...currentValues,
+      details: {
+        ...currentValues.details,
+        ...(quickPick.vaccine && { medication: quickPick.vaccine }),
+        ...(quickPick.dose && { dose: quickPick.dose }),
+        ...(quickPick.units && { units: quickPick.units }),
+        ...(quickPick.route && { route: quickPick.route }),
+        ...(quickPick.location && { location: quickPick.location }),
+        ...(quickPick.associatedDx && { associatedDx: quickPick.associatedDx }),
+        ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
+        ...(quickPick.instructions && { instructions: quickPick.instructions }),
+      },
+      administrationDetails: {
+        ...currentValues.administrationDetails,
+        ...(quickPick.lot && { lot: quickPick.lot }),
+        ...(quickPick.expDate && { expDate: quickPick.expDate }),
+        ...(quickPick.mvx && { mvx: quickPick.mvx }),
+        ...(quickPick.cvx && { cvx: quickPick.cvx }),
+        ...(quickPick.cpt && { cpt: quickPick.cpt }),
+        ...(quickPick.ndc && { ndc: quickPick.ndc }),
+      },
+    });
+  };
 
   const handleDeleteOrder = async (): Promise<void> => {
     try {
@@ -116,6 +152,9 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0 }}>
           <Stack spacing={2}>
+            {!isReadOnly && (
+              <QuickPicksButton quickPicks={mergedQuickPicks} getLabel={(qp) => qp.name} onSelect={onQuickPickSelect} />
+            )}
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
               <Grid container spacing={2}>
                 <Grid xs={12} item>
