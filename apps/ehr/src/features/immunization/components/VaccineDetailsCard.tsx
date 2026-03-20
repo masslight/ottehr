@@ -152,9 +152,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0 }}>
           <Stack spacing={2}>
-            {!isReadOnly && (
-              <QuickPicksButton quickPicks={mergedQuickPicks} getLabel={(qp) => qp.name} onSelect={onQuickPickSelect} />
-            )}
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
               <Grid container spacing={2}>
                 <Grid xs={12} item>
@@ -169,6 +166,13 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   >
                     Administering immunization
                   </Typography>
+                  {!isReadOnly && (
+                    <QuickPicksButton
+                      quickPicks={mergedQuickPicks}
+                      getLabel={(qp) => qp.name}
+                      onSelect={onQuickPickSelect}
+                    />
+                  )}
                 </Grid>
                 <Grid xs={3} item>
                   <TextInput
