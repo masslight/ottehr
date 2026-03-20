@@ -1,10 +1,28 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  Stack,
+  TextField as MuiTextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { CustomDialog } from 'src/components/dialogs';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
@@ -25,6 +43,8 @@ import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPic
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
+import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils';
 import {
@@ -32,6 +52,7 @@ import {
   ImmunizationOrder,
   ImmunizationQuickPickData,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  RoleType,
   UNIT_OPTIONS,
 } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
@@ -81,6 +102,14 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
   const { quickPicks: mergedQuickPicks } = useMergedImmunizationQuickPicks();
+  const { oystehrZambda } = useApiClients();
+  const currentUser = useEvolveUser();
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
+  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
+  const [quickPickName, setQuickPickName] = useState('');
+  const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
+  const [quickPickSaving, setQuickPickSaving] = useState(false);
+  const [overwriteTarget, setOverwriteTarget] = useState<ImmunizationQuickPickData | null>(null);
 
   const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
     const currentValues = methods.getValues();
@@ -107,6 +136,67 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         ...(quickPick.ndc && { ndc: quickPick.ndc }),
       },
     });
+  };
+
+  const openQuickPickDialog = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      const response = await getImmunizationQuickPicks(oystehrZambda);
+      setExistingQuickPicks(response.quickPicks);
+    } catch (error) {
+      console.error('Failed to load existing quick picks:', error);
+      setExistingQuickPicks(mergedQuickPicks);
+    }
+    setQuickPickName('');
+    setOverwriteTarget(null);
+    setQuickPickDialogOpen(true);
+  };
+
+  const buildQuickPickFromCurrentState = (): Omit<ImmunizationQuickPickData, 'id'> => {
+    const values = methods.getValues();
+    return {
+      name: quickPickName.trim(),
+      vaccine: values.details?.medication,
+      dose: values.details?.dose,
+      units: values.details?.units,
+      route: values.details?.route,
+      location: values.details?.location,
+      associatedDx: values.details?.associatedDx,
+      manufacturer: values.details?.manufacturer,
+      instructions: values.details?.instructions,
+      cvx: values.administrationDetails?.cvx,
+      mvx: values.administrationDetails?.mvx,
+      cpt: values.administrationDetails?.cpt,
+      ndc: values.administrationDetails?.ndc,
+      lot: values.administrationDetails?.lot,
+      expDate: values.administrationDetails?.expDate,
+    };
+  };
+
+  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
+    if (!quickPickName.trim()) {
+      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    if (!oystehrZambda) throw new Error('oystehrZambda was null');
+
+    setQuickPickSaving(true);
+    try {
+      const quickPickData = buildQuickPickFromCurrentState();
+      if (overwriteId) {
+        await updateImmunizationQuickPick(oystehrZambda, overwriteId, quickPickData);
+        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
+      } else {
+        await createImmunizationQuickPick(oystehrZambda, { quickPick: quickPickData });
+        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
+      }
+      setQuickPickDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save quick pick:', error);
+      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
+    } finally {
+      setQuickPickSaving(false);
+    }
   };
 
   const handleDeleteOrder = async (): Promise<void> => {
@@ -171,6 +261,9 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       quickPicks={mergedQuickPicks}
                       getLabel={(qp) => qp.name}
                       onSelect={onQuickPickSelect}
+                      showAddOption
+                      isAdmin={isAdmin}
+                      onAddOrUpdate={() => void openQuickPickDialog()}
                     />
                   )}
                 </Grid>
@@ -404,6 +497,52 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
           />
         </fieldset>
       </form>
+
+      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Save as Quick Pick</DialogTitle>
+        <DialogContent>
+          <MuiTextField
+            autoFocus
+            label="Quick pick name"
+            fullWidth
+            value={quickPickName}
+            onChange={(e) => setQuickPickName(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+          {existingQuickPicks.length > 0 && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                Or overwrite an existing quick pick:
+              </Typography>
+              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                {existingQuickPicks.map((qp) => (
+                  <ListItem key={qp.id} disablePadding>
+                    <ListItemButton
+                      selected={overwriteTarget?.id === qp.id}
+                      onClick={() => {
+                        setOverwriteTarget(qp);
+                        setQuickPickName(qp.name);
+                      }}
+                    >
+                      <ListItemText primary={qp.name} />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
+          <LoadingButton
+            loading={quickPickSaving}
+            variant="contained"
+            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
+          >
+            {overwriteTarget ? 'Overwrite' : 'Save'}
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
     </FormProvider>
   );
 };
