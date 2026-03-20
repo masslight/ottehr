@@ -2034,6 +2034,3 @@ export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
 export const checkFieldHidden = (fieldKey: string): boolean => {
   return _checkFieldHidden(INTAKE_PAPERWORK_CONFIG, fieldKey);
 };
-
-// Re-export helpers from config-helpers for backward compatibility
-export { getIntakeFormPageSubtitle, buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
