@@ -1,5 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Schedule, Slot } from 'fhir/r4b';
+import { InHouseMedicationQuickPick } from 'config-types';
+import { ActivityDefinition, Medication, Schedule, Slot } from 'fhir/r4b';
 import {
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
@@ -27,6 +28,8 @@ import {
   CreateDischargeSummaryResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
+  CreateInHouseMedicationInput,
+  CreateInHouseMedicationQuickPickInput,
   CreateLabOrderParameters,
   CreateLabOrderZambdaOutput,
   CreateNursingOrderInput,
@@ -111,6 +114,8 @@ import {
   SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
+  UpdateInHouseMedicationInput,
+  UpdateInHouseMedicationQuickPickInput,
   UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
@@ -174,6 +179,12 @@ const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = 'get-in-house-orders';
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = 'collect-in-house-lab-specimen';
 const HANDLE_IN_HOUSE_LAB_RESULTS = 'handle-in-house-lab-results';
 const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
+const CREATE_IN_HOUSE_MEDICATION = 'create-in-house-medication';
+const UPDATE_IN_HOUSE_MEDICATION = 'update-in-house-medication';
+const GET_IN_HOUSE_MEDICATIONS = 'get-in-house-medications';
+const CREATE_IN_HOUSE_MEDICATION_QUICK_PICK = 'create-in-house-medication-quick-pick';
+const UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK = 'update-in-house-medication-quick-pick';
+const GET_IN_HOUSE_MEDICATIONS_QUICK_PICKS = 'get-in-house-medications-quick-picks';
 const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
@@ -1143,6 +1154,112 @@ export const deleteInHouseLabOrder = async (
     const response = await oystehr.zambda.execute({
       id: DELETE_IN_HOUSE_LAB_ORDER,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createInHouseMedication = async (
+  oystehr: Oystehr,
+  parameters: CreateInHouseMedicationInput
+): Promise<Medication> => {
+  try {
+    if (CREATE_IN_HOUSE_MEDICATION == null) {
+      throw new Error('create in house medication zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: CREATE_IN_HOUSE_MEDICATION,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateInHouseMedication = async (
+  oystehr: Oystehr,
+  parameters: UpdateInHouseMedicationInput
+): Promise<Medication> => {
+  try {
+    if (UPDATE_IN_HOUSE_MEDICATION == null) {
+      throw new Error('update in house medication zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_IN_HOUSE_MEDICATION,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getInHouseMedications = async (oystehr: Oystehr): Promise<Medication[]> => {
+  try {
+    if (GET_IN_HOUSE_MEDICATIONS == null) {
+      throw new Error('get in house medications zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_IN_HOUSE_MEDICATIONS,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createInHouseMedicationQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateInHouseMedicationQuickPickInput
+): Promise<ActivityDefinition> => {
+  try {
+    if (CREATE_IN_HOUSE_MEDICATION_QUICK_PICK == null) {
+      throw new Error('create in house medications quick pick zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: CREATE_IN_HOUSE_MEDICATION_QUICK_PICK,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateInHouseMedicationQuickPick = async (
+  oystehr: Oystehr,
+  parameters: UpdateInHouseMedicationQuickPickInput
+): Promise<ActivityDefinition> => {
+  try {
+    if (UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK == null) {
+      throw new Error('update in house medication quick pick zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getInHouseMedicationsQuickPicks = async (oystehr: Oystehr): Promise<InHouseMedicationQuickPick[]> => {
+  try {
+    if (GET_IN_HOUSE_MEDICATIONS_QUICK_PICKS == null) {
+      throw new Error('get in house medications quick picks zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_IN_HOUSE_MEDICATIONS_QUICK_PICKS,
     });
     return chooseJson(response);
   } catch (error: unknown) {

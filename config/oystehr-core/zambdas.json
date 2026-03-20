@@ -414,6 +414,48 @@
       "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zips/get-paperwork.zip"
     },
+    "CREATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "create-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications-quick-picks/create-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/create-in-house-medication-quick-pick.zip"
+    },
+    "UPDATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "update-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications-quick-picks/update-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/update-in-house-medication-quick-pick.zip"
+    },
+    "GET-IN-HOUSE-MEDICATIONS-QUICK-PICKS": {
+      "name": "get-in-house-medications-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications-quick-picks/get-in-house-medications-quick-picks/index",
+      "zip": ".dist/zips/get-in-house-medications-quick-picks.zip"
+    },
+    "CREATE-IN-HOUSE-MEDICATION": {
+      "name": "create-in-house-medication",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/create-in-house-medication/index",
+      "zip": ".dist/zips/create-in-house-medication.zip"
+    },
+    "UPDATE-IN-HOUSE-MEDICATION": {
+      "name": "update-in-house-medication",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/update-in-house-medication/index",
+      "zip": ".dist/zips/update-in-house-medication.zip"
+    },
+    "GET-IN-HOUSE-MEDICATIONS": {
+      "name": "get-in-house-medications",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/get-in-house-medications/index",
+      "zip": ".dist/zips/get-in-house-medications.zip"
+    },
     "UPDATE-APPOINTMENT": {
       "name": "update-appointment",
       "type": "http_open",

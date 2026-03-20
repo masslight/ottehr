@@ -44,6 +44,7 @@ export enum APIErrorCode {
   MISSING_SCHEDULE_EXTENSION = 4305,
   MISSING_PATIENT_COVERAGE_INFO = 4306,
   STRIPE_CUSTOMER_ID_DOES_NOT_EXIST = 4307,
+  QUICK_PICK_NAME_EXISTS = 4308,
   // 434x
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
@@ -317,6 +318,12 @@ export const STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR: APIError = {
 export const INVALID_INPUT_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.INVALID_INPUT,
+    message,
+  };
+};
+export const QUICK_PICK_NAME_EXISTS_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.QUICK_PICK_NAME_EXISTS,
     message,
   };
 };

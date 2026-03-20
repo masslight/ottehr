@@ -2,11 +2,21 @@ import { otherColors } from '@ehrTheme/colors';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, CircularProgress, Grid, Paper, Typography, useTheme } from '@mui/material';
+import { Autocomplete, Box, CircularProgress, Grid, Paper, TextField, Typography, useTheme } from '@mui/material';
 import { Stack } from '@mui/system';
+import { InHouseMedicationQuickPick } from 'config-types';
 import { DateTime } from 'luxon';
-import { useMemo } from 'react';
+import { useEffect } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  createInHouseMedicationQuickPick,
+  getInHouseMedicationsQuickPicks,
+  updateInHouseMedicationQuickPick,
+} from 'src/api/api';
+import { CustomDialog } from 'src/components/dialogs';
+import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   ExtendedMedicationDataForResponse,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
@@ -14,6 +24,7 @@ import {
   MEDICAL_HISTORY_CONFIG,
   MedicationData,
   MedicationOrderStatusesType,
+  RoleType,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
@@ -68,6 +79,132 @@ type MedicationCardViewProps = {
   onQuickPickSelect?: (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => void;
 };
 
+const CreateQuickPickDialog = ({
+  createQuickPickOpen,
+  setCreateQuickPickOpen,
+  localValues,
+  existingQuickPicks,
+}: {
+  createQuickPickOpen: boolean;
+  setCreateQuickPickOpen: (open: boolean) => void;
+  localValues: Partial<MedicationData>;
+  existingQuickPicks: InHouseMedicationQuickPick[];
+}): React.ReactElement => {
+  const { oystehrZambda } = useApiClients();
+  const [selectedQuickPick, setSelectedQuickPick] = React.useState<InHouseMedicationQuickPick | null>(null);
+  const [quickPickName, setQuickPickName] = React.useState('');
+  const [createQuickPickLoading, setCreateQuickPickLoading] = React.useState(false);
+  const [createQuickPickError, setCreateQuickPickError] = React.useState<string | undefined>(undefined);
+
+  async function saveQuickPick(): Promise<void> {
+    const { medicationId, dose, units, route, instructions } = localValues;
+    if (!oystehrZambda) {
+      return;
+    }
+    if (!medicationId || dose == undefined || !units || !route) {
+      setCreateQuickPickError('Medication, dose, units, and route are required');
+      return;
+    }
+    if (!quickPickName.trim()) {
+      setCreateQuickPickError('Name is required');
+      return;
+    }
+
+    setCreateQuickPickLoading(true);
+    setCreateQuickPickError(undefined);
+    try {
+      if (selectedQuickPick?.id) {
+        await updateInHouseMedicationQuickPick(oystehrZambda, {
+          quickPickID: selectedQuickPick.id,
+          name: quickPickName.trim(),
+          medicationID: medicationId,
+          dose,
+          units,
+          route,
+          instructions,
+        });
+      } else {
+        await createInHouseMedicationQuickPick(oystehrZambda, {
+          name: quickPickName.trim(),
+          medicationID: medicationId,
+          dose,
+          units,
+          route,
+          instructions,
+        });
+      }
+      setQuickPickName('');
+      setSelectedQuickPick(null);
+      setCreateQuickPickError(undefined);
+      setCreateQuickPickOpen(false);
+    } catch (error: any) {
+      console.error('Error saving quick pick:', error);
+      setCreateQuickPickError(error.message);
+    }
+    setCreateQuickPickLoading(false);
+  }
+
+  return (
+    <CustomDialog
+      open={createQuickPickOpen}
+      confirmLoading={createQuickPickLoading}
+      handleConfirm={saveQuickPick}
+      confirmText="Save quick pick"
+      handleClose={async () => {
+        setQuickPickName('');
+        setSelectedQuickPick(null);
+        setCreateQuickPickError(undefined);
+        setCreateQuickPickOpen(false);
+      }}
+      title="Save quick pick"
+      description={
+        <div style={{ width: '500px' }}>
+          <Autocomplete
+            freeSolo
+            options={existingQuickPicks}
+            getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+            value={selectedQuickPick ?? quickPickName}
+            onChange={(_, newValue) => {
+              if (typeof newValue === 'string') {
+                setQuickPickName(newValue);
+                setSelectedQuickPick(null);
+              } else if (newValue) {
+                setQuickPickName(newValue.name);
+                setSelectedQuickPick(newValue);
+              } else {
+                setQuickPickName('');
+                setSelectedQuickPick(null);
+              }
+            }}
+            onInputChange={(_, newInputValue) => {
+              setQuickPickName(newInputValue);
+              if (selectedQuickPick && newInputValue !== selectedQuickPick.name) {
+                setSelectedQuickPick(null);
+              }
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                required
+                fullWidth
+                label="Name"
+                sx={{ marginTop: 1 }}
+                placeholder="Select an existing quick pick to update, or enter a new name"
+              />
+            )}
+          />
+          {createQuickPickError && (
+            <Typography variant="body2" color="error" sx={{ marginTop: 1 }}>
+              {createQuickPickError}
+            </Typography>
+          )}
+        </div>
+      }
+      closeButtonText="Cancel"
+    />
+  );
+};
+
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   onSave,
   medication,
@@ -93,21 +230,43 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   onQuickPickSelect,
 }) => {
   const navigate = useNavigate();
+  const { oystehrZambda } = useApiClients();
   const { id: appointmentId } = useParams();
+  const currentUser = useEvolveUser();
+  const [createQuickPickOpen, setCreateQuickPickOpen] = React.useState(false);
   const theme = useTheme();
 
-  const inHouseMedicationsquickPicksList = useMemo(() => {
-    const medispanCodeSet = selectsOptions.medicationId.medispanCodeSet ?? new Set<string>();
-    const ndcCodeSet = selectsOptions.medicationId.ndcCodeSet ?? new Set<string>();
-    type QuickPick = (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number];
-    const hasNdc = (pick: QuickPick): boolean => pick.ndc != null && ndcCodeSet.has(pick.ndc);
-    const hasMedispan = (pick: QuickPick): boolean =>
-      pick.dosespotId != null && medispanCodeSet.has(String(pick.dosespotId));
-    return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter((f) => hasNdc(f) || hasMedispan(f));
-  }, [selectsOptions.medicationId.medispanCodeSet, selectsOptions.medicationId.ndcCodeSet]);
+  const [inHouseMedicationsQuickPicksOptions, setInHouseMedicationsQuickPicksOptions] = React.useState<
+    InHouseMedicationQuickPick[] | undefined
+  >(undefined);
 
-  const showAddFromQuickPicks =
-    (type === 'order-new' || type === 'order-edit') && onQuickPickSelect && inHouseMedicationsquickPicksList.length > 0;
+  useEffect(() => {
+    async function fetchMedicationsQuickPicks(): Promise<void> {
+      if (!oystehrZambda) {
+        return;
+      }
+      let inHouseMedicationQuickPicksTemp = await getInHouseMedicationsQuickPicks(oystehrZambda);
+      inHouseMedicationQuickPicksTemp = inHouseMedicationQuickPicksTemp.filter(
+        (quickPick) => quickPick.status === 'active'
+      );
+      setInHouseMedicationsQuickPicksOptions(inHouseMedicationQuickPicksTemp);
+    }
+    fetchMedicationsQuickPicks().catch((error) =>
+      console.log('Error fetching in house quick picks medications', error)
+    );
+  }, [oystehrZambda]);
+
+  const isAdministrator = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]);
+  const canAddQuickPick =
+    localValues.medicationId && localValues.dose !== undefined && localValues.units && localValues.route;
+
+  const showQuickPicksButton =
+    (type === 'order-new' || type === 'order-edit') && inHouseMedicationsQuickPicksOptions != null;
+
+  const saveQuickPickDisabled = !isAdministrator || !canAddQuickPick;
+  const saveQuickPickTooltip = !isAdministrator
+    ? 'You must be an administrator to save a quick pick'
+    : 'Medication, dose, units, and route are required to save a quick pick';
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -234,10 +393,10 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <Grid container spacing={2}>
-        {showAddFromQuickPicks && (
+        {showQuickPicksButton && (
           <Grid item xs={12}>
             <QuickPicksButton
-              quickPicks={inHouseMedicationsquickPicksList}
+              quickPicks={inHouseMedicationsQuickPicksOptions ?? []}
               getLabel={(quickPick) => {
                 const parts = [quickPick.name] as string[];
                 if (quickPick.dose != null && quickPick.units != null) {
@@ -252,7 +411,10 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                 }
                 return parts.join(', ');
               }}
-              onSelect={onQuickPickSelect}
+              onSelect={onQuickPickSelect ?? (() => {})}
+              onSaveQuickPick={() => setCreateQuickPickOpen(true)}
+              saveQuickPickDisabled={saveQuickPickDisabled}
+              saveQuickPickTooltip={saveQuickPickTooltip}
               disabled={isUpdating}
             />
           </Grid>
@@ -279,6 +441,12 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             </div>
           )}
         </Grid>
+        <CreateQuickPickDialog
+          createQuickPickOpen={createQuickPickOpen}
+          setCreateQuickPickOpen={setCreateQuickPickOpen}
+          localValues={localValues}
+          existingQuickPicks={inHouseMedicationsQuickPicksOptions ?? []}
+        />
         {Object.entries(fieldsConfig).map(([field, config]) => {
           const value = getFieldValue(field as keyof MedicationData);
           let renderValue: string | undefined;
