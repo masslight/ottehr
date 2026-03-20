@@ -36,3 +36,8 @@ config/sendgrid/*
 terraform.json
 .test-appointment-id
 .playwright-mcp
+
+# Claude Code & AI assistant files
+.claude/
+CLAUDE.md
+.github/copilot-instructions.md
