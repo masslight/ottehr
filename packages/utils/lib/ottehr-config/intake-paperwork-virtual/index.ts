@@ -1,6 +1,5 @@
 import {
   type PaperworkConfig,
-  PaperworkConfigSchema,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
   type ResolvedConsentFormConfig,
@@ -8,11 +7,9 @@ import {
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
-import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork-virtual';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
-import { mergeAndFreezeConfigObjects } from '../helpers';
 import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
   ALLERGIES_YES_OPTION,
@@ -26,10 +23,19 @@ import {
 } from '../shared-questionnaire';
 import { VALUE_SETS } from '../value-sets';
 
-function getFormFields(valueSets: ValueSetsConfig, consentForms?: ResolvedConsentFormConfig[]): typeof FormFields {
-  // Use provided consent forms if available (for Node.js test context), otherwise read from proxy
-  const resolvedConsentForms = consentForms ?? getConsentFormsForLocation();
+const hiddenFormSections: string[] = [];
 
+const questionnaireBaseDefaults = {
+  resourceType: 'Questionnaire',
+  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual',
+  version: '1.0.22',
+  name: 'virtual_pre-visit_paperwork',
+  title: 'virtual pre-visit paperwork',
+  status: 'active',
+} as const satisfies QuestionnaireBase;
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: ResolvedConsentFormConfig[]) {
   const FormFields = {
     contactInformation: {
       linkId: 'contact-information-page',
@@ -2391,35 +2397,19 @@ function getFormFields(valueSets: ValueSetsConfig, consentForms?: ResolvedConsen
   return FormFields;
 }
 
-const hiddenFormSections: string[] = [];
-
-const questionnaireBaseDefaults = {
-  resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual',
-  version: '1.0.22',
-  name: 'virtual_pre-visit_paperwork',
-  title: 'virtual pre-visit paperwork',
-  status: 'active',
-} as const satisfies QuestionnaireBase;
-
-function getIntakePaperworkVirtualConfig(
-  testOverrides: any = OVERRIDES,
-  consentFormsConfig?: ResolvedConsentFormConfig[]
-): PaperworkConfig {
+function getIntakePaperworkVirtualConfig(consentFormsConfig?: ResolvedConsentFormConfig[]): PaperworkConfig {
   // Use pre-merged value sets (baked in at deploy time)
   const valueSets = VALUE_SETS;
   // Use provided consent forms if available (for Node.js test context), otherwise read from config
   const consentForms = consentFormsConfig ?? getConsentFormsForLocation();
 
-  const INTAKE_PAPERWORK_DEFAULTS = {
+  const INTAKE_PAPERWORK_DATA = {
     questionnaireBase: questionnaireBaseDefaults,
     hiddenFormSections,
-    FormFields: getFormFields(valueSets, consentForms),
+    FormFields: buildFormFields(valueSets, consentForms),
   };
 
-  const mergedIntakePaperworkConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, testOverrides);
-
-  return PaperworkConfigSchema.parse(mergedIntakePaperworkConfig);
+  return INTAKE_PAPERWORK_DATA as unknown as PaperworkConfig;
 }
 
 // Export the config directly (no proxy needed - questionnaire selection is via Slot extension)

@@ -4,7 +4,7 @@ import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
-import zambdasSpec from '../../config/oystehr/zambdas.json';
+import zambdasSpec from '../../config/oystehr-core/zambdas.json';
 
 interface ZambdaSpec {
   name: string;

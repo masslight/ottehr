@@ -51,7 +51,7 @@ export interface ProcedureQuickPickData {
   bodySite?: string;
   otherBodySite?: string;
   bodySide?: string;
-  technique?: string;
+  technique?: string[];
   suppliesUsed?: (string | undefined)[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;

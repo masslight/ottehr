@@ -157,6 +157,7 @@ export interface MedicationDTO extends SaveableDTO {
 export interface MedicationIntakeInfo {
   date?: string;
   dose?: string;
+  patientCouldNotConfirmDosage?: boolean;
 }
 
 export interface PrescribedMedicationDTO extends SaveableDTO {

@@ -379,7 +379,7 @@ export async function executeBookingScenario(
   }
 
   // Inject booking config before navigation (must happen before app loads)
-  // Note: VALUE_SETS and CONSENT_FORMS are now baked in at deploy time via ottehr-config-overrides
+  // Note: VALUE_SETS and CONSENT_FORMS are baked in at deploy time via ottehr-config
   // Questionnaire canonical is now included in the config overrides above
   await injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, overrides);
 

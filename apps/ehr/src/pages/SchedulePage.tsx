@@ -175,7 +175,7 @@ export default function SchedulePage(): ReactElement {
       }
     },
     onSuccess: async (newSchedule: Schedule) => {
-      navigate(`/schedule/id/${newSchedule.id}`);
+      navigate(`/admin/schedule/id/${newSchedule.id}`);
       enqueueSnackbar('Schedule added successfully!', { variant: 'success' });
     },
   });
@@ -273,7 +273,8 @@ export default function SchedulePage(): ReactElement {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
-                { link: '/schedules', state: { defaultTab: scheduleType }, children: 'Schedules' },
+                { link: '/admin', state: { defaultTab: scheduleType }, children: 'Admin' },
+                { link: '/admin/schedules', state: { defaultTab: scheduleType }, children: 'Schedules' },
                 { link: '#', children: item?.owner?.name || <Skeleton width={150} /> },
               ]}
             />

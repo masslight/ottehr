@@ -69,10 +69,12 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
   ObservationBooleanFieldDTO,
+  ObservationDateFieldDTO,
   ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
+  patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
   PrescribedMedicationDTO,
   PRIVATE_EXTENSION_BASE_URL,
@@ -247,6 +249,8 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
   };
 }
 
+const PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE = 'Patient could not confirm dosage';
+
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
@@ -265,6 +269,9 @@ export function makeMedicationResource(
     effectiveDateTime: data.intakeInfo.date,
     informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
+    ...(data.intakeInfo.patientCouldNotConfirmDosage && {
+      note: [{ text: PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE }],
+    }),
     medicationCodeableConcept: {
       coding: [
         {
@@ -291,6 +298,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     intakeInfo: {
       dose: getMedicationDosage(medication, medication.meta?.tag?.[0].code || ''),
       date: medication.effectiveDateTime,
+      patientCouldNotConfirmDosage: medication.note?.[0]?.text === PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE || undefined,
     },
     status: ['active', 'completed'].includes(medication.status)
       ? (medication.status as 'active' | 'completed')
@@ -398,19 +406,11 @@ export function makeObservationResource(
     };
   }
 
-  if (isObservationTextFieldDTO(data)) {
-    if ('note' in data && data.note) {
-      return {
-        ...base,
-        valueString: data.value,
-        note: [{ text: data.note }],
-      };
-    } else {
-      return {
-        ...base,
-        valueString: data.value,
-      };
-    }
+  if (isObservationDateFieldDTO(data)) {
+    return {
+      ...base,
+      valueDateTime: data.value,
+    };
   }
 
   if (isObservationDateRangeFieldDTO(data)) {
@@ -425,11 +425,35 @@ export function makeObservationResource(
     };
   }
 
+  // isObservationTextFieldDTO must be last since it only checks for string value
+  // and date fields also have string values.
+  const textData = data as ObservationTextFieldDTO;
+  if (isObservationTextFieldDTO(data)) {
+    if ('note' in textData && textData.note) {
+      return {
+        ...base,
+        valueString: textData.value,
+        note: [{ text: textData.note }],
+      };
+    } else {
+      return {
+        ...base,
+        valueString: textData.value,
+      };
+    }
+  }
+
   throw new Error('Invalid ObservationDTO type');
 }
 
 function isObservationBooleanFieldDTO(data: ObservationDTO): data is ObservationBooleanFieldDTO {
   return typeof (data as ObservationBooleanFieldDTO).value === 'boolean';
+}
+
+function isObservationDateFieldDTO(data: ObservationDTO): data is ObservationDateFieldDTO {
+  if (typeof (data as ObservationDateFieldDTO).value !== 'string') return false;
+  const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === data.field);
+  return field?.type === 'date';
 }
 
 function isObservationTextFieldDTO(data: ObservationDTO): data is ObservationTextFieldDTO {
@@ -1121,6 +1145,18 @@ export function makeObservationDTO(observation: Observation): null | Observation
       field,
       value: observation.valueBoolean,
     } as ObservationBooleanFieldDTO;
+  } else if (typeof observation.valueDateTime === 'string') {
+    return {
+      resourceId: observation.id,
+      field,
+      value: observation.valueDateTime,
+    } as ObservationDateFieldDTO;
+  } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
+    return {
+      resourceId: observation.id,
+      field,
+      value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
+    } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
     return {
       resourceId: observation.id,
@@ -1129,12 +1165,6 @@ export function makeObservationDTO(observation: Observation): null | Observation
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
     } as ObservationTextFieldDTO;
-  } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
-    return {
-      resourceId: observation.id,
-      field,
-      value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
-    } as ObservationDateRangeFieldDTO;
   }
 
   console.error(`Invalid Observation field type: "${field}" ${JSON.stringify(observation)}`);

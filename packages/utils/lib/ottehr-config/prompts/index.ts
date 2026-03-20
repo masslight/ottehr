@@ -1,12 +1,10 @@
-import { PromptsConfig, PromptsConfigSchema } from 'config-types';
-import { PROMPTS_OVERRIDE } from '../../../ottehr-config-overrides/prompts';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import type { PromptsConfig } from 'config-types';
 
-const PROMPTS_DEFAULTS: PromptsConfig = {
+const PROMPTS_DATA: PromptsConfig = {
   HPI_SUGGESTION: `For each of these clinic data points gathered in HPI for an urgent care visit:
     Onset,
     Location,
-    Duration, 
+    Duration,
     Characteristic,
     Aggravating,
     Relieving,
@@ -24,6 +22,4 @@ const PROMPTS_DEFAULTS: PromptsConfig = {
     }`,
 };
 
-const mergedConfig = mergeAndFreezeConfigObjects(PROMPTS_DEFAULTS, PROMPTS_OVERRIDE);
-
-export const PROMPTS_CONFIG = PromptsConfigSchema.parse(mergedConfig);
+export const PROMPTS_CONFIG = Object.freeze(PROMPTS_DATA);

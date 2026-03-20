@@ -7,10 +7,10 @@ import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ottehrApi } from 'src/api';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
-import { AppointmentType, BRANDING_CONFIG, getSelectors } from 'utils';
+import { AppointmentType, getSelectors } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
-import { primaryIcon } from '../../branding/assets';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../../branding/primaryIconVisibility';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
 import { IntakeThemeContext } from '../../contexts';
 import { CallSettings, CancelVisitDialog } from '../components';
@@ -107,9 +107,7 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title="Waiting room"
-      img={primaryIcon}
-      imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={80}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.TELEMED_WAITING_ROOM)}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
     >
       {appointmentType && appointmentType !== 'pre-booked' && (

@@ -8,8 +8,8 @@
  * Each test covers the complete flow: homepage → booking → paperwork → completion
  * Tests run in parallel with isolated test resources (locations, questionnaires).
  *
- * Configuration is driven by ottehr-config-overrides - downstream instances can
- * customize behavior by populating those files with instance-specific values.
+ * Configuration is driven by ottehr-config - downstream instances can
+ * customize behavior by providing instance-specific config defaults.
  */
 
 import { expect, test } from '@playwright/test';
@@ -50,8 +50,8 @@ let prebookInPersonGroup: CreatedGroupBookingResources;
 const testQuestionnaireCanonicals: Map<string, CanonicalUrl> = new Map();
 
 // Generate test scenarios from instance's BOOKING_CONFIG
-// Configuration comes from ottehr-config-overrides - downstream instances can
-// customize behavior by populating those files with instance-specific values
+// Configuration comes from ottehr-config - downstream instances can
+// customize behavior by providing instance-specific config defaults
 const scenarios = await generateBookingTestScenarios();
 
 test.describe('Complete booking flows', () => {
