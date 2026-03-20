@@ -6,6 +6,7 @@ import {
   FileURLInfo,
   getSecret,
   GetVisitDetailsResponse,
+  isAnnotationFollowupEncounter,
   isFollowupEncounter,
   SecretsKeys,
 } from 'utils';
@@ -56,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ).unbundle();
       allEncounters = encounterResults.filter((e) => e.resourceType === 'Encounter') as Encounter[];
       // Find the main encounter (not follow-up)
-      encounter = allEncounters.find((e) => !isFollowupEncounter(e)) as Encounter;
+      encounter = allEncounters.find((e) => !isAnnotationFollowupEncounter(e)) as Encounter;
       const appointment = encounterResults.find((e) => e.resourceType === 'Appointment') as Appointment;
       if (!encounter || !encounter.id) {
         throw new Error('Error getting appointment encounter');

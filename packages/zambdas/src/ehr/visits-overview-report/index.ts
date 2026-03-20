@@ -10,7 +10,7 @@ import {
   getCoding,
   getInPersonVisitStatus,
   getSecret,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
   LocationVisitCount,
@@ -111,7 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Create encounter map for quick lookups to determine visit status
     const encounterMap = new Map<string, Encounter>();
     encounters
-      .filter((encounter) => !isFollowupEncounter(encounter))
+      .filter((encounter) => !isAnnotationFollowupEncounter(encounter))
       .forEach((encounter) => {
         const appointmentRef = encounter.appointment?.[0]?.reference;
         if (appointmentRef && encounter.id) {

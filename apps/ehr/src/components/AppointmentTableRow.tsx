@@ -1,4 +1,5 @@
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -839,15 +840,22 @@ export default function AppointmentTableRow({
       )}
       <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Link
-            to={`/patient/${appointment.patient.id}`}
-            style={{ textDecoration: 'none' }}
-            data-testid={dataTestIds.dashboard.patientName}
-          >
-            <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
-              {patientName}
-            </Typography>
-          </Link>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Link
+              to={`/patient/${appointment.patient.id}`}
+              style={{ textDecoration: 'none' }}
+              data-testid={dataTestIds.dashboard.patientName}
+            >
+              <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
+                {patientName}
+              </Typography>
+            </Link>
+            {appointment.isFollowUp && (
+              <Tooltip title="Follow-up visit">
+                <CallSplitIcon sx={{ fontSize: 16, color: 'text.secondary', transform: 'rotate(180deg)' }} />
+              </Tooltip>
+            )}
+          </Box>
           {appointment.needsDOBConfirmation ? (
             <GenericToolTip title="Date of birth for returning patient was not confirmed" customWidth="170px">
               <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>

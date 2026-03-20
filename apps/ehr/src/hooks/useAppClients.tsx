@@ -42,6 +42,9 @@ export function useApiClients(): ApiClientsState {
           retry: {
             retries: 0,
           },
+          services: {
+            zambdaApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
+          },
         }),
       });
     }

@@ -255,11 +255,26 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return encounter.office ? encounter.office : '-';
       case 'status': {
         if (!encounter.status) return null;
+        // Scheduled follow-ups use encounter status directly (planned, arrived, etc.)
+        // Annotation follow-ups use OPEN/RESOLVED
+        if (encounter.followupSubtype === 'scheduled') {
+          return <Typography variant="body2">{encounter.status}</Typography>;
+        }
         const statusVal = encounter.status === 'in-progress' ? 'OPEN' : 'RESOLVED';
         return getFollowupStatusChip(statusVal);
       }
       case 'note': {
-        const { encounterId, originalAppointmentId } = encounter;
+        const { encounterId, originalAppointmentId, followupSubtype } = encounter;
+        // Scheduled follow-ups use the parent's appointment ID so the full encounter tree loads,
+        // with encounterId param to select the scheduled follow-up's encounter for display
+        if (followupSubtype === 'scheduled' && originalAppointmentId) {
+          if (encounter.status === 'planned' || encounter.status === 'arrived') {
+            return '-';
+          }
+          const to = `/in-person/${originalAppointmentId}/review-and-sign?encounterId=${encounterId}`;
+          return <RoundedButton to={to}>Progress Note</RoundedButton>;
+        }
+        // Annotation follow-ups use the limited follow-up note view
         if (!originalAppointmentId) return '-';
         const to = `/in-person/${originalAppointmentId}/follow-up-note${
           encounterId ? `?encounterId=${encounterId}` : ''

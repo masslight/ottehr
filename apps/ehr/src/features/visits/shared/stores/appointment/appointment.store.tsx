@@ -354,12 +354,20 @@ const selectAppointmentData = (
       resource.resourceType === 'Location' && resource.id === appointmentLocationId && !isLocationVirtual(resource)
   );
 
-  const followUpOriginEncounter = data?.find(
-    (resource: FhirResource) => resource.resourceType === 'Encounter' && !resource.partOf
-  ) as Encounter;
-  const followupEncounters = data?.filter(
-    (resource: FhirResource) => resource.resourceType === 'Encounter' && resource.partOf
-  ) as Encounter[] | undefined;
+  const allEncountersRaw = data?.filter(
+    (resource: FhirResource) => resource.resourceType === 'Encounter'
+  ) as Encounter[];
+  let followUpOriginEncounter = allEncountersRaw?.find((e) => !e.partOf) as Encounter;
+  const followupEncounters = allEncountersRaw?.filter((e) => e.partOf) as Encounter[] | undefined;
+
+  // For scheduled follow-up appointments, the encounter has partOf set.
+  // If no non-partOf encounter exists, use the encounter that references this appointment.
+  if (!followUpOriginEncounter && allEncountersRaw?.length > 0) {
+    const appointmentRef = `Appointment/${appointment?.id}`;
+    followUpOriginEncounter = allEncountersRaw.find(
+      (e) => e.appointment?.[0]?.reference === appointmentRef
+    ) as Encounter;
+  }
 
   // Preserve the selected encounter ID if it exists and is valid, otherwise default to main encounter
   const allEncounters = [followUpOriginEncounter, ...(followupEncounters || [])].filter(Boolean);
@@ -488,7 +496,47 @@ const useGetAppointment = (
               resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
           );
 
-        return selectAppointmentData(data, currentSelectedEncounterId);
+        // For scheduled follow-ups: the encounter has partOf referencing a parent encounter.
+        // We need to fetch the parent encounter's full tree to show all encounters in the sidebar.
+        const scheduledFollowupEncounter = data.find(
+          (r) => r.resourceType === 'Encounter' && (r as Encounter).partOf
+        ) as Encounter | undefined;
+
+        if (scheduledFollowupEncounter?.partOf?.reference) {
+          const parentEncounterId = scheduledFollowupEncounter.partOf.reference.replace('Encounter/', '');
+          // Fetch the parent encounter to find its appointment, then fetch the full tree
+          const parentEncounter = await oystehr.fhir.get<Encounter>({
+            resourceType: 'Encounter',
+            id: parentEncounterId,
+          });
+          const parentAppointmentId = parentEncounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+
+          if (parentAppointmentId && parentAppointmentId !== appointmentId) {
+            const parentData = (
+              await oystehr.fhir.search<AppointmentResources>({
+                resourceType: 'Appointment',
+                params: [
+                  { name: '_id', value: parentAppointmentId },
+                  { name: '_revinclude:iterate', value: 'Encounter:appointment' },
+                  { name: '_revinclude:iterate', value: 'Encounter:part-of' },
+                  { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
+                ],
+              })
+            ).unbundle();
+
+            // Merge parent tree data, avoiding duplicates
+            const existingIds = new Set(data.map((r) => `${r.resourceType}/${r.id}`));
+            for (const resource of parentData) {
+              const key = `${resource.resourceType}/${resource.id}`;
+              if (!existingIds.has(key)) {
+                data.push(resource);
+                existingIds.add(key);
+              }
+            }
+          }
+        }
+
+        return selectAppointmentData(data, currentSelectedEncounterId || scheduledFollowupEncounter?.id);
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
@@ -770,7 +818,7 @@ export const useChartData = ({
       queryKey: [CHART_DATA_QUERY_KEY, encounter?.id],
       exact: false,
     });
-  }, [queryClient, encounter.id]);
+  }, [queryClient, encounter?.id]);
 
   return {
     refetch: chartDataRefetch,

@@ -4,7 +4,7 @@ import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
@@ -34,6 +34,7 @@ interface EncounterRow {
   dateTime: string | undefined;
   appointment: Appointment;
   encounter: Encounter;
+  location?: Location;
 }
 
 interface FormData {
@@ -66,7 +67,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [locations, setLocations] = useState<LocationWithWalkinSchedule[]>([]);
+  const [_locations, setLocations] = useState<LocationWithWalkinSchedule[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     provider: followupDetails?.provider || null,
@@ -94,10 +95,10 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
       newErrors.initialVisit = 'Initial visit is required';
     }
     if (!formData.followupDate) {
-      newErrors.followupDate = 'Follow-up date is required';
+      newErrors.followupDate = 'Annotation date is required';
     }
     if (!formData.followupTime) {
-      newErrors.followupTime = 'Follow-up time is required';
+      newErrors.followupTime = 'Annotation time is required';
     }
     if (!formData.location) {
       newErrors.location = 'Location is required';
@@ -152,6 +153,10 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
                 value: 'Encounter:appointment',
               },
               {
+                name: '_include',
+                value: 'Encounter:location',
+              },
+              {
                 name: '_sort',
                 value: '-date',
               },
@@ -161,6 +166,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
         const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
         const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+        const fhirLocations = resources.filter((resource) => resource.resourceType === 'Location') as Location[];
 
         const nonFollowupEncounters = encounters.filter((encounter) => {
           const isFollowup = encounter.type?.some(
@@ -178,12 +184,16 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
               ? appointments.find((app) => `Appointment/${app.id}` === encounter.appointment?.[0]?.reference)
               : undefined;
 
+            const locationRef = encounter.location?.[0]?.location?.reference?.replace('Location/', '');
+            const encounterLocation = locationRef ? fhirLocations.find((loc) => loc.id === locationRef) : undefined;
+
             return {
               id: encounter.id,
               typeLabel: appointment?.appointmentType?.text || 'Visit',
               dateTime: appointment?.start,
               appointment: appointment!,
               encounter: encounter,
+              location: encounterLocation,
             };
           })
           .filter((row) => row.id)
@@ -236,22 +246,18 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
   }, [previousEncounters, providers]);
 
   useEffect(() => {
-    if (previousEncounters.length > 0 && locations.length > 0) {
+    if (previousEncounters.length > 0) {
       const latestInitialVisit = previousEncounters[0];
-      const location = locations.find(
-        (location) =>
-          latestInitialVisit.encounter.location?.find(
-            (latestLocation) => location.id === latestLocation.location?.reference?.split('/')[1]
-          )
-      );
-      const selectedLocation = localStorage.getItem('selectedLocation');
-      if (location) {
-        setFormData((prev) => ({ ...prev, location: location }));
-      } else if (selectedLocation) {
-        setFormData((prev) => ({ ...prev, location: JSON.parse(selectedLocation) }));
+      if (latestInitialVisit.location) {
+        setFormData((prev) => ({ ...prev, location: latestInitialVisit.location as LocationWithWalkinSchedule }));
+      } else {
+        const selectedLocation = localStorage.getItem('selectedLocation');
+        if (selectedLocation) {
+          setFormData((prev) => ({ ...prev, location: JSON.parse(selectedLocation) }));
+        }
       }
     }
-  }, [previousEncounters, locations]);
+  }, [previousEncounters]);
 
   const handleFormSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -368,7 +374,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
                   placeholder="Select provider"
                   name="provider"
                   {...params}
-                  label="Follow-up provider *"
+                  label="Annotation provider *"
                   error={!!errors.provider}
                   helperText={errors.provider}
                 />
@@ -449,14 +455,14 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <DatePicker
                 onChange={(val) => val && handleDateChange(val)}
-                label="Follow-up date"
+                label="Annotation date"
                 format="MM/dd/yyyy"
                 value={formData.followupDate}
                 minDate={DateTime.now().startOf('day')}
                 slotProps={{
                   textField: {
                     id: 'followup-date',
-                    label: 'Follow-up date *',
+                    label: 'Annotation date *',
                     fullWidth: true,
                     size: 'small',
                     error: !!errors.followupDate,
@@ -472,7 +478,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
               <TimePicker
                 onChange={(val) => val && updateFormData('followupTime', val)}
                 value={formData.followupTime}
-                label="Follow-up time *"
+                label="Annotation time *"
                 minTime={formData.followupDate.hasSame(DateTime.now(), 'day') ? DateTime.now() : undefined}
                 slotProps={{
                   textField: {

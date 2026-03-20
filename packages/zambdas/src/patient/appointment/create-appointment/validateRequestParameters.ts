@@ -45,7 +45,8 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata } = bodyJSON;
+  const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata, parentEncounterId } =
+    bodyJSON;
   console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
@@ -144,6 +145,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     unconfirmedDateOfBirth,
     locationState,
     appointmentMetadata,
+    parentEncounterId,
   };
 }
 
@@ -157,6 +159,7 @@ export interface CreateAppointmentEffectInput {
   visitType: VisitType;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
+  parentEncounterId?: string;
 }
 
 export const createAppointmentComplexValidation = async (
@@ -275,5 +278,6 @@ export const createAppointmentComplexValidation = async (
     visitType,
     locationState,
     appointmentMetadata,
+    parentEncounterId: input.parentEncounterId,
   };
 };

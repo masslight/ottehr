@@ -17,6 +17,9 @@ import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION 
 export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
 
+export type FollowupSubtype = 'annotation' | 'scheduled';
+export const FOLLOWUP_SUBTYPE_SYSTEM = `${FHIR_BASE_URL}/followup-subtype`;
+
 export const FOLLOWUP_REASONS = [
   'Result - Lab',
   'Result - Radiology',
@@ -54,10 +57,30 @@ export const isFollowupEncounter = (encounter: Encounter): boolean => {
   );
 };
 
-export type EncounterVisitType = 'main' | 'follow-up';
+export const getFollowupSubtype = (encounter: Encounter): FollowupSubtype | undefined => {
+  if (!isFollowupEncounter(encounter)) return undefined;
+  const subtypeCoding = encounter.type
+    ?.flatMap((t) => t.coding ?? [])
+    .find((c) => c.system === FOLLOWUP_SUBTYPE_SYSTEM);
+  if (subtypeCoding?.code === 'scheduled') return 'scheduled';
+  return 'annotation';
+};
+
+export const isScheduledFollowupEncounter = (encounter: Encounter): boolean => {
+  return getFollowupSubtype(encounter) === 'scheduled';
+};
+
+export const isAnnotationFollowupEncounter = (encounter: Encounter): boolean => {
+  return isFollowupEncounter(encounter) && !isScheduledFollowupEncounter(encounter);
+};
+
+export type EncounterVisitType = 'main' | 'follow-up' | 'scheduled-follow-up';
 
 export const getEncounterVisitType = (encounter?: Encounter): EncounterVisitType => {
   if (encounter && isFollowupEncounter(encounter)) {
+    if (isScheduledFollowupEncounter(encounter)) {
+      return 'scheduled-follow-up';
+    }
     return 'follow-up';
   }
   return 'main';

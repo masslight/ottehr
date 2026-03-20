@@ -17,7 +17,7 @@ import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
   BOOKING_CONFIG,
@@ -82,9 +82,28 @@ enum VisitType {
 }
 
 export default function AddPatient(): JSX.Element {
-  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule>();
-  const [birthDate, setBirthDate] = useState<DateTime | null>(null); // i would love to not have to handle this state but i think the date search component would have to change and i dont want to touch that right now
-  const [patientInfo, setPatientInfo] = useState<AddVisitPatientInfo | undefined>(undefined);
+  const location = useLocation();
+  const followUpState = location.state as
+    | {
+        parentEncounterId?: string;
+        parentLocation?: LocationWithWalkinSchedule;
+        patientId?: string;
+        patientInfo?: AddVisitPatientInfo;
+      }
+    | undefined;
+  const parentEncounterId = followUpState?.parentEncounterId;
+  const isScheduledFollowUp = !!parentEncounterId;
+  console.log('[AddPatient] location.state:', location.state, 'parentEncounterId:', parentEncounterId);
+
+  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
+    followUpState?.parentLocation
+  );
+  const [birthDate, setBirthDate] = useState<DateTime | null>(
+    followUpState?.patientInfo?.dateOfBirth ? DateTime.fromISO(followUpState.patientInfo.dateOfBirth) : null
+  );
+  const [patientInfo, setPatientInfo] = useState<AddVisitPatientInfo | undefined>(
+    followUpState?.patientInfo || undefined
+  );
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
@@ -102,7 +121,9 @@ export default function AddPatient(): JSX.Element {
   const [validDate, setValidDate] = useState<boolean>(true);
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
-  const [showFields, setShowFields] = useState<AddVisitFormState>('initialPatientSearch');
+  const [showFields, setShowFields] = useState<AddVisitFormState>(
+    isScheduledFollowUp ? 'existingPatientSelected' : 'initialPatientSearch'
+  );
 
   useEffect(() => {
     setReasonForVisit('');
@@ -233,6 +254,7 @@ export default function AddPatient(): JSX.Element {
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
         slotId: persistedSlot.id!,
+        parentEncounterId,
       };
 
       let response;
@@ -261,7 +283,7 @@ export default function AddPatient(): JSX.Element {
           <CustomBreadcrumbs
             chain={[
               { link: '/visits', children: 'Tracking Board' },
-              { link: '#', children: 'Add Visit' },
+              { link: '#', children: isScheduledFollowUp ? 'Add Scheduled Follow-up' : 'Add Visit' },
             ]}
           />
 
@@ -273,7 +295,7 @@ export default function AddPatient(): JSX.Element {
             color={'primary.dark'}
             data-testid={dataTestIds.addPatientPage.pageTitle}
           >
-            Add Visit
+            {isScheduledFollowUp ? 'Add Scheduled Follow-up Visit' : 'Add Visit'}
           </Typography>
 
           {/* form content */}
@@ -341,17 +363,24 @@ export default function AddPatient(): JSX.Element {
                   }
                 />
 
-                <AddVisitPatientInformationCard
-                  patientInfo={patientInfo}
-                  setPatientInfo={setPatientInfo}
-                  showFields={showFields}
-                  setShowFields={setShowFields}
-                  setValidDate={setValidDate}
-                  errors={errors}
-                  setErrors={setErrors}
-                  birthDate={birthDate}
-                  setBirthDate={setBirthDate}
-                />
+                {!isScheduledFollowUp && (
+                  <AddVisitPatientInformationCard
+                    patientInfo={patientInfo}
+                    setPatientInfo={setPatientInfo}
+                    showFields={showFields}
+                    setShowFields={setShowFields}
+                    setValidDate={setValidDate}
+                    errors={errors}
+                    setErrors={setErrors}
+                    birthDate={birthDate}
+                    setBirthDate={setBirthDate}
+                  />
+                )}
+                {isScheduledFollowUp && patientInfo && (
+                  <Typography variant="body1" color="text.secondary">
+                    Patient: {patientInfo.firstName} {patientInfo.lastName}
+                  </Typography>
+                )}
 
                 {/* Visit Information */}
                 {shouldShowReasonForVisitFields && (

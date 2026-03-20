@@ -128,6 +128,8 @@ export interface InPersonAppointmentInformation
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
   serviceCategory?: string;
+  isFollowUp?: boolean;
+  parentEncounterId?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {

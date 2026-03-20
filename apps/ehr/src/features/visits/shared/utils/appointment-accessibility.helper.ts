@@ -49,10 +49,10 @@ export const getAppointmentAccessibilityData = ({
   const isPractitionerLicensedInState =
     !!state && !!licensedPractitionerStates && licensedPractitionerStates.includes(state as StateType);
 
-  const status = getTelemedVisitStatus(encounter.status, appointment?.status);
+  const status = encounter ? getTelemedVisitStatus(encounter.status, appointment?.status) : undefined;
 
   const isEncounterAssignedToCurrentPractitioner =
-    !!user?.profileResource && checkEncounterHasPractitioner(encounter, user.profileResource);
+    !!user?.profileResource && !!encounter && checkEncounterHasPractitioner(encounter, user.profileResource);
 
   const isStatusEditable =
     !!status && ![TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.ready].includes(status);
@@ -65,10 +65,11 @@ export const getAppointmentAccessibilityData = ({
   const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
   const visitType = getEncounterVisitType(encounter);
   const isFollowup = visitType === 'follow-up';
+  const isScheduledFollowup = visitType === 'scheduled-follow-up';
 
   const isAppointmentReadOnly = (() => {
     if (featureFlags.isInPerson) {
-      return isAppointmentLockedByMetaTag && !isFollowup;
+      return isAppointmentLockedByMetaTag && !isFollowup && !isScheduledFollowup;
     }
 
     return (
