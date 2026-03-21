@@ -7,6 +7,7 @@ import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
+import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
 import SchedulesPage from './Schedules';
 
@@ -16,6 +17,7 @@ enum PageTab {
   employees = 'employees',
   providers = 'providers',
   insurance = 'insurances',
+  medications = 'medications',
   'quick-picks' = 'quick-picks',
 }
 
@@ -74,6 +76,12 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.insurance}`)}
                 />
                 <Tab
+                  label="Medications"
+                  value={PageTab.medications}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.medications}`)}
+                />
+                <Tab
                   label="Quick Picks"
                   value={PageTab['quick-picks']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -105,6 +113,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
             <Insurances />
+          </TabPanel>
+          <TabPanel value={PageTab.medications} sx={{ padding: 0 }}>
+            <MedicationsConfigurationPage />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
