@@ -1,7 +1,6 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ChargeMasterDesignation } from 'utils';
 import {
   addProcedureCode,
   AddProcedureCodeInput,
@@ -13,11 +12,7 @@ import {
   CreateFeeScheduleInput,
   deleteProcedureCode,
   DeleteProcedureCodeInput,
-  designateChargeMaster,
-  DesignateChargeMasterInput,
   disassociatePayer,
-  getChargeMaster,
-  GetChargeMasterResponse,
   listFeeSchedules,
   updateFeeSchedule,
   UpdateFeeScheduleInput,
@@ -38,26 +33,6 @@ export const useListFeeSchedulesQuery = (): UseQueryResult<ChargeItemDefinition[
     },
 
     enabled: !!oystehrZambda,
-  });
-};
-
-export const useGetChargeMasterQuery = (
-  designation: ChargeMasterDesignation | undefined,
-  payerOrganizationId?: string
-): UseQueryResult<GetChargeMasterResponse, Error> => {
-  const { oystehrZambda } = useApiClients();
-
-  return useQuery({
-    queryKey: ['charge-master', designation, payerOrganizationId],
-
-    queryFn: async () => {
-      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
-      if (!designation) throw new Error('Designation is required');
-
-      return getChargeMaster(oystehrZambda, { designation, payerOrganizationId });
-    },
-
-    enabled: !!oystehrZambda && !!designation,
   });
 };
 
@@ -89,24 +64,6 @@ export const useUpdateFeeScheduleMutation = (): UseMutationResult<
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
 
       return updateFeeSchedule(oystehrZambda, data);
-    },
-  });
-};
-
-export const useDesignateChargeMasterMutation = (): UseMutationResult<
-  ChargeItemDefinition,
-  Error,
-  DesignateChargeMasterInput
-> => {
-  const { oystehrZambda } = useApiClients();
-
-  return useMutation({
-    mutationKey: ['designate-charge-master'],
-
-    mutationFn: async (data: DesignateChargeMasterInput) => {
-      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
-
-      return designateChargeMaster(oystehrZambda, data);
     },
   });
 };

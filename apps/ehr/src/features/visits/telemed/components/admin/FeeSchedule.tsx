@@ -28,20 +28,39 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FEE_SCHEDULES_URL } from 'src/App';
+import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
+import {
+  useCreateChargeMasterMutation,
+  useListChargeMastersQuery,
+} from 'src/rcm/state/charge-masters/charge-master.queries';
 import {
   useCreateFeeScheduleMutation,
   useListFeeSchedulesQuery,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL } from 'utils';
 
-export default function FeeSchedule(): ReactElement {
+export type ChargeItemMode = 'fee-schedule' | 'charge-master';
+
+export interface FeeScheduleProps {
+  mode?: ChargeItemMode;
+}
+
+export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps): ReactElement {
+  const isChargeMaster = mode === 'charge-master';
+  const label = isChargeMaster ? 'Charge Master' : 'Fee Schedule';
+  const queryKey = isChargeMaster ? 'charge-masters' : 'fee-schedules';
+  const baseUrl = isChargeMaster ? CHARGE_MASTERS_URL : FEE_SCHEDULES_URL;
   const [searchText, setSearchText] = React.useState('');
   const [showInactive, setShowInactive] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [newFeeSchedule, setNewFeeSchedule] = React.useState({ name: '', effectiveDate: '' });
   const createFeeScheduleMutation = useCreateFeeScheduleMutation();
-  const { data: feeSchedules, isPending } = useListFeeSchedulesQuery();
+  const createChargeMasterMutation = useCreateChargeMasterMutation();
+  const createMutation = isChargeMaster ? createChargeMasterMutation : createFeeScheduleMutation;
+  const { data: feeScheduleData, isPending: fsPending } = useListFeeSchedulesQuery();
+  const { data: chargeMasterData, isPending: cmPending } = useListChargeMastersQuery();
+  const feeSchedules = isChargeMaster ? chargeMasterData : feeScheduleData;
+  const isPending = isChargeMaster ? cmPending : fsPending;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -72,12 +91,12 @@ export default function FeeSchedule(): ReactElement {
 
   const handleCreate = async (): Promise<void> => {
     try {
-      await createFeeScheduleMutation.mutateAsync({ ...newFeeSchedule, description: '' });
-      enqueueSnackbar('Fee schedule created successfully', { variant: 'success' });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+      await createMutation.mutateAsync({ ...newFeeSchedule, description: '' });
+      enqueueSnackbar(`${label} created successfully`, { variant: 'success' });
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
       handleCloseDialog();
     } catch {
-      enqueueSnackbar('Failed to create fee schedule', { variant: 'error' });
+      enqueueSnackbar(`Failed to create ${label.toLowerCase()}`, { variant: 'error' });
     }
   };
 
@@ -94,8 +113,8 @@ export default function FeeSchedule(): ReactElement {
           <Grid item xs={12} sm={10}>
             <TextField
               fullWidth
-              id="fee-schedule-search"
-              label="Fee Schedule"
+              id={`${mode}-search`}
+              label={label}
               value={searchText}
               onChange={handleChangeSearchText}
               InputProps={{ endAdornment: <SearchIcon /> }}
@@ -126,12 +145,12 @@ export default function FeeSchedule(): ReactElement {
           sx={{ mt: 1, ml: 0.5 }}
         />
 
-        <Table sx={{ minWidth: 650, mt: 1 }} aria-label="fee-schedules-table">
+        <Table sx={{ minWidth: 650, mt: 1 }} aria-label={`${mode}-table`}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: 32, p: 0 }} />
               <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Effective Date</TableCell>
+              {isChargeMaster && <TableCell sx={{ fontWeight: 'bold' }}>Effective Date</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -142,25 +161,22 @@ export default function FeeSchedule(): ReactElement {
                   <TableCell>
                     <Skeleton width={150} />
                   </TableCell>
-                  <TableCell>
-                    <Skeleton width={100} />
-                  </TableCell>
+                  {isChargeMaster && (
+                    <TableCell>
+                      <Skeleton width={100} />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             {!isPending && filteredFeeSchedules.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} align="center">
-                  <Typography color="text.secondary">No fee schedules found.</Typography>
+                <TableCell colSpan={isChargeMaster ? 3 : 2} align="center">
+                  <Typography color="text.secondary">No {label.toLowerCase()}s found.</Typography>
                 </TableCell>
               </TableRow>
             )}
             {filteredFeeSchedules.map((fs: ChargeItemDefinition) => (
-              <TableRow
-                key={fs.id}
-                hover
-                sx={{ cursor: 'pointer' }}
-                onClick={() => navigate(`${FEE_SCHEDULES_URL}/${fs.id}`)}
-              >
+              <TableRow key={fs.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`${baseUrl}/${fs.id}`)}>
                 <TableCell sx={{ width: 32, p: 0, textAlign: 'center' }}>
                   <Tooltip title={fs.status === 'active' ? 'Active' : 'Inactive'}>
                     <Box
@@ -177,35 +193,37 @@ export default function FeeSchedule(): ReactElement {
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {fs.title}
-                    {fs.extension?.find((ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL)?.valueCode ===
-                      'insurance-pay' && (
-                      <Chip
-                        label="Insurance CM"
-                        size="small"
-                        sx={{
-                          fontSize: '0.65rem',
-                          height: 20,
-                          backgroundColor: '#6A1B9A',
-                          color: '#fff',
-                        }}
-                      />
-                    )}
-                    {fs.extension?.find((ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL)?.valueCode ===
-                      'self-pay' && (
-                      <Chip
-                        label="Self-Pay CM"
-                        size="small"
-                        sx={{
-                          fontSize: '0.65rem',
-                          height: 20,
-                          backgroundColor: '#E91E90',
-                          color: '#fff',
-                        }}
-                      />
-                    )}
+                    {isChargeMaster &&
+                      fs.extension?.find((ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL)?.valueCode ===
+                        'insurance-pay' && (
+                        <Chip
+                          label="Insurance CM"
+                          size="small"
+                          sx={{
+                            fontSize: '0.65rem',
+                            height: 20,
+                            backgroundColor: '#6A1B9A',
+                            color: '#fff',
+                          }}
+                        />
+                      )}
+                    {isChargeMaster &&
+                      fs.extension?.find((ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL)?.valueCode ===
+                        'self-pay' && (
+                        <Chip
+                          label="Self-Pay CM"
+                          size="small"
+                          sx={{
+                            fontSize: '0.65rem',
+                            height: 20,
+                            backgroundColor: '#E91E90',
+                            color: '#fff',
+                          }}
+                        />
+                      )}
                   </Box>
                 </TableCell>
-                <TableCell>{fs.date}</TableCell>
+                {isChargeMaster && <TableCell>{fs.date}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -221,7 +239,7 @@ export default function FeeSchedule(): ReactElement {
         sx={{ '.MuiPaper-root': { padding: 2 } }}
       >
         <DialogTitle variant="h4" color="primary.dark">
-          Create Fee Schedule
+          Create {label}
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField
@@ -232,16 +250,18 @@ export default function FeeSchedule(): ReactElement {
             required
             margin="dense"
           />
-          <TextField
-            label="Effective Date"
-            type="date"
-            value={newFeeSchedule.effectiveDate}
-            onChange={(e) => setNewFeeSchedule((prev) => ({ ...prev, effectiveDate: e.target.value }))}
-            fullWidth
-            required
-            margin="dense"
-            InputLabelProps={{ shrink: true }}
-          />
+          {isChargeMaster && (
+            <TextField
+              label="Effective Date"
+              type="date"
+              value={newFeeSchedule.effectiveDate}
+              onChange={(e) => setNewFeeSchedule((prev) => ({ ...prev, effectiveDate: e.target.value }))}
+              fullWidth
+              required
+              margin="dense"
+              InputLabelProps={{ shrink: true }}
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={handleCloseDialog} sx={buttonSx}>
@@ -251,7 +271,9 @@ export default function FeeSchedule(): ReactElement {
             variant="contained"
             onClick={handleCreate}
             sx={buttonSx}
-            disabled={!newFeeSchedule.name || !newFeeSchedule.effectiveDate || createFeeScheduleMutation.isPending}
+            disabled={
+              !newFeeSchedule.name || (isChargeMaster && !newFeeSchedule.effectiveDate) || createMutation.isPending
+            }
           >
             Create
           </Button>

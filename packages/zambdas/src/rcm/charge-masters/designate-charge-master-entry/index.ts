@@ -1,9 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, Extension } from 'fhir/r4b';
-import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL, getSecret, PRIVATE_EXTENSION_BASE_URL, SecretsKeys } from 'utils';
+import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL, getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  RCM_TAG_SYSTEM,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -12,51 +13,51 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 export const index = wrapHandler(
-  'designate-charge-master',
+  'designate-charge-master-entry',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const { feeScheduleId, designation, secrets } = validateRequestParameters(input);
+      const { chargeMasterId, designation, secrets } = validateRequestParameters(input);
 
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createOystehrClient(m2mToken, secrets);
 
-      // Find all fee schedule ChargeItemDefinitions with the rcm tag
-      const allFeeSchedules = await oystehr.fhir.search<ChargeItemDefinition>({
+      // Find all charge master ChargeItemDefinitions with the charge-master tag
+      const allChargeMasters = await oystehr.fhir.search<ChargeItemDefinition>({
         resourceType: 'ChargeItemDefinition',
         params: [
           {
             name: '_tag',
-            value: `${PRIVATE_EXTENSION_BASE_URL}/rcm|rcm`,
+            value: `${RCM_TAG_SYSTEM}|charge-master`,
           },
         ],
       });
 
-      const feeSchedules = allFeeSchedules.unbundle();
+      const chargeMasters = allChargeMasters.unbundle();
 
-      // Remove the designation extension from all fee schedules that currently have it
-      for (const fs of feeSchedules) {
-        if (!fs.id) continue;
+      // Remove the designation extension from all charge masters that currently have it
+      for (const cm of chargeMasters) {
+        if (!cm.id) continue;
 
-        const hasDesignation = fs.extension?.some(
+        const hasDesignation = cm.extension?.some(
           (ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL && ext.valueCode === designation
         );
 
         if (hasDesignation) {
-          const updatedExtensions = (fs.extension || []).filter(
+          const updatedExtensions = (cm.extension || []).filter(
             (ext) => !(ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL && ext.valueCode === designation)
           );
 
           await oystehr.fhir.update<ChargeItemDefinition>({
-            ...fs,
+            ...cm,
             extension: updatedExtensions.length > 0 ? updatedExtensions : undefined,
           });
         }
       }
 
-      // Set the designation on the target fee schedule
+      // Set the designation on the target charge master
       const target = await oystehr.fhir.get<ChargeItemDefinition>({
         resourceType: 'ChargeItemDefinition',
-        id: feeScheduleId,
+        id: chargeMasterId,
       });
 
       const existingExtensions: Extension[] = (target.extension || []).filter(
@@ -79,7 +80,7 @@ export const index = wrapHandler(
       };
     } catch (error: unknown) {
       const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      return topLevelCatch('designate-charge-master', error, ENVIRONMENT);
+      return topLevelCatch('designate-charge-master-entry', error, ENVIRONMENT);
     }
   }
 );

@@ -40,24 +40,43 @@ import StarterKit from '@tiptap/starter-kit';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { FEE_SCHEDULES_URL } from 'src/App';
+import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
 import {
-  useDesignateChargeMasterMutation,
+  useDesignateChargeMasterEntryMutation,
+  useListChargeMastersQuery,
+  useUpdateChargeMasterMutation,
+} from 'src/rcm/state/charge-masters/charge-master.queries';
+import {
   useListFeeSchedulesQuery,
   useUpdateFeeScheduleMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL, ChargeMasterDesignation } from 'utils';
 import PayerAssociations from './fee-schedule/PayerAssociations';
 import ProcedureCodes from './fee-schedule/ProcedureCodes';
+import { ChargeItemMode } from './FeeSchedule';
 
-export default function EditFeeSchedule(): ReactElement {
+export interface EditFeeScheduleProps {
+  mode?: ChargeItemMode;
+}
+
+export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeScheduleProps): ReactElement {
+  const isChargeMaster = mode === 'charge-master';
+  const entityLabel = isChargeMaster ? 'Charge Master' : 'Fee Schedule';
+  const entityLabelLower = entityLabel.toLowerCase();
+  const baseUrl = isChargeMaster ? CHARGE_MASTERS_URL : FEE_SCHEDULES_URL;
+  const queryKey = isChargeMaster ? 'charge-masters' : 'fee-schedules';
+  const tabSlug = isChargeMaster ? 'charge-masters' : 'fee-schedule';
+
   const theme = useTheme();
   const queryClient = useQueryClient();
   const { id: feeScheduleId } = useParams();
 
-  const { data: feeSchedules, isFetching } = useListFeeSchedulesQuery();
+  const { data: fsData, isFetching: fsFetching } = useListFeeSchedulesQuery();
+  const { data: cmData, isFetching: cmFetching } = useListChargeMastersQuery();
+  const feeSchedules = isChargeMaster ? cmData : fsData;
+  const isFetching = isChargeMaster ? cmFetching : fsFetching;
   const feeSchedule = feeSchedules?.find((fs) => fs.id === feeScheduleId);
 
   const [formData, setFormData] = React.useState({ name: '', effectiveDate: '', description: '' });
@@ -93,7 +112,9 @@ export default function EditFeeSchedule(): ReactElement {
     }
   }, [feeSchedule, editor]);
 
-  const { mutateAsync: mutateUpdate, isPending: updatePending } = useUpdateFeeScheduleMutation();
+  const cmUpdate = useUpdateChargeMasterMutation();
+  const fsUpdate = useUpdateFeeScheduleMutation();
+  const { mutateAsync: mutateUpdate, isPending: updatePending } = isChargeMaster ? cmUpdate : fsUpdate;
 
   const onSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
@@ -102,11 +123,11 @@ export default function EditFeeSchedule(): ReactElement {
     if (!feeScheduleId) return;
 
     try {
-      await mutateUpdate({ id: feeScheduleId, ...formData });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
-      enqueueSnackbar('Fee schedule updated successfully', { variant: 'success' });
+      await mutateUpdate({ id: feeScheduleId, ...formData } as any);
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
+      enqueueSnackbar(`${entityLabel} updated successfully`, { variant: 'success' });
     } catch {
-      const errorMsg = 'Error trying to save fee schedule. Please try again.';
+      const errorMsg = `Error trying to save ${entityLabelLower}. Please try again.`;
       setError(errorMsg);
       enqueueSnackbar(errorMsg, { variant: 'error' });
     }
@@ -219,14 +240,15 @@ export default function EditFeeSchedule(): ReactElement {
     </Box>
   );
 
-  const { mutateAsync: mutateDesignate, isPending: designatePending } = useDesignateChargeMasterMutation();
+  const cmDesignate = useDesignateChargeMasterEntryMutation();
+  const { mutateAsync: mutateDesignate, isPending: designatePending } = cmDesignate;
 
   const handleDesignate = async (designation: ChargeMasterDesignation): Promise<void> => {
     if (!feeScheduleId) return;
 
     try {
-      await mutateDesignate({ feeScheduleId, designation });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+      await mutateDesignate({ chargeMasterId: feeScheduleId, designation });
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
       const label = designation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master';
       enqueueSnackbar(`Designated as ${label}`, { variant: 'success' });
     } catch {
@@ -244,25 +266,25 @@ export default function EditFeeSchedule(): ReactElement {
         effectiveDate: feeSchedule.date || '',
         description: feeSchedule.description || '',
         status: newStatus,
-      });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
-      enqueueSnackbar(`Fee schedule ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`, {
+      } as any);
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
+      enqueueSnackbar(`${entityLabel} ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`, {
         variant: 'success',
       });
     } catch {
-      enqueueSnackbar('Error trying to change fee schedule status. Please try again.', { variant: 'error' });
+      enqueueSnackbar(`Error trying to change ${entityLabelLower} status. Please try again.`, { variant: 'error' });
     }
   };
 
   return (
-    <PageContainer tabTitle="Edit Fee Schedule">
+    <PageContainer tabTitle={`Edit ${entityLabel}`}>
       <>
         <Grid container direction="row" alignItems="center" justifyContent="center">
           <Grid item maxWidth="1100px" width="100%">
             <CustomBreadcrumbs
               chain={[
                 { link: '/admin', children: 'Admin' },
-                { link: '/admin/fee-schedule', children: 'Fee Schedule' },
+                { link: `/admin/${tabSlug}`, children: entityLabel },
                 {
                   link: '#',
                   children: isFetching ? <Skeleton width={150} /> : feeSchedule?.title || '',
@@ -280,7 +302,7 @@ export default function EditFeeSchedule(): ReactElement {
             </Typography>
             <TabContext value={activeTab}>
               <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-                <TabList onChange={(_, v) => setActiveTab(v)} aria-label="Fee schedule sections">
+                <TabList onChange={(_, v) => setActiveTab(v)} aria-label={`${entityLabel} sections`}>
                   <Tab label="Settings" value="settings" sx={{ textTransform: 'none', fontWeight: 500 }} />
                   <Tab label="Payer Associations" value="payers" sx={{ textTransform: 'none', fontWeight: 500 }} />
                   <Tab label="Procedure Codes" value="procedures" sx={{ textTransform: 'none', fontWeight: 500 }} />
@@ -300,10 +322,10 @@ export default function EditFeeSchedule(): ReactElement {
                             fontWeight: '600 !important',
                           }}
                         >
-                          Fee schedule settings
+                          {entityLabel} settings
                         </Typography>
                         <Box sx={{ flex: 1 }} />
-                        {currentDesignation === 'insurance-pay' && (
+                        {isChargeMaster && currentDesignation === 'insurance-pay' && (
                           <Chip
                             label="Insurance CM"
                             size="small"
@@ -315,7 +337,7 @@ export default function EditFeeSchedule(): ReactElement {
                             }}
                           />
                         )}
-                        {currentDesignation === 'self-pay' && (
+                        {isChargeMaster && currentDesignation === 'self-pay' && (
                           <Chip
                             label="Self-Pay CM"
                             size="small"
@@ -336,17 +358,19 @@ export default function EditFeeSchedule(): ReactElement {
                         required
                         margin="dense"
                       />
-                      <TextField
-                        label="Effective Date"
-                        type="date"
-                        value={formData.effectiveDate}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, effectiveDate: e.target.value }))}
-                        fullWidth
-                        required
-                        margin="dense"
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ marginTop: 2 }}
-                      />
+                      {isChargeMaster && (
+                        <TextField
+                          label="Effective Date"
+                          type="date"
+                          value={formData.effectiveDate}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, effectiveDate: e.target.value }))}
+                          fullWidth
+                          required
+                          margin="dense"
+                          InputLabelProps={{ shrink: true }}
+                          sx={{ marginTop: 2 }}
+                        />
+                      )}
                       <FormLabel
                         sx={{
                           ...theme.typography.subtitle2,
@@ -451,11 +475,11 @@ export default function EditFeeSchedule(): ReactElement {
                           marginRight: 1,
                         }}
                         type="submit"
-                        disabled={!formData.name || !formData.effectiveDate}
+                        disabled={!formData.name || (isChargeMaster && !formData.effectiveDate)}
                       >
                         Save changes
                       </LoadingButton>
-                      <Link to={FEE_SCHEDULES_URL}>
+                      <Link to={baseUrl}>
                         <Button
                           variant="text"
                           color="primary"
@@ -472,14 +496,14 @@ export default function EditFeeSchedule(): ReactElement {
                     </form>
                   </Paper>
                 )}
-                {!isFetching && feeSchedule && (
+                {isChargeMaster && !isFetching && feeSchedule && (
                   <Paper sx={{ padding: 3, marginTop: 3 }}>
                     <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                       Charge Master Designation
                     </Typography>
                     <Typography variant="body1" marginTop={1}>
-                      Designate this fee schedule as the active charge master for insurance or self-pay billing. Only
-                      one fee schedule can hold each designation at a time.
+                      Designate this {entityLabelLower} as the active charge master for insurance or self-pay billing.
+                      Only one {entityLabelLower} can hold each designation at a time.
                     </Typography>
                     {currentDesignation && (
                       <Typography variant="body2" color="success.main" sx={{ mt: 1, fontWeight: 600 }}>
@@ -546,12 +570,12 @@ export default function EditFeeSchedule(): ReactElement {
                 {!isFetching && feeSchedule && (
                   <Paper sx={{ padding: 3, marginTop: 3 }}>
                     <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                      {isActive ? 'Deactivate fee schedule' : 'Activate fee schedule'}
+                      {isActive ? `Deactivate ${entityLabelLower}` : `Activate ${entityLabelLower}`}
                     </Typography>
                     <Typography variant="body1" marginTop={1}>
                       {isActive
-                        ? 'When you deactivate this fee schedule, it will no longer be available for use.'
-                        : 'Activate this fee schedule to make it available for use.'}
+                        ? `When you deactivate this ${entityLabelLower}, it will no longer be available for use.`
+                        : `Activate this ${entityLabelLower} to make it available for use.`}
                     </Typography>
                     <LoadingButton
                       variant="contained"
@@ -572,10 +596,10 @@ export default function EditFeeSchedule(): ReactElement {
                 )}
               </TabPanel>
               <TabPanel value="payers" sx={{ p: 0 }}>
-                <PayerAssociations feeSchedule={feeSchedule} isFetching={isFetching} />
+                <PayerAssociations feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
               </TabPanel>
               <TabPanel value="procedures" sx={{ p: 0 }}>
-                <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} />
+                <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
               </TabPanel>
             </TabContext>
           </Grid>
@@ -587,12 +611,12 @@ export default function EditFeeSchedule(): ReactElement {
           </DialogTitle>
           <DialogContent>
             <DialogContentText>
-              You are about to designate this fee schedule as the{' '}
+              You are about to designate this {entityLabelLower} as the{' '}
               <strong>
                 {pendingDesignation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master'}
               </strong>
-              . Any other fee schedule currently holding this designation will have it removed. This action affects
-              billing across the system.
+              . Any other {entityLabelLower} currently holding this designation will have it removed. This action
+              affects billing across the system.
             </DialogContentText>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>

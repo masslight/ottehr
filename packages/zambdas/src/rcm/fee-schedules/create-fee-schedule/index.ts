@@ -4,7 +4,7 @@ import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  fillMeta,
+  rcmMeta,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -30,7 +30,7 @@ export const index = wrapHandler('create-fee-schedule', async (input: ZambdaInpu
       title: name,
       date: effectiveDate,
       description: description || undefined,
-      meta: fillMeta('rcm', 'rcm'),
+      meta: rcmMeta('fee-schedule'),
     });
 
     return {

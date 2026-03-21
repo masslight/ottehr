@@ -1,21 +1,21 @@
 import { ChargeMasterDesignation } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
-export interface DesignateChargeMasterParams {
-  feeScheduleId: string;
+export interface DesignateChargeMasterEntryParams {
+  chargeMasterId: string;
   designation: ChargeMasterDesignation;
   secrets: ZambdaInput['secrets'];
 }
 
-export function validateRequestParameters(input: ZambdaInput): DesignateChargeMasterParams {
+export function validateRequestParameters(input: ZambdaInput): DesignateChargeMasterEntryParams {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { feeScheduleId, designation } = JSON.parse(input.body);
+  const { chargeMasterId, designation } = JSON.parse(input.body);
 
-  if (!feeScheduleId) {
-    throw new Error('This field is required: "feeScheduleId"');
+  if (!chargeMasterId) {
+    throw new Error('This field is required: "chargeMasterId"');
   }
 
   if (designation !== 'insurance-pay' && designation !== 'self-pay') {
@@ -23,7 +23,7 @@ export function validateRequestParameters(input: ZambdaInput): DesignateChargeMa
   }
 
   return {
-    feeScheduleId,
+    chargeMasterId,
     designation,
     secrets: input.secrets,
   };

@@ -1,13 +1,13 @@
 import { ChargeMasterDesignation } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
-export interface GetChargeMasterParams {
+export interface GetChargeMasterEntryParams {
   designation: ChargeMasterDesignation;
   payerOrganizationId?: string;
   secrets: ZambdaInput['secrets'];
 }
 
-export function validateRequestParameters(input: ZambdaInput): GetChargeMasterParams {
+export function validateRequestParameters(input: ZambdaInput): GetChargeMasterEntryParams {
   if (!input.body) {
     throw new Error('No request body provided');
   }

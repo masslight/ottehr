@@ -12,7 +12,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-export const index = wrapHandler('list-fee-schedules', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('list-charge-masters', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets } = validateRequestParameters(input);
 
@@ -24,19 +24,19 @@ export const index = wrapHandler('list-fee-schedules', async (input: ZambdaInput
       params: [
         {
           name: '_tag',
-          value: `${RCM_TAG_SYSTEM}|fee-schedule`,
+          value: `${RCM_TAG_SYSTEM}|charge-master`,
         },
       ],
     });
 
-    const feeSchedules = results.unbundle();
+    const chargeMasters = results.unbundle();
 
     return {
       statusCode: 200,
-      body: JSON.stringify(feeSchedules),
+      body: JSON.stringify(chargeMasters),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('list-fee-schedules', error, ENVIRONMENT);
+    return topLevelCatch('list-charge-masters', error, ENVIRONMENT);
   }
 });

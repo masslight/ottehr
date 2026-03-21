@@ -17,6 +17,7 @@ enum PageTab {
   providers = 'providers',
   insurance = 'insurances',
   feeSchedule = 'fee-schedule',
+  chargeMasters = 'charge-masters',
 }
 
 export function AdminPage(): JSX.Element {
@@ -79,6 +80,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.feeSchedule}`)}
                 />
+                <Tab
+                  label="Charge Masters"
+                  value={PageTab.chargeMasters}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.chargeMasters}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -108,6 +115,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.feeSchedule} sx={{ padding: 0 }}>
             <FeeSchedule />
+          </TabPanel>
+          <TabPanel value={PageTab.chargeMasters} sx={{ padding: 0 }}>
+            <FeeSchedule mode="charge-master" />
           </TabPanel>
         </TabContext>
       </Box>

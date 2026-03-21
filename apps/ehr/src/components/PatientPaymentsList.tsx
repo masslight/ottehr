@@ -32,7 +32,7 @@ import { useChartData } from 'src/features/visits/shared/stores/appointment/appo
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
-import { useGetChargeMasterQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
+import { useGetChargeMasterEntryQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { CreditCardBrandIcon } from 'ui-components';
 import {
   APIError,
@@ -188,19 +188,19 @@ export default function PatientPaymentList({
     data: selfPayResult,
     isLoading: selfPayLoading,
     isFetched: selfPayFetched,
-  } = useGetChargeMasterQuery(paymentVariant === PaymentVariant.selfPay ? 'self-pay' : undefined);
-  const selfPayFeeSchedule = selfPayResult?.feeSchedule;
+  } = useGetChargeMasterEntryQuery(paymentVariant === PaymentVariant.selfPay ? 'self-pay' : undefined);
+  const selfPayFeeSchedule = selfPayResult?.chargeMaster;
   const selfPayChargeDescription = selfPayFeeSchedule?.description || '';
 
   const {
     data: insurancePayResult,
     isLoading: insurancePayLoading,
     isFetched: insurancePayFetched,
-  } = useGetChargeMasterQuery(
+  } = useGetChargeMasterEntryQuery(
     paymentVariant === PaymentVariant.insurance ? 'insurance-pay' : undefined,
     insuranceOrgId
   );
-  const insuranceFeeSchedule = insurancePayResult?.feeSchedule;
+  const insuranceFeeSchedule = insurancePayResult?.chargeMaster;
   const insuranceFeeScheduleSource = insurancePayResult?.source;
   const insuranceFeeScheduleDescription = insuranceFeeSchedule?.description || '';
 

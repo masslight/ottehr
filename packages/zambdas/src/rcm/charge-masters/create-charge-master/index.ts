@@ -4,6 +4,7 @@ import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  rcmMeta,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -11,32 +12,33 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-export const index = wrapHandler('update-fee-schedule', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('create-charge-master', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { id, name, effectiveDate, description, status, secrets } = validateRequestParameters(input);
+    const { name, effectiveDate, description, secrets } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const existing = await oystehr.fhir.get<ChargeItemDefinition>({
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    const chargeItemDefinition = await oystehr.fhir.create<ChargeItemDefinition>({
       resourceType: 'ChargeItemDefinition',
-      id,
-    });
-
-    const updated = await oystehr.fhir.update<ChargeItemDefinition>({
-      ...existing,
+      url: `urn:uuid:charge-master:${slug}`,
+      status: 'active',
       title: name,
-      date: effectiveDate || existing.date,
+      date: effectiveDate,
       description: description || undefined,
-      status: status ?? existing.status,
+      meta: rcmMeta('charge-master'),
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify(updated),
+      body: JSON.stringify(chargeItemDefinition),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-fee-schedule', error, ENVIRONMENT);
+    return topLevelCatch('create-charge-master', error, ENVIRONMENT);
   }
 });

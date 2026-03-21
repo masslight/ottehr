@@ -3,7 +3,7 @@ import { ZambdaInput } from '../../../shared';
 export interface UpdateFeeScheduleParams {
   id: string;
   name: string;
-  effectiveDate: string;
+  effectiveDate?: string;
   description: string;
   status?: 'active' | 'retired';
   secrets: ZambdaInput['secrets'];
@@ -20,8 +20,8 @@ export function validateRequestParameters(input: ZambdaInput): UpdateFeeSchedule
     throw new Error('This field is required: "feeScheduleId"');
   }
 
-  if (!name || !effectiveDate) {
-    throw new Error('These fields are required: "name", "effectiveDate"');
+  if (!name) {
+    throw new Error('This field is required: "name"');
   }
 
   if (status && status !== 'active' && status !== 'retired') {
@@ -31,7 +31,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateFeeSchedule
   return {
     id: feeScheduleId,
     name,
-    effectiveDate,
+    effectiveDate: effectiveDate || undefined,
     description: description ?? '',
     status,
     secrets: input.secrets,

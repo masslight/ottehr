@@ -28,6 +28,12 @@ import React, { ReactElement, useCallback, useMemo, useRef, useState } from 'rea
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
+  useCmAddProcedureCodeMutation,
+  useCmBulkAddProcedureCodesMutation,
+  useCmDeleteProcedureCodeMutation,
+  useCmUpdateProcedureCodeMutation,
+} from 'src/rcm/state/charge-masters/charge-master.queries';
+import {
   useAddProcedureCodeMutation,
   useBulkAddProcedureCodesMutation,
   useDeleteProcedureCodeMutation,
@@ -35,10 +41,12 @@ import {
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
+import { ChargeItemMode } from '../FeeSchedule';
 
 interface ProcedureCodesProps {
   feeSchedule: ChargeItemDefinition | undefined;
   isFetching: boolean;
+  mode?: ChargeItemMode;
 }
 
 interface CptOption {
@@ -99,7 +107,14 @@ function extractProcedureCodes(feeSchedule: ChargeItemDefinition | undefined): P
   });
 }
 
-export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCodesProps): ReactElement {
+export default function ProcedureCodes({
+  feeSchedule,
+  isFetching,
+  mode = 'fee-schedule',
+}: ProcedureCodesProps): ReactElement {
+  const isChargeMaster = mode === 'charge-master';
+  const queryKey = isChargeMaster ? 'charge-masters' : 'fee-schedules';
+  const idField = isChargeMaster ? 'chargeMasterId' : 'feeScheduleId';
   const [searchText, setSearchText] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editIndex, setEditIndex] = React.useState<number | null>(null);
@@ -119,10 +134,18 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
   );
 
   const queryClient = useQueryClient();
-  const { mutateAsync: addCode, isPending: adding } = useAddProcedureCodeMutation();
-  const { mutateAsync: updateCode, isPending: updating } = useUpdateProcedureCodeMutation();
-  const { mutateAsync: deleteCode, isPending: deleting } = useDeleteProcedureCodeMutation();
-  const { mutateAsync: bulkAdd, isPending: bulkAdding } = useBulkAddProcedureCodesMutation();
+  const fsAdd = useAddProcedureCodeMutation();
+  const fsUpdate = useUpdateProcedureCodeMutation();
+  const fsDelete = useDeleteProcedureCodeMutation();
+  const fsBulkAdd = useBulkAddProcedureCodesMutation();
+  const cmAdd = useCmAddProcedureCodeMutation();
+  const cmUpdate = useCmUpdateProcedureCodeMutation();
+  const cmDelete = useCmDeleteProcedureCodeMutation();
+  const cmBulkAdd = useCmBulkAddProcedureCodesMutation();
+  const { mutateAsync: addCode, isPending: adding } = isChargeMaster ? cmAdd : fsAdd;
+  const { mutateAsync: updateCode, isPending: updating } = isChargeMaster ? cmUpdate : fsUpdate;
+  const { mutateAsync: deleteCode, isPending: deleting } = isChargeMaster ? cmDelete : fsDelete;
+  const { mutateAsync: bulkAdd, isPending: bulkAdding } = isChargeMaster ? cmBulkAdd : fsBulkAdd;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const procedureCodes = useMemo(() => extractProcedureCodes(feeSchedule), [feeSchedule]);
@@ -175,25 +198,25 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
     try {
       if (editIndex != null) {
         await updateCode({
-          feeScheduleId: feeSchedule.id,
+          [idField]: feeSchedule.id,
           index: editIndex,
           code: formData.code,
           description: formData.description || undefined,
           modifier: formData.modifier || undefined,
           amount: amountNum,
-        });
+        } as any);
         enqueueSnackbar('Procedure code updated', { variant: 'success' });
       } else {
         await addCode({
-          feeScheduleId: feeSchedule.id,
+          [idField]: feeSchedule.id,
           code: formData.code,
           description: formData.description || undefined,
           modifier: formData.modifier || undefined,
           amount: amountNum,
-        });
+        } as any);
         enqueueSnackbar('Procedure code added', { variant: 'success' });
       }
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
       closeDialog();
     } catch {
       enqueueSnackbar('Error saving procedure code. Please try again.', { variant: 'error' });
@@ -204,14 +227,14 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
     async (index: number): Promise<void> => {
       if (!feeSchedule?.id) return;
       try {
-        await deleteCode({ feeScheduleId: feeSchedule.id, index });
-        await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+        await deleteCode({ [idField]: feeSchedule.id, index } as any);
+        await queryClient.invalidateQueries({ queryKey: [queryKey] });
         enqueueSnackbar('Procedure code removed', { variant: 'success' });
       } catch {
         enqueueSnackbar('Error removing procedure code. Please try again.', { variant: 'error' });
       }
     },
-    [feeSchedule?.id, deleteCode, queryClient]
+    [feeSchedule?.id, deleteCode, queryClient, idField, queryKey]
   );
 
   const isSaving = adding || updating;
@@ -253,8 +276,8 @@ export default function ProcedureCodes({ feeSchedule, isFetching }: ProcedureCod
         return;
       }
 
-      await bulkAdd({ feeScheduleId: feeSchedule.id, codes });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+      await bulkAdd({ [idField]: feeSchedule.id, codes } as any);
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
       enqueueSnackbar(`${codes.length} procedure code(s) uploaded successfully.`, { variant: 'success' });
     } catch {
       enqueueSnackbar('Error uploading CSV. Please try again.', { variant: 'error' });

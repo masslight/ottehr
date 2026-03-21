@@ -1318,20 +1318,6 @@
       "src": "src/rcm/fee-schedules/list-fee-schedules/index",
       "zip": ".dist/zips/list-fee-schedules.zip"
     },
-    "DESIGNATE-CHARGE-MASTER": {
-      "name": "designate-charge-master",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/rcm/fee-schedules/designate-charge-master/index",
-      "zip": ".dist/zips/designate-charge-master.zip"
-    },
-    "GET-CHARGE-MASTER": {
-      "name": "get-charge-master",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/rcm/fee-schedules/get-charge-master/index",
-      "zip": ".dist/zips/get-charge-master.zip"
-    },
     "ASSOCIATE-PAYER": {
       "name": "associate-payer",
       "type": "http_auth",
@@ -1373,6 +1359,90 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/bulk-add-procedure-codes/index",
       "zip": ".dist/zips/bulk-add-procedure-codes.zip"
+    },
+    "CREATE-CHARGE-MASTER": {
+      "name": "create-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/create-charge-master/index",
+      "zip": ".dist/zips/create-charge-master.zip"
+    },
+    "UPDATE-CHARGE-MASTER": {
+      "name": "update-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/update-charge-master/index",
+      "zip": ".dist/zips/update-charge-master.zip"
+    },
+    "DELETE-CHARGE-MASTER": {
+      "name": "delete-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/delete-charge-master/index",
+      "zip": ".dist/zips/delete-charge-master.zip"
+    },
+    "LIST-CHARGE-MASTERS": {
+      "name": "list-charge-masters",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/list-charge-masters/index",
+      "zip": ".dist/zips/list-charge-masters.zip"
+    },
+    "DESIGNATE-CHARGE-MASTER-ENTRY": {
+      "name": "designate-charge-master-entry",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/designate-charge-master-entry/index",
+      "zip": ".dist/zips/designate-charge-master-entry.zip"
+    },
+    "GET-CHARGE-MASTER-ENTRY": {
+      "name": "get-charge-master-entry",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/get-charge-master-entry/index",
+      "zip": ".dist/zips/get-charge-master-entry.zip"
+    },
+    "CM-ASSOCIATE-PAYER": {
+      "name": "cm-associate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-associate-payer/index",
+      "zip": ".dist/zips/cm-associate-payer.zip"
+    },
+    "CM-DISASSOCIATE-PAYER": {
+      "name": "cm-disassociate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-disassociate-payer/index",
+      "zip": ".dist/zips/cm-disassociate-payer.zip"
+    },
+    "CM-ADD-PROCEDURE-CODE": {
+      "name": "cm-add-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-add-procedure-code/index",
+      "zip": ".dist/zips/cm-add-procedure-code.zip"
+    },
+    "CM-UPDATE-PROCEDURE-CODE": {
+      "name": "cm-update-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-update-procedure-code/index",
+      "zip": ".dist/zips/cm-update-procedure-code.zip"
+    },
+    "CM-DELETE-PROCEDURE-CODE": {
+      "name": "cm-delete-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-delete-procedure-code/index",
+      "zip": ".dist/zips/cm-delete-procedure-code.zip"
+    },
+    "CM-BULK-ADD-PROCEDURE-CODES": {
+      "name": "cm-bulk-add-procedure-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
+      "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
     }
   },
   "fhirResources": {

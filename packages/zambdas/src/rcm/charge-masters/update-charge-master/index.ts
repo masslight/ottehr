@@ -4,7 +4,6 @@ import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  RCM_TAG_SYSTEM,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -12,31 +11,32 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-export const index = wrapHandler('list-fee-schedules', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('update-charge-master', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { secrets } = validateRequestParameters(input);
+    const { id, name, effectiveDate, description, status, secrets } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const results = await oystehr.fhir.search<ChargeItemDefinition>({
+    const existing = await oystehr.fhir.get<ChargeItemDefinition>({
       resourceType: 'ChargeItemDefinition',
-      params: [
-        {
-          name: '_tag',
-          value: `${RCM_TAG_SYSTEM}|fee-schedule`,
-        },
-      ],
+      id,
     });
 
-    const feeSchedules = results.unbundle();
+    const updated = await oystehr.fhir.update<ChargeItemDefinition>({
+      ...existing,
+      title: name,
+      date: effectiveDate,
+      description: description || undefined,
+      status: status ?? existing.status,
+    });
 
     return {
       statusCode: 200,
-      body: JSON.stringify(feeSchedules),
+      body: JSON.stringify(updated),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('list-fee-schedules', error, ENVIRONMENT);
+    return topLevelCatch('update-charge-master', error, ENVIRONMENT);
   }
 });

@@ -4,15 +4,19 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import {
-  Autocomplete,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   Paper,
   Skeleton,
   Table,
@@ -30,10 +34,15 @@ import { ChargeItemDefinition, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo } from 'react';
 import {
+  useCmAssociatePayerMutation,
+  useCmDisassociatePayerMutation,
+} from 'src/rcm/state/charge-masters/charge-master.queries';
+import {
   useAssociatePayerMutation,
   useDisassociatePayerMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { useInsurancesQuery } from '../admin.queries';
+import { ChargeItemMode } from '../FeeSchedule';
 
 const PAYER_ID_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const PAYER_ID_CODE = 'XX';
@@ -49,18 +58,32 @@ function getPayerId(org: Organization | undefined): string {
 interface PayerAssociationsProps {
   feeSchedule: ChargeItemDefinition | undefined;
   isFetching: boolean;
+  mode?: ChargeItemMode;
 }
 
-export default function PayerAssociations({ feeSchedule, isFetching }: PayerAssociationsProps): ReactElement {
+export default function PayerAssociations({
+  feeSchedule,
+  isFetching,
+  mode = 'fee-schedule',
+}: PayerAssociationsProps): ReactElement {
+  const isChargeMaster = mode === 'charge-master';
+  const queryKey = isChargeMaster ? 'charge-masters' : 'fee-schedules';
   const [searchText, setSearchText] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [selectedOrg, setSelectedOrg] = React.useState<Organization | null>(null);
+  const [selectedOrgs, setSelectedOrgs] = React.useState<Organization[]>([]);
+  const [dialogSearch, setDialogSearch] = React.useState('');
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const { data: allInsuranceOrgs, isPending: orgsLoading } = useInsurancesQuery(undefined, true);
-  const { mutateAsync: associatePayer, isPending: associating } = useAssociatePayerMutation();
-  const { mutateAsync: disassociatePayer, isPending: disassociating } = useDisassociatePayerMutation();
+  const fsAssociate = useAssociatePayerMutation();
+  const fsDisassociate = useDisassociatePayerMutation();
+  const cmAssociate = useCmAssociatePayerMutation();
+  const cmDisassociate = useCmDisassociatePayerMutation();
+  const { mutateAsync: associatePayer, isPending: associating } = isChargeMaster ? cmAssociate : fsAssociate;
+  const { mutateAsync: disassociatePayer, isPending: disassociating } = isChargeMaster
+    ? cmDisassociate
+    : fsDisassociate;
 
   // Extract currently associated org IDs from useContext
   const associatedOrgIds = useMemo(() => {
@@ -100,24 +123,52 @@ export default function PayerAssociations({ feeSchedule, isFetching }: PayerAsso
     return allInsuranceOrgs.filter((org) => org.active !== false && org.id && !associatedOrgIds.includes(org.id));
   }, [allInsuranceOrgs, associatedOrgIds]);
 
+  // Filter available orgs by dialog search text
+  const filteredAvailableOrgs = useMemo(() => {
+    if (!dialogSearch) return availableOrgs;
+    const lower = dialogSearch.toLowerCase();
+    return availableOrgs.filter((o) => {
+      const name = (o.name || '').toLowerCase();
+      const pid = getPayerId(o).toLowerCase();
+      return name.includes(lower) || pid.includes(lower);
+    });
+  }, [availableOrgs, dialogSearch]);
+
+  const toggleOrg = (org: Organization): void => {
+    setSelectedOrgs((prev) => {
+      const isSelected = prev.some((o) => o.id === org.id);
+      return isSelected ? prev.filter((o) => o.id !== org.id) : [...prev, org];
+    });
+  };
+
   const handleAssociate = async (): Promise<void> => {
-    if (!feeSchedule?.id || !selectedOrg?.id) return;
+    if (!feeSchedule?.id || selectedOrgs.length === 0) return;
     try {
-      await associatePayer({ feeScheduleId: feeSchedule.id, organizationId: selectedOrg.id });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
-      enqueueSnackbar(`Associated ${selectedOrg.name || selectedOrg.id}`, { variant: 'success' });
+      for (const org of selectedOrgs) {
+        if (!org.id) continue;
+        const idParam = isChargeMaster
+          ? { chargeMasterId: feeSchedule.id, organizationId: org.id }
+          : { feeScheduleId: feeSchedule.id, organizationId: org.id };
+        await associatePayer(idParam as any);
+      }
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
+      const names = selectedOrgs.map((o) => o.name || o.id).join(', ');
+      enqueueSnackbar(`Associated ${names}`, { variant: 'success' });
       setDialogOpen(false);
-      setSelectedOrg(null);
+      setSelectedOrgs([]);
     } catch {
-      enqueueSnackbar('Error associating payer. Please try again.', { variant: 'error' });
+      enqueueSnackbar('Error associating payer(s). Please try again.', { variant: 'error' });
     }
   };
 
   const handleDisassociate = async (orgId: string, orgName: string): Promise<void> => {
     if (!feeSchedule?.id) return;
     try {
-      await disassociatePayer({ feeScheduleId: feeSchedule.id, organizationId: orgId });
-      await queryClient.invalidateQueries({ queryKey: ['fee-schedules'] });
+      const idParam = isChargeMaster
+        ? { chargeMasterId: feeSchedule.id, organizationId: orgId }
+        : { feeScheduleId: feeSchedule.id, organizationId: orgId };
+      await disassociatePayer(idParam as any);
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
       enqueueSnackbar(`Removed ${orgName}`, { variant: 'success' });
     } catch {
       enqueueSnackbar('Error removing payer association. Please try again.', { variant: 'error' });
@@ -221,65 +272,67 @@ export default function PayerAssociations({ feeSchedule, isFetching }: PayerAsso
         </TableContainer>
       </Paper>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Associate Payer</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Search for an active insurance organization to associate with this fee schedule.
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { height: '70vh' } }}
+      >
+        <DialogTitle>Associate Payers</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', pb: 0 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Select active insurance organizations to associate with this fee schedule.
+            {selectedOrgs.length > 0 && <strong> ({selectedOrgs.length} selected)</strong>}
           </Typography>
-          <Autocomplete
-            options={availableOrgs}
-            getOptionLabel={(option) => {
-              const pid = getPayerId(option);
-              return pid ? `${option.name} (${pid})` : option.name || option.id || '';
+          <TextField
+            size="small"
+            placeholder="Filter by name or payer ID..."
+            value={dialogSearch}
+            onChange={(e) => setDialogSearch(e.target.value)}
+            InputProps={{
+              startAdornment: <SearchIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />,
             }}
-            filterOptions={(options, { inputValue }) => {
-              const lower = inputValue.toLowerCase();
-              return options.filter((o) => {
-                const name = (o.name || '').toLowerCase();
-                const pid = getPayerId(o).toLowerCase();
-                return name.includes(lower) || pid.includes(lower);
-              });
-            }}
-            value={selectedOrg}
-            onChange={(_, value) => setSelectedOrg(value)}
-            loading={orgsLoading}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Insurance Organization"
-                placeholder="Start typing to search..."
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {orgsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-              />
-            )}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
-                <Box>
-                  <Typography variant="body1">{option.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Payer ID: {getPayerId(option) || 'N/A'}
-                  </Typography>
-                </Box>
-              </li>
-            )}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-            noOptionsText="No matching active insurance organizations"
-            sx={{ mt: 1 }}
+            sx={{ mb: 1 }}
           />
+          {orgsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : filteredAvailableOrgs.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+              {dialogSearch ? 'No matching active insurance organizations.' : 'No available insurance organizations.'}
+            </Typography>
+          ) : (
+            <List
+              dense
+              sx={{ flex: 1, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+            >
+              {filteredAvailableOrgs.map((org) => {
+                const isSelected = selectedOrgs.some((o) => o.id === org.id);
+                return (
+                  <ListItemButton key={org.id} onClick={() => toggleOrg(org)} dense>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <Checkbox edge="start" checked={isSelected} disableRipple size="small" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={org.name}
+                      secondary={`Payer ID: ${getPayerId(org) || 'N/A'}`}
+                      primaryTypographyProps={{ variant: 'body2' }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => {
               setDialogOpen(false);
-              setSelectedOrg(null);
+              setSelectedOrgs([]);
+              setDialogSearch('');
             }}
             sx={{ textTransform: 'none' }}
           >
@@ -288,10 +341,10 @@ export default function PayerAssociations({ feeSchedule, isFetching }: PayerAsso
           <Button
             variant="contained"
             onClick={handleAssociate}
-            disabled={!selectedOrg || associating}
+            disabled={selectedOrgs.length === 0 || associating}
             sx={{ textTransform: 'none' }}
           >
-            {associating ? 'Associating...' : 'Associate'}
+            {associating ? 'Associating...' : `Associate${selectedOrgs.length > 0 ? ` (${selectedOrgs.length})` : ''}`}
           </Button>
         </DialogActions>
       </Dialog>
