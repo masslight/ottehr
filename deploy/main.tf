@@ -54,19 +54,32 @@ module "infra" {
 
 module "sendgrid" {
   source = "./sendgrid"
+  count  = local.not_local_env_resource_count
   providers = {
     sendgrid = sendgrid
   }
 }
 
 module "oystehr" {
-  depends_on = [module.infra, module.sendgrid]
+  depends_on = [module.infra]
   source     = "./oystehr"
   providers = {
     oystehr = oystehr
   }
-  sendgrid_template_ids       = module.sendgrid.template_ids
-  sendgrid_send_email_api_key = module.sendgrid.sendgrid_api_key
+  sendgrid_template_ids       = local.is_local ? {
+    SENDGRID_ERROR_REPORT_TEMPLATE_ID           = "placeholder"
+    SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID  = "placeholder"
+    SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID   = "placeholder"
+    SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID = "placeholder"
+    SENDGRID_IN_PERSON_RECEIPT_TEMPLATE_ID      = "placeholder"
+    SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID     = "placeholder"
+    SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID     = "placeholder"
+    SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID    = "placeholder"
+    SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID     = "placeholder"
+    SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID   = "placeholder"
+    SENDGRID_TELEMED_INVITATION_TEMPLATE_ID     = "placeholder"
+  } : module.sendgrid[0].template_ids
+  sendgrid_send_email_api_key = local.is_local ? "" : module.sendgrid[0].sendgrid_api_key
   ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : one(module.infra[*].ehr_domain) : var.ehr_domain
   patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.infra[*].patient_portal_domain) : var.patient_portal_domain
 }

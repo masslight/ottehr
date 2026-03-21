@@ -275,14 +275,22 @@ function App(): JSX.Element {
 
   const { user } = useAuth0();
   useEffect(() => {
-    mixpanel.identify();
+    try {
+      mixpanel.identify();
+    } catch (e) {
+      console.warn('Mixpanel identify failed (token not configured):', e);
+    }
   }, []);
   useEffect(() => {
     // user.name = user's verified phone number
     if (user?.name) {
-      mixpanel.people.set({
-        $phone: user.name,
-      });
+      try {
+        mixpanel.people.set({
+          $phone: user.name,
+        });
+      } catch (e) {
+        console.warn('Mixpanel people.set failed:', e);
+      }
     }
   }, [user?.name]);
 
