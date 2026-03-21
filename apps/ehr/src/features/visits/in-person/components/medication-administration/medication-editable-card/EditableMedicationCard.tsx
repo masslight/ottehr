@@ -226,7 +226,14 @@ export const EditableMedicationCard: React.FC<{
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicksForDialog(fhirQuickPicks);
     }
-    setQuickPickName('');
+    // Suggest a name from current form values: "Medication | Dose | Units | Route"
+    const medName =
+      medication?.medicationName ||
+      selectsOptions.medicationId.options.find((o) => o.value === localValues.medicationId)?.label ||
+      '';
+    const routeLabel = selectsOptions.route.options.find((o) => o.value === localValues.route)?.label || '';
+    const parts = [medName, localValues.dose, localValues.units, routeLabel].filter(Boolean);
+    setQuickPickName(parts.join(' | '));
     setOverwriteTarget(null);
     setQuickPickDialogOpen(true);
   };
