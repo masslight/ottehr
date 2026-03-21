@@ -32,6 +32,8 @@ import {
   CreateImmunizationQuickPickResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
+  CreateInHouseMedicationQuickPickInput,
+  CreateInHouseMedicationQuickPickResponse,
   CreateLabOrderParameters,
   CreateLabOrderZambdaOutput,
   CreateMedicalConditionQuickPickInput,
@@ -69,6 +71,7 @@ import {
   GetConversationZambdaOutput,
   GetEmployeesResponse,
   GetImmunizationQuickPicksResponse,
+  GetInHouseMedicationQuickPicksResponse,
   GetInHouseOrdersParameters,
   GetLabelPdfParameters,
   GetLabOrdersParameters,
@@ -99,6 +102,7 @@ import {
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
   InHouseGetOrdersResponseDTO,
+  InHouseMedicationQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
   ListScheduleOwnersParams,
@@ -120,6 +124,7 @@ import {
   RecentPatientsReportZambdaOutput,
   RemoveAllergyQuickPickResponse,
   RemoveImmunizationQuickPickResponse,
+  RemoveInHouseMedicationQuickPickResponse,
   RemoveMedicalConditionQuickPickResponse,
   RemoveMedicationHistoryQuickPickResponse,
   RemoveProcedureQuickPickResponse,
@@ -138,6 +143,7 @@ import {
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
   UpdateImmunizationQuickPickResponse,
+  UpdateInHouseMedicationQuickPickResponse,
   UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
   UpdateMedicalConditionQuickPickResponse,
@@ -238,6 +244,10 @@ const ADMIN_GET_IMMUNIZATION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-immunization-qui
 const ADMIN_CREATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID = 'admin-create-immunization-quick-pick';
 const ADMIN_UPDATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID = 'admin-update-immunization-quick-pick';
 const ADMIN_REMOVE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID = 'admin-remove-immunization-quick-pick';
+const ADMIN_GET_IN_HOUSE_MEDICATION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-in-house-medication-quick-picks';
+const ADMIN_CREATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-create-in-house-medication-quick-pick';
+const ADMIN_UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-update-in-house-medication-quick-pick';
+const ADMIN_REMOVE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-remove-in-house-medication-quick-pick';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
 
@@ -1970,6 +1980,70 @@ export const removeImmunizationQuickPick = async (
   try {
     const response = await oystehr.zambda.execute({
       id: ADMIN_REMOVE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID,
+      quickPickId,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── In-House Medication Quick Picks ──
+
+export const getInHouseMedicationQuickPicks = async (
+  oystehr: Oystehr
+): Promise<GetInHouseMedicationQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: ADMIN_GET_IN_HOUSE_MEDICATION_QUICK_PICKS_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createInHouseMedicationQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateInHouseMedicationQuickPickInput
+): Promise<CreateInHouseMedicationQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateInHouseMedicationQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<InHouseMedicationQuickPickData, 'id'>
+): Promise<UpdateInHouseMedicationQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID,
+      quickPickId,
+      quickPick,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const removeInHouseMedicationQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string
+): Promise<RemoveInHouseMedicationQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_REMOVE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID,
       quickPickId,
     } as any);
     return chooseJson(response);

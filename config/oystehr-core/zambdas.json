@@ -295,6 +295,34 @@
       "src": "src/ehr/admin-remove-immunization-quick-pick/index",
       "zip": ".dist/zips/admin-remove-immunization-quick-pick.zip"
     },
+    "ADMIN-GET-IN-HOUSE-MEDICATION-QUICK-PICKS": {
+      "name": "admin-get-in-house-medication-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-in-house-medication-quick-picks/index",
+      "zip": ".dist/zips/admin-get-in-house-medication-quick-picks.zip"
+    },
+    "ADMIN-CREATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "admin-create-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-create-in-house-medication-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "admin-update-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-update-in-house-medication-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "admin-remove-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-in-house-medication-quick-pick.zip"
+    },
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",
