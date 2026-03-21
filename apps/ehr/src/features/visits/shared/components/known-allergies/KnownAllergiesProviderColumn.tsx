@@ -19,7 +19,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
+import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { AllergyDTO } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -248,6 +249,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
+  const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
 
@@ -317,12 +319,10 @@ const AddAllergyField: FC = () => {
     }
   };
 
-  const handleQuickPickSelect = async (
-    quickPick: (typeof MEDICAL_HISTORY_CONFIG.allergies.quickPicks)[number]
-  ): Promise<void> => {
+  const handleQuickPickSelect = async (quickPick: (typeof allergyQuickPicks)[number]): Promise<void> => {
     const quickPickAsAllergy = {
       name: quickPick.name,
-      id: 'id' in quickPick ? quickPick.id : undefined,
+      id: quickPick.allergyId,
     } as ExtractObjectType<ErxSearchAllergensResponse>;
     await handleSelectOption(quickPickAsAllergy);
   };
@@ -354,7 +354,7 @@ const AddAllergyField: FC = () => {
         }}
       >
         <QuickPicksButton
-          quickPicks={MEDICAL_HISTORY_CONFIG.allergies.quickPicks}
+          quickPicks={allergyQuickPicks}
           getLabel={(quickPick) => quickPick.name}
           onSelect={handleQuickPickSelect}
           disabled={isChartDataLoading || isLoading}

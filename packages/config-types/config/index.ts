@@ -253,14 +253,14 @@ export type {
 export {
   MedicalConditionQuickPickSchema,
   AllergyQuickPickSchema,
-  MedicationQuickPickSchema,
+  MedicationHistoryQuickPickSchema,
   InHouseMedicationQuickPickSchema,
   MedicalHistoryConfigSchema,
 } from './medical-history';
 export type {
   MedicalConditionQuickPick,
   AllergyQuickPick,
-  MedicationQuickPick,
+  MedicationHistoryQuickPick,
   InHouseMedicationQuickPick,
   MedicalConditionsSection,
   AllergiesSection,
