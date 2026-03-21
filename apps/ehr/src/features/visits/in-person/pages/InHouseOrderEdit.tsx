@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { InHouseOrderEditBreadcrumbs } from '../components/breadcrumbs/InHouseOrderEditBreadcrumbs';
 import { MedicationWarnings } from '../components/medication-administration/medication-details/MedicationWarnings';
 import { EditableMedicationCard } from '../components/medication-administration/medication-editable-card/EditableMedicationCard';
+import { MedicationOrderType } from '../components/medication-administration/medication-editable-card/fieldsConfig';
 import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
 import { OrderButton } from '../components/medication-administration/OrderButton';
 import { PageHeader } from '../components/medication-administration/PageHeader';
@@ -18,17 +19,22 @@ export const InHouseOrderEdit: React.FC = () => {
   }, []);
 
   const order = medications.find((medication) => medication.id === orderId);
+  const isCompleted =
+    order?.status === 'administered' || order?.status === 'administered-partly' || order?.status === 'administered-not';
+
+  const editType: MedicationOrderType = isCompleted ? 'completed-edit' : 'order-edit';
+  const pageTitle = isCompleted ? 'Medication Details' : 'Edit Order';
 
   return (
     <>
       <span ref={scrollToRef} />
       <InHouseOrderEditBreadcrumbs />
       <Box display="flex" justifyContent="space-between" alignItems="center" pl={0.5} mb={2}>
-        <PageHeader title="Edit Order" variant="h3" component="h1" />
+        <PageHeader title={pageTitle} variant="h3" component="h1" />
         <OrderButton />
       </Box>
       <MedicationWarnings />
-      <EditableMedicationCard medication={order} type="order-edit" />
+      <EditableMedicationCard medication={order} type={editType} />
       <MedicationHistoryList />
     </>
   );

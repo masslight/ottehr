@@ -219,8 +219,8 @@ export const EditableMedicationCard: React.FC<{
       interactions: interactionsCheckState.interactions,
     };
 
-    // for order creating or editing we don't have to show confirmation modal, so we can save it immediately
-    if (typeRef.current === 'order-new' || typeRef.current === 'order-edit') {
+    // for order creating, editing, or completed editing we don't have to show confirmation modal, so we can save it immediately
+    if (typeRef.current === 'order-new' || typeRef.current === 'order-edit' || typeRef.current === 'completed-edit') {
       await handleConfirmSave(confirmedMedicationUpdateRequestRef);
       return;
     }

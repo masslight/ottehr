@@ -121,6 +121,9 @@ export const getSaveButtonText = (
   if (type === 'order-edit' && currentStatus === 'pending') {
     return isUnsavedData ? 'Save' : 'Saved';
   }
+  if (type === 'completed-edit') {
+    return isUnsavedData ? 'Save Changes' : 'Saved';
+  }
   return '';
 };
 

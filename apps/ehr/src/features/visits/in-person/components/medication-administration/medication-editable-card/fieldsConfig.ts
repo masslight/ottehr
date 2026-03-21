@@ -1,4 +1,9 @@
-export type MedicationOrderType = 'order-new' | 'order-edit' | 'dispense' | 'dispense-not-administered';
+export type MedicationOrderType =
+  | 'order-new'
+  | 'order-edit'
+  | 'dispense'
+  | 'dispense-not-administered'
+  | 'completed-edit';
 
 export type MedicationFieldType =
   | 'medicationId'
@@ -15,7 +20,12 @@ export type MedicationFieldType =
   | 'lotNumber'
   | 'expDate';
 
-export type MedicationFormType = 'order-new' | 'order-edit' | 'dispense' | 'dispense-not-administered';
+export type MedicationFormType =
+  | 'order-new'
+  | 'order-edit'
+  | 'dispense'
+  | 'dispense-not-administered'
+  | 'completed-edit';
 
 export type XsVariants = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
@@ -70,14 +80,32 @@ export const fieldsConfigForNotAdministered: Record<MedicationFieldType, { xs: X
   instructions: { xs: 12, isRequired: false },
 } as const;
 
+export const fieldsConfigForCompletedEdit: Record<MedicationFieldType, { xs: XsVariants; isRequired: boolean }> = {
+  medicationId: { xs: 6, isRequired: true },
+  associatedDx: { xs: 6, isRequired: false },
+  dose: { xs: 6, isRequired: true },
+  units: { xs: 6, isRequired: true },
+  lotNumber: { xs: 3, isRequired: false },
+  expDate: { xs: 3, isRequired: false },
+  manufacturer: { xs: 6, isRequired: false },
+  route: { xs: 6, isRequired: true },
+  providerId: { xs: 6, isRequired: true },
+  effectiveDateTime: { xs: 6, isRequired: false },
+  instructions: { xs: 12, isRequired: false },
+} as const;
+
 export const fieldsConfig: Record<
   MedicationFormType,
-  typeof fieldsConfigForOrder | typeof fieldsConfigForDispense | typeof fieldsConfigForNotAdministered
+  | typeof fieldsConfigForOrder
+  | typeof fieldsConfigForDispense
+  | typeof fieldsConfigForNotAdministered
+  | typeof fieldsConfigForCompletedEdit
 > = {
   'order-new': fieldsConfigForOrder,
   'order-edit': fieldsConfigForOrder,
   dispense: fieldsConfigForDispense,
   'dispense-not-administered': fieldsConfigForNotAdministered,
+  'completed-edit': fieldsConfigForCompletedEdit,
 } as const;
 
 export const getFieldLabel = (
