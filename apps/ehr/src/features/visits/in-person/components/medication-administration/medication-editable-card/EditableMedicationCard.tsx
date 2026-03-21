@@ -93,7 +93,7 @@ export const EditableMedicationCard: React.FC<{
   const selectsOptions = useFieldsSelectsOptions();
   const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
   const [erxEnabled, setErxEnabled] = useState(false);
   const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
@@ -217,9 +217,9 @@ export const EditableMedicationCard: React.FC<{
   }, []);
 
   const openQuickPickDialog = async (): Promise<void> => {
-    if (!oystehr) return;
+    if (!oystehrZambda) return;
     try {
-      const response = await getInHouseMedicationQuickPicks(oystehr);
+      const response = await getInHouseMedicationQuickPicks(oystehrZambda);
       setExistingQuickPicksForDialog(response.quickPicks);
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
@@ -249,16 +249,16 @@ export const EditableMedicationCard: React.FC<{
       enqueueSnackbar('Quick pick name is required', { variant: 'error' });
       return;
     }
-    if (!oystehr) throw new Error('oystehr was null');
+    if (!oystehrZambda) throw new Error('oystehrZambda was null');
 
     setQuickPickSaving(true);
     try {
       const quickPickData = buildQuickPickFromCurrentState();
       if (overwriteId) {
-        await updateInHouseMedicationQuickPick(oystehr, overwriteId, quickPickData);
+        await updateInHouseMedicationQuickPick(oystehrZambda, overwriteId, quickPickData);
         enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
       } else {
-        await createInHouseMedicationQuickPick(oystehr, { quickPick: quickPickData });
+        await createInHouseMedicationQuickPick(oystehrZambda, { quickPick: quickPickData });
         enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
       }
       setQuickPickDialogOpen(false);
