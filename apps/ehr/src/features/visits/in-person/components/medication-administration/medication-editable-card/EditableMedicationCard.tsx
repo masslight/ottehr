@@ -200,30 +200,22 @@ export const EditableMedicationCard: React.FC<{
     [selectsOptions.medicationId]
   );
 
-  const handleFhirQuickPickSelect = useCallback(
-    (quickPick: InHouseMedicationQuickPickData): void => {
-      // Look up the medication ID from available inventory by matching the stored ID
-      // If the stored ID is in the available options, use it; otherwise skip medication auto-fill
-      const availableMedIds = new Set(selectsOptions.medicationId.options.map((o) => o.value));
-      const medicationId =
-        quickPick.medicationId && availableMedIds.has(quickPick.medicationId) ? quickPick.medicationId : undefined;
-
-      setLocalValues((prev) => ({
-        ...prev,
-        ...(medicationId && { medicationId }),
-        ...(quickPick.dose != null && { dose: quickPick.dose }),
-        ...(quickPick.units && { units: quickPick.units }),
-        ...(quickPick.route && { route: quickPick.route }),
-        ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
-        ...(quickPick.associatedDx && { associatedDx: quickPick.associatedDx }),
-        ...(quickPick.instructions && { instructions: quickPick.instructions }),
-        ...(quickPick.lotNumber && { lotNumber: quickPick.lotNumber }),
-        ...(quickPick.expDate && { expDate: quickPick.expDate }),
-      }));
-      if (medicationId) setErxEnabled(true);
-    },
-    [selectsOptions.medicationId.options]
-  );
+  const handleFhirQuickPickSelect = useCallback((quickPick: InHouseMedicationQuickPickData): void => {
+    setLocalValues((prev) => ({
+      ...prev,
+      ...(quickPick.medicationId && { medicationId: quickPick.medicationId }),
+      ...(quickPick.dose != null && { dose: quickPick.dose }),
+      ...(quickPick.units && { units: quickPick.units }),
+      ...(quickPick.route && { route: quickPick.route }),
+      ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
+      // Don't apply associatedDx from quick pick — it's a Condition resource ID
+      // that is encounter-specific and won't be valid on other encounters
+      ...(quickPick.instructions && { instructions: quickPick.instructions }),
+      ...(quickPick.lotNumber && { lotNumber: quickPick.lotNumber }),
+      ...(quickPick.expDate && { expDate: quickPick.expDate }),
+    }));
+    if (quickPick.medicationId) setErxEnabled(true);
+  }, []);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
@@ -247,7 +239,7 @@ export const EditableMedicationCard: React.FC<{
     units: localValues.units,
     route: localValues.route,
     manufacturer: localValues.manufacturer,
-    associatedDx: localValues.associatedDx,
+    // associatedDx is not saved — it's a Condition resource ID that is encounter-specific
     instructions: localValues.instructions,
     lotNumber: localValues.lotNumber,
     expDate: localValues.expDate,
