@@ -45,7 +45,7 @@ import {
 import { useReactNavigationBlocker } from '../../../../shared/hooks/useReactNavigationBlocker';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
-import { getEditOrderUrl, getInHouseMedicationMARUrl } from '../../../routing/helpers';
+import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesInPerson } from '../../../routing/routesInPerson';
 import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
@@ -365,7 +365,7 @@ export const EditableMedicationCard: React.FC<{
     try {
       setIsOrderUpdating(true);
 
-      const response = await updateMedication(medicationUpdateRequestInputRefRef.current);
+      await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
 
       // update saved status in the local state
@@ -374,9 +374,7 @@ export const EditableMedicationCard: React.FC<{
       }
 
       if (typeRef.current === 'order-new') {
-        if (response?.id) {
-          navigate(getEditOrderUrl(appointmentId!, response.id));
-        }
+        navigate(getInHouseMedicationMARUrl(appointmentId!));
       }
 
       void refetchHistory();
