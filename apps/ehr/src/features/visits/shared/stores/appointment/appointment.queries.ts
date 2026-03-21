@@ -973,7 +973,7 @@ export const useGetMedicationList = () => {
         resourceType: 'Medication',
         params: [
           { name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE },
-          { name: 'status', value: 'active' },
+          { name: 'status:not', value: 'inactive' },
         ],
       });
 
