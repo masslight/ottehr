@@ -200,21 +200,30 @@ export const EditableMedicationCard: React.FC<{
     [selectsOptions.medicationId]
   );
 
-  const handleFhirQuickPickSelect = useCallback((quickPick: InHouseMedicationQuickPickData): void => {
-    setLocalValues((prev) => ({
-      ...prev,
-      ...(quickPick.medicationId && { medicationId: quickPick.medicationId }),
-      ...(quickPick.dose != null && { dose: quickPick.dose }),
-      ...(quickPick.units && { units: quickPick.units }),
-      ...(quickPick.route && { route: quickPick.route }),
-      ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
-      ...(quickPick.associatedDx && { associatedDx: quickPick.associatedDx }),
-      ...(quickPick.instructions && { instructions: quickPick.instructions }),
-      ...(quickPick.lotNumber && { lotNumber: quickPick.lotNumber }),
-      ...(quickPick.expDate && { expDate: quickPick.expDate }),
-    }));
-    if (quickPick.medicationId) setErxEnabled(true);
-  }, []);
+  const handleFhirQuickPickSelect = useCallback(
+    (quickPick: InHouseMedicationQuickPickData): void => {
+      // Look up the medication ID from available inventory by matching the stored ID
+      // If the stored ID is in the available options, use it; otherwise skip medication auto-fill
+      const availableMedIds = new Set(selectsOptions.medicationId.options.map((o) => o.value));
+      const medicationId =
+        quickPick.medicationId && availableMedIds.has(quickPick.medicationId) ? quickPick.medicationId : undefined;
+
+      setLocalValues((prev) => ({
+        ...prev,
+        ...(medicationId && { medicationId }),
+        ...(quickPick.dose != null && { dose: quickPick.dose }),
+        ...(quickPick.units && { units: quickPick.units }),
+        ...(quickPick.route && { route: quickPick.route }),
+        ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
+        ...(quickPick.associatedDx && { associatedDx: quickPick.associatedDx }),
+        ...(quickPick.instructions && { instructions: quickPick.instructions }),
+        ...(quickPick.lotNumber && { lotNumber: quickPick.lotNumber }),
+        ...(quickPick.expDate && { expDate: quickPick.expDate }),
+      }));
+      if (medicationId) setErxEnabled(true);
+    },
+    [selectsOptions.medicationId.options]
+  );
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
