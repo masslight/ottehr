@@ -267,6 +267,34 @@
       "src": "src/ehr/admin-remove-medication-history-quick-pick/index",
       "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip"
     },
+    "ADMIN-GET-IMMUNIZATION-QUICK-PICKS": {
+      "name": "admin-get-immunization-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-immunization-quick-picks/index",
+      "zip": ".dist/zips/admin-get-immunization-quick-picks.zip"
+    },
+    "ADMIN-CREATE-IMMUNIZATION-QUICK-PICK": {
+      "name": "admin-create-immunization-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-immunization-quick-pick/index",
+      "zip": ".dist/zips/admin-create-immunization-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-IMMUNIZATION-QUICK-PICK": {
+      "name": "admin-update-immunization-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-immunization-quick-pick/index",
+      "zip": ".dist/zips/admin-update-immunization-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-IMMUNIZATION-QUICK-PICK": {
+      "name": "admin-remove-immunization-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-immunization-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-immunization-quick-pick.zip"
+    },
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",

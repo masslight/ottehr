@@ -2,6 +2,7 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { describe, expect, test } from 'vitest';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
+  IMMUNIZATION_QUICK_PICK_CATEGORY,
   MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
   MEDICATION_HISTORY_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
@@ -176,6 +177,68 @@ describe('activityDefinitionToQuickPick', () => {
       expect(result.name).toBe('Some Procedure');
     });
   });
+
+  describe('Immunization', () => {
+    test('should parse with all fields populated', () => {
+      const config = {
+        vaccine: { id: 'med-123', name: 'Influenza Vaccine' },
+        dose: '0.5',
+        units: 'ml',
+        route: '78421000',
+        location: { name: 'Left Deltoid', code: 'LD' },
+        associatedDx: 'Z23',
+        manufacturer: 'Pfizer',
+        instructions: 'Monitor 15 min',
+        cvx: '158',
+        mvx: 'PFR',
+        cpt: '90471',
+        ndc: '12345-678-90',
+        lot: 'ABC123',
+        expDate: '2027-06-30',
+      };
+      const ad = createMockActivityDefinition('immunization-quick-pick', 'Flu Shot - Adult', config);
+
+      const result = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe('Flu Shot - Adult');
+      expect(result.vaccine).toEqual({ id: 'med-123', name: 'Influenza Vaccine' });
+      expect(result.dose).toBe('0.5');
+      expect(result.units).toBe('ml');
+      expect(result.route).toBe('78421000');
+      expect(result.location).toEqual({ name: 'Left Deltoid', code: 'LD' });
+      expect(result.cvx).toBe('158');
+      expect(result.mvx).toBe('PFR');
+      expect(result.lot).toBe('ABC123');
+      expect(result.expDate).toBe('2027-06-30');
+    });
+
+    test('should parse with minimal fields (just name)', () => {
+      const ad = createMockActivityDefinition('immunization-quick-pick', 'Basic Vaccine', {});
+
+      const result = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe('Basic Vaccine');
+      expect(result.vaccine).toBeUndefined();
+      expect(result.dose).toBeUndefined();
+      expect(result.cvx).toBeUndefined();
+    });
+
+    test('should parse when config extension is missing', () => {
+      const ad: ActivityDefinition = {
+        resourceType: 'ActivityDefinition',
+        status: 'active',
+        title: 'Some Vaccine',
+        meta: {
+          tag: [{ system: QUICK_PICK_TAG_SYSTEM, code: 'immunization-quick-pick' }],
+        },
+      };
+
+      const result = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+      expect(result.name).toBe('Some Vaccine');
+    });
+  });
 });
 
 describe('quickPickToActivityDefinition', () => {
@@ -227,6 +290,36 @@ describe('quickPickToActivityDefinition', () => {
     const ad = quickPickToActivityDefinition(quickPick, PROCEDURE_QUICK_PICK_CATEGORY);
 
     expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'procedure-quick-pick' }]);
+  });
+
+  test('should set correct meta tag system and code for immunization category', () => {
+    const quickPick = { name: 'Flu Shot' };
+
+    const ad = quickPickToActivityDefinition(quickPick, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'immunization-quick-pick' }]);
+  });
+
+  test('should serialize immunization config excluding name field', () => {
+    const quickPick = {
+      name: 'Flu Shot',
+      vaccine: { id: 'med-123', name: 'Influenza' },
+      dose: '0.5',
+      units: 'ml',
+      cvx: '158',
+      lot: 'ABC123',
+    };
+
+    const ad = quickPickToActivityDefinition(quickPick, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    const configExt = ad.extension?.find((e) => e.url === QUICK_PICK_CONFIG_EXTENSION_URL);
+    expect(configExt).toBeDefined();
+    const parsed = JSON.parse(configExt!.valueString!);
+    expect(parsed.name).toBeUndefined();
+    expect(parsed.vaccine).toEqual({ id: 'med-123', name: 'Influenza' });
+    expect(parsed.dose).toBe('0.5');
+    expect(parsed.cvx).toBe('158');
+    expect(parsed.lot).toBe('ABC123');
   });
 
   test('should serialize config data in extension excluding display name field', () => {
@@ -327,5 +420,52 @@ describe('round-trip conversion', () => {
     expect(restored.cptCodes).toEqual([{ code: '12001', display: 'Simple repair' }]);
     expect(restored.bodySite).toBe('Left arm');
     expect(restored.consentObtained).toBe(true);
+  });
+
+  test('should preserve immunization data through round-trip', () => {
+    const original = {
+      name: 'Flu Shot - Adult',
+      vaccine: { id: 'med-123', name: 'Influenza Vaccine' },
+      dose: '0.5',
+      units: 'ml',
+      route: '78421000',
+      location: { name: 'Left Deltoid', code: 'LD' },
+      manufacturer: 'Pfizer',
+      cvx: '158',
+      mvx: 'PFR',
+      cpt: '90471',
+      ndc: '12345-678-90',
+      lot: 'ABC123',
+      expDate: '2027-06-30',
+    };
+    const ad = quickPickToActivityDefinition(original, IMMUNIZATION_QUICK_PICK_CATEGORY, 'imm-id');
+    const restored = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe('Flu Shot - Adult');
+    expect(restored.vaccine).toEqual({ id: 'med-123', name: 'Influenza Vaccine' });
+    expect(restored.dose).toBe('0.5');
+    expect(restored.units).toBe('ml');
+    expect(restored.route).toBe('78421000');
+    expect(restored.location).toEqual({ name: 'Left Deltoid', code: 'LD' });
+    expect(restored.manufacturer).toBe('Pfizer');
+    expect(restored.cvx).toBe('158');
+    expect(restored.mvx).toBe('PFR');
+    expect(restored.cpt).toBe('90471');
+    expect(restored.ndc).toBe('12345-678-90');
+    expect(restored.lot).toBe('ABC123');
+    expect(restored.expDate).toBe('2027-06-30');
+    expect(restored.id).toBe('imm-id');
+  });
+
+  test('should preserve immunization with minimal data through round-trip', () => {
+    const original = { name: 'Basic Vaccine', dose: '1', units: 'ml' };
+    const ad = quickPickToActivityDefinition(original, IMMUNIZATION_QUICK_PICK_CATEGORY, 'imm-min-id');
+    const restored = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe('Basic Vaccine');
+    expect(restored.dose).toBe('1');
+    expect(restored.units).toBe('ml');
+    expect(restored.vaccine).toBeUndefined();
+    expect(restored.cvx).toBeUndefined();
   });
 });

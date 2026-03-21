@@ -1,5 +1,6 @@
 import {
   AllergyQuickPickData,
+  ImmunizationQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
@@ -47,5 +48,16 @@ export const MEDICATION_HISTORY_QUICK_PICK_CATEGORY: QuickPickCategory<Medicatio
     id,
     name: title,
     ...(config as Omit<MedicationHistoryQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const IMMUNIZATION_QUICK_PICK_CATEGORY: QuickPickCategory<ImmunizationQuickPickData> = {
+  tagCode: 'immunization-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<ImmunizationQuickPickData, 'id' | 'name'>),
   }),
 };

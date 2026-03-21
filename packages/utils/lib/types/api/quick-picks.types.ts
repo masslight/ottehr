@@ -121,3 +121,32 @@ export type UpdateMedicationHistoryQuickPickResponse = QuickPickUpdateResponse<M
 export type GetMedicationHistoryQuickPicksResponse = QuickPickListResponse<MedicationHistoryQuickPickData>;
 export type RemoveMedicationHistoryQuickPickInput = QuickPickRemoveInput;
 export type RemoveMedicationHistoryQuickPickResponse = QuickPickRemoveResponse;
+
+// ── Immunization Quick Picks ──
+
+export interface ImmunizationQuickPickData {
+  id?: string;
+  name: string;
+  vaccine?: { id: string; name: string };
+  dose?: string;
+  units?: string;
+  route?: string;
+  location?: { name: string; code: string };
+  associatedDx?: string;
+  manufacturer?: string;
+  instructions?: string;
+  cvx?: string;
+  mvx?: string;
+  cpt?: string;
+  ndc?: string;
+  lot?: string;
+  expDate?: string;
+}
+
+export type CreateImmunizationQuickPickInput = QuickPickCreateInput<ImmunizationQuickPickData>;
+export type CreateImmunizationQuickPickResponse = QuickPickCreateResponse<ImmunizationQuickPickData>;
+export type UpdateImmunizationQuickPickInput = QuickPickUpdateInput<ImmunizationQuickPickData>;
+export type UpdateImmunizationQuickPickResponse = QuickPickUpdateResponse<ImmunizationQuickPickData>;
+export type GetImmunizationQuickPicksResponse = QuickPickListResponse<ImmunizationQuickPickData>;
+export type RemoveImmunizationQuickPickInput = QuickPickRemoveInput;
+export type RemoveImmunizationQuickPickResponse = QuickPickRemoveResponse;

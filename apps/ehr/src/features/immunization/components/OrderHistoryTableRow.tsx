@@ -22,9 +22,10 @@ import { ImmunizationOrder, searchRouteByCode } from 'utils';
 interface Props {
   order: ImmunizationOrder;
   showActions: boolean;
+  showGiven?: boolean;
 }
 
-export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) => {
+export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, showGiven = true }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -54,19 +55,26 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
 
   const isPending = order.status === 'pending';
 
-  const handleRowClick = (): void => {
-    if (!isPending || !showActions) {
-      return;
-    }
+  const navigateToDetails = (): void => {
+    if (!appointmentId) return;
     requestAnimationFrame(() => {
-      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
+      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId)}?scrollTo=${order.id}`);
     });
+  };
+
+  const handleRowClick = (): void => {
+    if (!showActions) return;
+    if (isPending) {
+      navigateToDetails();
+    } else {
+      navigateToDetails();
+    }
   };
 
   return (
     <TableRow
       sx={{
-        ...(isPending && showActions
+        ...(showActions
           ? {
               '&:hover': {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
@@ -99,14 +107,16 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           {grayText(order.details.orderedProvider.name)}
         </span>
       </TableCell>
-      <TableCell>
-        <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
-          {formatDateTime(order.administrationDetails?.administeredDateTime)}
-        </span>
-        <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
-          {grayText(order.administrationDetails?.administeredProvider?.name)}
-        </span>
-      </TableCell>
+      {showGiven && (
+        <TableCell>
+          <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
+            {formatDateTime(order.administrationDetails?.administeredDateTime)}
+          </span>
+          <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
+            {grayText(order.administrationDetails?.administeredProvider?.name)}
+          </span>
+        </TableCell>
+      )}
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
@@ -115,25 +125,29 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
               {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
             </span>
           </Stack>
-          {showActions && order.status === 'pending' ? (
+          {showActions ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
-              <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
+              <IconButton size="small" aria-label="edit" onClick={isPending ? navigateToEditOrder : navigateToDetails}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />
               </IconButton>
-              <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
-                <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
-              </IconButton>
-              <CustomDialog
-                open={isDeleteDialogOpened}
-                handleClose={() => setIsDeleteDialogOpened(false)}
-                title="Delete vaccine order"
-                description={`Are you sure you want to delete the vaccine order?`}
-                closeButtonText="Cancel"
-                closeButton={false}
-                handleConfirm={handleConfirmDelete}
-                confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-                confirmLoading={isDeleting}
-              />
+              {isPending && (
+                <>
+                  <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
+                    <DeleteIcon sx={{ color: theme.palette.error.main }} />
+                  </IconButton>
+                  <CustomDialog
+                    open={isDeleteDialogOpened}
+                    handleClose={() => setIsDeleteDialogOpened(false)}
+                    title="Delete immunization order"
+                    description={`Are you sure you want to delete the immunization order?`}
+                    closeButtonText="Cancel"
+                    closeButton={false}
+                    handleConfirm={handleConfirmDelete}
+                    confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                    confirmLoading={isDeleting}
+                  />
+                </>
+              )}
             </Stack>
           ) : null}
         </Stack>
