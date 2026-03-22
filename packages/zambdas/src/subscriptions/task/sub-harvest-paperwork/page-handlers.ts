@@ -9,6 +9,7 @@ import {
   Patient,
   Questionnaire,
   QuestionnaireResponse,
+  Task,
 } from 'fhir/r4b';
 import {
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
@@ -25,6 +26,9 @@ import {
   PaymentVariant,
   Secrets,
   SELF_PAY_OPTION,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
+  TaskIndicator,
 } from 'utils';
 import {
   createConsentResources,
@@ -41,6 +45,7 @@ import { getAuth0Token } from '../../../shared';
 export interface HarvestContext {
   qr: QuestionnaireResponse;
   pageLinkId: string;
+  patchIndex: number;
   patient: Patient;
   encounter: Encounter;
   appointment: Appointment;
@@ -288,6 +293,52 @@ export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> =
   'erx-contact': erxContactStrategy,
 };
 
+/**
+ * Checks whether a later harvest Task exists for the same QuestionnaireResponse
+ * that would also run the given strategy. If so, the current (earlier) task
+ * should skip that strategy — the later task reads the same QR with more
+ * complete paperwork data, so its results supersede ours.
+ */
+async function isStrategySupersededByLaterTask(strategy: HarvestStrategy, ctx: HarvestContext): Promise<boolean> {
+  const qrId = ctx.qr.id;
+  if (!qrId) return false;
+
+  const siblingTasks = (
+    await ctx.oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        { name: 'code', value: `${TaskIndicator.harvestPaperwork.system}|${TaskIndicator.harvestPaperwork.code}` },
+        { name: 'focus', value: `QuestionnaireResponse/${qrId}` },
+        { name: 'status', value: 'requested,in-progress,completed' },
+      ],
+    })
+  ).unbundle();
+
+  for (const sibling of siblingTasks) {
+    const siblingIndex = sibling.input?.find(
+      (i) =>
+        i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
+    )?.valueUnsignedInt;
+
+    if (siblingIndex === undefined || siblingIndex <= ctx.patchIndex) continue;
+
+    // Resolve the sibling's page and check if it maps to the same strategy
+    const siblingPageLinkId = ctx.qr.item?.[siblingIndex]?.linkId;
+    if (!siblingPageLinkId) continue;
+
+    const siblingStrategies = pageHarvestStrategy[siblingPageLinkId];
+    if (siblingStrategies?.includes(strategy)) {
+      console.log(
+        `skipping ${strategy} for page ${ctx.pageLinkId} (index ${ctx.patchIndex}): ` +
+          `later task at index ${siblingIndex} (page ${siblingPageLinkId}) will handle it`
+      );
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const executePageHarvest = async (ctx: HarvestContext): Promise<string> => {
   const strategies = pageHarvestStrategy[ctx.pageLinkId];
   if (!strategies || strategies.length === 0) {
@@ -296,6 +347,10 @@ export const executePageHarvest = async (ctx: HarvestContext): Promise<string> =
   console.log(`harvest strategies for page ${ctx.pageLinkId}: ${strategies.join(', ')}`);
   const results: string[] = [];
   for (const strategy of strategies) {
+    if (strategy === 'account-coverage' && (await isStrategySupersededByLaterTask(strategy, ctx))) {
+      results.push(`${strategy} skipped (superseded by later task)`);
+      continue;
+    }
     const handler = strategyHandlers[strategy];
     results.push(await handler(ctx));
   }

@@ -27,6 +27,7 @@ export const index = wrapTaskHandler('sub-harvest-paperwork-page', async (input,
   const ctx: HarvestContext = {
     qr,
     pageLinkId,
+    patchIndex,
     patient,
     encounter,
     appointment,
