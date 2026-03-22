@@ -23,6 +23,7 @@ import {
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   pageHarvestStrategy,
+  patchWithOptimisticLock,
   PaymentVariant,
   Secrets,
   SELF_PAY_OPTION,
@@ -58,60 +59,12 @@ export interface HarvestContext {
 
 type HarvestStrategyHandler = (ctx: HarvestContext) => Promise<string>;
 
-const MAX_OPTIMISTIC_LOCK_RETRIES = 3;
-
-/**
- * Patches a Patient resource with optimistic locking (E-tag).
- *
- * Uses the Patient's versionId as an If-Match header so the FHIR server
- * rejects the PATCH with 412 if another harvest task modified the Patient
- * concurrently. On 412, re-fetches the Patient, recomputes patch operations
- * (important since they use array indices), and retries.
- */
-async function patchPatientWithOptimisticLock(
-  oystehr: Oystehr,
-  patientId: string,
-  initialPatient: Patient,
-  computeOps: (patient: Patient) => Operation[]
-): Promise<void> {
-  let currentPatient = initialPatient;
-
-  for (let attempt = 0; attempt <= MAX_OPTIMISTIC_LOCK_RETRIES; attempt++) {
-    const operations = computeOps(currentPatient);
-    if (operations.length === 0) return;
-
-    const versionId = currentPatient.meta?.versionId;
-    try {
-      await oystehr.fhir.patch(
-        {
-          resourceType: 'Patient',
-          id: patientId,
-          operations,
-        },
-        versionId ? { optimisticLockingVersionId: versionId } : undefined
-      );
-      return;
-    } catch (error: any) {
-      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
-      if (!is412 || attempt === MAX_OPTIMISTIC_LOCK_RETRIES) {
-        throw error;
-      }
-      console.log(
-        `Patient/${patientId} PATCH conflict (412), re-fetching and retrying (attempt ${
-          attempt + 1
-        }/${MAX_OPTIMISTIC_LOCK_RETRIES})`
-      );
-      currentPatient = (await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId })) as Patient;
-    }
-  }
-}
-
 // ── Strategy implementations ────────────────────────────────────────────
 
 const masterRecordStrategy: HarvestStrategyHandler = async (ctx) => {
   const { qr, pageLinkId, patient, questionnaire, oystehr } = ctx;
 
-  await patchPatientWithOptimisticLock(oystehr, patient.id!, patient, (currentPatient) => {
+  await patchWithOptimisticLock(oystehr, 'Patient', patient.id!, patient, (currentPatient) => {
     const patientPatchOps = createMasterRecordPatchOperations(
       {
         questionnaireResponseItems: qr.item || [],
@@ -129,7 +82,7 @@ const masterRecordStrategy: HarvestStrategyHandler = async (ctx) => {
 const pharmacyStrategy: HarvestStrategyHandler = async (ctx) => {
   const { qr, patient, oystehr } = ctx;
 
-  await patchPatientWithOptimisticLock(oystehr, patient.id!, patient, (currentPatient) => {
+  await patchWithOptimisticLock(oystehr, 'Patient', patient.id!, patient, (currentPatient) => {
     const flattenedItems = flattenQuestionnaireAnswers(qr.item ?? []);
     return createUpdatePharmacyPatchOps(currentPatient, flattenedItems);
   });
@@ -160,24 +113,28 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     oystehr
   );
 
-  // Update encounter payment variant and account references with optimistic locking.
-  // On 412, re-fetch the Encounter, recompute ops against fresh state, and retry.
-  const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
+  // Only update the payment variant extension when the page being harvested is
+  // the one that actually contains the payment option answer. Other pages that
+  // share the account-coverage strategy should not touch this extension.
+  const PAYMENT_OPTION_PAGES = ['payment-option-page', 'payment-option-occ-med-page'];
+  const isPaymentOptionPage = PAYMENT_OPTION_PAGES.includes(ctx.pageLinkId);
 
   let paymentVariant: PaymentVariant | undefined;
-  if (selectedPaymentOption) {
-    paymentVariant = PaymentVariant.selfPay;
-    if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
-      paymentVariant = PaymentVariant.insurance;
-    }
-    if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
-      paymentVariant = PaymentVariant.employer;
+  if (isPaymentOptionPage) {
+    const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
+    if (selectedPaymentOption) {
+      paymentVariant = PaymentVariant.selfPay;
+      if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
+        paymentVariant = PaymentVariant.insurance;
+      }
+      if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
+        paymentVariant = PaymentVariant.employer;
+      }
     }
   }
 
-  let currentEncounter = encounter;
-  for (let attempt = 0; attempt <= MAX_OPTIMISTIC_LOCK_RETRIES; attempt++) {
-    const encounterPatchOperations: Operation[] = [];
+  await patchWithOptimisticLock(oystehr, 'Encounter', encounter.id!, encounter, async (currentEncounter) => {
+    const ops: Operation[] = [];
 
     if (paymentVariant !== undefined) {
       const currentVariant = getPaymentVariantFromEncounter(currentEncounter);
@@ -187,23 +144,15 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
         );
 
         if (extIndex !== undefined && extIndex >= 0) {
-          encounterPatchOperations.push({
+          ops.push({
             op: 'replace',
             path: `/extension/${extIndex}`,
             value: getEncounterPaymentVariantExtension(paymentVariant),
           });
         } else if (currentEncounter.extension) {
-          encounterPatchOperations.push({
-            op: 'add',
-            path: '/extension/-',
-            value: getEncounterPaymentVariantExtension(paymentVariant),
-          });
+          ops.push({ op: 'add', path: '/extension/-', value: getEncounterPaymentVariantExtension(paymentVariant) });
         } else {
-          encounterPatchOperations.push({
-            op: 'add',
-            path: '/extension',
-            value: [getEncounterPaymentVariantExtension(paymentVariant)],
-          });
+          ops.push({ op: 'add', path: '/extension', value: [getEncounterPaymentVariantExtension(paymentVariant)] });
         }
       }
     }
@@ -222,39 +171,15 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     );
 
     if (accountsChanged && updatedEncounterAccounts) {
-      encounterPatchOperations.push({
+      ops.push({
         op: currentEncounter.account ? 'replace' : 'add',
         path: '/account',
         value: updatedEncounterAccounts,
       });
     }
 
-    if (encounterPatchOperations.length === 0) break;
-
-    try {
-      await oystehr.fhir.patch<Encounter>(
-        {
-          id: currentEncounter.id!,
-          resourceType: 'Encounter',
-          operations: encounterPatchOperations,
-        },
-        currentEncounter.meta?.versionId ? { optimisticLockingVersionId: currentEncounter.meta.versionId } : undefined
-      );
-      break;
-    } catch (error: any) {
-      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
-      if (!is412 || attempt === MAX_OPTIMISTIC_LOCK_RETRIES) throw error;
-      console.log(
-        `Encounter/${currentEncounter.id} PATCH conflict (412), re-fetching and retrying (attempt ${
-          attempt + 1
-        }/${MAX_OPTIMISTIC_LOCK_RETRIES})`
-      );
-      currentEncounter = (await oystehr.fhir.get<Encounter>({
-        resourceType: 'Encounter',
-        id: currentEncounter.id!,
-      })) as Encounter;
-    }
-  }
+    return ops;
+  });
 
   console.log(`account and coverage resources updated for encounter ${encounter.id}`);
 
@@ -334,7 +259,7 @@ const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
     return 'erx-contact skipped (no verified phone)';
   }
 
-  await patchPatientWithOptimisticLock(oystehr, patient.id!, patient, (currentPatient) => {
+  await patchWithOptimisticLock(oystehr, 'Patient', patient.id!, patient, (currentPatient) => {
     const erxContactOp = createErxContactOperation(relatedPerson, currentPatient);
     return erxContactOp ? [erxContactOp] : [];
   });

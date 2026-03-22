@@ -1499,3 +1499,48 @@ export function makeCptCodeDisplay(cptCode: CPTCodeDTO): string {
 
   return `${cptCode.code}${modifierCodesString} ${cptCode.display}${modifierDescriptionString}`;
 }
+
+const OPTIMISTIC_LOCK_MAX_RETRIES = 3;
+
+/**
+ * Patches a FHIR resource with optimistic locking (E-tag).
+ *
+ * Uses the resource's versionId as an If-Match header so the FHIR server
+ * rejects the PATCH with 412 if another process modified the resource
+ * concurrently. On 412, re-fetches the resource, recomputes patch operations
+ * (important since they may use array indices), and retries.
+ */
+export async function patchWithOptimisticLock<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  id: string,
+  initialResource: T,
+  computeOps: (resource: T) => Operation[] | Promise<Operation[]>
+): Promise<void> {
+  let current = initialResource;
+
+  for (let attempt = 0; attempt <= OPTIMISTIC_LOCK_MAX_RETRIES; attempt++) {
+    const operations = await computeOps(current);
+    if (operations.length === 0) return;
+
+    const versionId = current.meta?.versionId;
+    try {
+      await oystehr.fhir.patch(
+        { resourceType, id, operations },
+        versionId ? { optimisticLockingVersionId: versionId } : undefined
+      );
+      return;
+    } catch (error: any) {
+      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
+      if (!is412 || attempt === OPTIMISTIC_LOCK_MAX_RETRIES) {
+        throw error;
+      }
+      console.log(
+        `${resourceType}/${id} PATCH conflict (412), re-fetching and retrying (attempt ${
+          attempt + 1
+        }/${OPTIMISTIC_LOCK_MAX_RETRIES})`
+      );
+      current = (await oystehr.fhir.get<T>({ resourceType, id } as any)) as T;
+    }
+  }
+}
