@@ -141,6 +141,7 @@ describe('sub-harvest-paperwork-page integration', () => {
     qr,
     pageLinkId,
     patchIndex: 0,
+    taskId: 'test-task-id',
     patient,
     encounter,
     appointment,

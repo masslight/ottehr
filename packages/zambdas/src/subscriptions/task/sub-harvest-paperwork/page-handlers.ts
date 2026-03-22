@@ -46,6 +46,7 @@ export interface HarvestContext {
   qr: QuestionnaireResponse;
   pageLinkId: string;
   patchIndex: number;
+  taskId: string;
   patient: Patient;
   encounter: Encounter;
   appointment: Appointment;
@@ -159,87 +160,103 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     oystehr
   );
 
-  // Update encounter payment variant only when a payment option answer is present
+  // Update encounter payment variant and account references with optimistic locking.
+  // On 412, re-fetch the Encounter, recompute ops against fresh state, and retry.
   const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
-  const encounterPatchOperations: Operation[] = [];
 
+  let paymentVariant: PaymentVariant | undefined;
   if (selectedPaymentOption) {
-    let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
+    paymentVariant = PaymentVariant.selfPay;
     if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
       paymentVariant = PaymentVariant.insurance;
     }
     if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
       paymentVariant = PaymentVariant.employer;
     }
+  }
 
-    const currentVariant = getPaymentVariantFromEncounter(encounter);
-    if (currentVariant !== paymentVariant) {
-      const extIndex = encounter.extension?.findIndex((ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL);
+  let currentEncounter = encounter;
+  for (let attempt = 0; attempt <= MAX_OPTIMISTIC_LOCK_RETRIES; attempt++) {
+    const encounterPatchOperations: Operation[] = [];
 
-      if (extIndex !== undefined && extIndex >= 0) {
-        encounterPatchOperations.push({
-          op: 'replace',
-          path: `/extension/${extIndex}`,
-          value: getEncounterPaymentVariantExtension(paymentVariant),
-        });
-      } else if (encounter.extension) {
-        encounterPatchOperations.push({
-          op: 'add',
-          path: '/extension/-',
-          value: getEncounterPaymentVariantExtension(paymentVariant),
-        });
-      } else {
-        encounterPatchOperations.push({
-          op: 'add',
-          path: '/extension',
-          value: [getEncounterPaymentVariantExtension(paymentVariant)],
-        });
+    if (paymentVariant !== undefined) {
+      const currentVariant = getPaymentVariantFromEncounter(currentEncounter);
+      if (currentVariant !== paymentVariant) {
+        const extIndex = currentEncounter.extension?.findIndex(
+          (ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL
+        );
+
+        if (extIndex !== undefined && extIndex >= 0) {
+          encounterPatchOperations.push({
+            op: 'replace',
+            path: `/extension/${extIndex}`,
+            value: getEncounterPaymentVariantExtension(paymentVariant),
+          });
+        } else if (currentEncounter.extension) {
+          encounterPatchOperations.push({
+            op: 'add',
+            path: '/extension/-',
+            value: getEncounterPaymentVariantExtension(paymentVariant),
+          });
+        } else {
+          encounterPatchOperations.push({
+            op: 'add',
+            path: '/extension',
+            value: [getEncounterPaymentVariantExtension(paymentVariant)],
+          });
+        }
       }
     }
-  }
 
-  // Update encounter account references
-  const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
-    patient.id!,
-    oystehr
-  );
+    // Update encounter account references
+    const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
+      patient.id!,
+      oystehr
+    );
 
-  const patientAccountReference = latestAccount?.id ? `Account/${latestAccount.id}` : undefined;
-  const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
-  const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(encounter.account, [
-    patientAccountReference,
-    workersCompAccountReference,
-  ]);
+    const patientAccountReference = latestAccount?.id ? `Account/${latestAccount.id}` : undefined;
+    const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+    const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+      currentEncounter.account,
+      [patientAccountReference, workersCompAccountReference]
+    );
 
-  if (accountsChanged && updatedEncounterAccounts) {
-    encounterPatchOperations.push({
-      op: encounter.account ? 'replace' : 'add',
-      path: '/account',
-      value: updatedEncounterAccounts,
-    });
-  }
+    if (accountsChanged && updatedEncounterAccounts) {
+      encounterPatchOperations.push({
+        op: currentEncounter.account ? 'replace' : 'add',
+        path: '/account',
+        value: updatedEncounterAccounts,
+      });
+    }
 
-  if (encounterPatchOperations.length) {
+    if (encounterPatchOperations.length === 0) break;
+
     try {
       await oystehr.fhir.patch<Encounter>(
         {
-          id: encounter.id!,
+          id: currentEncounter.id!,
           resourceType: 'Encounter',
           operations: encounterPatchOperations,
         },
-        encounter.meta?.versionId ? { optimisticLockingVersionId: encounter.meta.versionId } : undefined
+        currentEncounter.meta?.versionId ? { optimisticLockingVersionId: currentEncounter.meta.versionId } : undefined
       );
+      break;
     } catch (error: any) {
       const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
-      if (!is412) throw error;
-      // 412 means another harvest task already patched this Encounter — safe to skip
-      console.log(`Encounter/${encounter.id} PATCH conflict (412), skipping — another harvest task already updated it`);
+      if (!is412 || attempt === MAX_OPTIMISTIC_LOCK_RETRIES) throw error;
+      console.log(
+        `Encounter/${currentEncounter.id} PATCH conflict (412), re-fetching and retrying (attempt ${
+          attempt + 1
+        }/${MAX_OPTIMISTIC_LOCK_RETRIES})`
+      );
+      currentEncounter = (await oystehr.fhir.get<Encounter>({
+        resourceType: 'Encounter',
+        id: currentEncounter.id!,
+      })) as Encounter;
     }
   }
 
-  console.log(
-    `account and coverage resources ${accountsChanged ? 'updated' : 'unchanged'} for encounter ${encounter.id}`
-  );
+  console.log(`account and coverage resources updated for encounter ${encounter.id}`);
 
   return 'account / coverage updated';
 };
@@ -337,10 +354,13 @@ export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> =
 };
 
 /**
- * Checks whether a later harvest Task exists for the same QuestionnaireResponse
- * that would also run the given strategy. If so, the current (earlier) task
- * should skip that strategy — the later task reads the same QR with more
- * complete paperwork data, so its results supersede ours.
+ * Checks whether a more recent harvest Task exists for the same QuestionnaireResponse
+ * that would also run the given strategy. If so, the current (older) task should skip
+ * that strategy — the newer task reads the same QR with more complete paperwork data,
+ * so its results supersede ours.
+ *
+ * "More recent" is determined by Task.meta.lastUpdated (creation time), not by
+ * patchIndex, since pages can be patched out of order.
  */
 async function isStrategySupersededByLaterTask(strategy: HarvestStrategy, ctx: HarvestContext): Promise<boolean> {
   const qrId = ctx.qr.id;
@@ -357,23 +377,32 @@ async function isStrategySupersededByLaterTask(strategy: HarvestStrategy, ctx: H
     })
   ).unbundle();
 
+  // Find the current task to get its creation time
+  const currentTask = siblingTasks.find((t) => t.id === ctx.taskId);
+  const currentTaskTime = currentTask?.meta?.lastUpdated;
+  if (!currentTaskTime) return false;
+
   for (const sibling of siblingTasks) {
+    if (sibling.id === ctx.taskId) continue;
+
+    const siblingTime = sibling.meta?.lastUpdated;
+    if (!siblingTime || siblingTime <= currentTaskTime) continue;
+
+    // Resolve the sibling's page and check if it maps to the same strategy
     const siblingIndex = sibling.input?.find(
       (i) =>
         i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
     )?.valueUnsignedInt;
+    if (siblingIndex === undefined) continue;
 
-    if (siblingIndex === undefined || siblingIndex <= ctx.patchIndex) continue;
-
-    // Resolve the sibling's page and check if it maps to the same strategy
     const siblingPageLinkId = ctx.qr.item?.[siblingIndex]?.linkId;
     if (!siblingPageLinkId) continue;
 
     const siblingStrategies = pageHarvestStrategy[siblingPageLinkId];
     if (siblingStrategies?.includes(strategy)) {
       console.log(
-        `skipping ${strategy} for page ${ctx.pageLinkId} (index ${ctx.patchIndex}): ` +
-          `later task at index ${siblingIndex} (page ${siblingPageLinkId}) will handle it`
+        `skipping ${strategy} for page ${ctx.pageLinkId} (task ${ctx.taskId}): ` +
+          `newer task ${sibling.id} (page ${siblingPageLinkId}, created ${siblingTime}) will handle it`
       );
       return true;
     }
