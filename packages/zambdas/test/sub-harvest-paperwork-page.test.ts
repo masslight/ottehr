@@ -147,6 +147,7 @@ describe('executePageHarvest', () => {
   const buildContext = (pageLinkId: string): HarvestContext => ({
     qr: { resourceType: 'QuestionnaireResponse', status: 'completed', item: [] },
     pageLinkId,
+    patchIndex: 0,
     patient: { resourceType: 'Patient', id: 'pat-1' },
     encounter: { resourceType: 'Encounter', id: 'enc-1', status: 'in-progress', class: { code: 'AMB' } },
     appointment: { resourceType: 'Appointment', id: 'apt-1', status: 'booked', participant: [] },

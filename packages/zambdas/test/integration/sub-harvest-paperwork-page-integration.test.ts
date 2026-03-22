@@ -140,6 +140,7 @@ describe('sub-harvest-paperwork-page integration', () => {
   ): HarvestContext => ({
     qr,
     pageLinkId,
+    patchIndex: 0,
     patient,
     encounter,
     appointment,
