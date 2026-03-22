@@ -57,42 +57,81 @@ export interface HarvestContext {
 
 type HarvestStrategyHandler = (ctx: HarvestContext) => Promise<string>;
 
+const MAX_OPTIMISTIC_LOCK_RETRIES = 3;
+
+/**
+ * Patches a Patient resource with optimistic locking (E-tag).
+ *
+ * Uses the Patient's versionId as an If-Match header so the FHIR server
+ * rejects the PATCH with 412 if another harvest task modified the Patient
+ * concurrently. On 412, re-fetches the Patient, recomputes patch operations
+ * (important since they use array indices), and retries.
+ */
+async function patchPatientWithOptimisticLock(
+  oystehr: Oystehr,
+  patientId: string,
+  initialPatient: Patient,
+  computeOps: (patient: Patient) => Operation[]
+): Promise<void> {
+  let currentPatient = initialPatient;
+
+  for (let attempt = 0; attempt <= MAX_OPTIMISTIC_LOCK_RETRIES; attempt++) {
+    const operations = computeOps(currentPatient);
+    if (operations.length === 0) return;
+
+    const versionId = currentPatient.meta?.versionId;
+    try {
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Patient',
+          id: patientId,
+          operations,
+        },
+        versionId ? { optimisticLockingVersionId: versionId } : undefined
+      );
+      return;
+    } catch (error: any) {
+      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
+      if (!is412 || attempt === MAX_OPTIMISTIC_LOCK_RETRIES) {
+        throw error;
+      }
+      console.log(
+        `Patient/${patientId} PATCH conflict (412), re-fetching and retrying (attempt ${
+          attempt + 1
+        }/${MAX_OPTIMISTIC_LOCK_RETRIES})`
+      );
+      currentPatient = (await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId })) as Patient;
+    }
+  }
+}
+
 // ── Strategy implementations ────────────────────────────────────────────
 
 const masterRecordStrategy: HarvestStrategyHandler = async (ctx) => {
   const { qr, pageLinkId, patient, questionnaire, oystehr } = ctx;
-  const patientPatchOps = createMasterRecordPatchOperations(
-    {
-      questionnaireResponseItems: qr.item || [],
-      sourceQuestionnaire: questionnaire,
-      options: { filterByEnableWhen: true, includeSections: [pageLinkId] },
-    },
-    patient
-  );
 
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-    await oystehr.fhir.patch({
-      resourceType: 'Patient',
-      id: patient.id!,
-      operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-    });
-  }
+  await patchPatientWithOptimisticLock(oystehr, patient.id!, patient, (currentPatient) => {
+    const patientPatchOps = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: qr.item || [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true, includeSections: [pageLinkId] },
+      },
+      currentPatient
+    );
+    return patientPatchOps.patient.patchOpsForDirectUpdate;
+  });
 
   return `master record updated for ${pageLinkId}`;
 };
 
 const pharmacyStrategy: HarvestStrategyHandler = async (ctx) => {
   const { qr, patient, oystehr } = ctx;
-  const flattenedItems = flattenQuestionnaireAnswers(qr.item ?? []);
-  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patient, flattenedItems);
 
-  if (pharmacyPatchOps.length > 0) {
-    await oystehr.fhir.patch({
-      resourceType: 'Patient',
-      id: patient.id!,
-      operations: pharmacyPatchOps,
-    });
-  }
+  await patchPatientWithOptimisticLock(oystehr, patient.id!, patient, (currentPatient) => {
+    const flattenedItems = flattenQuestionnaireAnswers(qr.item ?? []);
+    return createUpdatePharmacyPatchOps(currentPatient, flattenedItems);
+  });
 
   return 'pharmacy updated';
 };
@@ -268,15 +307,9 @@ const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
     return 'erx-contact skipped (no verified phone)';
   }
 
-  const erxContactOp = createErxContactOperation(relatedPerson, patient);
-  if (!erxContactOp) {
-    return 'erx-contact already up-to-date';
-  }
-
-  await oystehr.fhir.patch({
-    resourceType: 'Patient',
-    id: patient.id!,
-    operations: [erxContactOp],
+  await patchPatientWithOptimisticLock(oystehr, patient.id!, patient, (currentPatient) => {
+    const erxContactOp = createErxContactOperation(relatedPerson, currentPatient);
+    return erxContactOp ? [erxContactOp] : [];
   });
 
   return 'erx-contact updated';
