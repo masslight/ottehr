@@ -5,6 +5,7 @@ import { chooseJson } from 'utils';
 const CREATE_FEE_SCHEDULE_ZAMBDA_ID = 'create-fee-schedule';
 const UPDATE_FEE_SCHEDULE_ZAMBDA_ID = 'update-fee-schedule';
 const LIST_FEE_SCHEDULES_ZAMBDA_ID = 'list-fee-schedules';
+const FIND_APPLICABLE_FEE_SCHEDULE_ZAMBDA_ID = 'find-applicable-fee-schedule';
 const ASSOCIATE_PAYER_ZAMBDA_ID = 'associate-payer';
 const DISASSOCIATE_PAYER_ZAMBDA_ID = 'disassociate-payer';
 const ADD_PROCEDURE_CODE_ZAMBDA_ID = 'add-procedure-code';
@@ -198,6 +199,31 @@ export const bulkAddProcedureCodes = async (
   try {
     const response = await oystehr.zambda.execute({
       id: BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface FindApplicableFeeScheduleInput {
+  payerOrganizationId: string;
+  dateOfService: string;
+}
+
+export interface FindApplicableFeeScheduleResponse {
+  feeSchedule: ChargeItemDefinition | null;
+}
+
+export const findApplicableFeeSchedule = async (
+  oystehr: Oystehr,
+  parameters: FindApplicableFeeScheduleInput
+): Promise<FindApplicableFeeScheduleResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: FIND_APPLICABLE_FEE_SCHEDULE_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

@@ -16,10 +16,12 @@ export const index = wrapHandler(
   'get-charge-master-entry',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const { designation, payerOrganizationId, secrets } = validateRequestParameters(input);
+      const { designation, payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
 
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createOystehrClient(m2mToken, secrets);
+
+      const cutoffDate = dateOfService ?? new Date().toISOString().split('T')[0];
 
       // If looking for insurance and a payer org is given, first look for a charge master with that payer
       if (designation === 'default-insurance' && payerOrganizationId) {
@@ -35,9 +37,15 @@ export const index = wrapHandler(
 
         const chargeMasters = allChargeMasters.unbundle();
 
-        const payerChargeMaster = chargeMasters.find(
-          (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
-        );
+        const payerChargeMaster = chargeMasters
+          .filter(
+            (cm) =>
+              cm.status === 'active' &&
+              cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`) &&
+              cm.date &&
+              cm.date <= cutoffDate
+          )
+          .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))[0];
 
         if (payerChargeMaster) {
           return {
@@ -58,7 +66,11 @@ export const index = wrapHandler(
         ],
       });
 
-      const chargeMaster = designatedResults.unbundle()[0] ?? null;
+      const chargeMaster =
+        designatedResults
+          .unbundle()
+          .filter((cm) => cm.status === 'active' && cm.date && cm.date <= cutoffDate)
+          .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))[0] ?? null;
 
       return {
         statusCode: 200,

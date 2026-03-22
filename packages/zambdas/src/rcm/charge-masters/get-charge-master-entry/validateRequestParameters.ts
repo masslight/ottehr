@@ -4,6 +4,7 @@ import { ZambdaInput } from '../../../shared';
 export interface GetChargeMasterEntryParams {
   designation: ChargeMasterDesignation;
   payerOrganizationId?: string;
+  dateOfService?: string;
   secrets: ZambdaInput['secrets'];
 }
 
@@ -12,7 +13,7 @@ export function validateRequestParameters(input: ZambdaInput): GetChargeMasterEn
     throw new Error('No request body provided');
   }
 
-  const { designation, payerOrganizationId } = JSON.parse(input.body);
+  const { designation, payerOrganizationId, dateOfService } = JSON.parse(input.body);
 
   if (designation !== 'default-insurance' && designation !== 'self-pay') {
     throw new Error('"designation" must be "default-insurance" or "self-pay"');
@@ -21,6 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): GetChargeMasterEn
   return {
     designation,
     payerOrganizationId: payerOrganizationId || undefined,
+    dateOfService: dateOfService || undefined,
     secrets: input.secrets,
   };
 }

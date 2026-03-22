@@ -66,6 +66,35 @@ const ROW_HEIGHT = 45;
 const MAX_VISIBLE_ROWS = 20;
 const DESCRIPTION_TRUNCATE_LENGTH = 60;
 
+/** Strip UTF-8 BOM and normalize whitespace */
+function cleanHeader(raw: string): string {
+  return raw
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase();
+}
+
+/** Priority-ordered patterns for each CSV column type. First match wins. */
+const CODE_PATTERNS = [
+  /^proc(edure)?\s*code$/,
+  /^cpt\s*(\/\s*hcpcs|code)?$/,
+  /^hcpcs(\s*code)?$/,
+  /^service\s*code$/,
+  /^code$/,
+  /proc(edure)?/,
+  /^cpt/,
+];
+const AMOUNT_PATTERNS = [/amount/, /price/, /^rate$/, /^fee$/, /^charge$/, /^cost$/];
+const MODIFIER_PATTERNS = [/^mod(ifier)?$/];
+
+function findColumnIndex(headers: string[], patterns: RegExp[], exclude: Set<number>): number {
+  for (const pattern of patterns) {
+    const idx = headers.findIndex((c, i) => !exclude.has(i) && pattern.test(c));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
@@ -251,8 +280,15 @@ export default function ProcedureCodes({
         return;
       }
 
-      const header = lines[0].toLowerCase();
-      if (!header.includes('procedure code') || !header.includes('amount')) {
+      const headerCols = parseCsvLine(cleanHeader(lines[0])).map((col) => col.trim().toLowerCase());
+      const claimed = new Set<number>();
+      const codeIdx = findColumnIndex(headerCols, CODE_PATTERNS, claimed);
+      if (codeIdx >= 0) claimed.add(codeIdx);
+      const amountIdx = findColumnIndex(headerCols, AMOUNT_PATTERNS, claimed);
+      if (amountIdx >= 0) claimed.add(amountIdx);
+      const modifierIdx = findColumnIndex(headerCols, MODIFIER_PATTERNS, claimed);
+
+      if (codeIdx < 0 || amountIdx < 0) {
         enqueueSnackbar('CSV must have "Procedure Code" and "Amount" columns.', { variant: 'error' });
         return;
       }
@@ -260,10 +296,9 @@ export default function ProcedureCodes({
       const codes: { code: string; modifier?: string; amount: number }[] = [];
       for (let i = 1; i < lines.length; i++) {
         const values = parseCsvLine(lines[i]);
-        if (values.length < 3) continue;
-        const code = values[0].trim();
-        const modifier = values[1].trim() || undefined;
-        const amount = parseFloat(values[2].trim());
+        const code = values[codeIdx]?.trim();
+        const modifier = modifierIdx >= 0 ? values[modifierIdx]?.trim() || undefined : undefined;
+        const amount = parseFloat(values[amountIdx]?.trim());
         if (!code || isNaN(amount)) {
           enqueueSnackbar(`Row ${i + 1}: invalid code or amount, skipping.`, { variant: 'warning' });
           continue;

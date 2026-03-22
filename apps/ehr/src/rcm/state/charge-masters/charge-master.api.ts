@@ -104,6 +104,7 @@ export const designateChargeMasterEntry = async (
 export interface GetChargeMasterEntryInput {
   designation: ChargeMasterDesignation;
   payerOrganizationId?: string;
+  dateOfService?: string;
 }
 
 export interface GetChargeMasterEntryResponse {

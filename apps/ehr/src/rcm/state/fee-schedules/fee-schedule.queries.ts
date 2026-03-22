@@ -13,6 +13,8 @@ import {
   deleteProcedureCode,
   DeleteProcedureCodeInput,
   disassociatePayer,
+  findApplicableFeeSchedule,
+  FindApplicableFeeScheduleResponse,
   listFeeSchedules,
   updateFeeSchedule,
   UpdateFeeScheduleInput,
@@ -165,5 +167,26 @@ export const useBulkAddProcedureCodesMutation = (): UseMutationResult<
 
       return bulkAddProcedureCodes(oystehrZambda, data);
     },
+  });
+};
+
+export const useFindApplicableFeeScheduleQuery = (
+  payerOrganizationId: string | undefined,
+  dateOfService: string | undefined
+): UseQueryResult<FindApplicableFeeScheduleResponse, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['find-applicable-fee-schedule', payerOrganizationId, dateOfService],
+
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+      if (!payerOrganizationId) throw new Error('payerOrganizationId is required');
+      if (!dateOfService) throw new Error('dateOfService is required');
+
+      return findApplicableFeeSchedule(oystehrZambda, { payerOrganizationId, dateOfService });
+    },
+
+    enabled: !!oystehrZambda && !!payerOrganizationId && !!dateOfService,
   });
 };

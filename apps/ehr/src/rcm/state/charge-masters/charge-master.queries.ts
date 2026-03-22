@@ -43,18 +43,19 @@ export const useListChargeMastersQuery = (): UseQueryResult<ChargeItemDefinition
 
 export const useGetChargeMasterEntryQuery = (
   designation: ChargeMasterDesignation | undefined,
-  payerOrganizationId?: string
+  payerOrganizationId?: string,
+  dateOfService?: string
 ): UseQueryResult<GetChargeMasterEntryResponse, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['charge-master-entry', designation, payerOrganizationId],
+    queryKey: ['charge-master-entry', designation, payerOrganizationId, dateOfService],
 
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
       if (!designation) throw new Error('Designation is required');
 
-      return getChargeMasterEntry(oystehrZambda, { designation, payerOrganizationId });
+      return getChargeMasterEntry(oystehrZambda, { designation, payerOrganizationId, dateOfService });
     },
 
     enabled: !!oystehrZambda && !!designation,
