@@ -220,11 +220,21 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
   }
 
   if (encounterPatchOperations.length) {
-    await oystehr.fhir.patch<Encounter>({
-      id: encounter.id!,
-      resourceType: 'Encounter',
-      operations: encounterPatchOperations,
-    });
+    try {
+      await oystehr.fhir.patch<Encounter>(
+        {
+          id: encounter.id!,
+          resourceType: 'Encounter',
+          operations: encounterPatchOperations,
+        },
+        encounter.meta?.versionId ? { optimisticLockingVersionId: encounter.meta.versionId } : undefined
+      );
+    } catch (error: any) {
+      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
+      if (!is412) throw error;
+      // 412 means another harvest task already patched this Encounter — safe to skip
+      console.log(`Encounter/${encounter.id} PATCH conflict (412), skipping — another harvest task already updated it`);
+    }
   }
 
   console.log(
