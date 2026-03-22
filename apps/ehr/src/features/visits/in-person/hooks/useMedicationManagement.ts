@@ -47,6 +47,7 @@ export const useMedicationManagement = (): {
       'order-edit': medication?.status === 'pending',
       dispense: medication?.status === 'pending',
       'dispense-not-administered': medication?.status === 'pending',
+      'completed-edit': true,
     }[type];
   };
 

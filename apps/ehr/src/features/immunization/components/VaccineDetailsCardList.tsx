@@ -17,12 +17,10 @@ export const VaccineDetailsCardList: React.FC = () => {
     encounterIds: [encounter.id!],
   });
 
-  const pendingOrders = (ordersResponse?.orders ?? [])
-    .sort(ordersRecentFirstComparator)
-    .filter((order) => order.status === 'pending');
+  const allOrders = (ordersResponse?.orders ?? []).sort(ordersRecentFirstComparator);
 
   useLayoutEffect(() => {
-    if (scrollTo && pendingOrders.length > 0) {
+    if (scrollTo && allOrders.length > 0) {
       requestAnimationFrame(() => {
         const element = document.getElementById(`order-${scrollTo}`);
         element?.scrollIntoView?.({ behavior: 'auto', block: 'start', inline: 'nearest' });
@@ -32,15 +30,15 @@ export const VaccineDetailsCardList: React.FC = () => {
         window.history.replaceState({}, '', url.toString());
       });
     }
-  }, [scrollTo, pendingOrders]);
+  }, [scrollTo, allOrders]);
 
-  if (pendingOrders.length === 0) {
+  if (allOrders.length === 0) {
     return <Typography>No orders found.</Typography>;
   }
 
   return (
     <Stack spacing={2}>
-      {pendingOrders.map((order) => (
+      {allOrders.map((order) => (
         <Box
           sx={{
             scrollMarginTop: '48px',
