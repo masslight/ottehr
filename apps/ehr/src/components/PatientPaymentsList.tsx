@@ -197,7 +197,7 @@ export default function PatientPaymentList({
     isLoading: insurancePayLoading,
     isFetched: insurancePayFetched,
   } = useGetChargeMasterEntryQuery(
-    paymentVariant === PaymentVariant.insurance ? 'insurance-pay' : undefined,
+    paymentVariant === PaymentVariant.insurance ? 'default-insurance' : undefined,
     insuranceOrgId
   );
   const insuranceFeeSchedule = insurancePayResult?.chargeMaster;

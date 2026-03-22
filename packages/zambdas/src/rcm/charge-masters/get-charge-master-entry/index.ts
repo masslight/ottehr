@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL, getSecret, SecretsKeys } from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -21,20 +21,20 @@ export const index = wrapHandler(
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createOystehrClient(m2mToken, secrets);
 
-      const results = await oystehr.fhir.search<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        params: [
-          {
-            name: '_tag',
-            value: `${RCM_TAG_SYSTEM}|charge-master`,
-          },
-        ],
-      });
+      // If looking for insurance and a payer org is given, first look for a charge master with that payer
+      if (designation === 'default-insurance' && payerOrganizationId) {
+        const allChargeMasters = await oystehr.fhir.search<ChargeItemDefinition>({
+          resourceType: 'ChargeItemDefinition',
+          params: [
+            {
+              name: '_tag',
+              value: `${RCM_TAG_SYSTEM}|charge-master`,
+            },
+          ],
+        });
 
-      const chargeMasters = results.unbundle();
+        const chargeMasters = allChargeMasters.unbundle();
 
-      // If a payer Organization ID is provided, first look for a charge master associated with that payer
-      if (payerOrganizationId) {
         const payerChargeMaster = chargeMasters.find(
           (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
         );
@@ -47,18 +47,23 @@ export const index = wrapHandler(
         }
       }
 
-      // Fall back to designation-based charge master
-      const chargeMaster = chargeMasters.find(
-        (cm) =>
-          cm.extension?.some(
-            (ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL && ext.valueCode === designation
-          )
-      );
+      // Fall back to the designated default charge master (by tag)
+      const designatedResults = await oystehr.fhir.search<ChargeItemDefinition>({
+        resourceType: 'ChargeItemDefinition',
+        params: [
+          {
+            name: '_tag',
+            value: `${RCM_TAG_SYSTEM}|${designation}`,
+          },
+        ],
+      });
+
+      const chargeMaster = designatedResults.unbundle()[0] ?? null;
 
       return {
         statusCode: 200,
         body: JSON.stringify({
-          chargeMaster: chargeMaster ?? null,
+          chargeMaster,
           source: chargeMaster ? 'chargemaster' : null,
         }),
       };

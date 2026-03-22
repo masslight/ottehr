@@ -21,6 +21,9 @@ export interface CreateFeeScheduleInput {
 export interface UpdateFeeScheduleInput extends CreateFeeScheduleInput {
   id: string;
   status?: 'active' | 'retired';
+  designation?: 'case-rate' | null;
+  caseRateAmount?: number;
+  caseRateComment?: string;
 }
 
 export const createFeeSchedule = async (oystehr: Oystehr, parameters: CreateFeeScheduleInput): Promise<any> => {

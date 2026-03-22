@@ -22,6 +22,7 @@ import {
   FormLabel,
   Grid,
   IconButton,
+  InputAdornment,
   Paper,
   Skeleton,
   Tab,
@@ -52,7 +53,7 @@ import {
   useListFeeSchedulesQuery,
   useUpdateFeeScheduleMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL, ChargeMasterDesignation } from 'utils';
+import { CASE_RATE_CODE, ChargeMasterDesignation, RCM_TAG_SYSTEM } from 'utils';
 import PayerAssociations from './fee-schedule/PayerAssociations';
 import ProcedureCodes from './fee-schedule/ProcedureCodes';
 import { ChargeItemMode } from './FeeSchedule';
@@ -83,12 +84,19 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
   const [error, setError] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('settings');
   const [pendingDesignation, setPendingDesignation] = React.useState<ChargeMasterDesignation | null>(null);
+  const [pendingCaseRateToggle, setPendingCaseRateToggle] = React.useState(false);
+  const [caseRateAmount, setCaseRateAmount] = React.useState('');
+  const [caseRateComment, setCaseRateComment] = React.useState('');
   const didInit = useRef(false);
 
   const isActive = feeSchedule?.status === 'active';
 
-  const currentDesignation = feeSchedule?.extension?.find((ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL)
-    ?.valueCode as ChargeMasterDesignation | undefined;
+  const isCaseRate =
+    feeSchedule?.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE) ?? false;
+
+  const currentDesignation = feeSchedule?.meta?.tag?.find(
+    (t) => t.system === RCM_TAG_SYSTEM && (t.code === 'default-insurance' || t.code === 'self-pay')
+  )?.code as ChargeMasterDesignation | undefined;
 
   const editor = useEditor({
     extensions: [StarterKit, TiptapMarkdown],
@@ -105,6 +113,14 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
         effectiveDate: feeSchedule.date || '',
         description: feeSchedule.description || '',
       });
+      // Load case rate data from propertyGroup if this is a case-rate fee schedule
+      const caseRatePc = feeSchedule.propertyGroup?.[0]?.priceComponent?.find(
+        (pc) => pc.code?.coding?.some((c) => c.code === CASE_RATE_CODE)
+      );
+      if (caseRatePc) {
+        setCaseRateAmount(caseRatePc.amount?.value?.toString() ?? '');
+        setCaseRateComment(caseRatePc.code?.text ?? '');
+      }
       if (editor) {
         editor.commands.setContent(feeSchedule.description || '', { contentType: 'markdown', emitUpdate: false });
         didInit.current = true;
@@ -123,7 +139,12 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
     if (!feeScheduleId) return;
 
     try {
-      await mutateUpdate({ id: feeScheduleId, ...formData } as any);
+      const updateData: Record<string, unknown> = { id: feeScheduleId, ...formData };
+      if (!isChargeMaster && isCaseRate) {
+        updateData.caseRateAmount = caseRateAmount ? parseFloat(caseRateAmount) : 0;
+        updateData.caseRateComment = caseRateComment || undefined;
+      }
+      await mutateUpdate(updateData as any);
       await queryClient.invalidateQueries({ queryKey: [queryKey] });
       enqueueSnackbar(`${entityLabel} updated successfully`, { variant: 'success' });
     } catch {
@@ -249,10 +270,34 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
     try {
       await mutateDesignate({ chargeMasterId: feeScheduleId, designation });
       await queryClient.invalidateQueries({ queryKey: [queryKey] });
-      const label = designation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master';
+      const label = designation === 'default-insurance' ? 'Default Insurance Charge Master' : 'Self-Pay Charge Master';
       enqueueSnackbar(`Designated as ${label}`, { variant: 'success' });
     } catch {
       enqueueSnackbar('Error trying to designate charge master. Please try again.', { variant: 'error' });
+    }
+  };
+
+  const handleCaseRateToggle = async (toCaseRate: boolean): Promise<void> => {
+    if (!feeScheduleId || !feeSchedule) return;
+
+    try {
+      await mutateUpdate({
+        id: feeScheduleId,
+        name: feeSchedule.title || '',
+        effectiveDate: feeSchedule.date || '',
+        description: feeSchedule.description || '',
+        designation: toCaseRate ? 'case-rate' : null,
+      } as any);
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
+      if (toCaseRate) {
+        setCaseRateAmount('');
+        setCaseRateComment('');
+      }
+      enqueueSnackbar(toCaseRate ? 'Fee schedule switched to case rate' : 'Fee schedule switched to fee-for-service', {
+        variant: 'success',
+      });
+    } catch {
+      enqueueSnackbar('Error trying to change fee schedule type. Please try again.', { variant: 'error' });
     }
   };
 
@@ -304,8 +349,12 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
               <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                 <TabList onChange={(_, v) => setActiveTab(v)} aria-label={`${entityLabel} sections`}>
                   <Tab label="Settings" value="settings" sx={{ textTransform: 'none', fontWeight: 500 }} />
-                  <Tab label="Payer Associations" value="payers" sx={{ textTransform: 'none', fontWeight: 500 }} />
-                  <Tab label="Procedure Codes" value="procedures" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                  {!(isChargeMaster && currentDesignation) && (
+                    <Tab label="Payer Associations" value="payers" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                  )}
+                  {!(!isChargeMaster && isCaseRate) && (
+                    <Tab label="Procedure Codes" value="procedures" sx={{ textTransform: 'none', fontWeight: 500 }} />
+                  )}
                 </TabList>
               </Box>
               <TabPanel value="settings" sx={{ p: 0 }}>
@@ -325,9 +374,9 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                           {entityLabel} settings
                         </Typography>
                         <Box sx={{ flex: 1 }} />
-                        {isChargeMaster && currentDesignation === 'insurance-pay' && (
+                        {isChargeMaster && currentDesignation === 'default-insurance' && (
                           <Chip
-                            label="Insurance CM"
+                            label="Default Insurance"
                             size="small"
                             sx={{
                               fontSize: '0.65rem',
@@ -339,13 +388,38 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                         )}
                         {isChargeMaster && currentDesignation === 'self-pay' && (
                           <Chip
-                            label="Self-Pay CM"
+                            label="Self-Pay"
                             size="small"
                             sx={{
                               fontSize: '0.65rem',
                               height: 20,
                               backgroundColor: '#E91E90',
                               color: '#fff',
+                            }}
+                          />
+                        )}
+                        {!isChargeMaster && isCaseRate && (
+                          <Chip
+                            label="Case Rate"
+                            size="small"
+                            sx={{
+                              fontSize: '0.65rem',
+                              height: 20,
+                              backgroundColor: '#E65100',
+                              color: '#fff',
+                            }}
+                          />
+                        )}
+                        {!isChargeMaster && !isCaseRate && (
+                          <Chip
+                            label="Fee-for-Service"
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              fontSize: '0.65rem',
+                              height: 20,
+                              borderColor: '#2E7D32',
+                              color: '#2E7D32',
                             }}
                           />
                         )}
@@ -358,19 +432,17 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                         required
                         margin="dense"
                       />
-                      {isChargeMaster && (
-                        <TextField
-                          label="Effective Date"
-                          type="date"
-                          value={formData.effectiveDate}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, effectiveDate: e.target.value }))}
-                          fullWidth
-                          required
-                          margin="dense"
-                          InputLabelProps={{ shrink: true }}
-                          sx={{ marginTop: 2 }}
-                        />
-                      )}
+                      <TextField
+                        label="Effective Date"
+                        type="date"
+                        value={formData.effectiveDate}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, effectiveDate: e.target.value }))}
+                        fullWidth
+                        required
+                        margin="dense"
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ marginTop: 2 }}
+                      />
                       <FormLabel
                         sx={{
                           ...theme.typography.subtitle2,
@@ -458,6 +530,42 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                           <EditorContent editor={editor} />
                         </Box>
                       </Box>
+                      {!isChargeMaster && isCaseRate && (
+                        <>
+                          <FormLabel
+                            sx={{
+                              ...theme.typography.subtitle2,
+                              color: theme.palette.text.secondary,
+                              mt: 3,
+                              mb: 0.5,
+                              display: 'block',
+                            }}
+                          >
+                            Case Rate
+                          </FormLabel>
+                          <TextField
+                            label="Case Rate Amount"
+                            type="number"
+                            value={caseRateAmount}
+                            onChange={(e) => setCaseRateAmount(e.target.value)}
+                            fullWidth
+                            required
+                            margin="dense"
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                            }}
+                            inputProps={{ min: 0, step: '0.01' }}
+                          />
+                          <TextField
+                            label="Comment (optional)"
+                            value={caseRateComment}
+                            onChange={(e) => setCaseRateComment(e.target.value)}
+                            fullWidth
+                            margin="dense"
+                            sx={{ marginTop: 1 }}
+                          />
+                        </>
+                      )}
                       {error && (
                         <Box color="error.main" width="100%" marginTop={2}>
                           {error}
@@ -475,7 +583,7 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                           marginRight: 1,
                         }}
                         type="submit"
-                        disabled={!formData.name || (isChargeMaster && !formData.effectiveDate)}
+                        disabled={!formData.name || !formData.effectiveDate}
                       >
                         Save changes
                       </LoadingButton>
@@ -502,23 +610,26 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                       Charge Master Designation
                     </Typography>
                     <Typography variant="body1" marginTop={1}>
-                      Designate this {entityLabelLower} as the active charge master for insurance or self-pay billing.
-                      Only one {entityLabelLower} can hold each designation at a time.
+                      Designate this {entityLabelLower} as a default charge master for insurance or self-pay billing.
+                      The system will select the charge master whose effective date is most applicable for the date of
+                      service.
                     </Typography>
                     {currentDesignation && (
                       <Typography variant="body2" color="success.main" sx={{ mt: 1, fontWeight: 600 }}>
                         Currently designated as:{' '}
-                        {currentDesignation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master'}
+                        {currentDesignation === 'default-insurance'
+                          ? 'Default Insurance Charge Master'
+                          : 'Self-Pay Charge Master'}
                       </Typography>
                     )}
                     <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
                       <LoadingButton
-                        variant={currentDesignation === 'insurance-pay' ? 'contained' : 'outlined'}
+                        variant={currentDesignation === 'default-insurance' ? 'contained' : 'outlined'}
                         sx={{
                           textTransform: 'none',
                           borderRadius: 28,
                           fontWeight: 'bold',
-                          ...(currentDesignation === 'insurance-pay'
+                          ...(currentDesignation === 'default-insurance'
                             ? {
                                 backgroundColor: 'grey.400',
                                 color: 'grey.700',
@@ -531,12 +642,12 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                               }),
                         }}
                         loading={designatePending}
-                        onClick={() => setPendingDesignation('insurance-pay')}
-                        disabled={currentDesignation === 'insurance-pay'}
+                        onClick={() => setPendingDesignation('default-insurance')}
+                        disabled={currentDesignation === 'default-insurance'}
                       >
-                        {currentDesignation === 'insurance-pay'
-                          ? 'Insurance Charge Master ✓'
-                          : 'Set as Insurance Charge Master'}
+                        {currentDesignation === 'default-insurance'
+                          ? 'Default Insurance Charge Master ✓'
+                          : 'Set as Default Insurance Charge Master'}
                       </LoadingButton>
                       <LoadingButton
                         variant={currentDesignation === 'self-pay' ? 'contained' : 'outlined'}
@@ -563,6 +674,74 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                         {currentDesignation === 'self-pay'
                           ? 'Self-Pay Charge Master ✓'
                           : 'Set as Self-Pay Charge Master'}
+                      </LoadingButton>
+                    </Box>
+                  </Paper>
+                )}
+                {!isChargeMaster && !isFetching && feeSchedule && (
+                  <Paper sx={{ padding: 3, marginTop: 3 }}>
+                    <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                      Fee Schedule Type
+                    </Typography>
+                    <Typography variant="body1" marginTop={1}>
+                      {isCaseRate
+                        ? 'This fee schedule uses a flat case rate. There is a single rate for the entire visit regardless of procedures performed.'
+                        : 'This fee schedule uses fee-for-service billing. Each procedure code has its own rate.'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
+                      <LoadingButton
+                        variant={isCaseRate ? 'contained' : 'outlined'}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: 28,
+                          fontWeight: 'bold',
+                          ...(isCaseRate
+                            ? {
+                                backgroundColor: 'grey.400',
+                                color: 'grey.700',
+                                '&.Mui-disabled': { backgroundColor: 'grey.300', color: 'grey.600' },
+                              }
+                            : {
+                                borderColor: '#E65100',
+                                color: '#E65100',
+                                '&:hover': { backgroundColor: '#E65100', color: '#fff', borderColor: '#E65100' },
+                              }),
+                        }}
+                        loading={updatePending}
+                        onClick={() => {
+                          if (!isCaseRate && (feeSchedule.propertyGroup?.length ?? 0) > 0) {
+                            setPendingCaseRateToggle(true);
+                          } else if (!isCaseRate) {
+                            void handleCaseRateToggle(true);
+                          }
+                        }}
+                        disabled={isCaseRate}
+                      >
+                        {isCaseRate ? 'Case Rate ✓' : 'Switch to Case Rate'}
+                      </LoadingButton>
+                      <LoadingButton
+                        variant={!isCaseRate ? 'contained' : 'outlined'}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: 28,
+                          fontWeight: 'bold',
+                          ...(!isCaseRate
+                            ? {
+                                backgroundColor: 'grey.400',
+                                color: 'grey.700',
+                                '&.Mui-disabled': { backgroundColor: 'grey.300', color: 'grey.600' },
+                              }
+                            : {
+                                borderColor: '#2E7D32',
+                                color: '#2E7D32',
+                                '&:hover': { backgroundColor: '#2E7D32', color: '#fff', borderColor: '#2E7D32' },
+                              }),
+                        }}
+                        loading={updatePending}
+                        onClick={() => handleCaseRateToggle(false)}
+                        disabled={!isCaseRate}
+                      >
+                        {!isCaseRate ? 'Fee-for-Service ✓' : 'Switch to Fee-for-Service'}
                       </LoadingButton>
                     </Box>
                   </Paper>
@@ -595,12 +774,16 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                   </Paper>
                 )}
               </TabPanel>
-              <TabPanel value="payers" sx={{ p: 0 }}>
-                <PayerAssociations feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
-              </TabPanel>
-              <TabPanel value="procedures" sx={{ p: 0 }}>
-                <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
-              </TabPanel>
+              {!(isChargeMaster && currentDesignation) && (
+                <TabPanel value="payers" sx={{ p: 0 }}>
+                  <PayerAssociations feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
+                </TabPanel>
+              )}
+              {!(!isChargeMaster && isCaseRate) && (
+                <TabPanel value="procedures" sx={{ p: 0 }}>
+                  <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
+                </TabPanel>
+              )}
             </TabContext>
           </Grid>
         </Grid>
@@ -613,10 +796,12 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
             <DialogContentText>
               You are about to designate this {entityLabelLower} as the{' '}
               <strong>
-                {pendingDesignation === 'insurance-pay' ? 'Insurance Charge Master' : 'Self-Pay Charge Master'}
+                {pendingDesignation === 'default-insurance'
+                  ? 'Default Insurance Charge Master'
+                  : 'Self-Pay Charge Master'}
               </strong>
-              . Any other {entityLabelLower} currently holding this designation will have it removed. This action
-              affects billing across the system.
+              . All payer associations on this charge master will be cleared. This action affects billing across the
+              system.
             </DialogContentText>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -632,6 +817,35 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
                   await handleDesignate(pendingDesignation);
                   setPendingDesignation(null);
                 }
+              }}
+              sx={{ textTransform: 'none', fontWeight: 'bold' }}
+            >
+              Proceed
+            </LoadingButton>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={pendingCaseRateToggle} onClose={() => setPendingCaseRateToggle(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <WarningAmberIcon color="warning" />
+            Switch to Case Rate
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Switching this fee schedule to case rate will <strong>delete all existing procedure codes</strong>. The
+              fee schedule will use a single flat rate for the entire visit. This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setPendingCaseRateToggle(false)} sx={{ textTransform: 'none' }}>
+              Cancel
+            </Button>
+            <LoadingButton
+              variant="contained"
+              color="warning"
+              loading={updatePending}
+              onClick={async () => {
+                await handleCaseRateToggle(true);
+                setPendingCaseRateToggle(false);
               }}
               sx={{ textTransform: 'none', fontWeight: 'bold' }}
             >

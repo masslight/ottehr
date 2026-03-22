@@ -18,8 +18,8 @@ export function validateRequestParameters(input: ZambdaInput): DesignateChargeMa
     throw new Error('This field is required: "chargeMasterId"');
   }
 
-  if (designation !== 'insurance-pay' && designation !== 'self-pay') {
-    throw new Error('"designation" must be "insurance-pay" or "self-pay"');
+  if (designation !== 'default-insurance' && designation !== 'self-pay') {
+    throw new Error('"designation" must be "default-insurance" or "self-pay"');
   }
 
   return {

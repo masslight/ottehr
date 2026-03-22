@@ -749,7 +749,10 @@ export const ACCIDENT_TYPE_SYSTEM = ottehrCodeSystemUrl('accident-type');
 export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');
 
 export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');
-export type ChargeMasterDesignation = 'insurance-pay' | 'self-pay';
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+export type ChargeMasterDesignation = 'default-insurance' | 'self-pay';
+export type FeeScheduleDesignation = 'case-rate';
+export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';

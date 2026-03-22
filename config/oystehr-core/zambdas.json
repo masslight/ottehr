@@ -1360,6 +1360,13 @@
       "src": "src/rcm/fee-schedules/bulk-add-procedure-codes/index",
       "zip": ".dist/zips/bulk-add-procedure-codes.zip"
     },
+    "FIND-APPLICABLE-FEE-SCHEDULE": {
+      "name": "find-applicable-fee-schedule",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/find-applicable-fee-schedule/index",
+      "zip": ".dist/zips/find-applicable-fee-schedule.zip"
+    },
     "CREATE-CHARGE-MASTER": {
       "name": "create-charge-master",
       "type": "http_auth",
@@ -1401,6 +1408,13 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/get-charge-master-entry/index",
       "zip": ".dist/zips/get-charge-master-entry.zip"
+    },
+    "FIND-APPLICABLE-CHARGE-MASTER": {
+      "name": "find-applicable-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/find-applicable-charge-master/index",
+      "zip": ".dist/zips/find-applicable-charge-master.zip"
     },
     "CM-ASSOCIATE-PAYER": {
       "name": "cm-associate-payer",

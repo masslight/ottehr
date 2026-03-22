@@ -2,7 +2,7 @@ import { ZambdaInput } from '../../../shared';
 
 export interface CreateFeeScheduleParams {
   name: string;
-  effectiveDate?: string;
+  effectiveDate: string;
   description: string;
   secrets: ZambdaInput['secrets'];
 }
@@ -14,13 +14,13 @@ export function validateRequestParameters(input: ZambdaInput): CreateFeeSchedule
 
   const { name, effectiveDate, description } = JSON.parse(input.body);
 
-  if (!name) {
-    throw new Error('This field is required: "name"');
+  if (!name || !effectiveDate) {
+    throw new Error('These fields are required: "name", "effectiveDate"');
   }
 
   return {
     name,
-    effectiveDate: effectiveDate || undefined,
+    effectiveDate,
     description: description ?? '',
     secrets: input.secrets,
   };

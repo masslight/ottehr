@@ -47,13 +47,22 @@ export async function getPersonForPatient(patientID: string, oystehr: Oystehr): 
 export type AuthType = 'regular';
 
 export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
-  if (!token) {
-    console.log('getting token');
-    return await getAuth0Token(secrets);
+  if (token) {
+    try {
+      const decoded = decodeJwt(token);
+      const now = Math.floor(Date.now() / 1000);
+      if (decoded.exp && decoded.exp > now + 60) {
+        console.log('already have valid token');
+        return token;
+      }
+      console.log('token expired, getting new token');
+    } catch {
+      console.log('failed to decode token, getting new token');
+    }
   } else {
-    console.log('already have token');
-    return token;
+    console.log('getting token');
   }
+  return await getAuth0Token(secrets);
 }
 
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {

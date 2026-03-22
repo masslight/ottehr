@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ChargeItemDefinition, Extension } from 'fhir/r4b';
-import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL, getSecret, SecretsKeys } from 'utils';
+import { ChargeItemDefinition, Coding } from 'fhir/r4b';
+import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -21,57 +21,22 @@ export const index = wrapHandler(
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createOystehrClient(m2mToken, secrets);
 
-      // Find all charge master ChargeItemDefinitions with the charge-master tag
-      const allChargeMasters = await oystehr.fhir.search<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        params: [
-          {
-            name: '_tag',
-            value: `${RCM_TAG_SYSTEM}|charge-master`,
-          },
-        ],
-      });
-
-      const chargeMasters = allChargeMasters.unbundle();
-
-      // Remove the designation extension from all charge masters that currently have it
-      for (const cm of chargeMasters) {
-        if (!cm.id) continue;
-
-        const hasDesignation = cm.extension?.some(
-          (ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL && ext.valueCode === designation
-        );
-
-        if (hasDesignation) {
-          const updatedExtensions = (cm.extension || []).filter(
-            (ext) => !(ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL && ext.valueCode === designation)
-          );
-
-          await oystehr.fhir.update<ChargeItemDefinition>({
-            ...cm,
-            extension: updatedExtensions.length > 0 ? updatedExtensions : undefined,
-          });
-        }
-      }
-
-      // Set the designation on the target charge master
+      // Set the designation tag on the target charge master and clear useContext
       const target = await oystehr.fhir.get<ChargeItemDefinition>({
         resourceType: 'ChargeItemDefinition',
         id: chargeMasterId,
       });
 
-      const existingExtensions: Extension[] = (target.extension || []).filter(
-        (ext) => ext.url !== CHARGE_MASTER_DESIGNATION_EXTENSION_URL
+      // Remove any existing designation tags (default-insurance or self-pay) and add the new one
+      const baseTags: Coding[] = (target.meta?.tag || []).filter(
+        (t) => !(t.system === RCM_TAG_SYSTEM && (t.code === 'default-insurance' || t.code === 'self-pay'))
       );
-
-      existingExtensions.push({
-        url: CHARGE_MASTER_DESIGNATION_EXTENSION_URL,
-        valueCode: designation,
-      });
+      baseTags.push({ system: RCM_TAG_SYSTEM, code: designation });
 
       const updated = await oystehr.fhir.update<ChargeItemDefinition>({
         ...target,
-        extension: existingExtensions,
+        meta: { ...target.meta, tag: baseTags },
+        useContext: undefined,
       });
 
       return {

@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
@@ -37,7 +38,7 @@ import {
   useCreateFeeScheduleMutation,
   useListFeeSchedulesQuery,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { CHARGE_MASTER_DESIGNATION_EXTENSION_URL } from 'utils';
+import { CASE_RATE_CODE, RCM_TAG_SYSTEM } from 'utils';
 
 export type ChargeItemMode = 'fee-schedule' | 'charge-master';
 
@@ -108,6 +109,53 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
 
   return (
     <Paper sx={{ padding: 2, marginTop: 2 }}>
+      {!isChargeMaster && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 1.5,
+            backgroundColor: 'info.light',
+            color: 'info.dark',
+            borderRadius: 1,
+            px: 2,
+            py: 1.5,
+            mb: 2,
+            fontSize: '0.875rem',
+          }}
+        >
+          <InfoOutlinedIcon sx={{ fontSize: '1.25rem', mt: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" color="inherit">
+            Fee schedules define the expected reimbursement rates negotiated with each insurance payer. When calculating
+            patient responsibility, the system applies the fee schedule associated with the patient&apos;s insurance. If
+            no fee schedule is assigned to a given payer, the default insurance charge master rates will be used
+            instead.
+          </Typography>
+        </Box>
+      )}
+      {isChargeMaster && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 1.5,
+            backgroundColor: 'info.light',
+            color: 'info.dark',
+            borderRadius: 1,
+            px: 2,
+            py: 1.5,
+            mb: 2,
+            fontSize: '0.875rem',
+          }}
+        >
+          <InfoOutlinedIcon sx={{ fontSize: '1.25rem', mt: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" color="inherit">
+            Charge masters define the rates billed to a specific insurance payer. When no payer-specific charge master
+            is assigned, the active default insurance charge master will be applied. For patients without insurance
+            coverage, the active self-pay charge master will be used.
+          </Typography>
+        </Box>
+      )}
       <TableContainer>
         <Grid container spacing={2} display="flex" alignItems="center">
           <Grid item xs={12} sm={10}>
@@ -150,7 +198,8 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
             <TableRow>
               <TableCell sx={{ width: 32, p: 0 }} />
               <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              {isChargeMaster && <TableCell sx={{ fontWeight: 'bold' }}>Effective Date</TableCell>}
+              {!isChargeMaster && <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>}
+              <TableCell sx={{ fontWeight: 'bold' }}>Effective Date</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -161,16 +210,19 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
                   <TableCell>
                     <Skeleton width={150} />
                   </TableCell>
-                  {isChargeMaster && (
+                  {!isChargeMaster && (
                     <TableCell>
-                      <Skeleton width={100} />
+                      <Skeleton width={80} />
                     </TableCell>
                   )}
+                  <TableCell>
+                    <Skeleton width={100} />
+                  </TableCell>
                 </TableRow>
               ))}
             {!isPending && filteredFeeSchedules.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isChargeMaster ? 3 : 2} align="center">
+                <TableCell colSpan={isChargeMaster ? 3 : 4} align="center">
                   <Typography color="text.secondary">No {label.toLowerCase()}s found.</Typography>
                 </TableCell>
               </TableRow>
@@ -194,10 +246,9 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {fs.title}
                     {isChargeMaster &&
-                      fs.extension?.find((ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL)?.valueCode ===
-                        'insurance-pay' && (
+                      fs.meta?.tag?.find((t) => t.system === RCM_TAG_SYSTEM && t.code === 'default-insurance') && (
                         <Chip
-                          label="Insurance CM"
+                          label="Default Insurance"
                           size="small"
                           sx={{
                             fontSize: '0.65rem',
@@ -208,10 +259,9 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
                         />
                       )}
                     {isChargeMaster &&
-                      fs.extension?.find((ext) => ext.url === CHARGE_MASTER_DESIGNATION_EXTENSION_URL)?.valueCode ===
-                        'self-pay' && (
+                      fs.meta?.tag?.find((t) => t.system === RCM_TAG_SYSTEM && t.code === 'self-pay') && (
                         <Chip
-                          label="Self-Pay CM"
+                          label="Self-Pay"
                           size="small"
                           sx={{
                             fontSize: '0.65rem',
@@ -223,7 +273,35 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
                       )}
                   </Box>
                 </TableCell>
-                {isChargeMaster && <TableCell>{fs.date}</TableCell>}
+                {!isChargeMaster && (
+                  <TableCell>
+                    {fs.meta?.tag?.find((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE) ? (
+                      <Chip
+                        label="Case Rate"
+                        size="small"
+                        sx={{
+                          fontSize: '0.65rem',
+                          height: 20,
+                          backgroundColor: '#E65100',
+                          color: '#fff',
+                        }}
+                      />
+                    ) : (
+                      <Chip
+                        label="Fee-for-Service"
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontSize: '0.65rem',
+                          height: 20,
+                          borderColor: '#2E7D32',
+                          color: '#2E7D32',
+                        }}
+                      />
+                    )}
+                  </TableCell>
+                )}
+                <TableCell>{fs.date}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -250,18 +328,16 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
             required
             margin="dense"
           />
-          {isChargeMaster && (
-            <TextField
-              label="Effective Date"
-              type="date"
-              value={newFeeSchedule.effectiveDate}
-              onChange={(e) => setNewFeeSchedule((prev) => ({ ...prev, effectiveDate: e.target.value }))}
-              fullWidth
-              required
-              margin="dense"
-              InputLabelProps={{ shrink: true }}
-            />
-          )}
+          <TextField
+            label="Effective Date"
+            type="date"
+            value={newFeeSchedule.effectiveDate}
+            onChange={(e) => setNewFeeSchedule((prev) => ({ ...prev, effectiveDate: e.target.value }))}
+            fullWidth
+            required
+            margin="dense"
+            InputLabelProps={{ shrink: true }}
+          />
         </DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={handleCloseDialog} sx={buttonSx}>
@@ -271,9 +347,7 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
             variant="contained"
             onClick={handleCreate}
             sx={buttonSx}
-            disabled={
-              !newFeeSchedule.name || (isChargeMaster && !newFeeSchedule.effectiveDate) || createMutation.isPending
-            }
+            disabled={!newFeeSchedule.name || !newFeeSchedule.effectiveDate || createMutation.isPending}
           >
             Create
           </Button>
