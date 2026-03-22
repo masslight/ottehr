@@ -15,6 +15,8 @@ import {
   disassociatePayer,
   findApplicableFeeSchedule,
   FindApplicableFeeScheduleResponse,
+  getVersionHistory,
+  GetVersionHistoryResponse,
   listFeeSchedules,
   updateFeeSchedule,
   UpdateFeeScheduleInput,
@@ -188,5 +190,25 @@ export const useFindApplicableFeeScheduleQuery = (
     },
 
     enabled: !!oystehrZambda && !!payerOrganizationId && !!dateOfService,
+  });
+};
+
+export const useGetVersionHistoryQuery = (
+  resourceId: string | undefined,
+  enabled: boolean
+): UseQueryResult<GetVersionHistoryResponse, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['version-history', resourceId],
+
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+      if (!resourceId) throw new Error('resourceId is required');
+
+      return getVersionHistory(oystehrZambda, { resourceId });
+    },
+
+    enabled: !!oystehrZambda && !!resourceId && enabled,
   });
 };

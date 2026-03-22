@@ -1318,6 +1318,13 @@
       "src": "src/rcm/fee-schedules/list-fee-schedules/index",
       "zip": ".dist/zips/list-fee-schedules.zip"
     },
+    "GET-VERSION-HISTORY": {
+      "name": "get-version-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/get-version-history/index",
+      "zip": ".dist/zips/get-version-history.zip"
+    },
     "ASSOCIATE-PAYER": {
       "name": "associate-payer",
       "type": "http_auth",

@@ -12,6 +12,7 @@ const ADD_PROCEDURE_CODE_ZAMBDA_ID = 'add-procedure-code';
 const UPDATE_PROCEDURE_CODE_ZAMBDA_ID = 'update-procedure-code';
 const DELETE_PROCEDURE_CODE_ZAMBDA_ID = 'delete-procedure-code';
 const BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID = 'bulk-add-procedure-codes';
+const GET_VERSION_HISTORY_ZAMBDA_ID = 'get-version-history';
 
 export interface CreateFeeScheduleInput {
   name: string;
@@ -199,6 +200,36 @@ export const bulkAddProcedureCodes = async (
   try {
     const response = await oystehr.zambda.execute({
       id: BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface GetVersionHistoryInput {
+  resourceId: string;
+}
+
+export interface VersionHistoryEntry {
+  versionId: string;
+  lastUpdated: string;
+  resource: ChargeItemDefinition;
+}
+
+export interface GetVersionHistoryResponse {
+  entries: VersionHistoryEntry[];
+}
+
+export const getVersionHistory = async (
+  oystehr: Oystehr,
+  parameters: GetVersionHistoryInput
+): Promise<GetVersionHistoryResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_VERSION_HISTORY_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

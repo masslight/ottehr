@@ -13,9 +13,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   InputAdornment,
+  MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Skeleton,
   TextField,
   Tooltip,
@@ -37,6 +41,7 @@ import {
   useAddProcedureCodeMutation,
   useBulkAddProcedureCodesMutation,
   useDeleteProcedureCodeMutation,
+  useGetVersionHistoryQuery,
   useUpdateProcedureCodeMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
@@ -134,6 +139,56 @@ function extractProcedureCodes(feeSchedule: ChargeItemDefinition | undefined): P
     const amount = pc?.amount?.value ?? 0;
     return { index: idx, code: cptCode, description, modifier, amount };
   });
+}
+
+type DeltaStatus = 'Added' | 'Removed' | 'Changed';
+
+interface DeltaRow {
+  status: DeltaStatus;
+  code: string;
+  modifier: string;
+  oldAmount?: number;
+  newAmount?: number;
+}
+
+function codeKey(code: string, modifier: string): string {
+  return modifier ? `${code}|${modifier}` : code;
+}
+
+function computeDelta(current: ProcedureCodeRow[], previous: ProcedureCodeRow[]): DeltaRow[] {
+  const prevMap = new Map<string, ProcedureCodeRow>();
+  for (const row of previous) {
+    prevMap.set(codeKey(row.code, row.modifier), row);
+  }
+  const currMap = new Map<string, ProcedureCodeRow>();
+  for (const row of current) {
+    currMap.set(codeKey(row.code, row.modifier), row);
+  }
+
+  const rows: DeltaRow[] = [];
+
+  for (const [key, curr] of currMap) {
+    const prev = prevMap.get(key);
+    if (!prev) {
+      rows.push({ status: 'Added', code: curr.code, modifier: curr.modifier, newAmount: curr.amount });
+    } else if (prev.amount !== curr.amount) {
+      rows.push({
+        status: 'Changed',
+        code: curr.code,
+        modifier: curr.modifier,
+        oldAmount: prev.amount,
+        newAmount: curr.amount,
+      });
+    }
+  }
+
+  for (const [key, prev] of prevMap) {
+    if (!currMap.has(key)) {
+      rows.push({ status: 'Removed', code: prev.code, modifier: prev.modifier, oldAmount: prev.amount });
+    }
+  }
+
+  return rows;
 }
 
 export default function ProcedureCodes({
@@ -342,6 +397,76 @@ export default function ProcedureCodes({
     link.download = `${title}_procedure_codes.csv`;
     link.click();
     URL.revokeObjectURL(url);
+    closeDownloadDialog();
+  };
+
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [downloadMode, setDownloadMode] = useState<'latest' | 'delta'>('latest');
+  const [selectedVersionId, setSelectedVersionId] = useState('');
+  const [deltaRows, setDeltaRows] = useState<DeltaRow[]>([]);
+
+  // Fetch version history via zambda when download dialog opens
+  const {
+    data: historyData,
+    isFetching: loadingHistory,
+    isError: historyError,
+  } = useGetVersionHistoryQuery(feeSchedule?.id, downloadDialogOpen);
+
+  const versionHistory = useMemo(() => {
+    if (!historyData?.entries) return [];
+    // Skip the latest (current) version for delta comparison
+    return historyData.entries.length > 1 ? historyData.entries.slice(1) : [];
+  }, [historyData]);
+
+  // Compute delta when a comparison version is selected
+  const loadingDelta = false; // delta is computed synchronously from cached data
+  useMemo(() => {
+    if (downloadMode !== 'delta' || !selectedVersionId || !historyData?.entries) {
+      setDeltaRows([]);
+      return;
+    }
+    const oldEntry = historyData.entries.find((e) => e.versionId === selectedVersionId);
+    if (!oldEntry) {
+      setDeltaRows([]);
+      return;
+    }
+    const oldCodes = extractProcedureCodes(oldEntry.resource);
+    const delta = computeDelta(procedureCodes, oldCodes);
+    setDeltaRows(delta);
+  }, [downloadMode, selectedVersionId, historyData, procedureCodes]);
+
+  const closeDownloadDialog = (): void => {
+    setDownloadDialogOpen(false);
+    setDownloadMode('latest');
+    setSelectedVersionId('');
+    setDeltaRows([]);
+  };
+
+  const handleDownloadDelta = (): void => {
+    const rows = [['Status', 'Procedure Code', 'Modifier', 'Old Amount', 'New Amount']];
+    for (const dr of deltaRows) {
+      rows.push([
+        dr.status,
+        dr.code,
+        dr.modifier,
+        dr.oldAmount != null ? dr.oldAmount.toFixed(2) : '',
+        dr.newAmount != null ? dr.newAmount.toFixed(2) : '',
+      ]);
+    }
+    const csvContent = rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const title = feeSchedule?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'fee-schedule';
+    const selectedVersion = versionHistory.find((v) => v.versionId === selectedVersionId);
+    const versionDate = selectedVersion
+      ? new Date(selectedVersion.lastUpdated).toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      : 'unknown';
+    link.download = `${title}_delta_since_${versionDate}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    closeDownloadDialog();
   };
 
   const renderRow = useCallback(
@@ -440,7 +565,7 @@ export default function ProcedureCodes({
             variant="outlined"
             startIcon={<DownloadIcon />}
             sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-            onClick={handleDownloadFeeSchedule}
+            onClick={() => setDownloadDialogOpen(true)}
             disabled={procedureCodes.length === 0}
           >
             Download CSV
@@ -622,6 +747,167 @@ export default function ProcedureCodes({
             sx={{ textTransform: 'none' }}
           >
             {isSaving ? 'Saving...' : editIndex != null ? 'Update' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={downloadDialogOpen} onClose={closeDownloadDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Download CSV</DialogTitle>
+        <DialogContent>
+          <RadioGroup value={downloadMode} onChange={(e) => setDownloadMode(e.target.value as 'latest' | 'delta')}>
+            <FormControlLabel value="latest" control={<Radio />} label="Latest version (all procedure codes)" />
+            <FormControlLabel
+              value="delta"
+              control={<Radio />}
+              label={
+                loadingHistory
+                  ? 'Delta since a previous version (loading...)'
+                  : historyError
+                  ? 'Delta since a previous version (unavailable)'
+                  : !loadingHistory && versionHistory.length === 0
+                  ? 'Delta since a previous version (no prior versions)'
+                  : 'Delta since a previous version'
+              }
+              disabled={loadingHistory || historyError || versionHistory.length === 0}
+            />
+          </RadioGroup>
+
+          {loadingHistory && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, pl: 4 }}>
+              <CircularProgress size={16} />
+              <Typography variant="body2" color="text.secondary">
+                Loading version history...
+              </Typography>
+            </Box>
+          )}
+
+          {downloadMode === 'delta' && !loadingHistory && (
+            <Box sx={{ mt: 1 }}>
+              <TextField
+                select
+                label="Compare against version"
+                value={selectedVersionId}
+                onChange={(e) => setSelectedVersionId(e.target.value)}
+                fullWidth
+                size="small"
+                sx={{ mb: 1 }}
+              >
+                {versionHistory.map((v) => (
+                  <MenuItem key={v.versionId} value={v.versionId}>
+                    {new Date(v.lastUpdated).toLocaleString()}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {loadingDelta && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                  <CircularProgress size={18} />
+                  <Typography variant="body2" color="text.secondary">
+                    Computing changes...
+                  </Typography>
+                </Box>
+              )}
+
+              {!loadingDelta && selectedVersionId && deltaRows.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                  No changes found between the selected version and the current version.
+                </Typography>
+              )}
+
+              {!loadingDelta && deltaRows.length > 0 && (
+                <Box
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    maxHeight: 200,
+                    overflow: 'auto',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      backgroundColor: 'grey.50',
+                      px: 1.5,
+                      py: 0.75,
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
+                      Status
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
+                      Code
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '15%', fontWeight: 600 }}>
+                      Modifier
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
+                      Old Amt
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
+                      New Amt
+                    </Typography>
+                  </Box>
+                  {deltaRows.map((dr, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{
+                        display: 'flex',
+                        px: 1.5,
+                        py: 0.5,
+                        borderBottom: idx < deltaRows.length - 1 ? '1px solid' : 'none',
+                        borderColor: 'divider',
+                        backgroundColor:
+                          dr.status === 'Added' ? '#E8F5E9' : dr.status === 'Removed' ? '#FFEBEE' : '#FFF8E1',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ width: '25%', fontWeight: 500 }}>
+                        {dr.status}
+                      </Typography>
+                      <Typography variant="caption" sx={{ width: '25%', fontFamily: 'monospace' }}>
+                        {dr.code}
+                      </Typography>
+                      <Typography variant="caption" sx={{ width: '15%', fontFamily: 'monospace' }}>
+                        {dr.modifier || '—'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ width: '17.5%' }}>
+                        {dr.oldAmount != null ? `$${dr.oldAmount.toFixed(2)}` : '—'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ width: '17.5%' }}>
+                        {dr.newAmount != null ? `$${dr.newAmount.toFixed(2)}` : '—'}
+                      </Typography>
+                    </Box>
+                  ))}
+                  <Box
+                    sx={{
+                      px: 1.5,
+                      py: 0.5,
+                      backgroundColor: 'grey.50',
+                      borderTop: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      {deltaRows.length} change{deltaRows.length !== 1 ? 's' : ''}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeDownloadDialog} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={downloadMode === 'latest' ? handleDownloadFeeSchedule : handleDownloadDelta}
+            disabled={downloadMode === 'delta' && (loadingDelta || deltaRows.length === 0)}
+            sx={{ textTransform: 'none' }}
+          >
+            Download
           </Button>
         </DialogActions>
       </Dialog>
