@@ -377,15 +377,15 @@ async function isStrategySupersededByLaterTask(strategy: HarvestStrategy, ctx: H
     })
   ).unbundle();
 
-  // Find the current task to get its creation time
+  // Find the current task to get its authored time (set once at creation, never changes)
   const currentTask = siblingTasks.find((t) => t.id === ctx.taskId);
-  const currentTaskTime = currentTask?.meta?.lastUpdated;
+  const currentTaskTime = currentTask?.authoredOn;
   if (!currentTaskTime) return false;
 
   for (const sibling of siblingTasks) {
     if (sibling.id === ctx.taskId) continue;
 
-    const siblingTime = sibling.meta?.lastUpdated;
+    const siblingTime = sibling.authoredOn;
     if (!siblingTime || siblingTime <= currentTaskTime) continue;
 
     // Resolve the sibling's page and check if it maps to the same strategy
