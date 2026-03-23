@@ -154,7 +154,10 @@ const relatedPersonTests = (e2eResources: Resource[], integrationResources: Reso
     (resource) => resource.resourceType === 'RelatedPerson'
   ) as RelatedPerson[];
 
-  expect(e2eRPs.length).toEqual(integrationRPs.length);
+  expect(
+    e2eRPs.length,
+    `expected:\n${JSON.stringify(e2eRPs, null, 2)}\nactual:\n${JSON.stringify(integrationRPs, null, 2)}`
+  ).toEqual(integrationRPs.length);
 
   const e2eCleaned = e2eRPs.map((rp) => cleanRelatedPerson(rp));
   const integrationCleaned = integrationRPs.map((rp) => cleanRelatedPerson(rp));
