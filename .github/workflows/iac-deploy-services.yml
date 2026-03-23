@@ -120,15 +120,10 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Copy secrets to appropriate locations
-        env:
-          PROJECT: ${{ github.event.repository.name == 'ottehr' && github.event.repository.name || '' }}
-        run: |
-          echo "Repository name: ${{ github.event.repository.name }}"
-          echo "PROJECT: '${PROJECT}'"
-          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          npm exec -- tsx ./scripts/secrets.ts populate "${{ env.ENVIRONMENT }}"
-          npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ env.ENVIRONMENT }}
 
       # TODO: Remove this step and references to it once transition to TF is complete
       # If this succeeds, we will use the import file in the terraform module and deploy apps through Terraform
