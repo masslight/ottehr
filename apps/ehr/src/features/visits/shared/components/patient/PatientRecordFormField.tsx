@@ -103,6 +103,10 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     placeholder = 'XXX-XX-XXXX';
     mask = '000-00-0000';
   }
+  if (item.type !== 'display' && item.type !== 'group' && item.dataType === 'ZIP') {
+    placeholder = 'XXXXX(-XXXX)';
+    mask = '00000-0000'; // will still accept the 5 digit zip
+  }
 
   const InputElement = (() => {
     const defaultField = (): JSX.Element => (

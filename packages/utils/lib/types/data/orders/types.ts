@@ -6,6 +6,7 @@ import {
   PrescribedMedicationDTO,
 } from '../../api';
 import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
+import { ImmunizationOrder } from '../immunization';
 import { InHouseOrderListPageItemDTO } from '../in-house';
 import { LabOrderListPageDTO } from '../labs';
 import { NursingOrdersStatus } from './constants';
@@ -112,6 +113,7 @@ export interface OrdersForTrackingBoardTable {
   radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]>;
   erxOrdersByEncounterId: Record<string, PrescribedMedicationDTO[]>;
   proceduresByEncounterId: Record<string, ProcedureDTO[]>;
+  immunizationOrdersByEncounterId: Record<string, ImmunizationOrder[]>;
 }
 
 export interface OrdersForTrackingBoardRow {
@@ -122,4 +124,5 @@ export interface OrdersForTrackingBoardRow {
   radiologyOrders: GetRadiologyOrderListZambdaOrder[] | undefined;
   erxOrders: PrescribedMedicationDTO[] | undefined;
   procedures: ProcedureDTO[] | undefined;
+  immunizationOrders: ImmunizationOrder[] | undefined;
 }

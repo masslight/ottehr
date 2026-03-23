@@ -4,7 +4,7 @@ import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
-import zambdasSpec from '../../config/oystehr/zambdas.json';
+import zambdasSpec from '../../config/oystehr-core/zambdas.json';
 
 interface ZambdaSpec {
   name: string;
@@ -43,6 +43,9 @@ const zambdasList = (): ZambdaSpec[] => {
   return baseZambdas;
 };
 
+const BUNDLE_CHUNK_SIZE = 35;
+const ZIP_CHUNK_SIZE = 20;
+
 const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
   const chunks: T[][] = [];
   for (let i = 0; i < array.length; i += chunkSize) {
@@ -50,9 +53,6 @@ const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
   }
   return chunks;
 };
-
-const BUNDLE_CHUNK_SIZE = 35;
-const ZIP_CHUNK_SIZE = 20;
 
 const getSentryPlugins = (isSentryEnabled: boolean): esbuild.Plugin[] => {
   if (!isSentryEnabled) return [];
@@ -74,45 +74,33 @@ const getSentryPlugins = (isSentryEnabled: boolean): esbuild.Plugin[] => {
   ];
 };
 
-const buildZambdaWithContext = async (zambda: ZambdaSpec, outdir: string, isSentryEnabled: boolean): Promise<void> => {
-  const outfile = `${outdir}/${zambda.src.substring('src/'.length)}.js`;
-
-  const ctx = await esbuild.context({
-    entryPoints: [`${zambda.src}.ts`],
-    bundle: true,
-    outfile,
-    sourcemap: isSentryEnabled,
-    platform: 'node',
-    external: ['@aws-sdk/*'],
-    treeShaking: true,
-    plugins: getSentryPlugins(isSentryEnabled),
-  });
-
+const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
   try {
-    await ctx.rebuild();
+    await esbuild.build({
+      entryPoints: zambdas.map((z) => ({
+        in: `${z.src}.ts`,
+        out: z.src.substring('src/'.length),
+      })),
+      bundle: true,
+      outdir,
+      sourcemap: isSentryEnabled,
+      platform: 'node',
+      external: ['@aws-sdk/*'],
+      treeShaking: true,
+      plugins: getSentryPlugins(isSentryEnabled),
+    });
   } catch (error) {
-    console.log(`Error bundling ${zambda.name}:`, error);
+    console.log('Error bundling zambdas:', error);
     process.exit(1);
-  } finally {
-    await ctx.dispose();
   }
 };
 
-// Build zambdas in chunks sequentially to manage memory usage
-const buildZambdasInChunks = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
-  const uniqueDirs = new Set(
-    zambdas.map((zambda) => path.dirname(`${outdir}/${zambda.src.substring('src/'.length)}.js`))
-  );
-
-  await Promise.all(Array.from(uniqueDirs).map((dir) => fs.promises.mkdir(dir, { recursive: true }).catch(() => {})));
-
+const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEnabled: boolean): Promise<void> => {
   const chunks = chunkArray(zambdas, BUNDLE_CHUNK_SIZE);
   console.log(`Bundling ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${BUNDLE_CHUNK_SIZE}...`);
-
   for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    console.log(`Bundling chunk ${i + 1}/${chunks.length} (${chunk.length} zambdas)...`);
-    await Promise.all(chunk.map((zambda) => buildZambdaWithContext(zambda, outdir, isSentryEnabled)));
+    console.log(`Bundling chunk ${i + 1}/${chunks.length} (${chunks[i].length} zambdas)...`);
+    await buildZambdaChunk(chunks[i], outdir, isSentryEnabled);
   }
 };
 
@@ -131,7 +119,9 @@ const copyAssets = async (from: string, to: string): Promise<void> => {
   }
 };
 
-const injectSourceMaps = async (): Promise<void> => {
+const SENTRY_CHUNK_SIZE = 20;
+
+const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
     console.warn('Sentry environment variables are not set');
     return;
@@ -151,8 +141,28 @@ const injectSourceMaps = async (): Promise<void> => {
   const revParse = await $`git rev-parse --verify HEAD`;
   const releaseName = revParse.stdout;
   await $(shellConfig)`sentry-cli releases new ${releaseName}`;
-  await $(shellConfig)`sentry-cli sourcemaps inject .dist --quiet --log-level error`;
-  await $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} .dist`;
+
+  const zambdaDirs = zambdas.map((z) => path.dirname(`.dist/${z.src.substring('src/'.length)}.js`));
+  const chunks = chunkArray(zambdaDirs, SENTRY_CHUNK_SIZE);
+  console.log(
+    `Injecting source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
+  );
+
+  for (const chunk of chunks) {
+    await Promise.all(
+      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps inject ${dir} --quiet --log-level error`)
+    );
+  }
+
+  console.log(
+    `Uploading source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
+  );
+  for (const chunk of chunks) {
+    await Promise.all(
+      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${dir}`)
+    );
+  }
+
   await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
 };
 
@@ -162,7 +172,7 @@ const zipZambda = async (
   assetsPath: string,
   outPath: string
 ): Promise<void> => {
-  const archive = archiver('zip', { zlib: { level: 9 } });
+  const archive = archiver('zip', { zlib: { level: 1 } });
   const stream = fs.createWriteStream(outPath);
 
   return new Promise((resolve, reject) => {
@@ -207,12 +217,14 @@ const main = async (): Promise<void> => {
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
   const assetsDir = '.dist/assets';
 
-  const isSentryEnabled = !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '');
+  const isSentryEnabled =
+    !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
+    Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
 
   const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
   const regularZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
 
-  await buildZambdasInChunks(zambdas, '.dist', isSentryEnabled);
+  await buildAllZambdas(zambdas, '.dist', isSentryEnabled);
 
   console.log('Copying assets...');
   await Promise.all([copyAssets('icd-10-cm-tabular', icd10AssetDir), copyAssets('assets', assetsDir)]);
@@ -221,7 +233,7 @@ const main = async (): Promise<void> => {
   if (isSentryEnabled) {
     console.log('Source maps...');
     console.time('Source maps time');
-    await injectSourceMaps();
+    await injectSourceMaps(zambdas);
     console.timeEnd('Source maps time');
   }
   console.log('Zipping...');

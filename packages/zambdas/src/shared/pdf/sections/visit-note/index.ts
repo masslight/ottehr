@@ -1,7 +1,7 @@
 export * from './additionalQuestions';
 export * from './allergiesInfo';
 export * from './assessment';
-export * from './chiefComplaintAndHistoryOfPresentIllness';
+export * from './chiefComplaint';
 export * from './cptCodes';
 export * from './emCode';
 export * from './encounterInfo';
@@ -25,3 +25,4 @@ export * from './progressNoteVisitDetails';
 export * from './reviewOfSystems';
 export * from './surgicalHistory';
 export * from './vitals';
+export * from './historyOfPresentIllness';

@@ -25,6 +25,7 @@ import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
 import { PageContainer } from '../components';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -267,6 +268,8 @@ const ThankYou = (): JSX.Element => {
     console.log('rendering outlet...', pathname, visitBasePath, loading);
     return <Outlet context={{ ...outletContext }} />;
   }
+  const showPrimaryIconInSummary = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.THANK_YOU);
+  const primaryIconSize = getPrimaryIconSize();
 
   return (
     <PageContainer
@@ -277,10 +280,12 @@ const ThankYou = (): JSX.Element => {
         <>
           {visitType !== VisitType.WalkIn && <Divider />}
           <Grid container alignItems="center" marginTop={2} marginBottom={2}>
-            <Grid item xs={12} md={2.5}>
-              <img src={primaryIcon} alt={BRANDING_CONFIG.primaryIconAlt} width="80px" />
-            </Grid>
-            <Grid item xs={12} md={9.5}>
+            {showPrimaryIconInSummary && (
+              <Grid item xs={12} md={2.5}>
+                <img src={primaryIcon} alt={BRANDING_CONFIG.intake.primaryIconAlt} width={primaryIconSize} />
+              </Grid>
+            )}
+            <Grid item xs={12} md={showPrimaryIconInSummary ? 9.5 : 12}>
               <Typography variant="subtitle1" color="text.primary">
                 {t('thanks.body1')}
               </Typography>

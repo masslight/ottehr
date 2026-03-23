@@ -163,7 +163,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               const communicationPractitionerId = communication.recipient![0].reference!.split('/')[1];
               const practitioner = activeProvidersMap[communicationPractitionerId];
               const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
-              if (notificationSettings && notificationSettings.enabled) {
+              if (notificationSettings && notificationSettings.telemedNotificationsEnabled) {
                 const newStatus = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
                 updateCommunicationRequests.push(
                   getPatchBinary({
@@ -207,7 +207,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
 
                 // - if practitioner has notifications disabled - we don't create notification at all
-                if (notificationSettings?.enabled) {
+                if (notificationSettings?.telemedNotificationsEnabled) {
                   const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
 
                   let patientName: string | undefined = 'patient';
@@ -350,7 +350,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
 
-          if (notificationSettings?.enabled) {
+          if (notificationSettings?.taskNotificationsEnabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
 
             let title = task.description ?? `task ID ${task.id}`;
@@ -416,7 +416,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         // create notification for practitioner that was assigned to this visit
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitionerResource);
         // rules of status described above
-        if (notificationSettings?.enabled) {
+        if (notificationSettings?.telemedNotificationsEnabled) {
           const unsignedChartsMessage = (length: number): string =>
             `You have ${length} unsigned charts on Ottehr. Please complete and sign ASAP. Thanks!`;
 

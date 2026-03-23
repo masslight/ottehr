@@ -18,6 +18,7 @@ export interface RecentPatientRecord {
     serviceCategory: string; // e.g., "General Care", "Urgent Care", etc.
   };
   patientStatus: 'new' | 'existing'; // New or existing patient based on visit history
+  pointOfDiscovery?: string; // "How did you hear about us?" value
 }
 
 export interface RecentPatientsReportZambdaOutput {

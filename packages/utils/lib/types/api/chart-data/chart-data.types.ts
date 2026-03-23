@@ -157,6 +157,7 @@ export interface MedicationDTO extends SaveableDTO {
 export interface MedicationIntakeInfo {
   date?: string;
   dose?: string;
+  patientCouldNotConfirmDosage?: boolean;
 }
 
 export interface PrescribedMedicationDTO extends SaveableDTO {
@@ -510,7 +511,7 @@ export interface ProcedureDTO extends SaveableDTO {
   medicationUsed?: string;
   bodySite?: string;
   bodySide?: string;
-  technique?: string;
+  technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
   specimenSent?: boolean;

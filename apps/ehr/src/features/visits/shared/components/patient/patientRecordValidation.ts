@@ -7,6 +7,7 @@ import {
   FormFieldTrigger,
   PATIENT_RECORD_CONFIG,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  zipRegex,
 } from 'utils';
 
 interface Trigger extends Omit<FormFieldTrigger, 'effect'> {
@@ -209,8 +210,8 @@ export const generateFieldValidationRules = (
 
   if (item.dataType === 'ZIP') {
     rules.pattern = {
-      value: /^\d{5}(-\d{4})?$/,
-      message: 'Must be 5 digits',
+      value: zipRegex,
+      message: 'Must be 5 or 9 digits',
     };
   }
 

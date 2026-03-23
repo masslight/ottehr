@@ -1,8 +1,6 @@
-import { PrepopulationEntry, ProceduresConfig, ProceduresConfigSchema } from 'config-types';
-import { PROCEDURES_CONFIG_OVERRIDE } from '../../../ottehr-config-overrides/procedures';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import type { PrepopulationEntry, ProceduresConfig } from 'config-types';
 
-const DEFAULT_PROCEDURES_CONFIG = {
+const PROCEDURES_DATA: ProceduresConfig = {
   prepopulation: {} as Record<string, PrepopulationEntry>,
   quickPicks: [
     {
@@ -68,7 +66,7 @@ const DEFAULT_PROCEDURES_CONFIG = {
         },
       ],
       medicationUsed: 'Local',
-      technique: 'Aseptic',
+      technique: ['Aseptic'],
       suppliesUsed: ['Suture Kit'],
       complications: 'None',
       patientResponse: 'Tolerated Well',
@@ -83,7 +81,7 @@ const DEFAULT_PROCEDURES_CONFIG = {
           display: 'Simple repair of surface wound of scalp, neck, underarms, trunk, arms, or legs, 2.5 cm or less',
         },
       ],
-      technique: 'Clean',
+      technique: ['Clean'],
       suppliesUsed: ['Other'],
       otherSuppliesUsed: 'Glue and 3 steri strips',
       complications: 'None',
@@ -106,8 +104,6 @@ const DEFAULT_PROCEDURES_CONFIG = {
       postInstructions: ['Return if worsening'],
     },
   ],
-} as const satisfies ProceduresConfig;
+};
 
-const mergedConfig = mergeAndFreezeConfigObjects(DEFAULT_PROCEDURES_CONFIG, PROCEDURES_CONFIG_OVERRIDE);
-
-export const PROCEDURES_CONFIG = ProceduresConfigSchema.parse(mergedConfig) as typeof mergedConfig;
+export const PROCEDURES_CONFIG = Object.freeze(PROCEDURES_DATA);

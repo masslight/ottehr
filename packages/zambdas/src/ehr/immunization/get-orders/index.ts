@@ -61,7 +61,7 @@ export async function getImmunizationOrders(
   oystehr: Oystehr,
   input: GetImmunizationOrdersRequest
 ): Promise<GetImmunizationOrdersResponse> {
-  const { orderId, patientId, encounterId } = input;
+  const { orderId, patientId, encounterIds } = input;
   const params: SearchParam[] = [
     {
       name: '_tag',
@@ -80,10 +80,10 @@ export async function getImmunizationOrders(
       value: 'Patient/' + patientId,
     });
   }
-  if (encounterId) {
+  if (encounterIds) {
     params.push({
       name: 'context',
-      value: 'Encounter/' + encounterId,
+      value: encounterIds.map((encounterId) => 'Encounter/' + encounterId).join(','),
     });
   }
   return {
@@ -101,16 +101,16 @@ export async function getImmunizationOrders(
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetImmunizationOrdersRequest & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, patientId, encounterId } = validateJsonBody(input);
+  const { orderId, patientId, encounterIds } = validateJsonBody(input);
 
-  if (!orderId && !patientId && !encounterId) {
-    throw new Error(`orderId or patientId or encounterId must be provided`);
+  if (!orderId && !patientId && !encounterIds) {
+    throw new Error(`orderId or patientId or encounterIds must be provided`);
   }
 
   return {
     orderId,
     patientId,
-    encounterId,
+    encounterIds,
     secrets: input.secrets,
   };
 }
@@ -181,6 +181,7 @@ function mapMedicationAdministrationToImmunizationOrder(
               : undefined,
           }
         : undefined,
+    encounterId: medicationAdministration.context?.reference?.split('/')[1] ?? '',
   };
 }
 
