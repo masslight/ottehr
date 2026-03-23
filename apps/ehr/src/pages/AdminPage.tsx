@@ -3,7 +3,7 @@ import { Box, Tab } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import FeeSchedule from '../features/visits/telemed/components/admin/FeeSchedule';
+import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
@@ -17,8 +17,7 @@ enum PageTab {
   employees = 'employees',
   providers = 'providers',
   insurance = 'insurances',
-  feeSchedule = 'fee-schedule',
-  chargeMasters = 'charge-masters',
+  billing = 'billing',
   'quick-picks' = 'quick-picks',
 }
 
@@ -77,16 +76,10 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.insurance}`)}
                 />
                 <Tab
-                  label="Fee Schedule"
-                  value={PageTab.feeSchedule}
+                  label="Billing Configuration"
+                  value={PageTab.billing}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab.feeSchedule}`)}
-                />
-                <Tab
-                  label="Charge Masters"
-                  value={PageTab.chargeMasters}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab.chargeMasters}`)}
+                  onClick={() => navigate(`/admin/${PageTab.billing}`)}
                 />
                 <Tab
                   label="Quick Picks"
@@ -121,11 +114,8 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
             <Insurances />
           </TabPanel>
-          <TabPanel value={PageTab.feeSchedule} sx={{ padding: 0 }}>
-            <FeeSchedule />
-          </TabPanel>
-          <TabPanel value={PageTab.chargeMasters} sx={{ padding: 0 }}>
-            <FeeSchedule mode="charge-master" />
+          <TabPanel value={PageTab.billing} sx={{ padding: 0 }}>
+            <BillingConfiguration />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
