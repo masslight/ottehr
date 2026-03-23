@@ -136,7 +136,7 @@ export default function AppointmentTabs({
             />
             <Tab
               data-testid={dataTestIds.dashboard.inOfficeTab}
-              label={`In Office${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
+              label={`Active${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
               value={ApptTab['in-office']}
               sx={{ textTransform: 'none', fontWeight: 500 }}
             />
