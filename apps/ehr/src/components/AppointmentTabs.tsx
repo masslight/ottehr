@@ -25,6 +25,7 @@ export enum ApptTab {
 interface AppointmentsTabProps {
   location: LocationWithWalkinSchedule | undefined;
   providers: string[] | undefined;
+  serviceCategories: string[] | undefined;
   preBookedAppointments: InPersonAppointmentInformation[];
   completedAppointments: InPersonAppointmentInformation[];
   cancelledAppointments: InPersonAppointmentInformation[];
@@ -39,6 +40,7 @@ interface AppointmentsTabProps {
 export default function AppointmentTabs({
   location,
   providers,
+  serviceCategories,
   preBookedAppointments,
   completedAppointments,
   cancelledAppointments,
@@ -71,7 +73,7 @@ export default function AppointmentTabs({
     return () => clearInterval(timeInterval);
   }, []);
 
-  const selectLocationMsg = !location && providers?.length === 0 && (
+  const selectLocationMsg = !location && providers?.length === 0 && serviceCategories?.length === 0 && (
     <Grid container sx={{ width: '100%' }} padding={4}>
       <Grid item>
         <FmdBadOutlinedIcon

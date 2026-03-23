@@ -487,6 +487,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
             <AppointmentTabs
               location={locationSelected}
               providers={providers}
+              serviceCategories={serviceCategories}
               preBookedAppointments={preBookedAppointments}
               cancelledAppointments={cancelledAppointments}
               completedAppointments={completedAppointments}
