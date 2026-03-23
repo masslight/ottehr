@@ -16,7 +16,6 @@ import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 export const useGetTelemedAppointments = (
   {
     apiClient,
-    appointmentId,
     usStatesFilter,
     dateFilter,
     timeZone,
@@ -35,7 +34,6 @@ export const useGetTelemedAppointments = (
     queryKey: [
       'telemed-appointments',
       {
-        appointmentId,
         usStatesFilter,
         providersFilter,
         groupsFilter,
@@ -51,7 +49,6 @@ export const useGetTelemedAppointments = (
     queryFn: () => {
       if (apiClient) {
         return apiClient.getTelemedAppointments({
-          appointmentId,
           usStatesFilter,
           providersFilter,
           groupsFilter,

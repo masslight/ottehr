@@ -34,15 +34,15 @@ export const AllergyQuickPickSchema: z.ZodType<AllergyQuickPick, z.ZodTypeDef, u
 });
 
 /**
- * Medication history quick pick item
+ * Medication quick pick item
  */
-export interface MedicationHistoryQuickPick {
+export interface MedicationQuickPick {
   name: string;
   strength?: string;
   id: number;
 }
 
-export const MedicationHistoryQuickPickSchema: z.ZodType<MedicationHistoryQuickPick, z.ZodTypeDef, unknown> = z.object({
+export const MedicationQuickPickSchema: z.ZodType<MedicationQuickPick, z.ZodTypeDef, unknown> = z.object({
   name: z.string().min(1),
   strength: z.string().optional(),
   id: z.number(),
@@ -94,7 +94,7 @@ export interface AllergiesSection {
  * Medications section
  */
 export interface MedicationsSection {
-  quickPicks: MedicationHistoryQuickPick[];
+  quickPicks: MedicationQuickPick[];
 }
 
 /**
@@ -122,7 +122,7 @@ export const MedicalHistoryConfigSchema: z.ZodType<MedicalHistoryConfig, z.ZodTy
     quickPicks: z.array(AllergyQuickPickSchema).default([]),
   }),
   medications: z.object({
-    quickPicks: z.array(MedicationHistoryQuickPickSchema).default([]),
+    quickPicks: z.array(MedicationQuickPickSchema).default([]),
   }),
   inHouseMedications: z.object({
     quickPicks: z.array(InHouseMedicationQuickPickSchema).default([]),

@@ -116,15 +116,7 @@ export const CustomContainer: FC<ContainerProps> = ({
       >
         <Grid container justifyContent="space-between" alignItems="center">
           {/* Left section - for now is empty but we will have language select here  */}
-          <Grid
-            item
-            xs={3}
-            sx={{
-              '@media (max-width: 500px)': {
-                display: 'none',
-              },
-            }}
-          ></Grid>
+          <Grid item xs={3}></Grid>
 
           {/* Logo section  */}
           <Grid item xs={6} display="flex" justifyContent="center" alignItems="center">

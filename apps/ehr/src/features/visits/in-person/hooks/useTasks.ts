@@ -1,6 +1,5 @@
 import { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -214,33 +213,26 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
         resourceType: 'Task',
         id: input.taskId,
       });
-      const operations: Operation[] = [
-        {
-          op: 'remove',
-          path: '/owner',
-        },
-        {
-          op: 'replace',
-          path: '/status',
-          value: 'ready',
-        },
-      ];
-
-      const taskMetaTags = taskResource.meta?.tag;
-      if (taskMetaTags) {
-        const updatedMetaTags = taskResource.meta?.tag?.filter(
-          (tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM
-        );
-        operations.push({
-          op: updatedMetaTags?.length ? 'replace' : 'remove',
-          path: '/meta/tag',
-          value: updatedMetaTags?.length ? updatedMetaTags : undefined,
-        });
-      }
+      const updatedMetaTags = taskResource.meta?.tag?.filter((tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM);
       await oystehr.fhir.patch<FhirTask>({
         resourceType: 'Task',
         id: input.taskId,
-        operations,
+        operations: [
+          {
+            op: 'remove',
+            path: '/owner',
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'ready',
+          },
+          {
+            op: 'replace',
+            path: `/meta/tag`,
+            value: updatedMetaTags,
+          },
+        ],
       });
     },
     onSuccess: async () => {

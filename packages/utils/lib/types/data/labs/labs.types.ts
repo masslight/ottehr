@@ -371,7 +371,7 @@ export type LabOrderResourcesRes = {
   coverages?: CreateLabCoverageInfo[];
   labs: OrderableItemSearchResult[];
   appointmentIsWorkersComp: boolean;
-  cptCodesToAddPerEncounter?: CPTCodeOption[]; // does not apply to psc orders and only once per encounter
+  additionalCptCodes?: CPTCodeOption[];
   labSets: LabListsDTO[] | undefined;
 } & ExternalLabOrderingLocations;
 

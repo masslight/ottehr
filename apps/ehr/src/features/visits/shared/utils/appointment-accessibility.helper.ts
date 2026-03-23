@@ -49,10 +49,10 @@ export const getAppointmentAccessibilityData = ({
   const isPractitionerLicensedInState =
     !!state && !!licensedPractitionerStates && licensedPractitionerStates.includes(state as StateType);
 
-  const status = encounter ? getTelemedVisitStatus(encounter.status, appointment?.status) : undefined;
+  const status = getTelemedVisitStatus(encounter.status, appointment?.status);
 
   const isEncounterAssignedToCurrentPractitioner =
-    !!user?.profileResource && !!encounter && checkEncounterHasPractitioner(encounter, user.profileResource);
+    !!user?.profileResource && checkEncounterHasPractitioner(encounter, user.profileResource);
 
   const isStatusEditable =
     !!status && ![TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.ready].includes(status);

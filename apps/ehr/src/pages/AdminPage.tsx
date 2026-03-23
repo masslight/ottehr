@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
-import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
 import EmployeesPage, { EmployeeTypes } from './Employees';
@@ -16,7 +15,6 @@ enum PageTab {
   employees = 'employees',
   providers = 'providers',
   insurance = 'insurances',
-  'quick-picks' = 'quick-picks',
 }
 
 export function AdminPage(): JSX.Element {
@@ -73,12 +71,6 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.insurance}`)}
                 />
-                <Tab
-                  label="Quick Picks"
-                  value={PageTab['quick-picks']}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['quick-picks']}`)}
-                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -105,9 +97,6 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
             <Insurances />
-          </TabPanel>
-          <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
-            <QuickPicksAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

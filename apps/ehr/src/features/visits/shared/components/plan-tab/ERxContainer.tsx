@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
@@ -121,11 +120,7 @@ interface ERxContainerProps {
 
 export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const { appointment, patient } = useAppointmentData();
-  const userTimezone = DateTime.local().zoneName;
-  const appointmentStart = useMemo(
-    () => formatDateToMDYWithTime(appointment?.start, userTimezone),
-    [appointment?.start, userTimezone]
-  );
+  const appointmentStart = useMemo(() => formatDateToMDYWithTime(appointment?.start), [appointment?.start]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const {
@@ -272,7 +267,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
               </TableHead>
               <TableBody>
                 {chartFields.prescribedMedications.map((row) => {
-                  const rowAdded = formatDateToMDYWithTime(row?.added, userTimezone);
+                  const rowAdded = formatDateToMDYWithTime(row?.added);
                   return (
                     <TableRow key={row.resourceId}>
                       <TableCell>{row.name}</TableCell>

@@ -25,4 +25,3 @@ export * from './progressNoteVisitDetails';
 export * from './reviewOfSystems';
 export * from './surgicalHistory';
 export * from './vitals';
-export * from './historyOfPresentIllness';

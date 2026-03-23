@@ -18,8 +18,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -257,7 +256,6 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
-  const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
 
@@ -303,9 +301,11 @@ const AddMedicalConditionField: FC = () => {
     }
   };
 
-  const handleQuickPickSelect = async (quickPick: (typeof conditionQuickPicks)[number]): Promise<void> => {
+  const handleQuickPickSelect = async (
+    quickPick: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks)[number]
+  ): Promise<void> => {
     const quickPickAsIcdCode: IcdSearchResponseOptionalCode = {
-      code: quickPick.code,
+      code: 'code' in quickPick ? quickPick.code : undefined,
       display: quickPick.display,
     };
     await handleSelectOption(quickPickAsIcdCode);
@@ -328,9 +328,9 @@ const AddMedicalConditionField: FC = () => {
       }}
     >
       <QuickPicksButton
-        quickPicks={conditionQuickPicks}
+        quickPicks={MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks}
         getLabel={(quickPick) => {
-          const code = quickPick.code ? `${quickPick.code} ` : '';
+          const code = 'code' in quickPick ? `${quickPick.code} ` : '';
           return `${code}${quickPick.display}`;
         }}
         onSelect={handleQuickPickSelect}

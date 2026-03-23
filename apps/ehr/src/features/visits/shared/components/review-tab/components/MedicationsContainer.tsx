@@ -20,19 +20,7 @@ export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
         Medications
       </Typography>
       {medications?.length ? (
-        medications.map((medication) => {
-          const additionalInfo = [
-            medication.intakeInfo.dose,
-            medication.intakeInfo.patientCouldNotConfirmDosage ? 'Patient could not confirm dosage' : null,
-          ]
-            .filter(Boolean)
-            .join(' · ');
-          return (
-            <Typography key={medication.resourceId}>
-              {medication.name} {additionalInfo ? `(${additionalInfo})` : ''}
-            </Typography>
-          );
-        })
+        medications.map((medication) => <Typography key={medication.resourceId}>{medication.name}</Typography>)
       ) : (
         <Typography color={theme.palette.text.secondary}>No current medications</Typography>
       )}
