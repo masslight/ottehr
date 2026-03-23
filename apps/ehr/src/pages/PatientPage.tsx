@@ -35,6 +35,8 @@ export default function PatientPage(): JSX.Element {
 
   const { loading, patient, duplicatePatients } = useGetPatient(id);
 
+  const isMergedPatient = patient?.active === false && patient?.link?.some((l) => l.type === 'replaced-by');
+
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
     return {
@@ -124,112 +126,123 @@ export default function PatientPage(): JSX.Element {
 
           <PatientMergedBanner patient={patient} />
 
-          {duplicatePatients.length > 0 && id && (
-            <Alert
-              severity="warning"
-              action={
-                <Button
-                  color="warning"
-                  size="small"
-                  startIcon={<MergeIcon />}
-                  onClick={() => setMergePatientIds([id, duplicatePatients[0].id!])}
+          {!isMergedPatient && (
+            <>
+              {duplicatePatients.length > 0 && id && (
+                <Alert
+                  severity="warning"
+                  action={
+                    <Button
+                      color="warning"
+                      size="small"
+                      startIcon={<MergeIcon />}
+                      onClick={() => setMergePatientIds([id, duplicatePatients[0].id!])}
+                    >
+                      Merge Patients
+                    </Button>
+                  }
                 >
-                  Merge Patients
-                </Button>
-              }
-            >
-              Potential duplicate patients found
-            </Alert>
-          )}
+                  Potential duplicate patients found
+                </Alert>
+              )}
 
-          {mergePatientIds && (
-            <PatientsMergeDifference open close={() => setMergePatientIds(null)} patientIds={mergePatientIds} />
-          )}
+              {mergePatientIds && (
+                <PatientsMergeDifference
+                  open
+                  close={() => setMergePatientIds(null)}
+                  patientIds={mergePatientIds}
+                  onSuccess={() => setMergePatientIds(null)}
+                />
+              )}
 
-          <TabContext value={tab}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={(_, newTab) => setTab(newTab)}>
-                <Tab
-                  value="encounters"
-                  label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                      Visits - {appointments?.length || 0}
-                    </Typography>
-                  }
-                />
-                <Tab
-                  value="followups"
-                  label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                      Patient Follow-ups
-                    </Typography>
-                  }
-                />
-                {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
-                  <Tab
-                    value="labs"
-                    label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Labs</Typography>
-                    }
+              <TabContext value={tab}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <TabList onChange={(_, newTab) => setTab(newTab)}>
+                    <Tab
+                      value="encounters"
+                      label={
+                        <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                          Visits - {appointments?.length || 0}
+                        </Typography>
+                      }
+                    />
+                    <Tab
+                      value="followups"
+                      label={
+                        <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                          Patient Follow-ups
+                        </Typography>
+                      }
+                    />
+                    {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
+                      <Tab
+                        value="labs"
+                        label={
+                          <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                            Labs
+                          </Typography>
+                        }
+                      />
+                    )}
+                    {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
+                      <Tab
+                        value="in-house-labs"
+                        label={
+                          <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                            In-House Labs
+                          </Typography>
+                        }
+                      />
+                    )}
+                    {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
+                      <Tab
+                        value="radiology"
+                        label={
+                          <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                            Radiology
+                          </Typography>
+                        }
+                      />
+                    )}
+                  </TabList>
+                </Box>
+
+                <TabPanel value="encounters" sx={{ p: 0 }}>
+                  <PatientEncountersGrid
+                    patient={patient}
+                    totalCount={appointments.length}
+                    latestVisitDate={latestAppointment?.dateTime ?? null}
                   />
+                </TabPanel>
+                <TabPanel value="followups" sx={{ p: 0 }}>
+                  <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
+                </TabPanel>
+                {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
+                  <TabPanel value="labs" sx={{ p: 0 }}>
+                    <PatientLabsTab patientId={id || ''} />
+                  </TabPanel>
                 )}
                 {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
-                  <Tab
-                    value="in-house-labs"
-                    label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                        In-House Labs
-                      </Typography>
-                    }
-                  />
+                  <TabPanel value="in-house-labs" sx={{ p: 0 }}>
+                    <PatientInHouseLabsTab titleText="In-House Labs" patientId={id || ''} />
+                  </TabPanel>
                 )}
                 {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
-                  <Tab
-                    value="radiology"
-                    label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                        Radiology
-                      </Typography>
-                    }
-                  />
+                  <TabPanel value="radiology" sx={{ p: 0 }}>
+                    <PatientRadiologyTab patientId={id || ''} />
+                  </TabPanel>
                 )}
-              </TabList>
-            </Box>
-
-            <TabPanel value="encounters" sx={{ p: 0 }}>
-              <PatientEncountersGrid
-                patient={patient}
-                totalCount={appointments.length}
-                latestVisitDate={latestAppointment?.dateTime ?? null}
-              />
-            </TabPanel>
-            <TabPanel value="followups" sx={{ p: 0 }}>
-              <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
-            </TabPanel>
-            {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
-              <TabPanel value="labs" sx={{ p: 0 }}>
-                <PatientLabsTab patientId={id || ''} />
-              </TabPanel>
-            )}
-            {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
-              <TabPanel value="in-house-labs" sx={{ p: 0 }}>
-                <PatientInHouseLabsTab titleText="In-House Labs" patientId={id || ''} />
-              </TabPanel>
-            )}
-            {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
-              <TabPanel value="radiology" sx={{ p: 0 }}>
-                <PatientRadiologyTab patientId={id || ''} />
-              </TabPanel>
-            )}
-          </TabContext>
-          {showAccountSettingsDialog ? (
-            <AccountSettingsDialog
-              patientId={id ?? ''}
-              handleClose={(): void => {
-                setShowAccountSettingsDialog(false);
-              }}
-            />
-          ) : null}
+              </TabContext>
+              {showAccountSettingsDialog ? (
+                <AccountSettingsDialog
+                  patientId={id ?? ''}
+                  handleClose={(): void => {
+                    setShowAccountSettingsDialog(false);
+                  }}
+                />
+              ) : null}
+            </>
+          )}
         </Stack>
       </PageContainer>
     </>

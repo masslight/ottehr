@@ -21,6 +21,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
@@ -173,10 +174,12 @@ type PatientMergeDifferenceProps = {
   open: boolean;
   close: () => void;
   patientIds: string[];
+  /** Called after a successful merge so the parent can refresh data. */
+  onSuccess?: () => void;
 };
 
 export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) => {
-  const { open, close, patientIds } = props;
+  const { open, close, patientIds, onSuccess } = props;
 
   const theme = useTheme();
   const lightBackground = `${theme.palette.primary.main}0A`;
@@ -331,6 +334,10 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
       await queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
+      await queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources'] });
+      await queryClient.invalidateQueries({ queryKey: ['otherPatientsWithSameNameResources'] });
+      enqueueSnackbar('Patients merged successfully', { variant: 'success' });
+      onSuccess?.();
     },
   });
 

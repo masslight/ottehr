@@ -83,17 +83,17 @@ const CONDITIONAL_CHART_DATA_FIELDS: ChartDataRequestedFields = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function resourceReferencesEncounter(resource: Resource, encounterId: string): boolean {
-  const encounterRef = `Encounter/${encounterId}`;
-  const r = resource as any;
-  if (r.encounter?.reference === encounterRef) return true;
-  if (r.context?.reference === encounterRef) return true;
-  if (Array.isArray(r.context?.encounter)) {
-    if (r.context.encounter.some((e: any) => e.reference === encounterRef)) return true;
-  }
-  if (r.focus?.reference === encounterRef) return true;
-  return false;
-}
+// function resourceReferencesEncounter(resource: Resource, encounterId: string): boolean {
+//   const encounterRef = `Encounter/${encounterId}`;
+//   const r = resource as any;
+//   if (r.encounter?.reference === encounterRef) return true;
+//   if (r.context?.reference === encounterRef) return true;
+//   if (Array.isArray(r.context?.encounter)) {
+//     if (r.context.encounter.some((e: any) => e.reference === encounterRef)) return true;
+//   }
+//   if (r.focus?.reference === encounterRef) return true;
+//   return false;
+// }
 
 function patchPatientRef(resource: Resource, oldPatientId: string, newPatientRef: string): string[] {
   const updated: string[] = [];
@@ -237,6 +237,73 @@ const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   return { ...input, providerProfileReference };
 };
 
+/**
+ * Collects all resources tied to an encounter (chart data, immunizations,
+ * medication orders) and re-points their patient references.
+ */
+async function transferEncounterResources(
+  oystehr: Oystehr,
+  encounterId: string,
+  otherPatientId: string,
+  newPatientRef: string,
+  processedIds: Set<string>,
+  counters: { updated: number; errors: number }
+): Promise<void> {
+  const { chartResources: defaultResources } = await getChartData(oystehr, m2mToken, encounterId);
+  const { chartResources: conditionalResources } = await getChartData(
+    oystehr,
+    m2mToken,
+    encounterId,
+    CONDITIONAL_CHART_DATA_FIELDS
+  );
+
+  const immunizationResources = (
+    await oystehr.fhir.search<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      params: [
+        { name: '_tag', value: 'immunization' },
+        { name: 'context', value: `Encounter/${encounterId}` },
+      ],
+    })
+  ).unbundle();
+
+  const medicationOrderResources = (
+    await oystehr.fhir.search<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      params: [
+        { name: '_tag', value: 'in-house-medication-administration-order' },
+        { name: 'context', value: `Encounter/${encounterId}` },
+      ],
+    })
+  ).unbundle();
+
+  const resourceMap = new Map<string, Resource>();
+  for (const r of [
+    ...defaultResources,
+    ...conditionalResources,
+    ...immunizationResources,
+    ...medicationOrderResources,
+  ]) {
+    if (r.id) resourceMap.set(`${r.resourceType}/${r.id}`, r);
+  }
+
+  const visitResources = Array.from(resourceMap.values()).filter((r) => !processedIds.has(`${r.resourceType}/${r.id}`));
+
+  for (const resource of visitResources) {
+    const rid = `${resource.resourceType}/${resource.id}`;
+    processedIds.add(rid);
+    const fieldsUpdated = patchPatientRef(resource, otherPatientId, newPatientRef);
+    if (fieldsUpdated.length === 0) continue;
+    try {
+      await oystehr.fhir.update(resource as FhirResource);
+      counters.updated++;
+    } catch (e) {
+      counters.errors++;
+      console.error(`  Failed to update ${rid}`, e);
+    }
+  }
+}
+
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
   const { mainPatientId, otherPatientId, questionnaireResponse } = input;
   const oldPatientRef = `Patient/${otherPatientId}`;
@@ -244,8 +311,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   // Track processed resource IDs to avoid double-processing
   const processedIds = new Set<string>();
-  let totalUpdated = 0;
-  let totalErrors = 0;
+  const counters = { updated: 0, errors: 0 };
 
   // ════════════════════════════════════════════════════════════════════════
   // Step 1: Apply merged patient record fields via update-patient-account logic
@@ -312,7 +378,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       console.error('Error updating stripe details (non-fatal)', e);
     }
 
-    totalUpdated++;
+    counters.updated++;
     console.log('  Patient record fields merged successfully');
   }
 
@@ -348,10 +414,10 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
             return p;
           }),
         });
-        totalUpdated++;
+        counters.updated++;
         processedIds.add(`Appointment/${apptId}`);
       } catch (e) {
-        totalErrors++;
+        counters.errors++;
         console.error(`  Failed to update Appointment/${apptId}`, e);
       }
     }
@@ -360,70 +426,49 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     if (!encounter?.id) continue;
     const encounterId = encounter.id;
 
+    // Collect and transfer visit-connected resources BEFORE updating encounter subject,
+    // because getChartData resolves the patient from encounter.subject
+    await transferEncounterResources(oystehr, encounterId, otherPatientId, newPatientRef, processedIds, counters);
+
     try {
       await oystehr.fhir.update<Encounter>({ ...encounter, subject: { reference: newPatientRef } });
-      totalUpdated++;
+      counters.updated++;
       processedIds.add(`Encounter/${encounterId}`);
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update Encounter/${encounterId}`, e);
     }
+  }
 
-    // Collect visit-connected resources
-    const { chartResources: defaultResources } = await getChartData(oystehr, m2mToken, encounterId);
-    const { chartResources: conditionalResources } = await getChartData(
-      oystehr,
-      m2mToken,
-      encounterId,
-      CONDITIONAL_CHART_DATA_FIELDS
-    );
+  // Transfer any remaining encounters by subject (e.g. follow-up encounters
+  // that are not linked through an appointment)
+  const remainingEncounters = (
+    await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'subject', value: oldPatientRef },
+        { name: '_count', value: '1000' },
+      ],
+    })
+  ).unbundle();
 
-    const immunizationResources = (
-      await oystehr.fhir.search<MedicationAdministration>({
-        resourceType: 'MedicationAdministration',
-        params: [
-          { name: '_tag', value: 'immunization' },
-          { name: 'context', value: `Encounter/${encounterId}` },
-        ],
-      })
-    ).unbundle();
+  for (const enc of remainingEncounters) {
+    if (!enc.id || processedIds.has(`Encounter/${enc.id}`)) continue;
+    const encId = enc.id;
+    processedIds.add(`Encounter/${encId}`);
 
-    const medicationOrderResources = (
-      await oystehr.fhir.search<MedicationAdministration>({
-        resourceType: 'MedicationAdministration',
-        params: [
-          { name: '_tag', value: 'in-house-medication-administration-order' },
-          { name: 'context', value: `Encounter/${encounterId}` },
-        ],
-      })
-    ).unbundle();
+    // Collect and transfer resources BEFORE updating encounter subject,
+    // because getChartData resolves the patient from encounter.subject
+    await transferEncounterResources(oystehr, encId, otherPatientId, newPatientRef, processedIds, counters);
 
-    const resourceMap = new Map<string, Resource>();
-    for (const r of [
-      ...defaultResources,
-      ...conditionalResources,
-      ...immunizationResources,
-      ...medicationOrderResources,
-    ]) {
-      if (r.id) resourceMap.set(`${r.resourceType}/${r.id}`, r);
-    }
-
-    const visitResources = Array.from(resourceMap.values())
-      .filter((r) => resourceReferencesEncounter(r, encounterId))
-      .filter((r) => !processedIds.has(`${r.resourceType}/${r.id}`));
-
-    for (const resource of visitResources) {
-      const rid = `${resource.resourceType}/${resource.id}`;
-      processedIds.add(rid);
-      const fieldsUpdated = patchPatientRef(resource, otherPatientId, newPatientRef);
-      if (fieldsUpdated.length === 0) continue;
-      try {
-        await oystehr.fhir.update(resource as FhirResource);
-        totalUpdated++;
-      } catch (e) {
-        totalErrors++;
-        console.error(`  Failed to update ${rid}`, e);
-      }
+    enc.subject = { reference: newPatientRef };
+    try {
+      await oystehr.fhir.update<Encounter>(enc);
+      counters.updated++;
+      console.log(`  Transferred remaining Encounter/${encId}`);
+    } catch (e) {
+      counters.errors++;
+      console.error(`  Failed to update Encounter/${encId}`, e);
     }
   }
 
@@ -448,9 +493,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     qr.subject = { reference: newPatientRef };
     try {
       await oystehr.fhir.update(qr as FhirResource);
-      totalUpdated++;
+      counters.updated++;
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update QuestionnaireResponse/${qr.id}`, e);
     }
   }
@@ -471,9 +516,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     consent.patient = { reference: newPatientRef };
     try {
       await oystehr.fhir.update(consent as FhirResource);
-      totalUpdated++;
+      counters.updated++;
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update Consent/${consent.id}`, e);
     }
   }
@@ -494,9 +539,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     docRef.subject = { reference: newPatientRef };
     try {
       await oystehr.fhir.update(docRef as FhirResource);
-      totalUpdated++;
+      counters.updated++;
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update DocumentReference/${docRef.id}`, e);
     }
   }
@@ -522,9 +567,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     rp.patient = { reference: newPatientRef };
     try {
       await oystehr.fhir.update(rp as FhirResource);
-      totalUpdated++;
+      counters.updated++;
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update RelatedPerson/${rp.id}`, e);
     }
   }
@@ -567,9 +612,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     if (!changed) continue;
     try {
       await oystehr.fhir.update(account as FhirResource);
-      totalUpdated++;
+      counters.updated++;
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update Account/${account.id}`, e);
     }
   }
@@ -599,9 +644,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     if (!changed) continue;
     try {
       await oystehr.fhir.update(coverage as FhirResource);
-      totalUpdated++;
+      counters.updated++;
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update Coverage/${coverage.id}`, e);
     }
   }
@@ -623,9 +668,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     if (fieldsUpdated.length === 0) continue;
     try {
       await oystehr.fhir.update(ci as FhirResource);
-      totalUpdated++;
+      counters.updated++;
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to update ChargeItem/${ci.id}`, e);
     }
   }
@@ -642,10 +687,10 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   for (const phone of phonesToAdd) {
     try {
       await createUserResourcesForPatient(oystehr, mainPatientId, phone);
-      totalUpdated++;
+      counters.updated++;
       console.log(`  Added phone ${phone} to main patient`);
     } catch (e) {
-      totalErrors++;
+      counters.errors++;
       console.error(`  Failed to add phone ${phone}`, e);
     }
   }
@@ -665,16 +710,16 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       },
     ];
     await oystehr.fhir.update<Patient>(otherPatient);
-    totalUpdated++;
+    counters.updated++;
     console.log(`  Patient/${otherPatientId} marked as merged (active=false, link=replaced-by)`);
   } catch (e) {
-    totalErrors++;
+    counters.errors++;
     console.error(`  Failed to mark patient as merged`, e);
   }
 
-  console.log(`Merge complete: ${totalUpdated} resources updated, ${totalErrors} errors`);
+  console.log(`Merge complete: ${counters.updated} resources updated, ${counters.errors} errors`);
 
-  if (totalErrors > 0) {
-    throw new Error(`Merge completed with ${totalErrors} error(s). Check logs for details.`);
+  if (counters.errors > 0) {
+    throw new Error(`Merge completed with ${counters.errors} error(s). Check logs for details.`);
   }
 };

@@ -72,6 +72,7 @@ export const useGetPatient = (
       if (patientResource.birthDate) {
         searchParams.push({ name: 'birthdate', value: patientResource.birthDate });
       }
+      searchParams.push({ name: 'active', value: 'true' });
       return oystehr.fhir
         .search<FhirResource>({
           resourceType: 'Patient',
@@ -101,7 +102,7 @@ export const useGetPatient = (
       ) as RelatedPerson;
 
       const duplicates = (otherPatientsWithSameNameResources as Patient[]).filter(
-        (r) => r.resourceType === 'Patient' && r.id !== id
+        (r) => r.resourceType === 'Patient' && r.id !== id && r.active !== false
       );
       if (duplicates.length > 0) {
         setOtherPatientsWithSameName(true);
