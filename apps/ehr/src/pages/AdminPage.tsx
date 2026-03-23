@@ -88,7 +88,7 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.chargeMasters}`)}
                 />
-                <Tab                  
+                <Tab
                   label="Quick Picks"
                   value={PageTab['quick-picks']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -126,6 +126,7 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.chargeMasters} sx={{ padding: 0 }}>
             <FeeSchedule mode="charge-master" />
+          </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
           </TabPanel>
