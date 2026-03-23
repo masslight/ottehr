@@ -326,7 +326,7 @@ const writeOurServiceRequest = (
                         coding: [
                           {
                             system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                            code: 'study-details',
+                            code: 'study-name',
                           },
                         ],
                       },
