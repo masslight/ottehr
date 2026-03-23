@@ -113,14 +113,23 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
-  const showExternalLabsResultsContainer = !!(
-    externalLabResults?.resultsPending ||
-    (externalLabResults?.labOrderResults && externalLabResults?.labOrderResults.length > 0)
+
+  const externalLabResultsPending = !!(
+    externalLabResults?.resultsPending && externalLabResults?.resultsPending.length > 0
   );
-  const showInHouseLabsResultsContainer = !!(
-    inHouseLabResults?.resultsPending ||
-    (inHouseLabResults?.labOrderResults && inHouseLabResults?.labOrderResults.length > 0)
+  const externalLabResultsReceived = !!(
+    externalLabResults?.labOrderResults && externalLabResults?.labOrderResults.length > 0
   );
+  const showExternalLabsResultsContainer = externalLabResultsPending || externalLabResultsReceived;
+
+  const inHouseLabResultsPending = !!(
+    inHouseLabResults?.resultsPending && inHouseLabResults?.resultsPending.length > 0
+  );
+  const inHouseLabResultsEntered = !!(
+    inHouseLabResults?.labOrderResults && inHouseLabResults?.labOrderResults.length > 0
+  );
+  const showInHouseLabsResultsContainer = !!(inHouseLabResultsPending || inHouseLabResultsEntered);
+
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
@@ -169,13 +178,13 @@ export const ProgressNoteDetails: FC = () => {
     showInHouseLabsResultsContainer && (
       <LabResultsReviewContainer
         resultDetails={{ type: LabType.inHouse, results: inHouseLabResults.labOrderResults }}
-        resultsPending={inHouseLabResults.resultsPending}
+        resultsPending={inHouseLabResultsPending}
       />
     ),
     showExternalLabsResultsContainer && (
       <LabResultsReviewContainer
         resultDetails={{ type: LabType.external, results: externalLabResults.labOrderResults }}
-        resultsPending={externalLabResults.resultsPending}
+        resultsPending={externalLabResultsPending}
       />
     ),
     showProceduresContainer && <ProceduresContainer />,
