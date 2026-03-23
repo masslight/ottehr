@@ -474,7 +474,7 @@ export default function ProceduresNew(): ReactElement {
       bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
       otherBodySite: state.bodySite === OTHER ? state.otherBodySite : undefined,
       bodySide: state.bodySide,
-      technique: state.technique?.join(', '),
+      technique: state.technique,
       suppliesUsed: state.suppliesUsed,
       otherSuppliesUsed: state.otherSuppliesUsed,
       procedureDetails: state.procedureDetails,

@@ -6,6 +6,7 @@ import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-pal
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import {
   useMergedAllergyQuickPicks,
+  useMergedImmunizationQuickPicks,
   useMergedMedicalConditionQuickPicks,
   useMergedMedicationHistoryQuickPicks,
   useMergedProcedureQuickPicks,
@@ -35,6 +36,7 @@ export function useGlobalQuickPicks(): void {
   const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks();
   const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks();
   const { quickPicks: medicationQuickPicks } = useMergedMedicationHistoryQuickPicks();
+  const { quickPicks: immunizationQuickPicks } = useMergedImmunizationQuickPicks();
 
   // Extract the in-person base path (e.g., "/in-person/abc123")
   const inPersonBase = useMemo(() => {
@@ -70,6 +72,7 @@ export function useGlobalQuickPicks(): void {
   const isOnMedications = currentSubPath === 'medications';
   const isOnProceduresNew = currentSubPath === 'procedures/new';
   const isOnInHouseOrderNew = currentSubPath === 'in-house-medication/order/new';
+  const isOnImmunizationOrder = currentSubPath === 'immunization/order';
   const isOnHPI = currentSubPath === 'history-of-present-illness-and-templates';
 
   // Load templates globally so they appear when typing "HPI" or "template" from any page.
@@ -150,6 +153,20 @@ export function useGlobalQuickPicks(): void {
       }
     }
 
+    // Immunizations (FHIR-based)
+    if (!isOnImmunizationOrder) {
+      for (const qp of immunizationQuickPicks) {
+        const parts = [qp.name] as string[];
+        if (qp.dose && qp.units) parts.push(`${qp.dose} ${qp.units}`);
+        items.push({
+          id: `global-immunization-${qp.id ?? qp.name}`,
+          label: parts.join(', '),
+          category: 'Add Immunization',
+          onSelect: () => navigateAndDefer('immunization/order', 'immunizations', qp.id ?? qp.name, qp),
+        });
+      }
+    }
+
     // Templates (API-driven, skip when on HPI page since ApplyTemplate registers them locally)
     if (!isOnHPI) {
       for (const t of templates) {
@@ -171,8 +188,10 @@ export function useGlobalQuickPicks(): void {
     isOnMedications,
     isOnProceduresNew,
     isOnInHouseOrderNew,
+    isOnImmunizationOrder,
     navigateAndDefer,
     allergyQuickPicks,
+    immunizationQuickPicks,
     conditionQuickPicks,
     medicationQuickPicks,
     procedureQuickPicks,

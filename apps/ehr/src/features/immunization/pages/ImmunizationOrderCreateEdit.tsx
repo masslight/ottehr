@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
@@ -31,8 +31,10 @@ import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPic
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { ImmunizationQuickPickData, RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
@@ -148,6 +150,31 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       },
     });
   };
+
+  // Use a ref so command palette callbacks always call the latest onQuickPickSelect
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
+
+  // Register immunization quick picks in the command palette
+  const commandPaletteItems = useMemo(
+    () =>
+      !orderId
+        ? mergedQuickPicks.map((qp) => ({
+            id: `immunization-${qp.id ?? qp.name}`,
+            label: qp.name,
+            category: 'Add Immunization',
+            onSelect: () => onQuickPickSelectRef.current(qp),
+          }))
+        : [],
+    [mergedQuickPicks, orderId]
+  );
+  useCommandPaletteSource('immunization-quick-picks', commandPaletteItems);
+
+  // Handle pending quick picks from global command palette navigation
+  const handlePendingQuickPick = useCallback((payload: ImmunizationQuickPickData) => {
+    onQuickPickSelectRef.current(payload);
+  }, []);
+  usePendingQuickPick('immunizations', handlePendingQuickPick, !isOrderLoading);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
