@@ -51,7 +51,7 @@ const CancellationConfirmation = (): JSX.Element => {
       description={<PhoneNumberMessage locationTelecom={selectedLocation?.telecom} />}
     >
       <Link to={intakeFlowPageRoute.Homepage.path} className="appointment-button">
-        <Button variant="outlined" size="large" type="button">
+        <Button variant="outlined" color="secondary" size="large" type="button">
           {t('emailComms.canceled.bookAgainButton')}
         </Button>
       </Link>

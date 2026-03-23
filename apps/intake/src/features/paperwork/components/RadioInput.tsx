@@ -13,7 +13,6 @@ interface RadioInputProps extends RadioGroupProps {
   options: QuestionnaireItemAnswerOption[];
   required?: boolean;
   borderColor?: string;
-  borderSelected?: string;
   backgroundSelected?: string;
   centerImages?: boolean;
   onChange: (event: SyntheticEvent) => void;
@@ -25,7 +24,6 @@ const RadioInput: FC<RadioInputProps> = ({
   value,
   options,
   borderColor = 'divider',
-  borderSelected = 'primary.main',
   backgroundSelected = otherColors.lightBlue,
   centerImages,
   onChange,
@@ -200,7 +198,7 @@ const RadioInput: FC<RadioInputProps> = ({
                   return (option as any).color || theme.palette.background.paper;
                 }
               },
-              borderColor: value === option.valueString ? borderSelected : borderColor,
+              borderColor: borderColor,
               paddingTop: 0,
               paddingBottom: 0,
               paddingRight: 2,

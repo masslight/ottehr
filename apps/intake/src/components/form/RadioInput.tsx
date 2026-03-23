@@ -31,7 +31,6 @@ type RadioInputProps = {
   showHelperTextIcon?: boolean;
   infoTextSecondary?: string;
   borderColor?: string;
-  borderSelected?: string;
   backgroundSelected?: string;
   centerImages?: boolean;
   getSelected: () => FieldValues;
@@ -49,7 +48,6 @@ const RadioInput: FC<RadioInputProps> = ({
   showHelperTextIcon,
   infoTextSecondary,
   borderColor = 'primary.contrast',
-  borderSelected = 'primary.main',
   backgroundSelected,
   getSelected,
   centerImages,
@@ -233,7 +231,7 @@ const RadioInput: FC<RadioInputProps> = ({
                           return option.color || theme.palette.background.paper;
                         }
                       },
-                      borderColor: selected[name] === option.value ? borderSelected : borderColor,
+                      borderColor: borderColor,
                       paddingTop: 0,
                       paddingBottom: 0,
                       paddingRight: 2,

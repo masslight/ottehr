@@ -23,7 +23,14 @@ const LinkedButtonWithIcon: FC<LinkedButtonWithIconProps> = ({
 }) => {
   return (
     <Link to={to} className={className}>
-      <Button variant={btnVariant} size={btnSize} startIcon={startIcon} sx={{ bottom: 4 }} onClick={onClickFn}>
+      <Button
+        variant={btnVariant}
+        color="secondary"
+        size={btnSize}
+        startIcon={startIcon}
+        sx={{ bottom: 4 }}
+        onClick={onClickFn}
+      >
         {text}
       </Button>
     </Link>
