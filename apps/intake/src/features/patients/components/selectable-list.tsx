@@ -39,6 +39,8 @@ const PatientList: React.FC<PatientListProps> = ({
         label: subtitle,
         defaultValue: selectedPatient?.id,
         required: true,
+        borderColor: 'action.disabled',
+        backgroundSelected: otherColors.lightBlue,
         radioOptions: hasNoPatients
           ? []
           : patients
@@ -57,10 +59,9 @@ const PatientList: React.FC<PatientListProps> = ({
                     'MMMM dd, yyyy'
                   )}`,
                   value: patient.id,
-                  color: otherColors.lightBlue,
                 };
               })
-              .concat(pastVisits ? [] : DIFFERENT_FAMILY_MEMBER_DATA),
+              .concat(pastVisits ? [] : [{ ...DIFFERENT_FAMILY_MEMBER_DATA, color: undefined }]),
       },
     ];
   }, [hasNoPatients, pastVisits, patients, selectedPatient, subtitle]);

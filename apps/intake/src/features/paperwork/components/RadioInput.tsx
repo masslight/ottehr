@@ -1,8 +1,9 @@
-import { FormControlLabel, Grid, Icon, Radio, RadioGroup, RadioGroupProps, Typography, useTheme } from '@mui/material';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import { FormControlLabel, Grid, Radio, RadioGroup, RadioGroupProps, Typography, useTheme } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CustomRadioButtonIcon } from '../../../components/form';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { RadioStyling } from '../../../types';
 import { useAnswerOptionLabelWhen } from '../useAnswerOptionLabelWhen';
@@ -57,6 +58,7 @@ const RadioInput: FC<RadioInputProps> = ({
       aria-labelledby={`${name}-label`}
     >
       {options.map((option) => {
+        const isSelected = value === option.valueString;
         const gridWidths = {
           desktop: { labelText: 8.5, space: 0.2, image: 2 },
           mobile: { labelText: 12, space: 0, image: 12 },
@@ -75,34 +77,25 @@ const RadioInput: FC<RadioInputProps> = ({
             value={option.valueString ?? ''}
             control={
               <Radio
+                disableRipple
                 icon={
-                  <Icon
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      scale: '100%',
-                      mx: 0.5,
-                    }}
-                  >
-                    <CustomRadioButtonIcon
-                      color={theme.palette.secondary}
-                      checked={false}
-                      alt={t('general.button.unchecked')}
-                    />
-                  </Icon>
+                  <RadioButtonUncheckedIcon
+                    titleAccess={t('general.button.unchecked')}
+                    sx={{ fontSize: 24, mx: 0.5 }}
+                  />
                 }
                 checkedIcon={
-                  <Icon sx={{ display: 'flex', justifyContent: 'center', scale: '100%', mx: 0.5 }}>
-                    <CustomRadioButtonIcon
-                      color={theme.palette.secondary}
-                      checked={true}
-                      alt={t('general.button.checked')}
-                    />
-                  </Icon>
+                  <RadioButtonCheckedIcon titleAccess={t('general.button.checked')} sx={{ fontSize: 24, mx: 0.5 }} />
                 }
                 sx={{
                   alignSelf: 'center',
+                  color: borderColor,
+                  '&.Mui-checked': {
+                    color: theme.palette.secondary.main,
+                  },
+                  '&:hover': {
+                    backgroundColor: 'transparent',
+                  },
                   // If screen is smaller than small breakpoint
                   [theme.breakpoints.down('md')]: {
                     mt: 0,
@@ -191,14 +184,14 @@ const RadioInput: FC<RadioInputProps> = ({
             sx={{
               border: '1px solid',
               borderRadius: 2,
-              backgroundColor: () => {
-                if (value === option.valueString && backgroundSelected) {
-                  return backgroundSelected;
-                } else {
-                  return (option as any).color || theme.palette.background.paper;
-                }
-              },
+              backgroundColor:
+                isSelected && backgroundSelected
+                  ? backgroundSelected
+                  : (option as any).color || theme.palette.background.paper,
               borderColor: borderColor,
+              '&:hover': {
+                backgroundColor: isSelected && backgroundSelected ? backgroundSelected : theme.palette.action.hover,
+              },
               paddingTop: 0,
               paddingBottom: 0,
               paddingRight: 2,
