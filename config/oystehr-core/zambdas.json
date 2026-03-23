@@ -344,6 +344,13 @@
       "src": "src/ehr/patient-account/remove-coverage/index",
       "zip": ".dist/zips/remove-patient-coverage.zip"
     },
+    "MERGE-PATIENTS": {
+      "name": "merge-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/merge-patients/index",
+      "zip": ".dist/zips/merge-patients.zip"
+    },
     "CANCEL-APPOINTMENT": {
       "name": "cancel-appointment",
       "type": "http_open",

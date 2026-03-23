@@ -1,5 +1,6 @@
+import MergeIcon from '@mui/icons-material/MergeType';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
@@ -16,6 +17,7 @@ import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
+import { PatientsMergeDifference } from '../components/patients-merge/PatientsMergeDifference';
 import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
@@ -28,8 +30,9 @@ export default function PatientPage(): JSX.Element {
   const location = useLocation();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
+  const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
 
-  const { loading, patient } = useGetPatient(id);
+  const { loading, patient, duplicatePatients } = useGetPatient(id);
 
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
@@ -117,6 +120,28 @@ export default function PatientPage(): JSX.Element {
               </RoundedButton>
             </Box>
           </Paper>
+
+          {duplicatePatients.length > 0 && id && (
+            <Alert
+              severity="warning"
+              action={
+                <Button
+                  color="warning"
+                  size="small"
+                  startIcon={<MergeIcon />}
+                  onClick={() => setMergePatientIds([id, duplicatePatients[0].id!])}
+                >
+                  Merge Patients
+                </Button>
+              }
+            >
+              Potential duplicate patients found
+            </Alert>
+          )}
+
+          {mergePatientIds && (
+            <PatientsMergeDifference open close={() => setMergePatientIds(null)} patientIds={mergePatientIds} />
+          )}
 
           <TabContext value={tab}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
