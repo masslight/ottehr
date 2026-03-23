@@ -23,7 +23,7 @@ export const createHistoryOfPresentIllnessSection = <
   return createConfiguredSection(null, () => ({
     title: 'History of Present Illness',
     dataSelector: (data) => data.historyOfPresentIllness,
-    shouldRender: (sectionData) => !!sectionData.historyOfPresentIllness,
+    shouldRender: (sectionData, rootData) => !rootData?.encounter?.isFollowup && !!sectionData.historyOfPresentIllness,
     render: (client, data, styles) => {
       drawRegularText(client, styles, data.historyOfPresentIllness);
 
