@@ -11,6 +11,7 @@ export type AutocompleteInputProps<Value> = {
   disabled?: boolean;
   validate?: (value: string | undefined) => boolean | string;
   selectOnly?: boolean;
+  freeSolo?: boolean;
   onInputTextChanged?: (text: string) => void;
   noOptionsText?: string;
   getOptionKey?: (option: Value) => string;
@@ -28,6 +29,7 @@ export function AutocompleteInput<Value>({
   disabled,
   validate,
   selectOnly,
+  freeSolo,
   onInputTextChanged,
   noOptionsText,
   getOptionKey,
@@ -56,14 +58,24 @@ export function AutocompleteInput<Value>({
         }
         return (
           <Box sx={{ width: '100%' }}>
-            <Autocomplete
+            <Autocomplete<Value, false, false, boolean>
               value={field.value ?? null}
               options={optionsToUse}
-              getOptionKey={getOptionKey}
+              getOptionKey={getOptionKey as any}
               noOptionsText={noOptionsText}
-              getOptionLabel={getOptionLabel}
-              isOptionEqualToValue={isOptionEqualToValue}
+              getOptionLabel={getOptionLabel as any}
+              isOptionEqualToValue={isOptionEqualToValue as any}
+              freeSolo={freeSolo}
               onChange={(_e, option: any) => field.onChange(option ?? null)}
+              {...(freeSolo
+                ? {
+                    onInputChange: (_e: any, newValue: string, reason: string) => {
+                      if (reason === 'input') {
+                        field.onChange(newValue || null);
+                      }
+                    },
+                  }
+                : {})}
               renderInput={(params) => (
                 <TextField
                   {...params}
