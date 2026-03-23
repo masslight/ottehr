@@ -71,6 +71,10 @@ export const PatientInstructionsContainer: FC = () => {
             </Typography>
           )}
 
+          {disposition?.specialty && disposition.specialty.length > 0 && (
+            <Typography>Specialty: {disposition.specialty}</Typography>
+          )}
+
           {disposition?.reason && disposition.reason.length > 0 && (
             <Typography>Reason for transfer: {disposition.reason}</Typography>
           )}

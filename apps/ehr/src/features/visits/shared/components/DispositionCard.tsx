@@ -26,6 +26,7 @@ import {
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  specialtyTransferOptions,
 } from 'utils';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { ContainedPrimaryToggleButton } from '../../../../components/ContainedPrimaryToggleButton';
@@ -99,10 +100,11 @@ export const DispositionCard: FC = () => {
   const onSubmit = useCallback(
     (values: DispositionFormValues): void => {
       setIsError(false);
+      const dispositionToSave = withNote(values);
       const requestId = ++latestRequestId.current;
       debounce(() => {
         mutate(
-          { disposition: withNote(values) },
+          { disposition: dispositionToSave },
           {
             onSuccess: (data) => {
               if (requestId === latestRequestId.current) {
@@ -273,6 +275,33 @@ export const DispositionCard: FC = () => {
                 />
               )}
             </Box>
+          )}
+
+          {fields.includes('specialty') && (
+            <Controller
+              name="specialty"
+              control={control}
+              render={({ field: { onChange, value } }) => (
+                <TextField
+                  select
+                  disabled={isReadOnly}
+                  label="Specialty"
+                  size="small"
+                  sx={{ minWidth: '200px', width: 'fit-content' }}
+                  value={value}
+                  onChange={onChange}
+                >
+                  <MenuItem value={''}>
+                    <em>None</em>
+                  </MenuItem>
+                  {specialtyTransferOptions.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
           )}
 
           {fields.includes('followUpIn') && (

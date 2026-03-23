@@ -16,7 +16,7 @@ export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = 
   'ip-oth': [],
   'pcp-no-type': ['followUpIn'],
   another: ['reason'],
-  specialty: ['followUpIn'],
+  specialty: ['specialty', 'followUpIn'],
 };
 
 export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {
@@ -24,6 +24,7 @@ export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {
   note: '',
   followUpIn: '',
   reason: '',
+  specialty: '',
   labService: [],
   virusTest: [],
   dentistry: false,
@@ -44,6 +45,7 @@ export type DispositionFormValues = Pick<DispositionDTO, 'type' | 'note' | typeo
   labService: string[];
   virusTest: string[];
   reason: string;
+  specialty: string;
 };
 
 export const mapFormToDisposition = (values: DispositionFormValues): DispositionDTO => {
@@ -62,6 +64,10 @@ export const mapFormToDisposition = (values: DispositionFormValues): Disposition
 
   if (fields.includes('reason')) {
     disposition.reason = values.reason === '' ? undefined : values.reason;
+  }
+
+  if (fields.includes('specialty')) {
+    disposition.specialty = values.specialty === '' ? undefined : values.specialty;
   }
 
   if (fields.includes('followUpType')) {
@@ -111,6 +117,10 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
 
   if (fields.includes('reason')) {
     values.reason = disposition.reason || '';
+  }
+
+  if (fields.includes('specialty')) {
+    values.specialty = disposition.specialty || '';
   }
 
   if (fields.includes('followUpType')) {
