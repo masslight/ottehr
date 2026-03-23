@@ -1,5 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import { ActivityDefinition } from 'fhir/r4b';
+import { ActivityDefinition, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DocumentProcedurePage,
@@ -7,6 +7,7 @@ import {
   openDocumentProcedurePage,
 } from 'tests/e2e/page/DocumentProcedurePage';
 import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
+import { expectInHouseLabsPage } from 'tests/e2e/page/in-person/InHouseLabsPage';
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -20,8 +21,9 @@ import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { convertActivityDefinitionToTestItem, TestItem } from 'utils';
+import { convertActivityDefinitionToTestItem, getLabListType, LabType, TestItem } from 'utils';
 import inHouseLabActivityDefinitionsJson from '../../../../../../config/oystehr/in-house-lab-activity-definitions.json' assert { type: 'json' };
+import labSetsJson from '../../../../../../config/oystehr/lab-set-lists.json' assert { type: 'json' };
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
 import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
 import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
@@ -219,6 +221,7 @@ test.describe('In-house labs page', async () => {
   const TEST_TYPE_TO_CPT: Record<string, string> = {};
   const radioEntryTestItems: TestItem[] = [];
   const selectAndNumericTestItems: TestItem[] = [];
+  let inHouseLabSetQuantity = 0;
 
   Object.values(inHouseLabActivityDefinitionsJson.fhirResources).forEach((resource) => {
     const fhirActivityDefinition = resource.resource as ActivityDefinition;
@@ -237,6 +240,16 @@ test.describe('In-house labs page', async () => {
     const cptCode = coding.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt')?.code;
     if (name && cptCode) {
       TEST_TYPE_TO_CPT[name] = cptCode;
+    }
+  });
+
+  // check if there are any in house lab lists
+  Object.values(labSetsJson.fhirResources).forEach((resource) => {
+    const fhirList = resource.resource as List;
+    const labListType = getLabListType(fhirList);
+    const listHasEntries = fhirList.entry && fhirList.entry.length;
+    if (labListType === LabType.inHouse) {
+      if (listHasEntries) inHouseLabSetQuantity++;
     }
   });
 
@@ -342,6 +355,20 @@ test.describe('In-house labs page', async () => {
           await inHouseLabsPage.deleteTest(orderedLabServiceRequestId);
         });
       });
+    });
+
+    await test.step('IHL-1.7 Add labs via lab sets', async () => {
+      test.skip(inHouseLabSetQuantity === 0, 'no lab sets configured, skipping lab set tests');
+
+      // go back to the labs table
+      const inHouseLabsPage = await sideMenu.clickInHouseLabs();
+
+      const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+      await orderInHouseLabPage.selectALabSet();
+      await orderInHouseLabPage.clickOrderInHouseLabButton();
+
+      // confirm we've been nav'd to the orders table
+      await expectInHouseLabsPage(orderInHouseLabPage.page);
     });
   });
 

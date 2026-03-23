@@ -675,5 +675,10 @@ export const dataTestIds = {
 
   commonLabOrder: {
     deleteDialogButton: 'delete-lab-order-dialog-btn',
+    labSets: {
+      launchModal: 'launch-lab-set-modal-btn',
+      selectionModal: 'lab-set-modal',
+      selectionBtnPrefix: 'lab-set-select-btn',
+    },
   },
 };
