@@ -61,7 +61,7 @@ const PatientList: React.FC<PatientListProps> = ({
                   value: patient.id,
                 };
               })
-              .concat(pastVisits ? [] : [{ ...DIFFERENT_FAMILY_MEMBER_DATA, color: undefined }]),
+              .concat(pastVisits ? [] : DIFFERENT_FAMILY_MEMBER_DATA),
       },
     ];
   }, [hasNoPatients, pastVisits, patients, selectedPatient, subtitle]);
