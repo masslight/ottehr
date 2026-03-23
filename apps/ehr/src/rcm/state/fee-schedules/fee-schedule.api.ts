@@ -16,12 +16,13 @@ const GET_VERSION_HISTORY_ZAMBDA_ID = 'get-version-history';
 
 export interface CreateFeeScheduleInput {
   name: string;
-  effectiveDate?: string;
+  effectiveDate: string;
   description: string;
 }
 
-export interface UpdateFeeScheduleInput extends CreateFeeScheduleInput {
+export interface UpdateFeeScheduleInput extends Omit<CreateFeeScheduleInput, 'effectiveDate'> {
   id: string;
+  effectiveDate?: string;
   status?: 'active' | 'retired';
   designation?: 'case-rate' | null;
   caseRateAmount?: number;

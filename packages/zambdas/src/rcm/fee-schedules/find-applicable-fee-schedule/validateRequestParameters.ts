@@ -17,7 +17,7 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableFee
     throw new Error('"payerOrganizationId" is required');
   }
 
-  if (!dateOfService || typeof dateOfService !== 'string') {
+  if (!dateOfService || typeof dateOfService !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfService)) {
     throw new Error('"dateOfService" is required and must be a date string (YYYY-MM-DD)');
   }
 

@@ -41,8 +41,8 @@ export const index = wrapHandler('update-fee-schedule', async (input: ZambdaInpu
       propertyGroup = undefined;
     }
 
-    // Store case rate amount if provided
-    if (caseRateAmount !== undefined) {
+    // Store case rate amount if provided (only when designation is case-rate)
+    if (caseRateAmount !== undefined && designation !== null) {
       propertyGroup = [
         {
           priceComponent: [

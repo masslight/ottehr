@@ -24,7 +24,9 @@ import {
   UpdateProcedureCodeInput,
 } from './fee-schedule.api';
 
-export const useListFeeSchedulesQuery = (): UseQueryResult<ChargeItemDefinition[], Error> => {
+export const useListFeeSchedulesQuery = (options?: {
+  enabled?: boolean;
+}): UseQueryResult<ChargeItemDefinition[], Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
@@ -36,7 +38,7 @@ export const useListFeeSchedulesQuery = (): UseQueryResult<ChargeItemDefinition[
       return listFeeSchedules(oystehrZambda);
     },
 
-    enabled: !!oystehrZambda,
+    enabled: !!oystehrZambda && options?.enabled !== false,
   });
 };
 

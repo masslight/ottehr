@@ -25,7 +25,9 @@ import {
   UpdateChargeMasterInput,
 } from './charge-master.api';
 
-export const useListChargeMastersQuery = (): UseQueryResult<ChargeItemDefinition[], Error> => {
+export const useListChargeMastersQuery = (options?: {
+  enabled?: boolean;
+}): UseQueryResult<ChargeItemDefinition[], Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
@@ -37,7 +39,7 @@ export const useListChargeMastersQuery = (): UseQueryResult<ChargeItemDefinition
       return listChargeMasters(oystehrZambda);
     },
 
-    enabled: !!oystehrZambda,
+    enabled: !!oystehrZambda && options?.enabled !== false,
   });
 };
 

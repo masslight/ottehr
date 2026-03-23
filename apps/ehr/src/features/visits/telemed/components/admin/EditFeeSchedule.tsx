@@ -74,8 +74,8 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
   const queryClient = useQueryClient();
   const { id: feeScheduleId } = useParams();
 
-  const { data: fsData, isFetching: fsFetching } = useListFeeSchedulesQuery();
-  const { data: cmData, isFetching: cmFetching } = useListChargeMastersQuery();
+  const { data: fsData, isFetching: fsFetching } = useListFeeSchedulesQuery({ enabled: !isChargeMaster });
+  const { data: cmData, isFetching: cmFetching } = useListChargeMastersQuery({ enabled: isChargeMaster });
   const feeSchedules = isChargeMaster ? cmData : fsData;
   const isFetching = isChargeMaster ? cmFetching : fsFetching;
   const feeSchedule = feeSchedules?.find((fs) => fs.id === feeScheduleId);
