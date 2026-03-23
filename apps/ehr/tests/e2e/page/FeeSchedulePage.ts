@@ -17,12 +17,13 @@ export class FeeSchedulePage {
   }
 
   async waitForProcedureCodesLoaded(): Promise<void> {
+    await this.page.getByRole('tab', { name: 'Procedure Codes' }).click();
     await expect(this.page.getByTestId(dataTestIds.procedureCodes.addButton)).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async clickAddProcedureCode(): Promise<void> {
     await this.page.getByTestId(dataTestIds.procedureCodes.addButton).click();
-    await expect(this.page.getByText('Add Procedure Code')).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(this.page.getByRole('heading', { name: 'Add Procedure Code' })).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async fillProcedureCodeForm(code: string, amount: string, modifier?: string): Promise<void> {

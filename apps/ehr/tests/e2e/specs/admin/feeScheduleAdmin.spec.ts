@@ -111,8 +111,7 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
     await feeSchedulePage.expectUploadPreviewOpen();
 
     // Verify delta stats are shown
-    await expect(page.getByText(/added/i)).toBeVisible();
-    await expect(page.getByText(/changed/i)).toBeVisible();
+    await expect(page.getByText(/\d+ added, \d+ changed/)).toBeVisible();
   });
 
   test('upload CSV deduplicates rows', async ({ page }) => {
@@ -132,9 +131,9 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
     // Should show warning about removed duplicates
     await feeSchedulePage.expectSnackbar(/duplicate/i);
 
-    // Preview should show 2 codes, not 3
+    // Preview should show 2 unique codes after dedup
     await feeSchedulePage.expectUploadPreviewOpen();
-    await expect(page.getByText(/2/)).toBeVisible();
+    await expect(page.getByText(/2 added, 0 changed/)).toBeVisible();
   });
 
   test('search filters procedure codes', async ({ page }) => {
