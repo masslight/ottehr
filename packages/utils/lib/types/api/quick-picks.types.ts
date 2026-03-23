@@ -131,7 +131,7 @@ export interface RadiologyQuickPickData {
   diagnosisDisplay?: string;
   cptCode?: string;
   cptDisplay?: string;
-  studyDetails?: string;
+  studyName?: string;
   laterality?: string;
   clinicalHistory?: string;
   stat?: boolean;

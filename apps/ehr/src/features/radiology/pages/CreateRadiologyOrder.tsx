@@ -81,7 +81,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
   const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
   const [stat, setStat] = useState<boolean>(false);
-  const [studyDetails, setStudyDetails] = useState<string | undefined>();
+  const [studyName, setStudyName] = useState<string | undefined>();
   const [clinicalHistory, setClinicalHistory] = useState<string | undefined>();
   const [laterality, setLaterality] = useState<LateralityValue | ''>('');
   const [consentObtained, setConsentObtained] = useState<boolean>(false);
@@ -135,7 +135,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     if (quickPick.cptCode && quickPick.cptDisplay) {
       setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
     }
-    if (quickPick.studyDetails != null) setStudyDetails(quickPick.studyDetails);
+    if (quickPick.studyName != null) setStudyName(quickPick.studyName);
     if (quickPick.laterality) setLaterality(quickPick.laterality as LateralityValue);
     if (quickPick.clinicalHistory != null) setClinicalHistory(quickPick.clinicalHistory);
     if (quickPick.stat != null) setStat(quickPick.stat);
@@ -151,9 +151,9 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
     }
-    // Suggest name: Study Details | Study Type | Laterality
+    // Suggest name: Study Name | Study Type | Laterality
     const parts: string[] = [];
-    if (studyDetails) parts.push(studyDetails);
+    if (studyName) parts.push(studyName);
     if (orderCpt) parts.push(orderCpt.display);
     if (laterality) parts.push(LATERALITY_SELECTORS[laterality].uiDisplay);
     setQuickPickName(parts.join(' | '));
@@ -167,7 +167,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     diagnosisDisplay: orderDx?.display,
     cptCode: orderCpt?.code,
     cptDisplay: orderCpt?.display,
-    studyDetails,
+    studyName,
     laterality: laterality || undefined,
     clinicalHistory,
     stat,
@@ -221,7 +221,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           encounterId: encounter.id,
           stat: stat,
           clinicalHistory: clinicalHistory,
-          studyDetails: studyDetails || undefined,
+          studyName: studyName || undefined,
           consentObtained,
         });
 
@@ -348,6 +348,18 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   />
                 </Grid>
                 <Grid item xs={12}>
+                  <TextField
+                    id="study-name"
+                    label="Study Name"
+                    placeholder="Enter study name"
+                    fullWidth
+                    multiline
+                    size="small"
+                    value={studyName || ''}
+                    onChange={(e) => setStudyName(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12}>
                   <Autocomplete
                     blurOnSelect
                     id="select-cpt"
@@ -379,18 +391,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                         InputLabelProps={{ shrink: true }}
                       />
                     )}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    id="study-details"
-                    label="Study Details"
-                    placeholder="Enter study details"
-                    fullWidth
-                    multiline
-                    size="small"
-                    value={studyDetails || ''}
-                    onChange={(e) => setStudyDetails(e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={12}>

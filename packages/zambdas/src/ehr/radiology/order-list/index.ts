@@ -302,7 +302,7 @@ const parseResultsToOrder = (
   const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
 
   const clinicalHistory = extractOrderDetailValue(serviceRequest, 'clinical-history');
-  const studyDetails = extractOrderDetailValue(serviceRequest, 'study-details');
+  const studyName = extractOrderDetailValue(serviceRequest, 'study-details');
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
@@ -320,7 +320,7 @@ const parseResultsToOrder = (
     preliminaryReport: preliminaryReportData,
     finalReport: finalReportData,
     clinicalHistory,
-    studyDetails,
+    studyName,
     history,
     task: formattedFinalReviewTask,
     consentObtained,

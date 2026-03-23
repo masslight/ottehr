@@ -24,16 +24,8 @@ export const validateInput = async (
 };
 
 const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oystehr): Promise<EnhancedBody> => {
-  const {
-    diagnosisCode,
-    cptCode,
-    lateralityModifier,
-    encounterId,
-    stat,
-    clinicalHistory,
-    studyDetails,
-    consentObtained,
-  } = validateJsonBody(input);
+  const { diagnosisCode, cptCode, lateralityModifier, encounterId, stat, clinicalHistory, studyName, consentObtained } =
+    validateJsonBody(input);
 
   const diagnosis = await validateICD10Code(diagnosisCode);
   const cpt = await validateCPTCode(cptCode, secrets);
@@ -51,8 +43,8 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     throw new Error('Clinical history must be 255 characters or less');
   }
 
-  if (studyDetails != null && typeof studyDetails !== 'string') {
-    throw new Error('Study details must be a string');
+  if (studyName != null && typeof studyName !== 'string') {
+    throw new Error('Study name must be a string');
   }
 
   if (typeof consentObtained !== 'boolean') {
@@ -66,7 +58,7 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     encounter,
     stat,
     clinicalHistory,
-    studyDetails: typeof studyDetails === 'string' ? studyDetails : undefined,
+    studyName: typeof studyName === 'string' ? studyName : undefined,
     consentObtained,
   };
 };

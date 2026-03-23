@@ -170,13 +170,13 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
-              {order.studyDetails && (
+              {order.studyName && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                    Study Details
+                    Study Name
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    {order.studyDetails}
+                    {order.studyName}
                   </Typography>
                 </Box>
               )}

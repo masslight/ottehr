@@ -152,7 +152,7 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory, studyDetails, consentObtained } =
+  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory, studyName, consentObtained } =
     validatedBody;
   const now = DateTime.now();
 
@@ -312,7 +312,7 @@ const writeOurServiceRequest = (
           },
         ],
       },
-      ...(studyDetails
+      ...(studyName
         ? [
             {
               url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
@@ -333,7 +333,7 @@ const writeOurServiceRequest = (
                     },
                     {
                       url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
-                      valueString: studyDetails,
+                      valueString: studyName,
                     },
                   ],
                 },
