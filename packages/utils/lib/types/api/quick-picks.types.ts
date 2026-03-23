@@ -127,8 +127,6 @@ export type RemoveMedicationHistoryQuickPickResponse = QuickPickRemoveResponse;
 export interface RadiologyQuickPickData {
   id?: string;
   name: string;
-  diagnosisCode?: string;
-  diagnosisDisplay?: string;
   cptCode?: string;
   cptDisplay?: string;
   studyName?: string;

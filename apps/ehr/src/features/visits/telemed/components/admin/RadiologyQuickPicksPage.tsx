@@ -110,8 +110,8 @@ const RadiologyQuickPicksPage: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Study Name</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>CPT Code</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Diagnosis</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', width: 100 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -119,8 +119,8 @@ const RadiologyQuickPicksPage: React.FC = () => {
               {quickPicks.map((qp) => (
                 <TableRow key={qp.id}>
                   <TableCell>{qp.name}</TableCell>
+                  <TableCell>{qp.studyName ?? ''}</TableCell>
                   <TableCell>{qp.cptCode ? `${qp.cptCode} — ${qp.cptDisplay ?? ''}` : ''}</TableCell>
-                  <TableCell>{qp.diagnosisCode ? `${qp.diagnosisCode} — ${qp.diagnosisDisplay ?? ''}` : ''}</TableCell>
                   <TableCell>
                     <Tooltip title="Rename">
                       <IconButton

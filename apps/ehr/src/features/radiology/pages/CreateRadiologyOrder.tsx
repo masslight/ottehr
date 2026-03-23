@@ -129,9 +129,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   // Quick pick handlers
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
-    if (quickPick.diagnosisCode && quickPick.diagnosisDisplay) {
-      setOrderDx({ code: quickPick.diagnosisCode, display: quickPick.diagnosisDisplay, isPrimary: false });
-    }
     if (quickPick.cptCode && quickPick.cptDisplay) {
       setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
     }
@@ -163,8 +160,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   const buildQuickPickFromCurrentState = (): Omit<RadiologyQuickPickData, 'id'> => ({
     name: quickPickName.trim(),
-    diagnosisCode: orderDx?.code,
-    diagnosisDisplay: orderDx?.display,
     cptCode: orderCpt?.code,
     cptDisplay: orderCpt?.display,
     studyName,
