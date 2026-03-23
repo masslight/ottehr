@@ -30,6 +30,7 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   useCmAddProcedureCodeMutation,
@@ -658,6 +659,7 @@ export default function ProcedureCodes({
             placeholder="Search procedure codes..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
+            data-testid={dataTestIds.procedureCodes.searchInput}
             InputProps={{
               startAdornment: <SearchIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />,
             }}
@@ -695,6 +697,7 @@ export default function ProcedureCodes({
             startIcon={<AddIcon />}
             sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
             onClick={openAddDialog}
+            data-testid={dataTestIds.procedureCodes.addButton}
           >
             Add procedure code
           </Button>
@@ -831,6 +834,7 @@ export default function ProcedureCodes({
             fullWidth
             margin="dense"
             placeholder="e.g. 25"
+            data-testid={dataTestIds.procedureCodes.modifierInput}
           />
           <TextField
             label="Amount"
@@ -855,6 +859,7 @@ export default function ProcedureCodes({
             onClick={handleSave}
             disabled={!formData.code || !formData.amount || isSaving}
             sx={{ textTransform: 'none' }}
+            data-testid={dataTestIds.procedureCodes.saveButton}
           >
             {isSaving ? 'Saving...' : editIndex != null ? 'Update' : 'Add'}
           </Button>
@@ -1021,7 +1026,13 @@ export default function ProcedureCodes({
           </Button>
         </DialogActions>
       </Dialog>
-      <Dialog open={uploadPreviewOpen} onClose={closeUploadPreview} maxWidth="sm" fullWidth>
+      <Dialog
+        open={uploadPreviewOpen}
+        onClose={closeUploadPreview}
+        maxWidth="sm"
+        fullWidth
+        data-testid={dataTestIds.procedureCodes.uploadPreviewDialog}
+      >
         <DialogTitle>Upload Preview</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 1 }}>
@@ -1121,10 +1132,17 @@ export default function ProcedureCodes({
               bulkAdding || uploadDelta.filter((d) => d.status === 'Added' || d.status === 'Changed').length === 0
             }
             sx={{ textTransform: 'none' }}
+            data-testid={dataTestIds.procedureCodes.importDeltaButton}
           >
             {bulkAdding ? 'Importing...' : 'Import Delta'}
           </Button>
-          <Button variant="contained" onClick={handleReplaceAll} disabled={bulkAdding} sx={{ textTransform: 'none' }}>
+          <Button
+            variant="contained"
+            onClick={handleReplaceAll}
+            disabled={bulkAdding}
+            sx={{ textTransform: 'none' }}
+            data-testid={dataTestIds.procedureCodes.replaceAllButton}
+          >
             {bulkAdding ? 'Replacing...' : 'Replace All'}
           </Button>
         </DialogActions>
