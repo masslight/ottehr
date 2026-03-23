@@ -188,6 +188,7 @@ export const PATIENT_VITALS_META_SYSTEM = 'patient-vitals-field';
 export const NOTHING_TO_EAT_OR_DRINK_ID = 'nothing-to-eat-or-drink'; // fhir url
 export const NOTHING_TO_EAT_OR_DRINK_FIELD = 'nothingToEatOrDrink'; // backend/frontend - disposition field & form field
 export const NOTHING_TO_EAT_OR_DRINK_LABEL = 'Nothing to eat or drink until evaluated in the Emergency Department.'; // frontend form label
+export const REFUSAL_OF_EMS_TRANSPORT_ID = 'refusal-of-ems-transport';
 export const REFUSAL_OF_EMS_TRANSPORT_FIELD = 'refusalOfEmsTransport';
 export const REFUSAL_OF_EMS_TRANSPORT_LABEL = 'Refusal of EMS Transport';
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
