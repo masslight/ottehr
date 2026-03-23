@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL, RCM_TAG_SYSTEM } from 'utils';
-import { getAccessTokenFromUserJson } from '../../../e2e-utils/resource-handler';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { FeeSchedulePage } from '../../page/FeeSchedulePage';
 
 const PROCESS_ID = `feeScheduleAdmin.spec.ts-${DateTime.now().toMillis()}`;
@@ -12,8 +12,7 @@ let oystehr: Oystehr;
 let feeScheduleId: string;
 
 test.beforeAll(async () => {
-  const accessToken = getAccessTokenFromUserJson();
-  oystehr = new Oystehr({ accessToken });
+  oystehr = await ResourceHandler.getOystehr();
 
   // Create a test fee schedule with one procedure code
   const feeSchedule = await oystehr.fhir.create<ChargeItemDefinition>({
