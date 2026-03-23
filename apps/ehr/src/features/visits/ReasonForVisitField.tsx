@@ -1,4 +1,4 @@
-import { Box, FormControl, InputLabel, MenuItem, Select, Skeleton, Typography, useTheme } from '@mui/material';
+import { Autocomplete, Box, Skeleton, TextField, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getCoding, getReasonForVisitOptionsForServiceCategory, SERVICE_CATEGORY_SYSTEM } from 'utils';
@@ -21,33 +21,29 @@ export const ReasonForVisitField: FC = () => {
   const { appointment } = useAppointmentData();
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const rfvOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory || 'urgent-care');
-  return (
-    <FormControl fullWidth>
-      <InputLabel id="reason-for-visit-label">Reason for visit</InputLabel>
-      <Select
-        data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
-        labelId="reason-for-visit-label"
-        id="reason-for-visit-select"
-        value={reasonForVisit || ''}
-        label="Reason for visit"
-        onChange={(event) => {
-          const value = event.target.value as string;
-          setReasonForVisit(value);
 
-          saveChartData.mutate({
-            reasonForVisit: {
-              text: value,
-            },
-          });
-        }}
-      >
-        {rfvOptions.map((reason) => (
-          <MenuItem key={reason.value} value={reason.value}>
-            {reason.label}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
+  const selectedOption = rfvOptions.find((o) => o.value === reasonForVisit) ?? null;
+
+  return (
+    <Autocomplete
+      data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
+      id="reason-for-visit-select"
+      value={selectedOption}
+      options={rfvOptions}
+      getOptionLabel={(option) => (typeof option === 'string' ? option : option.label)}
+      isOptionEqualToValue={(option, value) => option.value === value.value}
+      onChange={(_event, newValue) => {
+        const value = newValue?.value ?? '';
+        setReasonForVisit(value);
+        saveChartData.mutate({
+          reasonForVisit: {
+            text: value,
+          },
+        });
+      }}
+      renderInput={(params) => <TextField {...params} label="Reason for visit" />}
+      fullWidth
+    />
   );
 };
 
