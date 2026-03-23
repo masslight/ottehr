@@ -39,6 +39,8 @@ import {
   CreateNursingOrderInput,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
+  CreateRadiologyQuickPickInput,
+  CreateRadiologyQuickPickResponse,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   CreateResourcesFromAudioRecordingInput,
@@ -81,6 +83,7 @@ import {
   GetProcedureQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
+  GetRadiologyQuickPicksResponse,
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -112,12 +115,14 @@ import {
   ProcedureQuickPickData,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
+  RadiologyQuickPickData,
   RecentPatientsReportZambdaInput,
   RecentPatientsReportZambdaOutput,
   RemoveAllergyQuickPickResponse,
   RemoveMedicalConditionQuickPickResponse,
   RemoveMedicationHistoryQuickPickResponse,
   RemoveProcedureQuickPickResponse,
+  RemoveRadiologyQuickPickResponse,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   SavePreliminaryReportZambdaInput,
@@ -139,6 +144,7 @@ import {
   UpdateNursingOrderInput,
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
+  UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
@@ -1713,6 +1719,62 @@ export const removeProcedureQuickPick = async (
       id: ADMIN_REMOVE_PROCEDURE_QUICK_PICK_ZAMBDA_ID,
       quickPickId,
     } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Radiology Quick Picks ──
+
+export const getRadiologyQuickPicks = async (oystehr: Oystehr): Promise<GetRadiologyQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'admin-get-radiology-quick-picks' });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createRadiologyQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateRadiologyQuickPickInput
+): Promise<CreateRadiologyQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'admin-create-radiology-quick-pick', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateRadiologyQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<RadiologyQuickPickData, 'id'>
+): Promise<UpdateRadiologyQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'admin-update-radiology-quick-pick',
+      quickPickId,
+      quickPick,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const removeRadiologyQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string
+): Promise<RemoveRadiologyQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'admin-remove-radiology-quick-pick', quickPickId } as any);
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
