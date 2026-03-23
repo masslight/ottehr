@@ -15,7 +15,7 @@ export const index = wrapHandler(
   'bulk-add-procedure-codes',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const { feeScheduleId, codes, secrets } = validateRequestParameters(input);
+      const { feeScheduleId, codes, replaceAll, secrets } = validateRequestParameters(input);
 
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createOystehrClient(m2mToken, secrets);
@@ -53,7 +53,7 @@ export const index = wrapHandler(
 
       const updated = await oystehr.fhir.update<ChargeItemDefinition>({
         ...existing,
-        propertyGroup: [...(existing.propertyGroup || []), ...newPropertyGroups],
+        propertyGroup: replaceAll ? newPropertyGroups : [...(existing.propertyGroup || []), ...newPropertyGroups],
       });
 
       return {

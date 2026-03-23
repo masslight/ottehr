@@ -9,6 +9,7 @@ export interface CmBulkProcedureCode {
 export interface CmBulkAddProcedureCodesParams {
   chargeMasterId: string;
   codes: CmBulkProcedureCode[];
+  replaceAll: boolean;
   secrets: ZambdaInput['secrets'];
 }
 
@@ -17,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): CmBulkAddProcedur
     throw new Error('No request body provided');
   }
 
-  const { chargeMasterId, codes } = JSON.parse(input.body);
+  const { chargeMasterId, codes, replaceAll } = JSON.parse(input.body);
 
   if (!chargeMasterId) {
     throw new Error('This field is required: "chargeMasterId"');
@@ -44,6 +45,7 @@ export function validateRequestParameters(input: ZambdaInput): CmBulkAddProcedur
   return {
     chargeMasterId,
     codes: validated,
+    replaceAll: replaceAll === true,
     secrets: input.secrets,
   };
 }

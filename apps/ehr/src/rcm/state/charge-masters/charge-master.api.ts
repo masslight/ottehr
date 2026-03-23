@@ -191,6 +191,7 @@ export interface CmDeleteProcedureCodeInput {
 export interface CmBulkAddProcedureCodesInput {
   chargeMasterId: string;
   codes: { code: string; modifier?: string; amount: number }[];
+  replaceAll?: boolean;
 }
 
 export const cmAddProcedureCode = async (

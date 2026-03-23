@@ -9,6 +9,7 @@ export interface BulkProcedureCode {
 export interface BulkAddProcedureCodesParams {
   feeScheduleId: string;
   codes: BulkProcedureCode[];
+  replaceAll: boolean;
   secrets: ZambdaInput['secrets'];
 }
 
@@ -17,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): BulkAddProcedureC
     throw new Error('No request body provided');
   }
 
-  const { feeScheduleId, codes } = JSON.parse(input.body);
+  const { feeScheduleId, codes, replaceAll } = JSON.parse(input.body);
 
   if (!feeScheduleId) {
     throw new Error('This field is required: "feeScheduleId"');
@@ -44,6 +45,7 @@ export function validateRequestParameters(input: ZambdaInput): BulkAddProcedureC
   return {
     feeScheduleId,
     codes: validated,
+    replaceAll: replaceAll === true,
     secrets: input.secrets,
   };
 }

@@ -232,7 +232,29 @@ export default function ProcedureCodes({
   const { mutateAsync: bulkAdd, isPending: bulkAdding } = isChargeMaster ? cmBulkAdd : fsBulkAdd;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Upload preview state
+  const [uploadPreviewOpen, setUploadPreviewOpen] = useState(false);
+  const [uploadedCodes, setUploadedCodes] = useState<{ code: string; modifier?: string; amount: number }[]>([]);
+
   const procedureCodes = useMemo(() => extractProcedureCodes(feeSchedule), [feeSchedule]);
+
+  // Compute delta between uploaded CSV codes and current procedure codes
+  const uploadDelta = useMemo(() => {
+    if (uploadedCodes.length === 0) return [];
+    const uploadedRows: ProcedureCodeRow[] = uploadedCodes.map((c, i) => ({
+      index: i,
+      code: c.code,
+      description: '',
+      modifier: c.modifier || '',
+      amount: c.amount,
+    }));
+    return computeDelta(uploadedRows, procedureCodes);
+  }, [uploadedCodes, procedureCodes]);
+
+  const uploadUnchangedCount = useMemo(() => {
+    if (uploadedCodes.length === 0) return 0;
+    return uploadedCodes.length - uploadDelta.filter((d) => d.status === 'Added' || d.status === 'Changed').length;
+  }, [uploadedCodes, uploadDelta]);
 
   const filteredCodes = useMemo(() => {
     if (!searchText) return procedureCodes;
@@ -278,6 +300,18 @@ export default function ProcedureCodes({
     if (!feeSchedule?.id) return;
     const amountNum = parseFloat(formData.amount);
     if (isNaN(amountNum)) return;
+
+    const newKey = codeKey(formData.code, formData.modifier);
+    const duplicate = procedureCodes.some((pc, idx) => idx !== editIndex && codeKey(pc.code, pc.modifier) === newKey);
+    if (duplicate) {
+      enqueueSnackbar(
+        `A procedure code with code ${formData.code}${
+          formData.modifier ? ` / modifier ${formData.modifier}` : ''
+        } already exists.`,
+        { variant: 'error' }
+      );
+      return;
+    }
 
     try {
       if (editIndex != null) {
@@ -366,13 +400,89 @@ export default function ProcedureCodes({
         return;
       }
 
-      await bulkAdd({ [idField]: feeSchedule.id, codes } as any);
-      await queryClient.invalidateQueries({ queryKey: [queryKey] });
-      enqueueSnackbar(`${codes.length} procedure code(s) uploaded successfully.`, { variant: 'success' });
+      // Deduplicate by code+modifier (last occurrence wins)
+      const dedupMap = new Map<string, { code: string; modifier?: string; amount: number }>();
+      for (const c of codes) {
+        dedupMap.set(codeKey(c.code, c.modifier || ''), c);
+      }
+      const dedupedCodes = Array.from(dedupMap.values());
+      const dupCount = codes.length - dedupedCodes.length;
+      if (dupCount > 0) {
+        enqueueSnackbar(`${dupCount} duplicate code/modifier row(s) removed from CSV (last value kept).`, {
+          variant: 'warning',
+        });
+      }
+
+      setUploadedCodes(dedupedCodes);
+      setUploadPreviewOpen(true);
     } catch {
-      enqueueSnackbar('Error uploading CSV. Please try again.', { variant: 'error' });
+      enqueueSnackbar('Error reading CSV file. Please try again.', { variant: 'error' });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const closeUploadPreview = (): void => {
+    setUploadPreviewOpen(false);
+    setUploadedCodes([]);
+  };
+
+  const handleImportDelta = async (): Promise<void> => {
+    if (!feeSchedule?.id) return;
+    // Build a map of uploaded codes keyed by code+modifier
+    const uploadedMap = new Map<string, { code: string; modifier?: string; amount: number }>();
+    for (const c of uploadedCodes) {
+      uploadedMap.set(codeKey(c.code, c.modifier || ''), c);
+    }
+    // Identify which keys are Added or Changed
+    const deltaKeys = new Set(
+      uploadDelta.filter((d) => d.status === 'Added' || d.status === 'Changed').map((d) => codeKey(d.code, d.modifier))
+    );
+    if (deltaKeys.size === 0) {
+      enqueueSnackbar('No new or changed codes to import.', { variant: 'info' });
+      closeUploadPreview();
+      return;
+    }
+    // Merge: start with existing codes, replacing changed ones with new amounts, then append added ones
+    const mergedCodes: { code: string; modifier?: string; amount: number }[] = [];
+    for (const pc of procedureCodes) {
+      const key = codeKey(pc.code, pc.modifier);
+      const uploaded = uploadedMap.get(key);
+      if (uploaded && deltaKeys.has(key)) {
+        // Replace with the uploaded version (new amount)
+        mergedCodes.push(uploaded);
+      } else {
+        mergedCodes.push({ code: pc.code, modifier: pc.modifier || undefined, amount: pc.amount });
+      }
+    }
+    // Append newly added codes (not in existing)
+    for (const d of uploadDelta) {
+      if (d.status === 'Added') {
+        const uploaded = uploadedMap.get(codeKey(d.code, d.modifier));
+        if (uploaded) mergedCodes.push(uploaded);
+      }
+    }
+    try {
+      await bulkAdd({ [idField]: feeSchedule.id, codes: mergedCodes, replaceAll: true } as any);
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
+      const changedCount = uploadDelta.filter((d) => d.status === 'Changed').length;
+      const addedCount = uploadDelta.filter((d) => d.status === 'Added').length;
+      enqueueSnackbar(`Updated ${changedCount} and added ${addedCount} procedure code(s).`, { variant: 'success' });
+      closeUploadPreview();
+    } catch {
+      enqueueSnackbar('Error importing procedure codes. Please try again.', { variant: 'error' });
+    }
+  };
+
+  const handleReplaceAll = async (): Promise<void> => {
+    if (!feeSchedule?.id) return;
+    try {
+      await bulkAdd({ [idField]: feeSchedule.id, codes: uploadedCodes, replaceAll: true } as any);
+      await queryClient.invalidateQueries({ queryKey: [queryKey] });
+      enqueueSnackbar(`All procedure codes replaced (${uploadedCodes.length} total).`, { variant: 'success' });
+      closeUploadPreview();
+    } catch {
+      enqueueSnackbar('Error replacing procedure codes. Please try again.', { variant: 'error' });
     }
   };
 
@@ -908,6 +1018,114 @@ export default function ProcedureCodes({
             sx={{ textTransform: 'none' }}
           >
             Download
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={uploadPreviewOpen} onClose={closeUploadPreview} maxWidth="sm" fullWidth>
+        <DialogTitle>Upload Preview</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Parsed <strong>{uploadedCodes.length}</strong> code(s) from CSV.
+          </Typography>
+
+          {uploadDelta.length === 0 && uploadedCodes.length > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              No changes detected — all uploaded codes match the existing list.
+            </Typography>
+          )}
+
+          {uploadDelta.length > 0 && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {uploadDelta.filter((d) => d.status === 'Added').length} added,{' '}
+                {uploadDelta.filter((d) => d.status === 'Changed').length} changed,{' '}
+                {uploadDelta.filter((d) => d.status === 'Removed').length} removed, {uploadUnchangedCount} unchanged
+              </Typography>
+              <Box
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  maxHeight: 300,
+                  overflow: 'auto',
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    backgroundColor: 'grey.50',
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
+                    Status
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
+                    Code
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '15%', fontWeight: 600 }}>
+                    Modifier
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
+                    Old Amt
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
+                    New Amt
+                  </Typography>
+                </Box>
+                {uploadDelta.map((dr, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      display: 'flex',
+                      px: 1.5,
+                      py: 0.5,
+                      borderBottom: idx < uploadDelta.length - 1 ? '1px solid' : 'none',
+                      borderColor: 'divider',
+                      backgroundColor:
+                        dr.status === 'Added' ? '#E8F5E9' : dr.status === 'Removed' ? '#FFEBEE' : '#FFF8E1',
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ width: '25%', fontWeight: 500 }}>
+                      {dr.status}
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '25%', fontFamily: 'monospace' }}>
+                      {dr.code}
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '15%', fontFamily: 'monospace' }}>
+                      {dr.modifier || '—'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '17.5%' }}>
+                      {dr.oldAmount != null ? `$${dr.oldAmount.toFixed(2)}` : '—'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ width: '17.5%' }}>
+                      {dr.newAmount != null ? `$${dr.newAmount.toFixed(2)}` : '—'}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeUploadPreview} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={handleImportDelta}
+            disabled={
+              bulkAdding || uploadDelta.filter((d) => d.status === 'Added' || d.status === 'Changed').length === 0
+            }
+            sx={{ textTransform: 'none' }}
+          >
+            {bulkAdding ? 'Importing...' : 'Import Delta'}
+          </Button>
+          <Button variant="contained" onClick={handleReplaceAll} disabled={bulkAdding} sx={{ textTransform: 'none' }}>
+            {bulkAdding ? 'Replacing...' : 'Replace All'}
           </Button>
         </DialogActions>
       </Dialog>

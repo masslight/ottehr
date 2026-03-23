@@ -25,6 +25,24 @@ export const index = wrapHandler(
         id: chargeMasterId,
       });
 
+      // Check for duplicate code+modifier
+      const existingKey = (pg: ChargeItemDefinitionPropertyGroup): string => {
+        const pc = pg.priceComponent?.[0];
+        const c = pc?.code?.coding?.find((coding) => coding.system === CPT_CODE_SYSTEM)?.code || '';
+        const m = pc?.extension?.find((e) => e.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode || '';
+        return m ? `${c}|${m}` : c;
+      };
+      const newKey = modifier ? `${code}|${modifier}` : code;
+      const hasDuplicate = (existing.propertyGroup || []).some((pg) => existingKey(pg) === newKey);
+      if (hasDuplicate) {
+        return {
+          statusCode: 409,
+          body: JSON.stringify({
+            message: `A procedure code with code ${code}${modifier ? ` / modifier ${modifier}` : ''} already exists.`,
+          }),
+        };
+      }
+
       const extensions: Extension[] = [];
       if (modifier) {
         extensions.push({

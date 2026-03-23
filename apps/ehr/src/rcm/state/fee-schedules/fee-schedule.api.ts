@@ -143,6 +143,7 @@ export interface DeleteProcedureCodeInput {
 export interface BulkAddProcedureCodesInput {
   feeScheduleId: string;
   codes: { code: string; modifier?: string; amount: number }[];
+  replaceAll?: boolean;
 }
 
 export const addProcedureCode = async (
