@@ -17,6 +17,7 @@ import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
+import { PatientMergedBanner } from '../components/PatientMergedBanner';
 import { PatientsMergeDifference } from '../components/patients-merge/PatientsMergeDifference';
 import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -120,6 +121,8 @@ export default function PatientPage(): JSX.Element {
               </RoundedButton>
             </Box>
           </Paper>
+
+          <PatientMergedBanner patient={patient} />
 
           {duplicatePatients.length > 0 && id && (
             <Alert
