@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  Alert,
   Box,
   CircularProgress,
   Dialog,
@@ -426,6 +427,11 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
               Compare patient records and select which value to keep for each field. The selected values will be saved
               to the Main Patient record.
             </Typography>
+            <Alert severity="info" sx={{ mt: 1 }}>
+              All visits, clinical data (allergies, medications, surgical history, hospitalizations, etc.), follow-up
+              encounters, labs and other order types, billing records will be automatically transferred to the main
+              patient.
+            </Alert>
           </Stack>
 
           {isLoading ? (
