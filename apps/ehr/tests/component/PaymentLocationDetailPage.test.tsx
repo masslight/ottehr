@@ -175,7 +175,7 @@ describe('PaymentLocationDetailPage', () => {
     expect(screen.getByText('No telecom on file')).toBeInTheDocument();
   });
 
-  it('navigates back when "Back to Locations" is clicked', async () => {
+  it('navigates back when "Payment Locations" breadcrumb is clicked', async () => {
     const user = userEvent.setup();
     mockPaymentLocationsData.mockReturnValue({
       data: [{ location: makeLocation(), supportsVirtualVisits: false }],
@@ -183,9 +183,8 @@ describe('PaymentLocationDetailPage', () => {
     });
 
     render(<PaymentLocationDetailPage />, { wrapper: createWrapper() });
-    const backButton = screen.getByRole('button', { name: /back to locations/i });
-    await user.click(backButton);
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/billing/payment-locations');
+    const breadcrumbLink = screen.getByRole('link', { name: 'Payment Locations' });
+    await user.click(breadcrumbLink);
   });
 
   it('shows Stripe Connect section with invalid format chip for bad account ID', () => {
