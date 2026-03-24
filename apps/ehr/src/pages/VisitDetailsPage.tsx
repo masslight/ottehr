@@ -723,7 +723,7 @@ export default function VisitDetailsPage(): ReactElement {
       if (appointment) {
         const history = await getAppointmentAndPatientHistory(appointment, oystehr);
         if (history) {
-          if (logs && !faxLoading) {
+          if (logs) {
             const activityLogs = formatActivityLogs({
               appointment,
               appointmentHistory: history.appointmentHistory,
@@ -739,20 +739,20 @@ export default function VisitDetailsPage(): ReactElement {
             setNotesHistory(formattedNotes);
           }
         }
-        setActivityLogsLoading(faxLoading);
+        setActivityLogsLoading(false);
       }
     },
-    [appointment, oystehr, locationTimeZone, faxData?.faxesSent, faxLoading]
+    [appointment, oystehr, locationTimeZone, faxData?.faxesSent]
   );
 
   useEffect(() => {
-    if (!activityLogs && appointment && locationTimeZone && oystehr) {
+    if (!activityLogs && !faxLoading && appointment && locationTimeZone && oystehr) {
       getAndSetHistoricResources({ logs: true, notes: true }).catch((error) => {
         console.error('error getting activity logs', error);
         setActivityLogsLoading(false);
       });
     }
-  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources]);
+  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources, faxLoading]);
 
   useEffect(() => {
     if (appointment && encounter) {
