@@ -21,7 +21,7 @@ test.afterAll(async () => {
 
 let paymentLocationsPage: PaymentLocationsPage;
 let detailPage: PaymentLocationDetailPage;
-let firstLocationName: string;
+const TARGET_LOCATION = 'Los Angeles';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -32,48 +32,45 @@ test.describe('Payment Locations Admin', () => {
     await paymentLocationsPage.verifyPaginationDisplayed();
   });
 
-  test('verify locations are listed and get first location name', async () => {
+  test('verify locations are listed and target location exists', async () => {
     const rowCount = await paymentLocationsPage.getLocationRows();
     test.skip(rowCount === 0, 'No payment locations available to test');
 
-    firstLocationName = await paymentLocationsPage.getFirstLocationName();
-    await paymentLocationsPage.verifyLocationVisible(firstLocationName);
+    await paymentLocationsPage.searchLocations(TARGET_LOCATION);
+    await paymentLocationsPage.verifyLocationVisible(TARGET_LOCATION);
+    await paymentLocationsPage.searchLocations('');
   });
 
   test('search filters locations correctly', async () => {
-    test.skip(!firstLocationName, 'No locations available');
-
-    await paymentLocationsPage.searchLocations(firstLocationName);
-    await paymentLocationsPage.verifyLocationVisible(firstLocationName);
+    await paymentLocationsPage.searchLocations(TARGET_LOCATION);
+    await paymentLocationsPage.verifyLocationVisible(TARGET_LOCATION);
 
     // Search for nonexistent location
     await paymentLocationsPage.searchLocations('ZZZZNONEXISTENT');
-    await paymentLocationsPage.verifyLocationNotVisible(firstLocationName);
+    await paymentLocationsPage.verifyLocationNotVisible(TARGET_LOCATION);
 
     // Clear search
     await paymentLocationsPage.searchLocations('');
   });
 
   test('click on a location row navigates to detail page', async () => {
-    test.skip(!firstLocationName, 'No locations available');
-
-    await paymentLocationsPage.searchLocations(firstLocationName);
-    await paymentLocationsPage.clickLocationByName(firstLocationName);
+    await paymentLocationsPage.searchLocations(TARGET_LOCATION);
+    await paymentLocationsPage.clickLocationByName(TARGET_LOCATION);
     detailPage = await expectPaymentLocationDetailPage(page);
   });
 
   test('detail page shows location name and sections', async () => {
     test.skip(!detailPage, 'Detail page not loaded');
 
-    await detailPage.verifyLocationName(firstLocationName);
+    await detailPage.verifyLocationName(TARGET_LOCATION);
     await detailPage.verifyContactAndAddressSection();
-    await detailPage.verifyBackButton();
+    await detailPage.verifyBreadcrumbs();
   });
 
-  test('clicking back button returns to locations list', async () => {
+  test('clicking breadcrumb returns to locations list', async () => {
     test.skip(!detailPage, 'Detail page not loaded');
 
-    await detailPage.clickBackButton();
+    await detailPage.clickPaymentLocationsBreadcrumb();
     paymentLocationsPage = await expectPaymentLocationsPage(page);
   });
 

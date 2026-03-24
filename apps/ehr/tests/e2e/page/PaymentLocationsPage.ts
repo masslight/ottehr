@@ -24,15 +24,15 @@ export class PaymentLocationsPage {
   }
 
   async clickLocationByName(name: string): Promise<void> {
-    await this.page.getByRole('cell', { name }).click();
+    await this.page.getByRole('cell', { name, exact: true }).click();
   }
 
   async verifyLocationVisible(name: string): Promise<void> {
-    await expect(this.page.getByRole('cell', { name })).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(this.page.getByRole('cell', { name, exact: true })).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async verifyLocationNotVisible(name: string): Promise<void> {
-    await expect(this.page.getByRole('cell', { name })).not.toBeVisible();
+    await expect(this.page.getByRole('cell', { name, exact: true })).not.toBeVisible();
   }
 
   async verifyPaginationDisplayed(): Promise<void> {
@@ -50,7 +50,7 @@ export class PaymentLocationDetailPage {
   constructor(private page: Page) {}
 
   async waitForLoaded(): Promise<void> {
-    await expect(this.page.getByRole('button', { name: /back to locations/i })).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(this.page.getByLabel('breadcrumb')).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async verifyLocationName(name: string): Promise<void> {
@@ -65,12 +65,13 @@ export class PaymentLocationDetailPage {
     await expect(this.page.getByText('Stripe Connect')).toBeVisible(DEFAULT_TIMEOUT);
   }
 
-  async verifyBackButton(): Promise<void> {
-    await expect(this.page.getByRole('button', { name: /back to locations/i })).toBeVisible(DEFAULT_TIMEOUT);
+  async verifyBreadcrumbs(): Promise<void> {
+    const breadcrumb = this.page.getByLabel('breadcrumb');
+    await expect(breadcrumb.getByRole('link', { name: 'Payment Locations' })).toBeVisible(DEFAULT_TIMEOUT);
   }
 
-  async clickBackButton(): Promise<void> {
-    await this.page.getByRole('button', { name: /back to locations/i }).click();
+  async clickPaymentLocationsBreadcrumb(): Promise<void> {
+    await this.page.getByLabel('breadcrumb').getByRole('link', { name: 'Payment Locations' }).click();
   }
 
   async hasVirtualVisitsChip(): Promise<boolean> {
