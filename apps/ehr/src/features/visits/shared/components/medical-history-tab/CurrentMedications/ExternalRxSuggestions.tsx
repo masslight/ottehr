@@ -3,7 +3,7 @@ import { MedicationOutlined, WarningAmberOutlined } from '@mui/icons-material';
 import { Box, CircularProgress, Container, Link, Typography } from '@mui/material';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MedicationDTO } from 'utils';
 import { ExternalMedication, useExternalMedicationHistory } from '../../../hooks/useExternalMedicationHistory';
 import { ExtractObjectType } from '../../../stores/appointment/appointment.queries';
@@ -24,6 +24,28 @@ interface ExternalRxSuggestionsProps {
 export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedMedications, onSelectMedication }) => {
   const { isLoading, isAvailable, externalMedications } = useExternalMedicationHistory(chartedMedications);
   const [expanded, setExpanded] = useState(false);
+  // Track names that were just clicked (optimistic hide).
+  // Uses a ref so the set persists but we derive visibility reactively.
+  const addedNamesRef = useRef(new Set<string>());
+  const [, forceRender] = useState(0);
+
+  // When chartedMedications changes, prune addedNames: keep only names still in the chart.
+  // This handles the case where a user deletes a charted med — it should reappear in suggestions.
+  const prevChartedCountRef = useRef(chartedMedications.length);
+  useEffect(() => {
+    if (chartedMedications.length < prevChartedCountRef.current && addedNamesRef.current.size > 0) {
+      const chartedLower = chartedMedications.map((m) => m.name.toLowerCase().trim());
+      const stillCharted = new Set<string>();
+      for (const name of addedNamesRef.current) {
+        if (chartedLower.some((c) => c.includes(name) || name.includes(c))) {
+          stillCharted.add(name);
+        }
+      }
+      addedNamesRef.current = stillCharted;
+      forceRender((n) => n + 1);
+    }
+    prevChartedCountRef.current = chartedMedications.length;
+  }, [chartedMedications]);
 
   const handleMedicationClick = useCallback(
     (med: ExternalMedication) => {
@@ -33,13 +55,20 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
           dose: med.strength,
           directions: med.directions,
         });
+        addedNamesRef.current = new Set(addedNamesRef.current).add(med.name.toLowerCase().trim());
+        forceRender((n) => n + 1);
       }
     },
     [onSelectMedication]
   );
 
-  const displayedMeds = expanded ? externalMedications : externalMedications.slice(0, COLLAPSED_COUNT);
-  const hasMore = externalMedications.length > COLLAPSED_COUNT;
+  const visibleMedications = useMemo(
+    () => externalMedications.filter((med) => !addedNamesRef.current.has(med.name.toLowerCase().trim())),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [externalMedications, addedNamesRef.current.size]
+  );
+  const displayedMeds = expanded ? visibleMedications : visibleMedications.slice(0, COLLAPSED_COUNT);
+  const hasMore = visibleMedications.length > COLLAPSED_COUNT;
 
   const formatDate = (dateStr: string | null): string | null => {
     if (!dateStr) return null;
@@ -85,7 +114,7 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
           <Typography variant="body2" color="text.secondary">
             Not available
           </Typography>
-        ) : externalMedications.length === 0 ? (
+        ) : visibleMedications.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No external medications found, or all have been reconciled.
           </Typography>

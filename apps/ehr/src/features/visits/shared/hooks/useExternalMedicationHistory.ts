@@ -122,9 +122,9 @@ export interface UseExternalMedicationHistoryResult {
 const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   {
     id: 1001,
-    medicationId: 50001,
-    ndc: '00093-5057-01',
-    rxcui: 329528,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'amLODIPine',
     route: 'Oral',
     doseForm: 'Tablet',
@@ -147,9 +147,9 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
   {
     id: 1002,
-    medicationId: 50002,
-    ndc: '00093-7341-01',
-    rxcui: 314076,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'LisinoPRIL',
     route: 'Oral',
     doseForm: 'Tablet',
@@ -172,9 +172,9 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
   {
     id: 1003,
-    medicationId: 50003,
-    ndc: '00093-5058-01',
-    rxcui: 259255,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'AtorvaSTATin',
     route: 'Oral',
     doseForm: 'Tablet',
@@ -197,9 +197,9 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
   {
     id: 1004,
-    medicationId: 50004,
-    ndc: '00378-1805-01',
-    rxcui: 966247,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'Levothyroxine',
     route: 'Oral',
     doseForm: 'Tablet',
@@ -222,9 +222,9 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
   {
     id: 1005,
-    medicationId: 50005,
-    ndc: '00093-7212-01',
-    rxcui: 861007,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'MetFORMIN',
     route: 'Oral',
     doseForm: 'Tablet',
@@ -247,9 +247,9 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
   {
     id: 1006,
-    medicationId: 50006,
-    ndc: '00093-5116-01',
-    rxcui: 198365,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'Alendronate',
     route: 'Oral',
     doseForm: 'Tablet',
@@ -272,9 +272,9 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
   {
     id: 1007,
-    medicationId: 50007,
-    ndc: '00093-5340-01',
-    rxcui: 198106,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'Omeprazole',
     route: 'Oral',
     doseForm: 'Capsule',
@@ -297,9 +297,9 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
   {
     id: 1008,
-    medicationId: 50008,
-    ndc: '00363-0227-01',
-    rxcui: 198440,
+    medicationId: 0,
+    ndc: null,
+    rxcui: null,
     name: 'Acetaminophen',
     route: 'Oral',
     doseForm: 'Tablet',
@@ -322,7 +322,7 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   },
 ];
 
-const USE_MOCK_DATA = import.meta.env.DEV;
+const IS_SANDBOX = ['local', 'development'].includes(import.meta.env.VITE_APP_ENV ?? '');
 
 export const useExternalMedicationHistory = (
   chartedMedications: MedicationDTO[]
@@ -342,12 +342,15 @@ export const useExternalMedicationHistory = (
     queryKey: ['external-medication-history', patientId],
     queryFn: async () => {
       if (!oystehr || !patientId) throw new Error('API client or patient not available');
-      if (USE_MOCK_DATA) {
-        // Simulate network delay for realistic UX
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        return MOCK_EXTERNAL_HISTORY;
+      try {
+        const history = await oystehr.erx.getMedicationHistory({ patientId });
+        if (history.length > 0) return history;
+      } catch {
+        /* fall through to mock data in sandbox */
       }
-      return oystehr.erx.getMedicationHistory({ patientId });
+      // In sandbox environments, fall back to stub data when no real data is available
+      if (IS_SANDBOX) return MOCK_EXTERNAL_HISTORY;
+      return [];
     },
     enabled: !!oystehr && !!patientId,
     staleTime: 5 * 60 * 1000,
@@ -381,6 +384,69 @@ export const useExternalMedicationHistory = (
         uniqueEntries.map(async (entry) => {
           const key = `${entry.name}|${entry.strength ?? ''}`;
           try {
+            // Step 2a: Try direct ID lookup first (ndc, rxcui, or medicationId)
+            let idMatch: ExtractObjectType<ErxSearchMedicationsResponse> | null = null;
+            if (entry.ndc) {
+              try {
+                const med = await oystehr.erx.getMedication({ ndc: entry.ndc });
+                if (med) {
+                  idMatch = {
+                    id: med.id,
+                    routedDoseFormDrugId: med.id,
+                    name: med.name,
+                    rxcui: med.rxcui ?? null,
+                    ndc: med.ndc ?? null,
+                    strength: med.strength ?? '',
+                    isObsolete: med.isObsolete,
+                  };
+                }
+              } catch {
+                /* ndc lookup failed, continue */
+              }
+            }
+            if (!idMatch && entry.rxcui) {
+              try {
+                const med = await oystehr.erx.getMedication({ rxcui: entry.rxcui });
+                if (med) {
+                  idMatch = {
+                    id: med.id,
+                    routedDoseFormDrugId: med.id,
+                    name: med.name,
+                    rxcui: med.rxcui ?? null,
+                    ndc: med.ndc ?? null,
+                    strength: med.strength ?? '',
+                    isObsolete: med.isObsolete,
+                  };
+                }
+              } catch {
+                /* rxcui lookup failed, continue */
+              }
+            }
+            if (!idMatch && entry.medicationId) {
+              try {
+                const med = await oystehr.erx.getMedication({ drugId: entry.medicationId });
+                if (med) {
+                  idMatch = {
+                    id: med.id,
+                    routedDoseFormDrugId: med.id,
+                    name: med.name,
+                    rxcui: med.rxcui ?? null,
+                    ndc: med.ndc ?? null,
+                    strength: med.strength ?? '',
+                    isObsolete: med.isObsolete,
+                  };
+                }
+              } catch {
+                /* drugId lookup failed, continue */
+              }
+            }
+
+            if (idMatch) {
+              results.set(key, { match: idMatch, isExact: true });
+              return;
+            }
+
+            // Step 2b: Fall back to name search
             const searchResponse = await oystehr.erx.searchMedications({ name: entry.name });
             const match = findBestMatch(searchResponse, entry.name, entry.strength, entry.rxcui);
             results.set(key, match);

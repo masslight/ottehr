@@ -73,14 +73,26 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
     refetchHistory
   );
 
-  // Expose a callback so the patient column can pre-populate the form
+  // Expose a callback so the patient column can directly add external meds to the chart
   useEffect(() => {
     if (onSelectMedicationRef) {
       onSelectMedicationRef.current = (selection) => {
-        setValue('medication', selection.medication);
-        if (selection.dose) {
-          setValue('dose', selection.dose);
-        }
+        void (async () => {
+          const success = await onSubmit({
+            name: `${selection.medication.name}${
+              selection.medication.strength ? ` (${selection.medication.strength})` : ''
+            }`,
+            id: selection.medication.id?.toString(),
+            type: 'scheduled',
+            intakeInfo: {
+              dose: selection.dose ?? undefined,
+            },
+            status: 'active',
+          });
+          if (success) {
+            void refetchHistory();
+          }
+        })();
       };
     }
     return () => {
@@ -88,7 +100,7 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
         onSelectMedicationRef.current = null;
       }
     };
-  }, [onSelectMedicationRef, setValue]);
+  }, [onSelectMedicationRef, onSubmit, refetchHistory]);
 
   // Report current medications to parent for External Rx filtering
   useEffect(() => {
