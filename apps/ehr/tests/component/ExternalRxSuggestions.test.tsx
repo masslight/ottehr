@@ -30,13 +30,15 @@ const makeExternalMed = (overrides: Partial<ExternalMedication> & { name: string
   ...overrides,
 });
 
-const makeMatchedMed = (name: string, strength: string): ExternalMedication =>
-  makeExternalMed({
+let nextMedId = 1;
+const makeMatchedMed = (name: string, strength: string): ExternalMedication => {
+  const id = nextMedId++;
+  return makeExternalMed({
     name,
     strength,
     matchedMedication: {
-      id: 1,
-      routedDoseFormDrugId: 1,
+      id,
+      routedDoseFormDrugId: id,
       name,
       rxcui: null,
       ndc: null,
@@ -45,10 +47,12 @@ const makeMatchedMed = (name: string, strength: string): ExternalMedication =>
     },
     isExactMatch: true,
   });
+};
 
 describe('ExternalRxSuggestions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    nextMedId = 1;
   });
 
   it('shows loading state', () => {

@@ -24,28 +24,34 @@ interface ExternalRxSuggestionsProps {
 export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedMedications, onSelectMedication }) => {
   const { isLoading, isAvailable, externalMedications } = useExternalMedicationHistory(chartedMedications);
   const [expanded, setExpanded] = useState(false);
-  // Track names that were just clicked (optimistic hide).
-  // Uses a ref so the set persists but we derive visibility reactively.
-  const addedNamesRef = useRef(new Set<string>());
+  // Track medication IDs that were just clicked (optimistic hide).
+  // Uses the matched medication's eRx ID for reliable matching.
+  const addedIdsRef = useRef(new Set<number>());
   const [, forceRender] = useState(0);
 
-  // When chartedMedications changes, prune addedNames: keep only names still in the chart.
-  // This handles the case where a user deletes a charted med — it should reappear in suggestions.
-  const prevChartedCountRef = useRef(chartedMedications.length);
+  // Track which IDs have been confirmed in chartedMedications at least once.
+  const confirmedIdsRef = useRef(new Set<number>());
+
+  const chartedIds = useMemo(() => new Set(chartedMedications.map((m) => m.id).filter(Boolean)), [chartedMedications]);
+
   useEffect(() => {
-    if (chartedMedications.length < prevChartedCountRef.current && addedNamesRef.current.size > 0) {
-      const chartedLower = chartedMedications.map((m) => m.name.toLowerCase().trim());
-      const stillCharted = new Set<string>();
-      for (const name of addedNamesRef.current) {
-        if (chartedLower.some((c) => c.includes(name) || name.includes(c))) {
-          stillCharted.add(name);
-        }
+    if (addedIdsRef.current.size === 0) return;
+    let changed = false;
+
+    for (const id of addedIdsRef.current) {
+      const idStr = String(id);
+      if (chartedIds.has(idStr)) {
+        confirmedIdsRef.current.add(id);
+      } else if (confirmedIdsRef.current.has(id)) {
+        // Was confirmed before but now gone — user deleted it
+        addedIdsRef.current.delete(id);
+        confirmedIdsRef.current.delete(id);
+        changed = true;
       }
-      addedNamesRef.current = stillCharted;
-      forceRender((n) => n + 1);
     }
-    prevChartedCountRef.current = chartedMedications.length;
-  }, [chartedMedications]);
+
+    if (changed) forceRender((n) => n + 1);
+  }, [chartedIds]);
 
   const handleMedicationClick = useCallback(
     (med: ExternalMedication) => {
@@ -55,7 +61,7 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
           dose: med.strength,
           directions: med.directions,
         });
-        addedNamesRef.current = new Set(addedNamesRef.current).add(med.name.toLowerCase().trim());
+        addedIdsRef.current = new Set(addedIdsRef.current).add(med.matchedMedication.id);
         forceRender((n) => n + 1);
       }
     },
@@ -63,9 +69,10 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
   );
 
   const visibleMedications = useMemo(
-    () => externalMedications.filter((med) => !addedNamesRef.current.has(med.name.toLowerCase().trim())),
+    () =>
+      externalMedications.filter((med) => !med.matchedMedication || !addedIdsRef.current.has(med.matchedMedication.id)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [externalMedications, addedNamesRef.current.size]
+    [externalMedications, addedIdsRef.current.size]
   );
   const displayedMeds = expanded ? visibleMedications : visibleMedications.slice(0, COLLAPSED_COUNT);
   const hasMore = visibleMedications.length > COLLAPSED_COUNT;

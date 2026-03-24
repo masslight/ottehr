@@ -465,14 +465,21 @@ export const useExternalMedicationHistory = (
   const externalMedications = useMemo(() => {
     if (!rawHistory || !searchResults) return [];
 
-    // Charted medication names can be verbose, e.g. "Omeprazole Magnesium Oral Capsule Delayed Release (20.6 (20 Base) MG)"
-    // while external names may be short, e.g. "Omeprazole". Use substring matching in both directions.
+    // Build sets of charted medication IDs and names for efficient lookup
+    const chartedIds = new Set(chartedMedications.map((med) => med.id).filter(Boolean));
     const chartedNamesLower = chartedMedications.map((med) => med.name.toLowerCase().trim());
 
     return rawHistory
       .filter((item) => {
+        // Check by ID first — the matched medication ID is what gets saved to the chart
+        const matchKey = `${item.name}|${item.strength ?? ''}`;
+        const matchedMed = searchResults.get(matchKey);
+        if (matchedMed?.match?.id && chartedIds.has(String(matchedMed.match.id))) {
+          return false;
+        }
+
+        // Fall back to name substring matching
         const externalName = item.name.toLowerCase().trim();
-        // Check if any charted medication name contains the external name or vice versa
         const alreadyCharted = chartedNamesLower.some(
           (charted) => charted.includes(externalName) || externalName.includes(charted)
         );

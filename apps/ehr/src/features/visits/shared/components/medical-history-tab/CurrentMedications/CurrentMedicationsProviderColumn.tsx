@@ -78,10 +78,12 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
     if (onSelectMedicationRef) {
       onSelectMedicationRef.current = (selection) => {
         void (async () => {
+          const medName = selection.medication.name;
+          const strength = selection.medication.strength;
+          const nameAlreadyHasStrength = strength && medName.toLowerCase().includes(strength.toLowerCase());
+          const displayName = nameAlreadyHasStrength || !strength ? medName : `${medName} (${strength})`;
           const success = await onSubmit({
-            name: `${selection.medication.name}${
-              selection.medication.strength ? ` (${selection.medication.strength})` : ''
-            }`,
+            name: displayName,
             id: selection.medication.id?.toString(),
             type: 'scheduled',
             intakeInfo: {
