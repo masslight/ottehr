@@ -116,6 +116,7 @@ const performEffect = async (
   });
   console.log('Fax sent successfully');
 
+  const containedId = faxNumber.split('+1')[1];
   console.log('Creating provenance for fax');
   const provenance = await oystehr.fhir.create<Provenance>({
     resourceType: 'Provenance',
@@ -186,14 +187,14 @@ const performEffect = async (
           },
         ],
         who: {
-          reference: `#${faxNumber}`,
+          reference: `#${containedId}`,
         },
       },
     ],
     contained: [
       {
         resourceType: 'Practitioner',
-        id: faxNumber,
+        id: containedId,
         telecom: [
           {
             system: 'fax',
