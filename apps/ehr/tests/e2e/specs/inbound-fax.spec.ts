@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { Communication } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
@@ -11,12 +12,12 @@ test.beforeAll(async () => {
   await resourceHandler.setResources({ skipPaperwork: true });
 
   // Create a fake inbound fax Communication + Task via the Oystehr client
-  const oystehr = resourceHandler.oystehr;
+  const oystehr = await ResourceHandler.getOystehr();
 
   const senderFaxNumber = '+15559876543';
 
   // Create the Communication resource simulating an inbound fax
-  const communication = await oystehr.fhir.create({
+  const communication = await oystehr.fhir.create<Communication>({
     resourceType: 'Communication',
     status: 'completed',
     medium: [
