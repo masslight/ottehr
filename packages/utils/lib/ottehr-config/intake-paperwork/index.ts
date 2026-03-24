@@ -1,7 +1,5 @@
 import {
   type PaperworkConfig,
-  PaperworkConfigSchema,
-  PaperworkFormFields,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
   type ResolvedConsentFormConfig,
@@ -9,7 +7,10 @@ import {
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
 import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
-import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
+import {
+  buildConsentFormCheckboxItems,
+  checkFieldHidden as _checkFieldHidden,
+} from '../../config-helpers/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
@@ -38,8 +39,8 @@ const questionnaireBaseDefaults = {
  * Build FormFields dynamically with the given value sets.
  * This allows test overrides to be picked up at config creation time.
  */
-
-function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function buildFormFields(valueSets: ValueSetsConfig) {
   return {
     contactInformation: {
       linkId: 'contact-information-page',
@@ -206,7 +207,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: 'My pronouns are not listed',
             },
           ],
-          disabledDisplay: 'hidden',
         },
         additionalText: {
           key: 'patient-details-additional-text',
@@ -247,7 +247,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: 'Other',
             },
           ],
-          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -352,7 +351,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerBoolean: true,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         manualEntry: {
           key: 'pharmacy-page-manual-entry',
@@ -374,7 +372,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               substituteText: 'Use search',
             },
           ],
-          disabledDisplay: 'hidden',
         },
         name: {
           key: 'pharmacy-name',
@@ -394,7 +391,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerBoolean: true,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         address: {
           key: 'pharmacy-address',
@@ -414,7 +410,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerBoolean: true,
             },
           ],
-          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -461,7 +456,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
           enableBehavior: 'all',
-          disabledDisplay: 'hidden',
         },
         workersCompAlert: {
           key: 'workers-comp-alert-text',
@@ -483,7 +477,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
           enableBehavior: 'all',
-          disabledDisplay: 'hidden',
         },
         insuranceDetailsText: {
           key: 'insurance-details-text',
@@ -497,7 +490,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         insuranceDetailsCaption: {
           key: 'insurance-details-caption',
@@ -511,7 +503,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         insuranceCarrier: {
           key: 'insurance-carrier',
@@ -537,7 +528,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         insuranceMemberId: {
           key: 'insurance-member-id',
@@ -557,7 +547,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         policyHolderFirstName: {
           key: 'policy-holder-first-name',
@@ -597,7 +586,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         policyHolderLastName: {
           key: 'policy-holder-last-name',
@@ -868,7 +856,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         insuranceCardBack: {
           key: 'insurance-card-back',
@@ -891,7 +878,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         displaySecondaryInsurance: {
           key: 'display-secondary-insurance',
@@ -919,7 +905,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               substituteText: 'Remove Secondary Insurance',
             },
           ],
-          disabledDisplay: 'hidden',
         },
         secondaryInsurance: {
           key: 'secondary-insurance',
@@ -1112,7 +1097,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
           enableBehavior: 'all',
-          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1164,7 +1148,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: OCC_MED_SELF_PAY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1325,7 +1308,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: 'Self',
             },
           ],
-          disabledDisplay: 'hidden',
         },
         streetAddress: {
           key: 'responsible-party-address',
@@ -1755,7 +1737,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         firstName: {
           key: 'attorney-mva-first-name',
@@ -1769,7 +1750,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         lastName: {
           key: 'attorney-mva-last-name',
@@ -1783,7 +1763,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         email: {
           key: 'attorney-mva-email',
@@ -1798,7 +1777,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         mobile: {
           key: 'attorney-mva-mobile',
@@ -1813,7 +1791,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
         fax: {
           key: 'attorney-mva-fax',
@@ -1828,7 +1805,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
-          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1996,7 +1972,7 @@ export function getIntakePaperworkConfig(consentFormsConfig?: ResolvedConsentFor
   const FormFields = buildFormFields(valueSets);
 
   // Build defaults with the dynamic FormFields
-  const INTAKE_PAPERWORK_DEFAULTS: PaperworkConfig = {
+  const INTAKE_PAPERWORK_DEFAULTS = {
     questionnaireBase: questionnaireBaseDefaults,
     hiddenFormSections,
     FormFields,
@@ -2019,7 +1995,7 @@ export function getIntakePaperworkConfig(consentFormsConfig?: ResolvedConsentFor
   // Merge: defaults -> consent forms
   const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
 
-  return PaperworkConfigSchema.parse(mergedConfig);
+  return mergedConfig as unknown as PaperworkConfig;
 }
 
 // Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
@@ -2027,3 +2003,10 @@ export const INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
 
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)));
+
+export const checkFieldHidden = (fieldKey: string): boolean => {
+  return _checkFieldHidden(INTAKE_PAPERWORK_CONFIG, fieldKey);
+};
+
+// Re-export helpers from config-helpers for backward compatibility
+export { getIntakeFormPageSubtitle, buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';

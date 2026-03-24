@@ -1,7 +1,14 @@
-import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem, FormFieldTrigger } from 'config-types';
 import { DateTime } from 'luxon';
 import { FieldError, RegisterOptions } from 'react-hook-form';
-import { PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE, zipRegex } from 'utils';
+import {
+  FormFieldsDisplayItem,
+  FormFieldsGroupItem,
+  FormFieldsInputItem,
+  FormFieldTrigger,
+  PATIENT_RECORD_CONFIG,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+  zipRegex,
+} from 'utils';
 
 interface Trigger extends Omit<FormFieldTrigger, 'effect'> {
   effect: string;

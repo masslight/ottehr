@@ -1,9 +1,9 @@
-import type { QuestionnaireConfigType } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
 import {
   CanonicalUrl,
   createQuestionnaireFromConfig,
   INTAKE_PAPERWORK_CONFIG,
+  QuestionnaireConfigType,
   ServiceMode,
   VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';

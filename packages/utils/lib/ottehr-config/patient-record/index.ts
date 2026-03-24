@@ -1,10 +1,10 @@
+import { type FormFieldTrigger, type PatientRecordConfig, type QuestionnaireBase } from 'config-types';
+import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
-  type FormFieldTrigger,
-  type PatientRecordConfig,
-  type PatientRecordFormFields,
-  type QuestionnaireBase,
-} from 'config-types';
-import { Questionnaire } from 'fhir/r4b';
+  type PatientRecordFormConfig,
+  prepopulatePatientRecordItems as _prepopulatePatientRecordItems,
+  type PrePopulationFromPatientRecordInputWithContext,
+} from '../../config-helpers/patient-record';
 import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
@@ -55,7 +55,7 @@ const InsuredAddressNotSameAsPatientTrigger2: FormFieldTrigger = {
   answerBoolean: true,
 };
 
-const FormFields: PatientRecordFormFields = {
+const FormFields = {
   patientSummary: {
     linkId: 'patient-info-section',
     title: 'Patient summary',
@@ -1004,13 +1004,30 @@ const questionnaireBaseDefaults = {
   status: 'active',
 } as const satisfies QuestionnaireBase;
 
-const PATIENT_RECORD_DEFAULTS: PatientRecordConfig = {
+const PATIENT_RECORD_DEFAULTS = {
   questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
   FormFields,
 };
 
-export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(PATIENT_RECORD_DEFAULTS);
+export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(
+  PATIENT_RECORD_DEFAULTS as unknown as PatientRecordConfig
+);
+
+export type {
+  AppointmentContext,
+  PrePopulationFromPatientRecordInputWithContext,
+} from '../../config-helpers/patient-record';
+
+export const prepopulatePatientRecordItems = (
+  input: PrePopulationFromPatientRecordInputWithContext
+): QuestionnaireResponseItem[] => {
+  const formConfig: PatientRecordFormConfig = {
+    hiddenFields: PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields,
+    requiredFields: PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields,
+  };
+  return _prepopulatePatientRecordItems(input, formConfig);
+};
 
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

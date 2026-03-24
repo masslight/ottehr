@@ -1,8 +1,13 @@
-import { FormFieldItemRecord, FormFieldItemRecordSchema, FormFieldsDisplayItem, FormFieldSection } from 'config-types';
 import { FC, ReactElement } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Section } from 'src/components/layout';
-import { PATIENT_RECORD_CONFIG } from 'utils';
+import {
+  FormFieldItemRecord,
+  FormFieldItemRecordSchema,
+  FormFieldsDisplayItem,
+  FormFieldSection,
+  PATIENT_RECORD_CONFIG,
+} from 'utils';
 import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormSectionInput {
