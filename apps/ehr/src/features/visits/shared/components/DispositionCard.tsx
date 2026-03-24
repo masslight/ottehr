@@ -140,7 +140,7 @@ export const DispositionCard: FC = () => {
     });
     return () => subscription.unsubscribe();
   }, [handleSubmit, onSubmit, watch]);
-
+  const isEmsTransportRefused = watch(REFUSAL_OF_EMS_TRANSPORT_FIELD);
   const fields = dispositionFieldsPerType[currentType];
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
 
@@ -400,15 +400,17 @@ export const DispositionCard: FC = () => {
                   />
                 }
               />
-              <Typography variant="body2" sx={{ fontSize: 12, opacity: '60%', lineHeight: '125%' }}>
-                Patient was advised that their condition requires immediate transfer to the Emergency Department via EMS
-                or higher-level care to ensure proper treatment for this condition. Patient has decision-making capacity
-                and has been informed of the risks of self-transport, including potential clinical worsening, permanent
-                disability, or death during transit. Patient refused EMS transport and elected to transport self against
-                medical advice (AMA). Advised to go to the Emergency Department immediately for worsening or persistent
-                symptoms. Patient understands that the clinic's responsibility for care ends upon their departure from
-                this facility.
-              </Typography>
+              {isEmsTransportRefused && (
+                <Typography variant="body2" sx={{ fontSize: 12, opacity: '60%', lineHeight: '125%' }}>
+                  Patient was advised that their condition requires immediate transfer to the Emergency Department via
+                  EMS or higher-level care to ensure proper treatment for this condition. Patient has decision-making
+                  capacity and has been informed of the risks of self-transport, including potential clinical worsening,
+                  permanent disability, or death during transit. Patient refused EMS transport and elected to transport
+                  self against medical advice (AMA). Advised to go to the Emergency Department immediately for worsening
+                  or persistent symptoms. Patient understands that the clinic's responsibility for care ends upon their
+                  departure from this facility.
+                </Typography>
+              )}
             </Box>
           )}
 
