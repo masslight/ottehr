@@ -760,3 +760,5 @@ export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
   display: PROVENANCE_FAX_ACTIVITY_DISPLAY.faxSent,
   system: PROVENANCE_FAX_SYSTEM,
 };
+
+export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');

@@ -31,6 +31,7 @@ export interface ActivityLogData {
   activityName: ActivityName;
   activityNameSupplement?: string;
   activityBy: string;
+  activityLink?: string;
   moreDetails?: {
     valueBefore: string;
     valueAfter: string;
@@ -208,8 +209,8 @@ export const formatActivityLogs = ({
       activityName: ActivityName.faxSent,
       activityDateTimeISO: fax.created,
       activityDateTime: formatActivityDateTime(fax.created || '', timezone),
-      // todo link to fax.sender.id
       activityBy: fax.sender.display || 'n/a',
+      activityLink: `/employee/${fax.sender.id}`,
     });
   });
 

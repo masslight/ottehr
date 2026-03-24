@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Patient, Practitioner, Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  EMPLOYEE_ID_SYSTEM,
   FAX_SENT_PROVENANCE_ACTIVITY_CODING,
   getFullestAvailableName,
   getSecret,
@@ -147,6 +148,10 @@ const performEffect = async (
         who: {
           reference: `Practitioner/${userPractitioner.id}`,
           display: getFullestAvailableName(userPractitioner),
+          identifier: {
+            value: user.id,
+            system: EMPLOYEE_ID_SYSTEM,
+          },
         },
         onBehalfOf: {
           reference: `Organization/${organizationId}`,

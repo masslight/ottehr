@@ -85,7 +85,7 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
     recipientNumber: (provenance.contained?.[0] as Practitioner | undefined)?.telecom?.[0].value || '',
     created: provenance.occurredDateTime || '',
     sender: {
-      id: provenance.agent?.[0].who.reference?.split('/')[1] || '',
+      id: provenance.agent?.[0].who.identifier?.value || '',
       display: provenance.agent?.[0].who.display || '',
     },
   }));
