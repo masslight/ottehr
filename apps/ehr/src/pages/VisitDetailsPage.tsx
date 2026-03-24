@@ -482,13 +482,13 @@ export default function VisitDetailsPage(): ReactElement {
     queryKey: ['get-visit-fax-history', appointmentID],
 
     queryFn: async (): Promise<GetVisitFaxHistoryOutput> => {
-      if (oystehrZambda && appointmentID && patientId) {
-        return getVisitFaxHistory(oystehrZambda, { appointmentId: appointmentID, patientId });
+      if (oystehrZambda && appointmentID) {
+        return getVisitFaxHistory(oystehrZambda, { appointmentId: appointmentID });
       }
-      throw new Error('fhir client not defined or appointmentId or patientId not provided');
+      throw new Error('fhir client not defined or appointmentId not provided');
     },
 
-    enabled: Boolean(oystehrZambda) && appointmentID !== undefined && patientId !== undefined,
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
 
   const {
