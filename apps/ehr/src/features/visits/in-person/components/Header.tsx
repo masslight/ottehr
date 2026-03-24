@@ -44,6 +44,7 @@ import {
 } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { dataTestIds } from '../../../../constants/data-test-ids';
+import { FEATURE_FLAGS } from '../../../../constants/feature-flags';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
@@ -564,21 +565,23 @@ export const Header = (): JSX.Element => {
                     horizontal: 'right',
                   }}
                 >
-                  <MenuItem
-                    onClick={() => {
-                      setHeaderMenuAnchorEl(null);
-                      if (patient?.id) {
-                        navigate(`/patient/${patient.id}/followup/add`);
-                      }
-                    }}
-                    disabled={!patient?.id}
-                    sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
-                  >
-                    <ListItemIcon sx={{ color: theme.palette.primary.main }}>
-                      <CalendarMonthOutlinedIcon fontSize="small" />
-                    </ListItemIcon>
-                    Create Follow-Up Visit
-                  </MenuItem>
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <MenuItem
+                      onClick={() => {
+                        setHeaderMenuAnchorEl(null);
+                        if (patient?.id) {
+                          navigate(`/patient/${patient.id}/followup/add`);
+                        }
+                      }}
+                      disabled={!patient?.id}
+                      sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+                    >
+                      <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                        <CalendarMonthOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      Create Follow-Up Visit
+                    </MenuItem>
+                  )}
                   <MenuItem
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);

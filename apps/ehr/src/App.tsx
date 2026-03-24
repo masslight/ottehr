@@ -213,8 +213,12 @@ function App(): ReactElement {
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
-                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <>
+                      <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
+                      <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                    </>
+                  )}
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
@@ -258,8 +262,12 @@ function App(): ReactElement {
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
-                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <>
+                      <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
+                      <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                    </>
+                  )}
                   <Route path="/patients" element={<PatientsPage />} />
 
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />

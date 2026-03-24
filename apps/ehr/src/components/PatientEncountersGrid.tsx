@@ -45,6 +45,7 @@ import {
   TelemedCallStatusesArr,
   visitStatusArray,
 } from 'utils';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { RoundedButton } from './RoundedButton';
@@ -341,13 +342,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
           New Visit
         </RoundedButton>
-        <RoundedButton
-          variant="contained"
-          startIcon={<AddIcon fontSize="small" />}
-          onClick={() => navigate('followup/add')}
-        >
-          Follow-up
-        </RoundedButton>
+        {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+          <RoundedButton
+            variant="contained"
+            startIcon={<AddIcon fontSize="small" />}
+            onClick={() => navigate('followup/add')}
+          >
+            Follow-up
+          </RoundedButton>
+        )}
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2 }}>
@@ -483,7 +486,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                     DateTime.fromISO(a.dateTime ?? '').diff(DateTime.fromISO(b.dateTime ?? ''), 'milliseconds')
                       .milliseconds
                 );
-                const hasFollowups = followupEncountersForRow.length > 0;
+                const hasFollowups =
+                  FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && followupEncountersForRow.length > 0;
 
                 return (
                   <React.Fragment key={rowId}>
