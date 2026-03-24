@@ -1,4 +1,3 @@
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -9,7 +8,6 @@ import FaxIcon from '@mui/icons-material/Fax';
 import PhoneIcon from '@mui/icons-material/Phone';
 import {
   Box,
-  Button,
   Chip,
   CircularProgress,
   FormControl,
@@ -22,8 +20,10 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { BILLING_URL } from 'src/App';
+import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import PageContainer from 'src/layout/PageContainer';
 import { TerminalReaderInfo } from 'src/rcm/state/payments/payments.api';
 import {
   usePaymentLocationsQuery,
@@ -425,7 +425,6 @@ function StripeConnectSection({
 
 export default function PaymentLocationDetailPage(): ReactElement {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { data: locations, isLoading } = usePaymentLocationsQuery();
 
   const paymentLocation = locations?.find((pl) => pl.location.id === id);
@@ -440,17 +439,21 @@ export default function PaymentLocationDetailPage(): ReactElement {
 
   if (!paymentLocation) {
     return (
-      <Paper sx={{ padding: 3, marginTop: 2 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(`${BILLING_URL}/payment-locations`)}
-          size="small"
-          sx={{ mb: 1.5, textTransform: 'none' }}
-        >
-          Back to Locations
-        </Button>
-        <Typography color="text.secondary">Location not found.</Typography>
-      </Paper>
+      <PageContainer tabTitle="Payment Location">
+        <>
+          <CustomBreadcrumbs
+            chain={[
+              { link: '/admin', children: 'Admin' },
+              { link: BILLING_URL, children: 'Billing Configuration' },
+              { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
+              { link: '#', children: 'Not Found' },
+            ]}
+          />
+          <Paper sx={{ padding: 3, marginTop: 2 }}>
+            <Typography color="text.secondary">Location not found.</Typography>
+          </Paper>
+        </>
+      </PageContainer>
     );
   }
 
@@ -473,86 +476,89 @@ export default function PaymentLocationDetailPage(): ReactElement {
   }
 
   return (
-    <Paper sx={{ padding: 3, marginTop: 2 }}>
-      <Button
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate(`${BILLING_URL}/payment-locations`)}
-        size="small"
-        sx={{ mb: 1.5, textTransform: 'none' }}
-      >
-        Back to Locations
-      </Button>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          {location.name || 'Unnamed Location'}
-        </Typography>
-        {supportsVirtualVisits && (
-          <Chip
-            label="Virtual Visits Supported"
-            size="small"
-            sx={{ backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }}
-          />
-        )}
-      </Box>
-
-      <Box sx={{ mb: 2 }}>
-        <CopyableValue label="Location ID" value={location.id} />
-      </Box>
-
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 3,
-        }}
-      >
-        {/* Contact & Address */}
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-            Contact & Address
-          </Typography>
-
-          {addressLines.length > 0 ? (
-            <Box sx={{ mb: 1.5 }}>
-              {addressLines.map((line, i) => (
-                <Typography key={i} variant="body2">
-                  {line}
-                </Typography>
-              ))}
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.disabled" sx={{ mb: 1.5 }}>
-              No address on file
-            </Typography>
-          )}
-
-          {location.telecom && location.telecom.length > 0 ? (
-            location.telecom.map((t, i) => (
-              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
-                {TELECOM_ICONS[t.system ?? ''] ?? null}
-                <Typography variant="body2">{t.value}</Typography>
-                {t.use && (
-                  <Typography variant="caption" color="text.secondary">
-                    ({t.use})
-                  </Typography>
-                )}
-              </Box>
-            ))
-          ) : (
-            <Typography variant="body2" color="text.disabled">
-              No telecom on file
-            </Typography>
-          )}
-        </Paper>
-
-        {/* Stripe Connect */}
-        <StripeConnectSection
-          locationId={location.id!}
-          stripeAccountId={stripeAccountId}
-          stripeTerminalLocationId={stripeTerminalLocationId}
+    <PageContainer tabTitle="Payment Location">
+      <>
+        <CustomBreadcrumbs
+          chain={[
+            { link: '/admin', children: 'Admin' },
+            { link: BILLING_URL, children: 'Billing Configuration' },
+            { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
+            { link: '#', children: location.name || 'Unnamed Location' },
+          ]}
         />
-      </Box>
-    </Paper>
+        <Paper sx={{ padding: 3, marginTop: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              {location.name || 'Unnamed Location'}
+            </Typography>
+            {supportsVirtualVisits && (
+              <Chip
+                label="Virtual Visits Supported"
+                size="small"
+                sx={{ backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }}
+              />
+            )}
+          </Box>
+
+          <Box sx={{ mb: 2 }}>
+            <CopyableValue label="Location ID" value={location.id} />
+          </Box>
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 3,
+            }}
+          >
+            {/* Contact & Address */}
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                Contact & Address
+              </Typography>
+
+              {addressLines.length > 0 ? (
+                <Box sx={{ mb: 1.5 }}>
+                  {addressLines.map((line, i) => (
+                    <Typography key={i} variant="body2">
+                      {line}
+                    </Typography>
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.disabled" sx={{ mb: 1.5 }}>
+                  No address on file
+                </Typography>
+              )}
+
+              {location.telecom && location.telecom.length > 0 ? (
+                location.telecom.map((t, i) => (
+                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
+                    {TELECOM_ICONS[t.system ?? ''] ?? null}
+                    <Typography variant="body2">{t.value}</Typography>
+                    {t.use && (
+                      <Typography variant="caption" color="text.secondary">
+                        ({t.use})
+                      </Typography>
+                    )}
+                  </Box>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.disabled">
+                  No telecom on file
+                </Typography>
+              )}
+            </Paper>
+
+            {/* Stripe Connect */}
+            <StripeConnectSection
+              locationId={location.id!}
+              stripeAccountId={stripeAccountId}
+              stripeTerminalLocationId={stripeTerminalLocationId}
+            />
+          </Box>
+        </Paper>
+      </>
+    </PageContainer>
   );
 }

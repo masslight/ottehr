@@ -41,7 +41,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
+import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -68,7 +68,8 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
   const entityLabelLower = entityLabel.toLowerCase();
   const baseUrl = isChargeMaster ? CHARGE_MASTERS_URL : FEE_SCHEDULES_URL;
   const queryKey = isChargeMaster ? 'charge-masters' : 'fee-schedules';
-  const tabSlug = isChargeMaster ? 'charge-masters' : 'fee-schedule';
+  const billingSubTab = isChargeMaster ? 'charge-masters' : 'fee-schedules';
+  const entityLabelPlural = isChargeMaster ? 'Charge Masters' : 'Fee Schedules';
 
   const theme = useTheme();
   const queryClient = useQueryClient();
@@ -329,7 +330,8 @@ export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeSchedu
             <CustomBreadcrumbs
               chain={[
                 { link: '/admin', children: 'Admin' },
-                { link: `/admin/${tabSlug}`, children: entityLabel },
+                { link: BILLING_URL, children: 'Billing Configuration' },
+                { link: `${BILLING_URL}/${billingSubTab}`, children: entityLabelPlural },
                 {
                   link: '#',
                   children: isFetching ? <Skeleton width={150} /> : feeSchedule?.title || '',
