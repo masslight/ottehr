@@ -116,7 +116,7 @@ const performEffect = async (
   });
   console.log('Fax sent successfully');
 
-  const containedId = faxNumber.split('+1')[1];
+  const containedId = faxNumber.replace(/^\+1/, '').replace(/\D/g, '');
   console.log('Creating provenance for fax');
   const provenance = await oystehr.fhir.create<Provenance>({
     resourceType: 'Provenance',
