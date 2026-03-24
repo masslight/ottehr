@@ -100,7 +100,12 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
         <Paper sx={{ mb: 2 }}>
           <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-              <Typography variant="h5" color="primary.dark" fontWeight="bold">
+              <Typography
+                data-testid={dataTestIds.finalResultPage.testName}
+                variant="h5"
+                color="primary.dark"
+                fontWeight="bold"
+              >
                 {testDetails.testItemName}
               </Typography>
               <Box data-testid={dataTestIds.finalResultPage.dateAndStatus} display="flex" alignItems="center" gap="8px">

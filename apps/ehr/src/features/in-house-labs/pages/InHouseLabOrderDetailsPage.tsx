@@ -2,6 +2,7 @@ import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material'
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
@@ -72,7 +73,13 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   if (loadingState === LoadingState.loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+      <Box
+        data-testid={dataTestIds.orderInHouseLabPage.loading}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="300px"
+      >
         <CircularProgress />
       </Box>
     );

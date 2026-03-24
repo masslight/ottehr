@@ -10,6 +10,8 @@ import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { RadioSelectionResult } from 'tests/e2e/page/lab';
+import { getServiceRequestIdFromPageUrl } from 'tests/e2e/page/lab/in-house/helpers';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
@@ -206,7 +208,7 @@ test.describe('Procedures Page', () => {
 test.describe('In-house labs page', async () => {
   const DIAGNOSIS = 'Situs inversus';
   const SOURCE = 'Nasopharyngeal swab';
-  const TEST_RESULT_DETECTED = 'Detected';
+  // const TEST_RESULT_DETECTED = 'Detected';
   const SECTION_TITLE = 'In-House Labs';
   const STATUS = {
     ORDERED: 'ORDERED',
@@ -239,13 +241,14 @@ test.describe('In-house labs page', async () => {
   });
 
   test('IHL-1 In-house labs. Happy Path', async () => {
-    let TEST_NAME: string;
+    let testName: string = 'placeholder';
+
     await test.step('IHL-1.1 Open In-house Labs and place order', async () => {
       const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
       await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
       await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
-      TEST_NAME = await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
-      const CPT_CODE = TEST_TYPE_TO_CPT[TEST_NAME];
+      testName = await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
+      const CPT_CODE = TEST_TYPE_TO_CPT[testName];
       await orderInHouseLabPage.verifyCPTCode(CPT_CODE);
       await orderInHouseLabPage.verifyOrderInHouseLabButtonEnabled();
       await orderInHouseLabPage.verifyOrderAndPrintLabelButtonEnabled();
@@ -254,34 +257,91 @@ test.describe('In-house labs page', async () => {
 
     await test.step('IHL-1.2 Collect sample', async () => {
       const orderDetailsPage = await expectOrderDetailsPage(page);
-      await orderDetailsPage.collectSamplePage.verifyTestName(TEST_NAME);
+      await orderDetailsPage.collectSamplePage.verifyTestName(testName);
       await orderDetailsPage.collectSamplePage.verifyMarkAsCollectedButtonDisabled();
       await orderDetailsPage.collectSamplePage.verifyStatus(STATUS.ORDERED);
       await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
       await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
     });
 
+    let testDetails: RadioSelectionResult;
+
     await test.step('IHL-1.3 Perform test and submit result', async () => {
       const performTestPage = new PerformTestPage(page);
       await performTestPage.verifyPerformTestPageOpened();
       await performTestPage.verifyStatus(STATUS.COLLECTED);
       await performTestPage.verifySubmitButtonDisabled();
-      await performTestPage.selectTestResult(TEST_RESULT_DETECTED);
+      testDetails = await performTestPage.selectRadioTestResult(testName);
       await performTestPage.verifySubmitButtonEnabled();
       await performTestPage.submitOrderResult();
     });
 
-    await test.step('IHL-1.4 Verify final result & PDF', async () => {
+    await test.step('IHL-1.4 Verify final result & PDF & ability to edit results', async () => {
       const finalResultPage = new FinalResultPage(page);
       await finalResultPage.verifyStatus(STATUS.FINAL);
-      await finalResultPage.verifyTestResult(TEST_RESULT_DETECTED);
+      await finalResultPage.verifyTestResult(testDetails.selectedValue.testId);
       await finalResultPage.verifyResultsPDFButtonEnabled();
       await finalResultPage.verifyResultsPdfOpensInNewTab();
+
+      await test.step('verify edit in-house results functionality', async () => {
+        await finalResultPage.verifyEditResultFunctionality(testDetails);
+      });
     });
 
     await test.step('IHL-1.5 Verify Progress Note shows IHL entry', async () => {
       const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-      await progressNotePage.verifyInHouseLabs(SECTION_TITLE, TEST_NAME);
+      await progressNotePage.verifyInHouseLabs(SECTION_TITLE, testDetails.testName);
+    });
+
+    await test.step('IHL-1.6 Verify delete in-house lab functionality at each status', async () => {
+      // go back to the labs table
+      let inHouseLabsPage = await sideMenu.clickInHouseLabs();
+
+      await test.step('Delete a FINAL lab', async () => {
+        // lab that we created and entered results for from above
+        await inHouseLabsPage.deleteTest(testDetails.testServiceRequestId);
+      });
+
+      await test.step('Delete a COLLECTED lab', async () => {
+        let collectedLabServiceRequestId: string = 'placeholder';
+        await test.step('Create a lab', async () => {
+          const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+          await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
+          await orderInHouseLabPage.clickOrderInHouseLabButton();
+        });
+
+        await test.step('Mark as collected', async () => {
+          const orderDetailsPage = await expectOrderDetailsPage(page);
+          await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
+          await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+          collectedLabServiceRequestId = getServiceRequestIdFromPageUrl(orderDetailsPage.page);
+        });
+
+        await test.step('Delete the lab', async () => {
+          // go back to the labs table
+          inHouseLabsPage = await sideMenu.clickInHouseLabs();
+          await inHouseLabsPage.deleteTest(collectedLabServiceRequestId);
+        });
+      });
+
+      await test.step('Delete an ORDERED lab', async () => {
+        let orderedLabServiceRequestId: string = 'placeholder';
+        await test.step('Create a lab', async () => {
+          const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+          await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
+          await orderInHouseLabPage.clickOrderInHouseLabButton();
+
+          // get the service request id
+          const orderDetailsPage = await expectOrderDetailsPage(page);
+          orderedLabServiceRequestId = getServiceRequestIdFromPageUrl(orderDetailsPage.page);
+        });
+
+        await test.step('Delete the lab', async () => {
+          // go back to the labs table
+          inHouseLabsPage = await sideMenu.clickInHouseLabs();
+          await inHouseLabsPage.deleteTest(orderedLabServiceRequestId);
+        });
+      });
     });
   });
 

@@ -78,8 +78,12 @@ export abstract class BaseProgressNotePage {
 
   async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toBeVisible();
-    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toContainText(testName);
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle)),
+      `${testName} is listed`
+    ).toContainText(testName);
   }
+
   async verifyAddedAllergyIsShown(allergy: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toBeVisible();
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toContainText(allergy);

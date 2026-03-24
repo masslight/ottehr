@@ -14,6 +14,10 @@ export class OrderInHouseLabPage {
     this.#collectSamplePage = new CollectSamplePage(this.#page);
   }
 
+  get page(): Page {
+    return this.#page;
+  }
+
   inPersonHeader(): InPersonHeader {
     return new InPersonHeader(this.#page);
   }
@@ -43,17 +47,22 @@ export class OrderInHouseLabPage {
   async clickOrderAndPrintLabelButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton).click();
   }
+
   async selectRadioEntryInHouseLab(radioEntryTestItems: TestItem[]): Promise<string> {
     const firstRadioEntryTestName = radioEntryTestItems[0].name;
 
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
+
     const radioEntryTest = this.#page
       .getByTestId(dataTestIds.orderInHouseLabPage.testTypeList)
       .locator('li', { hasText: firstRadioEntryTestName });
+
     await radioEntryTest.click();
+
     return firstRadioEntryTestName;
   }
+
   async verifyCPTCode(CPTCode: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.CPTCodeField)).toHaveText(CPTCode);
   }
