@@ -1,4 +1,4 @@
 {
   "html.validate.styles": false,
-  "js/ts.tsdk.path": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib"
 }
