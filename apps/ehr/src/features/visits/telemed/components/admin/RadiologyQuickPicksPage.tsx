@@ -116,8 +116,8 @@ const RadiologyQuickPicksPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {quickPicks.map((qp) => (
-                <TableRow key={qp.id}>
+              {quickPicks.map((qp, index) => (
+                <TableRow key={qp.id ?? `default-${index}`}>
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.studyName ?? ''}</TableCell>
                   <TableCell>{qp.cptCode ? `${qp.cptCode} — ${qp.cptDisplay ?? ''}` : ''}</TableCell>
