@@ -1624,7 +1624,7 @@ export const getVisitFaxHistory = async (
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 
