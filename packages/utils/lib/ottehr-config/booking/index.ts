@@ -1,6 +1,12 @@
-import { HomepageOptions } from 'config-types';
+import {
+  type FormFieldTrigger,
+  HomepageOptions,
+  type QuestionnaireBase,
+  type QuestionnaireConfigType,
+} from 'config-types';
 import { Coding, Patient, Questionnaire, QuestionnaireResponseItem, Slot } from 'fhir/r4b';
 import z from 'zod';
+import { prepopulateBookingForm as _prepopulateBookingForm } from '../../config-helpers/booking';
 import {
   FIELDS_TO_TRACK_CLEARING as _FIELDS_TO_TRACK_CLEARING,
   mapBookingQRItemToPatientInfo as _mapBookingQRItemToPatientInfo,
