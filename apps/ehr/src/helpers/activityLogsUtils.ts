@@ -210,7 +210,7 @@ export const formatActivityLogs = ({
       activityDateTimeISO: fax.created,
       activityDateTime: formatActivityDateTime(fax.created || '', timezone),
       activityBy: fax.sender.display || 'n/a',
-      activityLink: `/employee/${fax.sender.id}`,
+      activityLink: `/admin/employee/${fax.sender.id}`,
     });
   });
 
