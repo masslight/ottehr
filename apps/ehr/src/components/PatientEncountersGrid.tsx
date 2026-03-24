@@ -342,15 +342,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
           New Visit
         </RoundedButton>
-        {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
-          <RoundedButton
-            variant="contained"
-            startIcon={<AddIcon fontSize="small" />}
-            onClick={() => navigate('followup/add')}
-          >
-            Follow-up
-          </RoundedButton>
-        )}
+        <RoundedButton
+          variant="contained"
+          startIcon={<AddIcon fontSize="small" />}
+          onClick={() => navigate('followup/add')}
+        >
+          Follow-up
+        </RoundedButton>
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2 }}>

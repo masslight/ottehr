@@ -213,11 +213,9 @@ function App(): ReactElement {
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
-                    <>
-                      <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                      <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
-                    </>
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   )}
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
@@ -262,11 +260,9 @@ function App(): ReactElement {
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
-                    <>
-                      <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                      <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
-                    </>
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   )}
                   <Route path="/patients" element={<PatientsPage />} />
 
