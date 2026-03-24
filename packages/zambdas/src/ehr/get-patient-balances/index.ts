@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
+import { createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
@@ -29,9 +29,6 @@ type EncounterIdMap = Map<
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-patient-balances';
-// https://docs.joincandidhealth.com/introduction/getting-started#rate-limiting rate limited to 1000/10s
-// this threw a 429 from candid, so cutting it down to half
-const CANDID_API_CONCURRENCY_LIMIT = 5;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -190,15 +187,15 @@ async function getAllCandidEncounters(
   encounterIdMap: EncounterIdMap
 ): Promise<APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[]> {
   const candidIds = Array.from(encounterIdMap.values()).map(({ candidId }) => candidId);
-  const chunkedCandidIds = chunkThings(candidIds, CANDID_API_CONCURRENCY_LIMIT);
   const candidEncounters: APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[] =
     [];
-  for (const chunk of chunkedCandidIds) {
-    const currentCandidEncounters = await Promise.all(
-      chunk.map((candidId) => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
-    );
-    candidEncounters.push(...currentCandidEncounters);
-  }
+  console.log(`Fetching ${candidIds.length} encounters from Candid`);
+  const currentCandidEncounters = await Promise.all(
+    candidIds.map((candidId) =>
+      retryWithBackoff(() => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
+    )
+  );
+  candidEncounters.push(...currentCandidEncounters);
   console.log(`Fetched ${candidEncounters.length} Candid encounters`);
   return candidEncounters;
 }
@@ -231,17 +228,13 @@ async function getAllCandidClaims(
   claimIdMap: Map<string, string>
 ): Promise<APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[]> {
   const claimIds = Array.from(claimIdMap.keys());
-  const chunkedClaimIds = chunkThings(claimIds, CANDID_API_CONCURRENCY_LIMIT);
   const claims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[] =
     [];
-  for (let i = 0; i < chunkedClaimIds.length; i++) {
-    const chunk = chunkedClaimIds[i];
-    console.log(`Fetching chunk ${i + 1}/${chunkedClaimIds.length} (${claimIds.length} claims) from Candid`);
-    const currentClaims = await Promise.all(
-      chunk.map((claimId) => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId)))
-    );
-    claims.push(...currentClaims);
-  }
+  console.log(`Fetching ${claimIds.length} claims from Candid`);
+  const currentClaims = await Promise.all(
+    claimIds.map((claimId) => retryWithBackoff(() => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId))))
+  );
+  claims.push(...currentClaims);
   console.log(`Fetched ${claims.length} claims`);
   return claims;
 }
@@ -288,4 +281,22 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
   });
 
   return pendingPayments.reduce((acc, amount) => acc + amount, 0);
+}
+
+async function retryWithBackoff<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 4,
+  baseDelayMs = 200
+): Promise<APIResponse<T, E>> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fn();
+    if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
+      return response;
+    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+    console.warn(
+      `Candid API request failed, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  return fn();
 }

@@ -219,8 +219,7 @@ test('Medical Decision Making functionality', async () => {
   // Edit the text
   const newText = 'Updated medical decision making text';
   await assessmentPage.fillMdmField(newText);
-  await page.getByTestId(dataTestIds.assessmentCard.medicalDecisionLoading).waitFor({ state: 'visible' });
-  await page.getByTestId(dataTestIds.assessmentCard.medicalDecisionLoading).waitFor({ state: 'hidden' });
+  await waitForSaveChartDataResponse(page);
 
   // Verify text is updated
   await assessmentPage.expectMdmField({ text: newText });

@@ -37,10 +37,10 @@ interface GetFilePathConfig {
   terraform: TerraformConfig;
 }
 
-function getFilePaths(environment: string): GetFilePathConfig {
+function getFilePaths(environment: string, project?: string): GetFilePathConfig {
   const repoRoot = process.cwd();
   console.log('Working directory:', repoRoot);
-  const secretsPath = path.join(repoRoot, 'secrets');
+  const secretsPath = path.join(repoRoot, 'secrets', project ?? '');
   console.log('Secrets path:', secretsPath);
   return {
     zambdas: {
@@ -82,10 +82,10 @@ function getFilePaths(environment: string): GetFilePathConfig {
   };
 }
 
-function populate(environment: string): void {
+function populate(environment: string, project?: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
-  const paths = getFilePaths(environment);
+  const paths = getFilePaths(environment, project);
 
   if (!checkDirectory(secretsPath)) {
     console.error('Error: secrets directory not found in repository root');
@@ -167,6 +167,7 @@ function validate(environment: string): void {
 function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
+  const project: string | undefined = process.argv[4];
 
   if (!environment) {
     console.error('Error: environment parameter is required');
@@ -176,7 +177,7 @@ function main(): void {
 
   switch (command) {
     case 'populate':
-      populate(environment);
+      populate(environment, project);
       break;
     case 'validate':
       validate(environment);

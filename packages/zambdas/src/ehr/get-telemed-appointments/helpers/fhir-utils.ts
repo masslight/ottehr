@@ -19,27 +19,12 @@ export const getAllResourcesFromFhir = async (
   locationIds: string[],
   encounterStatusesToSearchWith: string[],
   appointmentStatusesToSearchWith: string[],
-  searchDate?: DateTime
+  searchDate?: DateTime,
+  appointmentId?: string
 ): Promise<FhirResource[]> => {
   const fhirSearchParams: FhirSearchParams<Appointment> = {
     resourceType: 'Appointment',
     params: [
-      {
-        name: '_tag',
-        value: OTTEHR_MODULE.TM,
-      },
-      {
-        name: 'status',
-        value: appointmentStatusesToSearchWith.join(','),
-      },
-      {
-        name: '_has:Encounter:appointment:status',
-        value: encounterStatusesToSearchWith.join(','),
-      },
-      {
-        name: '_sort',
-        value: 'date',
-      },
       {
         name: '_include',
         value: 'Appointment:patient',
@@ -68,28 +53,56 @@ export const getAllResourcesFromFhir = async (
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
-      ...(searchDate
-        ? [
-            {
-              name: 'date',
-              value: `ge${searchDate.startOf('day').toISO()}`,
-            },
-            {
-              name: 'date',
-              value: `le${searchDate.endOf('day').toISO()}`,
-            },
-          ]
-        : []),
-      ...(locationIds.length > 0
-        ? [
-            {
-              name: 'location',
-              value: joinLocationsIdsForFhirSearch(locationIds),
-            },
-          ]
-        : []),
+      {
+        name: '_sort',
+        value: 'date',
+      },
     ],
   };
+
+  if (fhirSearchParams.params) {
+    if (appointmentId != null) {
+      fhirSearchParams.params.push({
+        name: '_id',
+        value: appointmentId,
+      });
+    } else {
+      fhirSearchParams.params.push(
+        {
+          name: '_tag',
+          value: OTTEHR_MODULE.TM,
+        },
+        {
+          name: 'status',
+          value: appointmentStatusesToSearchWith.join(','),
+        },
+        {
+          name: '_has:Encounter:appointment:status',
+          value: encounterStatusesToSearchWith.join(','),
+        },
+        ...(searchDate
+          ? [
+              {
+                name: 'date',
+                value: `ge${searchDate.startOf('day').toISO()}`,
+              },
+              {
+                name: 'date',
+                value: `le${searchDate.endOf('day').toISO()}`,
+              },
+            ]
+          : []),
+        ...(locationIds.length > 0
+          ? [
+              {
+                name: 'location',
+                value: joinLocationsIdsForFhirSearch(locationIds),
+              },
+            ]
+          : [])
+      );
+    }
+  }
 
   return (await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100)).filter(
     (resource) => isNonPaperworkQuestionnaireResponse(resource) === false
@@ -180,7 +193,7 @@ export const getAllPartiallyPreFilteredFhirResources = async (
   params: GetTelemedAppointmentsInput,
   virtualLocationsMap: LocationIdToStateAbbreviationMap
 ): Promise<Resource[] | undefined> => {
-  const { dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
+  const { appointmentId, dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
   let allResources: Resource[] = [];
 
   const locationsIdsToSearchWith = await locationIdsForAppointmentsSearch(
@@ -207,7 +220,8 @@ export const getAllPartiallyPreFilteredFhirResources = async (
     locationsIdsToSearchWith,
     encounterStatusesToSearchWith,
     appointmentStatusesToSearchWith,
-    dateFilterConverted
+    dateFilterConverted,
+    appointmentId
   );
   console.log('Received resources from fhir with all filters applied.');
   return allResources;
