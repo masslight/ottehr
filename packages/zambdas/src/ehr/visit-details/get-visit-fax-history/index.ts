@@ -63,11 +63,6 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
           name: 'target',
           value: `Appointment/${appointmentId}`,
         },
-        // todo filter to only faxes somehow
-        // {
-        //   name: 'activity',
-        //   value: '',
-        // },
       ],
     })
   ).unbundle();
