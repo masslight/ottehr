@@ -6,12 +6,10 @@ export const EmCodeOptionSchema = z.object({
 });
 
 export const EmCodeOptionsSchema = z.array(EmCodeOptionSchema);
-export const VisionAutoCptCodesSchema = z.array(z.string());
 
 export const ProviderConfigSchema = z.object({
   assessment: z.object({
     emCodeOptions: EmCodeOptionsSchema,
-    visionAutoCptCodes: VisionAutoCptCodesSchema.optional(),
   }),
 });
 

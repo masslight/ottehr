@@ -11,7 +11,6 @@ import {
   FOLLOWUP_SYSTEMS,
   FollowUpVisitHistoryRow,
   getAttendingPractitionerId,
-  getCoding,
   getFirstName,
   getInPersonVisitStatus,
   getLastName,
@@ -33,7 +32,6 @@ import {
   RcmTaskCode,
   Secrets,
   SecretsKeys,
-  SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
   TelemedAppointmentStatusEnum,
   TIMEZONES,
@@ -206,10 +204,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     );
     const provider = getProviderFromEncounter(encounter, practitioners);
 
-    const serviceCategory =
-      getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code ??
-      getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.display;
-
     const followUps: FollowUpVisitHistoryRow[] | undefined = encounter
       ? followUpMap[encounter.id || '']
           ?.map((followUpEncounter) =>
@@ -217,7 +211,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
               practitioners,
               locations,
               originalEncounter: encounter,
-              serviceCategory,
             })
           )
           .filter((fu): fu is FollowUpVisitHistoryRow => fu !== undefined)
@@ -260,7 +253,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     const baseRow = {
       appointmentId: appointment.id,
       type,
-      serviceCategory,
       visitReason: getReasonForVisitFromAppointment(appointment),
       office: location?.name,
       dateTime,
@@ -422,7 +414,6 @@ interface FollowUpContext {
   practitioners: Practitioner[];
   locations: Location[];
   originalEncounter: Encounter;
-  serviceCategory?: string;
 }
 
 const followUpVisitHistoryRowFromEncounter = (
@@ -433,7 +424,7 @@ const followUpVisitHistoryRowFromEncounter = (
     return undefined;
   }
   const followUpType = getFollowUpTypeFromEncounter(encounter);
-  const { practitioners, locations, originalEncounter, serviceCategory } = context;
+  const { practitioners, locations, originalEncounter } = context;
 
   const location = locations.find(
     (location) => encounter?.location?.some((loc) => loc.location?.reference?.replace('Location/', '') === location.id)
@@ -445,7 +436,6 @@ const followUpVisitHistoryRowFromEncounter = (
     encounterId: encounter.id,
     dateTime: encounter.period?.start,
     type: followUpType,
-    serviceCategory,
     visitReason: encounter.reasonCode?.[0]?.text,
     provider: getProviderFromEncounter(encounter, practitioners),
     office,

@@ -258,6 +258,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
 
   const onSubmit = useCallback(
     async (data: FormInputs): Promise<void> => {
+      console.log('>>>this is form data on submit', data);
       try {
         if (!patient?.id) {
           throw new Error('Patient reference not provided');
@@ -588,6 +589,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={4} md={4}>
+              {/* ATHENA TODO: I don't even think this is rendering idk */}
               <FormControl fullWidth required>
                 <Controller
                   name="zipCode"

@@ -13,8 +13,3 @@ variable "ehr_vars" {
 variable "patient_portal_vars" {
   type = any
 }
-
-variable "zambda_secrets_for_local_server" {
-  type      = any
-  sensitive = true
-}

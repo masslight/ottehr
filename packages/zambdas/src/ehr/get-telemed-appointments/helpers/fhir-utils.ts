@@ -19,8 +19,7 @@ export const getAllResourcesFromFhir = async (
   locationIds: string[],
   encounterStatusesToSearchWith: string[],
   appointmentStatusesToSearchWith: string[],
-  searchDate?: DateTime,
-  appointmentId?: string
+  searchDate?: DateTime
 ): Promise<FhirResource[]> => {
   const fhirSearchParams: FhirSearchParams<Appointment> = {
     resourceType: 'Appointment',
@@ -86,14 +85,6 @@ export const getAllResourcesFromFhir = async (
             {
               name: 'location',
               value: joinLocationsIdsForFhirSearch(locationIds),
-            },
-          ]
-        : []),
-      ...(appointmentId
-        ? [
-            {
-              name: '_id',
-              value: appointmentId,
             },
           ]
         : []),
@@ -189,7 +180,7 @@ export const getAllPartiallyPreFilteredFhirResources = async (
   params: GetTelemedAppointmentsInput,
   virtualLocationsMap: LocationIdToStateAbbreviationMap
 ): Promise<Resource[] | undefined> => {
-  const { appointmentId, dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
+  const { dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
   let allResources: Resource[] = [];
 
   const locationsIdsToSearchWith = await locationIdsForAppointmentsSearch(
@@ -216,8 +207,7 @@ export const getAllPartiallyPreFilteredFhirResources = async (
     locationsIdsToSearchWith,
     encounterStatusesToSearchWith,
     appointmentStatusesToSearchWith,
-    dateFilterConverted,
-    appointmentId
+    dateFilterConverted
   );
   console.log('Received resources from fhir with all filters applied.');
   return allResources;

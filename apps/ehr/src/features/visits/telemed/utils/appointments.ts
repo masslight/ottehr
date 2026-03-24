@@ -278,7 +278,6 @@ export const TelemedAppointmentStatusToPalette: {
 
 export type GetAppointmentsRequestParams = Pick<
   GetTelemedAppointmentsInput,
-  | 'appointmentId'
   | 'usStatesFilter'
   | 'providersFilter'
   | 'dateFilter'

@@ -39,13 +39,6 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
     return '';
   };
 
-  const additionalInfo = [
-    item.intakeInfo.dose,
-    item.intakeInfo.patientCouldNotConfirmDosage ? 'Patient could not confirm dosage' : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
   return (
     <TableRow data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow}>
       <TableCell>
@@ -54,7 +47,7 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
           sx={{ fontWeight: 500 }}
           data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication}
         >
-          {item.name} {additionalInfo ? `(${additionalInfo})` : ''}
+          {item.name} ({item.intakeInfo.dose})
         </Typography>
       </TableCell>
       <TableCell>

@@ -93,7 +93,7 @@ export const ValueSetsConfigSchema = z.object({
   inviteContactOptions: FormFieldOptionsSchema,
 
   // External Labs
-  externalLabCptCodesToAddPerEncounter: FormFieldOptionsSchema.optional(),
+  externalLabAdditionalCptCodesToAdd: FormFieldOptionsSchema.optional(),
 });
 
 export type ValueSetsConfig = z.infer<typeof ValueSetsConfigSchema>;

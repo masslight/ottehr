@@ -642,14 +642,7 @@ export const formValueSetsData = {
     { label: 'Email', value: 'Email' },
     { label: 'Phone', value: 'Phone' },
   ],
-  // will be automatically added to the encounter if external labs are ordered
-  // (does not apply to psc orders)
-  externalLabCptCodesToAddPerEncounter: [
-    {
-      label: 'Handling and/or conveyance of specimen for transfer to a laboratory',
-      value: '99001',
-    },
-  ],
+  externalLabAdditionalCptCodesToAdd: [],
 };
 
 const formValueSets: ValueSetsConfig = {

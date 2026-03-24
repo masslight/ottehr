@@ -7,7 +7,6 @@ import { FC, useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetMeetingData } from 'src/features/visits/shared/stores/appointment/appointment.queries';
@@ -19,15 +18,10 @@ import {
   useChangeTelemedAppointmentStatusMutation,
   useInitTelemedSessionMutation,
 } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
-import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getTelemedVisitStatus, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
+import { getTelemedVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { updateEncounterStatusHistory } from '../../utils/appointments';
-import {
-  assignWaitingRoomTasksToProvider,
-  unassignWaitingRoomTasksFromProvider,
-} from '../../utils/waitingRoomNotifications';
 
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',
@@ -64,9 +58,6 @@ export const AppointmentFooterButton: FC = () => {
       });
     }
   );
-  const { oystehr } = useApiClients();
-  const { mutateAsync: assignTask } = useAssignTask();
-  const { mutateAsync: unassignTask } = useUnassignTask();
 
   const [buttonType, setButtonType] = useState<'assignMe' | 'connectUnassign' | 'reconnect' | null>(null);
 
@@ -97,25 +88,15 @@ export const AppointmentFooterButton: FC = () => {
   }, [appointmentAccessibility]);
 
   const onAssignMe = async (): Promise<void> => {
-    await changeStatus(TelemedAppointmentStatusEnum['pre-video'], true);
-    await assignWaitingRoomTasksToProvider(oystehr, appointment?.id, user, assignTask);
-  };
-
-  const onUnassign = async (): Promise<void> => {
-    await changeStatus(TelemedAppointmentStatusEnum.ready);
-    await unassignWaitingRoomTasksFromProvider(oystehr, appointment?.id, unassignTask);
-    navigate('/telemed/appointments');
-  };
-
-  const changeStatus = async (newStatus: TelemedAppointmentStatus, invalidate?: boolean): Promise<void> => {
     if (!apiClient || !appointment?.id) {
       throw new Error('api client not defined or appointment id not provided');
     }
-    await changeTelemedAppointmentStatusEnum.mutateAsync({ apiClient, appointmentId: appointment.id, newStatus }, {});
+    await changeTelemedAppointmentStatusEnum.mutateAsync(
+      { apiClient, appointmentId: appointment.id, newStatus: TelemedAppointmentStatusEnum['pre-video'] },
+      {}
+    );
 
-    if (invalidate) {
-      await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
-    }
+    await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
   };
 
   const onConnect = useCallback(async (): Promise<void> => {
@@ -179,6 +160,17 @@ export const AppointmentFooterButton: FC = () => {
     navigate,
     onConnect,
   ]);
+
+  const onUnassign = async (): Promise<void> => {
+    if (!apiClient || !appointment?.id) {
+      throw new Error('api client not defined or appointment id not provided');
+    }
+    await changeTelemedAppointmentStatusEnum.mutateAsync(
+      { apiClient, appointmentId: appointment.id, newStatus: TelemedAppointmentStatusEnum.ready },
+      {}
+    );
+    navigate('/telemed/appointments');
+  };
 
   switch (buttonType) {
     case 'assignMe': {

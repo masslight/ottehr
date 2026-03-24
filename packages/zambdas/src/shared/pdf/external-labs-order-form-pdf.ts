@@ -512,12 +512,7 @@ function drawInsuranceDetail(
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
   if (insuranceAddress) {
-    pdfClient = drawFieldLineBoldHeader(
-      pdfClient,
-      textStyles,
-      'Insurance Address:',
-      formatZipcodeForDisplay(insuranceAddress.toUpperCase())
-    );
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Insurance Address:', insuranceAddress.toUpperCase());
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
   if (insuranceSubNum) {
@@ -529,7 +524,7 @@ function drawInsuranceDetail(
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
   if (insuredAddress) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', formatZipcodeForDisplay(insuredAddress));
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', insuredAddress);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 

@@ -18,10 +18,9 @@ variable "client_secret" {
 }
 
 variable "sendgrid_api_key" {
-  description = "SendGrid API key; only required when the SendGrid feature flag is enabled"
+  description = "SendGrid API key"
   type        = string
-  nullable    = true
-  default     = null
+  nullable    = false
   sensitive   = true
 }
 

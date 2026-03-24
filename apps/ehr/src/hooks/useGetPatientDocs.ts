@@ -4,7 +4,6 @@ import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query'
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
-import { deletePatientDocument } from 'src/api/api';
 import { getMimeType, useSuccessQuery } from 'utils';
 import { chooseJson, getPresignedURL } from 'utils';
 import { parseFileExtension } from '../helpers/files.helper';
@@ -73,7 +72,6 @@ type UploadDocumentZambdaResponse = {
 export type UsePatientDocsActionsReturn = {
   uploadDocumentAction: (uploadParams: UploadDocumentActionParams) => Promise<UploadDocumentActionResult>;
   isUploading: boolean;
-  deleteDocumentAction: (documentId: string) => Promise<void>;
 };
 
 export type UseGetPatientDocsReturn = {
@@ -581,32 +579,9 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
     [oystehrZambda, patientId, queryClient]
   );
 
-  const deleteDocumentAction = useCallback(
-    async (documentId: string): Promise<void> => {
-      if (!oystehrZambda) {
-        throw new Error('Could not initialize oystehrZambda client.');
-      }
-
-      await deletePatientDocument(oystehrZambda, {
-        documentRefId: documentId,
-      });
-
-      await Promise.all([
-        queryClient.refetchQueries({
-          queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
-        }),
-        queryClient.refetchQueries({
-          queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
-        }),
-      ]);
-    },
-    [oystehrZambda, patientId, queryClient]
-  );
-
   return {
     uploadDocumentAction: uploadDocumentAction,
     isUploading,
-    deleteDocumentAction,
   };
 };
 

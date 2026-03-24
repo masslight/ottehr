@@ -19,7 +19,6 @@ import {
   ContactPoint,
   Coverage,
   DocumentReference,
-  Encounter,
   Extension,
   FhirResource,
   Flag,
@@ -1044,18 +1043,6 @@ export function createMasterRecordPatchOperations(
       path: '/name/0/use',
       value: 'official',
     });
-  }
-
-  const hasAddressOp = tempOperations.some((op) => op.path?.startsWith('/address'));
-  if (hasAddressOp) {
-    const currentCountry = getCurrentValue(patient, '/address/0/country');
-    if (!currentCountry) {
-      tempOperations.push({
-        op: 'add',
-        path: '/address/0/country',
-        value: 'US',
-      });
-    }
   }
 
   result.patient.patchOpsForDirectUpdate = tempOperations.filter((op) => {
@@ -2397,13 +2384,7 @@ export function createErxContactOperation(
   patientResource: Patient
 ): Operation | undefined {
   const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
-
-  if (!verifiedPhoneNumber) {
-    console.log('no verified phone number found for eRx contact; skipping eRx contact update');
-    return undefined;
-  }
-  const lastFourDigits = verifiedPhoneNumber.slice(-4);
-  console.log(`patient verified phone number ending with ${lastFourDigits}`);
+  console.log(`patient verified phone number ${verifiedPhoneNumber}`);
 
   console.log('reviewing patient erx contact telecom phone number');
   // find existing erx contact info and it's index so that the contact array can be updated
@@ -2415,16 +2396,15 @@ export function createErxContactOperation(
     )
   );
 
-  const hasExistingErxContact = erxContactIdx !== undefined && erxContactIdx >= 0;
   let updateErxContact = false;
-  const erxContact = hasExistingErxContact ? patientResource?.contact?.[erxContactIdx] : undefined;
+  const erxContact = erxContactIdx && erxContactIdx >= 0 ? patientResource?.contact?.[erxContactIdx] : undefined;
   const erxTelecom =
     erxContact &&
     erxContact.telecom?.find((telecom) =>
       Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
     );
 
-  if (hasExistingErxContact) {
+  if (erxContactIdx && erxContactIdx >= 0) {
     if (!(erxTelecom && erxTelecom.system === 'phone' && erxTelecom.value === verifiedPhoneNumber)) {
       updateErxContact = true;
     }
@@ -2438,7 +2418,7 @@ export function createErxContactOperation(
       system: 'phone',
       extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
     };
-    if (hasExistingErxContact) {
+    if (erxContactIdx && erxContactIdx >= 0) {
       console.log('building patient patch operations: update patient erx contact telecom');
       return {
         op: 'replace',
@@ -4093,34 +4073,3 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
 function getAnswer(linkId: string, items: QuestionnaireResponseItem[]): QuestionnaireResponseItemAnswer | undefined {
   return items.find((data) => data.linkId === linkId)?.answer?.[0];
 }
-
-export const mergeEncounterAccounts = (
-  existingAccounts: Encounter['account'],
-  references: (string | undefined)[]
-): { accounts?: Encounter['account']; changed: boolean } => {
-  const sanitizedReferences = references.filter((reference): reference is string => Boolean(reference));
-  if (!sanitizedReferences.length) {
-    return { accounts: existingAccounts, changed: false };
-  }
-
-  const normalizedAccounts: Encounter['account'] = existingAccounts ? [...existingAccounts] : [];
-  const existingRefSet = new Set(
-    (existingAccounts ?? [])
-      .map((account) => account.reference)
-      .filter((reference): reference is string => Boolean(reference))
-  );
-  let changed = false;
-
-  sanitizedReferences.forEach((reference) => {
-    if (!existingRefSet.has(reference)) {
-      normalizedAccounts.push({ reference });
-      existingRefSet.add(reference);
-      changed = true;
-    }
-  });
-
-  return {
-    accounts: changed ? normalizedAccounts : existingAccounts,
-    changed,
-  };
-};

@@ -35,10 +35,8 @@ import styled from 'styled-components';
 import {
   AppointmentHistoryRow,
   AppointmentType,
-  BOOKING_CONFIG,
   FollowUpVisitHistoryRow,
   formatMinutes,
-  getServiceCategoryAbbreviation,
   PatientVisitListResponse,
   ServiceMode,
   TelemedAppointmentStatus,
@@ -124,7 +122,7 @@ interface TableColumn {
 const columns: TableColumn[] = [
   { id: 'dateTime', label: 'Date & Time', sortable: true, width: 150 },
   { id: 'status', label: 'Status', width: 140 },
-  { id: 'type', label: 'Type & Service Category', width: 180 },
+  { id: 'type', label: 'Type', width: 150 },
   { id: 'reason', label: 'Reason for visit', width: 150 },
   { id: 'provider', label: 'Provider', width: 150 },
   { id: 'office', label: 'Office', width: 150 },
@@ -140,7 +138,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [type, setType] = useState('all');
   const [period, setPeriod] = useState(0);
   const [status, setStatus] = useState('all');
-  const [serviceCategory, setServiceCategory] = useState('all');
   const [hideCancelled, setHideCancelled] = useState(false);
   const [hideNoShow, setHideNoShow] = useState(false);
   const [sortField, setSortField] = useState<SortField>('dateTime');
@@ -197,17 +194,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       filtered = filtered.filter((item) => item.serviceMode === ServiceMode.virtual || item.status !== 'no show');
     }
 
-    if (serviceCategory !== 'all') {
-      filtered = filtered.filter((item) => item.serviceCategory === serviceCategory);
-    }
-
     // Apply sorting
     if (metadata.sortDirection === sortDirection) {
       return filtered;
     } else {
       return filtered.slice().reverse();
     }
-  }, [visitHistory, hideCancelled, hideNoShow, serviceCategory, sortDirection]);
+  }, [visitHistory, hideCancelled, hideNoShow, sortDirection]);
 
   const paginatedData = useMemo(() => {
     const startIndex = page * rowsPerPage;
@@ -238,13 +231,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return encounter.dateTime ? formatISOStringToDateAndTime(encounter.dateTime) : '-';
       case 'type': {
         const typeText = encounter.type ?? '-';
-        const serviceCategoryAbbr = getServiceCategoryAbbreviation(encounter.serviceCategory);
-        return (
-          <Stack component="span" direction="column" spacing={0}>
-            <Typography variant="body2">{typeText}</Typography>
-            {serviceCategoryAbbr && <Typography variant="body2">{serviceCategoryAbbr}</Typography>}
-          </Stack>
-        );
+        return <Typography variant="body2">{typeText}</Typography>;
       }
       case 'reason':
         if (!encounter.visitReason) return '-';
@@ -284,16 +271,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         } else {
           return row.status;
         }
-      case 'type': {
-        const typeLabel = getVisitTypeLabelForTypeAndServiceMode({ type: row.type, serviceMode: row.serviceMode });
-        const serviceCategoryAbbr = getServiceCategoryAbbreviation(row.serviceCategory);
-        return (
-          <Stack component="span" direction="column" spacing={0}>
-            <Typography variant="body2">{typeLabel}</Typography>
-            {serviceCategoryAbbr && <Typography variant="body2">{serviceCategoryAbbr}</Typography>}
-          </Stack>
-        );
-      }
+      case 'type':
+        return getVisitTypeLabelForTypeAndServiceMode({ type: row.type, serviceMode: row.serviceMode });
       case 'reason':
         return <Typography variant="body2">{row.visitReason || '-'}</Typography>;
       case 'provider':
@@ -358,25 +337,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <MenuItem value={'pre-booked|in-person'}>{visitTypeToInPersonLabel['pre-booked']}</MenuItem>
           <MenuItem value={'pre-booked|virtual'}>{visitTypeToTelemedLabel['pre-booked']}</MenuItem>
           <MenuItem value={'walk-in|virtual'}>{visitTypeToTelemedLabel['walk-in']}</MenuItem>
-        </TextField>
-
-        <TextField
-          size="small"
-          fullWidth
-          label="Service Category"
-          select
-          value={serviceCategory}
-          onChange={(e) => {
-            setServiceCategory(e.target.value);
-            setPage(0);
-          }}
-        >
-          <MenuItem value="all">All</MenuItem>
-          {BOOKING_CONFIG.serviceCategories.map((cat) => (
-            <MenuItem key={cat.code} value={cat.code}>
-              {cat.display}
-            </MenuItem>
-          ))}
         </TextField>
 
         <TextField

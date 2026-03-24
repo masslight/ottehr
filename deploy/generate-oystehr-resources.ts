@@ -61,7 +61,6 @@ async function generateSendgridResources(input: GenerateSendgridResources): Prom
   projectName += `-${env}`;
   const tfModel = {
     projectName,
-    featureFlag: SENDGRID_CONFIG.featureFlag,
     templates,
   };
   const stringifiedConfig = JSON.stringify(tfModel, null, 2);
