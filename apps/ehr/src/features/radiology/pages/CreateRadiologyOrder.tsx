@@ -498,7 +498,14 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
       {/* Save as Quick Pick dialog */}
       <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add to Quick Picks</DialogTitle>
+        <DialogTitle
+          sx={{
+            color: 'primary.dark',
+            fontWeight: 600,
+          }}
+        >
+          Add to Quick Picks
+        </DialogTitle>
         <DialogContent>
           <Autocomplete
             freeSolo
@@ -518,13 +525,19 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
             )}
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setQuickPickDialogOpen(false)} disabled={quickPickSaving}>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setQuickPickDialogOpen(false)}
+            disabled={quickPickSaving}
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
+          >
             Cancel
           </Button>
           <Button
             variant="contained"
             disabled={!quickPickName.trim() || quickPickSaving}
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
             onClick={() => {
               const existing = existingQuickPicks.find(
                 (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
@@ -544,17 +557,24 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
       {/* Overwrite confirmation dialog */}
       <Dialog open={confirmOverwriteOpen} onClose={() => setConfirmOverwriteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Update Existing Quick Pick?</DialogTitle>
+        <DialogTitle sx={{ color: 'primary.dark', fontWeight: 600 }}>Update Existing Quick Pick?</DialogTitle>
         <DialogContent>
           <Typography>
             A quick pick named &ldquo;{overwriteTarget?.name}&rdquo; already exists. Do you want to replace it with the
             current radiology order data?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmOverwriteOpen(false)}>Back</Button>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setConfirmOverwriteOpen(false)}
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
+          >
+            Back
+          </Button>
           <Button
             variant="contained"
+            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
             onClick={() => {
               setConfirmOverwriteOpen(false);
               if (overwriteTarget?.id) {
