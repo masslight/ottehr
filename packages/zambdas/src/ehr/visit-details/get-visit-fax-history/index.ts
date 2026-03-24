@@ -8,6 +8,7 @@ import {
   GetVisitFaxHistoryInputValidated,
   GetVisitFaxHistoryInputValidatedSchema,
   GetVisitFaxHistoryOutput,
+  PROVENANCE_FAX_ACTIVITY_CODES,
   PROVENANCE_FAX_SYSTEM,
   SecretsKeys,
 } from 'utils';
@@ -75,7 +76,7 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
   const faxProvenances = allProvenances.filter(
     (provenance) =>
       provenance.activity?.coding?.some(
-        (coding) => coding.code === 'fax-sent' && coding.system === PROVENANCE_FAX_SYSTEM
+        (coding) => coding.code === PROVENANCE_FAX_ACTIVITY_CODES.faxSent && coding.system === PROVENANCE_FAX_SYSTEM
       )
   );
 
