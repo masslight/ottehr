@@ -137,12 +137,14 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 variant="outlined"
                 startIcon={
                   <Box
-                    sx={{
-                      fill: 'gray',
-                    }}
                     component="img"
                     src={radiologyIcon}
-                    style={{ width: '30px', marginRight: '8px' }}
+                    style={{
+                      width: '30px',
+                      marginRight: '8px',
+                      filter:
+                        order.status === 'pending' || isLaunchingViewer ? 'grayscale(1) opacity(0.38)' : undefined,
+                    }}
                   />
                 }
                 endIcon={isLaunchingViewer ? <CircularProgress size={16} color="inherit" /> : null}
@@ -159,17 +161,6 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
-              {order.clinicalHistory && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                    Clinical History
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    {order.clinicalHistory}
-                  </Typography>
-                </Box>
-              )}
-
               {order.studyName && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
@@ -177,6 +168,17 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     {order.studyName}
+                  </Typography>
+                </Box>
+              )}
+
+              {order.clinicalHistory && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Clinical History
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {order.clinicalHistory}
                   </Typography>
                 </Box>
               )}
