@@ -1,5 +1,5 @@
-import { BrowserContext, Page, test } from '@playwright/test';
-import { ActivityDefinition } from 'fhir/r4b';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { ActivityDefinition, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DocumentProcedurePage,
@@ -7,6 +7,7 @@ import {
   openDocumentProcedurePage,
 } from 'tests/e2e/page/DocumentProcedurePage';
 import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
+import { expectInHouseLabsPage } from 'tests/e2e/page/in-person/InHouseLabsPage';
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -20,7 +21,7 @@ import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { convertActivityDefinitionToTestItem, TestItem } from 'utils';
+import { convertActivityDefinitionToTestItem, getLabListType, LabType, TestItem } from 'utils';
 import inHouseLabActivityDefinitionsJson from '../../../../../../config/oystehr/in-house-lab-activity-definitions.json' assert { type: 'json' };
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
 import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
@@ -136,6 +137,25 @@ const PROCEDURE_B: ProcedureInfo = {
   documentedBy: 'Healthcare staff',
 };
 
+type LabSetsJson = {
+  'schema-version'?: string;
+  fhirResources: Record<string, any>;
+};
+let labSetsJson: LabSetsJson;
+try {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  const module = await import('../../../../../../config/oystehr/lab-set-lists.json', { assert: { type: 'json' } });
+
+  labSetsJson = module.default;
+} catch (err) {
+  console.warn('lab-set-lists.json not found, using fallback.', err);
+
+  labSetsJson = {
+    fhirResources: {},
+  };
+}
+
 const resourceHandler = new ResourceHandler(`documentProceduresPage-${DateTime.now().toMillis()}`);
 
 let sideMenu: SideMenu;
@@ -219,6 +239,7 @@ test.describe('In-house labs page', async () => {
   const TEST_TYPE_TO_CPT: Record<string, string> = {};
   const radioEntryTestItems: TestItem[] = [];
   const selectAndNumericTestItems: TestItem[] = [];
+  let inHouseLabSetQuantity = 0;
 
   Object.values(inHouseLabActivityDefinitionsJson.fhirResources).forEach((resource) => {
     const fhirActivityDefinition = resource.resource as ActivityDefinition;
@@ -237,6 +258,16 @@ test.describe('In-house labs page', async () => {
     const cptCode = coding.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt')?.code;
     if (name && cptCode) {
       TEST_TYPE_TO_CPT[name] = cptCode;
+    }
+  });
+
+  // check if there are any in house lab lists
+  Object.values(labSetsJson.fhirResources).forEach((entry) => {
+    const fhirList = entry.resource as List;
+    const labListType = getLabListType(fhirList);
+    const listHasEntries = fhirList.entry && fhirList.entry.length;
+    if (labListType === LabType.inHouse) {
+      if (listHasEntries) inHouseLabSetQuantity++;
     }
   });
 
@@ -343,6 +374,28 @@ test.describe('In-house labs page', async () => {
         });
       });
     });
+
+    if (inHouseLabSetQuantity === 0) {
+      await test.step('IHL-1.7 - no lab sets, skipping tests lab set tests', () => {
+        return;
+      });
+    } else {
+      await test.step('IHL-1.7 Add labs via lab sets', async () => {
+        // go back to the labs table
+        let inHouseLabsPage = await sideMenu.clickInHouseLabs();
+
+        const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+        await orderInHouseLabPage.selectALabSet();
+        await orderInHouseLabPage.clickOrderInHouseLabButton();
+
+        // confirm we've been nav'd to the orders table
+        inHouseLabsPage = await expectInHouseLabsPage(orderInHouseLabPage.page);
+
+        // make sure tests were created
+        const testsFound = await inHouseLabsPage.countTableRows();
+        expect(testsFound, `${testsFound} tests were created`).toBeGreaterThan(0);
+      });
+    }
   });
 
   async function prepareAndOpenInHouseLabsPage(page: Page): Promise<OrderInHouseLabPage> {

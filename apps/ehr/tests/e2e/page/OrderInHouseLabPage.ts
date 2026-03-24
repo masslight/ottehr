@@ -66,6 +66,21 @@ export class OrderInHouseLabPage {
   async verifyCPTCode(CPTCode: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.CPTCodeField)).toHaveText(CPTCode);
   }
+
+  async selectALabSet(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.commonLabOrder.labSets.launchModal).click();
+
+    const modal = this.#page.getByTestId(dataTestIds.commonLabOrder.labSets.selectionModal);
+    await expect(modal).toBeVisible();
+    const buttons = this.#page.locator(`[data-testid^="${dataTestIds.commonLabOrder.labSets.selectionModal}-"]`);
+
+    const count = await buttons.count();
+    expect(count).toBeGreaterThan(0);
+
+    const firstLabSetSelectionBtn = buttons.first();
+    await expect(firstLabSetSelectionBtn).toBeEnabled();
+    await firstLabSetSelectionBtn.click();
+  }
 }
 
 export async function expectOrderInHouseLabPage(page: Page): Promise<OrderInHouseLabPage> {
