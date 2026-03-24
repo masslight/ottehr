@@ -5,7 +5,16 @@ import Oystehr, {
   FhirResource,
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
+import {
+  ClinicalImpression,
+  Communication,
+  Condition,
+  Encounter,
+  List,
+  Observation,
+  Procedure,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   ApplyTemplateZambdaInput,
   chunkThings,
@@ -107,6 +116,7 @@ const performEffect = async (
         { name: '_revinclude:iterate', value: 'Communication:encounter' },
         { name: '_revinclude:iterate', value: 'Condition:encounter' },
         { name: '_revinclude:iterate', value: 'Procedure:encounter' },
+        { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
       ],
     })
   ).unbundle();
@@ -129,7 +139,8 @@ const performEffect = async (
       return (
         request.resource.resourceType === 'ClinicalImpression' ||
         request.resource.resourceType === 'Condition' ||
-        request.resource.resourceType === 'Communication'
+        request.resource.resourceType === 'Communication' ||
+        request.resource.resourceType === 'ServiceRequest'
       );
     } else if (request.method === 'PATCH') {
       return true;
@@ -193,7 +204,7 @@ const makeDeleteRequests = async (
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' ||
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision' ||
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction' ||
-          // E&M code is replaced (one per visit); CPT codes are additive (like ICD diagnoses)
+          // E&M code is replaced (one per visit); CPT codes and procedures are additive
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code'
         // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
       )
@@ -216,11 +227,11 @@ const makeCreateRequests = (
   templateList: List,
   encounterBundle: FhirResource[]
 ): Array<
-  | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+  | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure | ServiceRequest>
   | BatchInputJSONPatchRequest
 > => {
   const createResourcesRequests: Array<
-    | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+    | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure | ServiceRequest>
     | BatchInputJSONPatchRequest
   > = [];
 
@@ -296,7 +307,8 @@ const makeCreateRequests = (
       resourceToCreate.resourceType === 'ClinicalImpression' ||
       resourceToCreate.resourceType === 'Condition' ||
       resourceToCreate.resourceType === 'Communication' ||
-      resourceToCreate.resourceType === 'Procedure'
+      resourceToCreate.resourceType === 'Procedure' ||
+      resourceToCreate.resourceType === 'ServiceRequest'
     ) {
       resourceToCreate.subject = encounter.subject;
       resourceToCreate.encounter = { reference: `Encounter/${encounter.id}` };

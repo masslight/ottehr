@@ -19,6 +19,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTemplateDetail } from 'src/api/api';
@@ -57,6 +58,7 @@ interface TemplateDetailData {
     examFindings: ExamFinding[];
     mdm: string | null;
     diagnoses: DiagnosisInfo[];
+    procedures: { procedureType: string | null; bodySite: string | null; bodySide: string | null }[];
     patientInstructions: string | null;
     cptCodes: CodeInfo[];
     emCode: CodeInfo | null;
@@ -175,6 +177,14 @@ export default function GlobalTemplateDetailPage(): ReactElement {
   }
 
   if (error || !data) {
+    const isGone = error?.message?.includes('Gone') || error?.message?.includes('410');
+    if (isGone) {
+      enqueueSnackbar('This template has been deleted or updated. Redirecting to template list.', {
+        variant: 'info',
+      });
+      navigate('/admin/global-templates');
+      return <></>;
+    }
     return (
       <PageContainer>
         <Box sx={{ mt: 3 }}>
@@ -345,6 +355,34 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                       <TableRow key={index}>
                         <TableCell>{diagnosis.code}</TableCell>
                         <TableCell>{diagnosis.display}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* Procedures */}
+          <SectionCard title="Procedures">
+            {sections.procedures && sections.procedures.length > 0 ? (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Procedure Type</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Body Site</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Side</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sections.procedures.map((proc, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{proc.procedureType || '—'}</TableCell>
+                        <TableCell>{proc.bodySite || '—'}</TableCell>
+                        <TableCell>{proc.bodySide || '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -1,6 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, List, Observation, Procedure, Resource } from 'fhir/r4b';
+import {
+  ClinicalImpression,
+  Communication,
+  Condition,
+  List,
+  Observation,
+  Procedure,
+  Resource,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   ACCIDENT_TYPE_SYSTEM,
   examConfig,
@@ -38,6 +47,12 @@ interface AccidentInfo {
   state?: string;
 }
 
+interface ProcedureInfo {
+  procedureType: string | null;
+  bodySite: string | null;
+  bodySide: string | null;
+}
+
 interface TemplateDetailOutput {
   templateName: string;
   templateId: string;
@@ -50,6 +65,7 @@ interface TemplateDetailOutput {
     examFindings: ExamFinding[];
     mdm: string | null;
     diagnoses: DiagnosisInfo[];
+    procedures: ProcedureInfo[];
     patientInstructions: string | null;
     cptCodes: CodeInfo[];
     emCode: CodeInfo | null;
@@ -293,6 +309,20 @@ const performEffect = async (
       }
     : null;
 
+  // Parse documented procedures (ServiceRequest with 'procedure' tag)
+  const procedureServiceRequests = contained.filter(
+    (r) => r.resourceType === 'ServiceRequest' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/procedure')
+  ) as ServiceRequest[];
+
+  const procedures: ProcedureInfo[] = procedureServiceRequests.map((sr) => {
+    const procedureType = sr.category?.[0]?.coding?.[0]?.code ?? null;
+    const bodySite =
+      sr.extension?.find((e) => e.url === 'https://fhir.ottehr.com/Extension/procedure-body-site')?.valueString ?? null;
+    const bodySide =
+      sr.extension?.find((e) => e.url === 'https://fhir.ottehr.com/Extension/procedure-body-side')?.valueString ?? null;
+    return { procedureType, bodySite, bodySide };
+  });
+
   return {
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
@@ -305,6 +335,7 @@ const performEffect = async (
       examFindings,
       mdm,
       diagnoses,
+      procedures,
       patientInstructions,
       cptCodes,
       emCode,

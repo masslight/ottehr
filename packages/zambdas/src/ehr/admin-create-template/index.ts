@@ -57,6 +57,7 @@ const performEffect = async (
       { name: '_revinclude:iterate', value: 'Communication:encounter' },
       { name: '_revinclude:iterate', value: 'Condition:encounter' },
       { name: '_revinclude:iterate', value: 'Procedure:encounter' },
+      { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
     ],
   });
 
@@ -123,7 +124,8 @@ const performEffect = async (
 
   const seenTags = new Set<string>();
   encounterBundle.entry = encounterBundle.entry.filter((entry) => {
-    if (entry.resource?.resourceType === 'Condition') return true;
+    // Conditions and ServiceRequests (procedures) can have multiple instances with the same tag
+    if (entry.resource?.resourceType === 'Condition' || entry.resource?.resourceType === 'ServiceRequest') return true;
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
     const isDuplicate = tags.some((tag) => seenTags.has(tag!));
@@ -142,6 +144,14 @@ const performEffect = async (
     delete anonymizedResource.meta?.versionId;
     delete anonymizedResource.meta?.lastUpdated;
     delete anonymizedResource.encounter;
+
+    // Strip encounter-specific data from documented procedures
+    if (anonymizedResource.resourceType === 'ServiceRequest' && anonymizedResource.extension) {
+      anonymizedResource.extension = anonymizedResource.extension.filter(
+        (ext: { url: string }) => !ext.url.endsWith('/consent-obtained')
+      );
+      if (anonymizedResource.extension.length === 0) delete anonymizedResource.extension;
+    }
 
     // The stub patient makes the resources that require a subject valid
     anonymizedResource.subject = {
