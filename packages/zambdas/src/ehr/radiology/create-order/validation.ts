@@ -58,7 +58,7 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     encounter,
     stat,
     clinicalHistory,
-    studyName: typeof studyName === 'string' ? studyName : undefined,
+    studyName,
     consentObtained,
   };
 };
