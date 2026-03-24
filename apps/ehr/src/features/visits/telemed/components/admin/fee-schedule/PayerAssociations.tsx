@@ -235,10 +235,22 @@ export default function PayerAssociations({
                 filteredOrgs.map((org) => (
                   <TableRow key={org.id} hover>
                     <TableCell
-                      onClick={() => {
-                        void navigator.clipboard.writeText(org.id);
-                        setCopiedId(org.id);
-                        setTimeout(() => setCopiedId(null), 2000);
+                      onClick={async () => {
+                        try {
+                          if (!navigator.clipboard || !navigator.clipboard.writeText) {
+                            enqueueSnackbar('Clipboard API is not available in this browser.', {
+                              variant: 'error',
+                            });
+                            return;
+                          }
+                          await navigator.clipboard.writeText(org.id);
+                          setCopiedId(org.id);
+                          setTimeout(() => setCopiedId(null), 2000);
+                        } catch {
+                          enqueueSnackbar('Failed to copy payer ID to clipboard.', {
+                            variant: 'error',
+                          });
+                        }
                       }}
                       sx={{ cursor: 'pointer', userSelect: 'none' }}
                     >
