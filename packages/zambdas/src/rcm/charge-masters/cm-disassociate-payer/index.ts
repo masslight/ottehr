@@ -29,10 +29,13 @@ export const index = wrapHandler(
         (uc) => uc.valueReference?.reference !== `Organization/${organizationId}`
       );
 
-      const updated = await oystehr.fhir.update<ChargeItemDefinition>({
-        ...existing,
-        useContext: updatedUseContext.length > 0 ? updatedUseContext : undefined,
-      });
+      const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+        {
+          ...existing,
+          useContext: updatedUseContext.length > 0 ? updatedUseContext : undefined,
+        },
+        { optimisticLockingVersionId: existing.meta?.versionId }
+      );
 
       return {
         statusCode: 200,

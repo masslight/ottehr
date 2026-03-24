@@ -33,10 +33,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
     }
 
-    await oystehr.fhir.update<Location>({
-      ...location,
-      extension: updatedExtensions,
-    });
+    await oystehr.fhir.update<Location>(
+      {
+        ...location,
+        extension: updatedExtensions,
+      },
+      { optimisticLockingVersionId: location.meta?.versionId }
+    );
 
     return {
       statusCode: 200,

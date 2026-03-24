@@ -65,10 +65,13 @@ export const index = wrapHandler('add-procedure-code', async (input: ZambdaInput
       ],
     };
 
-    const updated = await oystehr.fhir.update<ChargeItemDefinition>({
-      ...existing,
-      propertyGroup: [...(existing.propertyGroup || []), newPropertyGroup],
-    });
+    const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+      {
+        ...existing,
+        propertyGroup: [...(existing.propertyGroup || []), newPropertyGroup],
+      },
+      { optimisticLockingVersionId: existing.meta?.versionId }
+    );
 
     return {
       statusCode: 200,

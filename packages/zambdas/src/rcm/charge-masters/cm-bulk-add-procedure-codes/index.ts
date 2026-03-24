@@ -51,10 +51,13 @@ export const index = wrapHandler(
         };
       });
 
-      const updated = await oystehr.fhir.update<ChargeItemDefinition>({
-        ...existing,
-        propertyGroup: replaceAll ? newPropertyGroups : [...(existing.propertyGroup || []), ...newPropertyGroups],
-      });
+      const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+        {
+          ...existing,
+          propertyGroup: replaceAll ? newPropertyGroups : [...(existing.propertyGroup || []), ...newPropertyGroups],
+        },
+        { optimisticLockingVersionId: existing.meta?.versionId }
+      );
 
       return {
         statusCode: 200,

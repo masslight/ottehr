@@ -33,11 +33,14 @@ export const index = wrapHandler(
       );
       baseTags.push({ system: RCM_TAG_SYSTEM, code: designation });
 
-      const updated = await oystehr.fhir.update<ChargeItemDefinition>({
-        ...target,
-        meta: { ...target.meta, tag: baseTags },
-        useContext: undefined,
-      });
+      const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+        {
+          ...target,
+          meta: { ...target.meta, tag: baseTags },
+          useContext: undefined,
+        },
+        { optimisticLockingVersionId: target.meta?.versionId }
+      );
 
       return {
         statusCode: 200,

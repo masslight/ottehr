@@ -55,10 +55,13 @@ export const index = wrapHandler(
         ],
       };
 
-      const updated = await oystehr.fhir.update<ChargeItemDefinition>({
-        ...existing,
-        propertyGroup: propertyGroups,
-      });
+      const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+        {
+          ...existing,
+          propertyGroup: propertyGroups,
+        },
+        { optimisticLockingVersionId: existing.meta?.versionId }
+      );
 
       return {
         statusCode: 200,

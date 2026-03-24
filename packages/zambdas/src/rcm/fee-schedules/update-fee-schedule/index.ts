@@ -59,29 +59,38 @@ export const index = wrapHandler('update-fee-schedule', async (input: ZambdaInpu
       ];
     }
 
-    await oystehr.fhir.update<ChargeItemDefinition>({
-      ...existing,
-      meta: { ...existing.meta, tag: tags },
-      title: name,
-      date: effectiveDate || existing.date,
-      status: status ?? existing.status,
-      propertyGroup,
-    });
+    const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+      {
+        ...existing,
+        meta: { ...existing.meta, tag: tags },
+        title: name,
+        date: effectiveDate || existing.date,
+        status: status ?? existing.status,
+        propertyGroup,
+      },
+      { optimisticLockingVersionId: existing.meta?.versionId }
+    );
 
     // Handle description separately via PATCH to avoid FHIR empty-string rejection
     if (description) {
       const op = existing.description ? 'replace' : 'add';
-      await oystehr.fhir.patch<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        id,
-        operations: [{ op, path: '/description', value: description }],
-      });
+      await oystehr.fhir.patch<ChargeItemDefinition>(
+        {
+          resourceType: 'ChargeItemDefinition',
+          id,
+          operations: [{ op, path: '/description', value: description }],
+        },
+        { optimisticLockingVersionId: updated.meta?.versionId }
+      );
     } else if (existing.description) {
-      await oystehr.fhir.patch<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        id,
-        operations: [{ op: 'remove', path: '/description' }],
-      });
+      await oystehr.fhir.patch<ChargeItemDefinition>(
+        {
+          resourceType: 'ChargeItemDefinition',
+          id,
+          operations: [{ op: 'remove', path: '/description' }],
+        },
+        { optimisticLockingVersionId: updated.meta?.versionId }
+      );
     }
 
     // Re-fetch to return the final state

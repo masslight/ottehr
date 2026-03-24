@@ -46,10 +46,13 @@ export const index = wrapHandler('associate-payer', async (input: ZambdaInput): 
       },
     };
 
-    const updated = await oystehr.fhir.update<ChargeItemDefinition>({
-      ...existing,
-      useContext: [...(existing.useContext || []), newUseContext],
-    });
+    const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+      {
+        ...existing,
+        useContext: [...(existing.useContext || []), newUseContext],
+      },
+      { optimisticLockingVersionId: existing.meta?.versionId }
+    );
 
     return {
       statusCode: 200,
