@@ -118,8 +118,6 @@ function validateRequestParameters(input: ZambdaInput): GetVisitFaxHistoryInputV
 
     return validated;
   } catch (err) {
-    console.groupEnd();
-
     if (err instanceof ZodError) {
       throw new Error(`Invalid request parameters: ${formatZodError(err)}`);
     }
