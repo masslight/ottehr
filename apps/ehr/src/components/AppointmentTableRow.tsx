@@ -485,7 +485,7 @@ export default function AppointmentTableRow({
     <>
       <Grid item>{isLongWaitingTime && <PriorityIconWithBorder fill={theme.palette.warning.main} />}</Grid>
       <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
-        <Typography variant="body1" sx={{ display: 'inline' }}>
+        <Typography variant="body2" sx={{ display: 'inline' }}>
           {statusTime.includes('/') ? (
             <>
               <TimeBox time={statusTime.split('/')[0].trim()} isHighlighted={isLongWaitingTime} theme={theme} />
@@ -788,7 +788,7 @@ export default function AppointmentTableRow({
       <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
         <Typography variant="body2">In Person {serviceCategory}</Typography>
         <Typography variant="body2">{appointment.location}</Typography>
-        <Box mt={1}>
+        <Box mt={0.5}>
           <InPersonAppointmentStatusChip status={appointment.status} />
         </Box>
       </TableCell>
@@ -802,7 +802,7 @@ export default function AppointmentTableRow({
             ? 'Post Telemed'
             : ''
         )}
-        <Typography variant="body1">
+        <Typography variant="body2">
           <strong>{start}</strong>
         </Typography>
         <Tooltip
@@ -826,7 +826,7 @@ export default function AppointmentTableRow({
           arrow
           onOpen={scrollTooltipToBottom}
         >
-          <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '8px' }} gap={1}>
+          <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '4px' }} gap={1}>
             {statusTimeEl}
           </Grid>
         </Tooltip>
