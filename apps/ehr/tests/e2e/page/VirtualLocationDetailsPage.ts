@@ -73,7 +73,7 @@ export async function expectStateDetailsPage(
   locationName: string,
   page: Page
 ): Promise<VirtualLocationDetailsPage> {
-  await page.waitForURL(`/telemed-admin/virtual-locations/` + locationId);
+  await page.waitForURL(`/admin/virtual-locations/` + locationId);
   await expect(page.locator('h3').getByText(locationName)).toBeVisible();
   return new VirtualLocationDetailsPage(page);
 }

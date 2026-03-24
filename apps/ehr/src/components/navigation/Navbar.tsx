@@ -22,44 +22,38 @@ export type NavbarItems = {
 
 const administratorNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
-  Schedules: { urls: ['/schedules', '/schedule'] },
+  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Employees: { urls: ['/employees', '/employee'] },
-  Admin: { urls: ['/telemed-admin'] },
-  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  Admin: { urls: ['/admin'] },
 };
 
 const managerNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
-  Schedules: { urls: ['/schedules', '/schedule'] },
+  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Employees: { urls: ['/employees', '/employee'] },
-  Admin: { urls: ['/telemed-admin'] },
-  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks'] },
 };
 
 const staffNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
+  Virtual: { urls: ['/telemed/appointments'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Telemedicine: { urls: ['/telemed/appointments'] },
   Tasks: { urls: ['/tasks'] },
 };
 
 const providerNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
+  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
   Tasks: { urls: ['/tasks'] },
 };
 
 const customerSupportNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
-  Schedules: { urls: ['/schedules', '/schedule'] },
+  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Employees: { urls: ['/employees', '/employee'] },
-  Admin: { urls: ['/telemed-admin'] },
-  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  Admin: { urls: ['/admin'] },
 };
 
 const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];

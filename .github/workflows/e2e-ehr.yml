@@ -146,11 +146,6 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
-      - name: HashiCorp - Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: "1.12.2"
-
       - name: Check out secrets repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -159,61 +154,13 @@ jobs:
           ref: develop
           path: "secrets"
 
-      - name: Set up terraform config
-        shell: /usr/bin/bash -x {0}
-        run: |
-          ENV="${{ needs.check-changes.outputs.environment }}"
-          mkdir -p "packages/zambdas/.env"
-          shopt -s dotglob && cp -r ./secrets/ottehr/* ./secrets/
-          npm exec -- tsx ./scripts/secrets.ts populate ${{ inputs.environment }}
-          npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
-
-      - name: Configure AWS Credentials
-        id: configure-aws-credentials
-        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
         with:
-          role-to-assume: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
-          aws-region: us-east-1
-          output-credentials: true
-
-      - name: Configure AWS CLI
-        run: |
-          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-          if [ -z "$aws_profile" ]; then
-            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
-          fi
-          profile="${aws_profile:-ottehr}"
-          echo "Using AWS profile: ${profile}"
-          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
-          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
-          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
-          aws configure --profile "${profile}" set region us-east-1
-
-      - name: Set up app environment
-        shell: /usr/bin/bash -xeo pipefail {0}
-        run: |
-          ENV="${{ needs.check-changes.outputs.environment }}"
-          pushd deploy
-          npm run terraform-init
-          terraform workspace select "$ENV"
-          popd
-
-          setup_env() {
-            mkdir -p "apps/$app/env"
-            cp "secrets/apps/$app/env/tests."*.json "apps/$app/env/"
-            address="module.ottehr_apps.local_sensitive_file.${app}_env"
-            if [ "$app" = "intake" ]; then
-              address="module.ottehr_apps.local_sensitive_file.patient_portal_env"
-            fi
-            pushd deploy
-            pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
-            terraform show --json | jq -r "$pattern" > "../apps/$app/env/.env.$ENV"
-            popd
-          }
-
-          for app in ehr intake; do
-            setup_env "$app"
-          done
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
 
       - name: Restore seed data cache
         if: needs.check-changes.outputs.environment == 'local' || needs.check-changes.outputs.environment == 'e2e' || needs.check-changes.outputs.environment == 'e2e2' || needs.check-changes.outputs.environment == 'e2e3'
