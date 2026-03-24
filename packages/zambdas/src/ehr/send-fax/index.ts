@@ -1,8 +1,16 @@
+import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DocumentReference, Patient } from 'fhir/r4b';
-import { getSecret, SecretsKeys, VISIT_NOTE_SUMMARY_CODE } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { Appointment, DocumentReference, Patient, Practitioner, Provenance } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  FAX_SENT_PROVENANCE_ACTIVITY_CODING,
+  getFullestAvailableName,
+  getSecret,
+  SecretsKeys,
+  SendFaxZambdaInput,
+  VISIT_NOTE_SUMMARY_CODE,
+} from 'utils';
+import { checkOrCreateM2MClientToken, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -14,76 +22,186 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.group('validateRequestParameters()');
-    const { appointmentId, faxNumber, secrets } = validateRequestParameters(input);
+    const validatedInput = validateRequestParameters(input);
     console.groupEnd();
     console.debug('validateRequestParameters() success');
-    console.log('appointmentId', appointmentId);
-    console.log('faxNumber', faxNumber);
+    console.log('appointmentId', validatedInput.appointmentId, 'faxNumber', validatedInput.faxNumber);
+
+    const authorization = input.headers.Authorization;
+    const user = await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);
 
     console.group('checkOrCreateM2MClientToken() then createOystehrClient()');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
     console.groupEnd();
     console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
 
-    const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+    console.group('performEffect()');
+    const response = await performEffect(validatedInput, oystehr, user);
+    console.groupEnd();
+    console.debug('performEffect() success', JSON.stringify(response));
 
-    console.log('searching fhir for patient, and visit note');
-    // also includes other actors but i'm not using them so i won't include their types
-    const bundle = (
-      await oystehr.fhir.search<Appointment | DocumentReference | Patient>({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: '_id',
-            value: appointmentId,
-          },
-          {
-            name: '_include',
-            value: 'Appointment:actor',
-          },
-          {
-            name: '_revinclude',
-            value: 'DocumentReference:related',
-          },
-        ],
-      })
-    ).unbundle();
-
-    const patient = bundle.find((resource) => resource.resourceType === 'Patient') as Patient;
-    const visitNote = bundle.find(
-      (resource) =>
-        resource.resourceType === 'DocumentReference' &&
-        resource.type?.coding?.find((coding) => coding.code === VISIT_NOTE_SUMMARY_CODE)
-    ) as DocumentReference;
-
-    const patientId = patient?.id;
-    const media = visitNote?.content[0].attachment.url;
-    if (!patientId || !media) {
-      return {
-        body: JSON.stringify({ message: 'Patient or visit note url not found' }),
-        statusCode: 404,
-      };
-    }
-    console.log('patient id', patient.id);
-    console.log('media url', media);
-
-    console.log('Sending fax to', faxNumber);
-    await oystehr.fax.send({
-      media,
-      quality: 'standard',
-      patient: `Patient/${patientId}`,
-      recipientNumber: faxNumber,
-      sender: `Organization/${organizationId}`,
-    });
-    console.log('Fax sent successfully');
-
-    return {
-      body: JSON.stringify('Fax sent'),
-      statusCode: 200,
-    };
+    return response;
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('send-fax', error, ENVIRONMENT);
   }
 });
+
+const performEffect = async (
+  validatedInput: SendFaxZambdaInput & Pick<ZambdaInput, 'secrets'>,
+  oystehr: Oystehr,
+  user: User
+): Promise<{
+  body: string;
+  statusCode: number;
+}> => {
+  const { appointmentId, faxNumber, secrets } = validatedInput;
+
+  const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+
+  console.log('searching fhir for patient, visit note, and user');
+  const [bundle, userPractitioner] = await Promise.all([
+    // also includes other actors but i'm not using them so i won't include their types
+    oystehr.fhir.search<Appointment | DocumentReference | Patient>({
+      resourceType: 'Appointment',
+      params: [
+        {
+          name: '_id',
+          value: appointmentId,
+        },
+        {
+          name: '_include',
+          value: 'Appointment:actor',
+        },
+        {
+          name: '_revinclude',
+          value: 'DocumentReference:related',
+        },
+      ],
+    }),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: user.profile.split('/')[1],
+    }),
+  ]);
+
+  const resources = bundle.unbundle();
+  const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
+  const visitNote = resources.find(
+    (resource) =>
+      resource.resourceType === 'DocumentReference' &&
+      resource.type?.coding?.find((coding) => coding.code === VISIT_NOTE_SUMMARY_CODE)
+  ) as DocumentReference;
+
+  const patientId = patient?.id;
+  const media = visitNote?.content[0].attachment.url;
+  if (!patientId || !media) {
+    return {
+      body: JSON.stringify({ message: 'Patient or visit note url not found' }),
+      statusCode: 404,
+    };
+  }
+  console.log('patient id', patient.id);
+  console.log('media url', media);
+
+  console.log('Sending fax to', faxNumber);
+  const { communicationResource: fax } = await oystehr.fax.send({
+    media,
+    quality: 'standard',
+    patient: `Patient/${patientId}`,
+    recipientNumber: faxNumber,
+    sender: `Organization/${organizationId}`,
+  });
+  console.log('Fax sent successfully');
+
+  console.log('Creating provenance for fax');
+  const provenance = await oystehr.fhir.create<Provenance>({
+    resourceType: 'Provenance',
+    target: [
+      {
+        reference: `Communication/${fax.id!}`,
+      },
+      {
+        reference: `Appointment/${appointmentId}`,
+      },
+    ],
+    occurredDateTime: fax.sent,
+    recorded: DateTime.now().toUTC().toISO(),
+    activity: {
+      coding: [FAX_SENT_PROVENANCE_ACTIVITY_CODING],
+    },
+    agent: [
+      {
+        role: [
+          {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+                code: 'AUT',
+                display: 'author',
+              },
+            ],
+          },
+        ],
+        who: {
+          reference: `Practitioner/${userPractitioner.id}`,
+          display: getFullestAvailableName(userPractitioner),
+        },
+        onBehalfOf: {
+          reference: `Organization/${organizationId}`,
+        },
+      },
+      {
+        role: [
+          {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+                code: 'SBJ',
+                display: 'subject',
+              },
+            ],
+          },
+        ],
+        who: {
+          reference: `Patient/${patientId}`,
+        },
+      },
+      {
+        role: [
+          {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+                code: 'RCV',
+                display: 'receiver',
+              },
+            ],
+          },
+        ],
+        who: {
+          reference: `#${faxNumber}`,
+        },
+      },
+    ],
+    contained: [
+      {
+        resourceType: 'Practitioner',
+        id: faxNumber,
+        telecom: [
+          {
+            system: 'fax',
+            value: faxNumber,
+          },
+        ],
+      },
+    ],
+  });
+  console.log('Fax provenance created successfully', provenance.id);
+
+  return {
+    body: JSON.stringify('Fax sent'),
+    statusCode: 200,
+  };
+};

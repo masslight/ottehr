@@ -40,6 +40,7 @@ import {
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
+  getVisitFaxHistory,
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
@@ -71,6 +72,7 @@ import {
   getReasonForVisitOptionsForServiceCategory,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
+  GetVisitFaxHistoryOutput,
   isApiError,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -476,6 +478,19 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
 
+  const { data: faxData, isLoading: faxLoading } = useQuery({
+    queryKey: ['get-visit-fax-history', appointmentID],
+
+    queryFn: async (): Promise<GetVisitFaxHistoryOutput> => {
+      if (oystehrZambda && appointmentID && patientId) {
+        return getVisitFaxHistory(oystehrZambda, { appointmentId: appointmentID, patientId });
+      }
+      throw new Error('fhir client not defined or appointmentId or patientId not provided');
+    },
+
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined && patientId !== undefined,
+  });
+
   const {
     data: patientBalancesData,
     isLoading: patientBalancesLoading,
@@ -708,14 +723,15 @@ export default function VisitDetailsPage(): ReactElement {
       if (appointment) {
         const history = await getAppointmentAndPatientHistory(appointment, oystehr);
         if (history) {
-          if (logs) {
-            const activityLogs = formatActivityLogs(
+          if (logs && !faxLoading) {
+            const activityLogs = formatActivityLogs({
               appointment,
-              history.appointmentHistory,
-              history.patientHistory,
-              undefined,
-              locationTimeZone
-            );
+              appointmentHistory: history.appointmentHistory,
+              patientHistory: history.patientHistory,
+              faxesSent: faxData?.faxesSent,
+              paperworkStartedFlag: undefined,
+              timezone: locationTimeZone,
+            });
             setActivityLogs(activityLogs);
           }
           if (notes) {
@@ -726,7 +742,7 @@ export default function VisitDetailsPage(): ReactElement {
         setActivityLogsLoading(false);
       }
     },
-    [appointment, oystehr, locationTimeZone]
+    [appointment, oystehr, locationTimeZone, faxData?.faxesSent, faxLoading]
   );
 
   useEffect(() => {

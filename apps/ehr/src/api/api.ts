@@ -72,6 +72,8 @@ import {
   GetUserParams,
   GetUserResponse,
   GetVisitDetailsPDFInput,
+  GetVisitFaxHistoryInput,
+  GetVisitFaxHistoryOutput,
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
@@ -1549,6 +1551,22 @@ export const updatePatientLoginPhoneNumbers = async (
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
+  }
+};
+
+export const getVisitFaxHistory = async (
+  oystehr: Oystehr,
+  parameters: GetVisitFaxHistoryInput
+): Promise<GetVisitFaxHistoryOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-visit-fax-history',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
   }
 };
 
