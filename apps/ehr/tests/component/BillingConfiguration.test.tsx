@@ -33,8 +33,8 @@ vi.mock('src/hooks/useAppClients', () => ({
   }),
 }));
 
-// Mock the FeeSchedule component to keep tests focused
-vi.mock('../../src/features/visits/telemed/components/admin/FeeSchedule', () => ({
+// Mock the ChargeItemList component to keep tests focused
+vi.mock('../../src/features/visits/telemed/components/admin/ChargeItemList', () => ({
   default: () => <div data-testid="fee-schedule-mock" />,
 }));
 

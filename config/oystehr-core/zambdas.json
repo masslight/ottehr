@@ -1419,17 +1419,6 @@
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
       "zip": ".dist/zips/make-medication-history-pdf.zip"
     },
-    "ERX_NOTIFICATION": {
-      "name": "erx-notification-subscription",
-      "type": "subscription",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/communication/erx-notification/index",
-      "zip": ".dist/zips/erx-notification.zip",
-      "subscription": {
-        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
-        "reason": "Create Task for eRX notification"
-      }
-    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",

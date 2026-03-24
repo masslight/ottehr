@@ -1,3 +1,4 @@
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface UpdateChargeMasterParams {
@@ -11,21 +12,21 @@ export interface UpdateChargeMasterParams {
 
 export function validateRequestParameters(input: ZambdaInput): UpdateChargeMasterParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { chargeMasterId, name, effectiveDate, description, status } = JSON.parse(input.body);
 
   if (!chargeMasterId) {
-    throw new Error('This field is required: "chargeMasterId"');
+    throw MISSING_REQUIRED_PARAMETERS(['chargeMasterId']);
   }
 
   if (!name || !effectiveDate) {
-    throw new Error('These fields are required: "name", "effectiveDate"');
+    throw MISSING_REQUIRED_PARAMETERS(['name', 'effectiveDate']);
   }
 
   if (status && status !== 'active' && status !== 'retired') {
-    throw new Error('"status" must be "active" or "retired"');
+    throw INVALID_INPUT_ERROR('"status" must be "active" or "retired"');
   }
 
   return {

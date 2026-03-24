@@ -47,7 +47,7 @@ import {
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
-import { ChargeItemMode } from '../FeeSchedule';
+import { ChargeItemMode } from '../ChargeItemList';
 
 interface ProcedureCodesProps {
   feeSchedule: ChargeItemDefinition | undefined;

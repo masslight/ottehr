@@ -54,15 +54,15 @@ import {
   useUpdateFeeScheduleMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CASE_RATE_CODE, ChargeMasterDesignation, RCM_TAG_SYSTEM } from 'utils';
-import PayerAssociations from './fee-schedule/PayerAssociations';
-import ProcedureCodes from './fee-schedule/ProcedureCodes';
-import { ChargeItemMode } from './FeeSchedule';
+import PayerAssociations from './charge-items/PayerAssociations';
+import ProcedureCodes from './charge-items/ProcedureCodes';
+import { ChargeItemMode } from './ChargeItemList';
 
-export interface EditFeeScheduleProps {
+export interface EditChargeItemProps {
   mode?: ChargeItemMode;
 }
 
-export default function EditFeeSchedule({ mode = 'fee-schedule' }: EditFeeScheduleProps): ReactElement {
+export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItemProps): ReactElement {
   const isChargeMaster = mode === 'charge-master';
   const entityLabel = isChargeMaster ? 'Charge Master' : 'Fee Schedule';
   const entityLabelLower = entityLabel.toLowerCase();

@@ -1,4 +1,4 @@
-import { Secrets } from 'utils';
+import { MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface GetTerminalReadersInput {
@@ -13,11 +13,11 @@ export function validateRequestParameters(input: ZambdaInput): GetTerminalReader
   const terminalLocationId = parsed?.terminalLocationId;
 
   if (!stripeAccountId || typeof stripeAccountId !== 'string') {
-    throw new Error('stripeAccountId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['stripeAccountId']);
   }
 
   if (!terminalLocationId || typeof terminalLocationId !== 'string') {
-    throw new Error('terminalLocationId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['terminalLocationId']);
   }
 
   return {

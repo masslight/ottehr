@@ -1,3 +1,4 @@
+import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface DeleteChargeMasterParams {
@@ -7,13 +8,13 @@ export interface DeleteChargeMasterParams {
 
 export function validateRequestParameters(input: ZambdaInput): DeleteChargeMasterParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { id } = JSON.parse(input.body);
 
   if (!id) {
-    throw new Error('This field is required: "id"');
+    throw MISSING_REQUIRED_PARAMETERS(['id']);
   }
 
   return {

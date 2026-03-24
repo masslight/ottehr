@@ -1,3 +1,4 @@
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface AddProcedureCodeParams {
@@ -11,21 +12,21 @@ export interface AddProcedureCodeParams {
 
 export function validateRequestParameters(input: ZambdaInput): AddProcedureCodeParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { feeScheduleId, code, description, modifier, amount } = JSON.parse(input.body);
 
   if (!feeScheduleId) {
-    throw new Error('This field is required: "feeScheduleId"');
+    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
   }
 
   if (!code) {
-    throw new Error('This field is required: "code"');
+    throw MISSING_REQUIRED_PARAMETERS(['code']);
   }
 
   if (amount == null || typeof amount !== 'number') {
-    throw new Error('"amount" must be a number');
+    throw INVALID_INPUT_ERROR('"amount" must be a number');
   }
 
   return {

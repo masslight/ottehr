@@ -1,3 +1,4 @@
+import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface CmAssociatePayerParams {
@@ -8,17 +9,17 @@ export interface CmAssociatePayerParams {
 
 export function validateRequestParameters(input: ZambdaInput): CmAssociatePayerParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { chargeMasterId, organizationId } = JSON.parse(input.body);
 
   if (!chargeMasterId) {
-    throw new Error('This field is required: "chargeMasterId"');
+    throw MISSING_REQUIRED_PARAMETERS(['chargeMasterId']);
   }
 
   if (!organizationId) {
-    throw new Error('This field is required: "organizationId"');
+    throw MISSING_REQUIRED_PARAMETERS(['organizationId']);
   }
 
   return {

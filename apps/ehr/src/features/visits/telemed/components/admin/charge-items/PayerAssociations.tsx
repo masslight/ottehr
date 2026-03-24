@@ -42,7 +42,7 @@ import {
   useDisassociatePayerMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { useInsurancesQuery } from '../admin.queries';
-import { ChargeItemMode } from '../FeeSchedule';
+import { ChargeItemMode } from '../ChargeItemList';
 
 const PAYER_ID_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const PAYER_ID_CODE = 'XX';

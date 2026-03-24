@@ -1,3 +1,4 @@
+import { MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface GetVersionHistoryParams {
@@ -9,7 +10,7 @@ export function validateRequestParameters(input: ZambdaInput): GetVersionHistory
   const { resourceId } = input.body ? JSON.parse(input.body) : input;
 
   if (!resourceId) {
-    throw new Error('resourceId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['resourceId']);
   }
 
   return {

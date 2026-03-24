@@ -65,7 +65,7 @@ vi.mock('react-window', () => ({
   },
 }));
 
-import ProcedureCodes from '../../src/features/visits/telemed/components/admin/fee-schedule/ProcedureCodes';
+import ProcedureCodes from '../../src/features/visits/telemed/components/admin/charge-items/ProcedureCodes';
 
 // jsdom does not implement File.text(), so we polyfill it for tests
 if (!File.prototype.text) {

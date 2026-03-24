@@ -1,4 +1,4 @@
-import { Secrets } from 'utils';
+import { MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface GetStripeAccountInfoInput {
@@ -11,7 +11,7 @@ export function validateRequestParameters(input: ZambdaInput): GetStripeAccountI
   const stripeAccountId = parsed?.stripeAccountId;
 
   if (!stripeAccountId || typeof stripeAccountId !== 'string') {
-    throw new Error('stripeAccountId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['stripeAccountId']);
   }
 
   return {

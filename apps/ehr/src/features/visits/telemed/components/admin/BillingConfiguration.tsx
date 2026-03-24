@@ -21,7 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
-import FeeSchedule from './FeeSchedule';
+import FeeSchedule from './ChargeItemList';
 
 type BillingSubTab = 'fee-schedules' | 'charge-masters' | 'payment-locations';
 

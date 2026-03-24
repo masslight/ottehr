@@ -1,6 +1,5 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
-import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
@@ -23,20 +22,9 @@ enum PageTab {
 
 export function AdminPage(): JSX.Element {
   const { adminTab, billingTab } = useParams();
-  const [pageTab, setPageTab] = useState<PageTab>(PageTab.schedules);
   const navigate = useNavigate();
 
-  const effectiveAdminTab = billingTab ? PageTab.billing : (adminTab as PageTab);
-
-  useEffect(() => {
-    if (effectiveAdminTab) {
-      setPageTab(effectiveAdminTab);
-    }
-  }, [effectiveAdminTab]);
-
-  const handleTabChange = (_: any, newValue: PageTab): any => {
-    setPageTab(newValue);
-  };
+  const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
 
   return (
     <PageContainer>
@@ -44,7 +32,7 @@ export function AdminPage(): JSX.Element {
         <TabContext value={pageTab}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
             <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={handleTabChange} aria-label={`${effectiveAdminTab} page`}>
+              <TabList onChange={() => {}} aria-label={`${pageTab} page`}>
                 <Tab
                   label="Schedules"
                   value={PageTab.schedules}

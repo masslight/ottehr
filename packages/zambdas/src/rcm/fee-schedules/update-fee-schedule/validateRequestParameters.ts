@@ -1,3 +1,4 @@
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface UpdateFeeScheduleParams {
@@ -14,30 +15,30 @@ export interface UpdateFeeScheduleParams {
 
 export function validateRequestParameters(input: ZambdaInput): UpdateFeeScheduleParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { feeScheduleId, name, effectiveDate, description, status, designation, caseRateAmount, caseRateComment } =
     JSON.parse(input.body);
 
   if (!feeScheduleId) {
-    throw new Error('This field is required: "feeScheduleId"');
+    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
   }
 
   if (!name) {
-    throw new Error('This field is required: "name"');
+    throw MISSING_REQUIRED_PARAMETERS(['name']);
   }
 
   if (status && status !== 'active' && status !== 'retired') {
-    throw new Error('"status" must be "active" or "retired"');
+    throw INVALID_INPUT_ERROR('"status" must be "active" or "retired"');
   }
 
   if (designation !== undefined && designation !== 'case-rate' && designation !== null) {
-    throw new Error('"designation" must be "case-rate" or null');
+    throw INVALID_INPUT_ERROR('"designation" must be "case-rate" or null');
   }
 
   if (caseRateAmount !== undefined && (typeof caseRateAmount !== 'number' || caseRateAmount < 0)) {
-    throw new Error('"caseRateAmount" must be a non-negative number');
+    throw INVALID_INPUT_ERROR('"caseRateAmount" must be a non-negative number');
   }
 
   return {

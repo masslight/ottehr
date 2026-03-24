@@ -1,4 +1,4 @@
-import { ChargeMasterDesignation } from 'utils';
+import { ChargeMasterDesignation, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface DesignateChargeMasterEntryParams {
@@ -9,17 +9,17 @@ export interface DesignateChargeMasterEntryParams {
 
 export function validateRequestParameters(input: ZambdaInput): DesignateChargeMasterEntryParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { chargeMasterId, designation } = JSON.parse(input.body);
 
   if (!chargeMasterId) {
-    throw new Error('This field is required: "chargeMasterId"');
+    throw MISSING_REQUIRED_PARAMETERS(['chargeMasterId']);
   }
 
   if (designation !== 'default-insurance' && designation !== 'self-pay') {
-    throw new Error('"designation" must be "default-insurance" or "self-pay"');
+    throw INVALID_INPUT_ERROR('"designation" must be "default-insurance" or "self-pay"');
   }
 
   return {

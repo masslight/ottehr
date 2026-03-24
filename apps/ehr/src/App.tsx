@@ -22,7 +22,7 @@ import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
-import EditFeeSchedule from './features/visits/telemed/components/admin/EditFeeSchedule';
+import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
 import { useApiClients } from './hooks/useAppClients';
@@ -232,8 +232,8 @@ function App(): ReactElement {
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
-                  <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditFeeSchedule />} />
-                  <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditFeeSchedule mode="charge-master" />} />
+                  <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
+                  <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                   <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
                   {/** telemed */}
                   <Route

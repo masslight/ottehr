@@ -1,3 +1,4 @@
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface FindApplicableFeeScheduleParams {
@@ -8,17 +9,17 @@ export interface FindApplicableFeeScheduleParams {
 
 export function validateRequestParameters(input: ZambdaInput): FindApplicableFeeScheduleParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { payerOrganizationId, dateOfService } = JSON.parse(input.body);
 
   if (!payerOrganizationId || typeof payerOrganizationId !== 'string') {
-    throw new Error('"payerOrganizationId" is required');
+    throw MISSING_REQUIRED_PARAMETERS(['payerOrganizationId']);
   }
 
   if (!dateOfService || typeof dateOfService !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfService)) {
-    throw new Error('"dateOfService" is required and must be a date string (YYYY-MM-DD)');
+    throw INVALID_INPUT_ERROR('"dateOfService" is required and must be a date string (YYYY-MM-DD)');
   }
 
   return {

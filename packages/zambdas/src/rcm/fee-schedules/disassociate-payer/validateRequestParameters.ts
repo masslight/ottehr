@@ -1,3 +1,4 @@
+import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface DisassociatePayerParams {
@@ -8,17 +9,17 @@ export interface DisassociatePayerParams {
 
 export function validateRequestParameters(input: ZambdaInput): DisassociatePayerParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { feeScheduleId, organizationId } = JSON.parse(input.body);
 
   if (!feeScheduleId) {
-    throw new Error('This field is required: "feeScheduleId"');
+    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
   }
 
   if (!organizationId) {
-    throw new Error('This field is required: "organizationId"');
+    throw MISSING_REQUIRED_PARAMETERS(['organizationId']);
   }
 
   return {

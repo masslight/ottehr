@@ -1,4 +1,4 @@
-import { Secrets } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface SaveTerminalLocationInput {
@@ -12,12 +12,12 @@ export function validateRequestParameters(input: ZambdaInput): SaveTerminalLocat
   const locationId = parsed?.locationId;
 
   if (!locationId || typeof locationId !== 'string') {
-    throw new Error('locationId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['locationId']);
   }
 
   const terminalLocationId = parsed?.terminalLocationId ?? null;
   if (terminalLocationId !== null && typeof terminalLocationId !== 'string') {
-    throw new Error('terminalLocationId must be a string or null');
+    throw INVALID_INPUT_ERROR('terminalLocationId must be a string or null');
   }
 
   return {

@@ -97,11 +97,10 @@ export default function EditInsurance(): JSX.Element {
   const { data: feeSchedules, isFetching: feeSchedulesFetching } = useListFeeSchedulesQuery();
   const { data: chargeMasters, isFetching: chargeMastersFetching } = useListChargeMastersQuery();
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
-
   const findApplicable = useCallback(
     (items: ChargeItemDefinition[] | undefined, orgId: string | undefined): ChargeItemDefinition | null => {
       if (!items || !orgId) return null;
+      const today = new Date().toISOString().split('T')[0];
       const associated = items.filter(
         (item) =>
           item.status === 'active' &&
@@ -111,7 +110,7 @@ export default function EditInsurance(): JSX.Element {
       applicable.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
       return applicable[0] ?? null;
     },
-    [today]
+    []
   );
 
   const applicableFeeSchedule = useMemo(
@@ -125,6 +124,8 @@ export default function EditInsurance(): JSX.Element {
     // 1. Payer-specific
     const payerSpecific = findApplicable(chargeMasters, insuranceId);
     if (payerSpecific) return { chargeMaster: payerSpecific, source: 'payer-specific' as const };
+
+    const today = new Date().toISOString().split('T')[0];
 
     // 2. Default-insurance fallback
     const defaultCMs = chargeMasters.filter(
@@ -145,7 +146,7 @@ export default function EditInsurance(): JSX.Element {
     if (applicableSelfPay[0]) return { chargeMaster: applicableSelfPay[0], source: 'self-pay' as const };
 
     return { chargeMaster: null, source: null };
-  }, [chargeMasters, insuranceId, findApplicable, today]);
+  }, [chargeMasters, insuranceId, findApplicable]);
 
   const settingsMap = Object.fromEntries(
     Object.entries(INSURANCE_SETTINGS_MAP).map(([key, _]) => [key as keyof typeof INSURANCE_SETTINGS_MAP, false])

@@ -1,3 +1,4 @@
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface DeleteProcedureCodeParams {
@@ -8,17 +9,17 @@ export interface DeleteProcedureCodeParams {
 
 export function validateRequestParameters(input: ZambdaInput): DeleteProcedureCodeParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { feeScheduleId, index } = JSON.parse(input.body);
 
   if (!feeScheduleId) {
-    throw new Error('This field is required: "feeScheduleId"');
+    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
   }
 
   if (index == null || typeof index !== 'number' || index < 0) {
-    throw new Error('"index" must be a non-negative number');
+    throw INVALID_INPUT_ERROR('"index" must be a non-negative number');
   }
 
   return {
