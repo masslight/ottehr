@@ -228,37 +228,34 @@ export default function DailyPayments(): React.ReactElement {
   );
 
   useEffect(() => {
-    void fetchReport(dateFilter);
+    // Only auto-fetch for preset date filters (today, yesterday, etc.)
+    // Custom date/range selections require the user to click Refresh
+    if (dateFilter !== 'custom' && dateFilter !== 'customRange') {
+      void fetchReport(dateFilter);
+    }
   }, [dateFilter, fetchReport, customDate, selectedLocationId]);
 
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
     setDateFilter(newFilter);
-    void fetchReport(newFilter);
+    if (newFilter === 'custom' || newFilter === 'customRange') {
+      setReportData(null);
+    }
   };
 
   const handleCustomDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomDate(newDate);
-    if (dateFilter === 'custom') {
-      void fetchReport('custom');
-    }
   };
 
   const handleCustomStartDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomStartDate(newDate);
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
   };
 
   const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomEndDate(newDate);
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
   };
 
   const handleLocationFilterChange = (event: SelectChangeEvent<string>): void => {
