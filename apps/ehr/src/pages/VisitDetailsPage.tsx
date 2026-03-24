@@ -739,7 +739,7 @@ export default function VisitDetailsPage(): ReactElement {
             setNotesHistory(formattedNotes);
           }
         }
-        setActivityLogsLoading(false);
+        setActivityLogsLoading(faxLoading);
       }
     },
     [appointment, oystehr, locationTimeZone, faxData?.faxesSent, faxLoading]
