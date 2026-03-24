@@ -2,15 +2,6 @@ import { createSimpleHash, validateExamConfig } from '../../config-helpers/exami
 import { InPersonExamConfig } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
 
-// Re-export helpers for backward compatibility
-export {
-  createSimpleHash,
-  validateExamConfig,
-  isDropdownComponent,
-  isMultiSelectComponent,
-} from '../../config-helpers/examination';
-export type { ExamSchema } from '../../config-helpers/examination';
-
 export const ExamConfig = {
   telemed: {
     default: {
