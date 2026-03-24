@@ -1,4 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
+import { FormFieldItemRecord, FormFieldsInputItem } from 'config-types';
 import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
@@ -28,8 +29,6 @@ import {
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
-  FormFieldItemRecord,
-  FormFieldsInputItem,
   PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
   VALUE_SETS,
