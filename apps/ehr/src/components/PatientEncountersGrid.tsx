@@ -45,7 +45,6 @@ import {
   TelemedCallStatusesArr,
   visitStatusArray,
 } from 'utils';
-import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { RoundedButton } from './RoundedButton';
@@ -484,8 +483,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                     DateTime.fromISO(a.dateTime ?? '').diff(DateTime.fromISO(b.dateTime ?? ''), 'milliseconds')
                       .milliseconds
                 );
-                const hasFollowups =
-                  FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && followupEncountersForRow.length > 0;
+                const hasFollowups = followupEncountersForRow.length > 0;
 
                 return (
                   <React.Fragment key={rowId}>
