@@ -330,6 +330,34 @@
       "src": "src/ehr/get-employees/index",
       "zip": ".dist/zips/get-employees.zip"
     },
+    "GET-PAYMENT-LOCATIONS": {
+      "name": "get-payment-locations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/get-payment-locations/index",
+      "zip": ".dist/zips/get-payment-locations.zip"
+    },
+    "GET-STRIPE-ACCOUNT-INFO": {
+      "name": "get-stripe-account-info",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/get-stripe-account-info/index",
+      "zip": ".dist/zips/get-stripe-account-info.zip"
+    },
+    "GET-TERMINAL-READERS": {
+      "name": "get-terminal-readers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/get-terminal-readers/index",
+      "zip": ".dist/zips/get-terminal-readers.zip"
+    },
+    "SAVE-TERMINAL-LOCATION": {
+      "name": "save-terminal-location",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/save-terminal-location/index",
+      "zip": ".dist/zips/save-terminal-location.zip"
+    },
     "SYNC-USER": {
       "name": "sync-user",
       "type": "http_auth",

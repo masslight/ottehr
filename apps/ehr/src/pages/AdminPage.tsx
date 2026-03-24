@@ -22,17 +22,17 @@ enum PageTab {
 }
 
 export function AdminPage(): JSX.Element {
-  const { adminTab } = useParams();
+  const { adminTab, billingTab } = useParams();
   const [pageTab, setPageTab] = useState<PageTab>(PageTab.schedules);
   const navigate = useNavigate();
 
-  const page = adminTab as PageTab;
+  const effectiveAdminTab = billingTab ? PageTab.billing : (adminTab as PageTab);
 
   useEffect(() => {
-    if (page) {
-      setPageTab(page);
+    if (effectiveAdminTab) {
+      setPageTab(effectiveAdminTab);
     }
-  }, [page]);
+  }, [effectiveAdminTab]);
 
   const handleTabChange = (_: any, newValue: PageTab): any => {
     setPageTab(newValue);
@@ -44,7 +44,7 @@ export function AdminPage(): JSX.Element {
         <TabContext value={pageTab}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
             <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={handleTabChange} aria-label={`${page} page`}>
+              <TabList onChange={handleTabChange} aria-label={`${effectiveAdminTab} page`}>
                 <Tab
                   label="Schedules"
                   value={PageTab.schedules}
@@ -115,7 +115,7 @@ export function AdminPage(): JSX.Element {
             <Insurances />
           </TabPanel>
           <TabPanel value={PageTab.billing} sx={{ padding: 0 }}>
-            <BillingConfiguration />
+            <BillingConfiguration billingTab={billingTab} />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
