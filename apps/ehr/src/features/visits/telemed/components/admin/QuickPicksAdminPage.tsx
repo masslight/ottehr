@@ -25,6 +25,7 @@ import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
+import RadiologyQuickPicksPage from './RadiologyQuickPicksPage';
 
 type SubTab =
   | 'procedures'
@@ -32,7 +33,8 @@ type SubTab =
   | 'medical-conditions'
   | 'medications'
   | 'immunizations'
-  | 'in-house-medications';
+  | 'in-house-medications'
+  | 'radiology';
 
 const AllergenSearchField: React.FC<{
   value: string;
@@ -332,6 +334,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Medications" value="medications" sx={{ textTransform: 'none' }} />
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
           </TabList>
         </Box>
 
@@ -428,6 +431,9 @@ export default function QuickPicksAdminPage(): ReactElement {
         </TabPanel>
         <TabPanel value="in-house-medications" sx={{ px: 0 }}>
           <InHouseMedicationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="radiology" sx={{ px: 0 }}>
+          <RadiologyQuickPicksPage />
         </TabPanel>
       </TabContext>
     </Box>

@@ -10,6 +10,7 @@ import {
   useMergedMedicalConditionQuickPicks,
   useMergedMedicationHistoryQuickPicks,
   useMergedProcedureQuickPicks,
+  useMergedRadiologyQuickPicks,
 } from './useMergedQuickPicks';
 
 /**
@@ -37,6 +38,7 @@ export function useGlobalQuickPicks(): void {
   const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks();
   const { quickPicks: medicationQuickPicks } = useMergedMedicationHistoryQuickPicks();
   const { quickPicks: immunizationQuickPicks } = useMergedImmunizationQuickPicks();
+  const { quickPicks: radiologyQuickPicks } = useMergedRadiologyQuickPicks();
 
   // Extract the in-person base path (e.g., "/in-person/abc123")
   const inPersonBase = useMemo(() => {
@@ -73,6 +75,7 @@ export function useGlobalQuickPicks(): void {
   const isOnProceduresNew = currentSubPath === 'procedures/new';
   const isOnInHouseOrderNew = currentSubPath === 'in-house-medication/order/new';
   const isOnImmunizationOrder = currentSubPath === 'immunization/order';
+  const isOnRadiologyCreate = currentSubPath === 'radiology/create';
   const isOnHPI = currentSubPath === 'history-of-present-illness-and-templates';
 
   // Load templates globally so they appear when typing "HPI" or "template" from any page.
@@ -167,6 +170,20 @@ export function useGlobalQuickPicks(): void {
       }
     }
 
+    // Radiology (FHIR-based)
+    if (!isOnRadiologyCreate) {
+      for (const qp of radiologyQuickPicks) {
+        const parts = [qp.name] as string[];
+        if (qp.cptCode) parts.push(qp.cptCode);
+        items.push({
+          id: `global-radiology-${qp.id ?? qp.name}`,
+          label: parts.join(' — '),
+          category: 'Order Radiology',
+          onSelect: () => navigateAndDefer('radiology/create', 'radiology', qp.id ?? qp.name, qp),
+        });
+      }
+    }
+
     // Templates (API-driven, skip when on HPI page since ApplyTemplate registers them locally)
     if (!isOnHPI) {
       for (const t of templates) {
@@ -189,9 +206,11 @@ export function useGlobalQuickPicks(): void {
     isOnProceduresNew,
     isOnInHouseOrderNew,
     isOnImmunizationOrder,
+    isOnRadiologyCreate,
     navigateAndDefer,
     allergyQuickPicks,
     immunizationQuickPicks,
+    radiologyQuickPicks,
     conditionQuickPicks,
     medicationQuickPicks,
     procedureQuickPicks,
