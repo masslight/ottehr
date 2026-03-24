@@ -483,7 +483,6 @@ export default function AppointmentTableRow({
 
   const statusTimeEl = (
     <>
-      <Grid item>{isLongWaitingTime && <PriorityIconWithBorder fill={theme.palette.warning.main} />}</Grid>
       <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
         <Typography variant="body2" sx={{ display: 'inline' }}>
           {statusTime.includes('/') ? (
