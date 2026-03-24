@@ -178,6 +178,9 @@ describe('saving and getting vitals', () => {
       accessToken: token,
       fhirApiUrl: FHIR_API,
       projectApiUrl: EXECUTE_ZAMBDA_URL,
+      services: {
+        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+      },
       projectId: PROJECT_ID,
     });
 
