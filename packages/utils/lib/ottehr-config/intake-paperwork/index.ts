@@ -9,10 +9,7 @@ import {
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
 import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
-import {
-  buildConsentFormCheckboxItems,
-  checkFieldHidden as _checkFieldHidden,
-} from '../../config-helpers/intake-paperwork';
+import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
@@ -2030,7 +2027,3 @@ export const INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
 
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)));
-
-export const checkFieldHidden = (fieldKey: string): boolean => {
-  return _checkFieldHidden(INTAKE_PAPERWORK_CONFIG, fieldKey);
-};

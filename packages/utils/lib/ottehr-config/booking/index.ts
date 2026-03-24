@@ -1,12 +1,12 @@
 import {
+  type FormFieldSection,
   type FormFieldTrigger,
   HomepageOptions,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
 } from 'config-types';
-import { Coding, Patient, Questionnaire, QuestionnaireResponseItem, Slot } from 'fhir/r4b';
+import { Coding, Questionnaire, Slot } from 'fhir/r4b';
 import z from 'zod';
-import { prepopulateBookingForm as _prepopulateBookingForm } from '../../config-helpers/booking';
 import {
   CONFIG_INJECTION_KEYS,
   createProxyConfigObject,
@@ -45,7 +45,7 @@ const PatientDoesntExistTriggerEnableOnly: FormFieldTrigger = {
   answerBoolean: false,
 };
 
-const FormFields = {
+const FormFields: Record<string, FormFieldSection> = {
   patientInfo: {
     linkId: 'patient-information-page',
     title: 'About the patient',
@@ -337,30 +337,10 @@ const BOOKING_DEFAULTS_DATA = {
 
 // --- End inlined data ---
 
-const formConfig = FORM_DEFAULTS as unknown as QuestionnaireConfigType;
+const formConfig = FORM_DEFAULTS;
 
 const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
-
-interface BookingContext {
-  serviceMode: 'in-person' | 'virtual';
-  serviceCategoryCode: string;
-}
-
-// Backward-compatible interface (without patientInfoHiddenFields)
-interface BookingFormPrePopulationInput {
-  questionnaire: Questionnaire;
-  context: BookingContext;
-  patient?: Patient;
-}
-
-// Backward-compatible wrapper that passes hiddenFields from the module's own config
-export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
-  return _prepopulateBookingForm({
-    ...input,
-    patientInfoHiddenFields: FormFields.patientInfo.hiddenFields,
-  });
-};
 
 export const selectBookingQuestionnaire: (_slot?: Slot) => {
   url: string;
