@@ -1,10 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 export interface StripeAccountInfo {
   businessName: string | null;
@@ -43,8 +41,6 @@ const ZAMBDA_NAME = 'get-stripe-account-info';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { stripeAccountId, secrets } = validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const stripeClient = getStripeClient(secrets);
 
