@@ -11,7 +11,7 @@ export const VisionAutoCptCodesSchema = z.array(z.string());
 export const ProviderConfigSchema = z.object({
   assessment: z.object({
     emCodeOptions: EmCodeOptionsSchema,
-    visionAutoCptCodes: VisionAutoCptCodesSchema.optional().default([]),
+    visionAutoCptCodes: VisionAutoCptCodesSchema.optional(),
   }),
 });
 
