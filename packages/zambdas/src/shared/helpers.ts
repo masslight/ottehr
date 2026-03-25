@@ -147,6 +147,15 @@ export const fillMeta = (code: string, system: string): Meta => ({
   ],
 });
 
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+
+export const rcmMeta = (type: 'fee-schedule' | 'charge-master'): Meta => ({
+  tag: [
+    { system: RCM_TAG_SYSTEM, code: 'rcm' },
+    { system: RCM_TAG_SYSTEM, code: type },
+  ],
+});
+
 export function assertDefined<T>(value: T, name: string): NonNullable<T> {
   if (value == null) {
     throw `"${name}" is undefined`;
