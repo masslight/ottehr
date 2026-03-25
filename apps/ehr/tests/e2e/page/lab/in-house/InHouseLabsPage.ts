@@ -1,9 +1,10 @@
-import { expect, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { configInHouseLabDeleteButtonTestId } from 'src/features/in-house-labs/utils/test-ids';
-import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { InPersonHeader } from '../InPersonHeader';
-import { expectOrderInHouseLabPage, OrderInHouseLabPage } from '../OrderInHouseLabPage';
-import { SideMenu } from '../SideMenu';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
+import { InPersonHeader } from '../../InPersonHeader';
+import { SideMenu } from '../../SideMenu';
+import { expectOrderInHouseLabPage } from './helpers';
+import { OrderInHouseLabPage } from './OrderInHouseLabPage';
 
 export class InHouseLabsPage {
   #page: Page;
@@ -52,10 +53,4 @@ export class InHouseLabsPage {
       throw new Error(`Row count mismatch: before=${rowsBefore}, after=${rowsAfter}`);
     }
   }
-}
-
-export async function expectInHouseLabsPage(page: Page): Promise<InHouseLabsPage> {
-  await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders'));
-  await expect(page.getByTestId(dataTestIds.inHouseLabsPage.title)).toBeVisible();
-  return new InHouseLabsPage(page);
 }

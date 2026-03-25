@@ -1,10 +1,10 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { configCptCodeTestId, configRunAsRepeatBtnTestId } from 'src/features/in-house-labs/utils/test-ids';
 import { TestItem } from 'utils';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
+import { InPersonHeader } from '../../InPersonHeader';
+import { SideMenu } from '../../SideMenu';
 import { CollectSamplePage } from './CollectSamplePage';
-import { InPersonHeader } from './InPersonHeader';
-import { SideMenu } from './SideMenu';
 
 export class OrderInHouseLabPage {
   #page: Page;
@@ -98,14 +98,4 @@ export class OrderInHouseLabPage {
 
     await expect(repeatCheckbox, `Confirm that the run as repeat checkbox is true for ${testName}`).toBeChecked();
   }
-}
-
-export async function expectOrderInHouseLabPage(page: Page): Promise<OrderInHouseLabPage> {
-  await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders/create'));
-  return new OrderInHouseLabPage(page);
-}
-
-export async function expectOrderDetailsPage(page: Page): Promise<OrderInHouseLabPage> {
-  await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders/.*/order-details'));
-  return new OrderInHouseLabPage(page);
 }

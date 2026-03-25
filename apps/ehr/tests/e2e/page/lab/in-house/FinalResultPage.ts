@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { RadioSelectionResult } from './lab';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
+import { RadioSelectionResult } from '..';
 
 export class FinalResultPage {
   #page: Page;

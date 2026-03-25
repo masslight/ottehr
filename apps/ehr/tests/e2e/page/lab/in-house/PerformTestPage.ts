@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { getServiceRequestIdFromPageUrl } from './lab/in-house/helpers';
-import { RadioSelectionResult, SelectableOption } from './lab/types';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
+import { getServiceRequestIdFromPageUrl } from './helpers';
+import { RadioSelectionResult, SelectableOption } from './types';
 
 const PAGE_TITLE = 'Perform Test & Enter Results';
 
