@@ -11,7 +11,14 @@ export const checkFieldHidden = (fieldKey: string, config: PaperworkConfig = INT
     .includes(fieldKey);
 };
 
-export const getIntakeFormPageSubtitle = (pageLinkId: string, patientName: string): string => {
+export const getIntakeFormPageSubtitle = (
+  pageLinkId: string,
+  patientName: string,
+  config: PaperworkConfig = INTAKE_PAPERWORK_CONFIG
+): string => {
+  if (config.getIntakeFormPageSubtitle) {
+    return config.getIntakeFormPageSubtitle(pageLinkId, patientName);
+  }
   if (pageLinkId === 'photo-id-page') {
     return `Adult Guardian for ${patientName}`;
   }
