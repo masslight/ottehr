@@ -59,6 +59,7 @@ export const CardErrorDialog: FC<CardErrorDialogProps> = ({ onContinueAnyway }) 
               onClick={handleContinueAnyway}
               size="large"
               variant="outlined"
+              color="secondary"
               sx={{
                 fontWeight: 700,
                 whiteSpace: 'nowrap',
