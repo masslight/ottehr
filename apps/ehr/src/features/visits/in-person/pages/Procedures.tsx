@@ -134,10 +134,13 @@ export default function Procedures(): ReactElement {
                 >
                   <TableCell>
                     <Stack>
+                      <Typography sx={{ fontSize: '14px' }} data-testid={dataTestIds.proceduresPage.procedureType}>
+                        {procedure.procedureType}
+                      </Typography>
                       {procedure.cptCodes?.map((cptCode) => {
                         return (
                           <Typography
-                            sx={{ fontSize: '14px' }}
+                            sx={{ fontSize: '14px', color: '#00000099' }}
                             key={cptCode.code}
                             data-testid={dataTestIds.proceduresPage.cptCode}
                           >
@@ -145,12 +148,6 @@ export default function Procedures(): ReactElement {
                           </Typography>
                         );
                       })}
-                      <Typography
-                        sx={{ fontSize: '14px', color: '#00000099' }}
-                        data-testid={dataTestIds.proceduresPage.procedureType}
-                      >
-                        {procedure.procedureType}
-                      </Typography>
                     </Stack>
                   </TableCell>
                   <TableCell>
