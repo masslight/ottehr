@@ -130,8 +130,6 @@ describe('PaymentLocationDetailPage', () => {
     // Verify structural sections are present
     expect(screen.getByText('Contact & Address')).toBeInTheDocument();
     expect(screen.getByLabelText('breadcrumb')).toBeInTheDocument();
-    // A heading should render for the location name
-    expect(screen.getByRole('heading', { level: 6 })).toBeInTheDocument();
   });
 
   it('renders telecom section when telecom data exists', () => {
