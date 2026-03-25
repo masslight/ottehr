@@ -18,6 +18,7 @@ export type MedicationFieldType =
   | 'effectiveDateTime'
   | 'instructions'
   | 'lotNumber'
+  | 'ndc'
   | 'expDate';
 
 export type MedicationFormType =
@@ -37,6 +38,7 @@ export const fieldsConfigForOrder: Record<
   associatedDx: { xs: 6, isRequired: false },
   dose: { xs: 6, isRequired: true },
   units: { xs: 6, isRequired: true },
+  ndc: { xs: 3, isRequired: false },
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
   providerId: { xs: 6, isRequired: true },
@@ -52,6 +54,7 @@ export const fieldsConfigForDispense: Record<MedicationFieldType, { xs: XsVarian
   dose: { xs: 6, isRequired: true },
   units: { xs: 6, isRequired: true },
   lotNumber: { xs: 3, isRequired: true },
+  ndc: { xs: 3, isRequired: false },
   expDate: { xs: 3, isRequired: true },
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
@@ -69,6 +72,7 @@ export const fieldsConfigForNotAdministered: Record<MedicationFieldType, { xs: X
   dose: { xs: 6, isRequired: true },
   units: { xs: 6, isRequired: true },
   lotNumber: { xs: 3, isRequired: false }, // Not required for partial administration
+  ndc: { xs: 3, isRequired: false },
   expDate: { xs: 3, isRequired: false }, // Not required for partial administration
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
@@ -86,6 +90,7 @@ export const fieldsConfigForCompletedEdit: Record<MedicationFieldType, { xs: XsV
   dose: { xs: 6, isRequired: true },
   units: { xs: 6, isRequired: true },
   lotNumber: { xs: 3, isRequired: false },
+  ndc: { xs: 3, isRequired: false },
   expDate: { xs: 3, isRequired: false },
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
@@ -123,6 +128,7 @@ export const getFieldLabel = (
     effectiveDateTime: { 'form-independent': 'Date/Time Given' },
     instructions: { 'form-independent': 'Instructions', dispense: 'Comments', 'dispense-not-administered': 'Comments' },
     lotNumber: { 'form-independent': 'Lot Number' },
+    ndc: { 'form-independent': 'NDC' },
     expDate: { 'form-independent': 'Expiration Date' },
   };
   return labelMap[field][form] || labelMap[field]['form-independent'] || field;

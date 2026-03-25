@@ -78,16 +78,10 @@ export function useMergedRadiologyQuickPicks(): UseFhirQuickPicksResult<Radiolog
   return useFhirQuickPicks(getRadiologyQuickPicks);
 }
 
-export function useMergedImmunizationQuickPicks(): {
-  quickPicks: ImmunizationQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedImmunizationQuickPicks(): UseFhirQuickPicksResult<ImmunizationQuickPickData> {
   return useFhirQuickPicks(getImmunizationQuickPicks);
 }
 
-export function useMergedInHouseMedicationQuickPicks(): {
-  quickPicks: InHouseMedicationQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedInHouseMedicationQuickPicks(): UseFhirQuickPicksResult<InHouseMedicationQuickPickData> {
   return useFhirQuickPicks(getInHouseMedicationQuickPicks);
 }

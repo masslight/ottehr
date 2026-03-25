@@ -82,6 +82,7 @@ export interface MedicationData {
 
   // scanning part
   lotNumber?: string;
+  ndc?: string;
   expDate?: string;
 
   // administrating ISO date with timezone

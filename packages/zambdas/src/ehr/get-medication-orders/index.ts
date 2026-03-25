@@ -20,6 +20,7 @@ import {
   getMedicationName,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  getNdcCodeFromMedication,
   getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
@@ -126,6 +127,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
 
     // scanning part
     lotNumber: medication?.batch?.lotNumber,
+    ndc: medication ? getNdcCodeFromMedication(medication) : undefined,
     expDate: medication?.batch?.expirationDate,
 
     // administrating

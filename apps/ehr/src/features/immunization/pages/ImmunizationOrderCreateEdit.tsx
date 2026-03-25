@@ -33,6 +33,7 @@ import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData, RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
@@ -128,24 +129,24 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       ...currentValues,
       details: {
         ...currentValues.details,
-        ...(quickPick.vaccine && { medication: quickPick.vaccine }),
-        ...(quickPick.dose && { dose: quickPick.dose }),
-        ...(quickPick.units && { units: quickPick.units }),
-        ...(quickPick.route && { route: quickPick.route }),
-        ...(quickPick.location && { location: quickPick.location }),
-        ...(quickPick.associatedDx && { associatedDx: quickPick.associatedDx }),
-        ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
-        ...(quickPick.instructions && { instructions: quickPick.instructions }),
+        medication: quickPick.vaccine,
+        dose: quickPick.dose,
+        units: quickPick.units,
+        route: quickPick.route,
+        location: quickPick.location,
+        associatedDx: quickPick.associatedDx,
+        manufacturer: quickPick.manufacturer,
+        instructions: quickPick.instructions,
       },
       administrationDetails: {
         ...currentValues.administrationDetails,
-        ...(quickPick.cvx && { cvx: quickPick.cvx }),
-        ...(quickPick.mvx && { mvx: quickPick.mvx }),
-        ...(quickPick.cpt && !quickPick.cptCodes && { cpt: quickPick.cpt }),
-        ...(quickPick.cptCodes && { cptCodes: quickPick.cptCodes }),
-        ...(quickPick.ndc && { ndc: quickPick.ndc }),
-        ...(quickPick.lot && { lot: quickPick.lot }),
-        ...(quickPick.expDate && { expDate: quickPick.expDate }),
+        cvx: quickPick.cvx,
+        mvx: quickPick.mvx,
+        cpt: quickPick.cptCodes ? undefined : quickPick.cpt,
+        cptCodes: quickPick.cptCodes ?? [],
+        ndc: quickPick.ndc,
+        lot: quickPick.lot,
+        expDate: quickPick.expDate,
       },
     });
   };
@@ -165,7 +166,10 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     if (values.details?.medication?.name) parts.push(values.details.medication.name);
     if (values.details?.dose) parts.push(values.details.dose);
     if (values.details?.units) parts.push(values.details.units);
-    if (values.details?.route) parts.push(values.details.route);
+    if (values.details?.route) {
+      const routeName = ROUTE_OPTIONS.find((opt) => opt.code === values.details.route)?.name;
+      parts.push(routeName ?? values.details.route);
+    }
     if (values.details?.location?.name) parts.push(values.details.location.name);
     setQuickPickName(parts.join(' | '));
     setOverwriteTarget(null);

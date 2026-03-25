@@ -238,16 +238,17 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({
         ...prev,
         ...(resolvedMedicationId && { medicationId: resolvedMedicationId }),
-        ...(quickPick.dose != null && { dose: quickPick.dose }),
-        ...(quickPick.units && { units: quickPick.units }),
-        ...(quickPick.route && { route: quickPick.route }),
-        ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
+        dose: quickPick.dose,
+        units: quickPick.units,
+        route: quickPick.route,
+        manufacturer: quickPick.manufacturer,
         // Don't apply associatedDx from quick pick — it's a Condition resource ID
         // that is encounter-specific and won't be valid on other encounters
-        ...(quickPick.instructions && { instructions: quickPick.instructions }),
-        ...(quickPick.lotNumber && { lotNumber: quickPick.lotNumber }),
-        ...(quickPick.expDate && { expDate: quickPick.expDate }),
-        ...(quickPick.cptCodes && { cptCodes: quickPick.cptCodes }),
+        instructions: quickPick.instructions,
+        lotNumber: quickPick.lotNumber,
+        ndc: quickPick.ndc,
+        expDate: quickPick.expDate,
+        cptCodes: quickPick.cptCodes ?? [],
       }));
       // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
       if (resolvedMedicationId && isOrderType) setErxEnabled(true);
@@ -292,6 +293,7 @@ export const EditableMedicationCard: React.FC<{
     // associatedDx is not saved — it's a Condition resource ID that is encounter-specific
     instructions: localValues.instructions,
     lotNumber: localValues.lotNumber,
+    ndc: localValues.ndc,
     expDate: localValues.expDate,
     cptCodes: localValues.cptCodes,
   });

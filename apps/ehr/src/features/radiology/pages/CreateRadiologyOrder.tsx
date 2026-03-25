@@ -131,10 +131,12 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
     if (quickPick.cptCode && quickPick.cptDisplay) {
       setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
+    } else {
+      setOrderCpt(undefined);
     }
-    if (quickPick.studyName != null) setStudyName(quickPick.studyName);
-    if (quickPick.laterality) setLaterality(quickPick.laterality as LateralityValue);
-    if (quickPick.clinicalHistory != null) setClinicalHistory(quickPick.clinicalHistory);
+    setStudyName(quickPick.studyName ?? '');
+    setLaterality((quickPick.laterality as LateralityValue) ?? '');
+    setClinicalHistory(quickPick.clinicalHistory ?? '');
     // stat and consentObtained not applied — encounter-specific
   };
 

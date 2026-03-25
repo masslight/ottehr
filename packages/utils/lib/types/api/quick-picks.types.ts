@@ -188,6 +188,7 @@ export interface InHouseMedicationQuickPickData {
   associatedDx?: string;
   instructions?: string;
   lotNumber?: string;
+  ndc?: string;
   expDate?: string;
   cptCodes?: { code: string; display: string }[];
 }
