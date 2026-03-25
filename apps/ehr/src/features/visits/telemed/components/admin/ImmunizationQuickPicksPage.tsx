@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getImmunizationQuickPicks, removeImmunizationQuickPick, updateImmunizationQuickPick } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -28,6 +29,7 @@ import { ImmunizationQuickPickData } from 'utils';
 
 export default function ImmunizationQuickPicksPage(): ReactElement {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,12 +141,17 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
             </TableHead>
             <TableBody>
               {quickPicks.map((qp, index) => (
-                <TableRow key={qp.id ?? `default-${index}`} hover>
+                <TableRow
+                  key={qp.id ?? `default-${index}`}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => qp.id && navigate(`/admin/quick-picks/immunization/${qp.id}`)}
+                >
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.vaccine?.name || '-'}</TableCell>
                   <TableCell>{qp.dose ? `${qp.dose} ${qp.units ?? ''}`.trim() : '-'}</TableCell>
                   <TableCell>{qp.cvx || '-'}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <IconButton size="small" onClick={() => handleOpenRename(qp)} title="Rename">
                       <EditIcon fontSize="small" />
                     </IconButton>

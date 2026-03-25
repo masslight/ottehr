@@ -158,7 +158,15 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
     }
-    setQuickPickName('');
+    // Suggest name: Vaccine Name | Dose | Units | Route | Injection Site
+    const values = methods.getValues();
+    const parts: string[] = [];
+    if (values.details?.medication?.name) parts.push(values.details.medication.name);
+    if (values.details?.dose) parts.push(values.details.dose);
+    if (values.details?.units) parts.push(values.details.units);
+    if (values.details?.route) parts.push(values.details.route);
+    if (values.details?.location?.name) parts.push(values.details.location.name);
+    setQuickPickName(parts.join(' | '));
     setOverwriteTarget(null);
     setQuickPickDialogOpen(true);
   };

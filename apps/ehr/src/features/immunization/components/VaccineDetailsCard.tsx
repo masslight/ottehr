@@ -147,7 +147,17 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
     }
-    setQuickPickName('');
+    // Suggest name: Vaccine Name | Dose | Units | Route | Injection Site | lot: number | exp: date
+    const values = methods.getValues();
+    const parts: string[] = [];
+    if (values.details?.medication?.name) parts.push(values.details.medication.name);
+    if (values.details?.dose) parts.push(values.details.dose);
+    if (values.details?.units) parts.push(values.details.units);
+    if (values.details?.route) parts.push(values.details.route);
+    if (values.details?.location?.name) parts.push(values.details.location.name);
+    if (values.administrationDetails?.lot) parts.push(`lot: ${values.administrationDetails.lot}`);
+    if (values.administrationDetails?.expDate) parts.push(`exp: ${values.administrationDetails.expDate}`);
+    setQuickPickName(parts.join(' | '));
     setOverwriteTarget(null);
     setQuickPickDialogOpen(true);
   };
