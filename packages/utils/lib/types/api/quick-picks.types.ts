@@ -143,3 +143,57 @@ export type UpdateRadiologyQuickPickResponse = QuickPickUpdateResponse<Radiology
 export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuickPickData>;
 export type RemoveRadiologyQuickPickInput = QuickPickRemoveInput;
 export type RemoveRadiologyQuickPickResponse = QuickPickRemoveResponse;
+
+// ── Immunization Quick Picks ──
+
+export interface ImmunizationQuickPickData {
+  id?: string;
+  name: string;
+  vaccine?: { id: string; name: string };
+  dose?: string;
+  units?: string;
+  route?: string;
+  location?: { name: string; code: string };
+  associatedDx?: string;
+  manufacturer?: string;
+  instructions?: string;
+  cvx?: string;
+  mvx?: string;
+  cpt?: string;
+  ndc?: string;
+  lot?: string;
+  expDate?: string;
+}
+
+export type CreateImmunizationQuickPickInput = QuickPickCreateInput<ImmunizationQuickPickData>;
+export type CreateImmunizationQuickPickResponse = QuickPickCreateResponse<ImmunizationQuickPickData>;
+export type UpdateImmunizationQuickPickInput = QuickPickUpdateInput<ImmunizationQuickPickData>;
+export type UpdateImmunizationQuickPickResponse = QuickPickUpdateResponse<ImmunizationQuickPickData>;
+export type GetImmunizationQuickPicksResponse = QuickPickListResponse<ImmunizationQuickPickData>;
+export type RemoveImmunizationQuickPickInput = QuickPickRemoveInput;
+export type RemoveImmunizationQuickPickResponse = QuickPickRemoveResponse;
+
+// ── In-House Medication Quick Picks ──
+
+export interface InHouseMedicationQuickPickData {
+  id?: string;
+  name: string;
+  medicationId?: string;
+  medicationName?: string;
+  dose?: number;
+  units?: string;
+  route?: string;
+  manufacturer?: string;
+  associatedDx?: string;
+  instructions?: string;
+  lotNumber?: string;
+  expDate?: string;
+}
+
+export type CreateInHouseMedicationQuickPickInput = QuickPickCreateInput<InHouseMedicationQuickPickData>;
+export type CreateInHouseMedicationQuickPickResponse = QuickPickCreateResponse<InHouseMedicationQuickPickData>;
+export type UpdateInHouseMedicationQuickPickInput = QuickPickUpdateInput<InHouseMedicationQuickPickData>;
+export type UpdateInHouseMedicationQuickPickResponse = QuickPickUpdateResponse<InHouseMedicationQuickPickData>;
+export type GetInHouseMedicationQuickPicksResponse = QuickPickListResponse<InHouseMedicationQuickPickData>;
+export type RemoveInHouseMedicationQuickPickInput = QuickPickRemoveInput;
+export type RemoveInHouseMedicationQuickPickResponse = QuickPickRemoveResponse;

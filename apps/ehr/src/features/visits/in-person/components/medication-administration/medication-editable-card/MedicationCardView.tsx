@@ -10,6 +10,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
+  InHouseMedicationQuickPickData,
   makeMedicationOrderUpdateRequestInput,
   MEDICAL_HISTORY_CONFIG,
   MedicationData,
@@ -66,6 +67,11 @@ type MedicationCardViewProps = {
   onDelete?: () => void;
   isReadOnly?: boolean;
   onQuickPickSelect?: (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => void;
+  fhirQuickPicks?: InHouseMedicationQuickPickData[];
+  onFhirQuickPickSelect?: (quickPick: InHouseMedicationQuickPickData) => void;
+  showQuickPickAddOption?: boolean;
+  isAdmin?: boolean;
+  onQuickPickAddOrUpdate?: () => void;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -91,6 +97,11 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   onDelete,
   isReadOnly,
   onQuickPickSelect,
+  fhirQuickPicks,
+  onFhirQuickPickSelect,
+  showQuickPickAddOption,
+  isAdmin,
+  onQuickPickAddOrUpdate,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -106,8 +117,10 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter((f) => hasNdc(f) || hasMedispan(f));
   }, [selectsOptions.medicationId.medispanCodeSet, selectsOptions.medicationId.ndcCodeSet]);
 
-  const showAddFromQuickPicks =
+  const showHardcodedQuickPicks =
     (type === 'order-new' || type === 'order-edit') && onQuickPickSelect && inHouseMedicationsquickPicksList.length > 0;
+  const showFhirQuickPicks =
+    onFhirQuickPickSelect && (showQuickPickAddOption || (fhirQuickPicks && fhirQuickPicks.length > 0));
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -234,7 +247,26 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <Grid container spacing={2}>
-        {showAddFromQuickPicks && (
+        {showFhirQuickPicks && (
+          <Grid item xs={12}>
+            <QuickPicksButton
+              quickPicks={fhirQuickPicks ?? []}
+              getLabel={(qp) => {
+                const parts = [qp.name] as string[];
+                if (qp.dose != null && qp.units != null) {
+                  parts.push(`${qp.dose} ${qp.units}`);
+                }
+                return parts.join(', ');
+              }}
+              onSelect={onFhirQuickPickSelect!}
+              disabled={isUpdating}
+              showAddOption={showQuickPickAddOption}
+              isAdmin={isAdmin}
+              onAddOrUpdate={onQuickPickAddOrUpdate}
+            />
+          </Grid>
+        )}
+        {!showFhirQuickPicks && showHardcodedQuickPicks && (
           <Grid item xs={12}>
             <QuickPicksButton
               quickPicks={inHouseMedicationsquickPicksList}
