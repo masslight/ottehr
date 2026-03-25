@@ -1733,8 +1733,7 @@ export const getRadiologyQuickPicks = async (oystehr: Oystehr): Promise<GetRadio
     const response = await oystehr.zambda.execute({ id: 'admin-get-radiology-quick-picks' });
     return chooseJson(response);
   } catch (error: unknown) {
-    console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -1746,8 +1745,7 @@ export const createRadiologyQuickPick = async (
     const response = await oystehr.zambda.execute({ id: 'admin-create-radiology-quick-pick', ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
-    console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -1764,8 +1762,7 @@ export const updateRadiologyQuickPick = async (
     } as any);
     return chooseJson(response);
   } catch (error: unknown) {
-    console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -1777,8 +1774,7 @@ export const removeRadiologyQuickPick = async (
     const response = await oystehr.zambda.execute({ id: 'admin-remove-radiology-quick-pick', quickPickId } as any);
     return chooseJson(response);
   } catch (error: unknown) {
-    console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 

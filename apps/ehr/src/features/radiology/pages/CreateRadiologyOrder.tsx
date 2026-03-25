@@ -560,8 +560,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
         <DialogTitle sx={{ color: 'primary.dark', fontWeight: 600 }}>Update Existing Quick Pick?</DialogTitle>
         <DialogContent>
           <Typography>
-            A quick pick named &ldquo;{overwriteTarget?.name}&rdquo; already exists. Do you want to replace it with the
-            current radiology order data?
+            A quick pick named "{overwriteTarget?.name}" already exists. Do you want to replace it with the current
+            radiology order data?
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>

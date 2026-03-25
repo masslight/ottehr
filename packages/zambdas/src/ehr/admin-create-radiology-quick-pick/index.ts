@@ -1,4 +1,4 @@
-import { INVALID_INPUT_ERROR } from 'utils';
+import { INVALID_INPUT_ERROR, RadiologyQuickPickData } from 'utils';
 import { RADIOLOGY_QUICK_PICK_CATEGORY } from '../shared/quick-pick-categories';
 import { makeCreateHandler } from '../shared/quick-pick-zambda';
 
@@ -11,5 +11,5 @@ export const index = makeCreateHandler('admin-create-radiology-quick-pick', RADI
   if (!quickPick.name || typeof quickPick.name !== 'string') {
     throw INVALID_INPUT_ERROR('quickPick.name is required and must be a string');
   }
-  return { quickPick: quickPick as any };
+  return { quickPick: quickPick as Omit<RadiologyQuickPickData, 'id'> };
 });

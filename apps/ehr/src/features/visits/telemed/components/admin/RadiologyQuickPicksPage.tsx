@@ -33,7 +33,6 @@ const RadiologyQuickPicksPage: React.FC = () => {
   const [renameTarget, setRenameTarget] = useState<RadiologyQuickPickData | null>(null);
   const [renameName, setRenameName] = useState('');
   const [renaming, setRenaming] = useState(false);
-
   const fetchQuickPicks = useCallback(async () => {
     if (!oystehrZambda) return;
     setLoading(true);
@@ -96,8 +95,8 @@ const RadiologyQuickPicksPage: React.FC = () => {
         Radiology Quick Picks
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Quick picks can be created from the Radiology Order page by filling in the order fields and selecting &ldquo;Add
-        or Update Quick Pick&rdquo;.
+        Quick picks can be created from the Radiology Order page by filling in the order fields and selecting "Add or
+        Update Quick Pick".
       </Typography>
 
       {quickPicks.length === 0 ? (
