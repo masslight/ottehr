@@ -33,6 +33,11 @@ export class PerformTestPage {
     await this.#page.getByTestId(dataTestIds.performTestPage.submitButton).click();
   }
 
+  getServiceRequestId(): string {
+    const urlPathSegments = new URL(this.#page.url()).pathname.split('/');
+    return urlPathSegments[urlPathSegments.indexOf('in-house-lab-orders') + 1];
+  }
+
   async selectRadioTestResult(testName: string): Promise<RadioSelectionResult> {
     const resultTestIdPrefix = dataTestIds.performTestPage.testResult();
     const radioOptions = this.#page.locator(`[data-testid^="${resultTestIdPrefix}"]`);
@@ -64,12 +69,9 @@ export class PerformTestPage {
       throw new Error(`no value was assigned for selection in selectRadioTestResult for inhouse labs`);
     }
 
-    const urlPathSegments = new URL(this.#page.url()).pathname.split('/');
-    const serviceRequestID = urlPathSegments[urlPathSegments.indexOf('in-house-lab-orders') + 1];
-
     const testDetails = {
       testName,
-      testServiceRequestId: serviceRequestID,
+      testServiceRequestId: this.getServiceRequestId(),
       availableValues,
       selectedValue,
     };
