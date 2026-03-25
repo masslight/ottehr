@@ -38,8 +38,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.groupEnd();
     console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
 
+    console.group('complexValidation()');
+    const effectInput = await complexValidation(validatedInput, oystehr, user);
+    console.groupEnd();
+    console.debug('complexValidation() success');
+
     console.group('performEffect()');
-    const response = await performEffect(validatedInput, oystehr, user);
+    const response = await performEffect(effectInput, oystehr, user);
     console.groupEnd();
     console.debug('performEffect() success', JSON.stringify(response));
 
@@ -50,16 +55,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const performEffect = async (
+interface EffectInput {
+  appointmentId: string;
+  faxNumber: string;
+  organizationId: string;
+  patientId: string;
+  media: string;
+  userPractitioner: Practitioner;
+}
+
+const complexValidation = async (
   validatedInput: SendFaxZambdaInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr,
   user: User
-): Promise<{
-  body: string;
-  statusCode: number;
-}> => {
+): Promise<EffectInput> => {
   const { appointmentId, faxNumber, secrets } = validatedInput;
-
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
   console.log('searching fhir for patient, visit note, and user');
@@ -101,8 +111,18 @@ const performEffect = async (
   if (!patientId || !media) {
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Patient or visit note url not found');
   }
-  console.log('patient id', patient.id);
+  console.log('patient id', patientId);
   console.log('media url', media);
+
+  return { appointmentId, faxNumber, organizationId, patientId, media, userPractitioner };
+};
+
+const performEffect = async (
+  input: EffectInput,
+  oystehr: Oystehr,
+  user: User
+): Promise<{ body: string; statusCode: number }> => {
+  const { appointmentId, faxNumber, organizationId, patientId, media, userPractitioner } = input;
 
   console.log('Sending fax to', faxNumber);
   const { communicationResource: fax } = await oystehr.fax.send({
