@@ -1419,6 +1419,13 @@
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
       "zip": ".dist/zips/make-medication-history-pdf.zip"
     },
+    "GET_VISIT_FAX_HISTORY": {
+      "name": "get-visit-fax-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/get-visit-fax-history/index",
+      "zip": ".dist/zips/get-visit-fax-history.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
@@ -1901,7 +1908,7 @@
           }
         ]
       }
-    },    
+    },
     "SUB_SEND_PATIENT_STATEMENT_BY_MAIL_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
