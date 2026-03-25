@@ -40,10 +40,9 @@ export interface PaperworkConfig extends QuestionnaireConfigType {
 export const PaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: PaperworkFormFieldsSchema,
   getIntakeFormPageSubtitle: z
-    .custom<PaperworkConfig['getIntakeFormPageSubtitle']>(
-      (value) => typeof value === 'function',
-      { message: 'getIntakeFormPageSubtitle must be a function' },
-    )
+    .custom<PaperworkConfig['getIntakeFormPageSubtitle']>((value) => typeof value === 'function', {
+      message: 'getIntakeFormPageSubtitle must be a function',
+    })
     .optional(),
 });
 
