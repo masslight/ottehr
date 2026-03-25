@@ -21,7 +21,7 @@ describe('cm-add-procedure-code validateRequestParameters', () => {
 
   it('throws when body is missing', () => {
     expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow(
-      'No request body provided'
+      'The request was missing a required request body'
     );
   });
 

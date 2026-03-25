@@ -30,15 +30,21 @@ describe('save-terminal-location validateRequestParameters', () => {
   });
 
   it('throws when locationId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow('locationId is required');
+    expect(() => validateRequestParameters(makeInput({}))).toThrow(
+      'The following required parameters were missing: locationId'
+    );
   });
 
   it('throws when locationId is empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: '' }))).toThrow('locationId is required');
+    expect(() => validateRequestParameters(makeInput({ locationId: '' }))).toThrow(
+      'The following required parameters were missing: locationId'
+    );
   });
 
   it('throws when locationId is not a string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: 42 }))).toThrow('locationId is required');
+    expect(() => validateRequestParameters(makeInput({ locationId: 42 }))).toThrow(
+      'The following required parameters were missing: locationId'
+    );
   });
 
   it('throws when terminalLocationId is not a string or null', () => {

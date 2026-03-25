@@ -25,38 +25,38 @@ describe('get-terminal-readers validateRequestParameters', () => {
 
   it('throws when stripeAccountId is missing', () => {
     expect(() => validateRequestParameters(makeInput({ terminalLocationId: 'tml_456def' }))).toThrow(
-      'stripeAccountId is required'
+      'The following required parameters were missing: stripeAccountId'
     );
   });
 
   it('throws when stripeAccountId is empty string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: '', terminalLocationId: 'tml_456def' }))
-    ).toThrow('stripeAccountId is required');
+    ).toThrow('The following required parameters were missing: stripeAccountId');
   });
 
   it('throws when stripeAccountId is not a string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 123, terminalLocationId: 'tml_456def' }))
-    ).toThrow('stripeAccountId is required');
+    ).toThrow('The following required parameters were missing: stripeAccountId');
   });
 
   it('throws when terminalLocationId is missing', () => {
     expect(() => validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc' }))).toThrow(
-      'terminalLocationId is required'
+      'The following required parameters were missing: terminalLocationId'
     );
   });
 
   it('throws when terminalLocationId is empty string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc', terminalLocationId: '' }))
-    ).toThrow('terminalLocationId is required');
+    ).toThrow('The following required parameters were missing: terminalLocationId');
   });
 
   it('throws when terminalLocationId is not a string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc', terminalLocationId: 42 }))
-    ).toThrow('terminalLocationId is required');
+    ).toThrow('The following required parameters were missing: terminalLocationId');
   });
 
   it('parses a pre-parsed body object', () => {

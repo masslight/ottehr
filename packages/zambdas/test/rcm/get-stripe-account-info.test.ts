@@ -19,15 +19,21 @@ describe('get-stripe-account-info validateRequestParameters', () => {
   });
 
   it('throws when stripeAccountId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow('stripeAccountId is required');
+    expect(() => validateRequestParameters(makeInput({}))).toThrow(
+      'The following required parameters were missing: stripeAccountId'
+    );
   });
 
   it('throws when stripeAccountId is empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: '' }))).toThrow('stripeAccountId is required');
+    expect(() => validateRequestParameters(makeInput({ stripeAccountId: '' }))).toThrow(
+      'The following required parameters were missing: stripeAccountId'
+    );
   });
 
   it('throws when stripeAccountId is not a string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: 99 }))).toThrow('stripeAccountId is required');
+    expect(() => validateRequestParameters(makeInput({ stripeAccountId: 99 }))).toThrow(
+      'The following required parameters were missing: stripeAccountId'
+    );
   });
 
   it('parses a pre-parsed body object', () => {
