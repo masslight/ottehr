@@ -15,32 +15,6 @@ import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { VALUE_SETS as formValueSets } from './value-sets';
 
-// Re-export from config-types for backwards compatibility
-export {
-  FormFieldItemRecordSchema,
-  FormFieldLogicalItemRecordSchema,
-  FormFieldTriggerSchema,
-  FormSectionArraySchema,
-  FormSectionSimpleSchema,
-  QuestionnaireBaseSchema,
-  QuestionnaireConfigSchema,
-} from 'config-types';
-export type {
-  FormFieldItemRecord,
-  FormFieldLogicalItemRecord,
-  FormFieldsAttachmentItem,
-  FormFieldsDisplayItem,
-  FormFieldsGroupItem,
-  FormFieldsInputItem,
-  FormFieldsItem,
-  FormFieldsLogicalItem,
-  FormFieldSection,
-  FormFieldTrigger,
-  QuestionnaireBase,
-  FormFieldOption,
-  QuestionnaireConfigType,
-} from 'config-types';
-
 export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
 export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
 export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[0].value; // 'Self'

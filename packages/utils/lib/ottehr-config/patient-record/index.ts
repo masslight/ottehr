@@ -1,10 +1,10 @@
-import { type FormFieldTrigger, type PatientRecordConfig, type QuestionnaireBase } from 'config-types';
-import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
-  type PatientRecordFormConfig,
-  prepopulatePatientRecordItems as _prepopulatePatientRecordItems,
-  type PrePopulationFromPatientRecordInputWithContext,
-} from '../../config-helpers/patient-record';
+  type FormFieldTrigger,
+  type PatientRecordConfig,
+  type PatientRecordFormFields,
+  type QuestionnaireBase,
+} from 'config-types';
+import { Questionnaire } from 'fhir/r4b';
 import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
@@ -55,7 +55,7 @@ const InsuredAddressNotSameAsPatientTrigger2: FormFieldTrigger = {
   answerBoolean: true,
 };
 
-const FormFields = {
+const FormFields: PatientRecordFormFields = {
   patientSummary: {
     linkId: 'patient-info-section',
     title: 'Patient summary',
@@ -597,7 +597,7 @@ const FormFields = {
         type: 'string',
         label: 'First name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       lastName: {
@@ -605,7 +605,7 @@ const FormFields = {
         type: 'string',
         label: 'Last name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthDate: {
@@ -614,7 +614,7 @@ const FormFields = {
         label: 'Date of birth',
         dataType: 'DOB',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+        dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthSex: {
@@ -623,7 +623,7 @@ const FormFields = {
         label: 'Birth sex',
         options: formValueSets.birthSexOptions,
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+        dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       phone: {
@@ -632,7 +632,7 @@ const FormFields = {
         label: 'Phone',
         dataType: 'Phone Number',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-number' },
+        dynamicPopulation: { sourceLinkId: 'patient-number', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       email: {
@@ -641,7 +641,7 @@ const FormFields = {
         label: 'Email',
         dataType: 'Email',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-email' },
+        dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       addressSameAsPatient: {
@@ -657,7 +657,7 @@ const FormFields = {
         label: 'Street Address',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       addressLine2: {
@@ -666,7 +666,7 @@ const FormFields = {
         label: 'Address line 2',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       city: {
@@ -675,7 +675,7 @@ const FormFields = {
         label: 'City',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-city' },
+        dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       state: {
@@ -685,7 +685,7 @@ const FormFields = {
         options: formValueSets.stateOptions,
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-state' },
+        dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       zip: {
@@ -695,7 +695,7 @@ const FormFields = {
         dataType: 'ZIP',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-zip' },
+        dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
     },
@@ -1004,30 +1004,13 @@ const questionnaireBaseDefaults = {
   status: 'active',
 } as const satisfies QuestionnaireBase;
 
-const PATIENT_RECORD_DEFAULTS = {
+const PATIENT_RECORD_DEFAULTS: PatientRecordConfig = {
   questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
   FormFields,
 };
 
-export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(
-  PATIENT_RECORD_DEFAULTS as unknown as PatientRecordConfig
-);
-
-export type {
-  AppointmentContext,
-  PrePopulationFromPatientRecordInputWithContext,
-} from '../../config-helpers/patient-record';
-
-export const prepopulatePatientRecordItems = (
-  input: PrePopulationFromPatientRecordInputWithContext
-): QuestionnaireResponseItem[] => {
-  const formConfig: PatientRecordFormConfig = {
-    hiddenFields: PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields,
-    requiredFields: PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields,
-  };
-  return _prepopulatePatientRecordItems(input, formConfig);
-};
+export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(PATIENT_RECORD_DEFAULTS);
 
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

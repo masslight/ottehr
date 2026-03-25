@@ -1,5 +1,7 @@
 import {
   type PaperworkConfig,
+  PaperworkConfigSchema,
+  type PaperworkFormFields,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
   type ResolvedConsentFormConfig,
@@ -34,8 +36,10 @@ const questionnaireBaseDefaults = {
   status: 'active',
 } as const satisfies QuestionnaireBase;
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: ResolvedConsentFormConfig[]) {
+function buildFormFields(
+  valueSets: ValueSetsConfig,
+  resolvedConsentForms: ResolvedConsentFormConfig[]
+): PaperworkFormFields {
   const FormFields = {
     contactInformation: {
       linkId: 'contact-information-page',
@@ -194,6 +198,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'patient-pronouns-custom',
           label: 'My pronouns',
           type: 'text',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'patient-pronouns',
@@ -234,6 +239,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'other-preferred-language',
           label: 'Other preferred language',
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'preferred-language',
@@ -304,6 +310,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           text: 'Pharmacy',
           type: 'group',
           groupType: 'pharmacy-collection',
+          disabledDisplay: 'hidden',
           items: {
             pharmacyPlacesId: {
               key: 'pharmacy-places-id',
@@ -351,6 +358,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           label: "Can't find? Add manually",
           type: 'boolean',
           element: 'Link',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'pharmacy-collection.pharmacy-places-saved',
@@ -371,6 +379,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'pharmacy-name',
           label: 'Pharmacy name',
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'pharmacy-page-manual-entry',
@@ -390,6 +399,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'pharmacy-address',
           label: 'Pharmacy address',
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'pharmacy-page-manual-entry',
@@ -426,6 +436,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           required: false,
           type: 'group',
           groupType: 'list-with-form',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'current-medications-yes-no',
@@ -477,6 +488,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           required: false,
           type: 'group',
           groupType: 'list-with-form',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'allergies-yes-no',
@@ -565,6 +577,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           required: true,
           type: 'group',
           groupType: 'list-with-form',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'medical-history-yes-no',
@@ -616,6 +629,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           required: false,
           type: 'group',
           groupType: 'list-with-form',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'surgical-history-yes-no',
@@ -699,6 +713,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           text: 'By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.',
           type: 'display',
           dataType: 'Call Out',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'contact-information-page.appointment-service-category',
@@ -720,6 +735,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           text: 'By clicking "Continue," I acknowledge that if my employer or their Workers Compensation insurer does not pay for this visit, I am responsible for the charges and may self-pay or have the charges submitted to my personal insurance.',
           type: 'display',
           dataType: 'Call Out',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'contact-information-page.appointment-service-category',
@@ -740,6 +756,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'insurance-details-text',
           text: 'Insurance details',
           type: 'display',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -753,6 +770,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'insurance-details-caption',
           text: 'We use this information to help determine your coverage and costs.',
           type: 'display',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -772,6 +790,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
               query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
             },
           },
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -791,6 +810,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'insurance-member-id',
           label: 'Member ID',
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -810,6 +830,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'policy-holder-first-name',
           label: "Policy holder's first name",
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -829,6 +850,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'policy-holder-middle-name',
           label: "Policy holder's middle name",
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -848,6 +870,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'policy-holder-last-name',
           label: "Policy holder's last name",
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -889,6 +912,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           label: "Policy holder's birth sex",
           type: 'choice',
           options: valueSets.birthSexOptions,
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -908,6 +932,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'policy-holder-address-as-patient',
           label: "Policy holder address is the same as patient's address",
           type: 'boolean',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1073,6 +1098,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           label: "Patient's relationship to insured",
           type: 'choice',
           options: valueSets.relationshipToInsuredOptions,
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1095,6 +1121,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           attachmentText: 'Take a picture of the **front side** of your card and upload it here',
           dataType: 'Image',
           documentType: INSURANCE_CARD_CODE,
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1117,6 +1144,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           attachmentText: 'Take a picture of the **back side** of your card and upload it here',
           dataType: 'Image',
           documentType: INSURANCE_CARD_CODE,
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1137,6 +1165,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           label: 'Add secondary insurance',
           type: 'boolean',
           element: 'Button',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1163,6 +1192,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'secondary-insurance',
           type: 'group',
           text: 'Secondary insurance',
+          disabledDisplay: 'hidden',
           items: {
             insuranceDetailsText: {
               key: 'insurance-details-text-2',
@@ -1393,6 +1423,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           text: 'By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.',
           type: 'display',
           dataType: 'Call Out',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'payment-option-occupational',
@@ -1553,6 +1584,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'responsible-party-address-as-patient',
           label: "Responsible party's address is the same as patient's address",
           type: 'boolean',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
@@ -1982,6 +2014,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'attorney-mva-firm',
           label: 'Firm',
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'attorney-mva-has-attorney',
@@ -1995,6 +2028,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'attorney-mva-first-name',
           label: 'First name',
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'attorney-mva-has-attorney',
@@ -2008,6 +2042,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'attorney-mva-last-name',
           label: 'Last name',
           type: 'string',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'attorney-mva-has-attorney',
@@ -2022,6 +2057,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           label: 'Email',
           type: 'string',
           dataType: 'Email',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'attorney-mva-has-attorney',
@@ -2036,6 +2072,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           label: 'Mobile',
           type: 'string',
           dataType: 'Phone Number',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'attorney-mva-has-attorney',
@@ -2050,6 +2087,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           label: 'Fax',
           type: 'string',
           dataType: 'Phone Number',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'attorney-mva-has-attorney',
@@ -2123,6 +2161,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'school-work-note-template-upload-group',
           text: 'Do you need a school or work note?',
           type: 'group',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: 'school-work-note-choice',
@@ -2150,6 +2189,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
               type: 'attachment',
               dataType: 'PDF',
               documentType: '47420-5',
+              disabledDisplay: 'hidden',
               triggers: [
                 {
                   targetQuestionLinkId: 'school-work-note-choice',
@@ -2178,6 +2218,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
               type: 'attachment',
               dataType: 'PDF',
               documentType: '47420-5',
+              disabledDisplay: 'hidden',
               triggers: [
                 {
                   targetQuestionLinkId: 'school-work-note-choice',
@@ -2259,6 +2300,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
           key: 'consent-form-signer-relationship',
           label: 'Relationship to the patient',
           type: 'choice',
+          disabledDisplay: 'hidden',
           triggers: [
             {
               targetQuestionLinkId: '$status',
@@ -2392,7 +2434,7 @@ function buildFormFields(valueSets: ValueSetsConfig, resolvedConsentForms: Resol
       },
       requiredFields: ['invite-from-another-device'],
     },
-  };
+  } satisfies PaperworkFormFields;
 
   return FormFields;
 }
@@ -2409,7 +2451,7 @@ function getIntakePaperworkVirtualConfig(consentFormsConfig?: ResolvedConsentFor
     FormFields: buildFormFields(valueSets, consentForms),
   };
 
-  return INTAKE_PAPERWORK_DATA as unknown as PaperworkConfig;
+  return PaperworkConfigSchema.parse(INTAKE_PAPERWORK_DATA);
 }
 
 // Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
