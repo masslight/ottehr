@@ -666,4 +666,22 @@ export const dataTestIds = {
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
   },
+
+  procedureCodes: {
+    addButton: 'procedure-codes-add-button',
+    searchInput: 'procedure-codes-search-input',
+    downloadCsvButton: 'procedure-codes-download-csv-button',
+    uploadCsvButton: 'procedure-codes-upload-csv-button',
+    codeInput: 'procedure-codes-code-input',
+    modifierInput: 'procedure-codes-modifier-input',
+    amountInput: 'procedure-codes-amount-input',
+    saveButton: 'procedure-codes-save-button',
+    cancelButton: 'procedure-codes-cancel-button',
+    uploadPreviewDialog: 'procedure-codes-upload-preview-dialog',
+    importDeltaButton: 'procedure-codes-import-delta-button',
+    replaceAllButton: 'procedure-codes-replace-all-button',
+    codeRow: (code: string) => `procedure-code-row-${code}`,
+    editButton: (code: string) => `procedure-code-edit-${code}`,
+    deleteButton: (code: string) => `procedure-code-delete-${code}`,
+  },
 };

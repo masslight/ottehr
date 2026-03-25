@@ -33,7 +33,6 @@ export type FormInputTypeField = {
   fileOptions?: any;
   fileUploadType?: MimeType;
   borderColor?: string;
-  borderSelected?: string;
   backgroundSelected?: string;
   hidden?: boolean;
   mask?: string;

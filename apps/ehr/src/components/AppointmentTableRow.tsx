@@ -77,7 +77,6 @@ interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
   location?: LocationWithWalkinSchedule;
   actionButtons: boolean;
-  showTime: boolean;
   now: DateTime;
   tab: ApptTab;
   updateAppointments: () => void;
@@ -171,7 +170,6 @@ export default function AppointmentTableRow({
   appointment,
   location,
   actionButtons,
-  showTime,
   now,
   tab,
   updateAppointments,
@@ -485,9 +483,8 @@ export default function AppointmentTableRow({
 
   const statusTimeEl = (
     <>
-      <Grid item>{isLongWaitingTime && <PriorityIconWithBorder fill={theme.palette.warning.main} />}</Grid>
       <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
-        <Typography variant="body1" sx={{ display: 'inline' }}>
+        <Typography variant="body2" sx={{ display: 'inline' }}>
           {statusTime.includes('/') ? (
             <>
               <TimeBox time={statusTime.split('/')[0].trim()} isHighlighted={isLongWaitingTime} theme={theme} />
@@ -547,7 +544,7 @@ export default function AppointmentTableRow({
         statusChip={<InPersonAppointmentStatusChip status={appointment.status} />}
         isLongWaitingTime={isLongWaitingTime}
         patientDateOfBirth={patientDateOfBirth}
-        statusTimeEl={showTime ? statusTimeEl : undefined}
+        statusTimeEl={statusTimeEl}
         linkStyle={linkStyle}
         timeToolTip={timeToolTip}
       />
@@ -788,55 +785,51 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
-        <Typography variant="body1">
-          {capitalize?.(
-            appointment.appointmentType === 'post-telemed'
-              ? 'Post Telemed'
-              : (appointment.appointmentType || '').toString()
-          )}
-          {serviceCategory}
-        </Typography>
-        <Typography variant="body1">
+        <Typography variant="body2">In Person {serviceCategory}</Typography>
+        <Typography variant="body2">{appointment.location}</Typography>
+        <Box mt={0.5}>
+          <InPersonAppointmentStatusChip status={appointment.status} />
+        </Box>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'center' }}>
+        {capitalize?.(
+          appointment.appointmentType === 'pre-booked'
+            ? 'Scheduled'
+            : appointment.appointmentType === 'walk-in'
+            ? 'On Demand'
+            : appointment.appointmentType === 'post-telemed'
+            ? 'Post Telemed'
+            : ''
+        )}
+        <Typography variant="body2">
           <strong>{start}</strong>
         </Typography>
-        {tab !== ApptTab.prebooked && (
-          <Box mt={1}>
-            <InPersonAppointmentStatusChip status={appointment.status} />
-          </Box>
-        )}
-      </TableCell>
-      {/* placeholder until time stamps for waiting and in exam or something comparable are made */}
-      {/* <TableCell sx={{ verticalAlign: 'top' }}><Typography variant="body1" aria-owns={hoverElement ? 'status-popover' : undefined} aria-haspopup='true' sx={{ verticalAlign: 'top' }} onMouseOver={(event) => setHoverElement(event.currentTarget)} onMouseLeave={() => setHoverElement(undefined)}>{statusTime}</Typography></TableCell>
-          <Popover id='status-popover' open={hoverElement !== undefined} anchorEl={hoverElement} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'right' }} onClose={() => setHoverElement(undefined)}><Typography>test</Typography></Popover> */}
-      {showTime && (
-        <TableCell sx={{ verticalAlign: 'center' }}>
-          <Tooltip
-            componentsProps={{
-              tooltip: {
-                sx: {
-                  width: 'auto',
-                  maxWidth: 'none',
-                  marginLeft: 'auto',
-                  marginRight: 'auto',
-                  padding: 2,
-                  backgroundColor: theme.palette.background.default,
-                  boxShadow:
-                    '0px 1px 8px 0px rgba(0, 0, 0, 0.12), 0px 3px 4px 0px rgba(0, 0, 0, 0.14), 0px 3px 3px -2px rgba(0, 0, 0, 0.20)',
-                  '& .MuiTooltip-arrow': { color: theme.palette.background.default },
-                },
+        <Tooltip
+          componentsProps={{
+            tooltip: {
+              sx: {
+                width: 'auto',
+                maxWidth: 'none',
+                marginLeft: 'auto',
+                marginRight: 'auto',
+                padding: 2,
+                backgroundColor: theme.palette.background.default,
+                boxShadow:
+                  '0px 1px 8px 0px rgba(0, 0, 0, 0.12), 0px 3px 4px 0px rgba(0, 0, 0, 0.14), 0px 3px 3px -2px rgba(0, 0, 0, 0.20)',
+                '& .MuiTooltip-arrow': { color: theme.palette.background.default },
               },
-            }}
-            title={timeToolTip}
-            placement="top"
-            arrow
-            onOpen={scrollTooltipToBottom}
-          >
-            <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '8px' }} gap={1}>
-              {statusTimeEl}
-            </Grid>
-          </Tooltip>
-        </TableCell>
-      )}
+            },
+          }}
+          title={timeToolTip}
+          placement="top"
+          arrow
+          onOpen={scrollTooltipToBottom}
+        >
+          <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '4px' }} gap={1}>
+            {statusTimeEl}
+          </Grid>
+        </Tooltip>
+      </TableCell>
       <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Link

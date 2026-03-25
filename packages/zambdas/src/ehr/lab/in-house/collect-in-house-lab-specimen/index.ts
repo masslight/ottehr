@@ -139,15 +139,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           display: data.specimen.collectedBy.name,
         },
         collectedDateTime: data.specimen.collectionDate,
-        bodySite: {
-          coding: [
-            {
-              // todo when we have a standardize input we should switch this system
-              system: SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
-              display: data.specimen.source,
-            },
-          ],
-        },
+        ...(data.specimen.source
+          ? {
+              bodySite: {
+                coding: [
+                  {
+                    // todo when we have a standardize input we should switch this system
+                    system: SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+                    display: data.specimen.source,
+                  },
+                ],
+              },
+            }
+          : {}),
       },
     };
 

@@ -95,6 +95,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
             aria-labelledby={`${name}-label`}
             aria-describedby={`${name}-description`}
             variant="contained"
+            color="secondary"
             sx={{ textTransform: 'none' }}
             onKeyDown={(event) => {
               try {
