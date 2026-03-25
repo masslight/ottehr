@@ -24,6 +24,7 @@ import {
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
   getChatContainsUnreadMessages,
+  getCoding,
   getInPersonVisitStatus,
   getMiddleName,
   getPatientFirstName,
@@ -87,7 +88,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     // We should use the appointment's timezone to request the correct appointments.
     // The approach: use date without timezone from client and convert it to Zulu (UTC)
     // with the appointment's timezone.
-    const { visitType, searchDate, locationID, providerIDs, groupIDs, supervisorApprovalEnabled, secrets } =
+    const { visitType, searchDate, locationID, providerIDs, serviceCategories, supervisorApprovalEnabled, secrets } =
       validatedParameters;
 
     console.groupEnd();
@@ -100,9 +101,9 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
     const requestedTimezoneRelatedResources: {
       resourceId: string;
-      resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
+      resourceType: 'Location' | 'Practitioner';
     }[] = (() => {
-      const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' | 'HealthcareService' }[] = [];
+      const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' }[] = [];
 
       if (locationID) {
         resources.push({ resourceId: locationID, resourceType: 'Location' });
@@ -111,12 +112,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       if (providerIDs) {
         resources.push(
           ...providerIDs.map((providerID) => ({ resourceId: providerID, resourceType: 'Practitioner' }) as const)
-        );
-      }
-
-      if (groupIDs) {
-        resources.push(
-          ...groupIDs.map((groupID) => ({ resourceId: groupID, resourceType: 'HealthcareService' }) as const)
         );
       }
 
@@ -432,13 +427,19 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     }
 
     console.time('structure_appointment_data');
-    let appointments: Appointment[] = [];
+    let appointments: Appointment[] = allAppointments;
+
     if (visitType?.length > 0) {
-      appointments = allAppointments?.filter((appointment) => {
+      appointments = appointments?.filter((appointment) => {
         return visitType?.includes(appointmentTypeForAppointment(appointment));
       });
-    } else {
-      appointments = allAppointments;
+    }
+
+    if (serviceCategories != null && serviceCategories?.length > 0) {
+      appointments = appointments?.filter((appointment) => {
+        const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+        return appointmentServiceCategory && serviceCategories?.includes(appointmentServiceCategory);
+      });
     }
 
     if (appointments.length > 0) {
