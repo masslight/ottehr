@@ -45,6 +45,7 @@ export class InHouseLabsPage {
     await this.#page.getByTestId(deleteBtnTestId).click();
 
     // click the delete button in the confirmation dialog
+    await this.#page.getByTestId(dataTestIds.commonLabOrder.deleteDialogButton).waitFor({ state: 'visible' });
     await this.#page.getByTestId(dataTestIds.commonLabOrder.deleteDialogButton).click();
 
     // confirm the test has been deleted

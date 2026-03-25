@@ -15,10 +15,6 @@ export class OrderInHouseLabPage {
     this.#collectSamplePage = new CollectSamplePage(this.#page);
   }
 
-  get page(): Page {
-    return this.#page;
-  }
-
   get error(): Locator {
     return this.#page.getByTestId(dataTestIds.orderInHouseLabPage.error);
   }

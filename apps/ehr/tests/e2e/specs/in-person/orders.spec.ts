@@ -362,7 +362,7 @@ test.describe('In-house labs page', async () => {
           const orderDetailsPage = await expectOrderDetailsPage(page);
           await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
           await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
-          collectedLabServiceRequestId = getServiceRequestIdFromPageUrl(orderDetailsPage.page);
+          collectedLabServiceRequestId = getServiceRequestIdFromPageUrl(page);
         });
 
         await test.step('Delete the lab', async () => {
@@ -380,8 +380,8 @@ test.describe('In-house labs page', async () => {
           await orderInHouseLabPage.clickOrderInHouseLabButton();
 
           // get the service request id
-          const orderDetailsPage = await expectOrderDetailsPage(page);
-          orderedLabServiceRequestId = getServiceRequestIdFromPageUrl(orderDetailsPage.page);
+          await expectOrderDetailsPage(page);
+          orderedLabServiceRequestId = getServiceRequestIdFromPageUrl(page);
         });
 
         await test.step('Delete the lab', async () => {
@@ -406,7 +406,7 @@ test.describe('In-house labs page', async () => {
         await orderInHouseLabPage.clickOrderInHouseLabButton();
 
         // confirm we've been nav'd to the orders table
-        inHouseLabsPage = await expectInHouseLabsPage(orderInHouseLabPage.page);
+        inHouseLabsPage = await expectInHouseLabsPage(page);
 
         // make sure tests were created
         const testsFound = await inHouseLabsPage.countTableRows();
