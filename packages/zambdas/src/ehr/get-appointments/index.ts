@@ -7,6 +7,7 @@ import {
   DocumentReference,
   Encounter,
   HealthcareService,
+  Location,
   Patient,
   Person,
   Practitioner,
@@ -229,6 +230,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     const rpIdToResourceMap: Record<string, RelatedPerson> = {};
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
+    const locationIdToResourceMap: Record<string, Location> = {};
 
     appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
@@ -287,6 +289,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         practitionerIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
       } else if (resource.resourceType === 'HealthcareService' && resource.id) {
         healthcareServiceIdToResourceMap[`HealthcareService/${resource.id}`] = resource as HealthcareService;
+      } else if (resource.resourceType === 'Location' && resource.id) {
+        locationIdToResourceMap[`Location/${resource.id}`] = resource as Location;
       } else if (resource.resourceType === 'Person') {
         const person = resource as Person;
 
@@ -459,6 +463,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         group: undefined,
         supervisorApprovalEnabled,
         encounterSignatures,
+        locationIdToResourceMap,
       };
 
       preBooked = appointmentQueues.prebooked
@@ -565,6 +570,7 @@ interface AppointmentInformationInputs {
   group: HealthcareService | undefined;
   supervisorApprovalEnabled: boolean;
   encounterSignatures: Provenance[];
+  locationIdToResourceMap: Record<string, Location>;
 }
 
 const makeAppointmentInformation = (
@@ -585,6 +591,7 @@ const makeAppointmentInformation = (
     group,
     supervisorApprovalEnabled,
     encounterSignatures,
+    locationIdToResourceMap,
   } = input;
 
   const patientRef = appointment.participant.find((appt) => appt.actor?.reference?.startsWith('Patient/'))?.actor
@@ -744,5 +751,6 @@ const makeAppointmentInformation = (
     serviceCategory: appointment.serviceCategory
       ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
       ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
+    location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? '']?.name,
   };
 };
