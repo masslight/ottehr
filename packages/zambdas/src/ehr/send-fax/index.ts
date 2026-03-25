@@ -114,6 +114,7 @@ const performEffect = async (
   });
   console.log('Fax sent successfully');
 
+  // Strip the +1 country code prefix and any non-digit characters to produce a valid FHIR id
   const containedId = faxNumber.replace(/^\+1/, '').replace(/\D/g, '');
   console.log('Creating provenance for fax');
   const provenance = await oystehr.fhir.create<Provenance>({
