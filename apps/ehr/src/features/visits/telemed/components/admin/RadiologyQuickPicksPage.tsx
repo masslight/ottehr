@@ -22,11 +22,13 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getRadiologyQuickPicks, removeRadiologyQuickPick, updateRadiologyQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { RadiologyQuickPickData } from 'utils';
 
 const RadiologyQuickPicksPage: React.FC = () => {
+  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<RadiologyQuickPickData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,11 +119,16 @@ const RadiologyQuickPicksPage: React.FC = () => {
             </TableHead>
             <TableBody>
               {quickPicks.map((qp) => (
-                <TableRow key={qp.id}>
+                <TableRow
+                  key={qp.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => qp.id && navigate(`/admin/quick-picks/radiology/${qp.id}`)}
+                >
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.studyName ?? ''}</TableCell>
                   <TableCell>{qp.cptCode ? `${qp.cptCode} — ${qp.cptDisplay ?? ''}` : ''}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Tooltip title="Rename">
                       <IconButton
                         size="small"

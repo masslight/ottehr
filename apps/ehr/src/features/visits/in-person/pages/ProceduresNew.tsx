@@ -474,9 +474,7 @@ export default function ProceduresNew(): ReactElement {
         selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code ??
         formValues.procedureType,
       cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
-      diagnoses: state.diagnoses?.map((d) => ({ code: d.code, display: d.display })),
-      consentObtained: state.consentObtained,
-      performerType: state.performerType,
+      // diagnoses, consentObtained, and performerType excluded — encounter-specific
       medicationUsed: state.medicationUsed,
       bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
       otherBodySite: state.bodySite === OTHER ? state.otherBodySite : undefined,
@@ -829,7 +827,13 @@ export default function ProceduresNew(): ReactElement {
         });
       }
       Object.entries(quickPick).forEach(([key, value]) => {
-        if (key !== 'name' && key !== 'procedureType') {
+        if (
+          key !== 'name' &&
+          key !== 'procedureType' &&
+          key !== 'performerType' &&
+          key !== 'consentObtained' &&
+          key !== 'diagnoses'
+        ) {
           (state as any)[key] = value;
         }
       });
