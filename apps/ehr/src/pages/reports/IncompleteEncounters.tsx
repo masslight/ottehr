@@ -192,7 +192,7 @@ const useIncompleteEncounters = (
         return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
       });
     },
-    enabled: Boolean(oystehrZambda),
+    enabled: Boolean(oystehrZambda && dateRange !== 'custom' && dateRange !== 'customRange'),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });

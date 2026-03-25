@@ -1,5 +1,6 @@
 import { Autocomplete, Checkbox, FormControlLabel, Link, TextField, useTheme } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem } from 'config-types';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -7,14 +8,7 @@ import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  dedupeObjectsByKey,
-  FormFieldsDisplayItem,
-  FormFieldsGroupItem,
-  FormFieldsInputItem,
-  isRemovableField,
-  QuestionnaireItemGroupType,
-} from 'utils';
+import { dedupeObjectsByKey, isRemovableField, QuestionnaireItemGroupType } from 'utils';
 import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
