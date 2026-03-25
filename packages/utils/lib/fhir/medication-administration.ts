@@ -220,6 +220,7 @@ export const medicationExtendedToMedicationData = (
     lotNumber: medicationExtendedData.lotNumber,
     expDate: medicationExtendedData.expDate,
     effectiveDateTime: medicationExtendedData.effectiveDateTime,
+    cptCodes: medicationExtendedData.cptCodes,
   };
 };
 

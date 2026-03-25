@@ -30,6 +30,8 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import {
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_HCPCS,
   ExtendedMedicationDataForResponse,
   getMedicationName,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
@@ -180,6 +182,28 @@ export const EditableMedicationCard: React.FC<{
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
       setErxEnabled(true);
     }
+    // Auto-populate CPT codes from medication resource when a medication is selected
+    if (field === 'medicationId' && value && value !== IN_HOUSE_CONTAINED_MEDICATION_ID && oystehr) {
+      void (async () => {
+        try {
+          const med = await oystehr.fhir.get<import('fhir/r4b').Medication>({
+            resourceType: 'Medication',
+            id: value as string,
+          });
+          const codes: { code: string; display: string }[] = [];
+          med.code?.coding?.forEach((coding) => {
+            if ((coding.system === CODE_SYSTEM_CPT || coding.system === CODE_SYSTEM_HCPCS) && coding.code) {
+              codes.push({ code: coding.code, display: coding.display ?? '' });
+            }
+          });
+          if (codes.length > 0) {
+            setLocalValues((prev) => ({ ...prev, cptCodes: codes }));
+          }
+        } catch {
+          // Medication lookup failed — user can still add CPT codes manually
+        }
+      })();
+    }
   };
 
   const isOrderType = typeFromProps === 'order-new' || typeFromProps === 'order-edit';
@@ -223,6 +247,7 @@ export const EditableMedicationCard: React.FC<{
         ...(quickPick.instructions && { instructions: quickPick.instructions }),
         ...(quickPick.lotNumber && { lotNumber: quickPick.lotNumber }),
         ...(quickPick.expDate && { expDate: quickPick.expDate }),
+        ...(quickPick.cptCodes && { cptCodes: quickPick.cptCodes }),
       }));
       // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
       if (resolvedMedicationId && isOrderType) setErxEnabled(true);
@@ -268,6 +293,7 @@ export const EditableMedicationCard: React.FC<{
     instructions: localValues.instructions,
     lotNumber: localValues.lotNumber,
     expDate: localValues.expDate,
+    cptCodes: localValues.cptCodes,
   });
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {

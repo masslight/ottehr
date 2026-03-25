@@ -26,6 +26,7 @@ import { ButtonRounded } from '../../RoundedButton';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
 import { getFieldLabel, MedicationFieldType, MedicationOrderType, XsVariants } from './fieldsConfig';
 import { MedicationCardField } from './MedicationCardField';
+import { MedicationCptCodes } from './MedicationCptCodes';
 import { InHouseMedicationFieldType } from './utils';
 
 export interface InteractionsMessage {
@@ -312,7 +313,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           )}
         </Grid>
         {Object.entries(fieldsConfig).map(([field, config]) => {
-          const value = getFieldValue(field as keyof MedicationData);
+          if (field === 'cptCodes') return null; // Rendered separately below
+          const value = getFieldValue(field as keyof MedicationData) as string | number | undefined;
           let renderValue: string | undefined;
 
           // renderValue handles edge case when backend created new medication resource without id
@@ -337,6 +339,13 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             </Grid>
           );
         })}
+        <Grid item xs={12}>
+          <MedicationCptCodes
+            cptCodes={localValues.cptCodes ?? []}
+            onChange={(codes) => onFieldValueChange('cptCodes', codes)}
+            isEditable={isEditable}
+          />
+        </Grid>
         {interactionsMessage ? (
           <Grid item xs={12}>
             <Stack
