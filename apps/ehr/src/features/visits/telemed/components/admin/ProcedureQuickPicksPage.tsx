@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getProcedureQuickPicks, removeProcedureQuickPick, updateProcedureQuickPick } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -28,6 +29,7 @@ import { ProcedureQuickPickData } from 'utils';
 
 export default function ProcedureQuickPicksPage(): ReactElement {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,12 +141,17 @@ export default function ProcedureQuickPicksPage(): ReactElement {
             </TableHead>
             <TableBody>
               {quickPicks.map((qp, index) => (
-                <TableRow key={qp.id ?? `default-${index}`} hover>
+                <TableRow
+                  key={qp.id ?? `default-${index}`}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => qp.id && navigate(`/admin/quick-picks/procedure/${qp.id}`)}
+                >
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.procedureType || '-'}</TableCell>
                   <TableCell>{qp.cptCodes?.map((c) => c.code).join(', ') || '-'}</TableCell>
                   <TableCell>{qp.bodySite || '-'}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <IconButton size="small" onClick={() => handleOpenRename(qp)} title="Rename">
                       <EditIcon fontSize="small" />
                     </IconButton>

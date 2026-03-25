@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   getInHouseMedicationQuickPicks,
   removeInHouseMedicationQuickPick,
@@ -32,6 +33,7 @@ import { InHouseMedicationQuickPickData } from 'utils';
 
 export default function InHouseMedicationQuickPicksPage(): ReactElement {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<InHouseMedicationQuickPickData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,12 +142,17 @@ export default function InHouseMedicationQuickPicksPage(): ReactElement {
             </TableHead>
             <TableBody>
               {quickPicks.map((qp, index) => (
-                <TableRow key={qp.id ?? `default-${index}`} hover>
+                <TableRow
+                  key={qp.id ?? `default-${index}`}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => qp.id && navigate(`/admin/quick-picks/in-house-medication/${qp.id}`)}
+                >
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.medicationName || '-'}</TableCell>
                   <TableCell>{qp.dose ? `${qp.dose} ${qp.units ?? ''}`.trim() : '-'}</TableCell>
                   <TableCell>{qp.route || '-'}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <IconButton size="small" onClick={() => handleOpenRename(qp)} title="Rename">
                       <EditIcon fontSize="small" />
                     </IconButton>
