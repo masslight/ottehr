@@ -10,7 +10,14 @@ import { handleInHouseLabResults } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { formatDateForLabs, InHouseOrderDetailPageItemDTO, LoadingState, PageName, ResultEntryInput } from 'utils';
+import {
+  EntryMode,
+  formatDateForLabs,
+  InHouseOrderDetailPageItemDTO,
+  LoadingState,
+  PageName,
+  ResultEntryInput,
+} from 'utils';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
@@ -19,7 +26,7 @@ import { ResultEntryTable } from './ResultsEntryTable';
 interface InHouseLabResultCardProps {
   testDetails: InHouseOrderDetailPageItemDTO;
   setLoadingState: (loadingState: LoadingState) => void;
-  entryMode: 'initial' | 'edit';
+  entryMode: EntryMode;
 }
 
 export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
@@ -90,25 +97,25 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
     setSubmittingResults(false);
   };
 
-  const shouldShowButton = entryMode === 'initial' || (entryMode === 'edit' && isDirty);
+  const shouldShowButton = entryMode === EntryMode.Initial || (entryMode === EntryMode.Edit && isDirty);
 
-  const isButtonDisabled = !isValid || isReadOnly || (entryMode === 'edit' && !isDirty);
+  const isButtonDisabled = !isValid || isReadOnly || (entryMode === EntryMode.Edit && !isDirty);
 
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(handleResultEntrySubmit)}>
-        <Paper sx={{ mb: 2 }}>
+        <Paper data-testid={dataTestIds.resultPage.resultCard} sx={{ mb: 2 }}>
           <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
               <Typography
-                data-testid={dataTestIds.finalResultPage.testName}
+                data-testid={dataTestIds.resultPage.testName}
                 variant="h5"
                 color="primary.dark"
                 fontWeight="bold"
               >
                 {testDetails.testItemName}
               </Typography>
-              <Box data-testid={dataTestIds.finalResultPage.dateAndStatus} display="flex" alignItems="center" gap="8px">
+              <Box data-testid={dataTestIds.resultPage.dateAndStatus} display="flex" alignItems="center" gap="8px">
                 <Typography variant="body2">
                   {formatDateForLabs(testDetails.orderAddedDate, testDetails.timezone)}
                 </Typography>
@@ -173,7 +180,7 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
                   type="submit"
                   sx={{ borderRadius: '50px', px: 4, textTransform: 'none' }}
                 >
-                  {entryMode === 'initial' ? 'Submit' : 'Save changes'}
+                  {entryMode === EntryMode.Initial ? 'Submit' : 'Save changes'}
                 </LoadingButton>
                 {error &&
                   error.length > 0 &&

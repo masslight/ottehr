@@ -13,6 +13,13 @@ export interface QuantityRange {
   precision?: number;
 }
 
+export const EntryMode = {
+  Initial: 'initial',
+  Edit: 'edit',
+} as const;
+
+export type EntryMode = (typeof EntryMode)[keyof typeof EntryMode];
+
 export type ObservationCode = (typeof OBSERVATION_CODES)[keyof typeof OBSERVATION_CODES];
 export interface LabComponentValueSetConfig {
   code: string; // this should remain constant, changing it could cause backward compatibility issues

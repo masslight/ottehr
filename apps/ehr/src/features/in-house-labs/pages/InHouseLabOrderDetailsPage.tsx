@@ -5,7 +5,7 @@ import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
+import { EntryMode, InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { InHouseLabResults } from '../components/details/InHouseLabResults';
@@ -126,7 +126,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
                   testDetails={[testDetails]}
                   onBack={handleBack}
                   setLoadingState={setLoadingState}
-                  entryMode="initial"
+                  entryMode={EntryMode.Initial}
                 />
               );
             case 'FINAL':
@@ -135,7 +135,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
                   testDetails={allTestDetails}
                   onBack={handleBack}
                   setLoadingState={setLoadingState}
-                  entryMode="edit"
+                  entryMode={EntryMode.Edit}
                 />
               );
             default:

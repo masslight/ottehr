@@ -251,5 +251,13 @@ export abstract class BaseProgressNotePage {
     ).not.toBeVisible();
   }
 
+  async verifyGivenCptCodeIsShown(cptCodeDisplay: string): Promise<void> {
+    const container = this.#page.getByTestId(dataTestIds.progressNotePage.cptCodes);
+    await expect(
+      container.getByText(cptCodeDisplay, { exact: true }),
+      `checking ${cptCodeDisplay} is visible`
+    ).toBeVisible();
+  }
+
   abstract expectLoaded(): Promise<void>;
 }

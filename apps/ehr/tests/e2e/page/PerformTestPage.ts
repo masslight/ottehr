@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { getServiceRequestIdFromPageUrl } from './lab/in-house/helpers';
-import { RadioSelectionResult, selectableOption } from './lab/types';
+import { RadioSelectionResult, SelectableOption } from './lab/types';
 
 const PAGE_TITLE = 'Perform Test & Enter Results';
 
@@ -42,8 +42,8 @@ export class PerformTestPage {
     const count = await radioOptions.count();
     expect(count, `${count} radio options are available to be selected`).toBeGreaterThan(0);
 
-    const availableValues: selectableOption[] = [];
-    let selectedValue: selectableOption | undefined;
+    const availableValues: SelectableOption[] = [];
+    let selectedValue: SelectableOption | undefined;
 
     for (let i = 0; i < count; i++) {
       const option = radioOptions.nth(i);

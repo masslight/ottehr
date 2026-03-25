@@ -2,11 +2,8 @@ import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import {
-  configInHouseLabDeleteButtonTestId,
-  configInHouseLabTableRowTestId,
-} from 'tests/e2e/page/lab/in-house/helpers';
 import { formatDateForLabs, InHouseOrderListPageItemDTO } from 'utils';
+import { configInHouseLabDeleteButtonTestId, configInHouseLabTableRowTestId } from '../../utils/test-ids';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
 

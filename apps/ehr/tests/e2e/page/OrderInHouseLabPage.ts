@@ -1,4 +1,5 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
+import { configCptCodeTestId, configRunAsRepeatBtnTestId } from 'src/features/in-house-labs/utils/test-ids';
 import { TestItem } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { CollectSamplePage } from './CollectSamplePage';
@@ -16,6 +17,10 @@ export class OrderInHouseLabPage {
 
   get page(): Page {
     return this.#page;
+  }
+
+  get error(): Locator {
+    return this.#page.getByTestId(dataTestIds.orderInHouseLabPage.error);
   }
 
   inPersonHeader(): InPersonHeader {
@@ -63,8 +68,8 @@ export class OrderInHouseLabPage {
     return firstRadioEntryTestName;
   }
 
-  async verifyCPTCode(CPTCode: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.CPTCodeField)).toHaveText(CPTCode);
+  async verifyCPTCode(CPTCode: string, testName: string): Promise<void> {
+    await expect(this.#page.getByTestId(configCptCodeTestId(testName))).toHaveText(CPTCode);
   }
 
   async selectALabSet(): Promise<void> {
@@ -80,6 +85,18 @@ export class OrderInHouseLabPage {
     const firstLabSetSelectionBtn = buttons.first();
     await expect(firstLabSetSelectionBtn).toBeEnabled();
     await firstLabSetSelectionBtn.click();
+  }
+
+  async clickRunAsRepeatForTest(testName: string): Promise<void> {
+    const repeatBtnTestId = configRunAsRepeatBtnTestId(testName);
+    const repeatBtn = await this.#page.getByTestId(repeatBtnTestId);
+    await repeatBtn.click();
+  }
+
+  async confirmRunAsRepeatForTestIsChecked(testName: string): Promise<void> {
+    const repeatCheckbox = this.#page.getByTestId(configRunAsRepeatBtnTestId(testName)).locator('input');
+
+    await expect(repeatCheckbox, `Confirm that the run as repeat checkbox is true for ${testName}`).toBeChecked();
   }
 }
 

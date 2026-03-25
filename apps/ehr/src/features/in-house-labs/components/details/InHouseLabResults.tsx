@@ -4,14 +4,15 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { DiagnosisDTO, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
+import { DiagnosisDTO, EntryMode, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
+import { configResultPageContainerTestId } from '../../utils/test-ids';
 import { InHouseLabResultCard } from './InHouseLabResultCard';
 
 interface InHouseLabResultsProps {
   testDetails: InHouseOrderDetailPageItemDTO[] | undefined;
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
-  entryMode: 'initial' | 'edit';
+  entryMode: EntryMode;
 }
 
 export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
@@ -84,7 +85,7 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
     });
   };
 
-  const pageTitle = entryMode === 'initial' && (
+  const pageTitle = entryMode === EntryMode.Initial && (
     <Typography
       data-testid={dataTestIds.performTestPage.title}
       variant="h4"
@@ -95,11 +96,11 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
     </Typography>
   );
 
-  const resultButtons = entryMode === 'edit' && (
+  const resultButtons = entryMode === EntryMode.Edit && (
     <Box display="flex" justifyContent="space-between" alignItems="center">
       {openPdf && (
         <Button
-          data-testid={dataTestIds.finalResultPage.resultsPDF}
+          data-testid={dataTestIds.resultPage.resultsPDF}
           variant="outlined"
           color="primary"
           sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
@@ -111,7 +112,12 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
         </Button>
       )}
       {buttonsToDisplay?.repeat && (
-        <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
+        <Button
+          data-testid={dataTestIds.resultPage.repeatBtn}
+          variant="outlined"
+          onClick={handleRepeatOnClick}
+          sx={{ borderRadius: '50px', px: 4 }}
+        >
           Repeat
         </Button>
       )}
@@ -131,12 +137,8 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
   }
 
   return (
-    <Box>
-      <Typography
-        data-testid={dataTestIds.finalResultPage.diagnose}
-        variant="body1"
-        sx={{ mb: 2, fontWeight: 'medium' }}
-      >
+    <Box data-testid={configResultPageContainerTestId(entryMode)}>
+      <Typography data-testid={dataTestIds.resultPage.diagnose} variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
         {getFormattedDiagnoses(diagnoses || [])}
       </Typography>
 
