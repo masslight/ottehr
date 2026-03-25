@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner, Provenance } from 'fhir/r4b';
 import {
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getSecret,
   GetVisitFaxHistoryInput,
   GetVisitFaxHistoryInputSchema,
@@ -77,14 +78,26 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
 
   console.log(`found ${faxProvenances.length} fax provenances for appointment ${appointmentId}`);
 
-  const faxesSent = faxProvenances.map((provenance) => ({
-    recipientNumber: (provenance.contained?.[0] as Practitioner | undefined)?.telecom?.[0].value || '',
-    created: provenance.occurredDateTime || '',
-    sender: {
-      id: provenance.agent?.[0].who.identifier?.value || '',
-      display: provenance.agent?.[0].who.display || '',
-    },
-  }));
+  const faxesSent = faxProvenances.map((provenance) => {
+    const recipientNumber = (provenance.contained?.[0] as Practitioner | undefined)?.telecom?.[0].value;
+    const created = provenance.occurredDateTime;
+    const senderId = provenance.agent?.[0].who.identifier?.value;
+    const senderDisplay = provenance.agent?.[0].who.display;
+
+    if (!recipientNumber) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Fax provenance is missing recipient fax number');
+    if (!created) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Fax provenance is missing occurredDateTime');
+    if (!senderId) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Fax provenance is missing sender id');
+    if (!senderDisplay) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Fax provenance is missing sender display');
+
+    return {
+      recipientNumber,
+      created,
+      sender: {
+        id: senderId,
+        display: senderDisplay,
+      },
+    };
+  });
   return { faxesSent };
 };
 
