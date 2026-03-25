@@ -9,7 +9,6 @@ import {
   Patient,
   Questionnaire,
   QuestionnaireResponse,
-  Task,
 } from 'fhir/r4b';
 import {
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
@@ -27,9 +26,6 @@ import {
   PaymentVariant,
   Secrets,
   SELF_PAY_OPTION,
-  TASK_INPUT_TYPE_CODES,
-  TASK_INPUT_TYPE_SYSTEM,
-  TaskIndicator,
 } from 'utils';
 import {
   createConsentResources,
@@ -43,14 +39,16 @@ import {
 } from '../../../ehr/shared/harvest';
 import { getAuth0Token } from '../../../shared';
 
+type WithId<T> = T & { id: string };
+
 export interface HarvestContext {
   qr: QuestionnaireResponse;
   pageLinkId: string;
   patchIndex: number;
   taskId: string;
-  patient: Patient;
-  encounter: Encounter;
-  appointment: Appointment;
+  patient: WithId<Patient>;
+  encounter: WithId<Encounter>;
+  appointment: WithId<Appointment>;
   location: Location | undefined;
   questionnaire: Questionnaire | undefined;
   oystehr: Oystehr;
@@ -64,7 +62,7 @@ type HarvestStrategyHandler = (ctx: HarvestContext) => Promise<string>;
 const masterRecordStrategy: HarvestStrategyHandler = async (ctx) => {
   const { qr, pageLinkId, patient, questionnaire, oystehr } = ctx;
 
-  await patchWithOptimisticLock(oystehr, 'Patient', patient.id!, patient, (currentPatient) => {
+  await patchWithOptimisticLock(oystehr, patient, (currentPatient) => {
     const patientPatchOps = createMasterRecordPatchOperations(
       {
         questionnaireResponseItems: qr.item || [],
@@ -80,10 +78,12 @@ const masterRecordStrategy: HarvestStrategyHandler = async (ctx) => {
 };
 
 const pharmacyStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, oystehr } = ctx;
+  const { qr, pageLinkId, patient, oystehr } = ctx;
 
-  await patchWithOptimisticLock(oystehr, 'Patient', patient.id!, patient, (currentPatient) => {
-    const flattenedItems = flattenQuestionnaireAnswers(qr.item ?? []);
+  const pageItems = (qr.item ?? []).filter((item) => item.linkId === pageLinkId);
+
+  await patchWithOptimisticLock(oystehr, patient, (currentPatient) => {
+    const flattenedItems = flattenQuestionnaireAnswers(pageItems);
     return createUpdatePharmacyPatchOps(currentPatient, flattenedItems);
   });
 
@@ -91,8 +91,14 @@ const pharmacyStrategy: HarvestStrategyHandler = async (ctx) => {
 };
 
 const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, encounter, questionnaire, oystehr } = ctx;
+  const { qr, pageLinkId, patient, encounter, questionnaire, oystehr } = ctx;
 
+  // Only process QR items for the page being harvested, not the entire form.
+  // This prevents parallel invocations from different pages doing redundant work.
+  const pageItems = (qr.item ?? []).filter((item) => item.linkId === pageLinkId);
+
+  // Read payment option from the full QR (not filtered pageItems) so we can
+  // correctly determine self-pay status regardless of which page is being processed.
   const paymentOption = qr.item
     ?.find((item) => item.linkId === 'payment-option-page')
     ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString;
@@ -101,63 +107,26 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     ?.find((item) => item.linkId === 'payment-option-occ-med-page')
     ?.item?.find((subItem) => subItem.linkId === 'payment-option-occupational')?.answer?.[0]?.valueString;
 
-  const preserveOmittedCoverages = paymentOption === SELF_PAY_OPTION || occMedPaymentOption === OCC_MED_SELF_PAY_OPTION;
+  // When processing a non-payment page, we have no coverage data to update,
+  // so preserve existing coverages to avoid accidental deletion.
+  const isPaymentPage = ['payment-option-page', 'payment-option-occ-med-page'].includes(pageLinkId);
+  const isSelfPay = paymentOption === SELF_PAY_OPTION || occMedPaymentOption === OCC_MED_SELF_PAY_OPTION;
+  const preserveOmittedCoverages = !isPaymentPage || isSelfPay;
 
   await updatePatientAccountFromQuestionnaire(
     {
       patientId: patient.id!,
-      questionnaireResponseItem: qr.item ?? [],
+      questionnaireResponseItem: pageItems,
       preserveOmittedCoverages,
       questionnaireForEnableWhenFiltering: questionnaire,
     },
     oystehr
   );
 
-  // Only update the payment variant extension when the page being harvested is
-  // the one that actually contains the payment option answer. Other pages that
-  // share the account-coverage strategy should not touch this extension.
-  const PAYMENT_OPTION_PAGES = ['payment-option-page', 'payment-option-occ-med-page'];
-  const isPaymentOptionPage = PAYMENT_OPTION_PAGES.includes(ctx.pageLinkId);
-
-  let paymentVariant: PaymentVariant | undefined;
-  if (isPaymentOptionPage) {
-    const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
-    if (selectedPaymentOption) {
-      paymentVariant = PaymentVariant.selfPay;
-      if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
-        paymentVariant = PaymentVariant.insurance;
-      }
-      if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
-        paymentVariant = PaymentVariant.employer;
-      }
-    }
-  }
-
-  await patchWithOptimisticLock(oystehr, 'Encounter', encounter.id!, encounter, async (currentEncounter) => {
+  // Update encounter account references
+  await patchWithOptimisticLock(oystehr, encounter, async (currentEncounter) => {
     const ops: Operation[] = [];
 
-    if (paymentVariant !== undefined) {
-      const currentVariant = getPaymentVariantFromEncounter(currentEncounter);
-      if (currentVariant !== paymentVariant) {
-        const extIndex = currentEncounter.extension?.findIndex(
-          (ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL
-        );
-
-        if (extIndex !== undefined && extIndex >= 0) {
-          ops.push({
-            op: 'replace',
-            path: `/extension/${extIndex}`,
-            value: getEncounterPaymentVariantExtension(paymentVariant),
-          });
-        } else if (currentEncounter.extension) {
-          ops.push({ op: 'add', path: '/extension/-', value: getEncounterPaymentVariantExtension(paymentVariant) });
-        } else {
-          ops.push({ op: 'add', path: '/extension', value: [getEncounterPaymentVariantExtension(paymentVariant)] });
-        }
-      }
-    }
-
-    // Update encounter account references
     const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
       patient.id!,
       oystehr
@@ -186,8 +155,66 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
   return 'account / coverage updated';
 };
 
+const paymentVariantStrategy: HarvestStrategyHandler = async (ctx) => {
+  const { qr, encounter, oystehr } = ctx;
+
+  const paymentOption = qr.item
+    ?.find((item) => item.linkId === 'payment-option-page')
+    ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString;
+
+  const occMedPaymentOption = qr.item
+    ?.find((item) => item.linkId === 'payment-option-occ-med-page')
+    ?.item?.find((subItem) => subItem.linkId === 'payment-option-occupational')?.answer?.[0]?.valueString;
+
+  const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
+  if (!selectedPaymentOption) {
+    return 'payment-variant skipped (no payment option selected)';
+  }
+
+  let paymentVariant = PaymentVariant.selfPay;
+  if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
+    paymentVariant = PaymentVariant.insurance;
+  }
+  if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
+    paymentVariant = PaymentVariant.employer;
+  }
+
+  await patchWithOptimisticLock(oystehr, encounter, (currentEncounter) => {
+    const currentVariant = getPaymentVariantFromEncounter(currentEncounter);
+    if (currentVariant === paymentVariant) {
+      return [];
+    }
+
+    const extIndex = currentEncounter.extension?.findIndex(
+      (ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL
+    );
+
+    if (extIndex !== undefined && extIndex >= 0) {
+      return [
+        {
+          op: 'replace' as const,
+          path: `/extension/${extIndex}`,
+          value: getEncounterPaymentVariantExtension(paymentVariant),
+        },
+      ];
+    } else if (currentEncounter.extension) {
+      return [{ op: 'add' as const, path: '/extension/-', value: getEncounterPaymentVariantExtension(paymentVariant) }];
+    } else {
+      return [{ op: 'add' as const, path: '/extension', value: [getEncounterPaymentVariantExtension(paymentVariant)] }];
+    }
+  });
+
+  return `payment-variant set to ${paymentVariant}`;
+};
+
 const documentsStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, appointment, oystehr } = ctx;
+  const { qr, pageLinkId, patient, appointment, oystehr } = ctx;
+
+  // Only process attachments from the page being harvested
+  const pageQr: QuestionnaireResponse = {
+    ...qr,
+    item: (qr.item ?? []).filter((item) => item.linkId === pageLinkId),
+  };
 
   // Fetch existing document references and lists for deduplication
   const docResources = (
@@ -212,13 +239,18 @@ const documentsStrategy: HarvestStrategyHandler = async (ctx) => {
     })
   ).unbundle() as List[];
 
-  await createDocumentResources(qr, patient.id!, appointment.id!, oystehr, listResources, documentReferenceResources);
+  await createDocumentResources(pageQr, patient.id, appointment.id, oystehr, listResources, documentReferenceResources);
 
   return 'documents created';
 };
 
 const consentStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, location, appointment, oystehr, secrets } = ctx;
+  const { qr, pageLinkId, patient, location, appointment, oystehr, secrets } = ctx;
+
+  const pageQr: QuestionnaireResponse = {
+    ...qr,
+    item: (qr.item ?? []).filter((item) => item.linkId === pageLinkId),
+  };
 
   // Fetch lists for consent document tracking
   const listResources = (
@@ -231,7 +263,7 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
   const oystehrAccessToken = await getAuth0Token(secrets);
 
   await createConsentResources({
-    questionnaireResponse: qr,
+    questionnaireResponse: pageQr,
     patientResource: patient,
     locationResource: location,
     appointmentId: appointment.id!,
@@ -259,7 +291,7 @@ const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
     return 'erx-contact skipped (no verified phone)';
   }
 
-  await patchWithOptimisticLock(oystehr, 'Patient', patient.id!, patient, (currentPatient) => {
+  await patchWithOptimisticLock(oystehr, patient, (currentPatient) => {
     const erxContactOp = createErxContactOperation(relatedPerson, currentPatient);
     return erxContactOp ? [erxContactOp] : [];
   });
@@ -273,68 +305,11 @@ export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> =
   'master-record': masterRecordStrategy,
   pharmacy: pharmacyStrategy,
   'account-coverage': accountCoverageStrategy,
+  'payment-variant': paymentVariantStrategy,
   documents: documentsStrategy,
   consent: consentStrategy,
   'erx-contact': erxContactStrategy,
 };
-
-/**
- * Checks whether a more recent harvest Task exists for the same QuestionnaireResponse
- * that would also run the given strategy. If so, the current (older) task should skip
- * that strategy — the newer task reads the same QR with more complete paperwork data,
- * so its results supersede ours.
- *
- * "More recent" is determined by Task.meta.lastUpdated (creation time), not by
- * patchIndex, since pages can be patched out of order.
- */
-async function isStrategySupersededByLaterTask(strategy: HarvestStrategy, ctx: HarvestContext): Promise<boolean> {
-  const qrId = ctx.qr.id;
-  if (!qrId) return false;
-
-  const siblingTasks = (
-    await ctx.oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        { name: 'code', value: `${TaskIndicator.harvestPaperwork.system}|${TaskIndicator.harvestPaperwork.code}` },
-        { name: 'focus', value: `QuestionnaireResponse/${qrId}` },
-        { name: 'status', value: 'requested,in-progress,completed' },
-      ],
-    })
-  ).unbundle();
-
-  // Find the current task to get its authored time (set once at creation, never changes)
-  const currentTask = siblingTasks.find((t) => t.id === ctx.taskId);
-  const currentTaskTime = currentTask?.authoredOn;
-  if (!currentTaskTime) return false;
-
-  for (const sibling of siblingTasks) {
-    if (sibling.id === ctx.taskId) continue;
-
-    const siblingTime = sibling.authoredOn;
-    if (!siblingTime || siblingTime <= currentTaskTime) continue;
-
-    // Resolve the sibling's page and check if it maps to the same strategy
-    const siblingIndex = sibling.input?.find(
-      (i) =>
-        i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
-    )?.valueUnsignedInt;
-    if (siblingIndex === undefined) continue;
-
-    const siblingPageLinkId = ctx.qr.item?.[siblingIndex]?.linkId;
-    if (!siblingPageLinkId) continue;
-
-    const siblingStrategies = pageHarvestStrategy[siblingPageLinkId];
-    if (siblingStrategies?.includes(strategy)) {
-      console.log(
-        `skipping ${strategy} for page ${ctx.pageLinkId} (task ${ctx.taskId}): ` +
-          `newer task ${sibling.id} (page ${siblingPageLinkId}, created ${siblingTime}) will handle it`
-      );
-      return true;
-    }
-  }
-
-  return false;
-}
 
 export const executePageHarvest = async (ctx: HarvestContext): Promise<string> => {
   const strategies = pageHarvestStrategy[ctx.pageLinkId];
@@ -344,10 +319,6 @@ export const executePageHarvest = async (ctx: HarvestContext): Promise<string> =
   console.log(`harvest strategies for page ${ctx.pageLinkId}: ${strategies.join(', ')}`);
   const results: string[] = [];
   for (const strategy of strategies) {
-    if (strategy === 'account-coverage' && (await isStrategySupersededByLaterTask(strategy, ctx))) {
-      results.push(`${strategy} skipped (superseded by later task)`);
-      continue;
-    }
     const handler = strategyHandlers[strategy];
     results.push(await handler(ctx));
   }

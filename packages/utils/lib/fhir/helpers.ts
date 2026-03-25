@@ -1510,13 +1510,12 @@ const OPTIMISTIC_LOCK_MAX_RETRIES = 3;
  * concurrently. On 412, re-fetches the resource, recomputes patch operations
  * (important since they may use array indices), and retries.
  */
-export async function patchWithOptimisticLock<T extends FhirResource>(
+export async function patchWithOptimisticLock<T extends FhirResource & { id: string }>(
   oystehr: Oystehr,
-  resourceType: T['resourceType'],
-  id: string,
   initialResource: T,
   computeOps: (resource: T) => Operation[] | Promise<Operation[]>
 ): Promise<void> {
+  const { resourceType } = initialResource;
   let current = initialResource;
 
   for (let attempt = 0; attempt <= OPTIMISTIC_LOCK_MAX_RETRIES; attempt++) {
@@ -1526,7 +1525,7 @@ export async function patchWithOptimisticLock<T extends FhirResource>(
     const versionId = current.meta?.versionId;
     try {
       await oystehr.fhir.patch(
-        { resourceType, id, operations },
+        { resourceType, id: current.id, operations },
         versionId ? { optimisticLockingVersionId: versionId } : undefined
       );
       return;
@@ -1536,11 +1535,11 @@ export async function patchWithOptimisticLock<T extends FhirResource>(
         throw error;
       }
       console.log(
-        `${resourceType}/${id} PATCH conflict (412), re-fetching and retrying (attempt ${
+        `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${
           attempt + 1
         }/${OPTIMISTIC_LOCK_MAX_RETRIES})`
       );
-      current = (await oystehr.fhir.get<T>({ resourceType, id } as any)) as T;
+      current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
     }
   }
 }
