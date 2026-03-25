@@ -762,3 +762,12 @@ export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
 };
 
 export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
+
+export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+export type ChargeMasterDesignation = 'default-insurance' | 'self-pay';
+export type FeeScheduleDesignation = 'case-rate';
+export const CASE_RATE_CODE = 'case-rate';
+
+export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
+export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';

@@ -1,12 +1,12 @@
-import { HomepageOptions } from 'config-types';
-import { Coding, Patient, Questionnaire, QuestionnaireResponseItem, Slot } from 'fhir/r4b';
-import z from 'zod';
 import {
-  FIELDS_TO_TRACK_CLEARING as _FIELDS_TO_TRACK_CLEARING,
-  mapBookingQRItemToPatientInfo as _mapBookingQRItemToPatientInfo,
-  normalizeFormDataToQRItems as _normalizeFormDataToQRItems,
-  prepopulateBookingForm as _prepopulateBookingForm,
-} from '../../config-helpers/booking';
+  type FormFieldSection,
+  type FormFieldTrigger,
+  HomepageOptions,
+  type QuestionnaireBase,
+  type QuestionnaireConfigType,
+} from 'config-types';
+import { Coding, Questionnaire, Slot } from 'fhir/r4b';
+import z from 'zod';
 import {
   CONFIG_INJECTION_KEYS,
   createProxyConfigObject,
@@ -15,14 +15,8 @@ import {
 import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { CanonicalUrl } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
-import type { QuestionnaireConfigType } from '../shared-questionnaire';
-import { createQuestionnaireFromConfig, type FormFieldTrigger, type QuestionnaireBase } from '../shared-questionnaire';
+import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS } from '../value-sets';
-
-// Re-export extracted helpers for backward compatibility
-export const FIELDS_TO_TRACK_CLEARING = _FIELDS_TO_TRACK_CLEARING;
-export const normalizeFormDataToQRItems = _normalizeFormDataToQRItems;
-export const mapBookingQRItemToPatientInfo = _mapBookingQRItemToPatientInfo;
 
 // --- Data inlined from defaults.ts ---
 
@@ -51,7 +45,7 @@ const PatientDoesntExistTriggerEnableOnly: FormFieldTrigger = {
   answerBoolean: false,
 };
 
-const FormFields = {
+const FormFields: Record<string, FormFieldSection> = {
   patientInfo: {
     linkId: 'patient-information-page',
     title: 'About the patient',
@@ -343,30 +337,10 @@ const BOOKING_DEFAULTS_DATA = {
 
 // --- End inlined data ---
 
-const formConfig = FORM_DEFAULTS as unknown as QuestionnaireConfigType;
+const formConfig = FORM_DEFAULTS;
 
 const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
-
-interface BookingContext {
-  serviceMode: 'in-person' | 'virtual';
-  serviceCategoryCode: string;
-}
-
-// Backward-compatible interface (without patientInfoHiddenFields)
-interface BookingFormPrePopulationInput {
-  questionnaire: Questionnaire;
-  context: BookingContext;
-  patient?: Patient;
-}
-
-// Backward-compatible wrapper that passes hiddenFields from the module's own config
-export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
-  return _prepopulateBookingForm({
-    ...input,
-    patientInfoHiddenFields: FormFields.patientInfo.hiddenFields,
-  });
-};
 
 export const selectBookingQuestionnaire: (_slot?: Slot) => {
   url: string;

@@ -224,7 +224,7 @@ const Review = (): JSX.Element => {
                 {item.path && (
                   <Tooltip title={t('reviewAndSubmit.edit')} placement="right" className="edit-slot">
                     <Link to={item.path} state={{ reschedule: true }} onClick={checkIfNew}>
-                      <IconButton aria-label="edit" color="primary">
+                      <IconButton aria-label="edit" color="secondary">
                         <EditOutlined />
                       </IconButton>
                     </Link>
