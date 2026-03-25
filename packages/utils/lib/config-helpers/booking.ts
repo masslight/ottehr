@@ -7,6 +7,7 @@ import {
 } from 'fhir/r4b';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName } from '../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../helpers';
+import { BOOKING_CONFIG } from '../ottehr-config/booking';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../types';
 
 // Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
@@ -109,7 +110,7 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
     patient,
     questionnaire,
     context: { serviceMode, serviceCategoryCode },
-    patientInfoHiddenFields,
+    patientInfoHiddenFields = (BOOKING_CONFIG.FormFields as any)?.patientInfo?.hiddenFields,
   } = input;
   console.log(
     'making prepopulated items for booking form with serviceMode, serviceCategoryCode',

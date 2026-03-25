@@ -40,6 +40,7 @@ import {
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
+  getVisitFaxHistory,
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
@@ -71,6 +72,7 @@ import {
   getReasonForVisitOptionsForServiceCategory,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
+  GetVisitFaxHistoryOutput,
   isApiError,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -476,6 +478,19 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
 
+  const { data: faxData, isLoading: faxLoading } = useQuery({
+    queryKey: ['get-visit-fax-history', appointmentID],
+
+    queryFn: async (): Promise<GetVisitFaxHistoryOutput> => {
+      if (oystehrZambda && appointmentID) {
+        return getVisitFaxHistory(oystehrZambda, { appointmentId: appointmentID });
+      }
+      throw new Error('fhir client not defined or appointmentId not provided');
+    },
+
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
   const {
     data: patientBalancesData,
     isLoading: patientBalancesLoading,
@@ -709,13 +724,14 @@ export default function VisitDetailsPage(): ReactElement {
         const history = await getAppointmentAndPatientHistory(appointment, oystehr);
         if (history) {
           if (logs) {
-            const activityLogs = formatActivityLogs(
+            const activityLogs = formatActivityLogs({
               appointment,
-              history.appointmentHistory,
-              history.patientHistory,
-              undefined,
-              locationTimeZone
-            );
+              appointmentHistory: history.appointmentHistory,
+              patientHistory: history.patientHistory,
+              faxesSent: faxData?.faxesSent,
+              paperworkStartedFlag: undefined,
+              timezone: locationTimeZone,
+            });
             setActivityLogs(activityLogs);
           }
           if (notes) {
@@ -726,17 +742,17 @@ export default function VisitDetailsPage(): ReactElement {
         setActivityLogsLoading(false);
       }
     },
-    [appointment, oystehr, locationTimeZone]
+    [appointment, oystehr, locationTimeZone, faxData?.faxesSent]
   );
 
   useEffect(() => {
-    if (!activityLogs && appointment && locationTimeZone && oystehr) {
+    if (!activityLogs && !faxLoading && appointment && locationTimeZone && oystehr) {
       getAndSetHistoricResources({ logs: true, notes: true }).catch((error) => {
         console.error('error getting activity logs', error);
         setActivityLogsLoading(false);
       });
     }
-  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources]);
+  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources, faxLoading]);
 
   useEffect(() => {
     if (appointment && encounter) {
