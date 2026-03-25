@@ -23,7 +23,7 @@ import {
   BRANDING_CONFIG,
   BUCKET_NAMES,
   compareDates,
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   formatPhoneNumberDisplay,
@@ -1564,7 +1564,7 @@ const getFormattedInHouseLabResults = async (
     .toFormat(LABS_DATE_STRING_FORMAT);
 
   const results: InHouseLabResult[] = [];
-  const components = convertActivityDefinitionToTestItem(activityDefinition, observations).components;
+  const components = convertActivityDefinitionToDataEntryTestItem(activityDefinition, observations).components;
   const componentsAll = components.type === 'grouped' || components.type === 'radio' ? components.components : [];
   const interpretationByComponentIdMap = new Map<string, Coding | undefined>(
     observations

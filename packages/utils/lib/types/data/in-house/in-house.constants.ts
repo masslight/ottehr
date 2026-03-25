@@ -94,9 +94,15 @@ export const IN_HOUSE_TEST_CODE_SYSTEM = 'http://ottehr.org/fhir/StructureDefini
 export const IN_HOUSE_PARTICIPANT_ROLE_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role';
 
+const IN_HOUSE_LAB_TAG_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes';
 export const IN_HOUSE_TAG_DEFINITION = {
-  system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes',
+  system: IN_HOUSE_LAB_TAG_SYSTEM,
   code: 'in-house-lab-test-definition',
+};
+
+export const IN_HOUSE_LAB_LATEST_TAG_DEFINITION = {
+  system: IN_HOUSE_LAB_TAG_SYSTEM,
+  code: 'latest',
 };
 
 export const IN_HOUSE_UNIT_OF_MEASURE_SYSTEM = 'http://unitsofmeasure.org/';

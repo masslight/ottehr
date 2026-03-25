@@ -15,6 +15,7 @@ import {
   CPTCodeDTO,
   DataEntryComponent,
   DataEntryComponentType,
+  DataEntryTestItem,
   DiagnosisDTO,
   EXTENSION_URL_CPT_MODIFIER,
   IN_HOUSE_LAB_DISPLAY_TYPES,
@@ -40,7 +41,6 @@ import {
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   StringDataEntryComponent,
   TestComponentResult,
-  TestItem,
   Validation,
 } from 'utils';
 
@@ -251,12 +251,12 @@ export function quantityRangeFormat(quantity: QuantityDataEntryComponent): strin
   return `${quantity.normalRange.low} - ${quantity.normalRange.high}`;
 }
 
-export const convertActivityDefinitionToTestItem = (
+export const convertActivityDefinitionToDataEntryTestItem = (
   activityDef: ActivityDefinition,
   observations?: Observation[],
   serviceRequest?: ServiceRequest,
   diagnosticReport?: DiagnosticReport
-): TestItem => {
+): DataEntryTestItem => {
   const name = activityDef.name || '';
 
   const repeatable = !!activityDef?.extension?.find((ext) => ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url);
@@ -329,7 +329,7 @@ export const convertActivityDefinitionToTestItem = (
     );
   }
 
-  let reflexAlert: TestItem['reflexAlert'];
+  let reflexAlert: DataEntryTestItem['reflexAlert'];
   // validate service request and diagnostic report are indeed related
   const srIsRelatedToDr =
     diagnosticReport && serviceRequest ? resourceIsBasedOnServiceRequest(diagnosticReport, serviceRequest) : false;
@@ -348,7 +348,7 @@ export const convertActivityDefinitionToTestItem = (
 
   const isReflexTest = activityDefinitionIsReflexTest(activityDef);
 
-  const orderMode: TestItem['orderMode'] = (() => {
+  const orderMode: DataEntryTestItem['orderMode'] = (() => {
     if (orderedAsRepeat) return 'repeat';
     if (isReflexTest) return 'reflex';
     return 'standard';
@@ -384,7 +384,7 @@ export const convertActivityDefinitionToTestItem = (
     }
   };
 
-  const testItem: TestItem = {
+  const testItem: DataEntryTestItem = {
     name,
     methods,
     repeatable,
@@ -583,7 +583,7 @@ export const checkActivityDefinitionForReflexLogic = (
 
 export const checkDiagnosticReportForReflexAlert = (
   diagnosticReport: DiagnosticReport | undefined
-): TestItem['reflexAlert'] | undefined => {
+): DataEntryTestItem['reflexAlert'] | undefined => {
   if (!diagnosticReport) return;
   const reflexLogic = diagnosticReport.extension?.find((ext) => ext.url === REFLEX_TEST_TRIGGERED_URL)?.extension;
   if (!reflexLogic) return;

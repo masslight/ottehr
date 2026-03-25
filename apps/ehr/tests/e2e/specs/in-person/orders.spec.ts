@@ -27,11 +27,11 @@ import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   checkActivityDefinitionForReflexLogic,
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
   CPTCodeDTO,
+  DataEntryTestItem,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
-  TestItem,
   unbundleBatchPostOutput,
 } from 'utils';
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
@@ -228,9 +228,9 @@ test.describe('In-house labs page', async () => {
   };
 
   const TEST_TYPE_TO_CPT: Record<string, string> = {};
-  const radioEntryTestItems: TestItem[] = [];
-  const repeatableRadioEntryTestItems: TestItem[] = [];
-  const selectAndNumericTestItems: TestItem[] = [];
+  const radioEntryTestItems: DataEntryTestItem[] = [];
+  const repeatableRadioEntryTestItems: DataEntryTestItem[] = [];
+  const selectAndNumericTestItems: DataEntryTestItem[] = [];
   let mockResourceIds: string[] = [];
   let reflexTest: MockReflexTestConfig;
 
@@ -240,7 +240,7 @@ test.describe('In-house labs page', async () => {
     // standard + repeatable tests
     inHouseLabsMockData.activityDefinitions.forEach((ad) => {
       const fhirActivityDefinition = ad as ActivityDefinition;
-      const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
+      const testItem = convertActivityDefinitionToDataEntryTestItem(fhirActivityDefinition);
 
       if (testItem.components.type === 'radio') {
         radioEntryTestItems.push(testItem);
@@ -271,13 +271,17 @@ test.describe('In-house labs page', async () => {
     // reflex test
     const { parentTest, childTest } = inHouseLabsMockData.reflexTest;
 
-    const parentTestItem = convertActivityDefinitionToTestItem(parentTest.activityDefinition as ActivityDefinition);
+    const parentTestItem = convertActivityDefinitionToDataEntryTestItem(
+      parentTest.activityDefinition as ActivityDefinition
+    );
     const parentReflexLogic = checkActivityDefinitionForReflexLogic(
       parentTest.activityDefinition as ActivityDefinition
     );
     const parentAlert = parentReflexLogic?.reflexAlertExt.valueString || 'alert is missing in mock data!?';
 
-    const childTestItem = convertActivityDefinitionToTestItem(childTest.activityDefinition as ActivityDefinition);
+    const childTestItem = convertActivityDefinitionToDataEntryTestItem(
+      childTest.activityDefinition as ActivityDefinition
+    );
 
     reflexTest = {
       parent: { test: parentTestItem, alert: parentAlert, results: parentTest.results },

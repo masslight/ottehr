@@ -7,6 +7,7 @@ import {
   AdminDeleteTemplateOutput,
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
+  AdminListInHouseLabsOutput,
   AdminRenameTemplateInput,
   AdminRenameTemplateOutput,
   AiAssistedEncountersReportZambdaInput,
@@ -255,6 +256,7 @@ const ADMIN_CREATE_TEMPLATE_ZAMBDA_ID = 'admin-create-template';
 const ADMIN_RENAME_TEMPLATE_ZAMBDA_ID = 'admin-rename-template';
 const ADMIN_DELETE_TEMPLATE_ZAMBDA_ID = 'admin-delete-template';
 const ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID = 'admin-get-template-detail';
+const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1680,6 +1682,22 @@ export const updatePatientLoginPhoneNumbers = async (
     const response = await oystehr.zambda.execute({
       id: 'update-login-phone-numbers',
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminListInHouseLabs = async (oystehr: Oystehr): Promise<AdminListInHouseLabsOutput> => {
+  try {
+    if (ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID == null) {
+      throw new Error('admin list in house labs environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID,
     });
     return chooseJson(response);
   } catch (error: unknown) {

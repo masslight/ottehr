@@ -1,6 +1,7 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
+import InHouseLabAdminPage from 'src/features/in-house-labs/components/admin/InHouseLabAdminPage';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
@@ -22,6 +23,7 @@ enum PageTab {
   medications = 'medications',
   billing = 'billing',
   'quick-picks' = 'quick-picks',
+  'in-house-labs' = 'in-house-labs',
 }
 
 export function AdminPage(): JSX.Element {
@@ -91,6 +93,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['quick-picks']}`)}
                 />
+                <Tab
+                  label="In-House Labs"
+                  value={PageTab['in-house-labs']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -129,6 +137,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
+            <InHouseLabAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

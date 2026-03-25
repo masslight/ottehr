@@ -19,7 +19,7 @@ import {
 } from 'fhir/r4b';
 import {
   compareDates,
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
   DiagnosisDTO,
   EMPTY_PAGINATION,
@@ -158,7 +158,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     throw new Error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
   }
 
-  const testItem = convertActivityDefinitionToTestItem(
+  const testItem = convertActivityDefinitionToDataEntryTestItem(
     activityDefinition,
     observations,
     serviceRequest,

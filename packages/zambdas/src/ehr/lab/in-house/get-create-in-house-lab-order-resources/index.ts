@@ -1,7 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition, Encounter, List, Practitioner } from 'fhir/r4b';
 import {
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
+  DataEntryTestItem,
   getAttendingPractitionerId,
   GetCreateInHouseLabOrderResourcesInput,
   GetCreateInHouseLabOrderResourcesOutput,
@@ -11,7 +12,6 @@ import {
   LabListsDTO,
   Secrets,
   SecretsKeys,
-  TestItem,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -51,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const testItems: TestItem[] = [];
+    const testItems: DataEntryTestItem[] = [];
     let providerName: string | undefined;
     let labSets: LabListsDTO[] | undefined;
 
@@ -94,7 +94,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log(`Found ${activeActivityDefinitions.length} active ActivityDefinition resources`);
 
       for (const activeDefinition of activeActivityDefinitions) {
-        const testItem = convertActivityDefinitionToTestItem(activeDefinition);
+        const testItem = convertActivityDefinitionToDataEntryTestItem(activeDefinition);
         testItems.push(testItem);
       }
 
@@ -121,7 +121,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
 
       for (const activityDefinition of labSetActivityDefinitions) {
-        const testItem = convertActivityDefinitionToTestItem(activityDefinition);
+        const testItem = convertActivityDefinitionToDataEntryTestItem(activityDefinition);
         testItems.push(testItem);
 
         // notify the dev team that something is misconfigured
@@ -137,7 +137,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const activeActivityDefinitions = await fetchActiveInHouseLabActivityDefinitions(oystehr);
 
       for (const activeDefinition of activeActivityDefinitions) {
-        const testItem = convertActivityDefinitionToTestItem(activeDefinition);
+        const testItem = convertActivityDefinitionToDataEntryTestItem(activeDefinition);
         testItems.push(testItem);
       }
     }

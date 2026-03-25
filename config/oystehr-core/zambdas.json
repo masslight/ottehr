@@ -1692,6 +1692,13 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
       "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
+    },
+    "ADMIN_LIST_IN_HOUSE_LABS": {
+      "name": "admin-list-in-house-labs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-list-in-house-labs/index",
+      "zip": ".dist/zips/admin-list-in-house-labs.zip"
     }
   },
   "fhirResources": {

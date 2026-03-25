@@ -1,8 +1,9 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Extension, Location, Organization } from 'fhir/r4b';
-import { bulkUpdateInsuranceStatus } from 'src/api/api';
+import { adminListInHouseLabs, bulkUpdateInsuranceStatus } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  AdminListInHouseLabsOutput,
   BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
   INSURANCE_SETTINGS_MAP,
@@ -234,5 +235,21 @@ export const useBulkInsuranceStatusMutation = (): UseMutationResult<void, Error,
 
       await bulkUpdateInsuranceStatus(oystehrZambda, data);
     },
+  });
+};
+
+export const useAdminListInHouseLabs = (userId: string): UseQueryResult<AdminListInHouseLabsOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-in-house-labs-list', userId],
+    queryFn: async () => {
+      return adminListInHouseLabs(oystehrZambda!, { userId });
+    },
+    enabled: !!oystehrZambda && !!userId,
+    // ATHENA TODO: decide if you want any of these
+    // staleTime: 0, // data is immediately stale
+    // refetchOnMount: 'always', // refetch every mount
+    // refetchOnWindowFocus: true, // refetch when you tab back
   });
 };
