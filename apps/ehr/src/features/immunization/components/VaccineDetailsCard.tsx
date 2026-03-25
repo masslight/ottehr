@@ -26,10 +26,10 @@ import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizat
 import { AccordionCard } from 'src/components/AccordionCard';
 import { CustomDialog } from 'src/components/dialogs';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
+import { CptCodesInput } from 'src/components/input/CptCodesInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
-import { SingleCptCodeInput } from 'src/components/input/SingleCptInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -132,7 +132,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         ...(quickPick.expDate && { expDate: quickPick.expDate }),
         ...(quickPick.mvx && { mvx: quickPick.mvx }),
         ...(quickPick.cvx && { cvx: quickPick.cvx }),
-        ...(quickPick.cpt && { cpt: quickPick.cpt }),
+        ...(quickPick.cpt && !quickPick.cptCodes && { cpt: quickPick.cpt }),
+        ...(quickPick.cptCodes && { cptCodes: quickPick.cptCodes }),
         ...(quickPick.ndc && { ndc: quickPick.ndc }),
       },
     });
@@ -166,7 +167,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       instructions: values.details?.instructions,
       cvx: values.administrationDetails?.cvx,
       mvx: values.administrationDetails?.mvx,
-      cpt: values.administrationDetails?.cpt,
+      cptCodes: values.administrationDetails?.cptCodes,
       ndc: values.administrationDetails?.ndc,
       lot: values.administrationDetails?.lot,
       expDate: values.administrationDetails?.expDate,
@@ -302,11 +303,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
                   />
                 </Grid>
-                <Grid xs={3} item>
-                  <SingleCptCodeInput
-                    name="administrationDetails.cpt"
-                    label="CPT code"
-                    dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
+                <Grid xs={12} item>
+                  <CptCodesInput
+                    cptCodes={methods.getValues('administrationDetails.cptCodes') ?? []}
+                    onChange={(codes) => methods.setValue('administrationDetails.cptCodes', codes)}
+                    isEditable={!isReadOnly}
                   />
                 </Grid>
                 <Grid xs={3} item>

@@ -162,6 +162,13 @@ function mapMedicationAdministrationToImmunizationOrder(
             mvx: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code ?? '',
             cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
             cpt: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code,
+            cptCodes: administrationCodesExtensions
+              ?.filter((ext) => ext.valueCodeableConcept?.coding?.[0]?.system === CODE_SYSTEM_CPT)
+              .map((ext) => ({
+                code: ext.valueCodeableConcept?.coding?.[0]?.code ?? '',
+                display: ext.valueCodeableConcept?.coding?.[0]?.display ?? '',
+              }))
+              .filter((c) => c.code !== ''),
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
             administeredDateTime: medicationAdministration.effectiveDateTime ?? '',

@@ -30,6 +30,7 @@ export interface ImmunizationOrderAdministrationDetails {
   mvx: string;
   cvx: string;
   cpt?: string;
+  cptCodes?: { code: string; display: string }[];
   ndc: string;
   administeredProvider: {
     id: string;

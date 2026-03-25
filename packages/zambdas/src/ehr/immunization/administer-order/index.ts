@@ -11,6 +11,7 @@ import {
 } from 'fhir/r4b';
 import {
   AdministerImmunizationOrderRequest,
+  chooseJson,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
   codeableConcept,
@@ -157,7 +158,15 @@ async function administerImmunizationOrder(
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
   });
-  if (administrationDetails.cpt) {
+  // Support multiple CPT codes (new cptCodes array) with fallback to single cpt string
+  if (administrationDetails.cptCodes && administrationDetails.cptCodes.length > 0) {
+    for (const cptCode of administrationDetails.cptCodes) {
+      medication.extension?.push({
+        url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+        valueCodeableConcept: codeableConcept(cptCode.code, CODE_SYSTEM_CPT),
+      });
+    }
+  } else if (administrationDetails.cpt) {
     medication.extension?.push({
       url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
       valueCodeableConcept: codeableConcept(administrationDetails.cpt, CODE_SYSTEM_CPT),
@@ -194,6 +203,30 @@ async function administerImmunizationOrder(
   console.log('Transaction requests: ', JSON.stringify(transactionRequests));
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
   console.log('Transaction result: ', JSON.stringify(transactionResult));
+
+  // Add CPT codes to chart data (assessment) on administration
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    const cptCodesToAdd =
+      administrationDetails.cptCodes ??
+      (administrationDetails.cpt ? [{ code: administrationDetails.cpt, display: '' }] : []);
+    if (cptCodesToAdd.length > 0) {
+      const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+      if (encounterId) {
+        try {
+          const chartDataResponse = await oystehr.zambda.execute({ id: 'get-chart-data', encounterId });
+          const chartData = chooseJson(chartDataResponse) as { cptCodes?: { code: string }[] };
+          const existingCodes = chartData.cptCodes?.map((c) => c.code) ?? [];
+          const newCodes = cptCodesToAdd.filter((c) => !existingCodes.includes(c.code));
+          if (newCodes.length > 0) {
+            await oystehr.zambda.execute({ id: 'save-chart-data', encounterId, cptCodes: newCodes });
+            console.log('Added CPT codes to chart data:', newCodes.map((c) => c.code).join(', '));
+          }
+        } catch (e) {
+          console.error('Failed to add CPT codes to chart data:', e);
+        }
+      }
+    }
+  }
 
   return {
     orderId: medicationAdministration.id!,
