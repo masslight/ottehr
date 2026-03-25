@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   EMPLOYEE_ID_SYSTEM,
   FAX_SENT_PROVENANCE_ACTIVITY_CODING,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullestAvailableName,
   getSecret,
   SecretsKeys,
@@ -98,10 +99,7 @@ const performEffect = async (
   const patientId = patient?.id;
   const media = visitNote?.content[0].attachment.url;
   if (!patientId || !media) {
-    return {
-      body: JSON.stringify({ message: 'Patient or visit note url not found' }),
-      statusCode: 404,
-    };
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Patient or visit note url not found');
   }
   console.log('patient id', patient.id);
   console.log('media url', media);
