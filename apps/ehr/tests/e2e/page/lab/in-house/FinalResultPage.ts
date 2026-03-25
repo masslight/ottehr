@@ -1,4 +1,6 @@
 import { expect, Page } from '@playwright/test';
+import { configResultPageContainerTestId } from 'src/features/in-house-labs/utils/test-ids';
+import { EntryMode } from 'utils';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
 import { RadioSelectionResult } from '..';
 
@@ -7,6 +9,11 @@ export class FinalResultPage {
 
   constructor(page: Page) {
     this.#page = page;
+  }
+
+  static async open(page: Page): Promise<FinalResultPage> {
+    await page.getByTestId(configResultPageContainerTestId(EntryMode.Edit)).waitFor({ state: 'visible' });
+    return new FinalResultPage(page);
   }
 
   async verifyStatus(status: string): Promise<void> {

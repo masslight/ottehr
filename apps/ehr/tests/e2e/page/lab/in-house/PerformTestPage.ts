@@ -1,6 +1,5 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
-import { getServiceRequestIdFromPageUrl } from './helpers';
 import { RadioSelectionResult, SelectableOption } from './types';
 
 const PAGE_TITLE = 'Perform Test & Enter Results';
@@ -65,7 +64,8 @@ export class PerformTestPage {
       throw new Error(`no value was assigned for selection in selectRadioTestResult for inhouse labs`);
     }
 
-    const serviceRequestID = getServiceRequestIdFromPageUrl(this.#page);
+    const urlPathSegments = new URL(this.#page.url()).pathname.split('/');
+    const serviceRequestID = urlPathSegments[urlPathSegments.indexOf('in-house-lab-orders') + 1];
 
     const testDetails = {
       testName,

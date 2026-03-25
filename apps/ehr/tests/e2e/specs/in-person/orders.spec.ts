@@ -10,12 +10,8 @@ import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmen
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import {
-  expectFinalResultsPage,
-  expectInHouseLabsPage,
-  expectOrderDetailsPage,
-  expectOrderInHouseLabPage,
   FinalResultPage,
-  getServiceRequestIdFromPageUrl,
+  InHouseLabsPage,
   OrderInHouseLabPage,
   PerformTestPage,
   RadioSelectionResult,
@@ -306,7 +302,7 @@ test.describe('In-house labs page', async () => {
       });
 
       await test.step('IHL-1.2 Collect sample', async () => {
-        const orderDetailsPage = await expectOrderDetailsPage(page);
+        const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
         await orderDetailsPage.collectSamplePage.verifyTestName(testName);
         await orderDetailsPage.collectSamplePage.verifyStatus(STATUS.ORDERED);
         await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
@@ -359,10 +355,10 @@ test.describe('In-house labs page', async () => {
         });
 
         await test.step('Mark as collected', async () => {
-          const orderDetailsPage = await expectOrderDetailsPage(page);
+          const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
           await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
           await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
-          collectedLabServiceRequestId = getServiceRequestIdFromPageUrl(page);
+          collectedLabServiceRequestId = orderDetailsPage.getServiceRequestId();
         });
 
         await test.step('Delete the lab', async () => {
@@ -380,8 +376,8 @@ test.describe('In-house labs page', async () => {
           await orderInHouseLabPage.clickOrderInHouseLabButton();
 
           // get the service request id
-          await expectOrderDetailsPage(page);
-          orderedLabServiceRequestId = getServiceRequestIdFromPageUrl(page);
+          const orderedLabOrderPage = await OrderInHouseLabPage.openDetails(page);
+          orderedLabServiceRequestId = orderedLabOrderPage.getServiceRequestId();
         });
 
         await test.step('Delete the lab', async () => {
@@ -406,7 +402,7 @@ test.describe('In-house labs page', async () => {
         await orderInHouseLabPage.clickOrderInHouseLabButton();
 
         // confirm we've been nav'd to the orders table
-        inHouseLabsPage = await expectInHouseLabsPage(page);
+        inHouseLabsPage = await InHouseLabsPage.open(page);
 
         // make sure tests were created
         const testsFound = await inHouseLabsPage.countTableRows();
@@ -415,15 +411,15 @@ test.describe('In-house labs page', async () => {
     }
 
     if (repeatableRadioEntryTestItems.length === 0) {
-      await test.step('IHL-4 - no repeatable radio entry tests, skipping inhouse labs repeat tests', () => {
+      await test.step('IHL-4 no repeatable radio entry tests, skipping inhouse labs repeat tests', () => {
         return;
       });
     } else {
-      await test.step('IHL-4 - Repeat test happy path', async () => {
+      await test.step('IHL-4 Repeat test happy path', async () => {
         await test.step('IHL-4.1 Order a repeatable test', async () => {
           await test.step('Create and submit order', async () => {
             // make sure you are on the orders table page
-            const inHouseLabsPage = await expectInHouseLabsPage(page);
+            const inHouseLabsPage = await InHouseLabsPage.open(page);
 
             // order a repeatable radio entry test
             const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
@@ -446,7 +442,7 @@ test.describe('In-house labs page', async () => {
           });
 
           await test.step('Enter sample collection info', async () => {
-            const orderDetailsPage = await expectOrderDetailsPage(page);
+            const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
             await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
             await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
           });
@@ -464,7 +460,7 @@ test.describe('In-house labs page', async () => {
           await test.step('Create and submit order', async () => {
             const finalResultPage = new FinalResultPage(page);
             await finalResultPage.clickRepeatButton();
-            const orderInHouseLabPage = await expectOrderInHouseLabPage(page);
+            const orderInHouseLabPage = await OrderInHouseLabPage.openCreate(page);
 
             // confirm repeat check box is already checked
             await orderInHouseLabPage.confirmRunAsRepeatForTestIsChecked(testName);
@@ -477,7 +473,7 @@ test.describe('In-house labs page', async () => {
           });
 
           await test.step('Enter sample collection info', async () => {
-            const orderDetailsPage = await expectOrderDetailsPage(page);
+            const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
             await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
             await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
           });
@@ -491,7 +487,7 @@ test.describe('In-house labs page', async () => {
           });
 
           await test.step('Confirm final results page displays all results', async () => {
-            const finalResultPage = await expectFinalResultsPage(page);
+            const finalResultPage = await FinalResultPage.open(page);
             const resultCount = await finalResultPage.countResultCardsOnPage();
             expect(
               resultCount,

@@ -9,7 +9,7 @@ import { expectExamPage, InPersonExamPage } from './in-person/InPersonExamsPage'
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
 import { expectMedicationsPage, MedicationsPage } from './in-person/MedicationsPage';
 import { expectScreeningPage, ScreeningPage } from './in-person/ScreeningPage';
-import { expectInHouseLabsPage, InHouseLabsPage } from './lab';
+import { InHouseLabsPage } from './lab';
 import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
 import { expectNursingOrdersPage, NursingOrdersPage } from './NursingOrdersPage';
 import { expectPatientInfoPage, PatientInfoPage } from './PatientInfo';
@@ -30,7 +30,7 @@ export class SideMenu {
   }
   async clickInHouseLabs(): Promise<InHouseLabsPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-lab-orders')).click();
-    return expectInHouseLabsPage(this.#page);
+    return InHouseLabsPage.open(this.#page);
   }
   async clickAllergies(): Promise<AllergiesPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();

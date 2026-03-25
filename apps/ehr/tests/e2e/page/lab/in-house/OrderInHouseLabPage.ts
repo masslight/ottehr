@@ -15,6 +15,23 @@ export class OrderInHouseLabPage {
     this.#collectSamplePage = new CollectSamplePage(this.#page);
   }
 
+  static async openCreate(page: Page): Promise<OrderInHouseLabPage> {
+    await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders/create'));
+    return new OrderInHouseLabPage(page);
+  }
+
+  static async openDetails(page: Page): Promise<OrderInHouseLabPage> {
+    await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders/.*/order-details'));
+    return new OrderInHouseLabPage(page);
+  }
+
+  getServiceRequestId(): string {
+    const urlPathSegments = new URL(this.#page.url()).pathname.split('/');
+    // ['','in-person','<appt-id>','in-house-lab-orders','<service-request-id>','order-details']
+    const serviceRequestIdIdx = urlPathSegments.indexOf('in-house-lab-orders') + 1;
+    return urlPathSegments[serviceRequestIdIdx];
+  }
+
   get error(): Locator {
     return this.#page.getByTestId(dataTestIds.orderInHouseLabPage.error);
   }

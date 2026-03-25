@@ -1,9 +1,8 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { configInHouseLabDeleteButtonTestId } from 'src/features/in-house-labs/utils/test-ids';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
 import { InPersonHeader } from '../../InPersonHeader';
 import { SideMenu } from '../../SideMenu';
-import { expectOrderInHouseLabPage } from './helpers';
 import { OrderInHouseLabPage } from './OrderInHouseLabPage';
 
 export class InHouseLabsPage {
@@ -11,6 +10,12 @@ export class InHouseLabsPage {
 
   constructor(page: Page) {
     this.#page = page;
+  }
+
+  static async open(page: Page): Promise<InHouseLabsPage> {
+    await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders'));
+    await expect(page.getByTestId(dataTestIds.inHouseLabsPage.title)).toBeVisible();
+    return new InHouseLabsPage(page);
   }
 
   inPersonHeader(): InPersonHeader {
@@ -23,7 +28,7 @@ export class InHouseLabsPage {
 
   async clickOrderButton(): Promise<OrderInHouseLabPage> {
     await this.#page.getByTestId(dataTestIds.inHouseLabsPage.orderButton).click();
-    return expectOrderInHouseLabPage(this.#page);
+    return OrderInHouseLabPage.openCreate(this.#page);
   }
 
   async countTableRows(): Promise<number> {
