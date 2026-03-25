@@ -785,7 +785,14 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
-        <Typography variant="body2">In Person {serviceCategory}</Typography>
+        <Typography variant="body2">
+          {appointment.appointmentAttendanceType === 'in-person'
+            ? 'In Person'
+            : appointment.appointmentAttendanceType === 'virtual'
+            ? 'Virtual'
+            : 'Unknown'}{' '}
+          {serviceCategory}
+        </Typography>
         <Typography variant="body2">{appointment.location}</Typography>
         <Box mt={0.5}>
           <InPersonAppointmentStatusChip status={appointment.status} />

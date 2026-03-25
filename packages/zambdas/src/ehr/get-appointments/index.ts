@@ -18,6 +18,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  appointmentAttendanceTypeAppointment,
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
   CONSENT_FORMS_CONFIG,
@@ -728,6 +729,7 @@ const makeAppointmentInformation = (
     comment: appointment.comment,
     unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
+    appointmentAttendanceType: appointmentAttendanceTypeAppointment(appointment),
     appointmentStatus: appointment.status,
     status,
     cancellationReason: cancellationReason,
