@@ -34,10 +34,12 @@ export const PaperworkFormFieldsSchema = z.record(z.string(), FormSectionSimpleS
  */
 export interface PaperworkConfig extends QuestionnaireConfigType {
   FormFields: PaperworkFormFields;
+  getIntakeFormPageSubtitle?: (_pageLinkId: string, patientName: string) => string;
 }
 
 export const PaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: PaperworkFormFieldsSchema,
+  getIntakeFormPageSubtitle: z.function().args(z.string(), z.string()).returns(z.string()).optional(),
 });
 
 /**
