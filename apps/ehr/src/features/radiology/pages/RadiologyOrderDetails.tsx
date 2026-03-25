@@ -170,6 +170,17 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
+              {order.studyName && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Study Name
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {order.studyName}
+                  </Typography>
+                </Box>
+              )}
+
               {order.status === 'performed' && !order.preliminaryReport && (
                 <Box sx={{ mt: 2 }}>
                   <TextField

@@ -152,7 +152,8 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory, consentObtained } = validatedBody;
+  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory, studyName, consentObtained } =
+    validatedBody;
   const now = DateTime.now();
 
   const srCodeCoding = lateralityModifier
@@ -311,6 +312,35 @@ const writeOurServiceRequest = (
           },
         ],
       },
+      ...(studyName
+        ? [
+            {
+              url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+              extension: [
+                {
+                  url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+                  extension: [
+                    {
+                      url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+                      valueCodeableConcept: {
+                        coding: [
+                          {
+                            system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                            code: 'study-name',
+                          },
+                        ],
+                      },
+                    },
+                    {
+                      url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+                      valueString: studyName,
+                    },
+                  ],
+                },
+              ],
+            },
+          ]
+        : []),
       {
         url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
         valueDateTime: now.toISO(),
