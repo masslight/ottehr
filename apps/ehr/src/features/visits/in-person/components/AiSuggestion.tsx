@@ -1,11 +1,18 @@
 import { aiIcon } from '@ehrTheme/icons';
 import { InfoOutlined } from '@mui/icons-material';
-import { Box, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React from 'react';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetChartDataResponse, ObservationTextFieldDTO, ProcedureSuggestion } from 'utils';
+
+export interface AiSuggestionAction {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}
 
 export interface AiSuggestionProps {
   title: string;
@@ -14,6 +21,7 @@ export interface AiSuggestionProps {
   procedureSuggestions?: ProcedureSuggestion[];
   loading?: boolean;
   hideHeader?: boolean;
+  action?: AiSuggestionAction;
 }
 
 export default function AiSuggestion({
@@ -23,6 +31,7 @@ export default function AiSuggestion({
   procedureSuggestions,
   loading,
   hideHeader,
+  action,
 }: AiSuggestionProps): React.ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
@@ -132,6 +141,17 @@ export default function AiSuggestion({
           {loading && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
         </Container>
         <SuggestionsItem />
+        {action && (
+          <Button
+            size="small"
+            startIcon={action.icon}
+            disabled={action.disabled}
+            onClick={action.onClick}
+            sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+          >
+            {action.label}
+          </Button>
+        )}
       </Container>
     </Box>
   );
