@@ -22,17 +22,18 @@ import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
-import EditInsurance from './features/visits/telemed/components/telemed-admin/EditInsurance';
-import EditVirtualLocationPage from './features/visits/telemed/components/telemed-admin/EditVirtualLocationPage';
+import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
+import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
+import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
+import { AdminPage } from './pages/AdminPage';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
-import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
 import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
@@ -40,6 +41,7 @@ import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
+import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
@@ -53,9 +55,7 @@ import {
   VisitsOverview,
 } from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
-import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
-import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import VisitDetailsPage from './pages/VisitDetailsPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
@@ -79,8 +79,12 @@ const TelemedAppointmentPageLazy = lazy(async () => {
   return { default: TelemedAppointmentPage.AppointmentPage };
 });
 
-export const INSURANCES_URL = '/telemed-admin/insurances';
-export const VIRTUAL_LOCATIONS_URL = '/telemed-admin/virtual-locations';
+export const INSURANCES_URL = '/admin/insurances';
+export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
+export const CHARGE_MASTERS_URL = '/admin/charge-masters';
+export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
+export const BILLING_URL = '/admin/billing';
+export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -210,14 +214,6 @@ function App(): ReactElement {
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
-                  <Route path="/schedules" element={<SchedulesPage />} />
-                  <Route path="/schedule/:schedule-type/add" element={<AddSchedulePage />} />
-                  <Route path="/group/id/:group-id" element={<GroupPage />} />
-                  <Route path="/schedule/id/:schedule-id" element={<SchedulePage />} />
-                  <Route path="/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
-                  <Route path="/employees" element={<EmployeesPage />} />
-                  <Route path="/employees/add" element={<AddEmployeePage />} />
-                  <Route path="/employee/:id" element={<EditEmployeePage />} />
                   <Route path="/profile" element={<EmployeeProfilePage />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
@@ -225,11 +221,20 @@ function App(): ReactElement {
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
-                  <Route path="/telemed-admin" element={<Navigate to={INSURANCES_URL} />} />
-                  <Route path={`${VIRTUAL_LOCATIONS_URL}`} element={<TelemedAdminPage />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
+                  <Route path="/admin/:adminTab" element={<AdminPage />} />
+                  <Route path="/admin/employees/add" element={<AddEmployeePage />} />
+                  <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
+                  <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />
+                  <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
+                  <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
+                  <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
-                  <Route path={INSURANCES_URL} element={<TelemedAdminPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                  <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
+                  <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
+                  <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"

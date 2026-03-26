@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
-import zambdasSpec from '../../../../config/oystehr/zambdas.json';
+import zambdasSpec from '../../../../config/oystehr-core/zambdas.json';
 import { expressLambda } from './utils';
 
 const app = express();

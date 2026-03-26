@@ -174,6 +174,8 @@ async function createHarvestTaskIfNeeded(
     return;
   }
 
+  console.log(`creating harvest task for QR ${questionnaireResponseId} page index ${patchIndex}`);
+
   await oystehr.fhir.create<Task>({
     resourceType: 'Task',
     status: 'requested',

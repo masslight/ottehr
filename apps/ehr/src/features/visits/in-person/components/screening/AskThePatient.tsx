@@ -434,7 +434,7 @@ const AskThePatient = (): React.ReactElement => {
                         onChange={(newValue: DateTime | null) => {
                           formField.onChange(newValue);
                           if (newValue && newValue.isValid) {
-                            handleFieldChange?.(field.id, newValue.toISO());
+                            handleFieldChange?.(field.id, newValue.toISODate());
                           } else if (newValue === null) {
                             handleFieldChange?.(field.id, null);
                           }
@@ -527,10 +527,9 @@ const AskThePatient = (): React.ReactElement => {
                       const hasAllDates = finalValue[0] && finalValue[1];
 
                       if (hasAllDates) {
-                        const stringValue = finalValue.map((date) => (date && date.isValid ? date.toISO() : null)) as [
-                          string | null,
-                          string | null,
-                        ];
+                        const stringValue = finalValue.map((date) =>
+                          date && date.isValid ? date.toISODate() : null
+                        ) as [string | null, string | null];
                         handleFieldChange?.(field.id, stringValue);
                       } else {
                         enqueueSnackbar('Please select both start and end dates.', {

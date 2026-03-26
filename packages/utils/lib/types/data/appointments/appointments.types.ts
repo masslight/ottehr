@@ -128,6 +128,7 @@ export interface InPersonAppointmentInformation
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
   serviceCategory?: string;
+  location?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {
@@ -156,6 +157,7 @@ export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = 
 export type PatientFilterType = 'my-patients' | 'all-patients';
 
 export interface GetTelemedAppointmentsInput {
+  appointmentId?: string;
   timeZone?: string;
   dateFilter?: string;
   usStatesFilter?: string[];

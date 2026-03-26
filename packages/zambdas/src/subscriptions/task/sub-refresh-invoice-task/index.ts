@@ -14,6 +14,7 @@ import {
   getStartTimeFromEncounterStatusHistory,
   mapDisplayToInvoiceTaskStatus,
   SecretsKeys,
+  ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -57,9 +58,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       console.log('Updating task input...', JSON.stringify(createInvoiceTaskInput(invoiceTaskInput), null, 2));
 
+      const isZeroBalance = invoiceTaskInput.amountCents === 0;
       const updateOperations: Operation[] = [
         { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
+        {
+          op: task.authoredOn ? 'replace' : 'add',
+          path: '/authoredOn',
+          value: invoiceTaskInput.finalizationDate,
+        },
       ];
+
+      // Ensure executionPeriod.end stays in sync with start (appointment date).
+      // executionPeriod encodes the appointment date on both bounds so FHIR _sort=period
+      // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
+      // both directions sort by the appointment date correctly.
+      if (task.executionPeriod?.start && task.executionPeriod.end !== task.executionPeriod.start) {
+        updateOperations.push({
+          op: task.executionPeriod.end ? 'replace' : 'add',
+          path: '/executionPeriod/end',
+          value: task.executionPeriod.start,
+        });
+      }
+
+      if (isZeroBalance) {
+        updateOperations.push({
+          op: task.businessStatus ? 'replace' : 'add',
+          path: '/businessStatus',
+          value: ZERO_BALANCE_BUSINESS_STATUS,
+        });
+      } else if (invoiceTaskInput.amountCents !== undefined && task.businessStatus) {
+        updateOperations.push({ op: 'remove', path: '/businessStatus' });
+      }
 
       const getLastTaskOutput = getLatestTaskOutput(task);
       if (getLastTaskOutput?.type === 'success') {

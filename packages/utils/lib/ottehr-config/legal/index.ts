@@ -1,14 +1,8 @@
-import {
-  type LegalConfig,
-  LegalConfigSchema,
-  type LinkDef,
-  LinkDefSchema,
-  type TextWithLinkComposition,
-} from 'config-types';
-import { LEGAL_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import type { LegalConfig, LinkDef, TextWithLinkComposition } from 'config-types';
+import { LinkDefSchema } from 'config-types';
+import { deepFreezeObject } from '../../utils/objects';
 
-const LEGAL_DEFAULTS = {
+const LEGAL_DATA: LegalConfig = {
   REVIEW_PAGE: [
     {
       keyPath: 'reviewAndSubmit.byProceeding',
@@ -54,11 +48,9 @@ const LEGAL_DEFAULTS = {
       tags: ['terms-and-conditions'],
     },
   ],
-} as const satisfies LegalConfig;
+};
 
-const mergedLegalConfig = mergeAndFreezeConfigObjects(LEGAL_DEFAULTS, OVERRIDES);
-
-export const LEGAL_CONFIG = LegalConfigSchema.parse(mergedLegalConfig);
+export const LEGAL_CONFIG = deepFreezeObject(LEGAL_DATA) as LegalConfig;
 
 export const getLegalCompositionForLocation = (locationKey: string): TextWithLinkComposition | undefined => {
   const legalComposition = LEGAL_CONFIG[locationKey];

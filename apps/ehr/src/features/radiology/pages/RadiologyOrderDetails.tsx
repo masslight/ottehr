@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Chip, CircularProgress, TextField, Typography } from '@mui/material';
+import { Button, Checkbox, Chip, CircularProgress, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -137,12 +137,14 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 variant="outlined"
                 startIcon={
                   <Box
-                    sx={{
-                      fill: 'gray',
-                    }}
                     component="img"
                     src={radiologyIcon}
-                    style={{ width: '30px', marginRight: '8px' }}
+                    style={{
+                      width: '30px',
+                      marginRight: '8px',
+                      filter:
+                        order.status === 'pending' || isLaunchingViewer ? 'grayscale(1) opacity(0.38)' : undefined,
+                    }}
                   />
                 }
                 endIcon={isLaunchingViewer ? <CircularProgress size={16} color="inherit" /> : null}
@@ -156,6 +158,17 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               {launchViewerError && (
                 <Box sx={{ mt: 2, color: 'error.main' }}>
                   <Typography color="error">{launchViewerError}</Typography>
+                </Box>
+              )}
+
+              {order.studyName && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Study Name
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {order.studyName}
+                  </Typography>
                 </Box>
               )}
 
@@ -212,6 +225,17 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               ) : (
                 <div />
               )}
+
+              <Box sx={{ mt: 1 }}>
+                <Box style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    sx={{ paddingLeft: 0, pointerEvents: 'none' }}
+                    inputProps={{ readOnly: true }}
+                    checked={order.consentObtained}
+                  />
+                  <Typography>I have obtained the consent for X-ray</Typography>
+                </Box>
+              </Box>
             </Box>
           </Box>
 
