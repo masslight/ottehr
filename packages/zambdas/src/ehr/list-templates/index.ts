@@ -77,15 +77,22 @@ const performEffect = async (validatedInput: ListTemplatesInput, oystehr: Oysteh
     return false;
   });
 
-  const templateTitles = filteredTemplates
-    .map((template) => {
-      return template.title;
-    })
-    .filter((title): title is string => typeof title === 'string'); // Filter out undefined titles
+  const templateItems = filteredTemplates
+    .filter(
+      (template): template is List & { id: string; title: string } =>
+        typeof template.title === 'string' && typeof template.id === 'string'
+    )
+    .map((template) => ({
+      id: template.id,
+      name: template.title,
+    }));
 
-  templateTitles.sort((a, b) => a.localeCompare(b));
+  templateItems.sort((a, b) => a.name.localeCompare(b.name));
 
-  console.log('Templates:', templateTitles);
+  console.log(
+    'Templates:',
+    templateItems.map((t) => t.name)
+  );
 
-  return { templates: templateTitles };
+  return { templates: templateItems };
 };

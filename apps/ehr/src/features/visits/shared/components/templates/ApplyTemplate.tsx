@@ -73,7 +73,7 @@ export const ApplyTemplate: React.FC = () => {
       try {
         await applyTemplate(oystehrZambda, {
           encounterId: encounter.id,
-          templateName: pendingTemplate,
+          templateName: getTemplateName(pendingTemplate),
           examType: ExamType.IN_PERSON,
         });
 
@@ -120,11 +120,8 @@ export const ApplyTemplate: React.FC = () => {
         onChange={handleTemplateChange}
         disabled={isLoadingTemplates || isReadOnly}
         filterOptions={(options, { inputValue }) => {
-          // Implement fuzzy search - filter by both label and value
           const query = inputValue.toLowerCase();
-          return options.filter(
-            (option) => option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query)
-          );
+          return options.filter((option) => option.label.toLowerCase().includes(query));
         }}
         renderInput={(params) => (
           <TextField

@@ -15,8 +15,7 @@ export interface ListTemplatesInput {
   examType: ExamType;
 }
 export interface ListTemplatesOutput {
-  // todo left for backwards compatibility for now. will change to ListTemplateItem[]
-  templates: string[];
+  templates: ListTemplateItem[];
 }
 
 export interface ListAllTemplatesInput {
