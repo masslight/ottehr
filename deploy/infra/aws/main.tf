@@ -13,7 +13,7 @@ resource "aws_s3_bucket" "ehr_bucket" {
   bucket        = var.ehr_bucket_name == null ? "ottehr-${var.project_id}-ehr.ottehr.com" : var.ehr_bucket_name
   force_destroy = true
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
