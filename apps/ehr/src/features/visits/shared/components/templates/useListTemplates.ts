@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listTemplates } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ExamType, ListTemplatesZambdaOutput } from 'utils';
+import { ExamType, ListTemplatesOutput } from 'utils';
 
 export interface TemplateOption {
   value: string;
@@ -18,7 +18,7 @@ export interface UseListTemplatesResult {
 export const useListTemplates = (examType: ExamType): UseListTemplatesResult => {
   const { oystehrZambda } = useApiClients();
 
-  const queryResult = useQuery<ListTemplatesZambdaOutput, Error>({
+  const queryResult = useQuery<ListTemplatesOutput, Error>({
     queryKey: ['list-templates', examType],
     queryFn: async () => {
       if (!oystehrZambda) {

@@ -5,8 +5,8 @@ import {
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,
   apiErrorToThrow,
-  ApplyTemplateZambdaInput,
-  ApplyTemplateZambdaOutput,
+  ApplyTemplateInput,
+  ApplyTemplateOutput,
   AssignPractitionerInput,
   AssignPractitionerResponse,
   BulkUpdateInsuranceStatusInput,
@@ -104,8 +104,8 @@ import {
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
-  ListTemplatesZambdaInput,
-  ListTemplatesZambdaOutput,
+  ListTemplatesInput,
+  ListTemplatesOutput,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   PaginatedResponse,
@@ -1303,10 +1303,7 @@ export const icd10Search = async (
   }
 };
 
-export const listTemplates = async (
-  oystehr: Oystehr,
-  parameters: ListTemplatesZambdaInput
-): Promise<ListTemplatesZambdaOutput> => {
+export const listTemplates = async (oystehr: Oystehr, parameters: ListTemplatesInput): Promise<ListTemplatesOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: 'list-templates',
@@ -1319,10 +1316,7 @@ export const listTemplates = async (
   }
 };
 
-export const applyTemplate = async (
-  oystehr: Oystehr,
-  parameters: ApplyTemplateZambdaInput
-): Promise<ApplyTemplateZambdaOutput> => {
+export const applyTemplate = async (oystehr: Oystehr, parameters: ApplyTemplateInput): Promise<ApplyTemplateOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: 'apply-template',

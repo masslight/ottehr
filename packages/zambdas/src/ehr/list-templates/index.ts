@@ -8,8 +8,8 @@ import {
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
-  ListTemplatesZambdaInput,
-  ListTemplatesZambdaOutput,
+  ListTemplatesInput,
+  ListTemplatesOutput,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -39,10 +39,7 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
   }
 });
 
-const performEffect = async (
-  validatedInput: ListTemplatesZambdaInput,
-  oystehr: Oystehr
-): Promise<ListTemplatesZambdaOutput> => {
+const performEffect = async (validatedInput: ListTemplatesInput, oystehr: Oystehr): Promise<ListTemplatesOutput> => {
   const { examType } = validatedInput;
 
   const listSearchResult = (

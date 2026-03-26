@@ -1,7 +1,7 @@
-import { ExamType, INVALID_INPUT_ERROR, ListTemplatesZambdaInput, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { ExamType, INVALID_INPUT_ERROR, ListTemplatesInput, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): ListTemplatesZambdaInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(input: ZambdaInput): ListTemplatesInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw new Error('No request body provided');
   }

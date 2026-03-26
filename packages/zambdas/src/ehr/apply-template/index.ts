@@ -6,13 +6,7 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
-import {
-  ApplyTemplateZambdaInput,
-  chunkThings,
-  getSecret,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  SecretsKeys,
-} from 'utils';
+import { ApplyTemplateInput, chunkThings, getSecret, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM, SecretsKeys } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -47,7 +41,7 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
 });
 
 const complexValidation = async (
-  validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: ApplyTemplateInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr
 ): Promise<ComplexValidationOutput> => {
   const { templateName, encounterId } = validatedInput;
@@ -90,7 +84,7 @@ const complexValidation = async (
 };
 
 const performEffect = async (
-  validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: ApplyTemplateInput & Pick<ZambdaInput, 'secrets'>,
   templateList: List,
   encounter: Encounter,
   oystehr: Oystehr
