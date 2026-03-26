@@ -125,7 +125,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         expDate: quickPick.expDate,
         mvx: quickPick.mvx,
         cvx: quickPick.cvx,
-        cpt: quickPick.cptCodes ? undefined : quickPick.cpt,
         cptCodes: quickPick.cptCodes ?? [],
         ndc: quickPick.ndc,
       },
@@ -229,6 +228,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       type: administrationTypeRef.current.type,
       ...(await cleanupProperties(data)),
     });
+    navigate(getImmunizationMARUrl(appointmentId!));
   };
 
   const onAdministrationActionClick = async (administrationType: AdministrationType): Promise<void> => {

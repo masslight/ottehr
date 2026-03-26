@@ -158,7 +158,6 @@ async function administerImmunizationOrder(
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
   });
-  // Support multiple CPT codes (new cptCodes array) with fallback to single cpt string
   if (administrationDetails.cptCodes && administrationDetails.cptCodes.length > 0) {
     for (const cptCode of administrationDetails.cptCodes) {
       medication.extension?.push({
@@ -166,11 +165,6 @@ async function administerImmunizationOrder(
         valueCodeableConcept: codeableConcept(cptCode.code, CODE_SYSTEM_CPT),
       });
     }
-  } else if (administrationDetails.cpt) {
-    medication.extension?.push({
-      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-      valueCodeableConcept: codeableConcept(administrationDetails.cpt, CODE_SYSTEM_CPT),
-    });
   }
   if (administrationDetails.visGivenDate) {
     medication.extension?.push({
@@ -206,9 +200,7 @@ async function administerImmunizationOrder(
 
   // Add CPT codes to chart data (assessment) on administration
   if (['administered', 'administered-partly'].includes(input.type)) {
-    const cptCodesToAdd =
-      administrationDetails.cptCodes ??
-      (administrationDetails.cpt ? [{ code: administrationDetails.cpt, display: '' }] : []);
+    const cptCodesToAdd = administrationDetails.cptCodes ?? [];
     if (cptCodesToAdd.length > 0) {
       const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
       if (encounterId) {

@@ -142,7 +142,6 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
         ...currentValues.administrationDetails,
         cvx: quickPick.cvx,
         mvx: quickPick.mvx,
-        cpt: quickPick.cptCodes ? undefined : quickPick.cpt,
         cptCodes: quickPick.cptCodes ?? [],
         ndc: quickPick.ndc,
         lot: quickPick.lot,

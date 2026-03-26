@@ -104,7 +104,9 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
             <ValueDisplay value={quickPick.mvx} />
           </Row>
           <Row label="CPT">
-            <ValueDisplay value={quickPick.cpt} />
+            <ValueDisplay
+              value={quickPick.cptCodes?.map((c) => `${c.code}${c.display ? ` - ${c.display}` : ''}`).join(', ')}
+            />
           </Row>
           <Row label="NDC">
             <ValueDisplay value={quickPick.ndc} />

@@ -161,7 +161,6 @@ function mapMedicationAdministrationToImmunizationOrder(
             expDate: medication.batch?.expirationDate ?? '',
             mvx: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code ?? '',
             cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
-            cpt: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code,
             cptCodes: administrationCodesExtensions
               ?.filter((ext) => ext.valueCodeableConcept?.coding?.[0]?.system === CODE_SYSTEM_CPT)
               .map((ext) => ({
