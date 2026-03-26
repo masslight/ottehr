@@ -129,11 +129,17 @@ export const performEffect = async (
     const existingCodings = medication.code?.coding ?? [];
     const otherCodings = existingCodings.filter((c) => c.system !== CODE_SYSTEM_CPT && c.system !== CODE_SYSTEM_HCPCS);
     const resolvedCptCodings = (
-      cptCodes ?? existingCodings.filter((c) => c.system === CODE_SYSTEM_CPT).map((c) => c.code!)
-    ).map((code) => ({ system: CODE_SYSTEM_CPT, code }));
+      cptCodes ??
+      existingCodings
+        .filter((c) => c.system === CODE_SYSTEM_CPT)
+        .map((c) => ({ code: c.code!, display: c.display ?? '' }))
+    ).map(({ code, display }) => ({ system: CODE_SYSTEM_CPT, code, display }));
     const resolvedHcpcsCodings = (
-      hcpcsCodes ?? existingCodings.filter((c) => c.system === CODE_SYSTEM_HCPCS).map((c) => c.code!)
-    ).map((code) => ({ system: CODE_SYSTEM_HCPCS, code }));
+      hcpcsCodes ??
+      existingCodings
+        .filter((c) => c.system === CODE_SYSTEM_HCPCS)
+        .map((c) => ({ code: c.code!, display: c.display ?? '' }))
+    ).map(({ code, display }) => ({ system: CODE_SYSTEM_HCPCS, code, display }));
     patchOperations.push({
       op: 'replace',
       path: '/code/coding',
