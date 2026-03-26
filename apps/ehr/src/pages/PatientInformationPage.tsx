@@ -7,7 +7,6 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
-import { AddInsuranceModal } from 'src/features/visits/shared/components/patient/AddInsuranceModal';
 import { AttorneyInformationContainer } from 'src/features/visits/shared/components/patient/AttorneyInformationContainer';
 import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
 import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
@@ -30,15 +29,14 @@ import {
   flattenItems,
   InsurancePlanDTO,
   OrderedCoveragesWithSubscribers,
+  PATIENT_RECORD_CONFIG,
   PATIENT_RECORD_QUESTIONNAIRE,
   PatientAccountResponse,
   prepopulatePatientRecordItems,
   pruneEmptySections,
-  VALUE_SETS,
 } from 'utils';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
-import { InsurancePriorityFields } from '../constants';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
   useGetInsurancePlans,
@@ -225,7 +223,9 @@ const useFormData = (
   defaultFormVals: any,
   coveragesFetching: boolean,
   insuranceData: any,
-  accountData: any
+  accountData: any,
+  isAddingInsurance?: boolean,
+  newInsuranceOrdinal?: number
 ): {
   methods: ReturnType<typeof useForm>;
   coveragesFormValues: any;
@@ -238,17 +238,28 @@ const useFormData = (
   // e.g., if only secondary exists (index 1), count should be 2 to validate indices 0 and 1
   if (insuranceData?.coverages) {
     // Determine the highest insurance index that will be rendered
-    const maxInsuranceIndex = Math.max(
+    let maxInsuranceIndex = Math.max(
       insuranceData.coverages.primary ? 0 : -1,
       insuranceData.coverages.secondary ? 1 : -1
     );
+    // Account for the inline add form
+    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
+      maxInsuranceIndex = Math.max(maxInsuranceIndex, newInsuranceOrdinal - 1);
+    }
     // Count is max index + 1 (to validate all indices from 0 to maxIndex)
     const insuranceCount = maxInsuranceIndex + 1;
     renderedSectionCounts['insurance-section'] = insuranceCount;
     renderedSectionCounts['insurance-section-2'] = insuranceCount;
   } else {
-    renderedSectionCounts['insurance-section'] = 0;
-    renderedSectionCounts['insurance-section-2'] = 0;
+    // Even with no existing coverages, account for inline add
+    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
+      const insuranceCount = newInsuranceOrdinal;
+      renderedSectionCounts['insurance-section'] = insuranceCount;
+      renderedSectionCounts['insurance-section-2'] = insuranceCount;
+    } else {
+      renderedSectionCounts['insurance-section'] = 0;
+      renderedSectionCounts['insurance-section-2'] = 0;
+    }
   }
 
   const methods = useForm({
@@ -332,14 +343,25 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
     usePatientData(id, appointmentContext);
 
-  const { methods, coveragesFormValues } = useFormData(defaultFormVals, coveragesFetching, insuranceData, accountData);
+  // Determine ordinal for new insurance: next available priority slot
+  const newInsuranceOrdinal = coverages.some((c) => c.startingPriority === 1) ? 2 : 1;
+
+  const [isAddingInsurance, setIsAddingInsurance] = useState(false);
+
+  const { methods, coveragesFormValues } = useFormData(
+    defaultFormVals,
+    coveragesFetching,
+    insuranceData,
+    accountData,
+    isAddingInsurance,
+    newInsuranceOrdinal
+  );
 
   const { submitQR, removeCoverage, queryClient } = useMutations();
 
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
-  const [openAddInsuranceModal, setOpenAddInsuranceModal] = useState(false);
   useGetInsurancePlans((data) => {
     if (!data) return;
 
@@ -350,12 +372,13 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     }
   });
 
-  const { handleSubmit, watch, formState } = methods;
+  const { handleSubmit, formState } = methods;
   const { dirtyFields } = formState;
 
   useEffect(() => {
     if (defaultFormVals && formState.isSubmitSuccessful && submitQR.isSuccess) {
       methods.reset();
+      setIsAddingInsurance(false);
     }
   }, [defaultFormVals, methods, formState.isSubmitSuccessful, submitQR.isSuccess]);
 
@@ -369,6 +392,31 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       });
     });
   }, [coveragesFormValues, methods, appointmentContext]);
+
+  const insuranceItems = PATIENT_RECORD_CONFIG.FormFields.insurance.items;
+
+  const handleStartAddInsurance = (): void => {
+    setIsAddingInsurance(true);
+    // Set the priority default for the new insurance
+    const index = newInsuranceOrdinal - 1;
+    const fields = insuranceItems[index];
+    if (fields) {
+      const priorityValue = newInsuranceOrdinal === 1 ? 'Primary' : 'Secondary';
+      methods.setValue(fields.insurancePriority.key, priorityValue, { shouldDirty: true });
+    }
+  };
+
+  const handleCancelAddInsurance = (): void => {
+    setIsAddingInsurance(false);
+    // Clear form values for the new insurance fields
+    const index = newInsuranceOrdinal - 1;
+    const fields = insuranceItems[index];
+    if (fields) {
+      Object.values(fields).forEach((field) => {
+        methods.setValue(field.key, undefined, { shouldDirty: false });
+      });
+    }
+  };
 
   const handleDiscardChanges = (): void => {
     methods.reset();
@@ -432,8 +480,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   if (!patient) return null;
 
-  const currentlyAssignedPriorities = watch(InsurancePriorityFields);
-
   return (
     <div>
       {isFetching && <LoadingScreen />}
@@ -466,7 +512,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     accountData={accountData}
                     removeCoverage={removeCoverage}
                     onRemoveCoverage={handleRemoveCoverage}
-                    onAddInsurance={() => setOpenAddInsuranceModal(true)}
+                    isAddingInsurance={isAddingInsurance}
+                    onStartAddInsurance={handleStartAddInsurance}
+                    onCancelAddInsurance={handleCancelAddInsurance}
+                    newInsuranceOrdinal={newInsuranceOrdinal}
                   />
                   <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
                   <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
@@ -499,15 +548,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
           confirmText="Discard Changes"
         />
       </FormProvider>
-      <AddInsuranceModal
-        open={openAddInsuranceModal}
-        onClose={() => setOpenAddInsuranceModal(false)}
-        questionnaire={questionnaire ?? { resourceType: 'Questionnaire', status: 'draft' }}
-        patientId={patient.id ?? ''}
-        priorityOptions={VALUE_SETS.insurancePriorityOptions.filter(
-          (option) => !currentlyAssignedPriorities.includes(option.value)
-        )}
-      />
     </div>
   );
 };

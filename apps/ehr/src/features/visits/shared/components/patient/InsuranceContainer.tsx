@@ -40,6 +40,9 @@ type InsuranceContainerProps = {
   initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
+  isNew?: boolean;
+  onCancelAdd?: () => void;
+  renderWithoutSection?: boolean;
 };
 
 export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusStyleObject> = {
@@ -117,6 +120,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   removeInProgress,
   initialEligibilityCheck,
   handleRemoveClick,
+  isNew,
+  onCancelAdd,
+  renderWithoutSection,
 }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
@@ -411,181 +417,222 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     );
   };
 
-  return (
-    <PatientRecordFormSection formSection={insuranceSection} ordinal={ordinal - 1} titleWidget={<TitleWidget />}>
-      <Box
-        sx={{
-          marginLeft: '12px',
-          marginTop: 2,
-        }}
-      >
-        <CopayWidget copay={copayBenefits} />
-        <Grid
-          sx={{
-            marginTop: 2,
-            backgroundColor: 'rgba(244, 246, 248, 1)',
-            padding: 1,
-          }}
-          container
-          spacing={2}
-        >
-          <Grid item xs={12}>
-            <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
-              Deductible & Out-of-Pocket (In-network)
-            </Typography>
-          </Grid>
+  const content = (
+    <>
+      <>
+        {!isNew && (
+          <Box
+            sx={{
+              marginLeft: '12px',
+              marginTop: 2,
+            }}
+          >
+            <CopayWidget copay={copayBenefits} />
+            <Grid
+              sx={{
+                marginTop: 2,
+                backgroundColor: 'rgba(244, 246, 248, 1)',
+                padding: 1,
+              }}
+              container
+              spacing={2}
+            >
+              <Grid item xs={12}>
+                <Typography
+                  variant="h5"
+                  color={theme.palette.primary.dark}
+                  fontWeight={theme.typography.fontWeightBold}
+                >
+                  Deductible & Out-of-Pocket (In-network)
+                </Typography>
+              </Grid>
 
-          {eligibilityCheck?.financialDetails?.map((detail) => (
-            <Grid item xs={4} key={detail.name}>
-              <BenefitProgressDetails detail={detail} />
+              {eligibilityCheck?.financialDetails?.map((detail) => (
+                <Grid item xs={4} key={detail.name}>
+                  <BenefitProgressDetails detail={detail} />
+                </Grid>
+              ))}
             </Grid>
-          ))}
-        </Grid>
-      </Box>
-      <PatientRecordFormField
-        item={FormFields.insurancePriority}
-        isLoading={false}
-        requiredFormFields={requiredFields}
-        hiddenFormFields={hiddenFields}
-      />
-      <PatientRecordFormField
-        item={FormFields.insuranceCarrier}
-        isLoading={false}
-        requiredFormFields={requiredFields}
-        hiddenFormFields={hiddenFields}
-      />
-      <PatientRecordFormField
-        item={FormFields.insurancePlanType}
-        isLoading={false}
-        requiredFormFields={requiredFields}
-        hiddenFormFields={hiddenFields}
-      />
-      <PatientRecordFormField
-        item={FormFields.memberId}
-        isLoading={false}
-        requiredFormFields={requiredFields}
-        hiddenFormFields={hiddenFields}
-      />
-      {/* should be always visible to ensure dynamic population works. https://linear.app/zapehr/issue/OTR-1728/ehr-save-operation-failed-error-if-insurance-with-self-option-is-added */}
-      <Box>
-        <PatientRecordFormField
-          item={FormFields.firstName}
-          isLoading={false}
-          requiredFormFields={requiredFields}
-          hiddenFormFields={hiddenFields}
-        />
-        <PatientRecordFormField
-          item={FormFields.middleName}
-          isLoading={false}
-          requiredFormFields={requiredFields}
-          hiddenFormFields={hiddenFields}
-        />
-        <PatientRecordFormField
-          item={FormFields.lastName}
-          isLoading={false}
-          requiredFormFields={requiredFields}
-          hiddenFormFields={hiddenFields}
-        />
-        <PatientRecordFormField
-          item={FormFields.birthDate}
-          isLoading={false}
-          requiredFormFields={requiredFields}
-          hiddenFormFields={hiddenFields}
-        />
-        <PatientRecordFormField
-          item={FormFields.birthSex}
-          isLoading={false}
-          requiredFormFields={requiredFields}
-          hiddenFormFields={hiddenFields}
-        />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-            <PatientRecordFormField
-              item={FormFields.policyHolderAddressAsPatient}
-              isLoading={false}
-              requiredFormFields={requiredFields}
-              hiddenFormFields={hiddenFields}
-              omitRowWrapper
-            />
           </Box>
-        </Box>
+        )}
         <PatientRecordFormField
-          item={FormFields.streetAddress}
+          item={FormFields.insurancePriority}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
         <PatientRecordFormField
-          item={FormFields.addressLine2}
+          item={FormFields.insuranceCarrier}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
-        <Row label="City, State, ZIP" required>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <PatientRecordFormField
-              item={FormFields.city}
-              isLoading={false}
-              requiredFormFields={requiredFields}
-              hiddenFormFields={hiddenFields}
-              omitRowWrapper
-            />
-            <PatientRecordFormField
-              item={FormFields.state}
-              isLoading={false}
-              requiredFormFields={requiredFields}
-              hiddenFormFields={hiddenFields}
-              omitRowWrapper
-            />
-            <PatientRecordFormField
-              item={FormFields.zip}
-              isLoading={false}
-              requiredFormFields={requiredFields}
-              hiddenFormFields={hiddenFields}
-              omitRowWrapper
-            />
-          </Box>
-        </Row>
+        <PatientRecordFormField
+          item={FormFields.insurancePlanType}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
+        <PatientRecordFormField
+          item={FormFields.memberId}
+          isLoading={false}
+          requiredFormFields={requiredFields}
+          hiddenFormFields={hiddenFields}
+        />
         <PatientRecordFormField
           item={FormFields.relationship}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
-        <PatientRecordFormField
-          item={FormFields.additionalInformation}
-          isLoading={false}
-          requiredFormFields={requiredFields}
-          hiddenFormFields={hiddenFields}
-        />
-        <LoadingButton
-          data-testid={dataTestIds.insuranceContainer.removeButton}
-          onClick={handleRemoveInsurance}
-          variant="text"
-          loading={removeInProgress}
-          sx={{
-            color: theme.palette.error.main,
-            textTransform: 'none',
-            fontSize: '13px',
-            fontWeight: 500,
-            display: handleRemoveClick !== undefined ? 'flex' : 'none',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            padding: '0',
-            width: 'fit-content',
-          }}
-        >
-          Remove This Insurance
-        </LoadingButton>
-      </Box>
+        {/* should be always visible to ensure dynamic population works. https://linear.app/zapehr/issue/OTR-1728/ehr-save-operation-failed-error-if-insurance-with-self-option-is-added */}
+        <Box>
+          <PatientRecordFormField
+            item={FormFields.firstName}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.middleName}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.lastName}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.birthDate}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.birthSex}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+              <PatientRecordFormField
+                item={FormFields.policyHolderAddressAsPatient}
+                isLoading={false}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                omitRowWrapper
+              />
+            </Box>
+          </Box>
+          <PatientRecordFormField
+            item={FormFields.streetAddress}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.addressLine2}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <Row label="City, State, ZIP" required>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <PatientRecordFormField
+                item={FormFields.city}
+                isLoading={false}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                omitRowWrapper
+              />
+              <PatientRecordFormField
+                item={FormFields.state}
+                isLoading={false}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                omitRowWrapper
+              />
+              <PatientRecordFormField
+                item={FormFields.zip}
+                isLoading={false}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                omitRowWrapper
+              />
+            </Box>
+          </Row>
+          <PatientRecordFormField
+            item={FormFields.additionalInformation}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          {isNew ? (
+            <Button
+              onClick={onCancelAdd}
+              variant="text"
+              sx={{
+                color: theme.palette.error.main,
+                textTransform: 'none',
+                fontSize: '13px',
+                fontWeight: 500,
+                padding: '0',
+                width: 'fit-content',
+              }}
+            >
+              Cancel
+            </Button>
+          ) : (
+            <LoadingButton
+              data-testid={dataTestIds.insuranceContainer.removeButton}
+              onClick={handleRemoveInsurance}
+              variant="text"
+              loading={removeInProgress}
+              sx={{
+                color: theme.palette.error.main,
+                textTransform: 'none',
+                fontSize: '13px',
+                fontWeight: 500,
+                display: handleRemoveClick !== undefined ? 'flex' : 'none',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                padding: '0',
+                width: 'fit-content',
+              }}
+            >
+              Remove This Insurance
+            </LoadingButton>
+          )}
+        </Box>
 
-      <EligibilityDetailsDialog
-        open={showEligibilityDetails}
-        onClose={() => setShowEligibilityDetails(false)}
-        eligibilityCheck={getCurrentEligibilityData()}
-        simpleStatus={eligibilityStatus?.status}
-        errorDetails={getErrorDetailsFromCoverageResponse(getCurrentEligibilityData())}
-      />
+        {!isNew && (
+          <EligibilityDetailsDialog
+            open={showEligibilityDetails}
+            onClose={() => setShowEligibilityDetails(false)}
+            eligibilityCheck={getCurrentEligibilityData()}
+            simpleStatus={eligibilityStatus?.status}
+            errorDetails={getErrorDetailsFromCoverageResponse(getCurrentEligibilityData())}
+          />
+        )}
+      </>
+    </>
+  );
+
+  if (renderWithoutSection) {
+    return content;
+  }
+
+  return (
+    <PatientRecordFormSection
+      formSection={insuranceSection}
+      ordinal={ordinal - 1}
+      titleWidget={isNew ? undefined : <TitleWidget />}
+    >
+      {content}
     </PatientRecordFormSection>
   );
 };
