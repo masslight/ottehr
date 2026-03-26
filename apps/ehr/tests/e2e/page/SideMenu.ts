@@ -3,13 +3,13 @@ import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
 import { expectHpiAndTemplatesPage, HpiAndTemplatesPage } from './HpiAndTemplatesPage';
 import { AllergiesPage, expectAllergiesPage } from './in-person/AllergiesPage';
-import { expectInHouseLabsPage, InHouseLabsPage } from './in-person/InHouseLabsPage';
 import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
 import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPersonAssessmentPage';
 import { expectExamPage, InPersonExamPage } from './in-person/InPersonExamsPage';
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
 import { expectMedicationsPage, MedicationsPage } from './in-person/MedicationsPage';
 import { expectScreeningPage, ScreeningPage } from './in-person/ScreeningPage';
+import { InHouseLabsPage } from './lab';
 import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
 import { expectNursingOrdersPage, NursingOrdersPage } from './NursingOrdersPage';
 import { expectPatientInfoPage, PatientInfoPage } from './PatientInfo';
@@ -30,7 +30,7 @@ export class SideMenu {
   }
   async clickInHouseLabs(): Promise<InHouseLabsPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-lab-orders')).click();
-    return expectInHouseLabsPage(this.#page);
+    return InHouseLabsPage.open(this.#page);
   }
   async clickAllergies(): Promise<AllergiesPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();

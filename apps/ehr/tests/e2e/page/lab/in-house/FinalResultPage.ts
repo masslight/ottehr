@@ -1,12 +1,19 @@
 import { expect, Page } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { RadioSelectionResult } from './lab';
+import { configResultPageContainerTestId } from 'src/features/in-house-labs/utils/test-ids';
+import { EntryMode } from 'utils';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
+import { RadioSelectionResult } from '..';
 
 export class FinalResultPage {
   #page: Page;
 
   constructor(page: Page) {
     this.#page = page;
+  }
+
+  static async open(page: Page): Promise<FinalResultPage> {
+    await page.getByTestId(configResultPageContainerTestId(EntryMode.Edit)).waitFor({ state: 'visible' });
+    return new FinalResultPage(page);
   }
 
   async verifyStatus(status: string): Promise<void> {
@@ -82,9 +89,8 @@ export class FinalResultPage {
       await expect(submitButton, 'submit button is visible').toBeVisible();
       await expect(submitButton, 'verify submit button is labeled as Save Changes').toHaveText('Save changes');
       await submitButton.click();
-      await submitButton.isDisabled();
 
-      // loading should be done and the test name visible again
+      // wait for loading to finish and the test name visible again
       await this.#page.getByTestId(dataTestIds.resultPage.testName).waitFor();
       const testName = this.#page.getByTestId(dataTestIds.resultPage.testName);
       await expect(testName, `page reloaded, test name ${testDetails.testName} is visible`).toContainText(

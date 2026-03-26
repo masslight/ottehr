@@ -1,7 +1,6 @@
 import { expect, Page } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { getServiceRequestIdFromPageUrl } from './lab/in-house/helpers';
-import { RadioSelectionResult, SelectableOption } from './lab/types';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
+import { RadioSelectionResult, SelectableOption } from './types';
 
 const PAGE_TITLE = 'Perform Test & Enter Results';
 
@@ -32,6 +31,11 @@ export class PerformTestPage {
   }
   async clickSubmitButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.performTestPage.submitButton).click();
+  }
+
+  getServiceRequestId(): string {
+    const urlPathSegments = new URL(this.#page.url()).pathname.split('/');
+    return urlPathSegments[urlPathSegments.indexOf('in-house-lab-orders') + 1];
   }
 
   async selectRadioTestResult(testName: string): Promise<RadioSelectionResult> {
@@ -65,11 +69,9 @@ export class PerformTestPage {
       throw new Error(`no value was assigned for selection in selectRadioTestResult for inhouse labs`);
     }
 
-    const serviceRequestID = getServiceRequestIdFromPageUrl(this.#page);
-
     const testDetails = {
       testName,
-      testServiceRequestId: serviceRequestID,
+      testServiceRequestId: this.getServiceRequestId(),
       availableValues,
       selectedValue,
     };

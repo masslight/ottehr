@@ -1,15 +1,21 @@
 import { expect, Page } from '@playwright/test';
 import { configInHouseLabDeleteButtonTestId } from 'src/features/in-house-labs/utils/test-ids';
-import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { InPersonHeader } from '../InPersonHeader';
-import { expectOrderInHouseLabPage, OrderInHouseLabPage } from '../OrderInHouseLabPage';
-import { SideMenu } from '../SideMenu';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
+import { InPersonHeader } from '../../InPersonHeader';
+import { SideMenu } from '../../SideMenu';
+import { OrderInHouseLabPage } from './OrderInHouseLabPage';
 
 export class InHouseLabsPage {
   #page: Page;
 
   constructor(page: Page) {
     this.#page = page;
+  }
+
+  static async open(page: Page): Promise<InHouseLabsPage> {
+    await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders'));
+    await expect(page.getByTestId(dataTestIds.inHouseLabsPage.title)).toBeVisible();
+    return new InHouseLabsPage(page);
   }
 
   inPersonHeader(): InPersonHeader {
@@ -22,7 +28,7 @@ export class InHouseLabsPage {
 
   async clickOrderButton(): Promise<OrderInHouseLabPage> {
     await this.#page.getByTestId(dataTestIds.inHouseLabsPage.orderButton).click();
-    return expectOrderInHouseLabPage(this.#page);
+    return OrderInHouseLabPage.openCreate(this.#page);
   }
 
   async countTableRows(): Promise<number> {
@@ -44,6 +50,7 @@ export class InHouseLabsPage {
     await this.#page.getByTestId(deleteBtnTestId).click();
 
     // click the delete button in the confirmation dialog
+    await this.#page.getByTestId(dataTestIds.commonLabOrder.deleteDialogButton).waitFor({ state: 'visible' });
     await this.#page.getByTestId(dataTestIds.commonLabOrder.deleteDialogButton).click();
 
     // confirm the test has been deleted
@@ -52,10 +59,4 @@ export class InHouseLabsPage {
       throw new Error(`Row count mismatch: before=${rowsBefore}, after=${rowsAfter}`);
     }
   }
-}
-
-export async function expectInHouseLabsPage(page: Page): Promise<InHouseLabsPage> {
-  await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders'));
-  await expect(page.getByTestId(dataTestIds.inHouseLabsPage.title)).toBeVisible();
-  return new InHouseLabsPage(page);
 }
