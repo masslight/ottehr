@@ -16,6 +16,10 @@ jobs:
   lint-and-build:
     runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+
     strategy:
       matrix:
         node-version:

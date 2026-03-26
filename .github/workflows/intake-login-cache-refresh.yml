@@ -36,6 +36,9 @@ jobs:
     if: github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Log run info
         run: |
@@ -166,6 +169,9 @@ jobs:
       (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e2' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Log run info
         run: |
@@ -296,6 +302,9 @@ jobs:
       (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e3' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Log run info
         run: |
