@@ -10,16 +10,16 @@ export class FinalResultPage {
   }
 
   async verifyStatus(status: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.finalResultPage.dateAndStatus).waitFor();
+    await this.#page.getByTestId(dataTestIds.resultPage.dateAndStatus).waitFor();
     await expect(
-      this.#page.getByTestId(dataTestIds.finalResultPage.dateAndStatus),
+      this.#page.getByTestId(dataTestIds.resultPage.dateAndStatus),
       `${status} status is present`
     ).toContainText(status);
   }
 
   async verifyResultsPDFButtonEnabled(): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.finalResultPage.resultsPDF),
+      this.#page.getByTestId(dataTestIds.resultPage.resultsPDF),
       'result pdf button is present'
     ).toBeEnabled();
   }
@@ -43,7 +43,7 @@ export class FinalResultPage {
 
     const [popup] = await Promise.all([
       this.#page.waitForEvent('popup').catch(() => null),
-      this.#page.getByTestId(dataTestIds.finalResultPage.resultsPDF).click(),
+      this.#page.getByTestId(dataTestIds.resultPage.resultsPDF).click(),
     ]);
     expect(popup).toBeTruthy();
 
@@ -54,7 +54,7 @@ export class FinalResultPage {
   }
 
   async verifyTestResult(resultTestId: string): Promise<void> {
-    await expect(this.#page.getByTestId(resultTestId!), `result with testId ${resultTestId} is selected`).toBeChecked();
+    await expect(this.#page.getByTestId(resultTestId), `result with testId ${resultTestId} is selected`).toBeChecked();
   }
 
   async verifyEditResultFunctionality(testDetails: RadioSelectionResult): Promise<void> {
@@ -84,13 +84,9 @@ export class FinalResultPage {
       await submitButton.click();
       await submitButton.isDisabled();
 
-      // wait for loading to start
-      const loader = this.#page.getByTestId(dataTestIds.orderInHouseLabPage.loading);
-      await expect(loader).toBeVisible();
-
       // loading should be done and the test name visible again
-      await this.#page.getByTestId(dataTestIds.finalResultPage.testName).waitFor();
-      const testName = this.#page.getByTestId(dataTestIds.finalResultPage.testName);
+      await this.#page.getByTestId(dataTestIds.resultPage.testName).waitFor();
+      const testName = this.#page.getByTestId(dataTestIds.resultPage.testName);
       await expect(testName, `page reloaded, test name ${testDetails.testName} is visible`).toContainText(
         testDetails.testName
       );
@@ -111,5 +107,13 @@ export class FinalResultPage {
     testDetails.selectedValue = newSelection;
 
     return testDetails;
+  }
+
+  async clickRepeatButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.resultPage.repeatBtn).click();
+  }
+
+  async countResultCardsOnPage(): Promise<number> {
+    return await this.#page.getByTestId(dataTestIds.resultPage.resultCard).count();
   }
 }

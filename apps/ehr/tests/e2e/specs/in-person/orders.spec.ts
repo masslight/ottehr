@@ -12,16 +12,32 @@ import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmen
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { RadioSelectionResult } from 'tests/e2e/page/lab';
-import { getServiceRequestIdFromPageUrl } from 'tests/e2e/page/lab/in-house/helpers';
+import {
+  expectFinalResultsPage,
+  expectInHouseLabPage,
+  getServiceRequestIdFromPageUrl,
+} from 'tests/e2e/page/lab/in-house/helpers';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
-import { expectOrderDetailsPage, OrderInHouseLabPage } from 'tests/e2e/page/OrderInHouseLabPage';
+import {
+  expectOrderDetailsPage,
+  expectOrderInHouseLabPage,
+  OrderInHouseLabPage,
+} from 'tests/e2e/page/OrderInHouseLabPage';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { convertActivityDefinitionToTestItem, getLabListType, LabType, TestItem } from 'utils';
+import {
+  convertActivityDefinitionToTestItem,
+  CPTCodeDTO,
+  getLabListType,
+  LabType,
+  makeCptCodeDisplay,
+  REPEAT_TEST_CPT_CODE_MODIFIER,
+  TestItem,
+} from 'utils';
 import inHouseLabActivityDefinitionsJson from '../../../../../../config/oystehr/in-house-lab-activity-definitions.json' assert { type: 'json' };
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
 import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
@@ -238,6 +254,7 @@ test.describe('In-house labs page', async () => {
 
   const TEST_TYPE_TO_CPT: Record<string, string> = {};
   const radioEntryTestItems: TestItem[] = [];
+  const repeatableRadioEntryTestItems: TestItem[] = [];
   const selectAndNumericTestItems: TestItem[] = [];
   let inHouseLabSetQuantity = 0;
 
@@ -247,6 +264,9 @@ test.describe('In-house labs page', async () => {
 
     if (testItem.components.radioComponents.length > 0 && testItem.components.groupedComponents.length === 0) {
       radioEntryTestItems.push(testItem);
+      if (testItem.repeatable) {
+        repeatableRadioEntryTestItems.push(testItem);
+      }
     } else if (testItem.components.radioComponents.length === 0 && testItem.components.groupedComponents.length > 0) {
       selectAndNumericTestItems.push(testItem);
     }
@@ -280,7 +300,7 @@ test.describe('In-house labs page', async () => {
       await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
       testName = await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
       const CPT_CODE = TEST_TYPE_TO_CPT[testName];
-      await orderInHouseLabPage.verifyCPTCode(CPT_CODE);
+      await orderInHouseLabPage.verifyCPTCode(CPT_CODE, testName);
       await orderInHouseLabPage.verifyOrderInHouseLabButtonEnabled();
       await orderInHouseLabPage.verifyOrderAndPrintLabelButtonEnabled();
       await orderInHouseLabPage.clickOrderInHouseLabButton();
@@ -393,6 +413,121 @@ test.describe('In-house labs page', async () => {
         // make sure tests were created
         const testsFound = await inHouseLabsPage.countTableRows();
         expect(testsFound, `${testsFound} tests were created`).toBeGreaterThan(0);
+      });
+    }
+
+    if (repeatableRadioEntryTestItems.length === 0) {
+      await test.step('IHL-1.8 - no repeatable radio entry tests, skipping inhouse labs repeat tests', () => {
+        return;
+      });
+    } else {
+      await test.step('IHL-1.8 - Repeat test happy path', async () => {
+        await test.step('Order a repeatable test', async () => {
+          await test.step('Create and submit order', async () => {
+            // make sure you are on the orders table page
+            const inHouseLabsPage = await expectInHouseLabPage(page);
+
+            // order a repeatable radio entry test
+            const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+            testName = await orderInHouseLabPage.selectRadioEntryInHouseLab(repeatableRadioEntryTestItems);
+
+            // try to order as repeat (it should error)
+            await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
+
+            // check for error
+            await orderInHouseLabPage.clickOrderInHouseLabButton();
+            const error = orderInHouseLabPage.error;
+            await expect(error).toBeVisible();
+            await expect(error).toContainText(
+              `You cannot run ${testName} as repeat, no initial tests could be found for this encounter.`
+            );
+
+            // uncheck run as repeat and click order again
+            await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
+            await orderInHouseLabPage.clickOrderInHouseLabButton();
+          });
+
+          await test.step('Enter sample collection info', async () => {
+            const orderDetailsPage = await expectOrderDetailsPage(page);
+            await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
+            await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+          });
+
+          await test.step('Enter results', async () => {
+            const performTestPage = new PerformTestPage(page);
+            await performTestPage.verifyPerformTestPageOpened();
+            testDetails = await performTestPage.selectRadioTestResult(testName);
+            await performTestPage.verifySubmitButtonEnabled();
+            await performTestPage.submitOrderResult();
+          });
+        });
+
+        await test.step('Order a repeat test', async () => {
+          await test.step('Create and submit order', async () => {
+            const finalResultPage = new FinalResultPage(page);
+            await finalResultPage.clickRepeatButton();
+            const orderInHouseLabPage = await expectOrderInHouseLabPage(page);
+
+            // confirm repeat check box is already checked
+            await orderInHouseLabPage.confirmRunAsRepeatForTestIsChecked(testName);
+
+            // confirm cptCode has '-91 (QW)'
+            const CPT_CODE = `${TEST_TYPE_TO_CPT[testName]}-${REPEAT_TEST_CPT_CODE_MODIFIER.code} (QW)`;
+            await orderInHouseLabPage.verifyCPTCode(CPT_CODE, testName);
+
+            await orderInHouseLabPage.clickOrderInHouseLabButton();
+          });
+
+          await test.step('Enter sample collection info', async () => {
+            const orderDetailsPage = await expectOrderDetailsPage(page);
+            await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
+            await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+          });
+
+          await test.step('Enter results', async () => {
+            const performTestPage = new PerformTestPage(page);
+            await performTestPage.verifyPerformTestPageOpened();
+            testDetails = await performTestPage.selectRadioTestResult(testName);
+            await performTestPage.verifySubmitButtonEnabled();
+            await performTestPage.submitOrderResult();
+          });
+
+          await test.step('Confirm final results page displays all results', async () => {
+            const finalResultPage = await expectFinalResultsPage(page);
+            const resultCount = await finalResultPage.countResultCardsOnPage();
+            expect(
+              resultCount,
+              `confirming both the original and repeat results are present on the final result page`
+            ).toBe(2);
+          });
+        });
+
+        await test.step('Confirm expected cpt codes appear', async () => {
+          const originalTestCptCode: CPTCodeDTO = {
+            code: TEST_TYPE_TO_CPT[testName],
+            display: testName,
+          };
+          const repeatTestCptCode: CPTCodeDTO = {
+            ...originalTestCptCode,
+            modifier: [{ code: REPEAT_TEST_CPT_CODE_MODIFIER.code, display: REPEAT_TEST_CPT_CODE_MODIFIER.display }],
+          };
+
+          const originalTestCptCodeDisplay = makeCptCodeDisplay(originalTestCptCode);
+          const repeatTestCptCodeDisplay = makeCptCodeDisplay(repeatTestCptCode);
+
+          await test.step('Check progress note', async () => {
+            const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+            await progressNotePage.verifyGivenCptCodeIsShown(originalTestCptCodeDisplay);
+            await progressNotePage.verifyGivenCptCodeIsShown(repeatTestCptCodeDisplay);
+          });
+
+          await test.step('Check assessment page', async () => {
+            await sideMenu.clickAssessment();
+            const assessmentPage = await expectAssessmentPage(page);
+            await assessmentPage.verifyExactCptCodeDisplayIsShown(originalTestCptCodeDisplay);
+            await assessmentPage.verifyExactCptCodeDisplayIsShown(repeatTestCptCodeDisplay);
+          });
+        });
       });
     }
   });

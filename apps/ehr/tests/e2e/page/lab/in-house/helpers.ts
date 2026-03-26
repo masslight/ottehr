@@ -1,13 +1,8 @@
 import { Page } from '@playwright/test';
-import { dataTestIds } from 'src/constants/data-test-ids';
-
-export const configInHouseLabDeleteButtonTestId = (serviceRequestId: string): string => {
-  return `${dataTestIds.inHouseLabsPage.deleteButtonPrefix}-${serviceRequestId}`;
-};
-
-export const configInHouseLabTableRowTestId = (serviceRequestId: string): string => {
-  return `${dataTestIds.inHouseLabsPage.tableRowPrefix}-${serviceRequestId}`;
-};
+import { configResultPageContainerTestId } from 'src/features/in-house-labs/utils/test-ids';
+import { EntryMode } from 'utils';
+import { FinalResultPage } from '../../FinalResultPage';
+import { InHouseLabsPage } from '../../in-person/InHouseLabsPage';
 
 export const getServiceRequestIdFromPageUrl = (page: Page): string => {
   // grab the service request id
@@ -19,3 +14,15 @@ export const getServiceRequestIdFromPageUrl = (page: Page): string => {
 
   return serviceRequestId;
 };
+
+export async function expectInHouseLabPage(page: Page): Promise<InHouseLabsPage> {
+  await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders'));
+  return new InHouseLabsPage(page);
+}
+
+export async function expectFinalResultsPage(page: Page): Promise<FinalResultPage> {
+  // wait for final page to be loaded
+  await page.getByTestId(configResultPageContainerTestId(EntryMode.Edit)).waitFor({ state: 'visible' });
+
+  return new FinalResultPage(page);
+}

@@ -286,7 +286,10 @@ export const BillingCodesContainer: FC = () => {
       )}
 
       {cptCodes.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          data-testid={dataTestIds.billingContainer.cptCodeContainer}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+        >
           <AssessmentTitle>Additional CPT codes</AssessmentTitle>
           <ActionsList
             data={cptCodes}

@@ -300,6 +300,7 @@ export const dataTestIds = {
     vitalsItem: 'vitals-item',
     hospitalizationContainer: 'hospitalization-container',
     alertIcon: 'WarningAmberOutlinedIcon',
+    cptCodes: 'cpt-codes-container',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
@@ -325,6 +326,7 @@ export const dataTestIds = {
     deleteButton: 'billing-container-delete-button',
     deleteCptCodeButton: (code: string) => `billing-container-delete-cpt-code-button-${code}`,
     cptCodeEntry: (code: string) => `cpt-code-entry-${code}`,
+    cptCodeContainer: 'additional-cpt-code-container',
   },
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
@@ -506,8 +508,8 @@ export const dataTestIds = {
   inHouseLabsPage: {
     title: 'in-house-labs-title',
     orderButton: 'order-button',
-    deleteButtonPrefix: 'delete-button',
-    tableRowPrefix: 'in-house-lab-table-row',
+    deleteButtonPrefix: 'delete-button-',
+    tableRowPrefix: 'in-house-lab-table-row-',
     loading: 'in-house-labs-table-loading',
   },
   orderInHouseLabPage: {
@@ -516,11 +518,13 @@ export const dataTestIds = {
     orderAndPrintLabelButton: 'order-and-print-label-button',
     testTypeField: 'test-type',
     testTypeList: 'test-type-list',
-    CPTCodeField: 'cpt-code',
+    CPTCodeFieldPrefix: 'cpt-code-',
     diagnosis: 'diagnosis',
     additionalDx: 'additionalDx',
     notes: 'in-house-labs-notes',
     loading: 'in-house-lab-orders-loading',
+    runAsRepeatBtnPrefix: 'repeat-btn-',
+    error: 'order-in-house-lab-error',
   },
   collectSamplePage: {
     testName: 'test-name',
@@ -541,11 +545,14 @@ export const dataTestIds = {
     },
     submitButton: 'submit-button',
   },
-  finalResultPage: {
+  resultPage: {
     testName: 'test-name',
     dateAndStatus: 'order-date-status',
     resultsPDF: 'results-pdf',
     diagnose: 'diagnose',
+    repeatBtn: 'repeat-btn',
+    resultCard: 'result-card',
+    resultPageContainerPrefix: 'result-page-container-',
   },
   allergies: {
     allergiesPageTitle: 'allergies-title',

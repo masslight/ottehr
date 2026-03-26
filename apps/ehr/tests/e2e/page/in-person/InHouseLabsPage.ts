@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
+import { configInHouseLabDeleteButtonTestId } from 'src/features/in-house-labs/utils/test-ids';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { InPersonHeader } from '../InPersonHeader';
-import { configInHouseLabDeleteButtonTestId } from '../lab/in-house/helpers';
 import { expectOrderInHouseLabPage, OrderInHouseLabPage } from '../OrderInHouseLabPage';
 import { SideMenu } from '../SideMenu';
 

@@ -1,4 +1,4 @@
-export type selectableOption = {
+export type SelectableOption = {
   testId: string;
   display: string;
 };
@@ -6,6 +6,6 @@ export type selectableOption = {
 export type RadioSelectionResult = {
   testName: string;
   testServiceRequestId: string;
-  availableValues: selectableOption[];
-  selectedValue: selectableOption;
+  availableValues: SelectableOption[];
+  selectedValue: SelectableOption;
 };
