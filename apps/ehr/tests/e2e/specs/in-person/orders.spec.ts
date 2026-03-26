@@ -16,6 +16,7 @@ import {
   PerformTestPage,
   RadioSelectionResult,
 } from 'tests/e2e/page/lab';
+import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' assert { type: 'json' };
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
@@ -30,8 +31,8 @@ import {
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   TestItem,
+  unbundleBatchPostOutput,
 } from 'utils';
-import inHouseLabActivityDefinitionsJson from '../../../../../../config/oystehr/in-house-lab-activity-definitions.json' assert { type: 'json' };
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
 import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
 import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
@@ -146,25 +147,6 @@ const PROCEDURE_B: ProcedureInfo = {
   documentedBy: 'Healthcare staff',
 };
 
-type LabSetsJson = {
-  'schema-version'?: string;
-  fhirResources: Record<string, any>;
-};
-let labSetsJson: LabSetsJson;
-try {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  const module = await import('../../../../../../config/oystehr/lab-set-lists.json', { assert: { type: 'json' } });
-
-  labSetsJson = module.default;
-} catch (err) {
-  console.warn('lab-set-lists.json not found, using fallback.', err);
-
-  labSetsJson = {
-    fhirResources: {},
-  };
-}
-
 const resourceHandler = new ResourceHandler(`documentProceduresPage-${DateTime.now().toMillis()}`);
 
 let sideMenu: SideMenu;
@@ -237,7 +219,6 @@ test.describe('Procedures Page', () => {
 test.describe('In-house labs page', async () => {
   const DIAGNOSIS = 'Situs inversus';
   const SOURCE = 'Nasopharyngeal swab';
-  // const TEST_RESULT_DETECTED = 'Detected';
   const SECTION_TITLE = 'In-House Labs';
   const STATUS = {
     ORDERED: 'ORDERED',
@@ -250,37 +231,71 @@ test.describe('In-house labs page', async () => {
   const repeatableRadioEntryTestItems: TestItem[] = [];
   const selectAndNumericTestItems: TestItem[] = [];
   let inHouseLabSetQuantity = 0;
+  let mockResourceIds: string[] = [];
 
-  Object.values(inHouseLabActivityDefinitionsJson.fhirResources).forEach((resource) => {
-    const fhirActivityDefinition = resource.resource as ActivityDefinition;
-    const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
+  test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
+    const adRequests = inHouseLabsMockData.activityDefinitions.map((ad) => {
+      const fhirActivityDefinition = ad as ActivityDefinition;
+      const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
 
-    if (testItem.components.radioComponents.length > 0 && testItem.components.groupedComponents.length === 0) {
-      radioEntryTestItems.push(testItem);
-      if (testItem.repeatable) {
-        repeatableRadioEntryTestItems.push(testItem);
+      if (testItem.components.radioComponents.length > 0 && testItem.components.groupedComponents.length === 0) {
+        radioEntryTestItems.push(testItem);
+        if (testItem.repeatable) {
+          repeatableRadioEntryTestItems.push(testItem);
+        }
+      } else if (testItem.components.radioComponents.length === 0 && testItem.components.groupedComponents.length > 0) {
+        selectAndNumericTestItems.push(testItem);
       }
-    } else if (testItem.components.radioComponents.length === 0 && testItem.components.groupedComponents.length > 0) {
-      selectAndNumericTestItems.push(testItem);
-    }
 
-    const coding = resource.resource.code.coding;
-    const name = coding.find(
-      (coding) => coding.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code'
-    )?.code;
-    const cptCode = coding.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt')?.code;
-    if (name && cptCode) {
-      TEST_TYPE_TO_CPT[name] = cptCode;
-    }
+      const coding = fhirActivityDefinition.code?.coding ?? [];
+      const name = coding.find((c) => c.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code')
+        ?.code;
+      const cptCode = coding.find((c) => c.system === 'http://www.ama-assn.org/go/cpt')?.code;
+      if (name && cptCode) {
+        TEST_TYPE_TO_CPT[name] = cptCode;
+      }
+
+      const { fullUrl, ...resource } = ad;
+      return {
+        method: 'POST' as const,
+        url: 'ActivityDefinition',
+        fullUrl: fullUrl as string,
+        resource: resource as ActivityDefinition,
+      };
+    });
+
+    const listRequests = inHouseLabsMockData.lists.map((list) => {
+      const fhirList = list as List;
+      const labListType = getLabListType(fhirList);
+      const listHasEntries = fhirList.entry && fhirList.entry.length;
+      if (labListType === LabType.inHouse) {
+        if (listHasEntries) inHouseLabSetQuantity++;
+      }
+      return {
+        method: 'POST' as const,
+        url: 'List',
+        resource: list as List,
+      };
+    });
+
+    const oystehr = await resourceHandler.apiClient;
+    const createdBundle = await oystehr.fhir.transaction<ActivityDefinition | List>({
+      requests: [...adRequests, ...listRequests],
+    });
+    const resources = unbundleBatchPostOutput<ActivityDefinition | List>(createdBundle);
+
+    mockResourceIds = resources.map((r) => `${r.resourceType}/${r.id}`);
   });
 
-  // check if there are any in house lab lists
-  Object.values(labSetsJson.fhirResources).forEach((entry) => {
-    const fhirList = entry.resource as List;
-    const labListType = getLabListType(fhirList);
-    const listHasEntries = fhirList.entry && fhirList.entry.length;
-    if (labListType === LabType.inHouse) {
-      if (listHasEntries) inHouseLabSetQuantity++;
+  test.afterAll('Deleting all ActivityDefinition and List resources used in in-house lab tests', async () => {
+    if (mockResourceIds.length) {
+      const oystehr = await resourceHandler.apiClient;
+      await oystehr.fhir.batch({
+        requests: mockResourceIds.map((ref) => ({
+          method: 'DELETE' as const,
+          url: ref,
+        })),
+      });
     }
   });
 
