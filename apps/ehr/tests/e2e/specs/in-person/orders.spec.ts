@@ -363,20 +363,20 @@ test.describe('In-house labs page', async () => {
 
       await test.step('IHL-2.2 Delete a COLLECTED lab', async () => {
         let collectedLabServiceRequestId: string = 'placeholder';
-        await test.step('Create a lab', async () => {
+        await test.step('IHL-2.2.1 Create a lab', async () => {
           const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
           await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
           await orderInHouseLabPage.clickOrderInHouseLabButton();
         });
 
-        await test.step('Mark as collected', async () => {
+        await test.step('IHL-2.2.2 Mark as collected', async () => {
           const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
           await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
           await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
           collectedLabServiceRequestId = orderDetailsPage.getServiceRequestId();
         });
 
-        await test.step('Delete the lab', async () => {
+        await test.step('IHL-2.2.3 Delete the lab', async () => {
           // go back to the labs table
           inHouseLabsPage = await sideMenu.clickInHouseLabs();
           await inHouseLabsPage.deleteTest(collectedLabServiceRequestId);
@@ -385,7 +385,7 @@ test.describe('In-house labs page', async () => {
 
       await test.step('IHL-2.3 Delete an ORDERED lab', async () => {
         let orderedLabServiceRequestId: string = 'placeholder';
-        await test.step('Create a lab', async () => {
+        await test.step('IHL-2.3.1 Create a lab', async () => {
           const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
           await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
           await orderInHouseLabPage.clickOrderInHouseLabButton();
@@ -395,7 +395,7 @@ test.describe('In-house labs page', async () => {
           orderedLabServiceRequestId = orderedLabOrderPage.getServiceRequestId();
         });
 
-        await test.step('Delete the lab', async () => {
+        await test.step('IHL-2.3.2 Delete the lab', async () => {
           // go back to the labs table
           inHouseLabsPage = await sideMenu.clickInHouseLabs();
           await inHouseLabsPage.deleteTest(orderedLabServiceRequestId);
@@ -432,7 +432,7 @@ test.describe('In-house labs page', async () => {
     } else {
       await test.step('IHL-4 Repeat test happy path', async () => {
         await test.step('IHL-4.1 Order a repeatable test', async () => {
-          await test.step('Create and submit order', async () => {
+          await test.step('IHL-4.1.1 Create and submit order', async () => {
             // make sure you are on the orders table page
             const inHouseLabsPage = await InHouseLabsPage.open(page);
 
@@ -456,13 +456,13 @@ test.describe('In-house labs page', async () => {
             await orderInHouseLabPage.clickOrderInHouseLabButton();
           });
 
-          await test.step('Enter sample collection info', async () => {
+          await test.step('IHL-4.1.2 Enter sample collection info', async () => {
             const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
             await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
             await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
           });
 
-          await test.step('Enter results', async () => {
+          await test.step('IHL-4.1.3 Enter results', async () => {
             const performTestPage = new PerformTestPage(page);
             await performTestPage.verifyPerformTestPageOpened();
             testDetails = await performTestPage.selectRadioTestResult(testName);
@@ -472,7 +472,7 @@ test.describe('In-house labs page', async () => {
         });
 
         await test.step('IHL-4.2 Order a repeat test', async () => {
-          await test.step('Create and submit order', async () => {
+          await test.step('IHL-4.2.1 Create and submit order', async () => {
             const finalResultPage = new FinalResultPage(page);
             await finalResultPage.clickRepeatButton();
             const orderInHouseLabPage = await OrderInHouseLabPage.openCreate(page);
@@ -487,13 +487,13 @@ test.describe('In-house labs page', async () => {
             await orderInHouseLabPage.clickOrderInHouseLabButton();
           });
 
-          await test.step('Enter sample collection info', async () => {
+          await test.step('IHL-4.2.2 Enter sample collection info', async () => {
             const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
             await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
             await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
           });
 
-          await test.step('Enter results', async () => {
+          await test.step('IHL-4.2.3 Enter results', async () => {
             const performTestPage = new PerformTestPage(page);
             await performTestPage.verifyPerformTestPageOpened();
             testDetails = await performTestPage.selectRadioTestResult(testName);
@@ -501,7 +501,7 @@ test.describe('In-house labs page', async () => {
             await performTestPage.submitOrderResult();
           });
 
-          await test.step('Confirm final results page displays all results', async () => {
+          await test.step('IHL-4.2.4 Confirm final results page displays all results', async () => {
             const finalResultPage = await FinalResultPage.open(page);
             const resultCount = await finalResultPage.countResultCardsOnPage();
             expect(
@@ -524,13 +524,13 @@ test.describe('In-house labs page', async () => {
           const originalTestCptCodeDisplay = makeCptCodeDisplay(originalTestCptCode);
           const repeatTestCptCodeDisplay = makeCptCodeDisplay(repeatTestCptCode);
 
-          await test.step('Check progress note', async () => {
+          await test.step('IHL-4.3.1 Check progress note', async () => {
             const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
             await progressNotePage.verifyGivenCptCodeIsShown(originalTestCptCodeDisplay);
             await progressNotePage.verifyGivenCptCodeIsShown(repeatTestCptCodeDisplay);
           });
 
-          await test.step('Check assessment page', async () => {
+          await test.step('IHL-4.3.2 Check assessment page', async () => {
             await sideMenu.clickAssessment();
             const assessmentPage = await expectAssessmentPage(page);
             await assessmentPage.verifyExactCptCodeDisplayIsShown(originalTestCptCodeDisplay);
