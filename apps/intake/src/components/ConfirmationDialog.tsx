@@ -54,7 +54,7 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
               <Button
                 onClick={hideDialog}
                 size="large"
-                color={props?.actionButtons?.back?.color || 'primary'}
+                color={props?.actionButtons?.back?.color || 'secondary'}
                 variant={props?.actionButtons?.back?.variant || 'text'}
               >
                 {props?.actionButtons?.back?.text || 'Back'}
@@ -63,7 +63,7 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
               <Button
                 onClick={confirmRequest}
                 size="large"
-                color={props?.actionButtons?.proceed?.color || 'primary'}
+                color={props?.actionButtons?.proceed?.color || 'secondary'}
                 variant={props?.actionButtons?.proceed?.variant || 'contained'}
               >
                 {props?.actionButtons?.proceed?.text || 'Proceed'}

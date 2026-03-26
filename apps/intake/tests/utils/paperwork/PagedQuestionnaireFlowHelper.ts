@@ -1,5 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
-import type { ValueSetsConfig } from 'config-types';
+import type { QuestionnaireConfigType, ValueSetsConfig } from 'config-types';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -11,7 +11,6 @@ import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   IntakeQuestionnaireItem,
   mapQuestionnaireAndValueSetsToItemsList,
-  QuestionnaireConfigType,
   VALUE_SETS,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
