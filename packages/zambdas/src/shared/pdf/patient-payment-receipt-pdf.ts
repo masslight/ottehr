@@ -333,12 +333,14 @@ function getStripeCardDetails(paymentMethod?: Stripe.PaymentMethod): Pick<Paymen
   return undefined;
 }
 
+type OrganizationReceiptBlock = PatientPaymentReceiptData['organization'];
+
 export function buildOrganizationReceiptBlock(
   organization: Organization,
   location: Location | undefined,
   orgPhone: string | undefined,
   locationPhone: string | undefined
-): { name: string; street: string; street2?: string; city: string; state: string; zip: string; phone?: string } {
+): OrganizationReceiptBlock {
   const organizationAddress = organization.address?.[0];
   const locationAddress = location?.address;
   const hasLocationAddress =
