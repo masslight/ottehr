@@ -183,6 +183,34 @@
       "src": "src/ehr/admin-remove-procedure-quick-pick/index",
       "zip": ".dist/zips/admin-remove-procedure-quick-pick.zip"
     },
+    "ADMIN-GET-RADIOLOGY-QUICK-PICKS": {
+      "name": "admin-get-radiology-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-radiology-quick-picks/index",
+      "zip": ".dist/zips/admin-get-radiology-quick-picks.zip"
+    },
+    "ADMIN-CREATE-RADIOLOGY-QUICK-PICK": {
+      "name": "admin-create-radiology-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-radiology-quick-pick/index",
+      "zip": ".dist/zips/admin-create-radiology-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-RADIOLOGY-QUICK-PICK": {
+      "name": "admin-update-radiology-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-radiology-quick-pick/index",
+      "zip": ".dist/zips/admin-update-radiology-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-RADIOLOGY-QUICK-PICK": {
+      "name": "admin-remove-radiology-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-radiology-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-radiology-quick-pick.zip"
+    },
     "ADMIN-GET-ALLERGY-QUICK-PICKS": {
       "name": "admin-get-allergy-quick-picks",
       "type": "http_auth",
@@ -1440,6 +1468,13 @@
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
       "zip": ".dist/zips/make-medication-history-pdf.zip"
     },
+    "GET_VISIT_FAX_HISTORY": {
+      "name": "get-visit-fax-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/get-visit-fax-history/index",
+      "zip": ".dist/zips/get-visit-fax-history.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
@@ -1922,7 +1957,7 @@
           }
         ]
       }
-    },    
+    },
     "SUB_SEND_PATIENT_STATEMENT_BY_MAIL_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
