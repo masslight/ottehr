@@ -508,8 +508,8 @@ export const dataTestIds = {
   inHouseLabsPage: {
     title: 'in-house-labs-title',
     orderButton: 'order-button',
-    deleteButtonPrefix: 'delete-button',
-    tableRowPrefix: 'in-house-lab-table-row',
+    deleteButtonPrefix: 'delete-button-',
+    tableRowPrefix: 'in-house-lab-table-row-',
     loading: 'in-house-labs-table-loading',
   },
   orderInHouseLabPage: {
