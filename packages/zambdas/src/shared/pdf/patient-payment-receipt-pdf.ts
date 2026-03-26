@@ -216,8 +216,10 @@ async function getReceiptData(input: {
   const orgPhone = (organization.telecom ?? []).find((cp) => {
     return cp.system === 'phone' && cp.value;
   })?.value;
+  const locationPhone = (location?.telecom ?? []).find((cp) => {
+    return cp.system === 'phone' && cp.value;
+  })?.value;
   const visitDate = DateTime.fromISO(appointment.start ?? '');
-  const organizationAddress = organization.address?.[0];
   const appointmentType = (appointment?.appointmentType?.text as FhirAppointmentType) || '';
   const visitType = appointmentTypeLabels[appointmentType];
 
@@ -231,15 +233,7 @@ async function getReceiptData(input: {
       type: visitType,
       location: locationName,
     },
-    organization: {
-      name: organization?.name ?? '??',
-      street: organizationAddress?.line?.[0] ?? '??',
-      street2: organizationAddress?.line?.[1],
-      city: organizationAddress?.city ?? '??',
-      state: organizationAddress?.state ?? '??',
-      zip: organizationAddress?.postalCode ?? '??',
-      phone: orgPhone,
-    },
+    organization: buildOrganizationReceiptBlock(organization, location, orgPhone, locationPhone),
     patient: {
       id: patient.id!,
       name: getFullName(patient) ?? '??',
@@ -337,6 +331,37 @@ function getStripeCardDetails(paymentMethod?: Stripe.PaymentMethod): Pick<Paymen
   }
 
   return undefined;
+}
+
+export function buildOrganizationReceiptBlock(
+  organization: Organization,
+  location: Location | undefined,
+  orgPhone: string | undefined,
+  locationPhone: string | undefined
+): { name: string; street: string; street2?: string; city: string; state: string; zip: string; phone?: string } {
+  const organizationAddress = organization.address?.[0];
+  const locationAddress = location?.address;
+  const hasLocationAddress =
+    locationAddress?.line?.[0] && locationAddress?.city && locationAddress?.state && locationAddress?.postalCode;
+  return hasLocationAddress
+    ? {
+        name: organization.name ?? '??',
+        street: locationAddress!.line?.[0] ?? '??',
+        street2: locationAddress!.line?.[1],
+        city: locationAddress!.city ?? '??',
+        state: locationAddress!.state ?? '??',
+        zip: locationAddress!.postalCode ?? '??',
+        phone: locationPhone ?? orgPhone,
+      }
+    : {
+        name: organization.name ?? '??',
+        street: organizationAddress?.line?.[0] ?? '??',
+        street2: organizationAddress?.line?.[1],
+        city: organizationAddress?.city ?? '??',
+        state: organizationAddress?.state ?? '??',
+        zip: organizationAddress?.postalCode ?? '??',
+        phone: orgPhone,
+      };
 }
 
 async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise<Uint8Array> {
