@@ -82,7 +82,10 @@ export class OrderInHouseLabPage {
   }
 
   async verifyCPTCode(CPTCode: string, testName: string): Promise<void> {
-    await expect(this.#page.getByTestId(configCptCodeTestId(testName))).toHaveText(CPTCode);
+    await expect(
+      this.#page.getByTestId(configCptCodeTestId(testName)),
+      `Expecting to find ${CPTCode} for test ${testName}`
+    ).toHaveText(CPTCode);
   }
 
   async selectALabSet(): Promise<void> {
