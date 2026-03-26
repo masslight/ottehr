@@ -89,6 +89,7 @@ npm run intake:e2e:local:ui        # Intake E2E with Playwright UI
 E2E tests for EHR live in `apps/ehr/tests/e2e/specs/`; for intake in `apps/intake/tests/specs/`.
 
 To create a test appointment for Playwright MCP testing:
+
 ```bash
 npx tsx apps/ehr/tests/e2e-utils/create-test-appointment.ts [in-person|telemed]
 ```
@@ -112,19 +113,21 @@ npm run bump-canonical-version config/oystehr/<file>.json [minor|major|patch]  #
 ### Zambdas (Backend)
 
 Each endpoint in `packages/zambdas/src/ehr/` or `packages/zambdas/src/patient/` follows the same pattern:
+
 - `index.ts` — Lambda handler, exports `index` function using `wrapHandler()`
 - `validateRequestParameters.ts` — Input validation
 - `helpers.ts` — Business logic helpers
 
 Zambdas use `wrapHandler` from `../../shared/lambda` for consistent error handling. They authenticate via machine-to-machine (M2M) tokens cached in module scope across warm invocations.
 
-The local server (`packages/zambdas/src/local-server/index.ts`) reads `config/oystehr/zambdas.json` to register all routes as Express endpoints, enabling local development without deploying.
+The local server (`packages/zambdas/src/local-server/index.ts`) reads `config/oystehr-core/zambdas.json` to register all routes as Express endpoints, enabling local development without deploying.
 
 ### Frontend Apps (EHR & Intake)
 
 Both apps are Vite + React + TypeScript + MUI. State management uses Zustand stores. API calls go through `apps/ehr/src/api/api.ts` (or equivalent in intake), which dispatches to zambda endpoints via `@oystehr/sdk`.
 
 **EHR feature structure** follows `apps/ehr/src/features/<feature>/`:
+
 - `in-person/` and `telemed/` subdirectories for visit-type-specific logic
 - `store/` — Zustand stores (e.g., `parsedAppointment.store.ts`)
 - `hooks/` — React Query hooks and data-fetching logic
@@ -153,7 +156,7 @@ Feature flags are environment variables checked at `apps/ehr/src/constants/featu
 
 - **Component tests** (`*.test.tsx`) run in jsdom via vitest; located in `apps/ehr/tests/component/`
 - **Unit tests** (`*.test.ts`) run in node via vitest
-- **Zambda integration tests** require the local server running; use `setupIntegrationTest()` from `packages/zambdas/test/helpers/integration-test-setup.ts` which sets up a full FHIR appointment graph and cleans up after
+- **Zambda integration tests** require the local server running; use `setupIntegrationTest()` from `packages/zambdas/test/helpers/integration-test-seed-data-setup.ts` which sets up a full FHIR appointment graph and cleans up after
 - **E2E tests** (Playwright, `*.spec.ts`) use credentials from `apps/ehr/env/tests.local.json`
 
 ## Git Workflow
