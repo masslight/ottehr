@@ -141,7 +141,7 @@ resource "aws_s3_bucket" "patient_portal_bucket" {
   bucket        = var.patient_portal_bucket_name == null ? "ottehr-${var.project_id}-intake.ottehr.com" : var.patient_portal_bucket_name
   force_destroy = true
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
