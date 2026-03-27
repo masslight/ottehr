@@ -33,22 +33,22 @@ export interface ListPatientPaymentResponse {
   encounterId?: string;
 }
 
+export interface TerminalReaderDTO {
+  id: string;
+  label: string | null;
+  deviceType: string;
+  status: string | null;
+  simulated: boolean;
+}
+
 export interface GetPatientPaymentTerminalConfigResponse {
   terminalConfigured: boolean;
   terminalLocationId?: string;
   terminalSimulatorMode?: boolean;
+  readers: TerminalReaderDTO[];
 }
 
 export interface GetPatientPaymentTerminalConfigInput {
-  encounterId: string;
-}
-
-export interface GetPatientPaymentTerminalConnectionTokenResponse {
-  connectionToken: string;
-}
-
-export interface GetPatientPaymentTerminalConnectionTokenInput {
-  patientId: string;
   encounterId: string;
 }
 
@@ -56,14 +56,39 @@ export interface InitiatePatientPaymentTerminalInput {
   patientId: string;
   encounterId: string;
   amountInCents: number;
+  readerId: string;
+  simulatedReader?: boolean;
   description?: string;
 }
 
 export interface InitiatePatientPaymentTerminalResponse {
   paymentIntentId: string;
-  paymentIntentClientSecret: string;
-  stripeCustomerId: string;
-  stripeAccountId?: string;
+  readerId: string;
+  readerActionStatus: string;
+}
+
+export interface CheckPatientPaymentTerminalStatusInput {
+  encounterId: string;
+  readerId: string;
+  paymentIntentId: string;
+}
+
+export type TerminalPaymentActionStatus = 'in_progress' | 'succeeded' | 'failed';
+
+export interface CheckPatientPaymentTerminalStatusResponse {
+  actionStatus: TerminalPaymentActionStatus;
+  paymentIntentStatus: string;
+  failureCode?: string | null;
+  failureMessage?: string | null;
+}
+
+export interface CancelTerminalReaderActionInput {
+  encounterId: string;
+  readerId: string;
+}
+
+export interface CancelTerminalReaderActionResponse {
+  success: boolean;
 }
 
 export interface FinalizePatientPaymentTerminalInput {

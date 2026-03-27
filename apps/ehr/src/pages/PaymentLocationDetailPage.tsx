@@ -92,7 +92,6 @@ const TELECOM_ICONS: Record<string, ReactElement> = {
 const STRIPE_ACCOUNT_ID_REGEX = /^acct_[a-zA-Z0-9]{8,}$/;
 
 const NO_TERMINAL = '__none__';
-const SIMULATED = 'sim';
 
 const READER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   online: 'success',
@@ -116,8 +115,7 @@ function SelectedTerminalLocationDetails({
   terminalLocationId: string | undefined;
   terminalLocations: { id: string; displayName: string | null; address: Record<string, string | null> | null }[];
 }): ReactElement | null {
-  const isSimulated = terminalLocationId?.toLowerCase() === SIMULATED;
-  const isRealLocation = terminalLocationId && !isSimulated;
+  const isRealLocation = Boolean(terminalLocationId);
   const selectedLoc = isRealLocation ? terminalLocations.find((l) => l.id === terminalLocationId) : null;
 
   const { data: readersData, isLoading: readersLoading } = useTerminalReadersQuery(
@@ -125,7 +123,7 @@ function SelectedTerminalLocationDetails({
     isRealLocation ? terminalLocationId : undefined
   );
 
-  if (!terminalLocationId || isSimulated) {
+  if (!terminalLocationId) {
     return null;
   }
 
@@ -367,13 +365,7 @@ function StripeConnectSection({
             </Typography>
             <FormControl size="small" sx={{ minWidth: 300 }}>
               <Select
-                value={
-                  !stripeTerminalLocationId
-                    ? NO_TERMINAL
-                    : stripeTerminalLocationId.toLowerCase() === SIMULATED
-                    ? SIMULATED
-                    : stripeTerminalLocationId
-                }
+                value={!stripeTerminalLocationId ? NO_TERMINAL : stripeTerminalLocationId}
                 onChange={(e: SelectChangeEvent) => {
                   const value = e.target.value;
                   saveMutation.mutate({
@@ -384,16 +376,12 @@ function StripeConnectSection({
                 disabled={saveMutation.isPending}
                 renderValue={(selected) => {
                   if (selected === NO_TERMINAL) return 'No Terminal Location';
-                  if (selected === SIMULATED) return 'Simulated';
                   const loc = data?.terminalLocations?.find((l) => l.id === selected);
                   return loc?.displayName || 'Unnamed';
                 }}
               >
                 <MenuItem value={NO_TERMINAL}>
                   <ListItemText primary="No Terminal Location" secondary="Remove terminal location" />
-                </MenuItem>
-                <MenuItem value={SIMULATED}>
-                  <ListItemText primary="Simulated" secondary="Use simulated reader for testing" />
                 </MenuItem>
                 {data?.terminalLocations?.map((loc) => (
                   <MenuItem key={loc.id} value={loc.id}>
