@@ -286,13 +286,19 @@ function parseExamFieldsFromExamObservations(
     { items: Array<{ field: string; label: string; abnormal: boolean }>; comment?: string }
   > = {};
 
+  // Track all fields that are matched by the config
+  const matchedFields = new Set<string>();
+
   Object.entries(examConfigComponents).forEach(([sectionKey, section]) => {
     const normalItems = extractObservationsFromComponents(section.components.normal, 'normal');
     const abnormalItems = extractObservationsFromComponents(section.components.abnormal, 'abnormal');
     const allItems = [...normalItems, ...abnormalItems];
 
+    allItems.forEach((item) => matchedFields.add(item.field));
+
     let comment: string | undefined;
     Object.keys(section.components.comment).forEach((commentKey) => {
+      matchedFields.add(commentKey);
       const observation = examObservations[commentKey];
       if (observation?.note) {
         comment = observation.note;
@@ -304,6 +310,21 @@ function parseExamFieldsFromExamObservations(
       comment,
     };
   });
+
+  // Add unmatched observations as "Other findings"
+  const unmatchedItems = Object.values(examObservations)
+    .filter((obs) => obs.value === true && !matchedFields.has(obs.field))
+    .map((obs) => ({
+      field: obs.field,
+      label: obs.label || obs.field,
+      abnormal: true,
+    }));
+
+  if (unmatchedItems.length > 0) {
+    examinationData['other-findings'] = {
+      items: unmatchedItems,
+    };
+  }
 
   return {
     examination: examinationData,

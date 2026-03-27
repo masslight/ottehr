@@ -199,6 +199,7 @@ export interface ExamObservationComponentDTO {
 
 export interface ExamObservationDTO extends SaveableDTO {
   field: string;
+  label?: string;
   note?: string;
   value?: boolean;
   components?: ExamObservationComponentDTO[];

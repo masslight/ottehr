@@ -165,6 +165,46 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
     return { normalItems, abnormalItems };
   };
 
+  // Collect all field names that are recognized by the config
+  const knownFields = new Set<string>();
+  const collectFromComponents = (components: Record<string, ExamCardComponent>): void => {
+    Object.entries(components).forEach(([key, component]) => {
+      if (component.type === 'checkbox' || component.type === 'modal-exam') {
+        knownFields.add(key);
+      } else if (component.type === 'text') {
+        knownFields.add(key);
+      } else if (component.type === 'dropdown') {
+        knownFields.add(key);
+        if (isDropdownComponent(component)) {
+          Object.keys(component.components).forEach((k) => knownFields.add(k));
+        }
+      } else if (component.type === 'column') {
+        collectFromComponents(component.components);
+      } else if (component.type === 'multi-select') {
+        knownFields.add(key);
+        if (isMultiSelectComponent(component)) {
+          Object.keys(component.options).forEach((k) => knownFields.add(k));
+        }
+      } else if (component.type === 'form') {
+        Object.keys(component.components).forEach((k) => knownFields.add(k));
+      }
+    });
+  };
+  Object.values(examConfig).forEach((section) => {
+    collectFromComponents(section.components.normal);
+    collectFromComponents(section.components.abnormal);
+    Object.keys(section.components.comment).forEach((k) => knownFields.add(k));
+  });
+
+  // Find unmatched observations that have value=true but aren't in the config
+  const unmatchedItems = Object.values(examObservations)
+    .filter((obs) => obs.value === true && !knownFields.has(obs.field))
+    .map((obs) => ({
+      field: obs.field,
+      label: obs.label || obs.field,
+      abnormal: true,
+    }));
+
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
@@ -186,6 +226,7 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
           return <ExamReviewGroup key={sectionKey} label={section.label} items={allItems} comment={comment} />;
         })
         .filter(Boolean)}
+      {unmatchedItems.length > 0 && <ExamReviewGroup label="Other findings" items={unmatchedItems} />}
     </Box>
   );
 };

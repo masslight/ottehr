@@ -11,7 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import type { ExamCardComponent, ExamItemConfig } from 'config-types';
+import type { ExamCardComponent, ExamCardModalExamComponent, ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ControlledCheckboxSelect } from './ControlledCheckboxSelect';
@@ -20,6 +20,7 @@ import { ControlledExamCheckboxDropdown } from './ControlledExamCheckboxDropdown
 import { ExamCommentField } from './ExamCommentField';
 import { ExamForm } from './ExamForm';
 import { ExamModalCheckbox } from './ExamModalCheckbox';
+import { ExamPairedModalCheckbox } from './ExamPairedModalCheckbox';
 
 type ExamTableProps = {
   examConfig: ExamItemConfig;
@@ -149,10 +150,23 @@ const ExamTableCellComponent: FC<{
           ((currentKey.endsWith('-l') && nextKey.endsWith('-r')) ||
             (currentKey.endsWith('-r') && nextKey.endsWith('-l')));
         if (isLRPair) {
+          const leftKey = currentKey.endsWith('-l') ? currentKey : nextKey;
+          const rightKey = currentKey.endsWith('-r') ? currentKey : nextKey;
+          const leftElem = elements[leftKey] as ExamCardModalExamComponent;
+          const rightElem = elements[rightKey] as ExamCardModalExamComponent;
+          // Derive label from the left config, stripping the " L" suffix
+          const baseLabel = leftElem.label.replace(/\s+L$/, '');
+
           result.push(
-            <Box key={`modal-pair-${i}`} sx={{ display: 'flex', gap: 2 }}>
-              <Box sx={{ flex: 1 }}>{renderSingleElement(currentKey, currentElement)}</Box>
-              <Box sx={{ flex: 1 }}>{renderSingleElement(nextKey, nextElement)}</Box>
+            <Box key={`modal-combined-${i}`} data-testid={`exam-component-paired-modal-${leftKey.replace(/-l$/, '')}`}>
+              <ExamPairedModalCheckbox
+                label={baseLabel}
+                leftName={leftKey}
+                rightName={rightKey}
+                leftConfig={leftElem}
+                rightConfig={rightElem}
+                abnormal={abnormal}
+              />
             </Box>
           );
           i += 2;

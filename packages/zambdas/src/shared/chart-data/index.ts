@@ -569,6 +569,7 @@ export function makeExamObservationDTO(observation: Observation): ExamObservatio
   const dto: ExamObservationDTO = {
     resourceId: observation.id,
     field: observation.meta?.tag?.[0]?.code || 'unknown',
+    label: observation.code?.text,
     note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };

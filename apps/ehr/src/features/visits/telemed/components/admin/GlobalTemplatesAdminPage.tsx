@@ -1,5 +1,6 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
@@ -20,17 +21,48 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ExamCardComponent, ExamItemConfig } from 'config-types';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { deleteTemplate, listTemplates, renameTemplate } from 'src/api/api';
+import { deleteTemplate, getTemplateDetail, listTemplates, renameTemplate } from 'src/api/api';
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
+import { examConfig, ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
+
+function collectKnownExamFields(config: ExamItemConfig): Set<string> {
+  const fields = new Set<string>();
+  const extract = (components: Record<string, ExamCardComponent>): void => {
+    Object.entries(components).forEach(([key, component]) => {
+      if (component.type === 'checkbox' || component.type === 'modal-exam') {
+        fields.add(key);
+      } else if (component.type === 'text') {
+        fields.add(key);
+      } else if (component.type === 'dropdown') {
+        fields.add(key);
+        Object.keys(component.components).forEach((k) => fields.add(k));
+      } else if (component.type === 'column') {
+        extract(component.components);
+      } else if (component.type === 'multi-select') {
+        fields.add(key);
+        Object.keys(component.options).forEach((k) => fields.add(k));
+      } else if (component.type === 'form') {
+        Object.keys(component.components).forEach((k) => fields.add(k));
+      }
+    });
+  };
+  Object.values(config).forEach((section) => {
+    extract(section.components.normal);
+    extract(section.components.abnormal);
+    Object.keys(section.components.comment).forEach((k) => fields.add(k));
+  });
+  return fields;
+}
 
 export default function GlobalTemplatesAdminPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -43,6 +75,10 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   const [isRenaming, setIsRenaming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
+
+  // Scan state
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResults, setScanResults] = useState<Record<string, string[]> | null>(null);
 
   const { data, isLoading, error } = useQuery<ListTemplatesZambdaOutput, Error>({
     queryKey: ['list-templates', ExamType.IN_PERSON],
@@ -70,6 +106,56 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
     const query = searchFilter.toLowerCase();
     return sorted.filter((t) => t.title.toLowerCase().includes(query));
   }, [data, searchFilter]);
+
+  const handleScanTemplates = async (): Promise<void> => {
+    if (!oystehrZambda || !data?.templates) return;
+
+    setIsScanning(true);
+    const knownFields = collectKnownExamFields(examConfig.inPerson.default.components);
+    const results: Record<string, string[]> = {};
+
+    try {
+      const details = await Promise.all(
+        data.templates.map(async (template) => {
+          try {
+            const detail = await getTemplateDetail(oystehrZambda, { templateId: template.id });
+            return { id: template.id, detail };
+          } catch {
+            return { id: template.id, detail: null };
+          }
+        })
+      );
+
+      for (const { id, detail } of details) {
+        if (!detail?.sections) continue;
+        const examFindings = (detail.sections as { examFindings?: { fieldName: string }[] }).examFindings ?? [];
+        const unmatched = examFindings
+          .map((f: { fieldName: string }) => f.fieldName)
+          .filter((field: string) => !knownFields.has(field));
+        if (unmatched.length > 0) {
+          results[id] = unmatched;
+        }
+      }
+
+      setScanResults(results);
+      const staleCount = Object.keys(results).length;
+      if (staleCount === 0) {
+        enqueueSnackbar('All templates are up to date', { variant: 'success' });
+      } else {
+        enqueueSnackbar(
+          `${staleCount} template${staleCount > 1 ? 's' : ''} need${staleCount === 1 ? 's' : ''} updating`,
+          {
+            variant: 'warning',
+          }
+        );
+      }
+    } catch (err) {
+      console.error('Error scanning templates:', err);
+      enqueueSnackbar('Failed to scan templates', { variant: 'error' });
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const handleOpenRenameDialog = (template: TemplateInfo): void => {
     setSelectedTemplate(template);
@@ -142,13 +228,25 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
         Templates are created from the progress note. Use this page to manage existing templates.
       </Typography>
 
-      <TextField
-        size="small"
-        placeholder="Filter templates..."
-        value={searchFilter}
-        onChange={(e) => setSearchFilter(e.target.value)}
-        sx={{ mb: 2, width: 300 }}
-      />
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+        <TextField
+          size="small"
+          placeholder="Filter templates..."
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+          sx={{ width: 300 }}
+        />
+        <LoadingButton
+          variant="outlined"
+          size="small"
+          startIcon={<SearchIcon />}
+          loading={isScanning}
+          onClick={handleScanTemplates}
+          disabled={!data?.templates?.length}
+        >
+          Scan for Stale Templates
+        </LoadingButton>
+      </Box>
 
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -164,53 +262,62 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Template Name</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Version Status</TableCell>
+                {scanResults !== null && <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>}
                 <TableCell sx={{ fontWeight: 'bold' }} align="right">
                   Actions
                 </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedTemplates.map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell>
-                    <RouterLink
-                      to={`${GLOBAL_TEMPLATES_URL}/${template.id}`}
-                      style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': { textDecoration: 'underline', color: 'primary.main' },
-                        }}
+              {sortedTemplates.map((template) => {
+                const unmatchedFields = scanResults?.[template.id];
+                const needsUpdating = unmatchedFields && unmatchedFields.length > 0;
+
+                return (
+                  <TableRow key={template.id}>
+                    <TableCell>
+                      <RouterLink
+                        to={`${GLOBAL_TEMPLATES_URL}/${template.id}`}
+                        style={{ textDecoration: 'none', color: 'inherit' }}
                       >
-                        {template.title}
-                      </Typography>
-                    </RouterLink>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={template.isCurrentVersion ? 'Current' : 'Stale'}
-                      color={template.isCurrentVersion ? 'success' : 'warning'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => handleOpenRenameDialog(template)} title="Rename template">
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDeleteDialog(template)}
-                      title="Delete template"
-                      color="error"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            cursor: 'pointer',
+                            '&:hover': { textDecoration: 'underline', color: 'primary.main' },
+                          }}
+                        >
+                          {template.title}
+                        </Typography>
+                      </RouterLink>
+                    </TableCell>
+                    {scanResults !== null && (
+                      <TableCell>
+                        {needsUpdating ? (
+                          <Tooltip title={`Unrecognized fields: ${unmatchedFields.join(', ')}`} arrow>
+                            <Chip label="Needs Updating" color="warning" size="small" />
+                          </Tooltip>
+                        ) : (
+                          <Chip label="Current" color="success" size="small" />
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell align="right">
+                      <IconButton size="small" onClick={() => handleOpenRenameDialog(template)} title="Rename template">
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenDeleteDialog(template)}
+                        title="Delete template"
+                        color="error"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

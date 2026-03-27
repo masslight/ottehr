@@ -107,7 +107,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
       update({ ...field, value: true });
     } else if (hasAnySubSelected) {
       handleOpenModal();
-    } else {
+    } else if (field.resourceId) {
       deleteField(field);
     }
   };
@@ -141,11 +141,10 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
           value: false,
           components: [],
         });
-      } else {
-        deleteField(currentField);
       }
+      // If no selections and no resourceId, nothing to do — field was never saved
     }
-  }, [draftComponents, field, update, deleteField]);
+  }, [draftComponents, field, update]);
 
   return (
     <Box>

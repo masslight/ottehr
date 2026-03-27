@@ -2051,3 +2051,21 @@ export const getTemplateDetail = async (
     throw apiErrorToThrow(error);
   }
 };
+
+const MIGRATE_EXAM_DATA_ZAMBDA_ID = 'migrate-exam-data';
+
+export const migrateExamData = async (
+  oystehr: Oystehr,
+  parameters: { encounterId: string }
+): Promise<{ message: string }> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MIGRATE_EXAM_DATA_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as { message: string };
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};

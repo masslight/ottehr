@@ -1,3 +1,29 @@
+/**
+ * MIGRATION NOTE: The following multi-select exam items were converted to modal-exam.
+ * Old templates and notes may have standalone Observations with these field names
+ * that need migration to the new component-based storage model:
+ *
+ * Heart:
+ *   - murmur-grade (parent) -> murmur-i, murmur-ii, murmur-iii, murmur-iv, murmur-v, murmur-vi
+ *
+ * Lungs:
+ *   - wheezing (parent) -> wheezing-left-upper, wheezing-left-lower, wheezing-right-upper,
+ *     wheezing-right-middle, wheezing-right-lower
+ *   - crackles (parent) -> crackles-left-upper, crackles-left-lower, crackles-right-upper,
+ *     crackles-right-middle, crackles-right-lower
+ *   - breath-sounds (parent) -> breath-sounds-left-upper, breath-sounds-left-lower,
+ *     breath-sounds-right-upper, breath-sounds-right-middle, breath-sounds-right-lower
+ *   - retractions (parent) -> subcostal, suprasternal, intercostal
+ *
+ * Abdomen:
+ *   - tender (parent) -> diffusely, ruq, rlq, luq, r-cva, l-cva
+ *
+ * Skin (converted earlier):
+ *   - rash (parent) -> cw-viral-exam, cw-insect-bites, cw-urticaria, cw-coxsackievirus,
+ *     cw-irritant-diaper-rash, cw-ringworm, cw-impetigo, cw-fifths-disease, cw-atopic-dermatitis,
+ *     cw-paronychia, cw-poison-ivy-contact-dermatitis, cw-tinea-capitis, cw-pityriasis-rosea, cw-lyme-ecm
+ */
+
 type ModalExamOption = { label: string; defaultValue: boolean };
 type ModalExamGroup = { label: string; options: Record<string, ModalExamOption> };
 type ModalExamSection = { label: string; groups: Record<string, ModalExamGroup> };
@@ -1831,14 +1857,25 @@ export const InPersonExamConfig = {
         tachycardia: { label: 'Tachycardia', defaultValue: false, type: 'checkbox' },
         'murmur-grade': {
           label: 'Murmur',
-          type: 'multi-select',
-          options: {
-            'murmur-i': { label: 'Grade I', defaultValue: false },
-            'murmur-ii': { label: 'Grade II', defaultValue: false },
-            'murmur-iii': { label: 'Grade III', defaultValue: false },
-            'murmur-iv': { label: 'Grade IV', defaultValue: false },
-            'murmur-v': { label: 'Grade V', defaultValue: false },
-            'murmur-vi': { label: 'Grade VI', defaultValue: false },
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            murmur: {
+              label: 'Murmur',
+              groups: {
+                grade: {
+                  label: 'Grade',
+                  options: {
+                    'murmur-i': { label: 'Grade I', defaultValue: false },
+                    'murmur-ii': { label: 'Grade II', defaultValue: false },
+                    'murmur-iii': { label: 'Grade III', defaultValue: false },
+                    'murmur-iv': { label: 'Grade IV', defaultValue: false },
+                    'murmur-v': { label: 'Grade V', defaultValue: false },
+                    'murmur-vi': { label: 'Grade VI', defaultValue: false },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -1934,44 +1971,88 @@ export const InPersonExamConfig = {
       abnormal: {
         wheezing: {
           label: 'Wheezing',
-          type: 'multi-select',
-          options: {
-            'wheezing-left-upper': { label: 'Left upper', defaultValue: false },
-            'wheezing-left-lower': { label: 'Left lower', defaultValue: false },
-            'wheezing-right-upper': { label: 'Right upper', defaultValue: false },
-            'wheezing-right-middle': { label: 'Right middle', defaultValue: false },
-            'wheezing-right-lower': { label: 'Right lower', defaultValue: false },
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            wheezing: {
+              label: 'Wheezing',
+              groups: {
+                location: {
+                  label: 'Location',
+                  options: {
+                    'wheezing-left-upper': { label: 'Left upper', defaultValue: false },
+                    'wheezing-left-lower': { label: 'Left lower', defaultValue: false },
+                    'wheezing-right-upper': { label: 'Right upper', defaultValue: false },
+                    'wheezing-right-middle': { label: 'Right middle', defaultValue: false },
+                    'wheezing-right-lower': { label: 'Right lower', defaultValue: false },
+                  },
+                },
+              },
+            },
           },
         },
         crackles: {
           label: 'Crackles',
-          type: 'multi-select',
-          options: {
-            'crackles-left-upper': { label: 'Left upper', defaultValue: false },
-            'crackles-left-lower': { label: 'Left lower', defaultValue: false },
-            'crackles-right-upper': { label: 'Right upper', defaultValue: false },
-            'crackles-right-middle': { label: 'Right middle', defaultValue: false },
-            'crackles-right-lower': { label: 'Right lower', defaultValue: false },
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            crackles: {
+              label: 'Crackles',
+              groups: {
+                location: {
+                  label: 'Location',
+                  options: {
+                    'crackles-left-upper': { label: 'Left upper', defaultValue: false },
+                    'crackles-left-lower': { label: 'Left lower', defaultValue: false },
+                    'crackles-right-upper': { label: 'Right upper', defaultValue: false },
+                    'crackles-right-middle': { label: 'Right middle', defaultValue: false },
+                    'crackles-right-lower': { label: 'Right lower', defaultValue: false },
+                  },
+                },
+              },
+            },
           },
         },
         'breath-sounds': {
           label: 'Decreased breath sounds',
-          type: 'multi-select',
-          options: {
-            'breath-sounds-left-upper': { label: 'Left upper', defaultValue: false },
-            'breath-sounds-left-lower': { label: 'Left lower', defaultValue: false },
-            'breath-sounds-right-upper': { label: 'Right upper', defaultValue: false },
-            'breath-sounds-right-middle': { label: 'Right middle', defaultValue: false },
-            'breath-sounds-right-lower': { label: 'Right lower', defaultValue: false },
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            'breath-sounds': {
+              label: 'Decreased Breath Sounds',
+              groups: {
+                location: {
+                  label: 'Location',
+                  options: {
+                    'breath-sounds-left-upper': { label: 'Left upper', defaultValue: false },
+                    'breath-sounds-left-lower': { label: 'Left lower', defaultValue: false },
+                    'breath-sounds-right-upper': { label: 'Right upper', defaultValue: false },
+                    'breath-sounds-right-middle': { label: 'Right middle', defaultValue: false },
+                    'breath-sounds-right-lower': { label: 'Right lower', defaultValue: false },
+                  },
+                },
+              },
+            },
           },
         },
         retractions: {
           label: 'Retractions',
-          type: 'multi-select',
-          options: {
-            subcostal: { label: 'Subcostal', defaultValue: false },
-            suprasternal: { label: 'Suprasternal', defaultValue: false },
-            intercostal: { label: 'Intercostal', defaultValue: false },
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            retractions: {
+              label: 'Retractions',
+              groups: {
+                type: {
+                  label: 'Type',
+                  options: {
+                    subcostal: { label: 'Subcostal', defaultValue: false },
+                    suprasternal: { label: 'Suprasternal', defaultValue: false },
+                    intercostal: { label: 'Intercostal', defaultValue: false },
+                  },
+                },
+              },
+            },
           },
         },
         tachypnea: { label: 'Tachypnea', defaultValue: false, type: 'checkbox' },
@@ -2025,14 +2106,26 @@ export const InPersonExamConfig = {
       abnormal: {
         tender: {
           label: 'Tender',
-          type: 'multi-select',
-          options: {
-            diffusely: { label: 'Diffusely', defaultValue: false },
-            ruq: { label: 'RUQ', defaultValue: false },
-            rlq: { label: 'RLQ', defaultValue: false },
-            luq: { label: 'LUQ', defaultValue: false },
-            'r-cva': { label: 'R CVA', defaultValue: false },
-            'l-cva': { label: 'L CVA', defaultValue: false },
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            tender: {
+              label: 'Tender',
+              groups: {
+                location: {
+                  label: 'Location',
+                  options: {
+                    diffusely: { label: 'Diffusely', defaultValue: false },
+                    ruq: { label: 'RUQ', defaultValue: false },
+                    rlq: { label: 'RLQ', defaultValue: false },
+                    luq: { label: 'LUQ', defaultValue: false },
+                    llq: { label: 'LLQ', defaultValue: false },
+                    'r-cva': { label: 'R CVA', defaultValue: false },
+                    'l-cva': { label: 'L CVA', defaultValue: false },
+                  },
+                },
+              },
+            },
           },
         },
         hepatomegaly: {
