@@ -1,7 +1,10 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { FC, ReactElement } from 'react';
+import { FC, ReactElement, useCallback, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
+import { splitAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
 import { PatientSideListSkeleton } from '../../../../../components/PatientSideListSkeleton';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
@@ -10,6 +13,7 @@ export const KnownAllergiesPatientColumn: FC = () => {
   const theme = useTheme();
   const { questionnaireResponse, isAppointmentLoading } = useAppointmentData();
   const { chartData } = useChartData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const knownAllergies = getQuestionnaireResponseByLinkId(
     'allergies',
@@ -24,6 +28,59 @@ export const KnownAllergiesPatientColumn: FC = () => {
 
   const isInPersonPaperwork = questionnaireResponse?.questionnaire?.startsWith(
     'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson'
+  );
+
+  const expandedContent = useMemo(() => {
+    if (!aiAllergies) return [];
+    return aiAllergies.flatMap((item) =>
+      splitAiValue(item.value).map((v) => ({
+        ...item,
+        value: v,
+      }))
+    );
+  }, [aiAllergies]);
+
+  const mappedSuggestions = useAiSuggestionMapping(aiAllergies, 'allergies');
+  const { onSubmit, values: existingAllergies } = useChartDataArrayValue('allergies');
+  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set());
+
+  // Pre-populate applied indices for items already in chart
+  const effectiveAppliedIndices = useMemo(() => {
+    const indices = new Set(appliedIndices);
+    if (existingAllergies.length > 0 && mappedSuggestions.length > 0) {
+      mappedSuggestions.forEach((mapped, idx) => {
+        if (mapped.mappedData && mapped.mappedData.section === 'allergies') {
+          const data = mapped.mappedData;
+          const alreadyExists = existingAllergies.some((a) => a.name?.toLowerCase() === data.name.toLowerCase());
+          if (alreadyExists) indices.add(idx);
+        }
+      });
+    }
+    return indices;
+  }, [appliedIndices, existingAllergies, mappedSuggestions]);
+
+  const handleSuggestionClick = useCallback(
+    async (index: number) => {
+      const mapped = mappedSuggestions[index];
+      if (!mapped?.mappedData || mapped.mappedData.section !== 'allergies') return;
+
+      setAppliedIndices((prev) => new Set(prev).add(index));
+      try {
+        await onSubmit({
+          name: mapped.mappedData.name,
+          id: mapped.mappedData.id,
+          current: true,
+          lastUpdated: new Date().toISOString(),
+        });
+      } catch {
+        setAppliedIndices((prev) => {
+          const next = new Set(prev);
+          next.delete(index);
+          return next;
+        });
+      }
+    },
+    [mappedSuggestions, onSubmit]
   );
 
   const renderAllergies = (): ReactElement | ReactElement[] => {
@@ -58,10 +115,18 @@ export const KnownAllergiesPatientColumn: FC = () => {
     >
       {renderAllergies()}
 
-      {aiAllergies?.length > 0 && (
+      {expandedContent?.length > 0 && (
         <>
           <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion title={'Allergies'} chartData={chartData} content={aiAllergies} />
+          <AiSuggestion
+            title={'Allergies'}
+            chartData={chartData}
+            content={expandedContent}
+            mappedSuggestions={mappedSuggestions}
+            onSuggestionClick={!isReadOnly ? handleSuggestionClick : undefined}
+            appliedIndices={effectiveAppliedIndices}
+            hintArea="allergies"
+          />
         </>
       )}
     </Box>
