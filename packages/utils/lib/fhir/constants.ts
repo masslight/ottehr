@@ -270,6 +270,12 @@ export const APPOINTMENT_LOCKED_META_TAG = {
   code: 'APPOINTMENT_LOCKED',
 };
 
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
+  system: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM,
+  code: 'ERX_PATIENT_SYNCED',
+};
+
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
 
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
