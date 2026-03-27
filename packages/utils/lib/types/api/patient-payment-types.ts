@@ -70,14 +70,12 @@ export interface InitiatePatientPaymentTerminalResponse {
 export interface CheckPatientPaymentTerminalStatusInput {
   encounterId: string;
   readerId: string;
-  paymentIntentId: string;
 }
 
 export type TerminalPaymentActionStatus = 'in_progress' | 'succeeded' | 'failed';
 
 export interface CheckPatientPaymentTerminalStatusResponse {
   actionStatus: TerminalPaymentActionStatus;
-  paymentIntentStatus: string;
   failureCode?: string | null;
   failureMessage?: string | null;
 }

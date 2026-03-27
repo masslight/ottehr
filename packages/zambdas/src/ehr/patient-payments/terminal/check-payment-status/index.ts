@@ -53,17 +53,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const reader = readerResponse as Stripe.Terminal.Reader;
 
-    // Also retrieve the PaymentIntent for its status
-    const paymentIntent = await stripeClient.paymentIntents.retrieve(validatedParameters.paymentIntentId, undefined, {
-      stripeAccount,
-    });
-
     const actionStatus: TerminalPaymentActionStatus =
       (reader.action?.status as TerminalPaymentActionStatus) ?? 'in_progress';
 
     const response: CheckPatientPaymentTerminalStatusResponse = {
       actionStatus,
-      paymentIntentStatus: paymentIntent.status,
       failureCode: reader.action?.failure_code ?? null,
       failureMessage: reader.action?.failure_message ?? null,
     };
@@ -81,7 +75,7 @@ const validateRequestParameters = (input: ZambdaInput): CheckPatientPaymentTermi
     throw MISSING_REQUEST_BODY;
   }
 
-  const { encounterId, readerId, paymentIntentId } = JSON.parse(input.body);
+  const { encounterId, readerId } = JSON.parse(input.body);
 
   const missingParams: string[] = [];
   if (!encounterId) {
@@ -89,9 +83,6 @@ const validateRequestParameters = (input: ZambdaInput): CheckPatientPaymentTermi
   }
   if (!readerId) {
     missingParams.push('readerId');
-  }
-  if (!paymentIntentId) {
-    missingParams.push('paymentIntentId');
   }
 
   if (missingParams.length > 0) {
@@ -104,13 +95,9 @@ const validateRequestParameters = (input: ZambdaInput): CheckPatientPaymentTermi
   if (typeof readerId !== 'string' || !readerId.startsWith('tmr_')) {
     throw INVALID_INPUT_ERROR('"readerId" must be a valid Stripe Terminal Reader ID.');
   }
-  if (typeof paymentIntentId !== 'string' || !paymentIntentId.startsWith('pi_')) {
-    throw INVALID_INPUT_ERROR('"paymentIntentId" must be a valid Stripe PaymentIntent ID.');
-  }
 
   return {
     encounterId,
     readerId,
-    paymentIntentId,
   };
 };

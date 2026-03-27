@@ -140,11 +140,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
   }, [encounterId, oystehrZambda, onTerminalConfiguredChange]);
 
   const pollPaymentStatus = useCallback(
-    async (
-      readerId: string,
-      paymentIntentId: string,
-      signal: AbortSignal
-    ): Promise<CheckPatientPaymentTerminalStatusResponse> => {
+    async (readerId: string, signal: AbortSignal): Promise<CheckPatientPaymentTerminalStatusResponse> => {
       const startTime = Date.now();
 
       while (!signal.aborted) {
@@ -161,7 +157,6 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           id: 'patient-payments-terminal-check-payment-status',
           encounterId,
           readerId,
-          paymentIntentId,
         });
         const statusResponse = chooseJson<CheckPatientPaymentTerminalStatusResponse>(result);
 
@@ -225,7 +220,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           setStatusMessage('Waiting for card on reader...');
 
           // Step 2: Poll for reader action completion
-          await pollPaymentStatus(initiateResponse.readerId, initiateResponse.paymentIntentId, abortController.signal);
+          await pollPaymentStatus(initiateResponse.readerId, abortController.signal);
 
           setStatusMessage('Finalizing payment...');
 

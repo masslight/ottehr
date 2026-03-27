@@ -93,6 +93,11 @@ const STRIPE_ACCOUNT_ID_REGEX = /^acct_[a-zA-Z0-9]{8,}$/;
 
 const NO_TERMINAL = '__none__';
 
+/** Legacy values that were once stored as terminal location IDs to indicate simulation mode. */
+const LEGACY_SIMULATION_VALUES = new Set(['sim', 'simulated', 'simulation']);
+const isLegacySimulationValue = (id: string | undefined): boolean =>
+  Boolean(id && LEGACY_SIMULATION_VALUES.has(id.toLowerCase().trim()));
+
 const READER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   online: 'success',
   offline: 'default',
@@ -115,7 +120,7 @@ function SelectedTerminalLocationDetails({
   terminalLocationId: string | undefined;
   terminalLocations: { id: string; displayName: string | null; address: Record<string, string | null> | null }[];
 }): ReactElement | null {
-  const isRealLocation = Boolean(terminalLocationId);
+  const isRealLocation = Boolean(terminalLocationId) && !isLegacySimulationValue(terminalLocationId);
   const selectedLoc = isRealLocation ? terminalLocations.find((l) => l.id === terminalLocationId) : null;
 
   const { data: readersData, isLoading: readersLoading } = useTerminalReadersQuery(
@@ -123,7 +128,7 @@ function SelectedTerminalLocationDetails({
     isRealLocation ? terminalLocationId : undefined
   );
 
-  if (!terminalLocationId) {
+  if (!terminalLocationId || isLegacySimulationValue(terminalLocationId)) {
     return null;
   }
 
@@ -365,7 +370,11 @@ function StripeConnectSection({
             </Typography>
             <FormControl size="small" sx={{ minWidth: 300 }}>
               <Select
-                value={!stripeTerminalLocationId ? NO_TERMINAL : stripeTerminalLocationId}
+                value={
+                  !stripeTerminalLocationId || isLegacySimulationValue(stripeTerminalLocationId)
+                    ? NO_TERMINAL
+                    : stripeTerminalLocationId
+                }
                 onChange={(e: SelectChangeEvent) => {
                   const value = e.target.value;
                   saveMutation.mutate({

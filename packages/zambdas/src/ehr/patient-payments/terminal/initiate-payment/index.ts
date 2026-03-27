@@ -1,10 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
+  getStripeTerminalLocationIdForAppointmentOrEncounter,
   InitiatePatientPaymentTerminalInput,
   InitiatePatientPaymentTerminalResponse,
   INVALID_INPUT_ERROR,
@@ -27,6 +29,8 @@ import { getAccountAndCoverageResourcesForPatient } from '../../../shared/harves
 
 const ZAMBDA_NAME = 'patient-payments-terminal-initiate-payment';
 
+const SIMULATION_TERMINAL_LOCATION_VALUES = new Set(['sim', 'simulated', 'simulation']);
+
 let oystehrM2MClientToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -41,6 +45,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { stripeCustomerId, stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
 
     const stripeClient = getStripeClient(input.secrets);
+
+    // Validate that the reader belongs to the encounter's configured terminal location
+    const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
+      { encounterId: validatedParameters.encounterId },
+      oystehrClient
+    );
+    const isSimHintLocation =
+      terminalLocationId && SIMULATION_TERMINAL_LOCATION_VALUES.has(terminalLocationId.toLowerCase().trim());
+
+    const readerForValidation = await stripeClient.terminal.readers.retrieve(validatedParameters.readerId, {
+      stripeAccount,
+    });
+    if ((readerForValidation as Stripe.Terminal.DeletedReader).deleted) {
+      throw INVALID_INPUT_ERROR('Terminal reader has been deleted.');
+    }
+    const readerToValidate = readerForValidation as Stripe.Terminal.Reader;
+
+    if (isSimHintLocation) {
+      if (!readerToValidate.device_type.startsWith('simulated_')) {
+        throw INVALID_INPUT_ERROR('Reader does not match the configured terminal location.');
+      }
+    } else if (terminalLocationId && readerToValidate.location !== terminalLocationId) {
+      throw INVALID_INPUT_ERROR('Reader does not belong to the terminal location configured for this encounter.');
+    }
 
     // Step 1: Create the PaymentIntent server-side
     const paymentIntent = await stripeClient.paymentIntents.create(
