@@ -191,10 +191,17 @@ export const NOTHING_TO_EAT_OR_DRINK_LABEL = 'Nothing to eat or drink until eval
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
 export const IN_PERSON_NOTE_ID = 'css-note';
 
+export interface ExamObservationComponentDTO {
+  code: string;
+  label: string;
+  value: boolean;
+}
+
 export interface ExamObservationDTO extends SaveableDTO {
   field: string;
   note?: string;
   value?: boolean;
+  components?: ExamObservationComponentDTO[];
 }
 export interface VitalsBaseObservationDTO extends SaveableDTO {
   field: VitalFieldNames;

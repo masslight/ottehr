@@ -146,6 +146,41 @@ export interface ExamCardMultiSelectComponent extends ExamComponentWithCode {
 }
 
 /**
+ * Modal exam checkbox option within a group
+ */
+export interface ExamModalCheckboxOption extends ExamComponentWithCode {
+  label: string;
+  defaultValue: boolean;
+  description?: string;
+}
+
+/**
+ * Group of checkbox options within a modal exam section
+ */
+export interface ExamModalGroup {
+  label: string;
+  options: Record<string, ExamModalCheckboxOption>;
+}
+
+/**
+ * Section within a modal exam (e.g., Inspection, Palpation)
+ */
+export interface ExamModalSection {
+  label: string;
+  groups: Record<string, ExamModalGroup>;
+}
+
+/**
+ * Modal exam component - checkbox that opens a dialog with grouped checkboxes
+ */
+export interface ExamCardModalExamComponent extends ExamComponentWithCode {
+  label: string;
+  defaultValue: boolean;
+  type: 'modal-exam';
+  sections: Record<string, ExamModalSection>;
+}
+
+/**
  * Union of all non-text exam card components
  */
 export type ExamCardNonTextComponent =
@@ -153,7 +188,8 @@ export type ExamCardNonTextComponent =
   | ExamCardDropdownComponent
   | ExamCardColumnComponent
   | ExamCardFormComponent
-  | ExamCardMultiSelectComponent;
+  | ExamCardMultiSelectComponent
+  | ExamCardModalExamComponent;
 
 /**
  * Union of all exam card component types
@@ -326,6 +362,45 @@ export const ExamCardColumnComponentSchema: z.ZodType<ExamCardColumnComponent, z
 );
 
 /**
+ * Schema for modal exam checkbox option
+ */
+export const ExamModalCheckboxOptionSchema: z.ZodType<ExamModalCheckboxOption, z.ZodTypeDef, unknown> = z.object({
+  label: z.string().min(1, 'Label is required'),
+  defaultValue: z.boolean(),
+  description: z.string().optional(),
+  code: ExamCodeableConceptSchema.optional(),
+  bodySite: ExamCodeableConceptSchema.optional(),
+});
+
+/**
+ * Schema for modal exam group
+ */
+export const ExamModalGroupSchema: z.ZodType<ExamModalGroup, z.ZodTypeDef, unknown> = z.object({
+  label: z.string().min(1, 'Label is required'),
+  options: z.record(z.string(), ExamModalCheckboxOptionSchema),
+});
+
+/**
+ * Schema for modal exam section
+ */
+export const ExamModalSectionSchema: z.ZodType<ExamModalSection, z.ZodTypeDef, unknown> = z.object({
+  label: z.string().min(1, 'Label is required'),
+  groups: z.record(z.string(), ExamModalGroupSchema),
+});
+
+/**
+ * Schema for modal exam component
+ */
+export const ExamCardModalExamComponentSchema: z.ZodType<ExamCardModalExamComponent, z.ZodTypeDef, unknown> = z.object({
+  label: z.string().min(1, 'Label is required'),
+  defaultValue: z.boolean(),
+  type: z.literal('modal-exam'),
+  sections: z.record(z.string(), ExamModalSectionSchema),
+  code: ExamCodeableConceptSchema.optional(),
+  bodySite: ExamCodeableConceptSchema.optional(),
+});
+
+/**
  * Union schema for non-text components
  */
 export const ExamCardNonTextComponentSchema: z.ZodType<ExamCardNonTextComponent, z.ZodTypeDef, unknown> = z.union([
@@ -334,6 +409,7 @@ export const ExamCardNonTextComponentSchema: z.ZodType<ExamCardNonTextComponent,
   ExamCardColumnComponentSchema,
   ExamCardFormComponentSchema,
   ExamCardMultiSelectComponentSchema,
+  ExamCardModalExamComponentSchema,
 ]);
 
 /**

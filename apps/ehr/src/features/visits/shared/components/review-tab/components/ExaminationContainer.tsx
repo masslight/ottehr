@@ -121,6 +121,27 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
           break;
         }
 
+        case 'modal-exam': {
+          const observation = examObservations[fieldName];
+          if (observation && observation.value === true) {
+            if (observation.components && observation.components.length > 0) {
+              const subLabels = observation.components.filter((c) => c.value).map((c) => c.label);
+              items.push({
+                field: fieldName,
+                label: `${component.label}: ${subLabels.join(', ')}`,
+                abnormal: section === 'abnormal',
+              });
+            } else {
+              items.push({
+                field: fieldName,
+                label: component.label,
+                abnormal: section === 'abnormal',
+              });
+            }
+          }
+          break;
+        }
+
         default:
           break;
       }

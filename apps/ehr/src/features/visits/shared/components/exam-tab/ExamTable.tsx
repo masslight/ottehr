@@ -19,6 +19,7 @@ import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamCheckboxDropdown } from './ControlledExamCheckboxDropdown';
 import { ExamCommentField } from './ExamCommentField';
 import { ExamForm } from './ExamForm';
+import { ExamModalCheckbox } from './ExamModalCheckbox';
 
 type ExamTableProps = {
   examConfig: ExamItemConfig;
@@ -139,6 +140,26 @@ const ExamTableCellComponent: FC<{
           result.push(renderSingleElement(currentKey, currentElement));
           i++;
         }
+      } else if (currentElement.type === 'modal-exam') {
+        // Pair consecutive modal-exam items into two-column rows when they form L/R pairs
+        const nextKey = elementKeys[i + 1];
+        const nextElement = nextKey ? elements[nextKey] : undefined;
+        const isLRPair =
+          nextElement?.type === 'modal-exam' &&
+          ((currentKey.endsWith('-l') && nextKey.endsWith('-r')) ||
+            (currentKey.endsWith('-r') && nextKey.endsWith('-l')));
+        if (isLRPair) {
+          result.push(
+            <Box key={`modal-pair-${i}`} sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ flex: 1 }}>{renderSingleElement(currentKey, currentElement)}</Box>
+              <Box sx={{ flex: 1 }}>{renderSingleElement(nextKey, nextElement)}</Box>
+            </Box>
+          );
+          i += 2;
+        } else {
+          result.push(renderSingleElement(currentKey, currentElement));
+          i++;
+        }
       } else {
         result.push(renderSingleElement(currentKey, currentElement));
         i++;
@@ -204,6 +225,12 @@ const ExamTableCellComponent: FC<{
       return (
         <Box key={key} data-testid={`exam-component-form-${key}`}>
           <ExamForm form={element} abnormal={abnormal} />
+        </Box>
+      );
+    } else if (element.type === 'modal-exam') {
+      return (
+        <Box key={key} data-testid={`exam-component-modal-exam-${key}`}>
+          <ExamModalCheckbox name={key} config={element} abnormal={abnormal} />
         </Box>
       );
     }

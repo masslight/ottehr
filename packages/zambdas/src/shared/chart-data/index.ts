@@ -539,7 +539,7 @@ export function makeExamObservationResource(
   snomedCodes?: SNOMEDCodeConceptInterface,
   label?: string
 ): Observation {
-  return {
+  const observation: Observation = {
     resourceType: 'Observation',
     id: data.resourceId,
     subject: { reference: `Patient/${patientId}` },
@@ -551,15 +551,40 @@ export function makeExamObservationResource(
     code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
+
+  if (data.components && data.components.length > 0) {
+    observation.component = data.components
+      .filter((c) => c.value)
+      .map((c) => ({
+        code: { text: c.code },
+        valueBoolean: c.value,
+        extension: [{ url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`, valueString: c.label }],
+      }));
+  }
+
+  return observation;
 }
 
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
-  return {
+  const dto: ExamObservationDTO = {
     resourceId: observation.id,
     field: observation.meta?.tag?.[0]?.code || 'unknown',
     note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
+
+  if (observation.component && observation.component.length > 0) {
+    dto.components = observation.component.map((c) => ({
+      code: c.code?.text || 'unknown',
+      label:
+        c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`)?.valueString ||
+        c.code?.text ||
+        'unknown',
+      value: c.valueBoolean ?? false,
+    }));
+  }
+
+  return dto;
 }
 
 export function makeClinicalImpressionResource(
