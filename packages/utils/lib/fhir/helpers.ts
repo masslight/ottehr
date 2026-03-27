@@ -1535,9 +1535,9 @@ export async function patchWithOptimisticLock<T extends FhirResource & { id: str
         throw error;
       }
       console.log(
-        `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${
-          attempt + 1
-        }/${OPTIMISTIC_LOCK_MAX_RETRIES - 1})`
+        `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${attempt + 1}/${
+          OPTIMISTIC_LOCK_MAX_RETRIES - 1
+        })`
       );
       current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
     }
