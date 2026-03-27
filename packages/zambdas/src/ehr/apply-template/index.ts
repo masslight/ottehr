@@ -5,7 +5,7 @@ import Oystehr, {
   FhirResource,
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
+import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
 import { ApplyTemplateInput, chunkThings, getSecret, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM, SecretsKeys } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -22,14 +22,25 @@ let m2mToken: string;
 
 export const index = wrapHandler('apply-template', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.group('validateRequestParameters');
     const validatedInput = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success', JSON.stringify(validatedInput));
 
     const { secrets } = validatedInput;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
+    console.group('complexValidation');
     const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
+    console.groupEnd();
+    console.debug('complexValidation success', JSON.stringify({ templateList, encounter }));
+
+    console.group('performEffect');
     await performEffect(validatedInput, templateList, encounter, oystehr);
+    console.groupEnd();
+    console.debug('performEffect success');
+
     return {
       statusCode: 200,
       body: JSON.stringify({}),
@@ -100,6 +111,7 @@ const performEffect = async (
         { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
         { name: '_revinclude:iterate', value: 'Communication:encounter' },
         { name: '_revinclude:iterate', value: 'Condition:encounter' },
+        { name: '_revinclude:iterate', value: 'Procedure:encounter' },
       ],
     })
   ).unbundle();
@@ -122,7 +134,8 @@ const performEffect = async (
       return (
         request.resource.resourceType === 'ClinicalImpression' ||
         request.resource.resourceType === 'Condition' ||
-        request.resource.resourceType === 'Communication'
+        request.resource.resourceType === 'Communication' ||
+        request.resource.resourceType === 'Procedure'
       );
     } else if (request.method === 'PATCH') {
       return true;
@@ -170,7 +183,8 @@ const makeDeleteRequests = async (
         (tag) =>
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' ||
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision' ||
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction'
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction' ||
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code'
         // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
       )
   );
@@ -192,10 +206,12 @@ const makeCreateRequests = (
   templateList: List,
   encounterBundle: FhirResource[]
 ): Array<
-  BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication> | BatchInputJSONPatchRequest
+  | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+  | BatchInputJSONPatchRequest
 > => {
   const createResourcesRequests: Array<
-    BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication> | BatchInputJSONPatchRequest
+    | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+    | BatchInputJSONPatchRequest
   > = [];
 
   if (templateList.entry === undefined || templateList.entry.length === 0) {
@@ -224,9 +240,22 @@ const makeCreateRequests = (
       resource.meta?.tag?.some((tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/ros')
   );
 
+  const existingMoiCondition = encounterBundle.find(
+    (resource) =>
+      resource.meta?.tag?.some(
+        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury'
+      )
+  );
+
+  const existingAccidentCondition = encounterBundle.find(
+    (resource) =>
+      resource.meta?.tag?.some((tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/accident')
+  );
+
   const templateEncounterDiagnoses = templateList.contained?.find((r) => r.resourceType === 'Encounter')?.diagnosis;
   let templateHpiCondition: Condition | undefined;
   let templateRosCondition: Condition | undefined;
+  let templateMoiCondition: Condition | undefined;
 
   for (const resource of templateList.entry) {
     // grab contained resource from resource.id in entry
@@ -257,6 +286,27 @@ const makeCreateRequests = (
       continue;
     }
 
+    // MOI: if existing MOI on encounter, we'll patch-append. If not, create new.
+    if (
+      containedResource.meta?.tag?.some(
+        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury'
+      ) &&
+      existingMoiCondition
+    ) {
+      templateMoiCondition = containedResource as Condition;
+      continue;
+    }
+
+    // Accident: only create if not already present on encounter, skip otherwise.
+    if (
+      containedResource.meta?.tag?.some(
+        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/accident'
+      ) &&
+      existingAccidentCondition
+    ) {
+      continue;
+    }
+
     const resourceToCreate = { ...containedResource };
 
     const fullUrl = `urn:uuid:${uuidV4()}`;
@@ -269,7 +319,8 @@ const makeCreateRequests = (
       resourceToCreate.resourceType === 'Observation' ||
       resourceToCreate.resourceType === 'ClinicalImpression' ||
       resourceToCreate.resourceType === 'Condition' ||
-      resourceToCreate.resourceType === 'Communication'
+      resourceToCreate.resourceType === 'Communication' ||
+      resourceToCreate.resourceType === 'Procedure'
     ) {
       resourceToCreate.subject = encounter.subject;
       resourceToCreate.encounter = { reference: `Encounter/${encounter.id}` };
@@ -336,7 +387,7 @@ const makeCreateRequests = (
   // Patch ROS note if it already exists
   if (existingRosCondition) {
     const condition = existingRosCondition as Condition;
-    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+    const rosPatch: BatchInputJSONPatchRequest = {
       method: 'PATCH',
       url: `Condition/${condition.id}`,
       operations: [
@@ -347,7 +398,24 @@ const makeCreateRequests = (
         },
       ],
     };
-    createResourcesRequests.push(encounterDiagnosisPatch);
+    createResourcesRequests.push(rosPatch);
+  }
+
+  // Patch MOI note if it already exists
+  if (existingMoiCondition && templateMoiCondition) {
+    const condition = existingMoiCondition as Condition;
+    const moiPatch: BatchInputJSONPatchRequest = {
+      method: 'PATCH',
+      url: `Condition/${condition.id}`,
+      operations: [
+        {
+          op: 'replace',
+          path: '/note/0/text',
+          value: `${condition.note?.[0]?.text}\n\n${templateMoiCondition.note?.[0]?.text}`,
+        },
+      ],
+    };
+    createResourcesRequests.push(moiPatch);
   }
 
   return createResourcesRequests;
