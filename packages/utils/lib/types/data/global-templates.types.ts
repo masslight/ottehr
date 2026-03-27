@@ -48,6 +48,10 @@ export const CreateTemplateInputSchema = z.object({
   examType: z.nativeEnum(ExamType),
 });
 export type CreateTemplateInput = z.infer<typeof CreateTemplateInputSchema>;
+export const CreateTemplateInputValidatedSchema = CreateTemplateInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type CreateTemplateInputValidated = z.infer<typeof CreateTemplateInputValidatedSchema>;
 export interface CreateTemplateOutput {
   templateId: string;
 }

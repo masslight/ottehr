@@ -76,16 +76,22 @@ const performEffect = async (
 ): Promise<ListAllTemplatesOutput> => {
   const { filter } = validatedInput;
 
-  const listSearchResult = // todo consider result pagination since it's likely to exceed 6MB lambda limit
-    (
-      await oystehr.fhir.search<List>({
-        resourceType: 'List',
-        params: [
-          { name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` },
-          { name: '_include', value: 'List:item' },
-        ],
-      })
-    ).unbundle();
+  const listSearchResult = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        // todo consider result pagination since it's likely to exceed 6MB lambda limit
+        {
+          name: '_tag',
+          value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|`,
+        },
+        {
+          name: '_include',
+          value: 'List:item',
+        },
+      ],
+    })
+  ).unbundle();
 
   if (!listSearchResult || listSearchResult.length === 0) {
     return { templates: [] };

@@ -1250,6 +1250,13 @@
       "src": "src/ehr/list-all-templates/index",
       "zip": ".dist/zips/list-all-templates.zip"
     },
+    "CREATE-TEMPLATE": {
+      "name": "create-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-template/index",
+      "zip": ".dist/zips/create-template.zip"
+    },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
       "type": "http_auth",
