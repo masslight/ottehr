@@ -355,6 +355,13 @@ export const useExternalMedicationHistory = (
     enabled: !!oystehr && !!patientId,
     staleTime: 5 * 60 * 1000,
     retry: 1,
+    // Poll every 10s while the eRx service is still populating history.
+    // Once data arrives, stop polling.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data || data.length === 0) return 10_000;
+      return false;
+    },
   });
 
   // Step 2: Search each unique medication name to check if recognized
