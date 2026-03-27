@@ -1529,7 +1529,7 @@ export const createDispositionServiceRequest = ({
       createCodeableConcept([
         {
           code: disposition.specialty,
-          system: 'specialty-transfer',
+          system: 'specialty-transfer', // TODO phony Coding system
         },
       ])
     );

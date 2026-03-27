@@ -277,60 +277,62 @@ export const DispositionCard: FC = () => {
             </Box>
           )}
 
-          {fields.includes('specialty') && (
-            <Controller
-              name="specialty"
-              control={control}
-              render={({ field: { onChange, value } }) => (
-                <TextField
-                  select
-                  disabled={isReadOnly}
-                  label="Specialty"
-                  size="small"
-                  sx={{ minWidth: '200px', width: 'fit-content' }}
-                  value={value}
-                  onChange={onChange}
-                >
-                  <MenuItem value={''}>
-                    <em>None</em>
-                  </MenuItem>
-                  {specialtyTransferOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
+            {fields.includes('followUpIn') && (
+              <Controller
+                name="followUpIn"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    select
+                    disabled={isReadOnly}
+                    label="Follow up visit in"
+                    data-testid={dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown}
+                    size="small"
+                    sx={{ minWidth: '200px', width: 'fit-content' }}
+                    value={value}
+                    onChange={onChange}
+                  >
+                    <MenuItem value={''}>
+                      <em>None</em>
                     </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-          )}
+                    {followUpInOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
+            )}
 
-          {fields.includes('followUpIn') && (
-            <Controller
-              name="followUpIn"
-              control={control}
-              render={({ field: { onChange, value } }) => (
-                <TextField
-                  select
-                  disabled={isReadOnly}
-                  label="Follow up visit in"
-                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown}
-                  size="small"
-                  sx={{ minWidth: '200px', width: 'fit-content' }}
-                  value={value}
-                  onChange={onChange}
-                >
-                  <MenuItem value={''}>
-                    <em>None</em>
-                  </MenuItem>
-                  {followUpInOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
+            {fields.includes('specialty') && (
+              <Controller
+                name="specialty"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    select
+                    disabled={isReadOnly}
+                    label="Specialty"
+                    size="small"
+                    sx={{ minWidth: '200px', width: '40%' }}
+                    value={value}
+                    onChange={onChange}
+                  >
+                    <MenuItem value={''}>
+                      <em>None</em>
                     </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-          )}
+                    {specialtyTransferOptions.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
+            )}
+          </Box>
 
           {fields.includes('reason') && (
             <Controller
