@@ -80,6 +80,10 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
 
   // Load terminal config and available readers
   useEffect(() => {
+    setConfigLoading(true);
+    setSelectedReaderId('');
+    setPaymentResult({ status: 'idle' });
+
     const getTerminalConfig = async (): Promise<void> => {
       try {
         if (!oystehrZambda) {
