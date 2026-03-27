@@ -64,7 +64,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
 
   let terminalBorderColor: string;
   if (terminalConfigured) {
-    if (paymentResult.status === 'failure') {
+    if (paymentResult.status === 'failure' || readers.length === 0) {
       terminalBorderColor = '#8A1538';
     } else if (isReady) {
       terminalBorderColor = '#4CAF50';
@@ -309,9 +309,10 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           textAlign: 'left',
           opacity: configLoading ? 0 : 1,
           transition: 'opacity 260ms ease',
+          pointerEvents: configLoading ? 'none' : 'auto',
         }}
       >
-        {configLoading ? null : terminalConfigured ? (
+        {terminalConfigured ? (
           <>
             <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               <svg width="101" height="101" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -423,7 +424,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
                 Record a payment from an external card reader
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '1.14rem' }}>
-                no card reader configured for this office
+                No card reader configured for this office
               </Typography>
             </Box>
           </>
