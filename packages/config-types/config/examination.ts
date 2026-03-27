@@ -152,6 +152,7 @@ export interface ExamModalCheckboxOption extends ExamComponentWithCode {
   label: string;
   defaultValue: boolean;
   description?: string;
+  abnormal?: boolean;
 }
 
 /**
@@ -368,6 +369,7 @@ export const ExamModalCheckboxOptionSchema: z.ZodType<ExamModalCheckboxOption, z
   label: z.string().min(1, 'Label is required'),
   defaultValue: z.boolean(),
   description: z.string().optional(),
+  abnormal: z.boolean().optional(),
   code: ExamCodeableConceptSchema.optional(),
   bodySite: ExamCodeableConceptSchema.optional(),
 });

@@ -125,12 +125,15 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
           const observation = examObservations[fieldName];
           if (observation && observation.value === true) {
             if (observation.components && observation.components.length > 0) {
-              const subLabels = observation.components.filter((c) => c.value).map((c) => c.label);
-              items.push({
-                field: fieldName,
-                label: `${component.label}: ${subLabels.join(', ')}`,
-                abnormal: section === 'abnormal',
-              });
+              observation.components
+                .filter((c) => c.value)
+                .forEach((c) => {
+                  items.push({
+                    field: `${fieldName}:${c.code}`,
+                    label: `${component.label}: ${c.label}`,
+                    abnormal: c.abnormal ?? section === 'abnormal',
+                  });
+                });
             } else {
               items.push({
                 field: fieldName,

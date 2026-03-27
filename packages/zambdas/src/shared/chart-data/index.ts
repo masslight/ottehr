@@ -558,7 +558,12 @@ export function makeExamObservationResource(
       .map((c) => ({
         code: { text: c.code },
         valueBoolean: c.value,
-        extension: [{ url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`, valueString: c.label }],
+        extension: [
+          { url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`, valueString: c.label },
+          ...(c.abnormal !== undefined
+            ? [{ url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`, valueBoolean: c.abnormal }]
+            : []),
+        ],
       }));
   }
 
@@ -575,14 +580,18 @@ export function makeExamObservationDTO(observation: Observation): ExamObservatio
   };
 
   if (observation.component && observation.component.length > 0) {
-    dto.components = observation.component.map((c) => ({
-      code: c.code?.text || 'unknown',
-      label:
-        c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`)?.valueString ||
-        c.code?.text ||
-        'unknown',
-      value: c.valueBoolean ?? false,
-    }));
+    dto.components = observation.component.map((c) => {
+      const abnormalExt = c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`);
+      return {
+        code: c.code?.text || 'unknown',
+        label:
+          c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`)?.valueString ||
+          c.code?.text ||
+          'unknown',
+        value: c.valueBoolean ?? false,
+        abnormal: abnormalExt?.valueBoolean,
+      };
+    });
   }
 
   return dto;

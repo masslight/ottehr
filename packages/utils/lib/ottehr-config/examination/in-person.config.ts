@@ -24,9 +24,32 @@
  *     cw-paronychia, cw-poison-ivy-contact-dermatitis, cw-tinea-capitis, cw-pityriasis-rosea, cw-lyme-ecm
  */
 
-type ModalExamOption = { label: string; defaultValue: boolean };
+type ModalExamOption = { label: string; defaultValue: boolean; abnormal?: boolean };
 type ModalExamGroup = { label: string; options: Record<string, ModalExamOption> };
 type ModalExamSection = { label: string; groups: Record<string, ModalExamGroup> };
+
+const NORMAL_LABELS = new Set([
+  'Normal',
+  'None',
+  'Absent',
+  'Intact',
+  'Full',
+  'Not present',
+  'Neg',
+  'Stable',
+  'Midline',
+  'No Hematoma',
+  'Patent',
+  '2+ normal',
+  '<2s',
+  '5/5',
+  'No',
+  'All non-tender',
+]);
+
+function opt(label: string, defaultValue = false): ModalExamOption {
+  return { label, defaultValue, abnormal: !NORMAL_LABELS.has(label) };
+}
 
 type SpecialTestsBuilder = (k: (suffix: string) => string) => Record<string, ModalExamGroup>;
 
@@ -48,35 +71,35 @@ function createExtremityModalExam(
         appearance: {
           label: 'Appearance',
           options: {
-            [k('appearance-normal')]: { label: 'Normal', defaultValue: false },
-            [k('appearance-swelling')]: { label: 'Swelling', defaultValue: false },
-            [k('appearance-deformity')]: { label: 'Deformity', defaultValue: false },
-            [k('appearance-atrophy')]: { label: 'Atrophy', defaultValue: false },
+            [k('appearance-normal')]: opt('Normal'),
+            [k('appearance-swelling')]: opt('Swelling'),
+            [k('appearance-deformity')]: opt('Deformity'),
+            [k('appearance-atrophy')]: opt('Atrophy'),
           },
         },
         skin: {
           label: 'Skin',
           options: {
-            [k('skin-normal')]: { label: 'Normal', defaultValue: false },
-            [k('skin-erythema')]: { label: 'Erythema', defaultValue: false },
-            [k('skin-ecchymosis')]: { label: 'Ecchymosis', defaultValue: false },
-            [k('skin-wound')]: { label: 'Wound', defaultValue: false },
+            [k('skin-normal')]: opt('Normal'),
+            [k('skin-erythema')]: opt('Erythema'),
+            [k('skin-ecchymosis')]: opt('Ecchymosis'),
+            [k('skin-wound')]: opt('Wound'),
           },
         },
         alignment: {
           label: 'Alignment',
           options: {
-            [k('alignment-normal')]: { label: 'Normal', defaultValue: false },
-            [k('alignment-angulation')]: { label: 'Angulation', defaultValue: false },
-            [k('alignment-shortening')]: { label: 'Shortening', defaultValue: false },
+            [k('alignment-normal')]: opt('Normal'),
+            [k('alignment-angulation')]: opt('Angulation'),
+            [k('alignment-shortening')]: opt('Shortening'),
           },
         },
         'cast-splint': {
           label: 'Cast/splint',
           options: {
-            [k('cast-not-present')]: { label: 'Not present', defaultValue: false },
-            [k('cast-splint-in-place')]: { label: 'Splint in place', defaultValue: false },
-            [k('cast-cast-in-place')]: { label: 'Cast in place', defaultValue: false },
+            [k('cast-not-present')]: opt('Not present'),
+            [k('cast-splint-in-place')]: opt('Splint in place'),
+            [k('cast-cast-in-place')]: opt('Cast in place'),
           },
         },
       },
@@ -87,33 +110,33 @@ function createExtremityModalExam(
         tenderness: {
           label: 'Tenderness',
           options: {
-            [k('tenderness-none')]: { label: 'None', defaultValue: false },
-            [k('tenderness-bony')]: { label: 'Bony', defaultValue: false },
-            [k('tenderness-joint')]: { label: 'Joint', defaultValue: false },
-            [k('tenderness-soft-tissue')]: { label: 'Soft tissue', defaultValue: false },
+            [k('tenderness-none')]: opt('None'),
+            [k('tenderness-bony')]: opt('Bony'),
+            [k('tenderness-joint')]: opt('Joint'),
+            [k('tenderness-soft-tissue')]: opt('Soft tissue'),
           },
         },
         crepitus: {
           label: 'Crepitus',
           options: {
-            [k('crepitus-absent')]: { label: 'Absent', defaultValue: false },
-            [k('crepitus-present')]: { label: 'Present', defaultValue: false },
+            [k('crepitus-absent')]: opt('Absent'),
+            [k('crepitus-present')]: opt('Present'),
           },
         },
         temperature: {
           label: 'Temperature',
           options: {
-            [k('temperature-normal')]: { label: 'Normal', defaultValue: false },
-            [k('temperature-warm')]: { label: 'Warm', defaultValue: false },
-            [k('temperature-cool')]: { label: 'Cool', defaultValue: false },
+            [k('temperature-normal')]: opt('Normal'),
+            [k('temperature-warm')]: opt('Warm'),
+            [k('temperature-cool')]: opt('Cool'),
           },
         },
         edema: {
           label: 'Edema',
           options: {
-            [k('edema-none')]: { label: 'None', defaultValue: false },
-            [k('edema-pitting')]: { label: 'Pitting', defaultValue: false },
-            [k('edema-non-pitting')]: { label: 'Non-pitting', defaultValue: false },
+            [k('edema-none')]: opt('None'),
+            [k('edema-pitting')]: opt('Pitting'),
+            [k('edema-non-pitting')]: opt('Non-pitting'),
           },
         },
       },
@@ -124,26 +147,26 @@ function createExtremityModalExam(
         'active-rom': {
           label: 'Active ROM',
           options: {
-            [k('active-rom-full')]: { label: 'Full', defaultValue: false },
-            [k('active-rom-limited')]: { label: 'Limited', defaultValue: false },
-            [k('active-rom-unable')]: { label: 'Unable', defaultValue: false },
+            [k('active-rom-full')]: opt('Full'),
+            [k('active-rom-limited')]: opt('Limited'),
+            [k('active-rom-unable')]: opt('Unable'),
           },
         },
         'passive-rom': {
           label: 'Passive ROM',
           options: {
-            [k('passive-rom-full')]: { label: 'Full', defaultValue: false },
-            [k('passive-rom-limited')]: { label: 'Limited', defaultValue: false },
-            [k('passive-rom-painful-arc')]: { label: 'Painful arc', defaultValue: false },
+            [k('passive-rom-full')]: opt('Full'),
+            [k('passive-rom-limited')]: opt('Limited'),
+            [k('passive-rom-painful-arc')]: opt('Painful arc'),
           },
         },
         'pain-with-motion': {
           label: 'Pain with motion',
           options: {
-            [k('pain-motion-none')]: { label: 'None', defaultValue: false },
-            [k('pain-motion-active-only')]: { label: 'Active only', defaultValue: false },
-            [k('pain-motion-passive-only')]: { label: 'Passive only', defaultValue: false },
-            [k('pain-motion-both')]: { label: 'Both', defaultValue: false },
+            [k('pain-motion-none')]: opt('None'),
+            [k('pain-motion-active-only')]: opt('Active only'),
+            [k('pain-motion-passive-only')]: opt('Passive only'),
+            [k('pain-motion-both')]: opt('Both'),
           },
         },
       },
@@ -154,35 +177,35 @@ function createExtremityModalExam(
         pulses: {
           label: 'Pulses',
           options: {
-            [k('pulses-2-plus-normal')]: { label: '2+ normal', defaultValue: false },
-            [k('pulses-1-plus-diminished')]: { label: '1+ diminished', defaultValue: false },
-            [k('pulses-absent')]: { label: 'Absent', defaultValue: false },
+            [k('pulses-2-plus-normal')]: opt('2+ normal'),
+            [k('pulses-1-plus-diminished')]: opt('1+ diminished'),
+            [k('pulses-absent')]: opt('Absent'),
           },
         },
         'cap-refill': {
           label: 'Cap refill',
           options: {
-            [k('cap-refill-less-2s')]: { label: '<2s', defaultValue: false },
-            [k('cap-refill-2-3s')]: { label: '2\u20133s', defaultValue: false },
-            [k('cap-refill-greater-3s')]: { label: '>3s', defaultValue: false },
+            [k('cap-refill-less-2s')]: opt('<2s'),
+            [k('cap-refill-2-3s')]: opt('2\u20133s'),
+            [k('cap-refill-greater-3s')]: opt('>3s'),
           },
         },
         sensation: {
           label: 'Sensation',
           options: {
-            [k('sensation-intact')]: { label: 'Intact', defaultValue: false },
-            [k('sensation-decreased')]: { label: 'Decreased', defaultValue: false },
-            [k('sensation-absent')]: { label: 'Absent', defaultValue: false },
-            [k('sensation-paresthesia')]: { label: 'Paresthesia', defaultValue: false },
+            [k('sensation-intact')]: opt('Intact'),
+            [k('sensation-decreased')]: opt('Decreased'),
+            [k('sensation-absent')]: opt('Absent'),
+            [k('sensation-paresthesia')]: opt('Paresthesia'),
           },
         },
         'motor-strength': {
           label: 'Motor strength',
           options: {
-            [k('motor-5-5')]: { label: '5/5', defaultValue: false },
-            [k('motor-4-5')]: { label: '4/5', defaultValue: false },
-            [k('motor-3-5')]: { label: '3/5', defaultValue: false },
-            [k('motor-lte-2-5')]: { label: '\u22642/5', defaultValue: false },
+            [k('motor-5-5')]: opt('5/5'),
+            [k('motor-4-5')]: opt('4/5'),
+            [k('motor-3-5')]: opt('3/5'),
+            [k('motor-lte-2-5')]: opt('\u22642/5'),
           },
         },
       },
@@ -206,45 +229,45 @@ const shoulderSpecialTests: SpecialTestsBuilder = (k) => ({
   'hawkins-kennedy': {
     label: 'Hawkins-Kennedy',
     options: {
-      [k('hawkins-neg')]: { label: 'Neg', defaultValue: false },
-      [k('hawkins-pos')]: { label: 'Pos', defaultValue: false },
+      [k('hawkins-neg')]: opt('Neg'),
+      [k('hawkins-pos')]: opt('Pos'),
     },
   },
   'empty-can': {
     label: 'Empty can',
     options: {
-      [k('empty-can-neg')]: { label: 'Neg', defaultValue: false },
-      [k('empty-can-pos')]: { label: 'Pos', defaultValue: false },
+      [k('empty-can-neg')]: opt('Neg'),
+      [k('empty-can-pos')]: opt('Pos'),
     },
   },
   speeds: {
     label: "Speed's",
     options: {
-      [k('speeds-neg')]: { label: 'Neg', defaultValue: false },
-      [k('speeds-pos')]: { label: 'Pos', defaultValue: false },
+      [k('speeds-neg')]: opt('Neg'),
+      [k('speeds-pos')]: opt('Pos'),
     },
   },
   'drop-arm': {
     label: 'Drop arm',
     options: {
-      [k('drop-arm-neg')]: { label: 'Neg', defaultValue: false },
-      [k('drop-arm-pos')]: { label: 'Pos', defaultValue: false },
+      [k('drop-arm-neg')]: opt('Neg'),
+      [k('drop-arm-pos')]: opt('Pos'),
     },
   },
   'ac-joint-tenderness': {
     label: 'AC joint tenderness',
     options: {
-      [k('ac-joint-absent')]: { label: 'Absent', defaultValue: false },
-      [k('ac-joint-present')]: { label: 'Present', defaultValue: false },
+      [k('ac-joint-absent')]: opt('Absent'),
+      [k('ac-joint-present')]: opt('Present'),
     },
   },
   instability: {
     label: 'Instability',
     options: {
-      [k('instability-none')]: { label: 'None', defaultValue: false },
-      [k('instability-anterior')]: { label: 'Anterior', defaultValue: false },
-      [k('instability-posterior')]: { label: 'Posterior', defaultValue: false },
-      [k('instability-multidirectional')]: { label: 'Multidirectional', defaultValue: false },
+      [k('instability-none')]: opt('None'),
+      [k('instability-anterior')]: opt('Anterior'),
+      [k('instability-posterior')]: opt('Posterior'),
+      [k('instability-multidirectional')]: opt('Multidirectional'),
     },
   },
 });
@@ -253,36 +276,36 @@ const elbowSpecialTests: SpecialTestsBuilder = (k) => ({
   'lateral-epicondyle': {
     label: 'Lateral epicondyle tenderness',
     options: {
-      [k('lat-epicondyle-absent')]: { label: 'Absent', defaultValue: false },
-      [k('lat-epicondyle-present')]: { label: 'Present', defaultValue: false },
+      [k('lat-epicondyle-absent')]: opt('Absent'),
+      [k('lat-epicondyle-present')]: opt('Present'),
     },
   },
   'medial-epicondyle': {
     label: 'Medial epicondyle tenderness',
     options: {
-      [k('med-epicondyle-absent')]: { label: 'Absent', defaultValue: false },
-      [k('med-epicondyle-present')]: { label: 'Present', defaultValue: false },
+      [k('med-epicondyle-absent')]: opt('Absent'),
+      [k('med-epicondyle-present')]: opt('Present'),
     },
   },
   'valgus-stress': {
     label: 'Valgus stress',
     options: {
-      [k('valgus-stable')]: { label: 'Stable', defaultValue: false },
-      [k('valgus-lax')]: { label: 'Lax', defaultValue: false },
+      [k('valgus-stable')]: opt('Stable'),
+      [k('valgus-lax')]: opt('Lax'),
     },
   },
   'carrying-angle': {
     label: 'Carrying angle',
     options: {
-      [k('carrying-angle-normal')]: { label: 'Normal', defaultValue: false },
-      [k('carrying-angle-increased')]: { label: 'Increased', defaultValue: false },
+      [k('carrying-angle-normal')]: opt('Normal'),
+      [k('carrying-angle-increased')]: opt('Increased'),
     },
   },
   'tinels-cubital': {
     label: "Tinel's at cubital tunnel",
     options: {
-      [k('tinels-cubital-neg')]: { label: 'Neg', defaultValue: false },
-      [k('tinels-cubital-pos')]: { label: 'Pos', defaultValue: false },
+      [k('tinels-cubital-neg')]: opt('Neg'),
+      [k('tinels-cubital-pos')]: opt('Pos'),
     },
   },
 });
@@ -291,43 +314,43 @@ const wristSpecialTests: SpecialTestsBuilder = (k) => ({
   'snuffbox-tenderness': {
     label: 'Anatomical snuffbox tenderness',
     options: {
-      [k('snuffbox-absent')]: { label: 'Absent', defaultValue: false },
-      [k('snuffbox-present')]: { label: 'Present', defaultValue: false },
+      [k('snuffbox-absent')]: opt('Absent'),
+      [k('snuffbox-present')]: opt('Present'),
     },
   },
   finkelstein: {
     label: 'Finkelstein',
     options: {
-      [k('finkelstein-neg')]: { label: 'Neg', defaultValue: false },
-      [k('finkelstein-pos')]: { label: 'Pos', defaultValue: false },
+      [k('finkelstein-neg')]: opt('Neg'),
+      [k('finkelstein-pos')]: opt('Pos'),
     },
   },
   phalens: {
     label: "Phalen's",
     options: {
-      [k('phalens-neg')]: { label: 'Neg', defaultValue: false },
-      [k('phalens-pos')]: { label: 'Pos', defaultValue: false },
+      [k('phalens-neg')]: opt('Neg'),
+      [k('phalens-pos')]: opt('Pos'),
     },
   },
   tinels: {
     label: "Tinel's at carpal tunnel",
     options: {
-      [k('tinels-neg')]: { label: 'Neg', defaultValue: false },
-      [k('tinels-pos')]: { label: 'Pos', defaultValue: false },
+      [k('tinels-neg')]: opt('Neg'),
+      [k('tinels-pos')]: opt('Pos'),
     },
   },
   'grip-strength': {
     label: 'Grip strength',
     options: {
-      [k('grip-normal')]: { label: 'Normal', defaultValue: false },
-      [k('grip-reduced')]: { label: 'Reduced', defaultValue: false },
+      [k('grip-normal')]: opt('Normal'),
+      [k('grip-reduced')]: opt('Reduced'),
     },
   },
   'finger-rom': {
     label: 'Finger ROM',
     options: {
-      [k('finger-rom-full')]: { label: 'Full', defaultValue: false },
-      [k('finger-rom-limited')]: { label: 'Limited', defaultValue: false },
+      [k('finger-rom-full')]: opt('Full'),
+      [k('finger-rom-limited')]: opt('Limited'),
     },
   },
 });
@@ -336,154 +359,154 @@ const handFingerSpecialTests: SpecialTestsBuilder = (k) => ({
   'fingers-affected': {
     label: 'Finger(s) affected',
     options: {
-      [k('finger-thumb')]: { label: 'Thumb', defaultValue: false },
-      [k('finger-index')]: { label: 'Index', defaultValue: false },
-      [k('finger-middle')]: { label: 'Middle', defaultValue: false },
-      [k('finger-ring')]: { label: 'Ring', defaultValue: false },
-      [k('finger-little')]: { label: 'Little', defaultValue: false },
+      [k('finger-thumb')]: opt('Thumb'),
+      [k('finger-index')]: opt('Index'),
+      [k('finger-middle')]: opt('Middle'),
+      [k('finger-ring')]: opt('Ring'),
+      [k('finger-little')]: opt('Little'),
     },
   },
   'dip-tenderness': {
     label: 'DIP tenderness',
     options: {
-      [k('dip-tenderness-none')]: { label: 'None', defaultValue: false },
-      [k('dip-tenderness-present')]: { label: 'Present', defaultValue: false },
+      [k('dip-tenderness-none')]: opt('None'),
+      [k('dip-tenderness-present')]: opt('Present'),
     },
   },
   'pip-tenderness': {
     label: 'PIP tenderness',
     options: {
-      [k('pip-tenderness-none')]: { label: 'None', defaultValue: false },
-      [k('pip-tenderness-present')]: { label: 'Present', defaultValue: false },
+      [k('pip-tenderness-none')]: opt('None'),
+      [k('pip-tenderness-present')]: opt('Present'),
     },
   },
   'mcp-tenderness': {
     label: 'MCP tenderness',
     options: {
-      [k('mcp-tenderness-none')]: { label: 'None', defaultValue: false },
-      [k('mcp-tenderness-present')]: { label: 'Present', defaultValue: false },
+      [k('mcp-tenderness-none')]: opt('None'),
+      [k('mcp-tenderness-present')]: opt('Present'),
     },
   },
   'dip-swelling': {
     label: 'DIP swelling',
     options: {
-      [k('dip-swelling-none')]: { label: 'None', defaultValue: false },
-      [k('dip-swelling-present')]: { label: 'Present', defaultValue: false },
+      [k('dip-swelling-none')]: opt('None'),
+      [k('dip-swelling-present')]: opt('Present'),
     },
   },
   'pip-swelling': {
     label: 'PIP swelling',
     options: {
-      [k('pip-swelling-none')]: { label: 'None', defaultValue: false },
-      [k('pip-swelling-present')]: { label: 'Present', defaultValue: false },
+      [k('pip-swelling-none')]: opt('None'),
+      [k('pip-swelling-present')]: opt('Present'),
     },
   },
   'mcp-swelling': {
     label: 'MCP swelling',
     options: {
-      [k('mcp-swelling-none')]: { label: 'None', defaultValue: false },
-      [k('mcp-swelling-present')]: { label: 'Present', defaultValue: false },
+      [k('mcp-swelling-none')]: opt('None'),
+      [k('mcp-swelling-present')]: opt('Present'),
     },
   },
   'dip-rom': {
     label: 'DIP ROM',
     options: {
-      [k('dip-rom-full')]: { label: 'Full', defaultValue: false },
-      [k('dip-rom-limited')]: { label: 'Limited', defaultValue: false },
-      [k('dip-rom-unable')]: { label: 'Unable', defaultValue: false },
+      [k('dip-rom-full')]: opt('Full'),
+      [k('dip-rom-limited')]: opt('Limited'),
+      [k('dip-rom-unable')]: opt('Unable'),
     },
   },
   'pip-rom': {
     label: 'PIP ROM',
     options: {
-      [k('pip-rom-full')]: { label: 'Full', defaultValue: false },
-      [k('pip-rom-limited')]: { label: 'Limited', defaultValue: false },
-      [k('pip-rom-unable')]: { label: 'Unable', defaultValue: false },
+      [k('pip-rom-full')]: opt('Full'),
+      [k('pip-rom-limited')]: opt('Limited'),
+      [k('pip-rom-unable')]: opt('Unable'),
     },
   },
   'mcp-rom': {
     label: 'MCP ROM',
     options: {
-      [k('mcp-rom-full')]: { label: 'Full', defaultValue: false },
-      [k('mcp-rom-limited')]: { label: 'Limited', defaultValue: false },
-      [k('mcp-rom-unable')]: { label: 'Unable', defaultValue: false },
+      [k('mcp-rom-full')]: opt('Full'),
+      [k('mcp-rom-limited')]: opt('Limited'),
+      [k('mcp-rom-unable')]: opt('Unable'),
     },
   },
   'dip-stability': {
     label: 'DIP stability',
     options: {
-      [k('dip-stability-stable')]: { label: 'Stable', defaultValue: false },
-      [k('dip-stability-lax-radial')]: { label: 'Lax \u2014 Radial', defaultValue: false },
-      [k('dip-stability-lax-ulnar')]: { label: 'Lax \u2014 Ulnar', defaultValue: false },
+      [k('dip-stability-stable')]: opt('Stable'),
+      [k('dip-stability-lax-radial')]: opt('Lax \u2014 Radial'),
+      [k('dip-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
     },
   },
   'pip-stability': {
     label: 'PIP stability',
     options: {
-      [k('pip-stability-stable')]: { label: 'Stable', defaultValue: false },
-      [k('pip-stability-lax-radial')]: { label: 'Lax \u2014 Radial', defaultValue: false },
-      [k('pip-stability-lax-ulnar')]: { label: 'Lax \u2014 Ulnar', defaultValue: false },
+      [k('pip-stability-stable')]: opt('Stable'),
+      [k('pip-stability-lax-radial')]: opt('Lax \u2014 Radial'),
+      [k('pip-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
     },
   },
   'mcp-stability': {
     label: 'MCP stability',
     options: {
-      [k('mcp-stability-stable')]: { label: 'Stable', defaultValue: false },
-      [k('mcp-stability-lax-radial')]: { label: 'Lax \u2014 Radial', defaultValue: false },
-      [k('mcp-stability-lax-ulnar')]: { label: 'Lax \u2014 Ulnar', defaultValue: false },
+      [k('mcp-stability-stable')]: opt('Stable'),
+      [k('mcp-stability-lax-radial')]: opt('Lax \u2014 Radial'),
+      [k('mcp-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
     },
   },
   'dip-deformity': {
     label: 'DIP deformity',
     options: {
-      [k('dip-deformity-none')]: { label: 'None', defaultValue: false },
-      [k('dip-deformity-mallet')]: { label: 'Mallet', defaultValue: false },
-      [k('dip-deformity-boutonniere')]: { label: 'Boutonni\u00e8re', defaultValue: false },
+      [k('dip-deformity-none')]: opt('None'),
+      [k('dip-deformity-mallet')]: opt('Mallet'),
+      [k('dip-deformity-boutonniere')]: opt('Boutonni\u00e8re'),
     },
   },
   'pip-deformity': {
     label: 'PIP deformity',
     options: {
-      [k('pip-deformity-none')]: { label: 'None', defaultValue: false },
-      [k('pip-deformity-mallet')]: { label: 'Mallet', defaultValue: false },
-      [k('pip-deformity-boutonniere')]: { label: 'Boutonni\u00e8re', defaultValue: false },
+      [k('pip-deformity-none')]: opt('None'),
+      [k('pip-deformity-mallet')]: opt('Mallet'),
+      [k('pip-deformity-boutonniere')]: opt('Boutonni\u00e8re'),
     },
   },
   'mcp-deformity': {
     label: 'MCP deformity',
     options: {
-      [k('mcp-deformity-none')]: { label: 'None', defaultValue: false },
-      [k('mcp-deformity-dislocation')]: { label: 'Dislocation', defaultValue: false },
+      [k('mcp-deformity-none')]: opt('None'),
+      [k('mcp-deformity-dislocation')]: opt('Dislocation'),
     },
   },
   'extensor-tendon': {
     label: 'Extensor tendon integrity',
     options: {
-      [k('extensor-intact')]: { label: 'Intact', defaultValue: false },
-      [k('extensor-suspected-rupture')]: { label: 'Suspected rupture', defaultValue: false },
+      [k('extensor-intact')]: opt('Intact'),
+      [k('extensor-suspected-rupture')]: opt('Suspected rupture'),
     },
   },
   'flexor-tendon': {
     label: 'Flexor tendon integrity',
     options: {
-      [k('flexor-intact')]: { label: 'Intact', defaultValue: false },
-      [k('flexor-suspected-rupture')]: { label: 'Suspected rupture', defaultValue: false },
+      [k('flexor-intact')]: opt('Intact'),
+      [k('flexor-suspected-rupture')]: opt('Suspected rupture'),
     },
   },
   'subungual-hematoma': {
     label: 'Subungual hematoma',
     options: {
-      [k('subungual-absent')]: { label: 'Absent', defaultValue: false },
-      [k('subungual-lt-25')]: { label: '<25%', defaultValue: false },
-      [k('subungual-25-50')]: { label: '25\u201350%', defaultValue: false },
-      [k('subungual-gt-50')]: { label: '>50% nail bed', defaultValue: false },
+      [k('subungual-absent')]: opt('Absent'),
+      [k('subungual-lt-25')]: opt('<25%'),
+      [k('subungual-25-50')]: opt('25\u201350%'),
+      [k('subungual-gt-50')]: opt('>50% nail bed'),
     },
   },
   trephination: {
     label: 'Trephination',
     options: {
-      [k('trephination-no')]: { label: 'No', defaultValue: false },
-      [k('trephination-yes')]: { label: 'Yes', defaultValue: false },
+      [k('trephination-no')]: opt('No'),
+      [k('trephination-yes')]: opt('Yes'),
     },
   },
 });
@@ -492,60 +515,98 @@ const kneeSpecialTests: SpecialTestsBuilder = (k) => ({
   lachman: {
     label: 'Lachman',
     options: {
-      [k('lachman-neg')]: { label: 'Neg', defaultValue: false },
-      [k('lachman-pos')]: { label: 'Pos', defaultValue: false },
+      [k('lachman-neg')]: opt('Neg'),
+      [k('lachman-pos')]: opt('Pos'),
     },
   },
   'anterior-drawer': {
     label: 'Anterior drawer',
     options: {
-      [k('anterior-drawer-neg')]: { label: 'Neg', defaultValue: false },
-      [k('anterior-drawer-pos')]: { label: 'Pos', defaultValue: false },
+      [k('anterior-drawer-neg')]: opt('Neg'),
+      [k('anterior-drawer-pos')]: opt('Pos'),
     },
   },
   'posterior-drawer': {
     label: 'Posterior drawer',
     options: {
-      [k('posterior-drawer-neg')]: { label: 'Neg', defaultValue: false },
-      [k('posterior-drawer-pos')]: { label: 'Pos', defaultValue: false },
+      [k('posterior-drawer-neg')]: opt('Neg'),
+      [k('posterior-drawer-pos')]: opt('Pos'),
     },
   },
   mcmurray: {
     label: 'McMurray',
     options: {
-      [k('mcmurray-neg')]: { label: 'Neg', defaultValue: false },
-      [k('mcmurray-pos-medial')]: { label: 'Pos \u2014 Medial', defaultValue: false },
-      [k('mcmurray-pos-lateral')]: { label: 'Pos \u2014 Lateral', defaultValue: false },
+      [k('mcmurray-neg')]: opt('Neg'),
+      [k('mcmurray-pos-medial')]: opt('Pos \u2014 Medial'),
+      [k('mcmurray-pos-lateral')]: opt('Pos \u2014 Lateral'),
     },
   },
   'valgus-stress': {
     label: 'Valgus stress',
     options: {
-      [k('valgus-stable')]: { label: 'Stable', defaultValue: false },
-      [k('valgus-lax')]: { label: 'Lax', defaultValue: false },
+      [k('valgus-stable')]: opt('Stable'),
+      [k('valgus-lax')]: opt('Lax'),
     },
   },
   'varus-stress': {
     label: 'Varus stress',
     options: {
-      [k('varus-stable')]: { label: 'Stable', defaultValue: false },
-      [k('varus-lax')]: { label: 'Lax', defaultValue: false },
+      [k('varus-stable')]: opt('Stable'),
+      [k('varus-lax')]: opt('Lax'),
     },
   },
   'patellar-grind': {
     label: 'Patellar grind',
     options: {
-      [k('patellar-grind-neg')]: { label: 'Neg', defaultValue: false },
-      [k('patellar-grind-pos')]: { label: 'Pos', defaultValue: false },
+      [k('patellar-grind-neg')]: opt('Neg'),
+      [k('patellar-grind-pos')]: opt('Pos'),
     },
   },
   effusion: {
     label: 'Effusion',
     options: {
-      [k('effusion-none')]: { label: 'None', defaultValue: false },
-      [k('effusion-present')]: { label: 'Present', defaultValue: false },
-      [k('effusion-ballottement')]: { label: 'Ballottement', defaultValue: false },
-      [k('effusion-bulge-sign')]: { label: 'Bulge sign', defaultValue: false },
+      [k('effusion-none')]: opt('None'),
+      [k('effusion-present')]: opt('Present'),
+      [k('effusion-ballottement')]: opt('Ballottement'),
+      [k('effusion-bulge-sign')]: opt('Bulge sign'),
+    },
+  },
+});
+
+const hipSpecialTests: SpecialTestsBuilder = (k) => ({
+  faber: {
+    label: 'FABER',
+    options: {
+      [k('faber-neg')]: opt('Neg'),
+      [k('faber-pos')]: opt('Pos'),
+    },
+  },
+  fadir: {
+    label: 'FADIR',
+    options: {
+      [k('fadir-neg')]: opt('Neg'),
+      [k('fadir-pos')]: opt('Pos'),
+    },
+  },
+  'log-roll': {
+    label: 'Log roll',
+    options: {
+      [k('log-roll-neg')]: opt('Neg'),
+      [k('log-roll-pos')]: opt('Pos'),
+    },
+  },
+  trendelenburg: {
+    label: 'Trendelenburg',
+    options: {
+      [k('trendelenburg-neg')]: opt('Neg'),
+      [k('trendelenburg-pos')]: opt('Pos'),
+    },
+  },
+  'greater-trochanter': {
+    label: 'Greater trochanter tenderness',
+    options: {
+      [k('trochanter-absent')]: opt('Absent'),
+      [k('trochanter-present')]: opt('Present'),
     },
   },
 });
@@ -554,29 +615,29 @@ const ankleSpecialTests: SpecialTestsBuilder = (k) => ({
   'anterior-drawer': {
     label: 'Anterior drawer',
     options: {
-      [k('anterior-drawer-neg')]: { label: 'Neg', defaultValue: false },
-      [k('anterior-drawer-pos')]: { label: 'Pos', defaultValue: false },
+      [k('anterior-drawer-neg')]: opt('Neg'),
+      [k('anterior-drawer-pos')]: opt('Pos'),
     },
   },
   'talar-tilt': {
     label: 'Talar tilt',
     options: {
-      [k('talar-tilt-neg')]: { label: 'Neg', defaultValue: false },
-      [k('talar-tilt-pos')]: { label: 'Pos', defaultValue: false },
+      [k('talar-tilt-neg')]: opt('Neg'),
+      [k('talar-tilt-pos')]: opt('Pos'),
     },
   },
   'squeeze-test': {
     label: 'Squeeze test (syndesmosis)',
     options: {
-      [k('squeeze-neg')]: { label: 'Neg', defaultValue: false },
-      [k('squeeze-pos')]: { label: 'Pos', defaultValue: false },
+      [k('squeeze-neg')]: opt('Neg'),
+      [k('squeeze-pos')]: opt('Pos'),
     },
   },
   'thompson-test': {
     label: 'Thompson test',
     options: {
-      [k('thompson-neg')]: { label: 'Neg', defaultValue: false },
-      [k('thompson-pos')]: { label: 'Pos', defaultValue: false },
+      [k('thompson-neg')]: opt('Neg'),
+      [k('thompson-pos')]: opt('Pos'),
     },
   },
 });
@@ -585,50 +646,50 @@ const footToeSpecialTests: SpecialTestsBuilder = (k) => ({
   'toes-affected': {
     label: 'Toe(s) affected',
     options: {
-      [k('toe-hallux')]: { label: 'Hallux', defaultValue: false },
-      [k('toe-2nd')]: { label: '2nd', defaultValue: false },
-      [k('toe-3rd')]: { label: '3rd', defaultValue: false },
-      [k('toe-4th')]: { label: '4th', defaultValue: false },
-      [k('toe-5th')]: { label: '5th', defaultValue: false },
+      [k('toe-hallux')]: opt('Hallux'),
+      [k('toe-2nd')]: opt('2nd'),
+      [k('toe-3rd')]: opt('3rd'),
+      [k('toe-4th')]: opt('4th'),
+      [k('toe-5th')]: opt('5th'),
     },
   },
   'midfoot-tenderness': {
     label: 'Midfoot tenderness',
     options: {
-      [k('midfoot-none')]: { label: 'None', defaultValue: false },
-      [k('midfoot-navicular')]: { label: 'Navicular', defaultValue: false },
-      [k('midfoot-5th-met-base')]: { label: '5th metatarsal base', defaultValue: false },
+      [k('midfoot-none')]: opt('None'),
+      [k('midfoot-navicular')]: opt('Navicular'),
+      [k('midfoot-5th-met-base')]: opt('5th metatarsal base'),
     },
   },
   'plantar-fascia': {
     label: 'Plantar fascia',
     options: {
-      [k('plantar-normal')]: { label: 'Normal', defaultValue: false },
-      [k('plantar-tender')]: { label: 'Tender', defaultValue: false },
+      [k('plantar-normal')]: opt('Normal'),
+      [k('plantar-tender')]: opt('Tender'),
     },
   },
   'subungual-hematoma': {
     label: 'Subungual hematoma',
     options: {
-      [k('subungual-absent')]: { label: 'Absent', defaultValue: false },
-      [k('subungual-lt-25')]: { label: '<25%', defaultValue: false },
-      [k('subungual-25-50')]: { label: '25\u201350%', defaultValue: false },
-      [k('subungual-gt-50')]: { label: '>50% nail bed', defaultValue: false },
+      [k('subungual-absent')]: opt('Absent'),
+      [k('subungual-lt-25')]: opt('<25%'),
+      [k('subungual-25-50')]: opt('25\u201350%'),
+      [k('subungual-gt-50')]: opt('>50% nail bed'),
     },
   },
   'nail-integrity': {
     label: 'Nail integrity',
     options: {
-      [k('nail-intact')]: { label: 'Intact', defaultValue: false },
-      [k('nail-avulsion')]: { label: 'Avulsion', defaultValue: false },
-      [k('nail-partial-avulsion')]: { label: 'Partial avulsion', defaultValue: false },
+      [k('nail-intact')]: opt('Intact'),
+      [k('nail-avulsion')]: opt('Avulsion'),
+      [k('nail-partial-avulsion')]: opt('Partial avulsion'),
     },
   },
   'tuft-fracture': {
     label: 'Tuft fracture suspected',
     options: {
-      [k('tuft-no')]: { label: 'No', defaultValue: false },
-      [k('tuft-yes-toe-series')]: { label: 'Yes \u2192 order: Toe series', defaultValue: false },
+      [k('tuft-no')]: opt('No'),
+      [k('tuft-yes-toe-series')]: opt('Yes \u2192 order: Toe series'),
     },
   },
 });
@@ -654,9 +715,9 @@ function createLymphNodeModalExam(
           status: {
             label: 'Status',
             options: {
-              [k('normal')]: { label: 'Normal', defaultValue: false },
-              [k('enlarged')]: { label: 'Enlarged', defaultValue: false },
-              [k('tender')]: { label: 'Tender', defaultValue: false },
+              [k('normal')]: opt('Normal'),
+              [k('enlarged')]: opt('Enlarged'),
+              [k('tender')]: opt('Tender'),
             },
           },
         },
@@ -667,40 +728,40 @@ function createLymphNodeModalExam(
           size: {
             label: 'Size',
             options: {
-              [k('size-lt-1cm')]: { label: '<1cm', defaultValue: false },
-              [k('size-1-2cm')]: { label: '1\u20132cm', defaultValue: false },
-              [k('size-gt-2cm')]: { label: '>2cm', defaultValue: false },
+              [k('size-lt-1cm')]: opt('<1cm'),
+              [k('size-1-2cm')]: opt('1\u20132cm'),
+              [k('size-gt-2cm')]: opt('>2cm'),
             },
           },
           texture: {
             label: 'Texture',
             options: {
-              [k('texture-soft')]: { label: 'Soft', defaultValue: false },
-              [k('texture-firm')]: { label: 'Firm', defaultValue: false },
-              [k('texture-hard')]: { label: 'Hard', defaultValue: false },
-              [k('texture-matted')]: { label: 'Matted', defaultValue: false },
+              [k('texture-soft')]: opt('Soft'),
+              [k('texture-firm')]: opt('Firm'),
+              [k('texture-hard')]: opt('Hard'),
+              [k('texture-matted')]: opt('Matted'),
             },
           },
           mobility: {
             label: 'Mobility',
             options: {
-              [k('mobility-mobile')]: { label: 'Mobile', defaultValue: false },
-              [k('mobility-fixed')]: { label: 'Fixed', defaultValue: false },
+              [k('mobility-mobile')]: opt('Mobile'),
+              [k('mobility-fixed')]: opt('Fixed'),
             },
           },
           tenderness: {
             label: 'Tenderness',
             options: {
-              [k('char-tender')]: { label: 'Tender', defaultValue: false },
-              [k('char-non-tender')]: { label: 'Non-tender', defaultValue: false },
+              [k('char-tender')]: opt('Tender'),
+              [k('char-non-tender')]: opt('Non-tender'),
             },
           },
           'overlying-skin': {
             label: 'Overlying skin',
             options: {
-              [k('skin-normal')]: { label: 'Normal', defaultValue: false },
-              [k('skin-erythema')]: { label: 'Erythema', defaultValue: false },
-              [k('skin-fluctuant')]: { label: 'Fluctuant', defaultValue: false },
+              [k('skin-normal')]: opt('Normal'),
+              [k('skin-erythema')]: opt('Erythema'),
+              [k('skin-fluctuant')]: opt('Fluctuant'),
             },
           },
         },
@@ -925,26 +986,26 @@ export const InPersonExamConfig = {
                 appearance: {
                   label: 'Appearance',
                   options: {
-                    'ext-nose-normal': { label: 'Normal', defaultValue: false },
-                    'ext-nose-erythema': { label: 'Erythema', defaultValue: false },
-                    'ext-nose-swelling': { label: 'Swelling', defaultValue: false },
-                    'ext-nose-deformity': { label: 'Deformity', defaultValue: false },
+                    'ext-nose-normal': opt('Normal'),
+                    'ext-nose-erythema': opt('Erythema'),
+                    'ext-nose-swelling': opt('Swelling'),
+                    'ext-nose-deformity': opt('Deformity'),
                   },
                 },
                 tenderness: {
                   label: 'Tenderness',
                   options: {
-                    'ext-nose-tenderness-none': { label: 'None', defaultValue: false },
-                    'ext-nose-tenderness-dorsum': { label: 'Dorsum', defaultValue: false },
-                    'ext-nose-tenderness-tip': { label: 'Tip', defaultValue: false },
-                    'ext-nose-tenderness-ala': { label: 'Ala', defaultValue: false },
+                    'ext-nose-tenderness-none': opt('None'),
+                    'ext-nose-tenderness-dorsum': opt('Dorsum'),
+                    'ext-nose-tenderness-tip': opt('Tip'),
+                    'ext-nose-tenderness-ala': opt('Ala'),
                   },
                 },
                 crepitus: {
                   label: 'Crepitus',
                   options: {
-                    'ext-nose-crepitus-absent': { label: 'Absent', defaultValue: false },
-                    'ext-nose-crepitus-present': { label: 'Present', defaultValue: false },
+                    'ext-nose-crepitus-absent': opt('Absent'),
+                    'ext-nose-crepitus-present': opt('Present'),
                   },
                 },
               },
@@ -962,52 +1023,52 @@ export const InPersonExamConfig = {
                 patency: {
                   label: 'Patency',
                   options: {
-                    'rhinoscopy-l-patent': { label: 'Patent', defaultValue: false },
-                    'rhinoscopy-l-partial': { label: 'Partial', defaultValue: false },
-                    'rhinoscopy-l-obstructed': { label: 'Obstructed', defaultValue: false },
+                    'rhinoscopy-l-patent': opt('Patent'),
+                    'rhinoscopy-l-partial': opt('Partial'),
+                    'rhinoscopy-l-obstructed': opt('Obstructed'),
                   },
                 },
                 mucosa: {
                   label: 'Mucosa',
                   options: {
-                    'rhinoscopy-l-mucosa-normal': { label: 'Normal', defaultValue: false },
-                    'rhinoscopy-l-mucosa-pale-boggy': { label: 'Pale/boggy', defaultValue: false },
-                    'rhinoscopy-l-mucosa-erythematous': { label: 'Erythematous', defaultValue: false },
+                    'rhinoscopy-l-mucosa-normal': opt('Normal'),
+                    'rhinoscopy-l-mucosa-pale-boggy': opt('Pale/boggy'),
+                    'rhinoscopy-l-mucosa-erythematous': opt('Erythematous'),
                   },
                 },
                 'inf-turbinate': {
                   label: 'Inf. turbinate',
                   options: {
-                    'rhinoscopy-l-turbinate-normal': { label: 'Normal', defaultValue: false },
-                    'rhinoscopy-l-turbinate-hypertrophied': { label: 'Hypertrophied', defaultValue: false },
+                    'rhinoscopy-l-turbinate-normal': opt('Normal'),
+                    'rhinoscopy-l-turbinate-hypertrophied': opt('Hypertrophied'),
                   },
                 },
                 septum: {
                   label: 'Septum',
                   options: {
-                    'rhinoscopy-l-septum-midline': { label: 'Midline', defaultValue: false },
-                    'rhinoscopy-l-septum-no-hematoma': { label: 'No Hematoma', defaultValue: false },
-                    'rhinoscopy-l-septum-dev-r': { label: 'Dev R', defaultValue: false },
-                    'rhinoscopy-l-septum-dev-l': { label: 'Dev L', defaultValue: false },
-                    'rhinoscopy-l-septum-hematoma': { label: 'Hematoma', defaultValue: false },
+                    'rhinoscopy-l-septum-midline': opt('Midline'),
+                    'rhinoscopy-l-septum-no-hematoma': opt('No Hematoma'),
+                    'rhinoscopy-l-septum-dev-r': opt('Dev R'),
+                    'rhinoscopy-l-septum-dev-l': opt('Dev L'),
+                    'rhinoscopy-l-septum-hematoma': opt('Hematoma'),
                   },
                 },
                 discharge: {
                   label: 'Discharge',
                   options: {
-                    'rhinoscopy-l-discharge-none': { label: 'None', defaultValue: false },
-                    'rhinoscopy-l-discharge-clear': { label: 'Clear', defaultValue: false },
-                    'rhinoscopy-l-discharge-mucopurulent': { label: 'Mucopurulent', defaultValue: false },
-                    'rhinoscopy-l-discharge-bloody': { label: 'Bloody', defaultValue: false },
+                    'rhinoscopy-l-discharge-none': opt('None'),
+                    'rhinoscopy-l-discharge-clear': opt('Clear'),
+                    'rhinoscopy-l-discharge-mucopurulent': opt('Mucopurulent'),
+                    'rhinoscopy-l-discharge-bloody': opt('Bloody'),
                   },
                 },
                 'polyps-fb': {
                   label: 'Polyps/FB',
                   options: {
-                    'rhinoscopy-l-polyps-none': { label: 'None', defaultValue: false },
-                    'rhinoscopy-l-polyps-polyps': { label: 'Polyps', defaultValue: false },
-                    'rhinoscopy-l-fb-r': { label: 'FB \u2014 R', defaultValue: false },
-                    'rhinoscopy-l-fb-l': { label: 'FB \u2014 L', defaultValue: false },
+                    'rhinoscopy-l-polyps-none': opt('None'),
+                    'rhinoscopy-l-polyps-polyps': opt('Polyps'),
+                    'rhinoscopy-l-fb-r': opt('FB \u2014 R'),
+                    'rhinoscopy-l-fb-l': opt('FB \u2014 L'),
                   },
                 },
               },
@@ -1025,52 +1086,52 @@ export const InPersonExamConfig = {
                 patency: {
                   label: 'Patency',
                   options: {
-                    'rhinoscopy-r-patent': { label: 'Patent', defaultValue: false },
-                    'rhinoscopy-r-partial': { label: 'Partial', defaultValue: false },
-                    'rhinoscopy-r-obstructed': { label: 'Obstructed', defaultValue: false },
+                    'rhinoscopy-r-patent': opt('Patent'),
+                    'rhinoscopy-r-partial': opt('Partial'),
+                    'rhinoscopy-r-obstructed': opt('Obstructed'),
                   },
                 },
                 mucosa: {
                   label: 'Mucosa',
                   options: {
-                    'rhinoscopy-r-mucosa-normal': { label: 'Normal', defaultValue: false },
-                    'rhinoscopy-r-mucosa-pale-boggy': { label: 'Pale/boggy', defaultValue: false },
-                    'rhinoscopy-r-mucosa-erythematous': { label: 'Erythematous', defaultValue: false },
+                    'rhinoscopy-r-mucosa-normal': opt('Normal'),
+                    'rhinoscopy-r-mucosa-pale-boggy': opt('Pale/boggy'),
+                    'rhinoscopy-r-mucosa-erythematous': opt('Erythematous'),
                   },
                 },
                 'inf-turbinate': {
                   label: 'Inf. turbinate',
                   options: {
-                    'rhinoscopy-r-turbinate-normal': { label: 'Normal', defaultValue: false },
-                    'rhinoscopy-r-turbinate-hypertrophied': { label: 'Hypertrophied', defaultValue: false },
+                    'rhinoscopy-r-turbinate-normal': opt('Normal'),
+                    'rhinoscopy-r-turbinate-hypertrophied': opt('Hypertrophied'),
                   },
                 },
                 septum: {
                   label: 'Septum',
                   options: {
-                    'rhinoscopy-r-septum-midline': { label: 'Midline', defaultValue: false },
-                    'rhinoscopy-r-septum-no-hematoma': { label: 'No Hematoma', defaultValue: false },
-                    'rhinoscopy-r-septum-dev-r': { label: 'Dev R', defaultValue: false },
-                    'rhinoscopy-r-septum-dev-l': { label: 'Dev L', defaultValue: false },
-                    'rhinoscopy-r-septum-hematoma': { label: 'Hematoma', defaultValue: false },
+                    'rhinoscopy-r-septum-midline': opt('Midline'),
+                    'rhinoscopy-r-septum-no-hematoma': opt('No Hematoma'),
+                    'rhinoscopy-r-septum-dev-r': opt('Dev R'),
+                    'rhinoscopy-r-septum-dev-l': opt('Dev L'),
+                    'rhinoscopy-r-septum-hematoma': opt('Hematoma'),
                   },
                 },
                 discharge: {
                   label: 'Discharge',
                   options: {
-                    'rhinoscopy-r-discharge-none': { label: 'None', defaultValue: false },
-                    'rhinoscopy-r-discharge-clear': { label: 'Clear', defaultValue: false },
-                    'rhinoscopy-r-discharge-mucopurulent': { label: 'Mucopurulent', defaultValue: false },
-                    'rhinoscopy-r-discharge-bloody': { label: 'Bloody', defaultValue: false },
+                    'rhinoscopy-r-discharge-none': opt('None'),
+                    'rhinoscopy-r-discharge-clear': opt('Clear'),
+                    'rhinoscopy-r-discharge-mucopurulent': opt('Mucopurulent'),
+                    'rhinoscopy-r-discharge-bloody': opt('Bloody'),
                   },
                 },
                 'polyps-fb': {
                   label: 'Polyps/FB',
                   options: {
-                    'rhinoscopy-r-polyps-none': { label: 'None', defaultValue: false },
-                    'rhinoscopy-r-polyps-polyps': { label: 'Polyps', defaultValue: false },
-                    'rhinoscopy-r-fb-r': { label: 'FB \u2014 R', defaultValue: false },
-                    'rhinoscopy-r-fb-l': { label: 'FB \u2014 L', defaultValue: false },
+                    'rhinoscopy-r-polyps-none': opt('None'),
+                    'rhinoscopy-r-polyps-polyps': opt('Polyps'),
+                    'rhinoscopy-r-fb-r': opt('FB \u2014 R'),
+                    'rhinoscopy-r-fb-l': opt('FB \u2014 L'),
                   },
                 },
               },
@@ -1088,24 +1149,24 @@ export const InPersonExamConfig = {
                 location: {
                   label: 'Location',
                   options: {
-                    'epistaxis-not-present': { label: 'Not present', defaultValue: false },
-                    'epistaxis-anterior': { label: 'Anterior', defaultValue: false },
-                    'epistaxis-posterior': { label: 'Posterior', defaultValue: false },
+                    'epistaxis-not-present': opt('Not present'),
+                    'epistaxis-anterior': opt('Anterior'),
+                    'epistaxis-posterior': opt('Posterior'),
                   },
                 },
                 source: {
                   label: 'Source',
                   options: {
-                    'epistaxis-source-kiesselbach': { label: 'Kiesselbach', defaultValue: false },
-                    'epistaxis-source-other': { label: 'Other', defaultValue: false },
+                    'epistaxis-source-kiesselbach': opt('Kiesselbach'),
+                    'epistaxis-source-other': opt('Other'),
                   },
                 },
                 volume: {
                   label: 'Volume',
                   options: {
-                    'epistaxis-volume-scant': { label: 'Scant', defaultValue: false },
-                    'epistaxis-volume-moderate': { label: 'Moderate', defaultValue: false },
-                    'epistaxis-volume-large': { label: 'Large', defaultValue: false },
+                    'epistaxis-volume-scant': opt('Scant'),
+                    'epistaxis-volume-moderate': opt('Moderate'),
+                    'epistaxis-volume-large': opt('Large'),
                   },
                 },
               },
@@ -1123,21 +1184,21 @@ export const InPersonExamConfig = {
                 general: {
                   label: 'General',
                   options: {
-                    'sinus-all-non-tender': { label: 'All non-tender', defaultValue: false },
+                    'sinus-all-non-tender': opt('All non-tender'),
                   },
                 },
                 frontal: {
                   label: 'Frontal',
                   options: {
-                    'sinus-frontal-r': { label: 'Right', defaultValue: false },
-                    'sinus-frontal-l': { label: 'Left', defaultValue: false },
+                    'sinus-frontal-r': opt('Right'),
+                    'sinus-frontal-l': opt('Left'),
                   },
                 },
                 maxillary: {
                   label: 'Maxillary',
                   options: {
-                    'sinus-maxillary-r': { label: 'Right', defaultValue: false },
-                    'sinus-maxillary-l': { label: 'Left', defaultValue: false },
+                    'sinus-maxillary-r': opt('Right'),
+                    'sinus-maxillary-l': opt('Left'),
                   },
                 },
               },
@@ -1462,93 +1523,60 @@ export const InPersonExamConfig = {
                 type: {
                   label: 'Type',
                   options: {
-                    'skin-lesion-macule': { label: 'Macule', defaultValue: false },
-                    'skin-lesion-patch': { label: 'Patch', defaultValue: false },
-                    'skin-lesion-papule': { label: 'Papule', defaultValue: false },
-                    'skin-lesion-plaque': { label: 'Plaque', defaultValue: false },
-                    'skin-lesion-vesicle': { label: 'Vesicle', defaultValue: false },
-                    'skin-lesion-bulla': { label: 'Bulla', defaultValue: false },
-                    'skin-lesion-pustule': { label: 'Pustule', defaultValue: false },
-                    'skin-lesion-nodule': { label: 'Nodule', defaultValue: false },
-                    'skin-lesion-wheal': { label: 'Wheal', defaultValue: false },
-                    'skin-lesion-ulcer': { label: 'Ulcer', defaultValue: false },
+                    'skin-lesion-macule': opt('Macule'),
+                    'skin-lesion-patch': opt('Patch'),
+                    'skin-lesion-papule': opt('Papule'),
+                    'skin-lesion-plaque': opt('Plaque'),
+                    'skin-lesion-vesicle': opt('Vesicle'),
+                    'skin-lesion-bulla': opt('Bulla'),
+                    'skin-lesion-pustule': opt('Pustule'),
+                    'skin-lesion-nodule': opt('Nodule'),
+                    'skin-lesion-wheal': opt('Wheal'),
+                    'skin-lesion-ulcer': opt('Ulcer'),
                   },
                 },
                 color: {
                   label: 'Color',
                   options: {
-                    'skin-lesion-erythematous': { label: 'Erythematous', defaultValue: false },
-                    'skin-lesion-violaceous': { label: 'Violaceous', defaultValue: false },
-                    'skin-lesion-brown': { label: 'Brown', defaultValue: false },
-                    'skin-lesion-hypopigmented': { label: 'Hypopigmented', defaultValue: false },
-                    'skin-lesion-hyperpigmented': { label: 'Hyperpigmented', defaultValue: false },
-                    'skin-lesion-yellow': { label: 'Yellow', defaultValue: false },
-                    'skin-lesion-black': { label: 'Black', defaultValue: false },
+                    'skin-lesion-erythematous': opt('Erythematous'),
+                    'skin-lesion-violaceous': opt('Violaceous'),
+                    'skin-lesion-brown': opt('Brown'),
+                    'skin-lesion-hypopigmented': opt('Hypopigmented'),
+                    'skin-lesion-hyperpigmented': opt('Hyperpigmented'),
+                    'skin-lesion-yellow': opt('Yellow'),
+                    'skin-lesion-black': opt('Black'),
                   },
                 },
                 border: {
                   label: 'Border',
                   options: {
-                    'skin-lesion-well-defined': { label: 'Well-defined', defaultValue: false },
-                    'skin-lesion-ill-defined': { label: 'Ill-defined', defaultValue: false },
-                    'skin-lesion-irregular': { label: 'Irregular', defaultValue: false },
+                    'skin-lesion-well-defined': opt('Well-defined'),
+                    'skin-lesion-ill-defined': opt('Ill-defined'),
+                    'skin-lesion-irregular': opt('Irregular'),
                   },
                 },
                 surface: {
                   label: 'Surface',
                   options: {
-                    'skin-lesion-smooth': { label: 'Smooth', defaultValue: false },
-                    'skin-lesion-scaly': { label: 'Scaly', defaultValue: false },
-                    'skin-lesion-crusted': { label: 'Crusted', defaultValue: false },
-                    'skin-lesion-macerated': { label: 'Macerated', defaultValue: false },
+                    'skin-lesion-smooth': opt('Smooth'),
+                    'skin-lesion-scaly': opt('Scaly'),
+                    'skin-lesion-crusted': opt('Crusted'),
+                    'skin-lesion-macerated': opt('Macerated'),
                   },
                 },
                 size: {
                   label: 'Size',
                   options: {
-                    'skin-lesion-lt-1cm': { label: '<1cm', defaultValue: false },
-                    'skin-lesion-1-5cm': { label: '1\u20135cm', defaultValue: false },
-                    'skin-lesion-gt-5cm': { label: '>5cm', defaultValue: false },
+                    'skin-lesion-lt-1cm': opt('<1cm'),
+                    'skin-lesion-1-5cm': opt('1\u20135cm'),
+                    'skin-lesion-gt-5cm': opt('>5cm'),
                   },
                 },
                 blanching: {
                   label: 'Blanching',
                   options: {
-                    'skin-lesion-blanching-yes': { label: 'Yes', defaultValue: false },
-                    'skin-lesion-blanching-no': { label: 'No', defaultValue: false },
-                  },
-                },
-              },
-            },
-          },
-        },
-        'skin-distribution': {
-          label: 'Distribution pattern',
-          defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
-            distribution: {
-              label: 'Distribution Pattern',
-              groups: {
-                pattern: {
-                  label: 'Pattern',
-                  options: {
-                    'skin-dist-dermatomal': { label: 'Dermatomal', defaultValue: false },
-                    'skin-dist-flexural': { label: 'Flexural', defaultValue: false },
-                    'skin-dist-extensor': { label: 'Extensor', defaultValue: false },
-                    'skin-dist-sun-exposed': { label: 'Sun-exposed', defaultValue: false },
-                    'skin-dist-intertriginous': { label: 'Intertriginous', defaultValue: false },
-                    'skin-dist-palms-soles': { label: 'Palms/soles', defaultValue: false },
-                    'skin-dist-mucous-membranes': { label: 'Mucous membranes involved', defaultValue: false },
-                  },
-                },
-                side: {
-                  label: 'Side',
-                  options: {
-                    'skin-side-r': { label: 'R', defaultValue: false },
-                    'skin-side-l': { label: 'L', defaultValue: false },
-                    'skin-side-bilateral': { label: 'Bilateral', defaultValue: false },
-                    'skin-side-midline': { label: 'Midline', defaultValue: false },
+                    'skin-lesion-blanching-yes': opt('Yes'),
+                    'skin-lesion-blanching-no': opt('No'),
                   },
                 },
               },
@@ -1566,45 +1594,45 @@ export const InPersonExamConfig = {
                 presence: {
                   label: 'Presence',
                   options: {
-                    'skin-wound-not-present': { label: 'Not present', defaultValue: false },
+                    'skin-wound-not-present': opt('Not present'),
                   },
                 },
                 depth: {
                   label: 'Depth',
                   options: {
-                    'skin-wound-superficial': { label: 'Superficial', defaultValue: false },
-                    'skin-wound-subcutaneous': { label: 'Subcutaneous', defaultValue: false },
-                    'skin-wound-deep-fascial': { label: 'Deep/fascial', defaultValue: false },
+                    'skin-wound-superficial': opt('Superficial'),
+                    'skin-wound-subcutaneous': opt('Subcutaneous'),
+                    'skin-wound-deep-fascial': opt('Deep/fascial'),
                   },
                 },
                 edges: {
                   label: 'Edges',
                   options: {
-                    'skin-wound-edges-clean': { label: 'Clean', defaultValue: false },
-                    'skin-wound-edges-jagged': { label: 'Jagged', defaultValue: false },
-                    'skin-wound-edges-avulsion': { label: 'Avulsion', defaultValue: false },
+                    'skin-wound-edges-clean': opt('Clean'),
+                    'skin-wound-edges-jagged': opt('Jagged'),
+                    'skin-wound-edges-avulsion': opt('Avulsion'),
                   },
                 },
                 contamination: {
                   label: 'Contamination',
                   options: {
-                    'skin-wound-contam-none': { label: 'None', defaultValue: false },
-                    'skin-wound-contam-mild': { label: 'Mild', defaultValue: false },
-                    'skin-wound-contam-heavy': { label: 'Heavy', defaultValue: false },
+                    'skin-wound-contam-none': opt('None'),
+                    'skin-wound-contam-mild': opt('Mild'),
+                    'skin-wound-contam-heavy': opt('Heavy'),
                   },
                 },
                 'neurovascular-distal': {
                   label: 'Neurovascular distal',
                   options: {
-                    'skin-wound-nv-intact': { label: 'Intact', defaultValue: false },
-                    'skin-wound-nv-compromised': { label: 'Compromised', defaultValue: false },
+                    'skin-wound-nv-intact': opt('Intact'),
+                    'skin-wound-nv-compromised': opt('Compromised'),
                   },
                 },
                 'tendon-bone': {
                   label: 'Tendon/bone visible',
                   options: {
-                    'skin-wound-tendon-no': { label: 'No', defaultValue: false },
-                    'skin-wound-tendon-yes': { label: 'Yes', defaultValue: false },
+                    'skin-wound-tendon-no': opt('No'),
+                    'skin-wound-tendon-yes': opt('Yes'),
                   },
                 },
               },
@@ -1622,35 +1650,35 @@ export const InPersonExamConfig = {
                 presence: {
                   label: 'Presence',
                   options: {
-                    'skin-abscess-not-present': { label: 'Not present', defaultValue: false },
+                    'skin-abscess-not-present': opt('Not present'),
                   },
                 },
                 abscess: {
                   label: 'Abscess',
                   options: {
-                    'skin-abscess-fluctuant': { label: 'Fluctuant', defaultValue: false },
-                    'skin-abscess-non-fluctuant': { label: 'Non-fluctuant', defaultValue: false },
+                    'skin-abscess-fluctuant': opt('Fluctuant'),
+                    'skin-abscess-non-fluctuant': opt('Non-fluctuant'),
                   },
                 },
                 cellulitis: {
                   label: 'Cellulitis',
                   options: {
-                    'skin-cellulitis-absent': { label: 'Absent', defaultValue: false },
-                    'skin-cellulitis-present': { label: 'Present', defaultValue: false },
+                    'skin-cellulitis-absent': opt('Absent'),
+                    'skin-cellulitis-present': opt('Present'),
                   },
                 },
                 'borders-marked': {
                   label: 'Borders marked',
                   options: {
-                    'skin-cellulitis-borders-no': { label: 'No', defaultValue: false },
-                    'skin-cellulitis-borders-yes': { label: 'Yes', defaultValue: false },
+                    'skin-cellulitis-borders-no': opt('No'),
+                    'skin-cellulitis-borders-yes': opt('Yes'),
                   },
                 },
                 streaking: {
                   label: 'Streaking',
                   options: {
-                    'skin-streaking-absent': { label: 'Absent', defaultValue: false },
-                    'skin-streaking-present': { label: 'Present', defaultValue: false },
+                    'skin-streaking-absent': opt('Absent'),
+                    'skin-streaking-present': opt('Present'),
                   },
                 },
               },
@@ -1668,24 +1696,24 @@ export const InPersonExamConfig = {
                 presence: {
                   label: 'Presence',
                   options: {
-                    'skin-burn-not-present': { label: 'Not present', defaultValue: false },
+                    'skin-burn-not-present': opt('Not present'),
                   },
                 },
                 degree: {
                   label: 'Degree',
                   options: {
-                    'skin-burn-superficial-1st': { label: 'Superficial (1st)', defaultValue: false },
-                    'skin-burn-partial-2nd': { label: 'Partial thickness (2nd)', defaultValue: false },
-                    'skin-burn-full-3rd': { label: 'Full thickness (3rd)', defaultValue: false },
+                    'skin-burn-superficial-1st': opt('Superficial (1st)'),
+                    'skin-burn-partial-2nd': opt('Partial thickness (2nd)'),
+                    'skin-burn-full-3rd': opt('Full thickness (3rd)'),
                   },
                 },
                 tbsa: {
                   label: 'TBSA estimate',
                   options: {
-                    'skin-burn-tbsa-lt-1': { label: '<1%', defaultValue: false },
-                    'skin-burn-tbsa-1-5': { label: '1\u20135%', defaultValue: false },
-                    'skin-burn-tbsa-6-10': { label: '6\u201310%', defaultValue: false },
-                    'skin-burn-tbsa-gt-10': { label: '>10%', defaultValue: false },
+                    'skin-burn-tbsa-lt-1': opt('<1%'),
+                    'skin-burn-tbsa-1-5': opt('1\u20135%'),
+                    'skin-burn-tbsa-6-10': opt('6\u201310%'),
+                    'skin-burn-tbsa-gt-10': opt('>10%'),
                   },
                 },
               },
@@ -1703,49 +1731,49 @@ export const InPersonExamConfig = {
                 presence: {
                   label: 'Presence',
                   options: {
-                    'skin-bite-not-present': { label: 'Not present', defaultValue: false },
+                    'skin-bite-not-present': opt('Not present'),
                   },
                 },
                 source: {
                   label: 'Source',
                   options: {
-                    'skin-bite-human': { label: 'Human', defaultValue: false },
-                    'skin-bite-dog': { label: 'Dog', defaultValue: false },
-                    'skin-bite-cat': { label: 'Cat', defaultValue: false },
-                    'skin-bite-spider': { label: 'Spider', defaultValue: false },
-                    'skin-bite-insect': { label: 'Insect', defaultValue: false },
-                    'skin-bite-unknown': { label: 'Unknown', defaultValue: false },
+                    'skin-bite-human': opt('Human'),
+                    'skin-bite-dog': opt('Dog'),
+                    'skin-bite-cat': opt('Cat'),
+                    'skin-bite-spider': opt('Spider'),
+                    'skin-bite-insect': opt('Insect'),
+                    'skin-bite-unknown': opt('Unknown'),
                   },
                 },
                 'wound-type': {
                   label: 'Wound type',
                   options: {
-                    'skin-bite-puncture': { label: 'Puncture', defaultValue: false },
-                    'skin-bite-laceration': { label: 'Laceration', defaultValue: false },
-                    'skin-bite-crush': { label: 'Crush', defaultValue: false },
+                    'skin-bite-puncture': opt('Puncture'),
+                    'skin-bite-laceration': opt('Laceration'),
+                    'skin-bite-crush': opt('Crush'),
                   },
                 },
                 'signs-of-infection': {
                   label: 'Signs of infection',
                   options: {
-                    'skin-bite-infection-none': { label: 'None', defaultValue: false },
-                    'skin-bite-infection-early': { label: 'Early', defaultValue: false },
-                    'skin-bite-infection-established': { label: 'Established', defaultValue: false },
+                    'skin-bite-infection-none': opt('None'),
+                    'skin-bite-infection-early': opt('Early'),
+                    'skin-bite-infection-established': opt('Established'),
                   },
                 },
                 'tick-attached': {
                   label: 'Tick attached',
                   options: {
-                    'skin-bite-tick-no': { label: 'No', defaultValue: false },
-                    'skin-bite-tick-yes-removed': { label: 'Yes \u2014 removal performed', defaultValue: false },
-                    'skin-bite-tick-yes-not-removed': { label: 'Yes \u2014 not removed', defaultValue: false },
+                    'skin-bite-tick-no': opt('No'),
+                    'skin-bite-tick-yes-removed': opt('Yes \u2014 removal performed'),
+                    'skin-bite-tick-yes-not-removed': opt('Yes \u2014 not removed'),
                   },
                 },
                 'bullseye-rash': {
                   label: 'Bullseye rash',
                   options: {
-                    'skin-bite-bullseye-absent': { label: 'Absent', defaultValue: false },
-                    'skin-bite-bullseye-present': { label: 'Present', defaultValue: false },
+                    'skin-bite-bullseye-absent': opt('Absent'),
+                    'skin-bite-bullseye-present': opt('Present'),
                   },
                 },
               },
@@ -1763,10 +1791,43 @@ export const InPersonExamConfig = {
                 findings: {
                   label: 'Findings',
                   options: {
-                    'skin-assoc-none': { label: 'None', defaultValue: false },
-                    'skin-assoc-angioedema': { label: 'Angioedema', defaultValue: false },
-                    'skin-assoc-desquamation': { label: 'Desquamation', defaultValue: false },
-                    'skin-assoc-nikolsky': { label: 'Nikolsky sign', defaultValue: false },
+                    'skin-assoc-none': opt('None'),
+                    'skin-assoc-angioedema': opt('Angioedema'),
+                    'skin-assoc-desquamation': opt('Desquamation'),
+                    'skin-assoc-nikolsky': opt('Nikolsky sign'),
+                  },
+                },
+              },
+            },
+          },
+        },
+        'skin-distribution': {
+          label: 'Distribution pattern',
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            distribution: {
+              label: 'Distribution Pattern',
+              groups: {
+                pattern: {
+                  label: 'Pattern',
+                  options: {
+                    'skin-dist-dermatomal': opt('Dermatomal'),
+                    'skin-dist-flexural': opt('Flexural'),
+                    'skin-dist-extensor': opt('Extensor'),
+                    'skin-dist-sun-exposed': opt('Sun-exposed'),
+                    'skin-dist-intertriginous': opt('Intertriginous'),
+                    'skin-dist-palms-soles': opt('Palms/soles'),
+                    'skin-dist-mucous-membranes': opt('Mucous membranes involved'),
+                  },
+                },
+                side: {
+                  label: 'Side',
+                  options: {
+                    'skin-side-r': opt('R'),
+                    'skin-side-l': opt('L'),
+                    'skin-side-bilateral': opt('Bilateral'),
+                    'skin-side-midline': opt('Midline'),
                   },
                 },
               },
@@ -1784,45 +1845,45 @@ export const InPersonExamConfig = {
                 'head-neck': {
                   label: 'Head & Neck',
                   options: {
-                    'skin-loc-scalp': { label: 'Scalp', defaultValue: false },
-                    'skin-loc-face': { label: 'Face', defaultValue: false },
-                    'skin-loc-ears': { label: 'Ears', defaultValue: false },
-                    'skin-loc-lips-perioral': { label: 'Lips/perioral', defaultValue: false },
-                    'skin-loc-neck': { label: 'Neck', defaultValue: false },
-                    'skin-loc-mucous-membranes': { label: 'Mucous membranes', defaultValue: false },
+                    'skin-loc-scalp': opt('Scalp'),
+                    'skin-loc-face': opt('Face'),
+                    'skin-loc-ears': opt('Ears'),
+                    'skin-loc-lips-perioral': opt('Lips/perioral'),
+                    'skin-loc-neck': opt('Neck'),
+                    'skin-loc-mucous-membranes': opt('Mucous membranes'),
                   },
                 },
                 trunk: {
                   label: 'Trunk',
                   options: {
-                    'skin-loc-chest': { label: 'Chest', defaultValue: false },
-                    'skin-loc-abdomen': { label: 'Abdomen', defaultValue: false },
-                    'skin-loc-back': { label: 'Back', defaultValue: false },
-                    'skin-loc-flank': { label: 'Flank', defaultValue: false },
-                    'skin-loc-groin': { label: 'Groin', defaultValue: false },
-                    'skin-loc-genitalia': { label: 'Genitalia', defaultValue: false },
+                    'skin-loc-chest': opt('Chest'),
+                    'skin-loc-abdomen': opt('Abdomen'),
+                    'skin-loc-back': opt('Back'),
+                    'skin-loc-flank': opt('Flank'),
+                    'skin-loc-groin': opt('Groin'),
+                    'skin-loc-genitalia': opt('Genitalia'),
                   },
                 },
                 'upper-extremity': {
                   label: 'Upper Extremity',
                   options: {
-                    'skin-loc-shoulder': { label: 'Shoulder', defaultValue: false },
-                    'skin-loc-upper-arm': { label: 'Upper arm', defaultValue: false },
-                    'skin-loc-elbow': { label: 'Elbow', defaultValue: false },
-                    'skin-loc-forearm': { label: 'Forearm', defaultValue: false },
-                    'skin-loc-wrist': { label: 'Wrist', defaultValue: false },
-                    'skin-loc-hand-fingers': { label: 'Hand/fingers', defaultValue: false },
+                    'skin-loc-shoulder': opt('Shoulder'),
+                    'skin-loc-upper-arm': opt('Upper arm'),
+                    'skin-loc-elbow': opt('Elbow'),
+                    'skin-loc-forearm': opt('Forearm'),
+                    'skin-loc-wrist': opt('Wrist'),
+                    'skin-loc-hand-fingers': opt('Hand/fingers'),
                   },
                 },
                 'lower-extremity': {
                   label: 'Lower Extremity',
                   options: {
-                    'skin-loc-hip-buttock': { label: 'Hip/buttock', defaultValue: false },
-                    'skin-loc-thigh': { label: 'Thigh', defaultValue: false },
-                    'skin-loc-knee': { label: 'Knee', defaultValue: false },
-                    'skin-loc-lower-leg': { label: 'Lower leg', defaultValue: false },
-                    'skin-loc-ankle': { label: 'Ankle', defaultValue: false },
-                    'skin-loc-foot-toes': { label: 'Foot/toes', defaultValue: false },
+                    'skin-loc-hip-buttock': opt('Hip/buttock'),
+                    'skin-loc-thigh': opt('Thigh'),
+                    'skin-loc-knee': opt('Knee'),
+                    'skin-loc-lower-leg': opt('Lower leg'),
+                    'skin-loc-ankle': opt('Ankle'),
+                    'skin-loc-foot-toes': opt('Foot/toes'),
                   },
                 },
               },
@@ -1866,12 +1927,12 @@ export const InPersonExamConfig = {
                 grade: {
                   label: 'Grade',
                   options: {
-                    'murmur-i': { label: 'Grade I', defaultValue: false },
-                    'murmur-ii': { label: 'Grade II', defaultValue: false },
-                    'murmur-iii': { label: 'Grade III', defaultValue: false },
-                    'murmur-iv': { label: 'Grade IV', defaultValue: false },
-                    'murmur-v': { label: 'Grade V', defaultValue: false },
-                    'murmur-vi': { label: 'Grade VI', defaultValue: false },
+                    'murmur-i': opt('Grade I'),
+                    'murmur-ii': opt('Grade II'),
+                    'murmur-iii': opt('Grade III'),
+                    'murmur-iv': opt('Grade IV'),
+                    'murmur-v': opt('Grade V'),
+                    'murmur-vi': opt('Grade VI'),
                   },
                 },
               },
@@ -1980,11 +2041,11 @@ export const InPersonExamConfig = {
                 location: {
                   label: 'Location',
                   options: {
-                    'wheezing-left-upper': { label: 'Left upper', defaultValue: false },
-                    'wheezing-left-lower': { label: 'Left lower', defaultValue: false },
-                    'wheezing-right-upper': { label: 'Right upper', defaultValue: false },
-                    'wheezing-right-middle': { label: 'Right middle', defaultValue: false },
-                    'wheezing-right-lower': { label: 'Right lower', defaultValue: false },
+                    'wheezing-left-upper': opt('Left upper'),
+                    'wheezing-left-lower': opt('Left lower'),
+                    'wheezing-right-upper': opt('Right upper'),
+                    'wheezing-right-middle': opt('Right middle'),
+                    'wheezing-right-lower': opt('Right lower'),
                   },
                 },
               },
@@ -2002,11 +2063,11 @@ export const InPersonExamConfig = {
                 location: {
                   label: 'Location',
                   options: {
-                    'crackles-left-upper': { label: 'Left upper', defaultValue: false },
-                    'crackles-left-lower': { label: 'Left lower', defaultValue: false },
-                    'crackles-right-upper': { label: 'Right upper', defaultValue: false },
-                    'crackles-right-middle': { label: 'Right middle', defaultValue: false },
-                    'crackles-right-lower': { label: 'Right lower', defaultValue: false },
+                    'crackles-left-upper': opt('Left upper'),
+                    'crackles-left-lower': opt('Left lower'),
+                    'crackles-right-upper': opt('Right upper'),
+                    'crackles-right-middle': opt('Right middle'),
+                    'crackles-right-lower': opt('Right lower'),
                   },
                 },
               },
@@ -2024,11 +2085,11 @@ export const InPersonExamConfig = {
                 location: {
                   label: 'Location',
                   options: {
-                    'breath-sounds-left-upper': { label: 'Left upper', defaultValue: false },
-                    'breath-sounds-left-lower': { label: 'Left lower', defaultValue: false },
-                    'breath-sounds-right-upper': { label: 'Right upper', defaultValue: false },
-                    'breath-sounds-right-middle': { label: 'Right middle', defaultValue: false },
-                    'breath-sounds-right-lower': { label: 'Right lower', defaultValue: false },
+                    'breath-sounds-left-upper': opt('Left upper'),
+                    'breath-sounds-left-lower': opt('Left lower'),
+                    'breath-sounds-right-upper': opt('Right upper'),
+                    'breath-sounds-right-middle': opt('Right middle'),
+                    'breath-sounds-right-lower': opt('Right lower'),
                   },
                 },
               },
@@ -2046,9 +2107,9 @@ export const InPersonExamConfig = {
                 type: {
                   label: 'Type',
                   options: {
-                    subcostal: { label: 'Subcostal', defaultValue: false },
-                    suprasternal: { label: 'Suprasternal', defaultValue: false },
-                    intercostal: { label: 'Intercostal', defaultValue: false },
+                    subcostal: opt('Subcostal'),
+                    suprasternal: opt('Suprasternal'),
+                    intercostal: opt('Intercostal'),
                   },
                 },
               },
@@ -2115,13 +2176,13 @@ export const InPersonExamConfig = {
                 location: {
                   label: 'Location',
                   options: {
-                    diffusely: { label: 'Diffusely', defaultValue: false },
-                    ruq: { label: 'RUQ', defaultValue: false },
-                    rlq: { label: 'RLQ', defaultValue: false },
-                    luq: { label: 'LUQ', defaultValue: false },
-                    llq: { label: 'LLQ', defaultValue: false },
-                    'r-cva': { label: 'R CVA', defaultValue: false },
-                    'l-cva': { label: 'L CVA', defaultValue: false },
+                    diffusely: opt('Diffusely'),
+                    ruq: opt('RUQ'),
+                    rlq: opt('RLQ'),
+                    luq: opt('LUQ'),
+                    llq: opt('LLQ'),
+                    'r-cva': opt('R CVA'),
+                    'l-cva': opt('L CVA'),
                   },
                 },
               },
@@ -2292,8 +2353,8 @@ export const InPersonExamConfig = {
         'wrist-r': createExtremityModalExam('wrist-r', 'Wrist R', wristSpecialTests),
         'hand-fingers-l': createExtremityModalExam('hand-fingers-l', 'Hand/fingers L', handFingerSpecialTests),
         'hand-fingers-r': createExtremityModalExam('hand-fingers-r', 'Hand/fingers R', handFingerSpecialTests),
-        'hip-l': createExtremityModalExam('hip-l', 'Hip L'),
-        'hip-r': createExtremityModalExam('hip-r', 'Hip R'),
+        'hip-l': createExtremityModalExam('hip-l', 'Hip L', hipSpecialTests),
+        'hip-r': createExtremityModalExam('hip-r', 'Hip R', hipSpecialTests),
         'knee-l': createExtremityModalExam('knee-l', 'Knee L', kneeSpecialTests),
         'knee-r': createExtremityModalExam('knee-r', 'Knee R', kneeSpecialTests),
         'ankle-l': createExtremityModalExam('ankle-l', 'Ankle L', ankleSpecialTests),

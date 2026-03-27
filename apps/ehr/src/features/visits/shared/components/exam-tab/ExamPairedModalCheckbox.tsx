@@ -38,6 +38,7 @@ interface FlatOption {
   label: string;
   groupLabel: string;
   description?: string;
+  abnormal?: boolean;
 }
 
 function buildAllOptions(config: ExamCardModalExamComponent): FlatOption[] {
@@ -48,6 +49,7 @@ function buildAllOptions(config: ExamCardModalExamComponent): FlatOption[] {
         label: opt.label,
         groupLabel: group.label,
         description: opt.description,
+        abnormal: opt.abnormal,
       }))
     )
   );
@@ -87,6 +89,21 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
 
   const leftOptions = useMemo(() => buildAllOptions(leftConfig), [leftConfig]);
   const rightOptions = useMemo(() => buildAllOptions(rightConfig), [rightConfig]);
+
+  const leftAbnormalMap = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    leftOptions.forEach((o) => {
+      map[o.key] = o.abnormal ?? true;
+    });
+    return map;
+  }, [leftOptions]);
+  const rightAbnormalMap = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    rightOptions.forEach((o) => {
+      map[o.key] = o.abnormal ?? true;
+    });
+    return map;
+  }, [rightOptions]);
 
   const leftDescMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -131,8 +148,10 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
   const toggleComponent = useCallback(
     (side: 'left' | 'right', optionKey: string, optionLabel: string, checked: boolean) => {
       const descMap = side === 'left' ? leftDescMap : rightDescMap;
+      const abnMap = side === 'left' ? leftAbnormalMap : rightAbnormalMap;
       const desc = descMap[optionKey];
       const fullLabel = desc ? `${optionLabel}, ${desc}` : optionLabel;
+      const isAbnormal = abnMap[optionKey] ?? true;
       const setter = side === 'left' ? setDraftLeft : setDraftRight;
       const fieldComponents = side === 'left' ? left.field.components : right.field.components;
 
@@ -141,14 +160,16 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
         if (checked) {
           const existing = current.find((c) => c.code === optionKey);
           if (existing) {
-            return current.map((c) => (c.code === optionKey ? { ...c, value: true, label: fullLabel } : c));
+            return current.map((c) =>
+              c.code === optionKey ? { ...c, value: true, label: fullLabel, abnormal: isAbnormal } : c
+            );
           }
-          return [...current, { code: optionKey, label: fullLabel, value: true }];
+          return [...current, { code: optionKey, label: fullLabel, value: true, abnormal: isAbnormal }];
         }
         return current.filter((c) => c.code !== optionKey);
       });
     },
-    [left.field.components, right.field.components, leftDescMap, rightDescMap]
+    [left.field.components, right.field.components, leftDescMap, rightDescMap, leftAbnormalMap, rightAbnormalMap]
   );
 
   const handleOpenModal = (): void => {
@@ -219,20 +240,40 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
       </Box>
 
       {/* Show selected items from both sides */}
-      {leftOptions.map(({ key, groupLabel, label: optLabel, description }) => {
+      {leftOptions.map(({ key, groupLabel, label: optLabel, description, abnormal: optAbn }) => {
         if (!left.componentMap[key]) return null;
+        const isAbn = optAbn ?? true;
         const displayText = description ? `${optLabel}, ${description}` : `${groupLabel}: ${optLabel}`;
         return (
-          <Typography key={key} variant="body2" sx={{ pl: 3, fontSize: '0.8rem' }}>
+          <Typography
+            key={key}
+            variant="body2"
+            sx={{
+              pl: 3,
+              fontSize: '0.8rem',
+              color: isAbn ? theme.palette.error.main : theme.palette.success.main,
+              fontWeight: isAbn ? 600 : 400,
+            }}
+          >
             L: {displayText}
           </Typography>
         );
       })}
-      {rightOptions.map(({ key, groupLabel, label: optLabel, description }) => {
+      {rightOptions.map(({ key, groupLabel, label: optLabel, description, abnormal: optAbn }) => {
         if (!right.componentMap[key]) return null;
+        const isAbn = optAbn ?? true;
         const displayText = description ? `${optLabel}, ${description}` : `${groupLabel}: ${optLabel}`;
         return (
-          <Typography key={key} variant="body2" sx={{ pl: 3, fontSize: '0.8rem' }}>
+          <Typography
+            key={key}
+            variant="body2"
+            sx={{
+              pl: 3,
+              fontSize: '0.8rem',
+              color: isAbn ? theme.palette.error.main : theme.palette.success.main,
+              fontWeight: isAbn ? 600 : 400,
+            }}
+          >
             R: {displayText}
           </Typography>
         );
@@ -333,34 +374,37 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
                               >
                                 {group.label}:
                               </Typography>
-                              {Object.entries(group.options).map(([optionKey, option]) => (
-                                <FormControlLabel
-                                  key={optionKey}
-                                  sx={{ m: 0, mr: 1 }}
-                                  control={
-                                    <Checkbox
-                                      size="small"
-                                      disabled={left.isLoading}
-                                      sx={{
-                                        '&.Mui-checked': {
-                                          color: abnormal ? theme.palette.error.main : theme.palette.success.main,
-                                        },
-                                        p: 0.5,
-                                      }}
-                                      checked={leftComponentMap[optionKey] ?? false}
-                                      onChange={(e) =>
-                                        toggleComponent(
-                                          'left',
-                                          optionKey,
-                                          `${group.label}: ${option.label}`,
-                                          e.target.checked
-                                        )
-                                      }
-                                    />
-                                  }
-                                  label={<Typography fontSize={13}>{option.label}</Typography>}
-                                />
-                              ))}
+                              {Object.entries(group.options).map(([optionKey, option]) => {
+                                const optAbn = option.abnormal ?? true;
+                                return (
+                                  <FormControlLabel
+                                    key={optionKey}
+                                    sx={{ m: 0, mr: 1 }}
+                                    control={
+                                      <Checkbox
+                                        size="small"
+                                        disabled={left.isLoading}
+                                        sx={{
+                                          '&.Mui-checked': {
+                                            color: optAbn ? theme.palette.error.main : theme.palette.success.main,
+                                          },
+                                          p: 0.5,
+                                        }}
+                                        checked={leftComponentMap[optionKey] ?? false}
+                                        onChange={(e) =>
+                                          toggleComponent(
+                                            'left',
+                                            optionKey,
+                                            `${group.label}: ${option.label}`,
+                                            e.target.checked
+                                          )
+                                        }
+                                      />
+                                    }
+                                    label={<Typography fontSize={13}>{option.label}</Typography>}
+                                  />
+                                );
+                              })}
                             </Box>
                           ))}
                         </Box>
@@ -378,34 +422,37 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
                                 >
                                   {group.label}:
                                 </Typography>
-                                {Object.entries(group.options).map(([optionKey, option]) => (
-                                  <FormControlLabel
-                                    key={optionKey}
-                                    sx={{ m: 0, mr: 1 }}
-                                    control={
-                                      <Checkbox
-                                        size="small"
-                                        disabled={right.isLoading}
-                                        sx={{
-                                          '&.Mui-checked': {
-                                            color: abnormal ? theme.palette.error.main : theme.palette.success.main,
-                                          },
-                                          p: 0.5,
-                                        }}
-                                        checked={rightComponentMap[optionKey] ?? false}
-                                        onChange={(e) =>
-                                          toggleComponent(
-                                            'right',
-                                            optionKey,
-                                            `${group.label}: ${option.label}`,
-                                            e.target.checked
-                                          )
-                                        }
-                                      />
-                                    }
-                                    label={<Typography fontSize={13}>{option.label}</Typography>}
-                                  />
-                                ))}
+                                {Object.entries(group.options).map(([optionKey, option]) => {
+                                  const optAbn = option.abnormal ?? true;
+                                  return (
+                                    <FormControlLabel
+                                      key={optionKey}
+                                      sx={{ m: 0, mr: 1 }}
+                                      control={
+                                        <Checkbox
+                                          size="small"
+                                          disabled={right.isLoading}
+                                          sx={{
+                                            '&.Mui-checked': {
+                                              color: optAbn ? theme.palette.error.main : theme.palette.success.main,
+                                            },
+                                            p: 0.5,
+                                          }}
+                                          checked={rightComponentMap[optionKey] ?? false}
+                                          onChange={(e) =>
+                                            toggleComponent(
+                                              'right',
+                                              optionKey,
+                                              `${group.label}: ${option.label}`,
+                                              e.target.checked
+                                            )
+                                          }
+                                        />
+                                      }
+                                      label={<Typography fontSize={13}>{option.label}</Typography>}
+                                    />
+                                  );
+                                })}
                               </Box>
                             ))}
                           </Box>
