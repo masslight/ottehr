@@ -15,13 +15,19 @@ let m2mToken: string;
 
 export const index = wrapHandler('rename-template', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.group('validateRequestParameters');
     const validatedInput = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success', JSON.stringify(validatedInput));
 
     const { secrets } = validatedInput;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
+    console.group('performEffect');
     await performEffect(validatedInput, oystehr);
+    console.groupEnd();
+    console.debug('performEffect success');
 
     return {
       statusCode: 200,
