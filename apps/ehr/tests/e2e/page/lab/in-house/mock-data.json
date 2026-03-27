@@ -142,7 +142,7 @@
           ]
         }
       ],
-      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Flu-Vid",
+      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Flu-Vid-Mock",
       "version": "0.0.0",
       "meta": {
         "tag": [
@@ -296,7 +296,7 @@
           ]
         }
       ],
-      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidCOVID-19Antigen",
+      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidCOVID-19Antigen-Mock",
       "version": "0.0.0",
       "meta": {
         "tag": [
@@ -445,7 +445,7 @@
           ]
         }
       ],
-      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Monospottest",
+      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Monospottest-Mock",
       "version": "0.0.0",
       "meta": {
         "tag": [
@@ -594,7 +594,7 @@
           ]
         }
       ],
-      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/StoolGuaiac",
+      "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/StoolGuaiac-Mock",
       "version": "0.0.0",
       "meta": {
         "tag": [
@@ -653,5 +653,265 @@
         }
       ]
     }
-  ]
+  ],
+  "reflexTest": {
+    "parentTest": {
+      "activityDefinition": {
+        "fullUrl": "urn:uuid:mock-ad-alcohol-test",
+        "resourceType": "ActivityDefinition",
+        "status": "active",
+        "kind": "ServiceRequest",
+        "code": {
+          "coding": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code",
+              "code": "Alcohol Test (testing AD)"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "82075"
+            }
+          ]
+        },
+        "title": "Alcohol Test (testing AD)",
+        "name": "Alcohol Test (testing AD)",
+        "participant": [
+          {
+            "type": "device",
+            "role": {
+              "coding": [
+                {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role",
+                  "code": "analyzer",
+                  "display": "breathalyzer"
+                }
+              ]
+            }
+          }
+        ],
+        "observationRequirement": [
+          {
+            "type": "ObservationDefinition",
+            "reference": "#contained-bac-component-quantity-observationDef-id"
+          }
+        ],
+        "contained": [
+          {
+            "id": "contained-bac-component-quantity-observationDef-id",
+            "resourceType": "ObservationDefinition",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "5641-6"
+                }
+              ],
+              "text": "BAC"
+            },
+            "permittedDataType": [
+              "Quantity"
+            ],
+            "quantitativeDetails": {
+              "unit": {
+                "coding": [
+                  {
+                    "system": "http://unitsofmeasure.org/",
+                    "code": "%"
+                  }
+                ]
+              }
+            },
+            "qualifiedInterval": [
+              {
+                "category": "reference",
+                "range": {
+                  "low": {
+                    "value": 0
+                  },
+                  "high": {
+                    "value": 0.02
+                  }
+                }
+              }
+            ],
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
+                "valueString": "Numeric"
+              }
+            ]
+          }
+        ],
+        "extension": [
+          {
+            "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-logic",
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run",
+                "valueCanonical": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest-Mock|0.0.0"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run-name",
+                "valueString": "Alcohol Confirmation Test (testing AD)"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-trigger-alert",
+                "valueString": "Alcohol ≥ 0.02% requires a confirmation test"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-condition",
+                "valueExpression": {
+                  "description": "BAC >= 0.02",
+                  "language": "text/fhirpath",
+                  "expression": "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value >= 0.02"
+                }
+              }
+            ]
+          }
+        ],
+        "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest-Mock",
+        "version": "0.0.0",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "in-house-lab-test-definition"
+            }
+          ]
+        }
+        },
+      "results": {
+        "5641-6-BAC": {
+          "normal": "0",
+          "abnormal": "100"
+        }
+      }
+    },
+    "childTest": {
+      "activityDefinition": {
+        "fullUrl": "urn:uuid:mock-ad-alcohol-confirmation-test",
+        "resourceType": "ActivityDefinition",
+        "status": "active",
+        "kind": "ServiceRequest",
+        "code": {
+          "coding": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code",
+              "code": "Alcohol Confirmation Test (testing AD)"
+            },
+            {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "82075",
+            "extension": [
+                {
+                  "url": "https://fhir.ottehr.com/Extension/cpt-code-modifier",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "https://fhir.ottehr.com/CodeSystem/cpt-code-modifier",
+                        "code": "91",
+                        "display": "Repeat Clinical Diagnostic Laboratory Test"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "title": "Alcohol Confirmation Test (testing AD)",
+        "name": "Alcohol Confirmation Test (testing AD)",
+        "participant": [
+          {
+            "type": "device",
+            "role": {
+              "coding": [
+                {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role",
+                  "code": "analyzer",
+                  "display": "breathalyzer"
+                }
+              ]
+            }
+          }
+        ],
+        "observationRequirement": [
+          {
+            "type": "ObservationDefinition",
+            "reference": "#contained-bac-component-quantity-observationDef-id"
+          }
+        ],
+        "contained": [
+          {
+            "id": "contained-bac-component-quantity-observationDef-id",
+            "resourceType": "ObservationDefinition",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "5641-6"
+                }
+              ],
+              "text": "BAC"
+            },
+            "permittedDataType": [
+              "Quantity"
+            ],
+            "quantitativeDetails": {
+              "unit": {
+                "coding": [
+                  {
+                    "system": "http://unitsofmeasure.org/",
+                    "code": "%"
+                  }
+                ]
+              }
+            },
+            "qualifiedInterval": [
+              {
+                "category": "reference",
+                "range": {
+                  "low": {
+                    "value": 0
+                  },
+                  "high": {
+                    "value": 0.02
+                  }
+                }
+              }
+            ],
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
+                "valueString": "Numeric"
+              }
+            ]
+          }
+        ],
+        "relatedArtifact": [
+          {
+            "resource": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest-Mock|0.0.0",
+            "type": "depends-on",
+            "display": "reflex relationship"
+          }
+        ],
+        "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest-Mock",
+        "version": "0.0.0",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "in-house-lab-test-definition"
+            }
+          ]
+        }
+      },
+      "results": {
+        "5641-6-BAC": {
+          "normal": "0",
+          "abnormal": "100"
+        }
+      }
+    }
+  }
 }

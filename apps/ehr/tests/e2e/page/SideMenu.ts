@@ -30,7 +30,7 @@ export class SideMenu {
   }
   async clickInHouseLabs(): Promise<InHouseLabsPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-lab-orders')).click();
-    return InHouseLabsPage.open(this.#page);
+    return InHouseLabsPage.isOpen(this.#page);
   }
   async clickAllergies(): Promise<AllergiesPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();

@@ -11,7 +11,7 @@ export class FinalResultPage {
     this.#page = page;
   }
 
-  static async open(page: Page): Promise<FinalResultPage> {
+  static async isOpen(page: Page): Promise<FinalResultPage> {
     await page.getByTestId(configResultPageContainerTestId(EntryMode.Edit)).waitFor({ state: 'visible' });
     return new FinalResultPage(page);
   }
@@ -121,5 +121,19 @@ export class FinalResultPage {
 
   async countResultCardsOnPage(): Promise<number> {
     return await this.#page.getByTestId(dataTestIds.resultPage.resultCard).count();
+  }
+
+  async confirmReflexAlert(alert: string): Promise<void> {
+    const alertLocator = await this.#page.getByTestId(dataTestIds.resultPage.reflexAlert);
+    await expect(alertLocator).toBeVisible();
+    await expect(alertLocator, `Confirming alert is ${alert}`).toContainText(alert);
+  }
+
+  async clickOrderReflexTestButton(reflexTestName: string): Promise<void> {
+    const button = this.#page.getByTestId(dataTestIds.resultPage.orderReflexTestBtn);
+    const buttonLabel = `Order ${reflexTestName}`;
+
+    await expect(button, `confirming order reflex btn is labeled: ${buttonLabel}`).toHaveText(buttonLabel);
+    await button.click();
   }
 }

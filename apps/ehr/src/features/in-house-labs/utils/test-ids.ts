@@ -22,3 +22,8 @@ export const configCptCodeTestId = (testName: string): string => {
 export const configResultPageContainerTestId = (entryMode: EntryMode): string => {
   return `${dataTestIds.resultPage.resultPageContainerPrefix}${entryMode}`;
 };
+
+export const configNumericResultEntryTestId = (componentName: string): string => {
+  const sanitizedComponentName = componentName.replace(/[^a-zA-Z0-9]/g, '');
+  return `${dataTestIds.performTestPage.resultEntryTable.numericPrefix}${sanitizedComponentName}`;
+};

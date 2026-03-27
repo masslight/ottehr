@@ -1,6 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { configCptCodeTestId, configRunAsRepeatBtnTestId } from 'src/features/in-house-labs/utils/test-ids';
-import { TestItem } from 'utils';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
 import { InPersonHeader } from '../../InPersonHeader';
 import { SideMenu } from '../../SideMenu';
@@ -15,12 +14,12 @@ export class OrderInHouseLabPage {
     this.#collectSamplePage = new CollectSamplePage(this.#page);
   }
 
-  static async openCreate(page: Page): Promise<OrderInHouseLabPage> {
+  static async createPageIsOpen(page: Page): Promise<OrderInHouseLabPage> {
     await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders/create'));
     return new OrderInHouseLabPage(page);
   }
 
-  static async openDetails(page: Page): Promise<OrderInHouseLabPage> {
+  static async detailsPageIsOpen(page: Page): Promise<OrderInHouseLabPage> {
     await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders/.*/order-details'));
     return new OrderInHouseLabPage(page);
   }
@@ -66,19 +65,15 @@ export class OrderInHouseLabPage {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton).click();
   }
 
-  async selectRadioEntryInHouseLab(radioEntryTestItems: TestItem[]): Promise<string> {
-    const firstRadioEntryTestName = radioEntryTestItems[0].name;
-
+  async selectTest(testName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
 
-    const radioEntryTest = this.#page
+    const testOption = this.#page
       .getByTestId(dataTestIds.orderInHouseLabPage.testTypeList)
-      .locator('li', { hasText: firstRadioEntryTestName });
+      .locator('li', { hasText: testName });
 
-    await radioEntryTest.click();
-
-    return firstRadioEntryTestName;
+    await testOption.click();
   }
 
   async verifyCPTCode(CPTCode: string, testName: string): Promise<void> {
