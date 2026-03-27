@@ -6,6 +6,7 @@ export interface IncompleteEncountersReportZambdaInput {
     end: string; // ISO date string
   };
   encounterStatus?: EncounterStatusFilter; // defaults to 'incomplete'
+  includeEmCodes?: boolean; // when true, fetches E&M codes for each encounter
 }
 
 export interface IncompleteEncounterItem {
@@ -21,6 +22,8 @@ export interface IncompleteEncounterItem {
   attendingProvider?: string;
   visitType?: string;
   reason?: string;
+  emCode?: string; // E&M code (e.g., '99203', '99214')
+  providerToDischargedMinutes?: number | null; // time from provider status to discharged in minutes
 }
 
 export interface IncompleteEncountersReportZambdaOutput {
