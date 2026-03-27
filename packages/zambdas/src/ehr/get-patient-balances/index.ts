@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
+import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
@@ -27,6 +27,8 @@ type EncounterIdMap = Map<
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
+
+const CANDID_BATCH_SIZE = 3;
 
 const ZAMBDA_NAME = 'get-patient-balances';
 
@@ -187,15 +189,18 @@ async function getAllCandidEncounters(
   encounterIdMap: EncounterIdMap
 ): Promise<APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[]> {
   const candidIds = Array.from(encounterIdMap.values()).map(({ candidId }) => candidId);
+  console.log(`Fetching ${candidIds.length} encounters from Candid`);
   const candidEncounters: APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[] =
     [];
-  console.log(`Fetching ${candidIds.length} encounters from Candid`);
-  const currentCandidEncounters = await Promise.all(
-    candidIds.map((candidId) =>
-      retryWithBackoff(() => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
-    )
-  );
-  candidEncounters.push(...currentCandidEncounters);
+  const currentCandidEncounters = chunkThings(candidIds, CANDID_BATCH_SIZE);
+  for (const batch of currentCandidEncounters) {
+    const batchResults = await Promise.all(
+      batch.map((candidId) =>
+        retryWithBackoff(() => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
+      )
+    );
+    candidEncounters.push(...batchResults);
+  }
   console.log(`Fetched ${candidEncounters.length} Candid encounters`);
   return candidEncounters;
 }
@@ -228,13 +233,16 @@ async function getAllCandidClaims(
   claimIdMap: Map<string, string>
 ): Promise<APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[]> {
   const claimIds = Array.from(claimIdMap.keys());
+  console.log(`Fetching ${claimIds.length} claims from Candid`);
   const claims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[] =
     [];
-  console.log(`Fetching ${claimIds.length} claims from Candid`);
-  const currentClaims = await Promise.all(
-    claimIds.map((claimId) => retryWithBackoff(() => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId))))
-  );
-  claims.push(...currentClaims);
+  const currentClaims = chunkThings(claimIds, CANDID_BATCH_SIZE);
+  for (const batch of currentClaims) {
+    const batchResults = await Promise.all(
+      batch.map((claimId) => retryWithBackoff(() => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId))))
+    );
+    claims.push(...batchResults);
+  }
   console.log(`Fetched ${claims.length} claims`);
   return claims;
 }
@@ -289,12 +297,21 @@ async function retryWithBackoff<T, E>(
   baseDelayMs = 200
 ): Promise<APIResponse<T, E>> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const response = await fn();
-    if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
-      return response;
+    try {
+      const response = await fn();
+      if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
+        return response;
+    } catch (error: any) {
+      if (attempt === maxRetries) throw error;
+      const isTooManyRequests =
+        error?.body?.errorName === 'TooManyRequestsError' ||
+        error?.message?.includes('Too many requests') ||
+        error?.statusCode === 429;
+      if (!isTooManyRequests) throw error;
+    }
     const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
     console.warn(
-      `Candid API request failed, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+      `Candid API request rate limited, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
     );
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
