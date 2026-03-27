@@ -456,14 +456,23 @@ export default function ProceduresNew(): ReactElement {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
     }
-    setQuickPickName('');
+    // Suggest name: procedure name | site location | side of body | complications | cpt codes
+    const parts: string[] = [];
+    if (formValues.procedureType) parts.push(formValues.procedureType);
+    if (state.bodySite) parts.push(state.bodySite);
+    if (state.bodySide) parts.push(state.bodySide);
+    if (state.complications) parts.push(state.complications);
+    if (state.cptCodes?.length) parts.push(state.cptCodes.map((c) => c.code).join(', '));
+    setQuickPickName(parts.join(' | '));
     setQuickPickDialogOpen(true);
   };
 
   const buildQuickPickFromCurrentState = (): Omit<ProcedureQuickPickData, 'id'> => {
     return {
       name: quickPickName.trim(),
-      procedureType: selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code,
+      procedureType:
+        selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code ??
+        formValues.procedureType,
       cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
       diagnoses: state.diagnoses?.map((d) => ({ code: d.code, display: d.display })),
       consentObtained: state.consentObtained,
@@ -814,9 +823,9 @@ export default function ProceduresNew(): ReactElement {
       if (quickPick.procedureType) {
         methods.reset({
           ...formValues,
-          procedureType: selectOptions?.procedureTypes.find(
-            (procedureType) => procedureType.code === quickPick.procedureType
-          )?.name,
+          procedureType:
+            selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)
+              ?.name ?? quickPick.procedureType,
         });
       }
       Object.entries(quickPick).forEach(([key, value]) => {
@@ -888,6 +897,7 @@ export default function ProceduresNew(): ReactElement {
               options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
               disabled={isReadOnly}
               loading={isSelectOptionsLoading}
+              freeSolo
               dataTestId={dataTestIds.documentProcedurePage.procedureType}
             />
 
