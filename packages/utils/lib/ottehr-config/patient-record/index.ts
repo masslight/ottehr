@@ -841,6 +841,7 @@ const FormFields: PatientRecordFormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
       },
       address: {
         key: 'pharmacy-address',
@@ -854,6 +855,7 @@ const FormFields: PatientRecordFormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
       },
     },
     hiddenFields: [],

@@ -121,3 +121,25 @@ export type UpdateMedicationHistoryQuickPickResponse = QuickPickUpdateResponse<M
 export type GetMedicationHistoryQuickPicksResponse = QuickPickListResponse<MedicationHistoryQuickPickData>;
 export type RemoveMedicationHistoryQuickPickInput = QuickPickRemoveInput;
 export type RemoveMedicationHistoryQuickPickResponse = QuickPickRemoveResponse;
+
+// ── Radiology Quick Picks ──
+
+export interface RadiologyQuickPickData {
+  id?: string;
+  name: string;
+  cptCode?: string;
+  cptDisplay?: string;
+  studyName?: string;
+  laterality?: string;
+  clinicalHistory?: string;
+  stat?: boolean;
+  consentObtained?: boolean;
+}
+
+export type CreateRadiologyQuickPickInput = QuickPickCreateInput<RadiologyQuickPickData>;
+export type CreateRadiologyQuickPickResponse = QuickPickCreateResponse<RadiologyQuickPickData>;
+export type UpdateRadiologyQuickPickInput = QuickPickUpdateInput<RadiologyQuickPickData>;
+export type UpdateRadiologyQuickPickResponse = QuickPickUpdateResponse<RadiologyQuickPickData>;
+export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuickPickData>;
+export type RemoveRadiologyQuickPickInput = QuickPickRemoveInput;
+export type RemoveRadiologyQuickPickResponse = QuickPickRemoveResponse;
