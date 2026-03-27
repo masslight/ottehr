@@ -47,6 +47,8 @@ import {
   CreateResourcesFromAudioRecordingOutput,
   CreateScheduleParams,
   CreateSlotParams,
+  CreateTemplateInput,
+  CreateTemplateOutput,
   CreateUploadAudioRecordingInput,
   CreateUploadAudioRecordingOutput,
   CreateUserOutput,
@@ -59,6 +61,8 @@ import {
   DeleteLabOrderZambdaOutput,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
+  DeleteTemplateInput,
+  DeleteTemplateOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
@@ -102,6 +106,8 @@ import {
   InHouseGetOrdersResponseDTO,
   InviteParticipantRequestParameters,
   LabelPdf,
+  ListAllTemplatesInput,
+  ListAllTemplatesOutput,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesInput,
@@ -125,6 +131,8 @@ import {
   RemoveMedicationHistoryQuickPickResponse,
   RemoveProcedureQuickPickResponse,
   RemoveRadiologyQuickPickResponse,
+  RenameTemplateInput,
+  RenameTemplateOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   SavePreliminaryReportZambdaInput,
@@ -1326,6 +1334,68 @@ export const applyTemplate = async (oystehr: Oystehr, parameters: ApplyTemplateI
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const listAllTemplates = async (
+  oystehr: Oystehr,
+  parameters: ListAllTemplatesInput
+): Promise<ListAllTemplatesOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'list-all-templates',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const createTemplate = async (
+  oystehr: Oystehr,
+  parameters: CreateTemplateInput
+): Promise<CreateTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'create-template',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const renameTemplate = async (
+  oystehr: Oystehr,
+  parameters: RenameTemplateInput
+): Promise<RenameTemplateOutput> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'rename-template',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteTemplate = async (
+  oystehr: Oystehr,
+  parameters: DeleteTemplateInput
+): Promise<DeleteTemplateOutput> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'delete-template',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
