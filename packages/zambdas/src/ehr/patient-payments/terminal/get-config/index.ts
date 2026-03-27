@@ -1,8 +1,11 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import Stripe from 'stripe';
 import {
   GetPatientPaymentTerminalConfigInput,
   GetPatientPaymentTerminalConfigResponse,
   getSecret,
+  getStripeAccountForAppointmentOrEncounter,
   getStripeTerminalLocationIdForAppointmentOrEncounter,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -114,10 +117,6 @@ const validateRequestParameters = (input: ZambdaInput): GetPatientPaymentTermina
     encounterId,
   };
 };
-
-import Oystehr from '@oystehr/sdk';
-import Stripe from 'stripe';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils';
 
 const getStripeAccountForEncounter = async (
   encounterId: string,

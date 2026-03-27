@@ -64,7 +64,7 @@ export interface InitiatePatientPaymentTerminalInput {
 export interface InitiatePatientPaymentTerminalResponse {
   paymentIntentId: string;
   readerId: string;
-  readerActionStatus: string;
+  readerActionStatus: TerminalPaymentActionStatus;
 }
 
 export interface CheckPatientPaymentTerminalStatusInput {
