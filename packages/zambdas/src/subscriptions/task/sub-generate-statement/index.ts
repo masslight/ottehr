@@ -174,7 +174,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
     });
 
-    await patchTaskStatus(oystehr, task.id!, 'completed');
+    // Skip the patch when the task is already completed. Patching completed → completed
+    // is a no-op in value but still fires an update event, which would re-trigger
+    // SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE and cause an infinite loop.
+    if (task.status !== 'completed') {
+      await patchTaskStatus(oystehr, task.id!, 'completed');
+    }
 
     return {
       statusCode: 200,
