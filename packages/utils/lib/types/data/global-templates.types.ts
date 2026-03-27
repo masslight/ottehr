@@ -59,9 +59,13 @@ export interface CreateTemplateOutput {
 // rename template
 export const RenameTemplateInputSchema = z.object({
   templateId: z.string().uuid(),
-  newName: z.string(),
+  newName: z.string().min(1),
 });
 export type RenameTemplateInput = z.infer<typeof RenameTemplateInputSchema>;
+export const RenameTemplateInputValidatedSchema = RenameTemplateInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type RenameTemplateInputValidated = z.infer<typeof RenameTemplateInputValidatedSchema>;
 export type RenameTemplateOutput = void;
 
 // delete template
@@ -69,4 +73,8 @@ export const DeleteTemplateInputSchema = z.object({
   templateId: z.string().uuid(),
 });
 export type DeleteTemplateInput = z.infer<typeof DeleteTemplateInputSchema>;
+export const DeleteTemplateInputValidatedSchema = DeleteTemplateInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type DeleteTemplateInputValidated = z.infer<typeof DeleteTemplateInputValidatedSchema>;
 export type DeleteTemplateOutput = void;

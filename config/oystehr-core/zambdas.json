@@ -1257,6 +1257,20 @@
       "src": "src/ehr/create-template/index",
       "zip": ".dist/zips/create-template.zip"
     },
+    "DELETE-TEMPLATE": {
+      "name": "delete-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-template/index",
+      "zip": ".dist/zips/delete-template.zip"
+    },
+    "RENAME-TEMPLATE": {
+      "name": "rename-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/rename-template/index",
+      "zip": ".dist/zips/rename-template.zip"
+    },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
       "type": "http_auth",
