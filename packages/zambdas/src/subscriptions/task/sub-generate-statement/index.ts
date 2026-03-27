@@ -286,7 +286,7 @@ function buildPdfDocumentDefinition(template: string, context: Record<string, un
   const parsedTemplate = JSON.parse(template) as unknown;
   const expandedTemplate = processTemplateNode(parsedTemplate, context);
   const expandedTemplateString = JSON.stringify(expandedTemplate);
-  const compiledTemplate = Handlebars.compile(expandedTemplateString)(context);
+  const compiledTemplate = Handlebars.compile(expandedTemplateString, { noEscape: true })(context);
   const documentDefinition = JSON.parse(compiledTemplate) as Record<string, unknown>;
   applyLayoutResolvers(documentDefinition);
   return documentDefinition;
@@ -343,7 +343,7 @@ function expandLoop(loopDirective: LoopDirective, context: Record<string, unknow
   return source
     .map((item) => {
       const rowTemplate = JSON.stringify(loopDirective.__row);
-      const compiledRow = Handlebars.compile(rowTemplate)(item as Record<string, unknown>);
+      const compiledRow = Handlebars.compile(rowTemplate, { noEscape: true })(item as Record<string, unknown>);
       const parsedRow = JSON.parse(compiledRow) as unknown;
       return processTemplateNode(parsedRow, context);
     })
