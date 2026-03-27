@@ -1755,6 +1755,27 @@ export const getRadiologyQuickPicks = async (oystehr: Oystehr): Promise<GetRadio
   }
 };
 
+const ADMIN_CREATE_TEMPLATE_ZAMBDA_ID = 'admin-create-template';
+const ADMIN_RENAME_TEMPLATE_ZAMBDA_ID = 'admin-rename-template';
+const ADMIN_DELETE_TEMPLATE_ZAMBDA_ID = 'admin-delete-template';
+const ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID = 'admin-get-template-detail';
+
+export const createTemplate = async (
+  oystehr: Oystehr,
+  parameters: { encounterId: string; templateName: string; examType: string }
+): Promise<{ templateName: string; templateId: string }> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as { templateName: string; templateId: string };
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const createRadiologyQuickPick = async (
   oystehr: Oystehr,
   parameters: CreateRadiologyQuickPickInput
@@ -1980,5 +2001,53 @@ export const removeMedicationHistoryQuickPick = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const renameTemplate = async (
+  oystehr: Oystehr,
+  parameters: { templateId: string; newName: string }
+): Promise<{ message: string }> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_RENAME_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as { message: string };
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteTemplate = async (
+  oystehr: Oystehr,
+  parameters: { templateId: string }
+): Promise<{ message: string }> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_DELETE_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as { message: string };
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getTemplateDetail = async (
+  oystehr: Oystehr,
+  parameters: { templateId: string }
+): Promise<Record<string, unknown>> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson<Record<string, unknown>>(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };

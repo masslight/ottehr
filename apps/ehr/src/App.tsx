@@ -25,6 +25,7 @@ import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAp
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
+import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -85,6 +86,7 @@ export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 export const BILLING_URL = '/admin/billing';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
+export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -235,6 +237,7 @@ function App(): ReactElement {
                   <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                   <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                   <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
+                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"
