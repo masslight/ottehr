@@ -57,6 +57,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
   const [paymentResult, setPaymentResult] = useState<PaymentResultState>({ status: 'idle' });
   const [statusMessage, setStatusMessage] = useState<string>('Loading terminal configuration...');
   const pollAbortRef = useRef<AbortController | null>(null);
+  const selectedReaderIdRef = useRef<string>('');
 
   const hasReaderSelected = Boolean(selectedReaderId);
   const isReady = terminalConfigured && hasReaderSelected;
@@ -80,6 +81,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
 
   // Load terminal config and available readers
   useEffect(() => {
+    const previousReaderId = selectedReaderIdRef.current;
     setConfigLoading(true);
     setSelectedReaderId('');
     setPaymentResult({ status: 'idle' });
@@ -105,9 +107,17 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
         const discoveredReaders = response.readers ?? [];
         setReaders(discoveredReaders);
 
-        // Auto-select if only one reader
-        if (discoveredReaders.length === 1) {
+        // Retain previous selection if it still exists, otherwise auto-select if only one
+        const previousStillExists = previousReaderId ? discoveredReaders.some((r) => r.id === previousReaderId) : false;
+
+        if (previousStillExists) {
+          setSelectedReaderId(previousReaderId);
+          selectedReaderIdRef.current = previousReaderId;
+          const reader = discoveredReaders.find((r) => r.id === previousReaderId)!;
+          setStatusMessage(`${reader.label ?? reader.id} is ready`);
+        } else if (discoveredReaders.length === 1) {
           setSelectedReaderId(discoveredReaders[0].id);
+          selectedReaderIdRef.current = discoveredReaders[0].id;
           setStatusMessage(`${discoveredReaders[0].label ?? discoveredReaders[0].id} is ready`);
         } else if (discoveredReaders.length > 1) {
           setStatusMessage('Select a card reader');
@@ -185,6 +195,11 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
           throw new Error('No terminal reader selected.');
         }
 
+        const selectedReader = readers.find((r) => r.id === selectedReaderId);
+        if (!selectedReader) {
+          throw new Error('Selected reader is no longer available. Please select a different reader.');
+        }
+
         // Cancel any previous polling
         pollAbortRef.current?.abort();
         const abortController = new AbortController();
@@ -195,8 +210,6 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
         setStatusMessage('Initiating payment on reader...');
 
         try {
-          const selectedReader = readers.find((r) => r.id === selectedReaderId);
-
           // Step 1: Initiate payment — creates PaymentIntent and sends to reader
           const initiateResult = await oystehrZambda.zambda.execute({
             id: 'patient-payments-terminal-initiate-payment',
@@ -263,6 +276,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
 
   const handleReaderChange = (readerId: string): void => {
     setSelectedReaderId(readerId);
+    selectedReaderIdRef.current = readerId;
     const reader = readers.find((r) => r.id === readerId);
     if (reader) {
       setStatusMessage(`${reader.label ?? reader.id} is ready`);
