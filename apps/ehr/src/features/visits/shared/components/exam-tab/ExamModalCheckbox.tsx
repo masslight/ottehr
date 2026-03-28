@@ -194,7 +194,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
         );
       })}
 
-      <Dialog open={open} onClose={handleCloseModal} maxWidth="md" fullWidth disablePortal>
+      <Dialog open={open} onClose={handleCloseModal} maxWidth="md" fullWidth>
         <DialogTitle
           sx={{
             display: 'flex',

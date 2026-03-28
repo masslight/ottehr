@@ -23,7 +23,7 @@ export function getExamMigrationVersion(encounter: Encounter): number {
  */
 
 // Map of old standalone field names → { parent field name, label for the component }
-const MIGRATION_V1_FIELD_MAP: Record<string, { parent: string; label: string }> = {
+export const MIGRATION_V1_FIELD_MAP: Record<string, { parent: string; label: string }> = {
   // Heart - Murmur
   'murmur-i': { parent: 'murmur-grade', label: 'Grade: Grade I' },
   'murmur-ii': { parent: 'murmur-grade', label: 'Grade: Grade II' },
@@ -89,12 +89,12 @@ const MIGRATION_V1_FIELD_MAP: Record<string, { parent: string; label: string }> 
   rash: { parent: 'common-skin-findings', label: 'Rash' },
 };
 
-interface MigrationResult {
+export interface MigrationResult {
   migrated: boolean;
   observations: ExamObservationDTO[];
 }
 
-function migrateV0ToV1(observations: ExamObservationDTO[]): MigrationResult {
+export function migrateV0ToV1(observations: ExamObservationDTO[]): MigrationResult {
   const standaloneToMigrate: ExamObservationDTO[] = [];
   const keepAsIs: ExamObservationDTO[] = [];
 

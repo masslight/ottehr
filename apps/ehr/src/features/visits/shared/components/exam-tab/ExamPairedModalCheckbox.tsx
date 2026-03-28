@@ -279,7 +279,7 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
         );
       })}
 
-      <Dialog open={open} onClose={handleCloseModal} maxWidth="lg" fullWidth disablePortal>
+      <Dialog open={open} onClose={handleCloseModal} maxWidth="lg" fullWidth>
         <DialogTitle
           sx={{
             display: 'flex',
