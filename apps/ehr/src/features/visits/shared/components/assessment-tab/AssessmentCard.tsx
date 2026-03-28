@@ -4,6 +4,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { AssessmentTitle } from '../../../../../components/AssessmentTitle';
+import { useBillingSuggestions } from '../../hooks/useBillingSuggestions';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
@@ -19,17 +20,21 @@ export const AssessmentCard: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const emCode = chartData?.emCode;
   const { isInPerson } = useAppFlags();
+  const billingSuggestions = useBillingSuggestions();
 
   return (
     <Stack spacing={1}>
       <PageTitle label="Assessment" showIntakeNotesButton={false} />
-      <AiPotentialDiagnosesCard />
+      <AiPotentialDiagnosesCard suggestions={billingSuggestions} />
       <AccordionCard label={isInPerson ? undefined : 'Assessment'}>
         <DoubleColumnContainer
           divider
           leftColumn={
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <DiagnosesContainer />
+              <DiagnosesContainer
+                aiSuggestedDiagnoses={billingSuggestions.icdCodesSuggest}
+                aiSuggestionsLoading={billingSuggestions.isLoading}
+              />
               {isInPerson && <MedicalDecisionContainer />}
             </Box>
           }
@@ -37,7 +42,11 @@ export const AssessmentCard: FC = () => {
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               {!isInPerson && <MedicalDecisionContainer />}
               {isInPerson ? (
-                <BillingCodesContainer />
+                <BillingCodesContainer
+                  aiSuggestedCptCodes={billingSuggestions.cptCodesSuggest}
+                  aiSuggestedEmCodes={billingSuggestions.emCode}
+                  aiSuggestionsLoading={billingSuggestions.isLoading}
+                />
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <AssessmentTitle>E&M code</AssessmentTitle>

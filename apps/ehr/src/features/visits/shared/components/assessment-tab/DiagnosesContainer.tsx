@@ -1,6 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
+import { aiIcon } from '@ehrTheme/icons';
+import { AddCircleOutline, InfoOutlined } from '@mui/icons-material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
@@ -65,7 +67,12 @@ export const useAddDiagnosis = (): { onAdd: (value: IcdSearchResponse['codes'][n
   return { onAdd };
 };
 
-export const DiagnosesContainer: FC = () => {
+interface DiagnosesContainerProps {
+  aiSuggestedDiagnoses?: { code: string; description: string; reason: string }[];
+  aiSuggestionsLoading?: boolean;
+}
+
+export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDiagnoses, aiSuggestionsLoading }) => {
   const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
@@ -280,6 +287,64 @@ export const DiagnosesContainer: FC = () => {
           />
         </Box>
       )}
+
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          background: '#E1F5FECC',
+          borderRadius: '8px',
+          padding: '8px',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <img src={aiIcon} style={{ width: '20px' }} />
+          <AssessmentTitle>Oystehr AI</AssessmentTitle>
+          <Tooltip title="AI generated outputs, recommendations, and suggestions are provided for informational purposes only and are not intended to replace professional medical judgment or clinical expertise. AI technology may produce inaccurate, incomplete, or misleading results, and you must independently verify, validate, and confirm all AI-generated information before making any clinical decisions or taking any actions based on these outputs.">
+            <IconButton size="small">
+              <InfoOutlined sx={{ fontSize: '17px' }} />
+            </IconButton>
+          </Tooltip>
+          {aiSuggestionsLoading && <CircularProgress size={14} />}
+        </Box>
+        {!aiSuggestionsLoading && aiSuggestedDiagnoses && aiSuggestedDiagnoses.length > 0 && (
+          <ActionsList
+            data={aiSuggestedDiagnoses}
+            getKey={(value) => value.code}
+            renderItem={(value) => (
+              <Typography>
+                {value.description} {value.code}
+              </Typography>
+            )}
+            renderActions={
+              isReadOnly
+                ? undefined
+                : (value) => (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Tooltip title={value.reason}>
+                        <IconButton size="small">
+                          <InfoOutlined sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Add diagnosis">
+                        <IconButton
+                          size="small"
+                          onClick={() => onAdd({ code: value.code, display: value.description })}
+                        >
+                          <AddCircleOutline sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )
+            }
+            divider
+          />
+        )}
+        {!aiSuggestionsLoading && (!aiSuggestedDiagnoses || aiSuggestedDiagnoses.length === 0) && (
+          <Typography color="secondary.light">No suggestions</Typography>
+        )}
+      </Box>
     </Box>
   );
 };

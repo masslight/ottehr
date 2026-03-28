@@ -1,4 +1,16 @@
-import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import { aiIcon } from '@ehrTheme/icons';
+import { AddCircleOutline, ExpandMore, InfoOutlined } from '@mui/icons-material';
+import {
+  Autocomplete,
+  Box,
+  CircularProgress,
+  Collapse,
+  Divider,
+  IconButton,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
@@ -112,7 +124,102 @@ export const useUpdateEMCode = (): {
   return { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading };
 };
 
-export const BillingCodesContainer: FC = () => {
+const AiEmCodeSuggestionsList: FC<{
+  emCodes: { code: string; description: string; upcodingSuggestion: string }[];
+  isReadOnly: boolean;
+  onUse: (value: { code: string; description: string }) => void;
+}> = ({ emCodes, isReadOnly, onUse }) => {
+  const [expandedCode, setExpandedCode] = useState<string | null>(null);
+
+  const toggleExpand = (code: string): void => {
+    setExpandedCode((prev) => (prev === code ? null : code));
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {emCodes.map((emCode, index) => (
+        <Box key={emCode.code}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Typography>
+              {emCode.code}: {emCode.description}
+            </Typography>
+            {!isReadOnly && (
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                <Tooltip title="Use this E&M code">
+                  <IconButton size="small" onClick={() => onUse(emCode)}>
+                    <AddCircleOutline sx={{ fontSize: '17px' }} />
+                  </IconButton>
+                </Tooltip>
+                {emCode.upcodingSuggestion && (
+                  <IconButton size="small" onClick={() => toggleExpand(emCode.code)}>
+                    <ExpandMore
+                      sx={{
+                        fontSize: '17px',
+                        transform: expandedCode === emCode.code ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s',
+                      }}
+                    />
+                  </IconButton>
+                )}
+              </Box>
+            )}
+          </Box>
+          {emCode.upcodingSuggestion && (
+            <Collapse in={expandedCode === emCode.code}>
+              {(() => {
+                const sampleMdmPattern = /\*{0,2}Sample MDM[^:]*:\*{0,2}\s*/i;
+                const mdmLabelPattern = /MDM:\s*/i;
+                const forExamplePattern = /(?=For example,?\s)/i;
+                const sampleMdmMatch = emCode.upcodingSuggestion.match(sampleMdmPattern);
+                const mdmLabelMatch = !sampleMdmMatch && emCode.upcodingSuggestion.match(mdmLabelPattern);
+                const splitPattern = sampleMdmMatch
+                  ? sampleMdmPattern
+                  : mdmLabelMatch
+                  ? mdmLabelPattern
+                  : forExamplePattern;
+                const mdmMatch = sampleMdmMatch || mdmLabelMatch;
+                const parts = emCode.upcodingSuggestion.split(splitPattern);
+                const hasTwoParts = parts.length > 1 && parts[1].trim().length > 0;
+                return (
+                  <Box sx={{ mt: 1, ml: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      {parts[0].trim()}
+                    </Typography>
+                    {hasTwoParts && (
+                      <>
+                        {mdmMatch && (
+                          <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 700 }}>
+                            {sampleMdmMatch ? 'Sample MDM Paragraph for Higher Complexity:' : 'MDM:'}
+                          </Typography>
+                        )}
+                        <Typography variant="body2" color="textSecondary">
+                          {parts[1].trim()}
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
+                );
+              })()}
+            </Collapse>
+          )}
+          {index + 1 !== emCodes.length && <Divider sx={{ pt: 1 }} />}
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
+interface BillingCodesContainerProps {
+  aiSuggestedCptCodes?: { code: string; description: string; reason: string }[];
+  aiSuggestedEmCodes?: { code: string; description: string; upcodingSuggestion: string }[];
+  aiSuggestionsLoading?: boolean;
+}
+
+export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
+  aiSuggestedCptCodes,
+  aiSuggestedEmCodes,
+  aiSuggestionsLoading,
+}) => {
   const queryClient = useQueryClient();
   const { encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
@@ -220,6 +327,37 @@ export const BillingCodesContainer: FC = () => {
                 />
               )}
             />
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+                background: '#E1F5FECC',
+                borderRadius: '8px',
+                padding: '8px',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <img src={aiIcon} style={{ width: '20px' }} />
+                <AssessmentTitle>Oystehr AI</AssessmentTitle>
+                <Tooltip title="AI generated outputs, recommendations, and suggestions are provided for informational purposes only and are not intended to replace professional medical judgment or clinical expertise. AI technology may produce inaccurate, incomplete, or misleading results, and you must independently verify, validate, and confirm all AI-generated information before making any clinical decisions or taking any actions based on these outputs.">
+                  <IconButton size="small">
+                    <InfoOutlined sx={{ fontSize: '17px' }} />
+                  </IconButton>
+                </Tooltip>
+                {aiSuggestionsLoading && <CircularProgress size={14} />}
+              </Box>
+              {!aiSuggestionsLoading && aiSuggestedEmCodes && aiSuggestedEmCodes.length > 0 && (
+                <AiEmCodeSuggestionsList
+                  emCodes={aiSuggestedEmCodes}
+                  isReadOnly={isReadOnly}
+                  onUse={(value) => onEMCodeChange({ code: value.code, display: value.description })}
+                />
+              )}
+              {!aiSuggestionsLoading && (!aiSuggestedEmCodes || aiSuggestedEmCodes.length === 0) && (
+                <Typography color="secondary.light">No suggestions</Typography>
+              )}
+            </Box>
             <Autocomplete
               fullWidth
               blurOnSelect
@@ -311,6 +449,64 @@ export const BillingCodesContainer: FC = () => {
           />
         </Box>
       )}
+
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          background: '#E1F5FECC',
+          borderRadius: '8px',
+          padding: '8px',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <img src={aiIcon} style={{ width: '20px' }} />
+          <AssessmentTitle>Oystehr AI</AssessmentTitle>
+          <Tooltip title="AI generated outputs, recommendations, and suggestions are provided for informational purposes only and are not intended to replace professional medical judgment or clinical expertise. AI technology may produce inaccurate, incomplete, or misleading results, and you must independently verify, validate, and confirm all AI-generated information before making any clinical decisions or taking any actions based on these outputs.">
+            <IconButton size="small">
+              <InfoOutlined sx={{ fontSize: '17px' }} />
+            </IconButton>
+          </Tooltip>
+          {aiSuggestionsLoading && <CircularProgress size={14} />}
+        </Box>
+        {!aiSuggestionsLoading && aiSuggestedCptCodes && aiSuggestedCptCodes.length > 0 && (
+          <ActionsList
+            data={aiSuggestedCptCodes}
+            getKey={(value) => value.code}
+            renderItem={(value) => (
+              <Typography>
+                {value.description} {value.code}
+              </Typography>
+            )}
+            renderActions={
+              isReadOnly
+                ? undefined
+                : (value) => (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Tooltip title={value.reason}>
+                        <IconButton size="small">
+                          <InfoOutlined sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Add CPT code">
+                        <IconButton
+                          size="small"
+                          onClick={() => onAdd({ code: value.code, display: value.description })}
+                        >
+                          <AddCircleOutline sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )
+            }
+            divider
+          />
+        )}
+        {!aiSuggestionsLoading && (!aiSuggestedCptCodes || aiSuggestedCptCodes.length === 0) && (
+          <Typography color="secondary.light">No suggestions</Typography>
+        )}
+      </Box>
     </Box>
   );
 };
