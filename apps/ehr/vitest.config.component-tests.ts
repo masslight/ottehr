@@ -14,6 +14,7 @@ export default defineConfig({
     setupFiles: ['./tests/component/setup.ts'],
     environment: 'jsdom',
     testTimeout: 30_000, // 30 seconds
+    passWithNoTests: true,
   },
   plugins: [tsconfigPaths(), react()],
 });

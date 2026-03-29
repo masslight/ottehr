@@ -13,6 +13,7 @@ export default defineConfig({
     include: ['**/*.test.tsx'],
     setupFiles: ['./tests/component/setup.ts'],
     environment: 'happy-dom',
+    passWithNoTests: true,
   },
   plugins: [tsconfigPaths(), react()],
 });
