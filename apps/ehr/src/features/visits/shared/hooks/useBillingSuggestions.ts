@@ -42,6 +42,8 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       medicalDecision: {
         _tag: 'medical-decision',
       },
+      inHouseLabResults: {},
+      externalLabResults: {},
     },
   });
 
@@ -77,14 +79,23 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
   );
 
   React.useEffect(() => {
-    console.log(JSON.stringify(chartData?.diagnosis));
+    console.log('[AI Suggestions] useEffect triggered');
+    console.log(
+      '[AI Suggestions] chartDataLoading:',
+      chartDataLoading,
+      'chartDataFieldsLoading:',
+      chartDataFieldsLoading
+    );
     const fetchRecommendedBillingSuggestions = async (): Promise<void> => {
       if (chartDataLoading) {
+        console.log('[AI Suggestions] Skipping: chartData still loading');
         return;
       }
       if (chartDataFieldsLoading) {
+        console.log('[AI Suggestions] Skipping: chartDataFields still loading');
         return;
       }
+      console.log('[AI Suggestions] Starting fetch...');
       setIsLoading(true);
 
       const externalLabOrders = Object.entries(groupedLabOrdersForChartTable?.hasResults || [])
@@ -113,8 +124,8 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       const proceduresString = chartData?.procedures?.map((procedure) => procedure.procedureType).join(', ');
 
       const labResultsParts: string[] = [];
-      if (chartData?.inHouseLabResults?.labOrderResults) {
-        chartData.inHouseLabResults.labOrderResults.forEach((result) => {
+      if (chartDataFields?.inHouseLabResults?.labOrderResults) {
+        chartDataFields.inHouseLabResults.labOrderResults.forEach((result) => {
           const parts = [result.name];
           if (result.simpleResultValue) {
             parts.push(`Result: ${result.simpleResultValue}`);
@@ -125,11 +136,11 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
           labResultsParts.push(parts.join(' - '));
         });
       }
-      if (chartData?.inHouseLabResults?.resultsPending?.length) {
-        labResultsParts.push(`Pending: ${chartData.inHouseLabResults.resultsPending.join(', ')}`);
+      if (chartDataFields?.inHouseLabResults?.resultsPending?.length) {
+        labResultsParts.push(`Pending: ${chartDataFields.inHouseLabResults.resultsPending.join(', ')}`);
       }
-      if (chartData?.externalLabResults?.labOrderResults) {
-        chartData.externalLabResults.labOrderResults.forEach((result) => {
+      if (chartDataFields?.externalLabResults?.labOrderResults) {
+        chartDataFields.externalLabResults.labOrderResults.forEach((result) => {
           const parts = [result.name];
           if (result.nonNormalResultContained?.length) {
             parts.push(`(${result.nonNormalResultContained.join(', ')})`);
@@ -137,8 +148,8 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
           labResultsParts.push(parts.join(' - '));
         });
       }
-      if (chartData?.externalLabResults?.resultsPending?.length) {
-        labResultsParts.push(`Pending: ${chartData.externalLabResults.resultsPending.join(', ')}`);
+      if (chartDataFields?.externalLabResults?.resultsPending?.length) {
+        labResultsParts.push(`Pending: ${chartDataFields.externalLabResults.resultsPending.join(', ')}`);
       }
       const labResultsString = labResultsParts.join('; ');
 
@@ -158,7 +169,13 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         newPatient = newPatientFromAppointmentCreation;
       }
 
-      console.log(chartData, newPatient);
+      console.log('[AI Suggestions] Calling API with:', {
+        newPatient,
+        hpi: chartDataFields?.chiefComplaint?.text ?? '',
+        mdm: chartDataFields?.medicalDecision?.text ?? '',
+        labResults: labResultsString,
+        radiologyReports: radiologyReportsString,
+      });
 
       const billingSuggestionTemp = await recommendBillingSuggestions({
         newPatient,
@@ -173,6 +190,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         procedures: proceduresString,
         labResults: labResultsString,
       });
+      console.log('[AI Suggestions] Response received:', billingSuggestionTemp);
       setIcdCodes(billingSuggestionTemp.icdCodes);
       setCptCodes(billingSuggestionTemp.cptCodes);
       setEmCode(billingSuggestionTemp.emCode);
@@ -180,7 +198,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       setIsLoading(false);
     };
     fetchRecommendedBillingSuggestions().catch((error) => {
-      console.log(error);
+      console.error('[AI Suggestions] Error:', error);
       setIsLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

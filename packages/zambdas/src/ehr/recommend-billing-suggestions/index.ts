@@ -45,8 +45,13 @@ export const index = wrapHandler(
 
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-      let prompt = `Suggest appropriate CPT and ICD codes supported by clinical data provided for an urgent care visit in a simple list without commentary but with a code and a short reason why it was suggested for the supplied clinical data. Exactly 5 ICD and 5 CPT codes. When lab or radiology results confirm a specific condition (e.g., a positive COVID test, a fracture on X-ray), always include the corresponding diagnosis code — confirmed test results should take priority over general symptom codes. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the most accurate E&M code based on the most recent AMA CPT Guidelines. Evaluate the MDM by scoring the complexity of problems, the data analyzed, and the risk of management (e.g., prescription drug management usually triggers Level 4).
-      
+      let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
+
+      CRITICAL RULE — Lab & Radiology Results:
+      Before suggesting ANY ICD codes, first review the "Lab Results" and "Radiology Reports" sections below. Every positive, abnormal, or clinically significant finding MUST have a corresponding specific ICD-10 diagnosis code in your suggestions. For example: a positive COVID test → U07.1, a positive strep test → J02.0, a fracture on X-ray → the specific fracture code. These result-driven codes take absolute priority and must appear before any general symptom or encounter codes. Never omit a diagnosis that is confirmed by a test result.
+
+      Suggest exactly 5 ICD-10 and 5 CPT codes supported by the clinical data, in a simple list without commentary but with a code and a short reason why it was suggested. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the most accurate E&M code based on the most recent AMA CPT Guidelines. Evaluate the MDM by scoring the complexity of problems, the data analyzed, and the risk of management (e.g., prescription drug management usually triggers Level 4).
+
       Include whether the patient is new or established when suggesting an E&M code. If there are not relevant results, return an empty list.
 
       Here are the E&M codes:
