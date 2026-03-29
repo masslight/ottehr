@@ -96,7 +96,51 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
 
       const radiologyOrdersString = radiologyOrders?.map((order) => order.studyType).join(', ');
 
+      const radiologyReportsString =
+        radiologyOrders
+          ?.filter((order) => order.finalReport || order.preliminaryReport)
+          .map((order) => {
+            const report = order.finalReport || order.preliminaryReport;
+            const reportType = order.finalReport ? 'Final' : 'Preliminary';
+            try {
+              return `${order.studyType} (${reportType}): ${atob(report!)}`;
+            } catch {
+              return `${order.studyType} (${reportType}): ${report}`;
+            }
+          })
+          .join('\n') || '';
+
       const proceduresString = chartData?.procedures?.map((procedure) => procedure.procedureType).join(', ');
+
+      const labResultsParts: string[] = [];
+      if (chartData?.inHouseLabResults?.labOrderResults) {
+        chartData.inHouseLabResults.labOrderResults.forEach((result) => {
+          const parts = [result.name];
+          if (result.simpleResultValue) {
+            parts.push(`Result: ${result.simpleResultValue}`);
+          }
+          if (result.nonNormalResultContained?.length) {
+            parts.push(`(${result.nonNormalResultContained.join(', ')})`);
+          }
+          labResultsParts.push(parts.join(' - '));
+        });
+      }
+      if (chartData?.inHouseLabResults?.resultsPending?.length) {
+        labResultsParts.push(`Pending: ${chartData.inHouseLabResults.resultsPending.join(', ')}`);
+      }
+      if (chartData?.externalLabResults?.labOrderResults) {
+        chartData.externalLabResults.labOrderResults.forEach((result) => {
+          const parts = [result.name];
+          if (result.nonNormalResultContained?.length) {
+            parts.push(`(${result.nonNormalResultContained.join(', ')})`);
+          }
+          labResultsParts.push(parts.join(' - '));
+        });
+      }
+      if (chartData?.externalLabResults?.resultsPending?.length) {
+        labResultsParts.push(`Pending: ${chartData.externalLabResults.resultsPending.join(', ')}`);
+      }
+      const labResultsString = labResultsParts.join('; ');
 
       let newPatient = undefined;
       const newPatientFromChart = chartData?.observations?.find(
@@ -125,7 +169,9 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         externalLabOrders: externalLabOrders,
         internalLabOrders: inHouseLabOrders,
         radiologyOrders: radiologyOrdersString,
+        radiologyReports: radiologyReportsString,
         procedures: proceduresString,
+        labResults: labResultsString,
       });
       setIcdCodes(billingSuggestionTemp.icdCodes);
       setCptCodes(billingSuggestionTemp.cptCodes);

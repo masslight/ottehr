@@ -19,9 +19,7 @@ export const AiPotentialDiagnosesCard: FC<AiPotentialDiagnosesCardProps> = ({ su
     setVisible(false);
   };
 
-  const hasSuggestions = !!codingSuggestions;
-
-  if (!visible || (!isLoading && !hasSuggestions)) {
+  if (!visible) {
     return <></>;
   }
 
@@ -42,7 +40,7 @@ export const AiPotentialDiagnosesCard: FC<AiPotentialDiagnosesCardProps> = ({ su
         style={{
           display: 'flex',
           borderRadius: '8px',
-          marginBottom: isLoading && !hasSuggestions ? '0px' : '8px',
+          marginBottom: '8px',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
@@ -63,20 +61,26 @@ export const AiPotentialDiagnosesCard: FC<AiPotentialDiagnosesCardProps> = ({ su
           <CloseIcon />
         </IconButton>
       </Box>
-      {codingSuggestions && (
-        <Box
-          style={{
-            background: '#E1F5FECC',
-            borderRadius: '8px',
-            padding: '8px',
-          }}
-        >
-          <Typography variant="body1" style={{ fontWeight: 700, marginBottom: '8px' }}>
-            Coding Suggestions
+      <Box
+        style={{
+          background: '#E1F5FECC',
+          borderRadius: '8px',
+          padding: '8px',
+          minHeight: '80px',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, marginBottom: '8px' }}>
+          <Typography variant="body1" style={{ fontWeight: 700 }}>
+            Audit Finding
           </Typography>
-          <Typography variant="body1">{codingSuggestions}</Typography>
+          {isLoading && <CircularProgress size={14} />}
         </Box>
-      )}
+        {codingSuggestions ? (
+          <Typography variant="body1">{codingSuggestions}</Typography>
+        ) : (
+          !isLoading && <Typography color="secondary.light">No suggestions</Typography>
+        )}
+      </Box>
     </Box>
   );
 };

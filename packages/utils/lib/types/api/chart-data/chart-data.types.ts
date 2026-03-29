@@ -476,7 +476,9 @@ export interface BillingSuggestionInput {
   externalLabOrders: string;
   internalLabOrders: string;
   radiologyOrders: any;
+  radiologyReports: string;
   procedures: any;
+  labResults: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
 }

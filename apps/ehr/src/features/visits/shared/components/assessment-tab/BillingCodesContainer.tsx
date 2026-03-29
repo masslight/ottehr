@@ -140,9 +140,7 @@ const AiEmCodeSuggestionsList: FC<{
       {emCodes.map((emCode, index) => (
         <Box key={emCode.code}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-            <Typography>
-              {emCode.code}: {emCode.description}
-            </Typography>
+            <Typography>{emCode.description}</Typography>
             {!isReadOnly && (
               <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
                 <Tooltip title="Use this E&M code">

@@ -33,7 +33,9 @@ export const index = wrapHandler(
         externalLabOrders,
         internalLabOrders,
         radiologyOrders,
+        radiologyReports,
         procedures,
+        labResults,
         diagnoses,
         billing,
         secrets,
@@ -43,7 +45,7 @@ export const index = wrapHandler(
 
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-      let prompt = `Suggest appropriate CPT and ICD codes supported by clinical data provided for an urgent care visit in a simple list without commentary but with a code and a short reason why it was suggested for the supplied clinical data. Exactly 5 ICD and 5 CPT codes. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the highest complexity E&M code reasonably likely to be approved given the clinical information.
+      let prompt = `Suggest appropriate CPT and ICD codes supported by clinical data provided for an urgent care visit in a simple list without commentary but with a code and a short reason why it was suggested for the supplied clinical data. Exactly 5 ICD and 5 CPT codes. When lab or radiology results confirm a specific condition (e.g., a positive COVID test, a fracture on X-ray), always include the corresponding diagnosis code — confirmed test results should take priority over general symptom codes. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the most accurate E&M code based on the most recent AMA CPT Guidelines. Evaluate the MDM by scoring the complexity of problems, the data analyzed, and the risk of management (e.g., prescription drug management usually triggers Level 4).
       
       Include whether the patient is new or established when suggesting an E&M code. If there are not relevant results, return an empty list.
 
@@ -51,9 +53,14 @@ export const index = wrapHandler(
 
       ${PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
 
-      Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level and a sample MDM paragraph that would satisfy that level.
+      Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level.
 
-      Also take on a persona of a medical biller and coder looking for errors that might cause a claim to be rejected in an urgent care setting. Review the following claim based on provided ICD and CPT codes and provide a very concise single sentence explaining any possible issues or say "No coding changes."
+      Act as a Senior RCM Compliance Auditor specializing in Urgent Care. Review the final claim for 'Denial Triggers.' Specifically, check for:
+      1. NCCI PTP (Procedure-to-Procedure) edits (e.g., unbundling an E&M with a procedure).
+      2. Lack of medical necessity linking (does the primary ICD-10 support the E&M level/procedure?).
+      3. Missing or misplaced modifiers (specifically -25, -57, or -59).
+      4. Any other coding issues that might cause a claim denial.
+      Provide a concise single-sentence 'Audit Finding' identifying the highest-risk issues, or say 'No coding changes' if the claim is clean and defensible.
 
       Return the response in the following JSON:
 
@@ -74,7 +81,7 @@ export const index = wrapHandler(
           {
             "code": "code",
             "description": "description",
-            "upcodingSuggestion": "upcodingSuggestion. Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level and a sample MDM paragraph that would satisfy that level"
+            "upcodingSuggestion": "upcodingSuggestion. Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level"
           }
         ],
         "codingSuggestions": "codingSuggestions"
@@ -104,8 +111,14 @@ export const index = wrapHandler(
       if (radiologyOrders) {
         prompt += `\n Radiology Orders: ${radiologyOrders}`;
       }
+      if (radiologyReports) {
+        prompt += `\n Radiology Reports: ${radiologyReports}`;
+      }
       if (procedures) {
         prompt += `\n Procedures: ${procedures}`;
+      }
+      if (labResults) {
+        prompt += `\n Lab Results: ${labResults}`;
       }
 
       if (diagnoses && diagnoses.length > 0) {
