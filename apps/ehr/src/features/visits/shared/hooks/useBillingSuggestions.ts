@@ -115,7 +115,24 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
           })
           .join('\n') || '';
 
-      const proceduresString = chartData?.procedures?.map((procedure) => procedure.procedureType).join(', ');
+      const proceduresParts: string[] = [];
+      if (chartData?.procedures) {
+        chartData.procedures.forEach((procedure) => {
+          const parts = [`Procedure: ${procedure.procedureType || 'Unknown'}`];
+          if (procedure.bodySite)
+            parts.push(`Body Site: ${procedure.bodySite}${procedure.bodySide ? ` (${procedure.bodySide})` : ''}`);
+          if (procedure.technique?.length) parts.push(`Technique: ${procedure.technique.join(', ')}`);
+          if (procedure.cptCodes?.length) parts.push(`CPT: ${procedure.cptCodes.map((c) => c.code).join(', ')}`);
+          if (procedure.diagnoses?.length) parts.push(`Dx: ${procedure.diagnoses.map((d) => d.code).join(', ')}`);
+          if (procedure.medicationUsed) parts.push(`Medication: ${procedure.medicationUsed}`);
+          if (procedure.suppliesUsed) parts.push(`Supplies: ${procedure.suppliesUsed}`);
+          if (procedure.procedureDetails) parts.push(`Details: ${procedure.procedureDetails}`);
+          if (procedure.complications) parts.push(`Complications: ${procedure.complications}`);
+          if (procedure.specimenSent) parts.push('Specimen Sent: Yes');
+          proceduresParts.push(parts.join(' | '));
+        });
+      }
+      const proceduresString = proceduresParts.join('\n');
 
       const labResultsParts: string[] = [];
       if (chartDataFields?.inHouseLabResults?.labOrderResults) {

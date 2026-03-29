@@ -49,8 +49,8 @@ export const index = wrapHandler(
 
       let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 
-      CRITICAL RULE — Lab & Radiology Results:
-      Before suggesting ANY ICD codes, first review the "Lab Results" and "Radiology Reports" sections below. Every positive, abnormal, or clinically significant finding MUST have a corresponding specific ICD-10 diagnosis code in your suggestions. These result-driven codes take absolute priority and must appear before any general symptom or encounter codes. Never omit a diagnosis that is confirmed by a test result. Only suggest diagnoses that match the actual test results provided — do not infer conditions from tests that are not listed.
+      CRITICAL RULE — Lab Results, Radiology Reports & Procedures:
+      Before suggesting ANY ICD or CPT codes, first review the "Lab Results", "Radiology Reports", and "Procedures" sections below. Every positive, abnormal, or clinically significant lab/radiology finding MUST have a corresponding specific ICD-10 diagnosis code in your suggestions. Every documented procedure MUST have its corresponding CPT code included. These result-driven and procedure-driven codes take absolute priority and must appear before any general symptom or encounter codes. Never omit a diagnosis that is confirmed by a test result or a CPT code for a procedure that was performed. Only suggest diagnoses that match the actual test results provided — do not infer conditions from tests that are not listed.
 
       Always prefer the most specific ICD-10 code available. Avoid unspecified, 'other specified,' or general symptom codes (e.g., codes ending in .9 or .8) when a more precise code exists based on the clinical data.
 
