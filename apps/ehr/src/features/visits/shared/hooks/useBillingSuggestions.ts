@@ -79,23 +79,13 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
   );
 
   React.useEffect(() => {
-    console.log('[AI Suggestions] useEffect triggered');
-    console.log(
-      '[AI Suggestions] chartDataLoading:',
-      chartDataLoading,
-      'chartDataFieldsLoading:',
-      chartDataFieldsLoading
-    );
     const fetchRecommendedBillingSuggestions = async (): Promise<void> => {
       if (chartDataLoading) {
-        console.log('[AI Suggestions] Skipping: chartData still loading');
         return;
       }
       if (chartDataFieldsLoading) {
-        console.log('[AI Suggestions] Skipping: chartDataFields still loading');
         return;
       }
-      console.log('[AI Suggestions] Starting fetch...');
       setIsLoading(true);
 
       const externalLabOrders = Object.entries(groupedLabOrdersForChartTable?.hasResults || [])
@@ -169,14 +159,6 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         newPatient = newPatientFromAppointmentCreation;
       }
 
-      console.log('[AI Suggestions] Calling API with:', {
-        newPatient,
-        hpi: chartDataFields?.chiefComplaint?.text ?? '',
-        mdm: chartDataFields?.medicalDecision?.text ?? '',
-        labResults: labResultsString,
-        radiologyReports: radiologyReportsString,
-      });
-
       const billingSuggestionTemp = await recommendBillingSuggestions({
         newPatient,
         hpi: chartDataFields?.chiefComplaint?.text ?? '',
@@ -190,7 +172,6 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         procedures: proceduresString,
         labResults: labResultsString,
       });
-      console.log('[AI Suggestions] Response received:', billingSuggestionTemp);
       setIcdCodes(billingSuggestionTemp.icdCodes);
       setCptCodes(billingSuggestionTemp.cptCodes);
       setEmCode(billingSuggestionTemp.emCode);
@@ -198,7 +179,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       setIsLoading(false);
     };
     fetchRecommendedBillingSuggestions().catch((error) => {
-      console.error('[AI Suggestions] Error:', error);
+      console.error(error);
       setIsLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
