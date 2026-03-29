@@ -1,3 +1,4 @@
+import { AddOperation, ReplaceOperation } from 'fast-json-patch';
 import { Resource } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
@@ -19,12 +20,13 @@ describe('resourcePatch', () => {
       });
       expect(result.method).toBe('PATCH');
       expect(result.url).toBe('/Encounter/enc-123');
-      const resource = (result as any).resource;
-      expect(resource.resourceType).toBe('Binary');
-      expect(resource.contentType).toBe('application/json-patch+json');
-      // Decode and verify the data
-      const decoded = JSON.parse(decodeURIComponent(escape(atob(resource.data!))));
-      expect(decoded).toEqual([{ op: 'replace', path: '/status', value: 'finished' }]);
+      expect('resource' in result).toBe(true);
+      if ('resource' in result) {
+        expect(result.resource.resourceType).toBe('Binary');
+        expect(result.resource.contentType).toBe('application/json-patch+json');
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(result.resource.data!))));
+        expect(decoded).toEqual([{ op: 'replace', path: '/status', value: 'finished' }]);
+      }
     });
   });
 
@@ -36,7 +38,9 @@ describe('resourcePatch', () => {
       const op = getPatchOperationForNewMetaTag(resource, newTag);
       expect(op.op).toBe('add');
       expect(op.path).toBe('/meta');
-      expect((op as any).value).toEqual({ tag: [{ system: 'http://example.com', code: 'test-code' }] });
+      if (op.op === 'add') {
+        expect(op.value).toEqual({ tag: [{ system: 'http://example.com', code: 'test-code' }] });
+      }
     });
 
     it('should add /meta/tag when resource has meta but no tags', () => {
@@ -44,7 +48,9 @@ describe('resourcePatch', () => {
       const op = getPatchOperationForNewMetaTag(resource, newTag);
       expect(op.op).toBe('add');
       expect(op.path).toBe('/meta/tag');
-      expect((op as any).value).toEqual([{ system: 'http://example.com', code: 'test-code' }]);
+      if (op.op === 'add') {
+        expect(op.value).toEqual([{ system: 'http://example.com', code: 'test-code' }]);
+      }
     });
 
     it('should replace existing tag with same system', () => {
@@ -55,7 +61,9 @@ describe('resourcePatch', () => {
       const op = getPatchOperationForNewMetaTag(resource, newTag);
       expect(op.op).toBe('replace');
       expect(op.path).toBe('/meta/tag/0/code');
-      expect((op as any).value).toBe('test-code');
+      if (op.op === 'replace') {
+        expect(op.value).toBe('test-code');
+      }
     });
 
     it('should append tag when no existing tag with same system', () => {
@@ -66,7 +74,9 @@ describe('resourcePatch', () => {
       const op = getPatchOperationForNewMetaTag(resource, newTag);
       expect(op.op).toBe('add');
       expect(op.path).toBe('/meta/tag/-');
-      expect((op as any).value).toEqual(newTag);
+      if (op.op === 'add') {
+        expect(op.value).toEqual(newTag);
+      }
     });
   });
 
@@ -82,7 +92,8 @@ describe('resourcePatch', () => {
       expect(ops).toHaveLength(1);
       expect(ops[0].op).toBe('add');
       expect(ops[0].path).toBe('/meta');
-      expect((ops[0] as any).value).toEqual({ tag: newTags });
+      const addOp = ops[0] as AddOperation<unknown>;
+      expect(addOp.value).toEqual({ tag: newTags });
     });
 
     it('should add /meta/tag when resource has meta but no tags', () => {
@@ -91,7 +102,8 @@ describe('resourcePatch', () => {
       expect(ops).toHaveLength(1);
       expect(ops[0].op).toBe('add');
       expect(ops[0].path).toBe('/meta/tag');
-      expect((ops[0] as any).value).toEqual(newTags);
+      const addOp = ops[0] as AddOperation<unknown>;
+      expect(addOp.value).toEqual(newTags);
     });
 
     it('should replace tags, filtering out ones with same system', () => {
@@ -108,8 +120,8 @@ describe('resourcePatch', () => {
       expect(ops).toHaveLength(1);
       expect(ops[0].op).toBe('replace');
       expect(ops[0].path).toBe('/meta/tag');
-      // Should keep the non-matching tag and add new tags
-      expect((ops[0] as any).value).toEqual([{ system: 'http://keep.com', code: 'keep' }, ...newTags]);
+      const replaceOp = ops[0] as ReplaceOperation<unknown>;
+      expect(replaceOp.value).toEqual([{ system: 'http://keep.com', code: 'keep' }, ...newTags]);
     });
   });
 
@@ -121,7 +133,9 @@ describe('resourcePatch', () => {
       const op = getPatchOperationToRemoveMetaTags(resource, tagsToRemove);
       expect(op.op).toBe('add');
       expect(op.path).toBe('/meta');
-      expect((op as any).value).toEqual({ tag: [] });
+      if (op.op === 'add') {
+        expect(op.value).toEqual({ tag: [] });
+      }
     });
 
     it('should add empty tag array when resource has no tags', () => {
@@ -129,7 +143,9 @@ describe('resourcePatch', () => {
       const op = getPatchOperationToRemoveMetaTags(resource, tagsToRemove);
       expect(op.op).toBe('add');
       expect(op.path).toBe('/meta/tag');
-      expect((op as any).value).toEqual([]);
+      if (op.op === 'add') {
+        expect(op.value).toEqual([]);
+      }
     });
 
     it('should filter out matching tags', () => {
@@ -145,7 +161,9 @@ describe('resourcePatch', () => {
       const op = getPatchOperationToRemoveMetaTags(resource, tagsToRemove);
       expect(op.op).toBe('replace');
       expect(op.path).toBe('/meta/tag');
-      expect((op as any).value).toEqual([{ system: 'http://keep.com', code: 'keep' }]);
+      if (op.op === 'replace') {
+        expect(op.value).toEqual([{ system: 'http://keep.com', code: 'keep' }]);
+      }
     });
   });
 
@@ -156,9 +174,11 @@ describe('resourcePatch', () => {
         url: 'http://ext.com/test',
         valueString: 'hello',
       });
-      expect(op?.op).toBe('add');
-      expect(op?.path).toBe('/extension');
-      expect((op as any)?.value).toEqual([{ url: 'http://ext.com/test', valueString: 'hello' }]);
+      expect(op).toBeDefined();
+      expect(op!.op).toBe('add');
+      expect(op!.path).toBe('/extension');
+      const addOp = op as AddOperation<unknown>;
+      expect(addOp.value).toEqual([{ url: 'http://ext.com/test', valueString: 'hello' }]);
     });
 
     it('should replace extension when existing value differs', () => {

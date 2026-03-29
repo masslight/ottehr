@@ -1,5 +1,6 @@
 import { Location, Organization, ServiceRequest } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
+import { LabsTableColumn } from '../../types';
 import {
   externalLabOrderIsManual,
   getAccountNumberFromLocationAndOrganization,
@@ -169,7 +170,7 @@ describe('labs helpers', () => {
     });
 
     it('should return default width for unknown column', () => {
-      expect(getColumnWidth('unknown' as any)).toBe('10%');
+      expect(getColumnWidth('unknown' as LabsTableColumn)).toBe('10%');
     });
   });
 
