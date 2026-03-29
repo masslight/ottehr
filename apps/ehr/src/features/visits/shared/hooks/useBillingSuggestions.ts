@@ -23,7 +23,7 @@ export interface BillingSuggestionsResult {
 
 export const useBillingSuggestions = (): BillingSuggestionsResult => {
   const { chartData, isLoading: chartDataLoading } = useChartData();
-  const { appointment, encounter } = useAppointmentData();
+  const { appointment, encounter, patient } = useAppointmentData();
   const encounterId = encounter.id;
   const currentDiagnoses: DiagnosisDTO[] | undefined = chartData?.diagnosis;
   const currentCptCodes: CPTCodeDTO[] | undefined = [];
@@ -169,8 +169,25 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         newPatient = newPatientFromAppointmentCreation;
       }
 
+      let patientAge: string | undefined;
+      if (patient?.birthDate) {
+        const birth = new Date(patient.birthDate);
+        const now = new Date();
+        let years = now.getFullYear() - birth.getFullYear();
+        if (
+          now.getMonth() < birth.getMonth() ||
+          (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
+        ) {
+          years--;
+        }
+        patientAge = `${years} years`;
+      }
+      const patientSex = patient?.gender;
+
       const billingSuggestionTemp = await recommendBillingSuggestions({
         newPatient,
+        patientAge,
+        patientSex,
         hpi: chartDataFields?.chiefComplaint?.text ?? '',
         mdm: chartDataFields?.medicalDecision?.text ?? '',
         diagnoses: currentDiagnoses,

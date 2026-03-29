@@ -28,6 +28,8 @@ export const index = wrapHandler(
       const validatedParameters = validateRequestParameters(input);
       const {
         newPatient,
+        patientAge,
+        patientSex,
         hpi,
         mdm,
         externalLabOrders,
@@ -99,6 +101,13 @@ export const index = wrapHandler(
         prompt += `\n The patient is new to the practice.`;
       } else {
         prompt += `\n The patient is established with the practice.`;
+      }
+
+      if (patientAge) {
+        prompt += `\n Patient Age: ${patientAge}`;
+      }
+      if (patientSex) {
+        prompt += `\n Patient Sex: ${patientSex}`;
       }
 
       if (hpi) {
