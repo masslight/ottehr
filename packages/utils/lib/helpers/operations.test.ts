@@ -34,14 +34,18 @@ describe('operations', () => {
       const op = addOrReplaceOperation(undefined, '/status', 'active');
       expect(op.op).toBe('add');
       expect(op.path).toBe('/status');
-      expect((op as any).value).toBe('active');
+      if (op.op === 'add') {
+        expect(op.value).toBe('active');
+      }
     });
 
     it('should create replace operation when existing value is defined', () => {
       const op = addOrReplaceOperation('old-value', '/status', 'active');
       expect(op.op).toBe('replace');
       expect(op.path).toBe('/status');
-      expect((op as any).value).toBe('active');
+      if (op.op === 'replace') {
+        expect(op.value).toBe('active');
+      }
     });
 
     it('should create replace when existing value is falsy but defined', () => {

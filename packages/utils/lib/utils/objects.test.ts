@@ -29,16 +29,18 @@ describe('objects', () => {
     });
 
     it('should freeze nested objects', () => {
-      const obj = deepFreezeObject({ nested: { deep: { value: 42 } } });
+      const input = { nested: { deep: { value: 42 } } };
+      const obj = deepFreezeObject(input);
       expect(Object.isFrozen(obj)).toBe(true);
-      expect(Object.isFrozen((obj as any).nested)).toBe(true);
-      expect(Object.isFrozen((obj as any).nested.deep)).toBe(true);
+      expect(Object.isFrozen(obj.nested)).toBe(true);
+      expect(Object.isFrozen(obj.nested.deep)).toBe(true);
     });
 
     it('should throw when modifying frozen object in strict mode', () => {
-      const obj = deepFreezeObject({ a: 1 });
+      'use strict';
+      const obj = deepFreezeObject({ a: 1 }) as { a: number };
       expect(() => {
-        (obj as any).a = 2;
+        obj.a = 2;
       }).toThrow();
     });
   });

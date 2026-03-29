@@ -204,6 +204,64 @@ describe('resourcePatch', () => {
       expect(op).toBeUndefined();
     });
 
+    it('should replace extension when existing valueDate differs', () => {
+      const resource = {
+        extension: [{ url: 'http://ext.com/date', valueDate: '2025-01-01' }],
+      };
+      const op = getPatchOperationToUpdateExtension(resource, {
+        url: 'http://ext.com/date',
+        valueDate: '2025-06-15',
+      });
+      expect(op?.op).toBe('replace');
+      expect(op?.path).toBe('/extension');
+    });
+
+    it('should return undefined when existing valueDate matches', () => {
+      const resource = {
+        extension: [{ url: 'http://ext.com/date', valueDate: '2025-01-01' }],
+      };
+      const op = getPatchOperationToUpdateExtension(resource, {
+        url: 'http://ext.com/date',
+        valueDate: '2025-01-01',
+      });
+      expect(op).toBeUndefined();
+    });
+
+    it('should replace extension when existing valueDateTime differs', () => {
+      const resource = {
+        extension: [{ url: 'http://ext.com/dt', valueDateTime: '2025-01-01T10:00:00Z' }],
+      };
+      const op = getPatchOperationToUpdateExtension(resource, {
+        url: 'http://ext.com/dt',
+        valueDateTime: '2025-06-15T14:00:00Z',
+      });
+      expect(op?.op).toBe('replace');
+      expect(op?.path).toBe('/extension');
+    });
+
+    it('should replace extension when existing valueBoolean differs', () => {
+      const resource = {
+        extension: [{ url: 'http://ext.com/flag', valueBoolean: false }],
+      };
+      const op = getPatchOperationToUpdateExtension(resource, {
+        url: 'http://ext.com/flag',
+        valueBoolean: true,
+      });
+      expect(op?.op).toBe('replace');
+      expect(op?.path).toBe('/extension');
+    });
+
+    it('should return undefined when existing valueBoolean matches', () => {
+      const resource = {
+        extension: [{ url: 'http://ext.com/flag', valueBoolean: true }],
+      };
+      const op = getPatchOperationToUpdateExtension(resource, {
+        url: 'http://ext.com/flag',
+        valueBoolean: true,
+      });
+      expect(op).toBeUndefined();
+    });
+
     it('should add new extension when url not found', () => {
       const resource = {
         extension: [{ url: 'http://ext.com/other', valueString: 'x' }],
@@ -236,6 +294,16 @@ describe('resourcePatch', () => {
 
     it('should return empty string for empty string', () => {
       expect(normalizePhoneNumber('')).toBe('');
+    });
+
+    it('should handle number with fewer than 10 digits', () => {
+      const result = normalizePhoneNumber('12345');
+      expect(result).toBe('+12345');
+    });
+
+    it('should handle number with more than 11 digits', () => {
+      const result = normalizePhoneNumber('442071234567');
+      expect(result).toBe('+442071234567');
     });
   });
 });

@@ -1,6 +1,8 @@
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
+import { ExtendedMedicationDataForResponse, MedicationOrderStatusesType } from '../types';
 import {
+  createMedicationString,
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getAllOrderedByProviderIds,
@@ -21,6 +23,7 @@ import {
   makeMedicationOrderUpdateRequestInput,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
+  medicationExtendedToMedicationData,
   medicationStatusDisplayLabelMap,
 } from './medication-administration';
 
@@ -386,6 +389,80 @@ describe('medication-administration', () => {
       expect(medicationStatusDisplayLabelMap['administered-partly']).toBe('Partly Administered');
       expect(medicationStatusDisplayLabelMap['administered-not']).toBe('Not Administered');
       expect(medicationStatusDisplayLabelMap['cancelled']).toBe('Cancelled');
+    });
+  });
+
+  describe('medicationExtendedToMedicationData', () => {
+    it('should extract MedicationData fields from extended data', () => {
+      const extended = {
+        id: 'ext-1',
+        status: 'administered' as MedicationOrderStatusesType,
+        medicationName: 'Ibuprofen',
+        providerCreatedTheOrder: 'Dr. Smith',
+        providerCreatedTheOrderId: 'prac-1',
+        dateTimeCreated: '2025-06-15T10:00:00Z',
+        patient: 'Patient/p1',
+        encounterId: 'enc-1',
+        medicationId: 'med-1',
+        dose: 200,
+        route: 'oral',
+        instructions: 'Take with food',
+        reason: undefined,
+        otherReason: undefined,
+        associatedDx: 'J06.9',
+        units: 'mg',
+        manufacturer: 'Advil',
+        location: 'left-arm',
+        lotNumber: 'LOT-123',
+        expDate: '2026-12-31',
+        effectiveDateTime: '2025-06-15T10:30:00Z',
+      } as ExtendedMedicationDataForResponse;
+      const result = medicationExtendedToMedicationData(extended);
+      expect(result.patient).toBe('Patient/p1');
+      expect(result.encounterId).toBe('enc-1');
+      expect(result.dose).toBe(200);
+      expect(result.units).toBe('mg');
+      expect(result.lotNumber).toBe('LOT-123');
+      // Should not include extended-only fields
+      expect('id' in result).toBe(false);
+      expect('status' in result).toBe(false);
+      expect('medicationName' in result).toBe(false);
+    });
+  });
+
+  describe('createMedicationString', () => {
+    it('should combine all available fields', () => {
+      const medication = {
+        medicationName: 'Ibuprofen',
+        dose: 200,
+        units: 'mg',
+        status: 'administered' as MedicationOrderStatusesType,
+        administeredProvider: 'Dr. Smith',
+        instructions: 'Take with food',
+        patient: 'p1',
+        encounterId: 'e1',
+      } as ExtendedMedicationDataForResponse;
+      const result = createMedicationString(medication);
+      expect(result).toContain('Ibuprofen');
+      expect(result).toContain('200 mg');
+      expect(result).toContain('given by Dr. Smith');
+      expect(result).toContain('instructions: Take with food');
+      expect(result).toContain('Administered');
+    });
+
+    it('should omit undefined fields', () => {
+      const medication = {
+        medicationName: 'Tylenol',
+        status: 'pending' as MedicationOrderStatusesType,
+        patient: 'p1',
+        encounterId: 'e1',
+        dose: 0,
+      } as ExtendedMedicationDataForResponse;
+      const result = createMedicationString(medication);
+      expect(result).toContain('Tylenol');
+      expect(result).toContain('Pending');
+      expect(result).not.toContain('given by');
+      expect(result).not.toContain('instructions');
     });
   });
 });

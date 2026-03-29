@@ -84,11 +84,11 @@ describe('validation/regex', () => {
   });
 
   describe('decimalRegex', () => {
-    it.each(['0', '123', '3.14', '0.5'])('should match "%s"', (value) => {
+    it.each(['0', '123', '3.14', '0.5', '100.00'])('should match "%s"', (value) => {
       expect(decimalRegex.test(value)).toBe(true);
     });
 
-    it.each(['', '-1', 'abc', '.5'])('should not match "%s"', (value) => {
+    it.each(['', '-1', 'abc', '.5', '3X14', '12 34'])('should not match "%s"', (value) => {
       expect(decimalRegex.test(value)).toBe(false);
     });
   });
