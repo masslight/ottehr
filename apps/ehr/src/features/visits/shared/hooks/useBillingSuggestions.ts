@@ -34,7 +34,11 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
     currentCptCodes.push(chartData.emCode);
   }
 
-  const { data: chartDataFields, isLoading: chartDataFieldsLoading } = useChartFields({
+  const {
+    data: chartDataFields,
+    isLoading: chartDataFieldsLoading,
+    isFetching: chartDataFieldsFetching,
+  } = useChartFields({
     requestedFields: {
       chiefComplaint: {
         _tag: 'chief-complaint',
@@ -83,7 +87,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       if (chartDataLoading) {
         return;
       }
-      if (chartDataFieldsLoading) {
+      if (chartDataFieldsLoading || chartDataFieldsFetching) {
         return;
       }
       setIsLoading(true);
@@ -116,32 +120,38 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       const labResultsParts: string[] = [];
       if (chartDataFields?.inHouseLabResults?.labOrderResults) {
         chartDataFields.inHouseLabResults.labOrderResults.forEach((result) => {
-          const parts = [result.name];
-          if (result.simpleResultValue) {
-            parts.push(`Result: ${result.simpleResultValue}`);
-          }
+          let status = 'POSITIVE';
           if (result.nonNormalResultContained?.length) {
-            parts.push(`(${result.nonNormalResultContained.join(', ')})`);
+            status = result.nonNormalResultContained.includes('abnormal' as any)
+              ? 'POSITIVE/ABNORMAL'
+              : result.nonNormalResultContained.join(', ').toUpperCase();
           }
-          labResultsParts.push(parts.join(' - '));
+          const resultValue = result.simpleResultValue ? `: ${result.simpleResultValue}` : '';
+          labResultsParts.push(`Test: ${result.name} | Result${resultValue} | Interpretation: ${status}`);
         });
       }
       if (chartDataFields?.inHouseLabResults?.resultsPending?.length) {
-        labResultsParts.push(`Pending: ${chartDataFields.inHouseLabResults.resultsPending.join(', ')}`);
+        chartDataFields.inHouseLabResults.resultsPending.forEach((name) => {
+          labResultsParts.push(`Test: ${name} | Result: PENDING`);
+        });
       }
       if (chartDataFields?.externalLabResults?.labOrderResults) {
         chartDataFields.externalLabResults.labOrderResults.forEach((result) => {
-          const parts = [result.name];
+          let status = 'RESULTS RECEIVED';
           if (result.nonNormalResultContained?.length) {
-            parts.push(`(${result.nonNormalResultContained.join(', ')})`);
+            status = result.nonNormalResultContained.includes('abnormal' as any)
+              ? 'POSITIVE/ABNORMAL'
+              : result.nonNormalResultContained.join(', ').toUpperCase();
           }
-          labResultsParts.push(parts.join(' - '));
+          labResultsParts.push(`Test: ${result.name} | Interpretation: ${status}`);
         });
       }
       if (chartDataFields?.externalLabResults?.resultsPending?.length) {
-        labResultsParts.push(`Pending: ${chartDataFields.externalLabResults.resultsPending.join(', ')}`);
+        chartDataFields.externalLabResults.resultsPending.forEach((name) => {
+          labResultsParts.push(`Test: ${name} | Result: PENDING`);
+        });
       }
-      const labResultsString = labResultsParts.join('; ');
+      const labResultsString = labResultsParts.join('\n');
 
       let newPatient = undefined;
       const newPatientFromChart = chartData?.observations?.find(
@@ -188,6 +198,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
     // chartData?.cptCodes,
     // chartData?.emCode,
     recommendBillingSuggestions,
+    chartDataFieldsFetching,
     // chartDataFields?.chiefComplaint,
     chartDataFields?.medicalDecision,
     // chartData?.procedures,
