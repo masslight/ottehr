@@ -222,15 +222,20 @@ export const index = wrapHandler(
       // Validate E&M codes and get the descriptions for the codes
       if (suggestions?.emCode) {
         suggestions.emCode.forEach((code) => {
-          const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === code.code);
-          if (emCodeOption) {
-            emCodeSuggestions.push({
-              code: code.code,
-              description: emCodeOption.display,
-              upcodingSuggestion: code.upcodingSuggestion,
-            });
-          } else {
-            console.log("Didn't get an E&M code", code.code);
+          // AI sometimes returns combined codes like "99203 / 99213" — split and validate each
+          const codeParts = code.code.split(/\s*\/\s*/);
+          for (const codePart of codeParts) {
+            const trimmedCode = codePart.trim();
+            const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === trimmedCode);
+            if (emCodeOption) {
+              emCodeSuggestions.push({
+                code: trimmedCode,
+                description: emCodeOption.display,
+                upcodingSuggestion: code.upcodingSuggestion,
+              });
+            } else {
+              console.log("Didn't get an E&M code", trimmedCode);
+            }
           }
         });
       }
