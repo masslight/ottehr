@@ -43,31 +43,31 @@ describe('check-office-open', () => {
     });
 
     it('should return true when date matches a single-day closure', () => {
-      const closures: Closure[] = [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.Closure }];
+      const closures: Closure[] = [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.OneDay }];
       const date = DateTime.fromISO('2025-03-10', { zone: timezone });
       expect(isClosureOverride(closures, timezone, date)).toBe(true);
     });
 
     it('should return false when date does not match closure', () => {
-      const closures: Closure[] = [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.Closure }];
+      const closures: Closure[] = [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.OneDay }];
       const date = DateTime.fromISO('2025-03-11', { zone: timezone });
       expect(isClosureOverride(closures, timezone, date)).toBe(false);
     });
 
     it('should return true when date falls within a multi-day closure range', () => {
-      const closures: Closure[] = [{ start: '3/10/2025', end: '3/14/2025', type: ClosureType.Closure }];
+      const closures: Closure[] = [{ start: '3/10/2025', end: '3/14/2025', type: ClosureType.OneDay }];
       const date = DateTime.fromISO('2025-03-12', { zone: timezone });
       expect(isClosureOverride(closures, timezone, date)).toBe(true);
     });
 
     it('should return true for start date of range', () => {
-      const closures: Closure[] = [{ start: '3/10/2025', end: '3/14/2025', type: ClosureType.Closure }];
+      const closures: Closure[] = [{ start: '3/10/2025', end: '3/14/2025', type: ClosureType.OneDay }];
       const date = DateTime.fromISO('2025-03-10', { zone: timezone });
       expect(isClosureOverride(closures, timezone, date)).toBe(true);
     });
 
     it('should return true for end date of range', () => {
-      const closures: Closure[] = [{ start: '3/10/2025', end: '3/14/2025', type: ClosureType.Closure }];
+      const closures: Closure[] = [{ start: '3/10/2025', end: '3/14/2025', type: ClosureType.OneDay }];
       const date = DateTime.fromISO('2025-03-14', { zone: timezone });
       expect(isClosureOverride(closures, timezone, date)).toBe(true);
     });
@@ -125,7 +125,7 @@ describe('check-office-open', () => {
 
     it('should return false during a closure override', () => {
       const schedule = makeScheduleExtension({
-        closures: [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.Closure }],
+        closures: [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.OneDay }],
       });
       // Monday during hours, but closed
       const now = DateTime.fromISO('2025-03-10T10:00:00', { zone: timezone });
@@ -160,7 +160,7 @@ describe('check-office-open', () => {
 
     it('should return false when there is a closure override', () => {
       const schedule = makeScheduleExtension({
-        closures: [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.Closure }],
+        closures: [{ start: '3/10/2025', end: '3/10/2025', type: ClosureType.OneDay }],
       });
       const now = DateTime.fromISO('2025-03-10T10:00:00', { zone: timezone });
       expect(isLocationOpen(schedule, timezone, now)).toBe(false);

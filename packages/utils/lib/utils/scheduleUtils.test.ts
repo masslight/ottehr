@@ -192,12 +192,24 @@ describe('scheduleUtils', () => {
     it('should extract start times from slot list', () => {
       const items: SlotListItem[] = [
         {
-          slot: { resourceType: 'Slot', status: 'free', schedule: { reference: 's1' }, start: '2025-06-09T08:00:00Z' },
+          slot: {
+            resourceType: 'Slot',
+            status: 'free',
+            schedule: { reference: 's1' },
+            start: '2025-06-09T08:00:00Z',
+            end: '2025-06-09T08:15:00Z',
+          },
           owner: { resourceType: 'Location', id: 'loc1', name: 'Clinic' },
           timezone,
         },
         {
-          slot: { resourceType: 'Slot', status: 'free', schedule: { reference: 's1' }, start: '2025-06-09T09:00:00Z' },
+          slot: {
+            resourceType: 'Slot',
+            status: 'free',
+            schedule: { reference: 's1' },
+            start: '2025-06-09T09:00:00Z',
+            end: '2025-06-09T09:15:00Z',
+          },
           owner: { resourceType: 'Location', id: 'loc1', name: 'Clinic' },
           timezone,
         },
@@ -206,13 +218,19 @@ describe('scheduleUtils', () => {
     });
 
     it('should throw when a slot has no start time', () => {
-      const items: SlotListItem[] = [
+      const items = [
         {
-          slot: { resourceType: 'Slot', status: 'free', schedule: { reference: 's1' } },
+          slot: {
+            resourceType: 'Slot' as const,
+            status: 'free' as const,
+            schedule: { reference: 's1' },
+            start: '',
+            end: '',
+          },
           owner: { resourceType: 'Location', id: 'loc1', name: 'Clinic' },
           timezone,
         },
-      ];
+      ] as unknown as SlotListItem[];
       expect(() => mapSlotListItemToStartTimesArray(items)).toThrow('All slots must have a start time');
     });
   });
