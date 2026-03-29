@@ -299,10 +299,10 @@ export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDia
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <img src={aiIcon} style={{ width: '20px' }} />
+          <img src={aiIcon} alt="" aria-hidden style={{ width: '20px' }} />
           <AssessmentTitle>Oystehr AI</AssessmentTitle>
           <Tooltip title="AI generated outputs, recommendations, and suggestions are provided for informational purposes only and are not intended to replace professional medical judgment or clinical expertise. AI technology may produce inaccurate, incomplete, or misleading results, and you must independently verify, validate, and confirm all AI-generated information before making any clinical decisions or taking any actions based on these outputs.">
-            <IconButton size="small">
+            <IconButton size="small" aria-label="AI disclaimer">
               <InfoOutlined sx={{ fontSize: '17px' }} />
             </IconButton>
           </Tooltip>

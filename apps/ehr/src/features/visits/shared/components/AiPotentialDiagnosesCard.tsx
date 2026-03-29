@@ -1,7 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
 import { aiIcon } from '@ehrTheme/icons';
+import { InfoOutlined } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, CircularProgress, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import { BillingSuggestionsResult } from '../hooks/useBillingSuggestions';
 
@@ -51,10 +52,15 @@ export const AiPotentialDiagnosesCard: FC<AiPotentialDiagnosesCardProps> = ({ su
             alignItems: 'center',
           }}
         >
-          <img src={aiIcon} style={{ width: '30px', marginRight: '8px' }} />
+          <img src={aiIcon} alt="" aria-hidden style={{ width: '30px', marginRight: '8px' }} />
           <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
             OYSTEHR AI
           </Typography>
+          <Tooltip title="AI generated outputs, recommendations, and suggestions are provided for informational purposes only and are not intended to replace professional medical judgment or clinical expertise. AI technology may produce inaccurate, incomplete, or misleading results, and you must independently verify, validate, and confirm all AI-generated information before making any clinical decisions or taking any actions based on these outputs.">
+            <IconButton size="small" aria-label="AI disclaimer">
+              <InfoOutlined sx={{ fontSize: '17px' }} />
+            </IconButton>
+          </Tooltip>
           {isLoading && <CircularProgress size={17} sx={{ marginLeft: '8px' }} />}
         </Box>
         <IconButton onClick={handleClose} aria-label="Close">
