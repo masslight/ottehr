@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
   Appointment,
+  AuditEvent,
   ChargeItem,
   Consent,
   Coverage,
@@ -15,7 +16,9 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
+  AUDIT_EVENT_OUTCOME_CODE,
   ChartDataRequestedFields,
   createUserResourcesForPatient,
   flattenQuestionnaireAnswers,
@@ -198,9 +201,12 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
+  if (!input.headers?.Authorization) {
+    throw NOT_AUTHORIZED;
+  }
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   if (!userToken) {
-    throw new Error('user token unexpectedly missing');
+    throw NOT_AUTHORIZED;
   }
   const { secrets } = input;
   const { mainPatientId, otherPatientId, questionnaireResponse } = JSON.parse(input.body);
@@ -684,9 +690,70 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   console.log(`Merge complete: ${requests.length} resources updated in a single transaction`);
 
   // ════════════════════════════════════════════════════════════════════════
-  // Step 6: Transfer login phone numbers (after transaction to avoid partial state)
+  // Step 6: Write audit event
   // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 6: Transferring login phone numbers');
+  console.log('Step 6: Writing audit event');
+
+  const auditEvent: AuditEvent = {
+    resourceType: 'AuditEvent',
+    type: {
+      system: 'http://terminology.hl7.org/CodeSystem/iso-21089-lifecycle',
+      code: 'merge',
+      display: 'Merge Record Lifecycle Event',
+    },
+    recorded: DateTime.now().toISO(),
+    outcome: AUDIT_EVENT_OUTCOME_CODE.success,
+    agent: [
+      {
+        type: {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              code: 'AUT',
+              display: 'author (originator)',
+            },
+          ],
+        },
+        who: {
+          reference: input.providerProfileReference,
+        },
+        requestor: true,
+      },
+    ],
+    source: {
+      site: 'Ottehr',
+      observer: {
+        reference: input.providerProfileReference,
+      },
+    },
+    entity: [
+      {
+        what: { reference: newPatientRef },
+        role: {
+          system: 'http://terminology.hl7.org/CodeSystem/object-role',
+          code: '1',
+          display: 'Patient',
+        },
+        description: 'Surviving (main) patient record',
+      },
+      {
+        what: { reference: oldPatientRef },
+        role: {
+          system: 'http://terminology.hl7.org/CodeSystem/object-role',
+          code: '1',
+          display: 'Patient',
+        },
+        description: 'Merged (deprecated) patient record',
+      },
+    ],
+  };
+  const ae = await oystehr.fhir.create(auditEvent);
+  console.log(`  Wrote audit event: AuditEvent/${ae.id}`);
+
+  // ════════════════════════════════════════════════════════════════════════
+  // Step 7: Transfer login phone numbers (after transaction to avoid partial state)
+  // ════════════════════════════════════════════════════════════════════════
+  console.log('Step 7: Transferring login phone numbers');
 
   const oldPatientPhones = await getLoginPhoneNumbers(oystehr, otherPatientId);
   const newPatientPhones = await getLoginPhoneNumbers(oystehr, mainPatientId);

@@ -340,6 +340,10 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       enqueueSnackbar('Patients merged successfully', { variant: 'success' });
       onSuccess?.();
     },
+    onError: (error) => {
+      const message = error instanceof Error && error.message ? error.message : 'Failed to merge patients';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
   });
 
   // ── Handlers ──

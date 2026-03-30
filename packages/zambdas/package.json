@@ -53,8 +53,7 @@
     "sync-lab-specimen-dates": "tsx src/scripts/labs/sync-specimen-dates.ts",
     "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts",
     "setup-default-locations": "tsx src/scripts/setup-default-locations.ts",
-    "regenerate-questionnaire-json": "tsx ./scripts/regenerate-questionnaire-json.ts",
-    "transfer-appointment-to-another-patient": "tsx src/scripts/transfer-appointment-to-another-patient.ts"
+    "regenerate-questionnaire-json": "tsx ./scripts/regenerate-questionnaire-json.ts"
   },
   "engines": {
     "node": ">=22.0.0",

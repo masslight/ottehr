@@ -90,11 +90,11 @@ export const useGetPatient = (
         throw new Error('oystehr is not defined');
       }
 
-      setLoading(true);
-
       if (!patientResources || !otherPatientsWithSameNameResources) {
         return;
       }
+
+      setLoading(true);
 
       const patientTemp: Patient = patientResources.find((resource) => resource.resourceType === 'Patient') as Patient;
       const relatedPersonTemp: RelatedPerson = patientResources.find(
