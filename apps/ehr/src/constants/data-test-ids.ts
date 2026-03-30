@@ -544,6 +544,9 @@ export const dataTestIds = {
       return result ? `${idPrefix}-${result.toLowerCase().replace(/\s+/g, '-')}` : idPrefix;
     },
     submitButton: 'submit-button',
+    resultEntryTable: {
+      numericPrefix: 'result-numeric-',
+    },
   },
   resultPage: {
     testName: 'test-name',
@@ -553,6 +556,8 @@ export const dataTestIds = {
     repeatBtn: 'repeat-btn',
     resultCard: 'result-card',
     resultPageContainerPrefix: 'result-page-container-',
+    reflexAlert: 'reflex-alert',
+    orderReflexTestBtn: 'order-reflex-test-btn',
   },
   allergies: {
     allergiesPageTitle: 'allergies-title',

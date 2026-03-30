@@ -1,4 +1,6 @@
 import { expect, Page } from '@playwright/test';
+import { configNumericResultEntryTestId } from 'src/features/in-house-labs/utils/test-ids';
+import { TestItemComponent } from 'utils';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
 import { RadioSelectionResult, SelectableOption } from './types';
 
@@ -11,13 +13,11 @@ export class PerformTestPage {
     this.#page = page;
   }
 
-  get page(): Page {
-    return this.#page;
+  static async isOpen(page: Page): Promise<PerformTestPage> {
+    await expect(page.getByTestId(dataTestIds.performTestPage.title)).toHaveText(PAGE_TITLE);
+    return new PerformTestPage(page);
   }
 
-  async verifyPerformTestPageOpened(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.performTestPage.title)).toHaveText(PAGE_TITLE);
-  }
   async verifyStatus(status: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.performTestPage.status)).toHaveText(status);
   }
@@ -79,6 +79,12 @@ export class PerformTestPage {
     await this.#page.getByTestId(testDetails.selectedValue.testId).click();
 
     return testDetails;
+  }
+
+  async enterNumericResult(component: TestItemComponent, result: string): Promise<void> {
+    const testId = configNumericResultEntryTestId(component.componentName);
+    const input = this.#page.getByTestId(testId).locator('input');
+    await input.fill(result);
   }
 
   async submitOrderResult(): Promise<void> {

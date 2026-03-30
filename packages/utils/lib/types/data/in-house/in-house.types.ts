@@ -86,6 +86,8 @@ export interface TestItem {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
+  // reflexAlert is only defined IF results have been inputted that triggered the reflex test be run
+  // todo labs it might make more sense to break this up, have a "reflexTriggered" bool AND this alert can always be passed
   reflexAlert: { alert: string; testName: string; canonicalUrl: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
   adUrl: string;
   adVersion: string;

@@ -161,6 +161,7 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
         </Button>
         {buttonsToDisplay?.reflexTest && (
           <Button
+            data-testid={dataTestIds.resultPage.orderReflexTestBtn}
             variant="outlined"
             onClick={() => handleReflexTestOrderClick(buttonsToDisplay.reflexTest || '')}
             sx={{ borderRadius: '50px', px: 4, textTransform: 'none' }}

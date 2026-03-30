@@ -1,3 +1,4 @@
+import { BatchInputPostRequest } from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { ActivityDefinition, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -12,6 +13,7 @@ import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import {
   FinalResultPage,
   InHouseLabsPage,
+  MockReflexTestConfig,
   OrderInHouseLabPage,
   PerformTestPage,
   RadioSelectionResult,
@@ -24,10 +26,9 @@ import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
+  checkActivityDefinitionForReflexLogic,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
-  getLabListType,
-  LabType,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   TestItem,
@@ -230,11 +231,14 @@ test.describe('In-house labs page', async () => {
   const radioEntryTestItems: TestItem[] = [];
   const repeatableRadioEntryTestItems: TestItem[] = [];
   const selectAndNumericTestItems: TestItem[] = [];
-  let inHouseLabSetQuantity = 0;
   let mockResourceIds: string[] = [];
+  let reflexTest: MockReflexTestConfig;
 
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
-    const adRequests = inHouseLabsMockData.activityDefinitions.map((ad) => {
+    const adRequests: BatchInputPostRequest<ActivityDefinition>[] = [];
+
+    // standard + repeatable tests
+    inHouseLabsMockData.activityDefinitions.forEach((ad) => {
       const fhirActivityDefinition = ad as ActivityDefinition;
       const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
 
@@ -256,21 +260,50 @@ test.describe('In-house labs page', async () => {
       }
 
       const { fullUrl, ...resource } = ad;
-      return {
+      adRequests.push({
         method: 'POST' as const,
         url: 'ActivityDefinition',
         fullUrl: fullUrl as string,
         resource: resource as ActivityDefinition,
-      };
+      });
     });
 
-    const listRequests = inHouseLabsMockData.lists.map((list) => {
-      const fhirList = list as List;
-      const labListType = getLabListType(fhirList);
-      const listHasEntries = fhirList.entry && fhirList.entry.length;
-      if (labListType === LabType.inHouse) {
-        if (listHasEntries) inHouseLabSetQuantity++;
+    // reflex test
+    const { parentTest, childTest } = inHouseLabsMockData.reflexTest;
+
+    const parentTestItem = convertActivityDefinitionToTestItem(parentTest.activityDefinition as ActivityDefinition);
+    const parentReflexLogic = checkActivityDefinitionForReflexLogic(
+      parentTest.activityDefinition as ActivityDefinition
+    );
+    const parentAlert = parentReflexLogic?.reflexAlertExt.valueString || 'alert is missing in mock data!?';
+
+    const childTestItem = convertActivityDefinitionToTestItem(childTest.activityDefinition as ActivityDefinition);
+
+    reflexTest = {
+      parent: { test: parentTestItem, alert: parentAlert, results: parentTest.results },
+      child: { test: childTestItem, results: childTest.results },
+    };
+
+    [parentTest.activityDefinition, childTest.activityDefinition].forEach((ad) => {
+      const coding = ad.code?.coding ?? [];
+      const name = coding.find((c) => c.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code')
+        ?.code;
+      const cptCode = coding.find((c) => c.system === 'http://www.ama-assn.org/go/cpt')?.code;
+      if (name && cptCode) {
+        TEST_TYPE_TO_CPT[name] = cptCode;
       }
+
+      const { fullUrl, ...resource } = ad;
+      adRequests.push({
+        method: 'POST' as const,
+        url: 'ActivityDefinition',
+        fullUrl: fullUrl as string,
+        resource: resource as ActivityDefinition,
+      });
+    });
+
+    // lab set
+    const listRequests = inHouseLabsMockData.lists.map((list) => {
       return {
         method: 'POST' as const,
         url: 'List',
@@ -278,6 +311,7 @@ test.describe('In-house labs page', async () => {
       };
     });
 
+    // load all necessary resources into project
     const oystehr = await resourceHandler.apiClient;
     const createdBundle = await oystehr.fhir.transaction<ActivityDefinition | List>({
       requests: [...adRequests, ...listRequests],
@@ -308,7 +342,8 @@ test.describe('In-house labs page', async () => {
         const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
         await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
         await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
-        testName = await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
+        testName = radioEntryTestItems[0].name;
+        await orderInHouseLabPage.selectTest(testName);
         const CPT_CODE = TEST_TYPE_TO_CPT[testName];
         await orderInHouseLabPage.verifyCPTCode(CPT_CODE, testName);
         await orderInHouseLabPage.verifyOrderInHouseLabButtonEnabled();
@@ -317,7 +352,7 @@ test.describe('In-house labs page', async () => {
       });
 
       await test.step('IHL-1.2 Collect sample', async () => {
-        const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
+        const orderDetailsPage = await OrderInHouseLabPage.detailsPageIsOpen(page);
         await orderDetailsPage.collectSamplePage.verifyTestName(testName);
         await orderDetailsPage.collectSamplePage.verifyStatus(STATUS.ORDERED);
         await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
@@ -325,8 +360,7 @@ test.describe('In-house labs page', async () => {
       });
 
       await test.step('IHL-1.3 Perform test and submit result', async () => {
-        const performTestPage = new PerformTestPage(page);
-        await performTestPage.verifyPerformTestPageOpened();
+        const performTestPage = await PerformTestPage.isOpen(page);
         await performTestPage.verifyStatus(STATUS.COLLECTED);
         await performTestPage.verifySubmitButtonDisabled();
         testDetails = await performTestPage.selectRadioTestResult(testName);
@@ -363,20 +397,21 @@ test.describe('In-house labs page', async () => {
 
       await test.step('IHL-2.2 Delete a COLLECTED lab', async () => {
         let collectedLabServiceRequestId: string = 'placeholder';
-        await test.step('Create a lab', async () => {
+        await test.step('IHL-2.2.1 Create a lab', async () => {
           const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
-          await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
+          testName = radioEntryTestItems[0].name;
+          await orderInHouseLabPage.selectTest(testName);
           await orderInHouseLabPage.clickOrderInHouseLabButton();
         });
 
-        await test.step('Mark as collected', async () => {
-          const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
+        await test.step('IHL-2.2.2 Mark as collected', async () => {
+          const orderDetailsPage = await OrderInHouseLabPage.detailsPageIsOpen(page);
           await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
           await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
           collectedLabServiceRequestId = orderDetailsPage.getServiceRequestId();
         });
 
-        await test.step('Delete the lab', async () => {
+        await test.step('IHL-2.2.3 Delete the lab', async () => {
           // go back to the labs table
           inHouseLabsPage = await sideMenu.clickInHouseLabs();
           await inHouseLabsPage.deleteTest(collectedLabServiceRequestId);
@@ -385,17 +420,18 @@ test.describe('In-house labs page', async () => {
 
       await test.step('IHL-2.3 Delete an ORDERED lab', async () => {
         let orderedLabServiceRequestId: string = 'placeholder';
-        await test.step('Create a lab', async () => {
+        await test.step('IHL-2.3.1 Create a lab', async () => {
           const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
-          await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
+          testName = radioEntryTestItems[0].name;
+          await orderInHouseLabPage.selectTest(testName);
           await orderInHouseLabPage.clickOrderInHouseLabButton();
 
           // get the service request id
-          const orderedLabOrderPage = await OrderInHouseLabPage.openDetails(page);
+          const orderedLabOrderPage = await OrderInHouseLabPage.detailsPageIsOpen(page);
           orderedLabServiceRequestId = orderedLabOrderPage.getServiceRequestId();
         });
 
-        await test.step('Delete the lab', async () => {
+        await test.step('IHL-2.3.2 Delete the lab', async () => {
           // go back to the labs table
           inHouseLabsPage = await sideMenu.clickInHouseLabs();
           await inHouseLabsPage.deleteTest(orderedLabServiceRequestId);
@@ -403,142 +439,243 @@ test.describe('In-house labs page', async () => {
       });
     });
 
-    if (inHouseLabSetQuantity === 0) {
-      await test.step('IHL-3 - no lab sets, skipping tests lab set tests', () => {
-        return;
+    await test.step('IHL-3 Add inhouse labs via lab sets', async () => {
+      // go back to the labs table
+      let inHouseLabsPage = await sideMenu.clickInHouseLabs();
+
+      const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+      await orderInHouseLabPage.selectALabSet();
+      await orderInHouseLabPage.clickOrderInHouseLabButton();
+
+      // confirm we've been nav'd to the orders table
+      inHouseLabsPage = await InHouseLabsPage.isOpen(page);
+
+      // make sure tests were created
+      const testsFound = await inHouseLabsPage.countTableRows();
+      expect(testsFound, `${testsFound} tests were created`).toBeGreaterThan(0);
+    });
+
+    await test.step('IHL-4 Repeat test happy path', async () => {
+      await test.step('IHL-4.1 Order a repeatable test', async () => {
+        await test.step('IHL-4.1.1 Create and submit order', async () => {
+          // make sure you are on the orders table page
+          const inHouseLabsPage = await InHouseLabsPage.isOpen(page);
+
+          // order a repeatable radio entry test
+          const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+          testName = repeatableRadioEntryTestItems[0].name;
+          await orderInHouseLabPage.selectTest(testName);
+
+          // try to order as repeat (it should error)
+          await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
+
+          // check for error
+          await orderInHouseLabPage.clickOrderInHouseLabButton();
+          const error = orderInHouseLabPage.error;
+          await expect(error).toBeVisible();
+          await expect(error).toContainText(
+            `You cannot run ${testName} as repeat, no initial tests could be found for this encounter.`
+          );
+
+          // uncheck run as repeat and click order again
+          await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
+          await orderInHouseLabPage.clickOrderInHouseLabButton();
+        });
+
+        await test.step('IHL-4.1.2 Enter sample collection info', async () => {
+          const orderDetailsPage = await OrderInHouseLabPage.detailsPageIsOpen(page);
+          await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
+          await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+        });
+
+        await test.step('IHL-4.1.3 Enter results', async () => {
+          const performTestPage = await PerformTestPage.isOpen(page);
+          testDetails = await performTestPage.selectRadioTestResult(testName);
+          await performTestPage.verifySubmitButtonEnabled();
+          await performTestPage.submitOrderResult();
+        });
       });
-    } else {
-      await test.step('IHL-3 Add inhouse labs via lab sets', async () => {
-        // go back to the labs table
-        let inHouseLabsPage = await sideMenu.clickInHouseLabs();
 
-        const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
-        await orderInHouseLabPage.selectALabSet();
-        await orderInHouseLabPage.clickOrderInHouseLabButton();
+      await test.step('IHL-4.2 Order a repeat test', async () => {
+        await test.step('IHL-4.2.1 Create and submit order', async () => {
+          const finalResultPage = await FinalResultPage.isOpen(page);
+          await finalResultPage.clickRepeatButton();
+          const orderInHouseLabPage = await OrderInHouseLabPage.createPageIsOpen(page);
 
-        // confirm we've been nav'd to the orders table
-        inHouseLabsPage = await InHouseLabsPage.open(page);
+          // confirm repeat check box is already checked
+          await orderInHouseLabPage.confirmRunAsRepeatForTestIsChecked(testName);
 
-        // make sure tests were created
-        const testsFound = await inHouseLabsPage.countTableRows();
-        expect(testsFound, `${testsFound} tests were created`).toBeGreaterThan(0);
+          // confirm cptCode has '-91 (QW)'
+          const CPT_CODE = `${TEST_TYPE_TO_CPT[testName]}-${REPEAT_TEST_CPT_CODE_MODIFIER.code} (QW)`;
+          await orderInHouseLabPage.verifyCPTCode(CPT_CODE, testName);
+
+          await orderInHouseLabPage.clickOrderInHouseLabButton();
+        });
+
+        await test.step('IHL-4.2.2 Enter sample collection info', async () => {
+          const orderDetailsPage = await OrderInHouseLabPage.detailsPageIsOpen(page);
+          await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
+          await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+        });
+
+        await test.step('IHL-4.2.3 Enter results', async () => {
+          const performTestPage = await PerformTestPage.isOpen(page);
+          testDetails = await performTestPage.selectRadioTestResult(testName);
+          await performTestPage.verifySubmitButtonEnabled();
+          await performTestPage.submitOrderResult();
+        });
+
+        await test.step('IHL-4.2.4 Confirm final results page displays all results', async () => {
+          const finalResultPage = await FinalResultPage.isOpen(page);
+          const resultCount = await finalResultPage.countResultCardsOnPage();
+          expect(
+            resultCount,
+            `confirming both the original and repeat results are present on the final result page`
+          ).toBe(2);
+        });
       });
-    }
 
-    if (repeatableRadioEntryTestItems.length === 0) {
-      await test.step('IHL-4 no repeatable radio entry tests, skipping inhouse labs repeat tests', () => {
-        return;
+      await test.step('IHL-4.3 Confirm cpt codes appear as expected', async () => {
+        const originalTestCptCode: CPTCodeDTO = {
+          code: TEST_TYPE_TO_CPT[testName],
+          display: testName,
+        };
+        const repeatTestCptCode: CPTCodeDTO = {
+          ...originalTestCptCode,
+          modifier: [{ code: REPEAT_TEST_CPT_CODE_MODIFIER.code, display: REPEAT_TEST_CPT_CODE_MODIFIER.display }],
+        };
+
+        const originalTestCptCodeDisplay = makeCptCodeDisplay(originalTestCptCode);
+        const repeatTestCptCodeDisplay = makeCptCodeDisplay(repeatTestCptCode);
+
+        await test.step('IHL-4.3.1 Check progress note', async () => {
+          const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+          await progressNotePage.verifyGivenCptCodeIsShown(originalTestCptCodeDisplay);
+          await progressNotePage.verifyGivenCptCodeIsShown(repeatTestCptCodeDisplay);
+        });
+
+        await test.step('IHL-4.3.2 Check assessment page', async () => {
+          await sideMenu.clickAssessment();
+          const assessmentPage = await expectAssessmentPage(page);
+          await assessmentPage.verifyExactCptCodeDisplayIsShown(originalTestCptCodeDisplay);
+          await assessmentPage.verifyExactCptCodeDisplayIsShown(repeatTestCptCodeDisplay);
+        });
       });
-    } else {
-      await test.step('IHL-4 Repeat test happy path', async () => {
-        await test.step('IHL-4.1 Order a repeatable test', async () => {
-          await test.step('Create and submit order', async () => {
-            // make sure you are on the orders table page
-            const inHouseLabsPage = await InHouseLabsPage.open(page);
+    });
 
-            // order a repeatable radio entry test
-            const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
-            testName = await orderInHouseLabPage.selectRadioEntryInHouseLab(repeatableRadioEntryTestItems);
+    await test.step('ILH-5 Reflex test happy path', async () => {
+      const reflexTestName = reflexTest.child.test.name;
+      const parentTestName = reflexTest.parent.test.name;
 
-            // try to order as repeat (it should error)
-            await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
+      await test.step('IHL-5.1 Order a parent test', async () => {
+        await test.step('IHL-5.1.1 Create and submit order', async () => {
+          // make sure you are on the orders table page
+          const inHouseLabsPage = await sideMenu.clickInHouseLabs();
 
-            // check for error
-            await orderInHouseLabPage.clickOrderInHouseLabButton();
-            const error = orderInHouseLabPage.error;
-            await expect(error).toBeVisible();
-            await expect(error).toContainText(
-              `You cannot run ${testName} as repeat, no initial tests could be found for this encounter.`
+          // order the parent
+          const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
+          await orderInHouseLabPage.selectTest(parentTestName);
+          await orderInHouseLabPage.clickOrderInHouseLabButton();
+        });
+
+        await test.step('IHL-5.1.2 Enter sample collection info', async () => {
+          const orderDetailsPage = await OrderInHouseLabPage.detailsPageIsOpen(page);
+          await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+        });
+
+        await test.step('IHL-5.1.3 Enter results', async () => {
+          const performTestPage = await PerformTestPage.isOpen(page);
+
+          const groupedComponents = reflexTest.parent.test.components.groupedComponents;
+          const containsGroupedComponents = groupedComponents.length > 0;
+          if (!containsGroupedComponents) {
+            throw new Error(
+              `IHL-5.1.3 ERROR: Parent reflex test has an unexpected result entry type, expecting grouped components`
             );
+          }
 
-            // uncheck run as repeat and click order again
-            await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
-            await orderInHouseLabPage.clickOrderInHouseLabButton();
-          });
+          // enter results
+          for (const c of groupedComponents) {
+            const displayType = c.displayType;
+            const resultKey = `${c.loincCode}-${c.componentName}`;
+            const result = reflexTest.parent.results[resultKey].abnormal;
 
-          await test.step('Enter sample collection info', async () => {
-            const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
-            await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
-            await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
-          });
+            if (displayType === 'Numeric') {
+              await performTestPage.enterNumericResult(c, result);
+            }
+          }
 
-          await test.step('Enter results', async () => {
-            const performTestPage = new PerformTestPage(page);
-            await performTestPage.verifyPerformTestPageOpened();
-            testDetails = await performTestPage.selectRadioTestResult(testName);
-            await performTestPage.verifySubmitButtonEnabled();
-            await performTestPage.submitOrderResult();
-          });
+          // submit
+          await performTestPage.verifySubmitButtonEnabled();
+          await performTestPage.submitOrderResult();
         });
 
-        await test.step('IHL-4.2 Order a repeat test', async () => {
-          await test.step('Create and submit order', async () => {
-            const finalResultPage = new FinalResultPage(page);
-            await finalResultPage.clickRepeatButton();
-            const orderInHouseLabPage = await OrderInHouseLabPage.openCreate(page);
+        // confirm that banner indicating a reflex is triggered appears on final result page with appropriate text
+        await test.step('IHL-5.1.4 Confirm reflex test has been triggered', async () => {
+          const finalResultPage = await FinalResultPage.isOpen(page);
+          const alertToCheck = reflexTest.parent.alert;
+          await finalResultPage.confirmReflexAlert(alertToCheck);
 
-            // confirm repeat check box is already checked
-            await orderInHouseLabPage.confirmRunAsRepeatForTestIsChecked(testName);
-
-            // confirm cptCode has '-91 (QW)'
-            const CPT_CODE = `${TEST_TYPE_TO_CPT[testName]}-${REPEAT_TEST_CPT_CODE_MODIFIER.code} (QW)`;
-            await orderInHouseLabPage.verifyCPTCode(CPT_CODE, testName);
-
-            await orderInHouseLabPage.clickOrderInHouseLabButton();
-          });
-
-          await test.step('Enter sample collection info', async () => {
-            const orderDetailsPage = await OrderInHouseLabPage.openDetails(page);
-            await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
-            await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
-          });
-
-          await test.step('Enter results', async () => {
-            const performTestPage = new PerformTestPage(page);
-            await performTestPage.verifyPerformTestPageOpened();
-            testDetails = await performTestPage.selectRadioTestResult(testName);
-            await performTestPage.verifySubmitButtonEnabled();
-            await performTestPage.submitOrderResult();
-          });
-
-          await test.step('Confirm final results page displays all results', async () => {
-            const finalResultPage = await FinalResultPage.open(page);
-            const resultCount = await finalResultPage.countResultCardsOnPage();
-            expect(
-              resultCount,
-              `confirming both the original and repeat results are present on the final result page`
-            ).toBe(2);
-          });
-        });
-
-        await test.step('IHL-4.3 Confirm cpt codes appear as expected', async () => {
-          const originalTestCptCode: CPTCodeDTO = {
-            code: TEST_TYPE_TO_CPT[testName],
-            display: testName,
-          };
-          const repeatTestCptCode: CPTCodeDTO = {
-            ...originalTestCptCode,
-            modifier: [{ code: REPEAT_TEST_CPT_CODE_MODIFIER.code, display: REPEAT_TEST_CPT_CODE_MODIFIER.display }],
-          };
-
-          const originalTestCptCodeDisplay = makeCptCodeDisplay(originalTestCptCode);
-          const repeatTestCptCodeDisplay = makeCptCodeDisplay(repeatTestCptCode);
-
-          await test.step('Check progress note', async () => {
-            const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-            await progressNotePage.verifyGivenCptCodeIsShown(originalTestCptCodeDisplay);
-            await progressNotePage.verifyGivenCptCodeIsShown(repeatTestCptCodeDisplay);
-          });
-
-          await test.step('Check assessment page', async () => {
-            await sideMenu.clickAssessment();
-            const assessmentPage = await expectAssessmentPage(page);
-            await assessmentPage.verifyExactCptCodeDisplayIsShown(originalTestCptCodeDisplay);
-            await assessmentPage.verifyExactCptCodeDisplayIsShown(repeatTestCptCodeDisplay);
-          });
+          // confirm order reflex test button is there (with expected text) and click it
+          // this should take us back to the create page & and the reflex data should be prefilled
+          await finalResultPage.clickOrderReflexTestButton(reflexTestName);
         });
       });
-    }
+
+      await test.step('IHL-5.2 Order child test', async () => {
+        await test.step('IHL-5.2.1 Confirm create order is correct and submit', async () => {
+          const orderInHouseLabPage = await OrderInHouseLabPage.createPageIsOpen(page);
+
+          // confirm cptCode has '-91 (QW)'
+          const modifier = reflexTest.child.test.cptCode.flatMap((code) => code.modifier?.map((m) => m.code)).join('-');
+          const CPT_CODE = `${TEST_TYPE_TO_CPT[reflexTestName]}-${modifier} (QW)`;
+          await orderInHouseLabPage.verifyCPTCode(CPT_CODE, reflexTestName);
+
+          await orderInHouseLabPage.clickOrderInHouseLabButton();
+        });
+
+        await test.step('IHL-5.2.2 Enter sample collection info', async () => {
+          const orderDetailsPage = await OrderInHouseLabPage.detailsPageIsOpen(page);
+          await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+        });
+
+        await test.step('IHL-5.2.3 Enter results', async () => {
+          const performTestPage = await PerformTestPage.isOpen(page);
+
+          const groupedComponents = reflexTest.child.test.components.groupedComponents;
+          const containsGroupedComponents = groupedComponents.length > 0;
+          if (!containsGroupedComponents) {
+            throw new Error(
+              `IHL-5.2.3 ERROR: Child reflex test has an unexpected result entry type, expecting grouped components`
+            );
+          }
+
+          // enter results
+          for (const c of groupedComponents) {
+            const displayType = c.displayType;
+            const resultKey = `${c.loincCode}-${c.componentName}`;
+            const result = reflexTest.child.results[resultKey].abnormal;
+
+            if (displayType === 'Numeric') {
+              await performTestPage.enterNumericResult(c, result);
+            }
+          }
+
+          // submit
+          await performTestPage.verifySubmitButtonEnabled();
+          await performTestPage.submitOrderResult();
+        });
+      });
+
+      // confirm the results page has two results
+      await test.step('IHL-5.3 Confirm final results page displays all results', async () => {
+        const finalResultPage = await FinalResultPage.isOpen(page);
+        const resultCount = await finalResultPage.countResultCardsOnPage();
+        expect(resultCount, `confirming both the parent and child results are present on the final result page`).toBe(
+          2
+        );
+      });
+    });
   });
 
   async function prepareAndOpenInHouseLabsPage(page: Page): Promise<OrderInHouseLabPage> {

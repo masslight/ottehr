@@ -154,7 +154,11 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
                 gap={'4px'}
               >
                 <WarningAmberOutlined sx={{ height: '22px', width: '22px', my: '7px', mr: '12px' }} color="warning" />
-                <Typography variant="h6" color={otherColors.warningText}>
+                <Typography
+                  data-testId={dataTestIds.resultPage.reflexAlert}
+                  variant="h6"
+                  color={otherColors.warningText}
+                >
                   {testDetails.labDetails.reflexAlert.alert}
                 </Typography>
               </Box>

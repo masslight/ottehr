@@ -12,7 +12,7 @@ export class InHouseLabsPage {
     this.#page = page;
   }
 
-  static async open(page: Page): Promise<InHouseLabsPage> {
+  static async isOpen(page: Page): Promise<InHouseLabsPage> {
     await page.waitForURL(new RegExp('/in-person/.*/in-house-lab-orders'));
     await expect(page.getByTestId(dataTestIds.inHouseLabsPage.title)).toBeVisible();
     return new InHouseLabsPage(page);
@@ -28,7 +28,7 @@ export class InHouseLabsPage {
 
   async clickOrderButton(): Promise<OrderInHouseLabPage> {
     await this.#page.getByTestId(dataTestIds.inHouseLabsPage.orderButton).click();
-    return OrderInHouseLabPage.openCreate(this.#page);
+    return OrderInHouseLabPage.createPageIsOpen(this.#page);
   }
 
   async countTableRows(): Promise<number> {
