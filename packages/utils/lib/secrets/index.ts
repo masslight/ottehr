@@ -14,6 +14,18 @@ export const getSecret = (secretKey: string, secrets: Secrets | null): string =>
   return value;
 };
 
+// use | to add more feature flags here as needed
+export type BackendFeatureFlags = 'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG';
+
+/**
+ * Check if a feature flag is enabled.
+ * The backed and frontend feature flags have a single source of truth - zambda env files.
+ * Returns true only if the value is exactly 'true', false otherwise.
+ */
+export const isFeatureFlagEnabled = (flagKey: BackendFeatureFlags, secrets: Secrets | null): boolean => {
+  return getOptionalSecret(flagKey, secrets) === 'true';
+};
+
 export enum SecretsKeys {
   WEBSITE_URL = 'WEBSITE_URL',
   AUTH0_ENDPOINT = 'AUTH0_ENDPOINT',
