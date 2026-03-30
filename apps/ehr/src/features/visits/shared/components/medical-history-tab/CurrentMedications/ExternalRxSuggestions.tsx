@@ -77,13 +77,14 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
 
   const addMedication = useCallback(
     (med: ExternalMedication) => {
-      if (med.matchedMedication && onSelectMedication) {
+      const matched = med.matchedMedication;
+      if (matched && onSelectMedication) {
         onSelectMedication({
-          medication: med.matchedMedication,
+          medication: matched,
           dose: med.strength,
           directions: med.directions,
         });
-        setAddedIds((prev) => new Set(prev).add(med.matchedMedication!.id));
+        setAddedIds((prev) => new Set(prev).add(matched.id));
       }
     },
     [onSelectMedication]
