@@ -680,7 +680,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     type: 'replaced-by' as const,
   };
   const hasReplacedByLink = existingLinks.some(
-    (link) => link.type === replacedByLink.type && link.other?.reference === replacedByLink.other.reference,
+    (link) => link.type === replacedByLink.type && link.other?.reference === replacedByLink.other.reference
   );
   otherPatient.link = hasReplacedByLink ? existingLinks : [...existingLinks, replacedByLink];
   requests.push({ method: 'PUT', url: `/Patient/${otherPatientId}`, resource: otherPatient });
