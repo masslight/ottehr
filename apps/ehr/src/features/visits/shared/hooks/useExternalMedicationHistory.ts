@@ -20,9 +20,10 @@ function normalizeStrength(strength: string | null | undefined): string {
 
 /**
  * Score a search result against the external medication's name and strength.
- * Higher score = better match.
- *   +2 = exact name match
- *   +1 = name is a substring match (external name appears in search result name or vice versa)
+ * Higher score = better match. Name is weighted more heavily than strength
+ * since correctly identifying the medication is more important than matching dose.
+ *   +4 = exact name match
+ *   +2 = name is a substring match (external name appears in search result name or vice versa)
  *   +2 = exact strength match
  *   +1 = strength appears somewhere in the search result's strength or name
  */
@@ -31,11 +32,11 @@ function scoreMatch(candidate: SearchResult, externalName: string, externalStren
   const candidateNameLower = candidate.name.toLowerCase();
   const externalNameLower = externalName.toLowerCase();
 
-  // Name scoring
+  // Name scoring (weighted higher)
   if (candidateNameLower === externalNameLower) {
-    score += 2;
+    score += 4;
   } else if (candidateNameLower.includes(externalNameLower) || externalNameLower.includes(candidateNameLower)) {
-    score += 1;
+    score += 2;
   }
 
   // Strength scoring
@@ -86,10 +87,10 @@ function findBestMatch(
     }
   }
 
-  // Exact match = name exact (2) + strength exact (2) = 4, or name exact (2) with no strength to match
+  // Exact match = name exact (4) + strength exact (2) = 6, or name exact (4) with no strength to match
   const isExact = externalStrength
-    ? bestScore >= 4
-    : bestScore >= 2 && bestCandidate?.name.toLowerCase() === externalName.toLowerCase();
+    ? bestScore >= 6
+    : bestScore >= 4 && bestCandidate?.name.toLowerCase() === externalName.toLowerCase();
 
   return { match: bestCandidate, isExact };
 }
@@ -391,70 +392,36 @@ export const useExternalMedicationHistory = (
         uniqueEntries.map(async (entry) => {
           const key = `${entry.name}|${entry.strength ?? ''}`;
           try {
-            // Step 2a: Try direct ID lookup first (ndc, rxcui, or medicationId)
-            let idMatch: ExtractObjectType<ErxSearchMedicationsResponse> | null = null;
-            if (entry.ndc) {
-              try {
-                const med = await oystehr.erx.getMedication({ ndc: entry.ndc });
-                if (med) {
-                  idMatch = {
-                    id: med.id,
-                    routedDoseFormDrugId: med.id,
-                    name: med.name,
-                    rxcui: med.rxcui ?? null,
-                    ndc: med.ndc ?? null,
-                    strength: med.strength ?? '',
-                    isObsolete: med.isObsolete,
-                  };
-                }
-              } catch {
-                /* ndc lookup failed, continue */
-              }
-            }
-            if (!idMatch && entry.rxcui) {
-              try {
-                const med = await oystehr.erx.getMedication({ rxcui: entry.rxcui });
-                if (med) {
-                  idMatch = {
-                    id: med.id,
-                    routedDoseFormDrugId: med.id,
-                    name: med.name,
-                    rxcui: med.rxcui ?? null,
-                    ndc: med.ndc ?? null,
-                    strength: med.strength ?? '',
-                    isObsolete: med.isObsolete,
-                  };
-                }
-              } catch {
-                /* rxcui lookup failed, continue */
-              }
-            }
-            if (!idMatch && entry.medicationId) {
-              try {
-                const med = await oystehr.erx.getMedication({ drugId: entry.medicationId });
-                if (med) {
-                  idMatch = {
-                    id: med.id,
-                    routedDoseFormDrugId: med.id,
-                    name: med.name,
-                    rxcui: med.rxcui ?? null,
-                    ndc: med.ndc ?? null,
-                    strength: med.strength ?? '',
-                    isObsolete: med.isObsolete,
-                  };
-                }
-              } catch {
-                /* drugId lookup failed, continue */
-              }
-            }
+            // Step 2a: Try direct ID lookups and name search in parallel
+            const toSearchResult = (
+              med: Awaited<ReturnType<typeof oystehr.erx.getMedication>>
+            ): ExtractObjectType<ErxSearchMedicationsResponse> => ({
+              id: med.id,
+              routedDoseFormDrugId: med.id,
+              name: med.name,
+              rxcui: med.rxcui ?? null,
+              ndc: med.ndc ?? null,
+              strength: med.strength ?? '',
+              isObsolete: med.isObsolete,
+            });
 
+            const [ndcResult, rxcuiResult, drugIdResult, searchResponse] = await Promise.all([
+              entry.ndc ? oystehr.erx.getMedication({ ndc: entry.ndc }).catch(() => null) : Promise.resolve(null),
+              entry.rxcui ? oystehr.erx.getMedication({ rxcui: entry.rxcui }).catch(() => null) : Promise.resolve(null),
+              entry.medicationId
+                ? oystehr.erx.getMedication({ drugId: entry.medicationId }).catch(() => null)
+                : Promise.resolve(null),
+              oystehr.erx.searchMedications({ name: entry.name }).catch(() => [] as ErxSearchMedicationsResponse),
+            ]);
+
+            // Prefer direct ID matches (exact), fall back to name search
+            const idMatch = ndcResult ?? rxcuiResult ?? drugIdResult;
             if (idMatch) {
-              results.set(key, { match: idMatch, isExact: true });
+              results.set(key, { match: toSearchResult(idMatch), isExact: true });
               return;
             }
 
-            // Step 2b: Fall back to name search
-            const searchResponse = await oystehr.erx.searchMedications({ name: entry.name });
+            // Step 2b: Use name search results for fuzzy matching
             const match = findBestMatch(searchResponse, entry.name, entry.strength, entry.rxcui);
             results.set(key, match);
           } catch {

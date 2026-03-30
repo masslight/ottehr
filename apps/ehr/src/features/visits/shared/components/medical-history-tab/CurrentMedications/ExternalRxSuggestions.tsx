@@ -12,10 +12,9 @@ import {
   Typography,
 } from '@mui/material';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
-import { DateTime } from 'luxon';
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { MedicationDTO } from 'utils';
+import { formatDateForDisplay, MedicationDTO } from 'utils';
 import { ExternalMedication, useExternalMedicationHistory } from '../../../hooks/useExternalMedicationHistory';
 import { ExtractObjectType } from '../../../stores/appointment/appointment.queries';
 
@@ -36,36 +35,45 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
   const { isLoading, isAvailable, externalMedications } = useExternalMedicationHistory(chartedMedications);
   const [expanded, setExpanded] = useState(false);
   // Track medication IDs that were just clicked (optimistic hide).
-  // Uses the matched medication's eRx ID for reliable matching.
-  const addedIdsRef = useRef(new Set<number>());
-  const [, forceRender] = useState(0);
-
+  const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
   // Track which IDs have been confirmed in chartedMedications at least once.
-  const confirmedIdsRef = useRef(new Set<number>());
+  const [confirmedIds, setConfirmedIds] = useState<Set<number>>(new Set());
 
   // Inexact match confirmation dialog state
   const [inexactConfirmMed, setInexactConfirmMed] = useState<ExternalMedication | null>(null);
 
   const chartedIds = useMemo(() => new Set(chartedMedications.map((m) => m.id).filter(Boolean)), [chartedMedications]);
 
-  useEffect(() => {
-    if (addedIdsRef.current.size === 0) return;
-    let changed = false;
+  // When charted medications change, check if any optimistically-added IDs were removed by the user
+  const reconciledAddedIds = useMemo(() => {
+    if (addedIds.size === 0) return addedIds;
+    let needsUpdate = false;
+    const newAdded = new Set(addedIds);
+    const newConfirmed = new Set(confirmedIds);
 
-    for (const id of addedIdsRef.current) {
+    for (const id of addedIds) {
       const idStr = String(id);
       if (chartedIds.has(idStr)) {
-        confirmedIdsRef.current.add(id);
-      } else if (confirmedIdsRef.current.has(id)) {
+        if (!confirmedIds.has(id)) {
+          newConfirmed.add(id);
+          needsUpdate = true;
+        }
+      } else if (confirmedIds.has(id)) {
         // Was confirmed before but now gone — user deleted it
-        addedIdsRef.current.delete(id);
-        confirmedIdsRef.current.delete(id);
-        changed = true;
+        newAdded.delete(id);
+        newConfirmed.delete(id);
+        needsUpdate = true;
       }
     }
 
-    if (changed) forceRender((n) => n + 1);
-  }, [chartedIds]);
+    if (needsUpdate) {
+      // Schedule state updates for next render
+      setAddedIds(newAdded);
+      setConfirmedIds(newConfirmed);
+      return newAdded;
+    }
+    return addedIds;
+  }, [addedIds, confirmedIds, chartedIds]);
 
   const addMedication = useCallback(
     (med: ExternalMedication) => {
@@ -75,8 +83,7 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
           dose: med.strength,
           directions: med.directions,
         });
-        addedIdsRef.current = new Set(addedIdsRef.current).add(med.matchedMedication.id);
-        forceRender((n) => n + 1);
+        setAddedIds((prev) => new Set(prev).add(med.matchedMedication!.id));
       }
     },
     [onSelectMedication]
@@ -97,18 +104,11 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
 
   const visibleMedications = useMemo(
     () =>
-      externalMedications.filter((med) => !med.matchedMedication || !addedIdsRef.current.has(med.matchedMedication.id)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [externalMedications, addedIdsRef.current.size]
+      externalMedications.filter((med) => !med.matchedMedication || !reconciledAddedIds.has(med.matchedMedication.id)),
+    [externalMedications, reconciledAddedIds]
   );
   const displayedMeds = expanded ? visibleMedications : visibleMedications.slice(0, COLLAPSED_COUNT);
   const hasMore = visibleMedications.length > COLLAPSED_COUNT;
-
-  const formatDate = (dateStr: string | null): string | null => {
-    if (!dateStr) return null;
-    const dt = DateTime.fromISO(dateStr);
-    return dt.isValid ? dt.toFormat('MM/dd/yyyy') : dateStr;
-  };
 
   return (
     <Box sx={{ marginBottom: '10px' }}>
@@ -159,7 +159,6 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
                 key={`${med.name}-${med.writtenDate}-${index}`}
                 medication={med}
                 onClick={handleMedicationClick}
-                formatDate={formatDate}
               />
             ))}
             {hasMore && (
@@ -234,10 +233,9 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
 interface ExternalMedicationItemProps {
   medication: ExternalMedication;
   onClick: (med: ExternalMedication) => void;
-  formatDate: (dateStr: string | null) => string | null;
 }
 
-const ExternalMedicationItem: FC<ExternalMedicationItemProps> = ({ medication, onClick, formatDate }) => {
+const ExternalMedicationItem: FC<ExternalMedicationItemProps> = ({ medication, onClick }) => {
   const isClickable = !!medication.matchedMedication;
   const isExact = medication.isExactMatch;
   const displayName = [medication.name, medication.strength, medication.doseForm].filter(Boolean).join(' ');
@@ -251,8 +249,8 @@ const ExternalMedicationItem: FC<ExternalMedicationItemProps> = ({ medication, o
   const detailLine = detailParts.join(' | ');
 
   const dateParts = [
-    medication.writtenDate ? `Prescribed: ${formatDate(medication.writtenDate)}` : null,
-    medication.lastFillDate ? `Last filled: ${formatDate(medication.lastFillDate)}` : null,
+    medication.writtenDate ? `Prescribed: ${formatDateForDisplay(medication.writtenDate)}` : null,
+    medication.lastFillDate ? `Last filled: ${formatDateForDisplay(medication.lastFillDate)}` : null,
     `${medication.refills} refills`,
   ].filter(Boolean);
   const dateLine = dateParts.join(' | ');

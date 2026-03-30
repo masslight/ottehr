@@ -30,6 +30,7 @@ import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
+import { ExternalMedicationSelection } from './ExternalRxSuggestions';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
@@ -38,8 +39,6 @@ interface CurrentMedicationsProviderColumnForm {
   dose: string | null;
   patientCouldNotConfirmDosage: boolean;
 }
-
-import { ExternalMedicationSelection } from './ExternalRxSuggestions';
 
 interface CurrentMedicationsProviderColumnProps {
   onSelectMedicationRef?: React.MutableRefObject<((selection: ExternalMedicationSelection) => void) | null>;
