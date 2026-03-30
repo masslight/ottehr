@@ -171,7 +171,7 @@ async function getFhirEncountersAndAppointmentsForPatient(
         name: '_include',
         value: 'Encounter:appointment',
       },
-      // exclude follow-up encounters that are missing appointment references and lack candid ids
+      // exclude follow-up encounters that are missing appointment references
       {
         name: 'appointment:missing',
         value: 'false',
