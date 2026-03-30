@@ -2,7 +2,7 @@ import { expect, Page } from '@playwright/test';
 import { configResultPageContainerTestId } from 'src/features/in-house-labs/utils/test-ids';
 import { EntryMode } from 'utils';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
-import { RadioSelectionResult } from '..';
+import { RadioSelectionResult } from './types';
 
 export class FinalResultPage {
   #page: Page;

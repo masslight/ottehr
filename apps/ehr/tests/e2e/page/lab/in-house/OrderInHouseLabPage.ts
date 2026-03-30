@@ -49,7 +49,7 @@ export class OrderInHouseLabPage {
   async verifyOrderInHouseLabButtonDisabled(): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.orderInHouseLabButton)).toBeDisabled();
   }
-  async verifyOrderAndPrintLabeButtonDisabled(): Promise<void> {
+  async verifyOrderAndPrintLabelButtonDisabled(): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton)).toBeDisabled();
   }
   async verifyOrderInHouseLabButtonEnabled(): Promise<void> {

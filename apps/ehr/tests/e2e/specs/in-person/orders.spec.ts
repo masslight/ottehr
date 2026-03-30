@@ -340,7 +340,7 @@ test.describe('In-house labs page', async () => {
     await test.step('IHL-1 Happy path - radio entry test', async () => {
       await test.step('IHL-1.1 Open In-house Labs and place order', async () => {
         const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
-        await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
+        await orderInHouseLabPage.verifyOrderAndPrintLabelButtonDisabled();
         await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
         testName = radioEntryTestItems[0].name;
         await orderInHouseLabPage.selectTest(testName);

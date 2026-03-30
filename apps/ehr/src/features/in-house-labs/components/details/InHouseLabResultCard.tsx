@@ -155,7 +155,7 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
               >
                 <WarningAmberOutlined sx={{ height: '22px', width: '22px', my: '7px', mr: '12px' }} color="warning" />
                 <Typography
-                  data-testId={dataTestIds.resultPage.reflexAlert}
+                  data-testid={dataTestIds.resultPage.reflexAlert}
                   variant="h6"
                   color={otherColors.warningText}
                 >
