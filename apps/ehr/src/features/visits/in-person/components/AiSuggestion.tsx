@@ -3,6 +3,7 @@ import { InfoOutlined } from '@mui/icons-material';
 import { Box, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React from 'react';
+import { AiDisclaimerTooltip } from 'src/features/visits/shared/components/AiDisclaimerTooltip';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetChartDataResponse, ObservationTextFieldDTO, ProcedureSuggestion } from 'utils';
@@ -108,14 +109,7 @@ export default function AiSuggestion({
           <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
             Oystehr AI
           </Typography>
-          <Tooltip
-            placement="top"
-            title="AI generated outputs, recommendations, and suggestions are provided for informational purposes only and are not intended to replace professional medical judgment or clinical expertise. AI technology may produce inaccurate, incomplete, or misleading results, and you must independently verify, validate, and confirm all AI-generated information before making any clinical decisions or taking any actions based on these outputs."
-          >
-            <IconButton size="small" sx={{ marginLeft: '5px' }}>
-              <InfoOutlined sx={{ fontSize: '17px' }} />
-            </IconButton>
-          </Tooltip>
+          <AiDisclaimerTooltip />
         </Box>
       </Container>
       <Container
