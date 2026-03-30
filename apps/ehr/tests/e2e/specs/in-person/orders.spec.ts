@@ -455,6 +455,7 @@ test.describe('In-house labs page', async () => {
       expect(testsFound, `${testsFound} tests were created`).toBeGreaterThan(0);
     });
 
+    // todo labs add step about checking breadcrumbs
     await test.step('IHL-4 Repeat test happy path', async () => {
       await test.step('IHL-4.1 Order a repeatable test', async () => {
         await test.step('IHL-4.1.1 Create and submit order', async () => {
@@ -563,7 +564,7 @@ test.describe('In-house labs page', async () => {
       });
     });
 
-    await test.step('ILH-5 Reflex test happy path', async () => {
+    await test.step('IHL-5 Reflex test happy path', async () => {
       const reflexTestName = reflexTest.child.test.name;
       const parentTestName = reflexTest.parent.test.name;
 

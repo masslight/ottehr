@@ -41,6 +41,7 @@ export class PerformTestPage {
   async selectRadioTestResult(testName: string): Promise<RadioSelectionResult> {
     const resultTestIdPrefix = dataTestIds.performTestPage.testResult();
     const radioOptions = this.#page.locator(`[data-testid^="${resultTestIdPrefix}"]`);
+    await radioOptions.first().waitFor();
 
     // confirm there are results entry options
     const count = await radioOptions.count();
