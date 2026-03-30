@@ -52,6 +52,7 @@ import {
   InHouseLabResult,
   isPSCOrder,
   LAB_DR_TYPE_TAG,
+  LAB_OBS_VALUE_WITH_PRECISION_EXT,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabDocument,
@@ -487,6 +488,42 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
   }
 };
 
+const extractObservationValue = (observation: Observation): string | undefined => {
+  if (observation.valueQuantity) {
+    const valueWithPrecision = observation.valueQuantity.extension?.find(
+      (ext) => ext.url === LAB_OBS_VALUE_WITH_PRECISION_EXT
+    )?.valueString;
+    const numericValue = valueWithPrecision ?? observation.valueQuantity.value?.toString();
+    const unit = observation.valueQuantity.code || '';
+    return numericValue ? `${numericValue} ${unit}`.trim() : undefined;
+  }
+  if (observation.valueString) {
+    return observation.valueString;
+  }
+  if (observation.valueCodeableConcept) {
+    return (
+      observation.valueCodeableConcept.coding?.map((coding) => coding.display || coding.code).join(', ') || undefined
+    );
+  }
+  return undefined;
+};
+
+const getResultValuesFromObservations = (
+  diagnosticReport: DiagnosticReport,
+  allObservations: Observation[]
+): string[] => {
+  const obsRefs = new Set(diagnosticReport.result?.map((r) => r.reference) ?? []);
+  const values: string[] = [];
+  for (const obs of allObservations) {
+    if (!obsRefs.has(`Observation/${obs.id}`)) continue;
+    const value = extractObservationValue(obs);
+    if (value) {
+      values.push(value);
+    }
+  }
+  return values;
+};
+
 export const makeEncounterLabResults = async (
   resources: FhirResource[],
   m2mToken: string
@@ -500,11 +537,15 @@ export const makeEncounterLabResults = async (
   const reflexTestsPending: string[] = []; // array of test names pending;
   const serviceRequestMap: Record<string, { resource: ServiceRequest; type: LabType }> = {};
   const diagnosticReportMap: Record<string, DiagnosticReport> = {};
+  const allObservations: Observation[] = [];
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'DocumentReference') {
       const isLabsDocRef = docRefIsOttehrGeneratedResultAndCurrent(resource);
       if (isLabsDocRef) documentReferences.push(resource as DocumentReference);
+    }
+    if (resource.resourceType === 'Observation') {
+      allObservations.push(resource as Observation);
     }
     if (resource.resourceType === 'ServiceRequest') {
       const isExternalLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
@@ -595,11 +636,12 @@ export const makeEncounterLabResults = async (
         } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
+          const resultValues = getResultValuesFromObservations(relatedDR, allObservations);
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mToken,
-            { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR) }
+            { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR), resultValues }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -688,7 +730,8 @@ const getLabOrderResultPDFConfig = async (
     | {
         type: LabType.inHouse;
         nonNormalResultContained: NonNormalResult[] | undefined;
-        simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
+        simpleResultValue?: string;
+        resultValues?: string[];
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
   const externalResults: ExternalLabOrderResultConfig[] = [];
@@ -717,6 +760,7 @@ const getLabOrderResultPDFConfig = async (
           url,
           nonNormalResultContained: resultDetails.nonNormalResultContained,
           simpleResultValue: resultDetails?.simpleResultValue,
+          resultValues: resultDetails?.resultValues,
         };
         inHouseResults.push(labResult);
       }
@@ -731,7 +775,7 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
   // namely, if the test is reflex and also lets us grab the related service request which has info on the test & lab name, needed for results display
   const docRefSearch: BatchInputGetRequest = {
     method: 'GET',
-    url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
+    url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on&_include:iterate=DiagnosticReport:result`,
   };
   // Grabbing active lab service requests separately since they might not have results
   // but we validate against actually signing the progress note if there are any pending
