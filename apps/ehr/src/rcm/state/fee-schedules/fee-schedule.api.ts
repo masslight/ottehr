@@ -1,0 +1,267 @@
+import Oystehr from '@oystehr/sdk';
+import { ChargeItemDefinition } from 'fhir/r4b';
+import { chooseJson } from 'utils';
+
+const CREATE_FEE_SCHEDULE_ZAMBDA_ID = 'create-fee-schedule';
+const UPDATE_FEE_SCHEDULE_ZAMBDA_ID = 'update-fee-schedule';
+const LIST_FEE_SCHEDULES_ZAMBDA_ID = 'list-fee-schedules';
+const FIND_APPLICABLE_FEE_SCHEDULE_ZAMBDA_ID = 'find-applicable-fee-schedule';
+const ASSOCIATE_PAYER_ZAMBDA_ID = 'associate-payer';
+const DISASSOCIATE_PAYER_ZAMBDA_ID = 'disassociate-payer';
+const ADD_PROCEDURE_CODE_ZAMBDA_ID = 'add-procedure-code';
+const UPDATE_PROCEDURE_CODE_ZAMBDA_ID = 'update-procedure-code';
+const DELETE_PROCEDURE_CODE_ZAMBDA_ID = 'delete-procedure-code';
+const BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID = 'bulk-add-procedure-codes';
+const GET_VERSION_HISTORY_ZAMBDA_ID = 'get-version-history';
+
+export interface CreateFeeScheduleInput {
+  name: string;
+  effectiveDate: string;
+  description: string;
+}
+
+export interface UpdateFeeScheduleInput extends Omit<CreateFeeScheduleInput, 'effectiveDate'> {
+  id: string;
+  effectiveDate?: string;
+  status?: 'active' | 'retired';
+  designation?: 'case-rate' | null;
+  caseRateAmount?: number;
+  caseRateComment?: string;
+}
+
+export const createFeeSchedule = async (oystehr: Oystehr, parameters: CreateFeeScheduleInput): Promise<any> => {
+  try {
+    if (CREATE_FEE_SCHEDULE_ZAMBDA_ID == null) {
+      throw new Error('create fee schedule zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: CREATE_FEE_SCHEDULE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listFeeSchedules = async (oystehr: Oystehr): Promise<ChargeItemDefinition[]> => {
+  try {
+    if (LIST_FEE_SCHEDULES_ZAMBDA_ID == null) {
+      throw new Error('list fee schedules zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: LIST_FEE_SCHEDULES_ZAMBDA_ID,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateFeeSchedule = async (
+  oystehr: Oystehr,
+  parameters: UpdateFeeScheduleInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    if (UPDATE_FEE_SCHEDULE_ZAMBDA_ID == null) {
+      throw new Error('update fee schedule zambda environment variable could not be loaded');
+    }
+    const { id: feeScheduleId, ...rest } = parameters;
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_FEE_SCHEDULE_ZAMBDA_ID,
+      feeScheduleId,
+      ...rest,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface AssociatePayerInput {
+  feeScheduleId: string;
+  organizationId: string;
+}
+
+export const associatePayer = async (
+  oystehr: Oystehr,
+  parameters: AssociatePayerInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    if (ASSOCIATE_PAYER_ZAMBDA_ID == null) {
+      throw new Error('associate payer zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ASSOCIATE_PAYER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const disassociatePayer = async (
+  oystehr: Oystehr,
+  parameters: AssociatePayerInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    if (DISASSOCIATE_PAYER_ZAMBDA_ID == null) {
+      throw new Error('disassociate payer zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: DISASSOCIATE_PAYER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface AddProcedureCodeInput {
+  feeScheduleId: string;
+  code: string;
+  description?: string;
+  modifier?: string;
+  amount: number;
+}
+
+export interface UpdateProcedureCodeInput extends AddProcedureCodeInput {
+  index: number;
+}
+
+export interface DeleteProcedureCodeInput {
+  feeScheduleId: string;
+  index: number;
+}
+
+export interface BulkAddProcedureCodesInput {
+  feeScheduleId: string;
+  codes: { code: string; modifier?: string; amount: number }[];
+  replaceAll?: boolean;
+}
+
+export const addProcedureCode = async (
+  oystehr: Oystehr,
+  parameters: AddProcedureCodeInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADD_PROCEDURE_CODE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateProcedureCode = async (
+  oystehr: Oystehr,
+  parameters: UpdateProcedureCodeInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_PROCEDURE_CODE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteProcedureCode = async (
+  oystehr: Oystehr,
+  parameters: DeleteProcedureCodeInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_PROCEDURE_CODE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const bulkAddProcedureCodes = async (
+  oystehr: Oystehr,
+  parameters: BulkAddProcedureCodesInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface GetVersionHistoryInput {
+  resourceId: string;
+}
+
+export interface VersionHistoryEntry {
+  versionId: string;
+  lastUpdated: string;
+  resource: ChargeItemDefinition;
+}
+
+export interface GetVersionHistoryResponse {
+  entries: VersionHistoryEntry[];
+}
+
+export const getVersionHistory = async (
+  oystehr: Oystehr,
+  parameters: GetVersionHistoryInput
+): Promise<GetVersionHistoryResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_VERSION_HISTORY_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface FindApplicableFeeScheduleInput {
+  payerOrganizationId: string;
+  dateOfService: string;
+}
+
+export interface FindApplicableFeeScheduleResponse {
+  feeSchedule: ChargeItemDefinition | null;
+}
+
+export const findApplicableFeeSchedule = async (
+  oystehr: Oystehr,
+  parameters: FindApplicableFeeScheduleInput
+): Promise<FindApplicableFeeScheduleResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: FIND_APPLICABLE_FEE_SCHEDULE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};

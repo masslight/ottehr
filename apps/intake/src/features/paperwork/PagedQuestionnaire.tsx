@@ -734,7 +734,6 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
                   '&.Mui-checked': {
                     color: otherColors.purple,
                     borderRadius: '4px',
-                    outline: '1px solid #295F75',
                   },
                 }}
                 onChange={() => smartOnChange(!unwrappedValue)}

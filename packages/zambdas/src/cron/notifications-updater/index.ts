@@ -124,9 +124,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       getAllActiveProviders(oystehr),
       getRecentlyAssignedTasksMap(oystehr, DateTime.utc().minus({ hours: 1 })),
     ]);
-    console.log('--- Ready or unsigned: ' + JSON.stringify(readyOrUnsignedVisitPackages));
-    console.log('--- In progress: ' + JSON.stringify(assignedOrInProgressVisitPackages));
-    console.log('--- Recently assigned tasks map: ' + JSON.stringify(recentlyAssignedTasksMap));
+    // these logs produce far too much detail so reducing them to counts
+    console.log('--- Ready or unsigned visits count: ' + Object.keys(readyOrUnsignedVisitPackages).length);
+    console.log('--- In progress visits count: ' + Object.keys(assignedOrInProgressVisitPackages).length);
+    console.log('--- Active providers count: ' + Object.keys(activeProvidersMap).length);
+    console.log('--- Recently assigned task ids: ' + Object.keys(recentlyAssignedTasksMap).join(', '));
 
     // Going through arrived or in-progress visits to determine busy practitioners that should not receive a notification
     Object.keys(assignedOrInProgressVisitPackages).forEach((appointmentId) => {
@@ -155,11 +157,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               (comm) =>
                 comm.status === 'preparation' &&
                 comm.recipient?.[0].reference &&
-                !busyPractitionerIds.has(comm.recipient?.[0].reference)
+                !busyPractitionerIds.has(comm.recipient?.[0].reference.split('/')[1])
             );
             postponedCommunications.forEach((communication) => {
-              const communicationPractitionerUri = communication.recipient![0].reference!;
-              const practitioner = activeProvidersMap[communicationPractitionerUri];
+              const communicationPractitionerId = communication.recipient![0].reference!.split('/')[1];
+              const practitioner = activeProvidersMap[communicationPractitionerId];
               const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
               if (notificationSettings && notificationSettings.telemedNotificationsEnabled) {
                 const newStatus = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
@@ -243,6 +245,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                       encounter: { reference: `Encounter/${encounter.id}` },
                       recipient: [{ reference: `Practitioner/${provider.id}` }],
                       payload: [{ contentString: message }],
+                      ...(appointment.start ? { note: [{ text: appointment.start }] } : {}),
                     },
                   };
                   createCommunicationRequests.push(request);
@@ -350,6 +353,12 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (notificationSettings?.taskNotificationsEnabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
 
+            let title = task.description ?? `task ID ${task.id}`;
+            // workaround to have waiting room notifications sent without "new task" prefix
+            if (!title.endsWith('is ready to begin their virtual visit.')) {
+              title = 'A new task has been assigned to you: ' + title;
+            }
+
             const request: BatchInputPostRequest<Communication> = {
               method: 'POST',
               url: '/Communication',
@@ -369,7 +378,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 status: status,
                 basedOn: [{ reference: `Task/${task.id}` }],
                 recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-                payload: [{ contentString: `A new task has been assigned to you: ${task.description}` }],
+                payload: [{ contentString: title }],
               },
             };
 
