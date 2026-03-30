@@ -674,12 +674,15 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   const otherPatient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: otherPatientId });
   otherPatient.active = false;
-  otherPatient.link = [
-    {
-      other: { reference: newPatientRef },
-      type: 'replaced-by',
-    },
-  ];
+  const existingLinks = otherPatient.link ?? [];
+  const replacedByLink = {
+    other: { reference: newPatientRef },
+    type: 'replaced-by' as const,
+  };
+  const hasReplacedByLink = existingLinks.some(
+    (link) => link.type === replacedByLink.type && link.other?.reference === replacedByLink.other.reference,
+  );
+  otherPatient.link = hasReplacedByLink ? existingLinks : [...existingLinks, replacedByLink];
   requests.push({ method: 'PUT', url: `/Patient/${otherPatientId}`, resource: otherPatient });
 
   // ════════════════════════════════════════════════════════════════════════
