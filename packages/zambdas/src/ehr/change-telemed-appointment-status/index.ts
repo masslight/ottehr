@@ -128,7 +128,7 @@ export const performEffect = async (
 
     console.log('Chart data received');
 
-    const createAndSendVisitNoteToPatientPortal = async (): Promise<void> => {
+    const createVisitNoteForPatientPortal = async (): Promise<boolean> => {
       try {
         const { pdfInfo } = await createProgressNotePdf(
           {
@@ -154,6 +154,7 @@ export const performEffect = async (
           encounter.id!,
           listResources
         );
+        return true;
       } catch (error) {
         console.error(`Error creating visit note pdf: ${error}`);
         captureException(error, {
@@ -162,6 +163,7 @@ export const performEffect = async (
             encounterId: encounter.id,
           },
         });
+        return false;
       }
     };
 
@@ -171,8 +173,10 @@ export const performEffect = async (
       secrets
     );
 
+    let visitNoteCreatedSuccessfully = false;
+
     if (!skipSendingVisitNoteToPatientPortal) {
-      await createAndSendVisitNoteToPatientPortal();
+      visitNoteCreatedSuccessfully = await createVisitNoteForPatientPortal();
     } else {
       console.log('Skipping visit note creation and email to patient portal - feature flag is enabled');
     }
@@ -275,8 +279,8 @@ export const performEffect = async (
         });
       }
     }
-    // Send email notification if visit note was created (feature flag is off)
-    if (!skipSendingVisitNoteToPatientPortal) {
+    // Send email notification only if visit note was created successfully
+    if (visitNoteCreatedSuccessfully) {
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
       const patientEmail = getPatientContactEmail(patient);
@@ -284,13 +288,20 @@ export const performEffect = async (
       if (emailEnabled && location && patientEmail) {
         const locationName = getNameForOwner(location) ?? '';
         const { presignedUrls } = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
-        const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
+        const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
 
-        const templateData: TelemedCompletionTemplateData = {
-          location: locationName,
-          'visit-note-url': visitNoteUrl || '',
-        };
-        await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+        if (visitNoteUrl) {
+          const templateData: TelemedCompletionTemplateData = {
+            location: locationName,
+            'visit-note-url': visitNoteUrl,
+          };
+          await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+        } else {
+          console.warn('Visit note presigned URL not available; skipping telemed completion email.', {
+            appointmentId,
+            encounterId: visitResources.encounter.id,
+          });
+        }
       }
     }
   }

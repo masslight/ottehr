@@ -65,7 +65,7 @@ export function useAppFlags(arg?: Partial<AppFlags> | keyof AppFlags): AppFlags 
   }, [arg, context]);
 
   if (!context) {
-    console.warn('useAppFlags must be used within a AppFlagsProvider, default values will be used');
+    console.warn('useAppFlags must be used within an AppFlagsProvider, default values will be used');
     return initialFlags;
   }
 
