@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
-import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import {
   CPTCodeDTO,
@@ -51,12 +49,6 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
     },
   });
 
-  const { groupedLabOrdersForChartTable } = usePatientLabOrders({
-    searchBy: { field: 'encounterId', value: encounterId || '' },
-  });
-
-  const { labOrders } = useInHouseLabOrders({ searchBy: { field: 'encounterId', value: encounterId || '' } });
-
   const { orders: radiologyOrders } = usePatientRadiologyOrders({
     encounterIds: encounterId,
   });
@@ -92,12 +84,40 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       }
       setIsLoading(true);
 
-      const externalLabOrders = Object.entries(groupedLabOrdersForChartTable?.hasResults || [])
-        .concat(Object.entries(groupedLabOrdersForChartTable?.pendingActionOrResults || []))
-        .flatMap(([_requisitionNumber, orderBundle]) => orderBundle.orders.map((order) => order.testItem))
-        .join(', ');
+      const externalLabOrderParts: string[] = [];
+      if (chartDataFields?.externalLabResults?.labOrderResults) {
+        chartDataFields.externalLabResults.labOrderResults.forEach((result) => {
+          if (result.resultValues?.length) {
+            externalLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
+          } else {
+            externalLabOrderParts.push(`Test: ${result.name} | Result: received`);
+          }
+        });
+      }
+      if (chartDataFields?.externalLabResults?.resultsPending?.length) {
+        chartDataFields.externalLabResults.resultsPending.forEach((name) => {
+          externalLabOrderParts.push(`Test: ${name} | Result: PENDING`);
+        });
+      }
+      const externalLabOrders = externalLabOrderParts.join('\n');
 
-      const inHouseLabOrders = labOrders?.map((order) => order.testItemName).join(', ');
+      const inHouseLabOrderParts: string[] = [];
+      if (chartDataFields?.inHouseLabResults?.labOrderResults) {
+        chartDataFields.inHouseLabResults.labOrderResults.forEach((result) => {
+          if (result.resultValues?.length) {
+            inHouseLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
+          } else {
+            const resultValue = result.simpleResultValue ?? 'completed';
+            inHouseLabOrderParts.push(`Test: ${result.name} | Result: ${resultValue}`);
+          }
+        });
+      }
+      if (chartDataFields?.inHouseLabResults?.resultsPending?.length) {
+        chartDataFields.inHouseLabResults.resultsPending.forEach((name) => {
+          inHouseLabOrderParts.push(`Test: ${name} | Result: PENDING`);
+        });
+      }
+      const inHouseLabOrders = inHouseLabOrderParts.join('\n');
 
       const radiologyOrdersString = radiologyOrders?.map((order) => order.studyType).join(', ');
 
@@ -134,34 +154,6 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       }
       const proceduresString = proceduresParts.join('\n');
 
-      const labResultsParts: string[] = [];
-      if (chartDataFields?.inHouseLabResults?.labOrderResults) {
-        chartDataFields.inHouseLabResults.labOrderResults.forEach((result) => {
-          if (result.resultValues?.length) {
-            labResultsParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
-          } else {
-            const resultValue = result.simpleResultValue ?? 'completed';
-            labResultsParts.push(`Test: ${result.name} | Result: ${resultValue}`);
-          }
-        });
-      }
-      if (chartDataFields?.inHouseLabResults?.resultsPending?.length) {
-        chartDataFields.inHouseLabResults.resultsPending.forEach((name) => {
-          labResultsParts.push(`Test: ${name} | Result: PENDING`);
-        });
-      }
-      if (chartDataFields?.externalLabResults?.labOrderResults) {
-        chartDataFields.externalLabResults.labOrderResults.forEach((result) => {
-          labResultsParts.push(`Test: ${result.name} | Result: received`);
-        });
-      }
-      if (chartDataFields?.externalLabResults?.resultsPending?.length) {
-        chartDataFields.externalLabResults.resultsPending.forEach((name) => {
-          labResultsParts.push(`Test: ${name} | Result: PENDING`);
-        });
-      }
-      const labResultsString = labResultsParts.join('\n');
-
       let newPatient = undefined;
       const newPatientFromChart = chartData?.observations?.find(
         (observation) =>
@@ -193,7 +185,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       }
       const patientSex = patient?.gender;
 
-      const billingSuggestionTemp = await recommendBillingSuggestions({
+      const billingInput = {
         newPatient,
         patientAge,
         patientSex,
@@ -206,8 +198,10 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         radiologyOrders: radiologyOrdersString,
         radiologyReports: radiologyReportsString,
         procedures: proceduresString,
-        labResults: labResultsString,
-      });
+      };
+      // TODO: TEMP - remove this console.log
+      console.log('[AI Billing Prompt Input]', JSON.stringify(billingInput, null, 2));
+      const billingSuggestionTemp = await recommendBillingSuggestions(billingInput);
       setIcdCodes(billingSuggestionTemp.icdCodes);
       setCptCodes(billingSuggestionTemp.cptCodes);
       setEmCode(billingSuggestionTemp.emCode);

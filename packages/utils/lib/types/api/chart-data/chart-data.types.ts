@@ -480,7 +480,6 @@ export interface BillingSuggestionInput {
   radiologyOrders: any;
   radiologyReports?: string;
   procedures: any;
-  labResults?: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
 }

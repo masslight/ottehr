@@ -522,10 +522,14 @@ const getResultValuesFromObservations = (
     if (!obsRefs.has(`Observation/${obs.id}`)) continue;
     const value = extractObservationValue(obs);
     if (value) {
+      // For in-house labs, component name comes from the ObservationDefinition via extension
       const obsDefId = obs.extension
         ?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)
         ?.valueString?.replace(/^#/, '');
-      const componentName = obsDefId ? componentNameMap?.get(obsDefId) : undefined;
+      const inHouseName = obsDefId ? componentNameMap?.get(obsDefId) : undefined;
+      // For external labs, component name comes from the observation's own code
+      const externalName = obs.code?.text || obs.code?.coding?.[0]?.display;
+      const componentName = inHouseName || externalName;
       values.push(componentName ? `${componentName}: ${value}` : value);
     }
   }
@@ -698,10 +702,12 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
+          const resultValues = getResultValuesFromObservations(relatedDR, allObservations);
           const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
             nonNormalResultContained: nonNonNormalTagsContained(relatedDR),
             orderNumber,
+            resultValues,
           });
           if (isReflex) {
             reflexOrderResults.push(...externalResultConfigs);
@@ -804,6 +810,7 @@ const getLabOrderResultPDFConfig = async (
         type: LabType.external;
         nonNormalResultContained: NonNormalResult[] | undefined;
         orderNumber?: string;
+        resultValues?: string[];
       }
     | {
         type: LabType.inHouse;
@@ -830,6 +837,7 @@ const getLabOrderResultPDFConfig = async (
           url,
           nonNormalResultContained: resultDetails.nonNormalResultContained,
           orderNumber: resultDetails?.orderNumber,
+          resultValues: resultDetails?.resultValues,
         };
         externalResults.push(labResult);
       } else if (resultDetails.type === LabType.inHouse) {

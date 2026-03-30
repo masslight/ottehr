@@ -37,6 +37,7 @@ export type NonNormalResultContained = NonNormalResult[] | undefined;
 export interface ExternalLabOrderResultConfig extends LabOrderPDFDetail {
   nonNormalResultContained: NonNormalResultContained;
   orderNumber?: string;
+  resultValues?: string[];
 }
 
 export interface ExternalLabOrderResult extends ExternalLabOrderResultConfig {
