@@ -207,6 +207,10 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
   const task = inputJson as Task;
   const taskId = validateString(task.id, 'taskId');
 
+  console.log('Task id: ', task.id);
+  console.log('Task extension: ', JSON.stringify(task.extension));
+  console.log(`looking for userTimezone with ${USER_TIMEZONE_EXTENSION_URL} url`);
+
   return {
     task: {
       ...task,

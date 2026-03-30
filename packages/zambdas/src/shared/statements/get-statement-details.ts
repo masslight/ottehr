@@ -313,11 +313,13 @@ function createStatementDetails(
   const patientName = patient.name?.[0];
   const guarantorName = guarantorResource.name?.[0];
   const guarantorAddress = guarantorResource.address?.[0];
-  console.log('Timezone for test: ', JSON.stringify(input.userTimezone));
+  console.log('Uer timezone: ', JSON.stringify(input.userTimezone));
+  console.log('Visit date original: ', appointment?.start);
   const { date: visitDate = '', time: visitTime = '' } = formatDateToMDYWithTime(
     appointment?.start,
     input.userTimezone ?? 'America/New_York'
   ) ?? { date: '', time: '' };
+  console.log('Visit date with timezone applied: ', visitDate, ' ', visitTime);
 
   const today = DateTime.now();
   const patientFirstName = patientName?.given?.[0] ?? '';
