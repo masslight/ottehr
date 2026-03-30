@@ -196,7 +196,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           address = getAddressStringForScheduleResource(location) ?? '';
         }
         const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
-        const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
+        const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
 
         if (isInPersonAppointment) {
           const missingData: string[] = [];
