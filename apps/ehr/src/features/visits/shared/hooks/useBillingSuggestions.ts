@@ -199,8 +199,6 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         radiologyReports: radiologyReportsString,
         procedures: proceduresString,
       };
-      // TODO: TEMP - remove this console.log
-      console.log('[AI Billing Prompt Input]', JSON.stringify(billingInput, null, 2));
       const billingSuggestionTemp = await recommendBillingSuggestions(billingInput);
       setIcdCodes(billingSuggestionTemp.icdCodes);
       setCptCodes(billingSuggestionTemp.cptCodes);
