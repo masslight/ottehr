@@ -19,7 +19,7 @@ interface UseDeleteCommonLabOrderDialogProps {
   }: {
     serviceRequestId: string;
     testItemName: string;
-  }) => Promise<boolean>;
+  }) => Promise<{ success: boolean; errorMsg?: string }>;
   locales?: typeof defaultLocalesConstants;
 }
 
@@ -110,15 +110,17 @@ export const useDeleteCommonLabOrderDialog = ({
     setIsDeleting(true);
 
     try {
-      const success = await deleteOrder({
+      const response = await deleteOrder({
         serviceRequestId: serviceRequestIdToDelete,
         testItemName: testItemNameToDelete,
       });
 
-      if (success) {
+      if (response.success) {
         setIsDeleteDialogOpen(false);
       } else {
-        setDeleteError(locales.failedToDeleteLabOrder);
+        let errorMsg = locales.failedToDeleteLabOrder;
+        if (response.errorMsg) errorMsg += `: ${response.errorMsg}`;
+        setDeleteError(errorMsg);
       }
     } catch (err) {
       console.error(locales.errorConfirmingDelete, err);
