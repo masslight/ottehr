@@ -23,8 +23,9 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationHistoryQuickPickData } from 'utils';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
+import RadiologyQuickPicksPage from './RadiologyQuickPicksPage';
 
-type SubTab = 'procedures' | 'allergies' | 'medical-conditions' | 'medications';
+type SubTab = 'procedures' | 'allergies' | 'medical-conditions' | 'medications' | 'radiology';
 
 const AllergenSearchField: React.FC<{
   value: string;
@@ -322,6 +323,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Allergies" value="allergies" sx={{ textTransform: 'none' }} />
             <Tab label="Medical Conditions" value="medical-conditions" sx={{ textTransform: 'none' }} />
             <Tab label="Medications" value="medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
           </TabList>
         </Box>
 
@@ -412,6 +414,9 @@ export default function QuickPicksAdminPage(): ReactElement {
               ...(values.medicationId ? { medicationId: Number(values.medicationId) } : {}),
             })}
           />
+        </TabPanel>
+        <TabPanel value="radiology" sx={{ px: 0 }}>
+          <RadiologyQuickPicksPage />
         </TabPanel>
       </TabContext>
     </Box>

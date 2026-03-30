@@ -301,7 +301,8 @@ const parseResultsToOrder = (
 
   const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
 
-  const clinicalHistory = extractClinicalHistory(serviceRequest);
+  const clinicalHistory = extractOrderDetailValue(serviceRequest, 'clinical-history');
+  const studyName = extractOrderDetailValue(serviceRequest, 'requested-procedure-description');
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
@@ -319,6 +320,7 @@ const parseResultsToOrder = (
     preliminaryReport: preliminaryReportData,
     finalReport: finalReportData,
     clinicalHistory,
+    studyName,
     history,
     task: formattedFinalReviewTask,
     consentObtained,
@@ -447,9 +449,8 @@ const buildHistory = (
   return history;
 };
 
-const extractClinicalHistory = (serviceRequest: ServiceRequest): string | undefined => {
-  // Find the clinical history extension within the service request
-  const clinicalHistoryExtension = serviceRequest.extension
+const extractOrderDetailValue = (serviceRequest: ServiceRequest, code: string): string | undefined => {
+  const matchingExtension = serviceRequest.extension
     ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
     ?.find((orderDetailExt) => {
       const parameterExt = orderDetailExt.extension?.find(
@@ -458,11 +459,10 @@ const extractClinicalHistory = (serviceRequest: ServiceRequest): string | undefi
       const codeExt = parameterExt?.extension?.find(
         (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
       );
-      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
+      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === code;
     });
 
-  // Extract the clinical history value
-  const parameterExt = clinicalHistoryExtension?.extension?.find(
+  const parameterExt = matchingExtension?.extension?.find(
     (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
   );
   const valueStringExt = parameterExt?.extension?.find(

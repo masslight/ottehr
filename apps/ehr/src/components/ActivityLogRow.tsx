@@ -33,7 +33,13 @@ export default function ActivityLogRow({ log }: ActivityLogRowProps): ReactEleme
           </Box>
         </TableCell>
         <TableCell>
-          <Typography variant="body1">{log.activityBy}</Typography>
+          {log.activityLink ? (
+            <Link href={log.activityLink} target="_blank" rel="noopener noreferrer">
+              <Typography variant="body1">{log.activityBy}</Typography>
+            </Link>
+          ) : (
+            <Typography variant="body1">{log.activityBy}</Typography>
+          )}
         </TableCell>
       </TableRow>
       {showDetails && (

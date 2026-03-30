@@ -92,7 +92,11 @@ const TELECOM_ICONS: Record<string, ReactElement> = {
 const STRIPE_ACCOUNT_ID_REGEX = /^acct_[a-zA-Z0-9]{8,}$/;
 
 const NO_TERMINAL = '__none__';
-const SIMULATED = 'sim';
+
+/** Legacy values that were once stored as terminal location IDs to indicate simulation mode. */
+const LEGACY_SIMULATION_VALUES = new Set(['sim', 'simulated', 'simulation']);
+const isLegacySimulationValue = (id: string | undefined): boolean =>
+  Boolean(id && LEGACY_SIMULATION_VALUES.has(id.toLowerCase().trim()));
 
 const READER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   online: 'success',
@@ -116,8 +120,7 @@ function SelectedTerminalLocationDetails({
   terminalLocationId: string | undefined;
   terminalLocations: { id: string; displayName: string | null; address: Record<string, string | null> | null }[];
 }): ReactElement | null {
-  const isSimulated = terminalLocationId?.toLowerCase() === SIMULATED;
-  const isRealLocation = terminalLocationId && !isSimulated;
+  const isRealLocation = Boolean(terminalLocationId) && !isLegacySimulationValue(terminalLocationId);
   const selectedLoc = isRealLocation ? terminalLocations.find((l) => l.id === terminalLocationId) : null;
 
   const { data: readersData, isLoading: readersLoading } = useTerminalReadersQuery(
@@ -125,7 +128,7 @@ function SelectedTerminalLocationDetails({
     isRealLocation ? terminalLocationId : undefined
   );
 
-  if (!terminalLocationId || isSimulated) {
+  if (!terminalLocationId || isLegacySimulationValue(terminalLocationId)) {
     return null;
   }
 
@@ -368,10 +371,8 @@ function StripeConnectSection({
             <FormControl size="small" sx={{ minWidth: 300 }}>
               <Select
                 value={
-                  !stripeTerminalLocationId
+                  !stripeTerminalLocationId || isLegacySimulationValue(stripeTerminalLocationId)
                     ? NO_TERMINAL
-                    : stripeTerminalLocationId.toLowerCase() === SIMULATED
-                    ? SIMULATED
                     : stripeTerminalLocationId
                 }
                 onChange={(e: SelectChangeEvent) => {
@@ -384,16 +385,12 @@ function StripeConnectSection({
                 disabled={saveMutation.isPending}
                 renderValue={(selected) => {
                   if (selected === NO_TERMINAL) return 'No Terminal Location';
-                  if (selected === SIMULATED) return 'Simulated';
                   const loc = data?.terminalLocations?.find((l) => l.id === selected);
                   return loc?.displayName || 'Unnamed';
                 }}
               >
                 <MenuItem value={NO_TERMINAL}>
                   <ListItemText primary="No Terminal Location" secondary="Remove terminal location" />
-                </MenuItem>
-                <MenuItem value={SIMULATED}>
-                  <ListItemText primary="Simulated" secondary="Use simulated reader for testing" />
                 </MenuItem>
                 {data?.terminalLocations?.map((loc) => (
                   <MenuItem key={loc.id} value={loc.id}>
