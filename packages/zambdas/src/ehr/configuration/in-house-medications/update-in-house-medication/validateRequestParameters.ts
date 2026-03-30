@@ -10,7 +10,7 @@ export function validateRequestParameters(
     throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { medicationID, status, name, ndc, medispanID } = JSON.parse(input.body);
+  const { medicationID, status, name, ndc, medispanID, cptCodes, hcpcsCodes } = JSON.parse(input.body);
 
   if (!medicationID) {
     throw MISSING_REQUIRED_PARAMETERS(['medicationID']);
@@ -24,14 +24,6 @@ export function validateRequestParameters(
     if (!name) {
       throw MISSING_REQUIRED_PARAMETERS(['name']);
     }
-
-    if (!ndc) {
-      throw MISSING_REQUIRED_PARAMETERS(['ndc']);
-    }
-
-    if (!medispanID) {
-      throw MISSING_REQUIRED_PARAMETERS(['medispanID']);
-    }
   }
 
   console.groupEnd();
@@ -43,6 +35,8 @@ export function validateRequestParameters(
     name,
     ndc,
     medispanID,
+    cptCodes,
+    hcpcsCodes,
     secrets: input.secrets,
   };
 }

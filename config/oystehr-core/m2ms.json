@@ -73,7 +73,7 @@
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*"
           ],
-          "action": ["Z3:PutObject", "Z3:GetObject", "Z3:ListObjects"],
+          "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"
         },
         {

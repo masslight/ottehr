@@ -44,7 +44,6 @@ const ControlledCheckBox: FC<ControlledCheckBoxProps> = ({ name, label, defaultV
                   '&.Mui-checked': {
                     color: otherColors.purple,
                     borderRadius: '4px',
-                    outline: '1px solid #2169F5',
                   },
                 }}
                 required={required}

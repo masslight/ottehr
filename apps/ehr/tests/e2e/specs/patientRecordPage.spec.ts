@@ -1,4 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
+import { FormFieldItemRecord, FormFieldsInputItem } from 'config-types';
 import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
@@ -28,8 +29,6 @@ import {
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
-  FormFieldItemRecord,
-  FormFieldsInputItem,
   PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
   VALUE_SETS,
@@ -484,7 +483,9 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
     await test.step('Verify Pharmacy section is visible', async () => {
       // Note: We can add verification here if there is existing pharmacy data in the resource handler
       // For now, we'll test this section can be interacted with
-      await patientInformationPage.verifyFieldIsVisible(preferredPharmacy.name.key);
+
+      // The search field should be present if no data is saved
+      await patientInformationPage.verifyPharmacySearchIsPresent();
     });
   });
 

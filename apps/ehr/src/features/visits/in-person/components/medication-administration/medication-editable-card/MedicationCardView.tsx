@@ -257,16 +257,9 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   }, [oystehrZambda]);
 
   const isAdministrator = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]);
-  const canAddQuickPick =
-    localValues.medicationId && localValues.dose !== undefined && localValues.units && localValues.route;
 
   const showQuickPicksButton =
     (type === 'order-new' || type === 'order-edit') && inHouseMedicationsQuickPicksOptions != null;
-
-  const saveQuickPickDisabled = !isAdministrator || !canAddQuickPick;
-  const saveQuickPickTooltip = !isAdministrator
-    ? 'You must be an administrator to save a quick pick'
-    : 'Medication, dose, units, and route are required to save a quick pick';
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -412,9 +405,9 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                 return parts.join(', ');
               }}
               onSelect={onQuickPickSelect ?? (() => {})}
-              onSaveQuickPick={() => setCreateQuickPickOpen(true)}
-              saveQuickPickDisabled={saveQuickPickDisabled}
-              saveQuickPickTooltip={saveQuickPickTooltip}
+              showAddOption
+              onAddOrUpdate={() => setCreateQuickPickOpen(true)}
+              isAdmin={isAdministrator}
               disabled={isUpdating}
             />
           </Grid>

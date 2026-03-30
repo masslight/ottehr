@@ -747,3 +747,27 @@ export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waitin
 
 export const ACCIDENT_TYPE_SYSTEM = ottehrCodeSystemUrl('accident-type');
 export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');
+
+export const PROVENANCE_FAX_SYSTEM = ottehrCodeSystemUrl('faxes');
+export const PROVENANCE_FAX_ACTIVITY_CODES = {
+  faxSent: 'fax-sent',
+} as const;
+export const PROVENANCE_FAX_ACTIVITY_DISPLAY = {
+  faxSent: 'Fax Sent',
+} as const;
+export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
+  code: PROVENANCE_FAX_ACTIVITY_CODES.faxSent,
+  display: PROVENANCE_FAX_ACTIVITY_DISPLAY.faxSent,
+  system: PROVENANCE_FAX_SYSTEM,
+};
+
+export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
+
+export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+export type ChargeMasterDesignation = 'default-insurance' | 'self-pay';
+export type FeeScheduleDesignation = 'case-rate';
+export const CASE_RATE_CODE = 'case-rate';
+
+export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
+export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';

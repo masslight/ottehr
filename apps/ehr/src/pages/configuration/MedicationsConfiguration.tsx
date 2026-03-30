@@ -17,7 +17,6 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography,
   useTheme,
 } from '@mui/material';
 import { Medication } from 'fhir/r4b';
@@ -139,7 +138,6 @@ function MedicationsTable({
   return (
     <>
       <Paper sx={{ padding: 2 }}>
-        <Typography variant="h4">Medications</Typography>
         <TableContainer>
           <Grid container direction="row" justifyContent="start" alignItems="center" marginTop={1}>
             {/* Medication Name Search Box */}
