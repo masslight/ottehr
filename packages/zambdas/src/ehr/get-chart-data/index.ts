@@ -298,7 +298,8 @@ export async function getChartData(
     patient.id!,
     encounterId,
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined,
-    patient
+    patient,
+    oystehr
   );
   console.timeLog('check', 'after converting to response');
   if (chartDataResult.chartData.aiChat) {
