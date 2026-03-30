@@ -455,7 +455,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
-                disabled={!collectedById || !date.isValid || isReadOnly}
+                disabled={!collectedById || !date.isValid || isReadOnly || loading}
                 sx={{
                   borderRadius: '20px',
                   px: 3,
