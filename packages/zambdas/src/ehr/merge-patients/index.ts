@@ -538,6 +538,46 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     requests.push({ method: 'PUT', url: `/RelatedPerson/${rp.id}`, resource: rp as FhirResource });
   }
 
+  // Patient-scoped clinical resources (may or may not be encounter-linked;
+  // any already collected via Step 2's getChartData are deduplicated via processedIds)
+  const clinicalSearches = [
+    { resourceType: 'AllergyIntolerance' as const, searchParam: 'patient' },
+    { resourceType: 'Condition' as const, searchParam: 'subject' },
+    { resourceType: 'MedicationStatement' as const, searchParam: 'subject' },
+    { resourceType: 'Procedure' as const, searchParam: 'subject' },
+    { resourceType: 'Observation' as const, searchParam: 'subject' },
+    { resourceType: 'Communication' as const, searchParam: 'subject' },
+    { resourceType: 'ServiceRequest' as const, searchParam: 'subject' },
+    { resourceType: 'MedicationRequest' as const, searchParam: 'subject' },
+    { resourceType: 'ClinicalImpression' as const, searchParam: 'subject' },
+    { resourceType: 'EpisodeOfCare' as const, searchParam: 'patient' },
+    { resourceType: 'MedicationAdministration' as const, searchParam: 'subject' },
+  ];
+
+  for (const { resourceType, searchParam } of clinicalSearches) {
+    const resources = (
+      await oystehr.fhir.search<FhirResource>({
+        resourceType,
+        params: [
+          { name: searchParam, value: oldPatientRef },
+          { name: '_count', value: '1000' },
+        ],
+      })
+    ).unbundle();
+
+    let count = 0;
+    for (const resource of resources) {
+      const rid = `${resource.resourceType}/${resource.id}`;
+      if (!resource.id || processedIds.has(rid)) continue;
+      processedIds.add(rid);
+      const fieldsUpdated = patchPatientRef(resource, otherPatientId, newPatientRef);
+      if (fieldsUpdated.length === 0) continue;
+      requests.push({ method: 'PUT', url: `/${rid}`, resource: resource as FhirResource });
+      count++;
+    }
+    if (count > 0) console.log(`  Transferred ${count} ${resourceType} resource(s)`);
+  }
+
   // ════════════════════════════════════════════════════════════════════════
   // Step 4: Billing resources (Account, Coverage, ChargeItem)
   // ════════════════════════════════════════════════════════════════════════
@@ -622,23 +662,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // Step 5: Transfer login phone numbers (separate — creates new resources)
+  // Step 5: Mark other patient as merged (add to transaction)
   // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 5: Transferring login phone numbers');
-
-  const oldPatientPhones = await getLoginPhoneNumbers(oystehr, otherPatientId);
-  const newPatientPhones = await getLoginPhoneNumbers(oystehr, mainPatientId);
-  const phonesToAdd = oldPatientPhones.filter((p) => !newPatientPhones.includes(p));
-
-  for (const phone of phonesToAdd) {
-    await createUserResourcesForPatient(oystehr, mainPatientId, phone);
-    console.log(`  Added phone ${phone} to main patient`);
-  }
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 6: Mark other patient as merged (add to transaction)
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 6: Marking other patient as merged');
+  console.log('Step 5: Marking other patient as merged');
 
   const otherPatient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: otherPatientId });
   otherPatient.active = false;
@@ -651,9 +677,23 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   requests.push({ method: 'PUT', url: `/Patient/${otherPatientId}`, resource: otherPatient });
 
   // ════════════════════════════════════════════════════════════════════════
-  // Execute single atomic transaction (Steps 2–4, 6)
+  // Execute single atomic transaction (Steps 2–5)
   // ════════════════════════════════════════════════════════════════════════
   console.log(`Executing transaction with ${requests.length} operations`);
   await oystehr.fhir.transaction({ requests });
   console.log(`Merge complete: ${requests.length} resources updated in a single transaction`);
+
+  // ════════════════════════════════════════════════════════════════════════
+  // Step 6: Transfer login phone numbers (after transaction to avoid partial state)
+  // ════════════════════════════════════════════════════════════════════════
+  console.log('Step 6: Transferring login phone numbers');
+
+  const oldPatientPhones = await getLoginPhoneNumbers(oystehr, otherPatientId);
+  const newPatientPhones = await getLoginPhoneNumbers(oystehr, mainPatientId);
+  const phonesToAdd = oldPatientPhones.filter((p) => !newPatientPhones.includes(p));
+
+  for (const phone of phonesToAdd) {
+    await createUserResourcesForPatient(oystehr, mainPatientId, phone);
+    console.log(`  Added phone ${phone} to main patient`);
+  }
 };
