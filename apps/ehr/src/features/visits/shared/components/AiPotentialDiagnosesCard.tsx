@@ -1,10 +1,9 @@
 import { otherColors } from '@ehrTheme/colors';
-import { aiIcon } from '@ehrTheme/icons';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import { BillingSuggestionsResult } from '../hooks/useBillingSuggestions';
-import { AiDisclaimerTooltip } from './AiDisclaimerTooltip';
+import { AiSectionHeader } from './AiDisclaimerTooltip';
 
 interface AiPotentialDiagnosesCardProps {
   suggestions: BillingSuggestionsResult;
@@ -46,19 +45,7 @@ export const AiPotentialDiagnosesCard: FC<AiPotentialDiagnosesCardProps> = ({ su
           justifyContent: 'space-between',
         }}
       >
-        <Box
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <img src={aiIcon} alt="" aria-hidden style={{ width: '30px', marginRight: '8px' }} />
-          <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-            OYSTEHR AI
-          </Typography>
-          <AiDisclaimerTooltip />
-          {isLoading && <CircularProgress size={17} sx={{ marginLeft: '8px' }} />}
-        </Box>
+        <AiSectionHeader isLoading={isLoading} />
         <IconButton onClick={handleClose} aria-label="Close">
           <CloseIcon />
         </IconButton>

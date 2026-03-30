@@ -1,9 +1,8 @@
-import { aiIcon } from '@ehrTheme/icons';
 import { InfoOutlined } from '@mui/icons-material';
 import { Box, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React from 'react';
-import { AiDisclaimerTooltip } from 'src/features/visits/shared/components/AiDisclaimerTooltip';
+import { AiSectionHeader } from 'src/features/visits/shared/components/AiDisclaimerTooltip';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetChartDataResponse, ObservationTextFieldDTO, ProcedureSuggestion } from 'utils';
@@ -104,13 +103,7 @@ export default function AiSuggestion({
           marginBottom: '8px',
         }}
       >
-        <Box style={{ display: 'flex', alignItems: 'center' }}>
-          <img src={aiIcon} style={{ width: '30px', marginRight: '8px' }} />
-          <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-            Oystehr AI
-          </Typography>
-          <AiDisclaimerTooltip />
-        </Box>
+        <AiSectionHeader />
       </Container>
       <Container
         style={{

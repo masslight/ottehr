@@ -1,16 +1,5 @@
-import { aiIcon } from '@ehrTheme/icons';
 import { AddCircleOutline, ExpandMore, InfoOutlined } from '@mui/icons-material';
-import {
-  Autocomplete,
-  Box,
-  CircularProgress,
-  Collapse,
-  Divider,
-  IconButton,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Autocomplete, Box, Collapse, Divider, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
@@ -31,7 +20,7 @@ import {
   useDeleteChartData,
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
-import { AiDisclaimerTooltip } from '../AiDisclaimerTooltip';
+import { AiSectionHeader } from '../AiDisclaimerTooltip';
 
 export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPending: boolean } => {
   const { chartData, setPartialChartData } = useChartData();
@@ -341,12 +330,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
                 padding: '8px',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <img src={aiIcon} alt="" aria-hidden style={{ width: '20px' }} />
-                <AssessmentTitle>Oystehr AI</AssessmentTitle>
-                <AiDisclaimerTooltip />
-                {aiSuggestionsLoading && <CircularProgress size={14} />}
-              </Box>
+              <AiSectionHeader isLoading={aiSuggestionsLoading} />
               {!aiSuggestionsLoading && aiSuggestedEmCodes && aiSuggestedEmCodes.length > 0 && (
                 <AiEmCodeSuggestionsList
                   emCodes={aiSuggestedEmCodes}
@@ -460,12 +444,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
           padding: '8px',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <img src={aiIcon} alt="" aria-hidden style={{ width: '20px' }} />
-          <AssessmentTitle>Oystehr AI</AssessmentTitle>
-          <AiDisclaimerTooltip />
-          {aiSuggestionsLoading && <CircularProgress size={14} />}
-        </Box>
+        <AiSectionHeader isLoading={aiSuggestionsLoading} />
         {!aiSuggestionsLoading && aiSuggestedCptCodes && aiSuggestedCptCodes.length > 0 && (
           <ActionsList
             data={aiSuggestedCptCodes}

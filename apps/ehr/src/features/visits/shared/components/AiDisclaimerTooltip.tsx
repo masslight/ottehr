@@ -1,5 +1,6 @@
+import { aiIcon } from '@ehrTheme/icons';
 import { InfoOutlined } from '@mui/icons-material';
-import { IconButton, Tooltip } from '@mui/material';
+import { Box, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material';
 import { FC } from 'react';
 
 const AI_DISCLAIMER_TEXT =
@@ -11,4 +12,19 @@ export const AiDisclaimerTooltip: FC = () => (
       <InfoOutlined sx={{ fontSize: '17px' }} />
     </IconButton>
   </Tooltip>
+);
+
+interface AiSectionHeaderProps {
+  isLoading?: boolean;
+}
+
+export const AiSectionHeader: FC<AiSectionHeaderProps> = ({ isLoading }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+    <img src={aiIcon} alt="" aria-hidden style={{ width: '20px' }} />
+    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '14px' }}>
+      Oystehr AI
+    </Typography>
+    <AiDisclaimerTooltip />
+    {isLoading && <CircularProgress size={14} />}
+  </Box>
 );
