@@ -597,7 +597,7 @@ const FormFields: PatientRecordFormFields = {
         type: 'string',
         label: 'First name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       lastName: {
@@ -605,7 +605,7 @@ const FormFields: PatientRecordFormFields = {
         type: 'string',
         label: 'Last name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthDate: {
@@ -614,7 +614,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Date of birth',
         dataType: 'DOB',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+        dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthSex: {
@@ -623,7 +623,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Birth sex',
         options: formValueSets.birthSexOptions,
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+        dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       phone: {
@@ -632,7 +632,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Phone',
         dataType: 'Phone Number',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-number' },
+        dynamicPopulation: { sourceLinkId: 'patient-number', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       email: {
@@ -641,7 +641,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Email',
         dataType: 'Email',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-email' },
+        dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       addressSameAsPatient: {
@@ -657,7 +657,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Street Address',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       addressLine2: {
@@ -666,7 +666,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Address line 2',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       city: {
@@ -675,7 +675,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'City',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-city' },
+        dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       state: {
@@ -685,7 +685,7 @@ const FormFields: PatientRecordFormFields = {
         options: formValueSets.stateOptions,
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-state' },
+        dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       zip: {
@@ -695,7 +695,7 @@ const FormFields: PatientRecordFormFields = {
         dataType: 'ZIP',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-zip' },
+        dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
     },
@@ -841,6 +841,7 @@ const FormFields: PatientRecordFormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
       },
       address: {
         key: 'pharmacy-address',
@@ -854,6 +855,7 @@ const FormFields: PatientRecordFormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
       },
     },
     hiddenFields: [],
