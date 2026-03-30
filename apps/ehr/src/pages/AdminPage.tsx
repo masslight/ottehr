@@ -2,6 +2,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { GlobalTemplatesAdminPage } from '../features/admin/global-templates/GlobalTemplatesAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
@@ -18,6 +19,7 @@ enum PageTab {
   insurance = 'insurances',
   billing = 'billing',
   'quick-picks' = 'quick-picks',
+  'global-templates' = 'global-templates',
 }
 
 export function AdminPage(): JSX.Element {
@@ -75,6 +77,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['quick-picks']}`)}
                 />
+                <Tab
+                  label="Global Templates"
+                  value={PageTab['global-templates']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['global-templates']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -107,6 +115,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
+            <GlobalTemplatesAdminPage />
           </TabPanel>
         </TabContext>
       </Box>
