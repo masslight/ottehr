@@ -20,7 +20,7 @@ import {
   useDeleteChartData,
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
-import { AiSectionHeader } from '../AiDisclaimerTooltip';
+import { AiSectionContainer } from '../AiSection';
 
 export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPending: boolean } => {
   const { chartData, setPartialChartData } = useChartData();
@@ -320,17 +320,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
                 />
               )}
             />
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1,
-                background: '#E1F5FECC',
-                borderRadius: '8px',
-                padding: '8px',
-              }}
-            >
-              <AiSectionHeader isLoading={aiSuggestionsLoading} />
+            <AiSectionContainer isLoading={aiSuggestionsLoading}>
               {!aiSuggestionsLoading && aiSuggestedEmCodes && aiSuggestedEmCodes.length > 0 && (
                 <AiEmCodeSuggestionsList
                   emCodes={aiSuggestedEmCodes}
@@ -341,7 +331,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
               {!aiSuggestionsLoading && (!aiSuggestedEmCodes || aiSuggestedEmCodes.length === 0) && (
                 <Typography color="secondary.light">No suggestions</Typography>
               )}
-            </Box>
+            </AiSectionContainer>
             <Autocomplete
               fullWidth
               blurOnSelect
@@ -434,17 +424,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
         </Box>
       )}
 
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          background: '#E1F5FECC',
-          borderRadius: '8px',
-          padding: '8px',
-        }}
-      >
-        <AiSectionHeader isLoading={aiSuggestionsLoading} />
+      <AiSectionContainer isLoading={aiSuggestionsLoading}>
         {!aiSuggestionsLoading && aiSuggestedCptCodes && aiSuggestedCptCodes.length > 0 && (
           <ActionsList
             data={aiSuggestedCptCodes}
@@ -481,7 +461,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
         {!aiSuggestionsLoading && (!aiSuggestedCptCodes || aiSuggestedCptCodes.length === 0) && (
           <Typography color="secondary.light">No suggestions</Typography>
         )}
-      </Box>
+      </AiSectionContainer>
     </Box>
   );
 };

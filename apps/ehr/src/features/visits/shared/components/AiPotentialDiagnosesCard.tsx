@@ -3,7 +3,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import { BillingSuggestionsResult } from '../hooks/useBillingSuggestions';
-import { AiSectionHeader } from './AiDisclaimerTooltip';
+import { AiSectionHeader } from './AiSection';
 
 interface AiPotentialDiagnosesCardProps {
   suggestions: BillingSuggestionsResult;

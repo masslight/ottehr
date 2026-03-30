@@ -15,7 +15,7 @@ import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAcc
 import { useICD10SearchNew } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
-import { AiSectionHeader } from '../AiDisclaimerTooltip';
+import { AiSectionContainer } from '../AiSection';
 import { DiagnosesField } from './DiagnosesField';
 
 const getUpdatedDiagnoses = (
@@ -288,17 +288,7 @@ export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDia
         </Box>
       )}
 
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          background: '#E1F5FECC',
-          borderRadius: '8px',
-          padding: '8px',
-        }}
-      >
-        <AiSectionHeader isLoading={aiSuggestionsLoading} />
+      <AiSectionContainer isLoading={aiSuggestionsLoading}>
         {!aiSuggestionsLoading && aiSuggestedDiagnoses && aiSuggestedDiagnoses.length > 0 && (
           <ActionsList
             data={aiSuggestedDiagnoses}
@@ -335,7 +325,7 @@ export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDia
         {!aiSuggestionsLoading && (!aiSuggestedDiagnoses || aiSuggestedDiagnoses.length === 0) && (
           <Typography color="secondary.light">No suggestions</Typography>
         )}
-      </Box>
+      </AiSectionContainer>
     </Box>
   );
 };

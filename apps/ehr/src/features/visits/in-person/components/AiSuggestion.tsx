@@ -2,7 +2,7 @@ import { InfoOutlined } from '@mui/icons-material';
 import { Box, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React from 'react';
-import { AiSectionHeader } from 'src/features/visits/shared/components/AiDisclaimerTooltip';
+import { AiSectionHeader } from 'src/features/visits/shared/components/AiSection';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetChartDataResponse, ObservationTextFieldDTO, ProcedureSuggestion } from 'utils';
