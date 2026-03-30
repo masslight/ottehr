@@ -595,7 +595,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       resourceType: 'Account',
       params: [
         { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '100' },
+        { name: '_count', value: '1000' },
       ],
     })
   ).unbundle();
