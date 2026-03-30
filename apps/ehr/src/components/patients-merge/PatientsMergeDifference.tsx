@@ -174,7 +174,7 @@ const collectQuestionnaireFields = (q: Questionnaire): { linkId: string; label: 
 type PatientMergeDifferenceProps = {
   open: boolean;
   close: () => void;
-  patientIds: string[];
+  patientIds: [string, string];
   /** Called after a successful merge so the parent can refresh data. */
   onSuccess?: () => void;
 };
