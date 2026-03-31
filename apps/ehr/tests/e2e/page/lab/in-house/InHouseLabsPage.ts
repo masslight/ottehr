@@ -71,6 +71,6 @@ export class InHouseLabsPage {
 
     // confirm the test has been deleted
     const rowsAfter = await this.countTableRows();
-    expect(rowsBefore - 1, `rowsBefore: ${rowsBefore}, rowsAfter: ${rowsAfter}`).toBe(rowsAfter);
+    await expect(rowsBefore - 1, `rowsBefore: ${rowsBefore}, rowsAfter: ${rowsAfter}`).toBe(rowsAfter);
   }
 }
