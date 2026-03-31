@@ -162,7 +162,9 @@ async function administerImmunizationOrder(
     for (const cptCode of administrationDetails.cptCodes) {
       medication.extension?.push({
         url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-        valueCodeableConcept: codeableConcept(cptCode.code, CODE_SYSTEM_CPT),
+        valueCodeableConcept: {
+          coding: [{ code: cptCode.code, system: CODE_SYSTEM_CPT, display: cptCode.display }],
+        },
       });
     }
   }
