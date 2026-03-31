@@ -90,7 +90,8 @@ async function administerImmunizationOrder(
     id: orderId,
   });
 
-  if (medicationAdministration.status !== 'in-progress') {
+  const allowedStatuses = ['in-progress', 'completed', 'stopped'];
+  if (!allowedStatuses.includes(medicationAdministration.status)) {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
     throw new Error(`Can't administer order in "${currentStatus}" status`);
   }
@@ -146,7 +147,15 @@ async function administerImmunizationOrder(
       expirationDate: administrationDetails.expDate,
     };
   }
-  medication.extension?.push({
+
+  // Clear existing administration extensions before re-adding to support edits
+  medication.extension = (medication.extension ?? []).filter(
+    (ext) =>
+      ext.url !== VACCINE_ADMINISTRATION_CODES_EXTENSION_URL &&
+      ext.url !== VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
+  );
+
+  medication.extension.push({
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
   });
