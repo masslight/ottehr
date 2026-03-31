@@ -41,14 +41,32 @@ function getSearchDisplay(mappedData: MappedItemData | null): string | null {
 
 function matchStaticList<T extends { display: string }>(term: string, options: T[]): T | null {
   const lowerTerm = term.toLowerCase().trim();
-  const matches = options.filter(
+  const termWords = new Set(lowerTerm.split(/\s+/));
+
+  const exactMatches = options.filter(
     (opt) =>
       opt.display !== 'Other' &&
       (opt.display.toLowerCase().includes(lowerTerm) || lowerTerm.includes(opt.display.toLowerCase()))
   );
-  if (matches.length === 0) return null;
-  // Pick the shortest display for closest match
-  return matches.sort((a, b) => a.display.length - b.display.length)[0];
+  if (exactMatches.length > 0) {
+    return exactMatches.sort((a, b) => a.display.length - b.display.length)[0];
+  }
+
+  const wordMatches = options
+    .filter((opt) => opt.display !== 'Other')
+    .map((opt) => {
+      const optWords = opt.display
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 2);
+      const overlap = optWords.filter((w) => termWords.has(w)).length;
+      const score = overlap / Math.max(optWords.length, 1);
+      return { opt, score };
+    })
+    .filter(({ score }) => score >= 0.5)
+    .sort((a, b) => b.score - a.score);
+
+  return wordMatches[0]?.opt ?? null;
 }
 
 function mapSurgicalHistory(items: ObservationTextFieldDTO[]): MappedSuggestion[] {
@@ -270,7 +288,7 @@ export function useAiSuggestionMapping(
 }
 
 const NEGATIONS = ['denies', 'no ', 'none', 'without', 'negative for'];
-const VAGUE_PATTERNS = ['history of', 'family history', 'possible', 'suspected', 'rule out'];
+const VAGUE_PATTERNS = ['family history of', 'possible', 'suspected', 'rule out'];
 
 function normalize(text: string): string {
   return text.toLowerCase().trim();
@@ -293,12 +311,20 @@ function shouldSkipMapping(text: string): boolean {
 export function parseAiValue(value: string, section: AiSuggestionSection): string[] {
   if (!value) return [];
 
-  return splitSentences(value)
+  const items = splitSentences(value)
     .filter((s) => isRelevantForSection(s, section))
     .map(cleanSentence)
     .flatMap((sentence) => smartSplit(sentence))
     .map(cleanItem)
     .filter(Boolean);
+
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function splitSentences(text: string): string[] {
@@ -320,8 +346,6 @@ function cleanSentence(text: string): string {
 function isRelevantForSection(text: string, section: AiSuggestionSection): boolean {
   const t = text.toLowerCase();
 
-  // If the text has no sentence-like verbs it's likely a bare term (e.g. "Lisinopril 10mg",
-  // "penicillin") that is already section-specific — keep it unconditionally.
   const hasSentenceVerb =
     /\b(takes?|taking|has|have|had|is|are|was|were|allerg|react|prescribed|denies|reports?)\b/.test(t);
   if (!hasSentenceVerb) return true;
@@ -364,7 +388,8 @@ function smartSplit(text: string): string[] {
 function cleanItem(text: string): string {
   return text
     .replace(/^\b(and|with|to)\b\s+/i, '')
-    .replace(/^\b(takes|taking|has|have|had|experiences)\b\s+/i, '') // 👈 перенос сюда
+    .replace(/^\b(takes|taking|has|have|had|experiences|is|are|was|were|reports?|reporting|reported)\b\s+/i, '')
+    .replace(/^(?:\b(?:prescribed|a|an|known|previous|prior|severe)\b\s*)+/i, '')
     .replace(/\.$/, '')
     .trim();
 }
@@ -375,21 +400,29 @@ export function normalizeMedicationName(value: string): string {
     .replace(/\b(last\s+time\s+(?:was\s+)?taken|last\s+taken|taken\s+on)\b.*/i, '')
     .replace(/\b\d{1,4}[.\-/]\d{1,2}[.\-/]\d{2,4}(?:\s+\d{1,2}:\d{2})?\b/g, '')
     .replace(/\b\d{1,2}:\d{2}\b/g, '')
-    .replace(/\b\d+\s?(mg|ml|g|mcg|units?)\b/g, '')
+    .replace(/\b\d+(?:\.\d+)?\s*(?:mg|ml|g|mcg|units?)(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:mg|ml|g|mcg|units?))?\b/g, '')
+    .replace(/\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*(?:mg|ml|g|mcg|units?)\b/g, '')
     .replace(/\b(tablets?|capsules?|syrup|injection|cream)\b/g, '')
     .replace(/\b(forte|extra|plus|advance)\b/g, '')
-    .replace(/[^a-z\s-]/g, '')
+    .replace(/([a-z])\/([a-z])/g, '$1 / $2')
+    .replace(/[^a-z\s/-]/g, '')
+    .replace(/(?:^|\s)\/(?:\s|$)/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function extractDoseNumber(value: string): string {
-  const match = value.match(/\b(\d+)\s*(?:mg|ml|g|mcg|units?)\b/i);
+  const match = value.match(/\b(\d+(?:\.\d+)?)\s*(?:mg|ml|g|mcg|units?)\b/i);
   return match ? match[1] : '';
 }
 
 export function extractDoseFromValue(value: string): string | undefined {
-  const match = value.match(/\b(\d+\s*(?:mg|ml|g|mcg|units?)(?:\s*\/\s*\d+\s*(?:mg|ml|g|mcg|units?))?)\b/i);
+  const compound = value.match(/\b(\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*(?:mg|ml|g|mcg|units?))\b/i);
+  if (compound) return compound[1];
+
+  const match = value.match(
+    /\b(\d+(?:\.\d+)?\s*(?:mg|ml|g|mcg|units?)(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:mg|ml|g|mcg|units?))?)\b/i
+  );
   return match ? match[1] : undefined;
 }
 
