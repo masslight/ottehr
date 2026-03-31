@@ -121,7 +121,7 @@ function mapMedicationAdministrationToImmunizationOrder(
   const status = mapFhirToOrderStatus(medicationAdministration) ?? '';
   const isAdministered = ['administered', 'administered-partly', 'administered-not'].includes(status);
   const medication = getContainedMedication(medicationAdministration);
-  const administrationCodesExtensions = (medicationAdministration.extension ?? []).filter(
+  const administrationCodesExtensions = (medication?.extension ?? []).filter(
     (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
   );
   const emergencyContactRelatedPerson = medicationAdministration.contained?.find(

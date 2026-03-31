@@ -108,17 +108,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
     const currentValues = methods.getValues();
     methods.reset({
       ...currentValues,
-      details: {
-        ...currentValues.details,
-        medication: quickPick.vaccine,
-        dose: quickPick.dose,
-        units: quickPick.units,
-        route: quickPick.route,
-        location: quickPick.location,
-        associatedDx: quickPick.associatedDx,
-        manufacturer: quickPick.manufacturer,
-        instructions: quickPick.instructions,
-      },
       administrationDetails: {
         ...currentValues.administrationDetails,
         lot: quickPick.lot,
