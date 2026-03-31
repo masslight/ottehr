@@ -19,7 +19,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
+import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { AllergyDTO } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -31,8 +32,8 @@ import {
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
-import { SelectFromFavoritesButton } from '../medical-history-tab/SelectFromFavoritesButton';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
+import { QuickPicksButton } from '../QuickPicksButton';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
@@ -248,6 +249,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
+  const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
 
@@ -317,14 +319,12 @@ const AddAllergyField: FC = () => {
     }
   };
 
-  const handleFavoriteSelect = async (
-    favorite: (typeof MEDICAL_HISTORY_CONFIG.allergies.favorites)[number]
-  ): Promise<void> => {
-    const favoriteAsAllergy: ExtractObjectType<ErxSearchAllergensResponse> = {
-      name: favorite.name,
-      id: favorite.id,
+  const handleQuickPickSelect = async (quickPick: (typeof allergyQuickPicks)[number]): Promise<void> => {
+    const quickPickAsAllergy = {
+      name: quickPick.name,
+      id: quickPick.allergyId,
     } as ExtractObjectType<ErxSearchAllergensResponse>;
-    await handleSelectOption(favoriteAsAllergy);
+    await handleSelectOption(quickPickAsAllergy);
   };
 
   const onSubmitForm = async (data: {
@@ -353,10 +353,10 @@ const AddAllergyField: FC = () => {
           gap: 2,
         }}
       >
-        <SelectFromFavoritesButton
-          favorites={MEDICAL_HISTORY_CONFIG.allergies.favorites}
-          getLabel={(favorite) => favorite.name}
-          onSelect={handleFavoriteSelect}
+        <QuickPicksButton
+          quickPicks={allergyQuickPicks}
+          getLabel={(quickPick) => quickPick.name}
+          onSelect={handleQuickPickSelect}
           disabled={isChartDataLoading || isLoading}
         />
         <Controller

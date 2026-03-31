@@ -3,7 +3,9 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import {
   Button,
+  Checkbox,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   Paper,
   Table,
@@ -12,6 +14,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Tooltip,
   Typography,
@@ -23,7 +26,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { SendInvoiceToPatientDialog } from 'src/components/dialogs';
+import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
 import {
   chooseJson,
   formatDateConfigurable,
@@ -33,6 +36,10 @@ import {
   getLatestTaskOutput,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
+  InvoiceSortDirection,
+  InvoiceSortDirectionValues,
+  InvoiceSortField,
+  InvoiceSortFieldValues,
   InvoiceTaskDisplayStatus,
   InvoiceTaskDisplayStatuses,
   InvoiceTaskInput,
@@ -40,12 +47,22 @@ import {
   mapInvoiceTaskStatusToDisplay,
 } from 'utils';
 import { updateInvoiceTask } from '../../api/api';
+import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
+
+const SP = {
+  page: 'page',
+  status: 'status',
+  patient: 'patient',
+  sortField: 'sortField',
+  sortDirection: 'sortDirection',
+  hideZeroBalance: 'hideZeroBalance',
+} as const;
 
 const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
   [status in InvoiceTaskDisplayStatus]: {
@@ -107,33 +124,44 @@ export default function InvoiceablePatients(): React.ReactElement {
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReportToSend, setSelectedReportToSend] = useState<InvoiceablePatientReport | undefined>();
+  const [selectedReportForStatement, setSelectedReportForStatement] = useState<InvoiceablePatientReport | undefined>();
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
-  const pageSP = Number(searchParams.get('page') ?? '0');
-  const statusSP = searchParams.get('status');
-  const patientSP = searchParams.get('patient');
 
-  const handleBack = (): void => {
-    navigate('/reports');
-  };
-
-  const setPage = (page: number): void => {
-    searchParams.set('page', page.toString());
-    setSearchParams(searchParams);
-  };
-
+  const pageParam = searchParams.get(SP.page);
+  const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
+  const pageSP = Number.isFinite(parsedPage) && parsedPage >= 0 ? parsedPage : 0;
+  const [pageInputValue, setPageInputValue] = useState(String(pageSP + 1));
+  const statusSP = searchParams.get(SP.status);
+  const patientSP = searchParams.get(SP.patient);
+  const sortFieldSP =
+    (searchParams.get(SP.sortField) as InvoiceSortField | null) ?? InvoiceSortFieldValues.finalizationDate;
+  const sortDirectionSP =
+    (searchParams.get(SP.sortDirection) as InvoiceSortDirection | null) ?? InvoiceSortDirectionValues.desc;
+  const hideZeroBalanceSP = searchParams.get(SP.hideZeroBalance) !== 'false';
   const {
     data: invoiceablePatients,
     isLoading: isInvoiceablePatientsLoading,
     refetch: refetchInvoiceablePatients,
   } = useQuery<GetInvoicesTasksResponse>({
-    queryKey: [GET_INVOICES_TASKS_ZAMBDA_KEY, pageSP, statusSP, patientSP],
+    queryKey: [
+      GET_INVOICES_TASKS_ZAMBDA_KEY,
+      pageSP,
+      statusSP,
+      patientSP,
+      sortFieldSP,
+      sortDirectionSP,
+      hideZeroBalanceSP,
+    ],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const params: GetInvoicesTasksInput = {
         page: pageSP,
         status: statusSP ? mapDisplayToInvoiceTaskStatus(statusSP as InvoiceTaskDisplayStatus) : undefined,
         patientId: patientSP ?? undefined,
+        sortField: sortFieldSP,
+        sortDirection: sortDirectionSP,
+        hideZeroBalance: hideZeroBalanceSP,
       };
       const response = await oystehrZambda.zambda.execute({
         id: GET_INVOICES_TASKS_ZAMBDA_KEY,
@@ -146,6 +174,54 @@ export default function InvoiceablePatients(): React.ReactElement {
     staleTime: 5 * 1000,
     refetchInterval: 5 * 1000,
   });
+
+  const totalPages = Math.ceil((invoiceablePatients?.totalCount ?? 0) / INVOICEABLE_PATIENTS_PAGE_SIZE);
+
+  const handleBack = (): void => {
+    navigate('/reports');
+  };
+
+  const setPage = (page: number): void => {
+    searchParams.set(SP.page, page.toString());
+    setSearchParams(searchParams);
+  };
+
+  const handlePageJump = (
+    e: React.KeyboardEvent<HTMLDivElement> | React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>
+  ): void => {
+    if ('key' in e && e.key !== 'Enter') return;
+    if (totalPages === 0) return;
+
+    let targetPage = parseInt(pageInputValue, 10);
+
+    if (isNaN(targetPage) || targetPage < 1) {
+      targetPage = 1;
+    } else if (targetPage > totalPages) {
+      targetPage = totalPages;
+    }
+
+    setPageInputValue(String(targetPage));
+
+    if (targetPage - 1 !== pageSP) {
+      setPage(targetPage - 1);
+    }
+  };
+
+  const setSortField = (field: InvoiceSortField): void => {
+    if (field === sortFieldSP) {
+      searchParams.set(
+        SP.sortDirection,
+        sortDirectionSP === InvoiceSortDirectionValues.desc
+          ? InvoiceSortDirectionValues.asc
+          : InvoiceSortDirectionValues.desc
+      );
+    } else {
+      searchParams.set(SP.sortField, field);
+      searchParams.set(SP.sortDirection, InvoiceSortDirectionValues.desc);
+    }
+    searchParams.set(SP.page, '0');
+    setSearchParams(searchParams);
+  };
 
   const sendInvoice = async (taskId: string, invoiceTaskInput: InvoiceTaskInput): Promise<void> => {
     try {
@@ -199,9 +275,13 @@ export default function InvoiceablePatients(): React.ReactElement {
   };
 
   useEffect(() => {
+    setPageInputValue(String(pageSP + 1));
+  }, [pageSP]);
+
+  useEffect(() => {
     const filtersValues = {
-      status: searchParams.get('status'),
-      patient: searchParams.get('patient'),
+      status: searchParams.get(SP.status),
+      patient: searchParams.get(SP.patient),
     };
     methods.reset(filtersValues);
   }, [searchParams, methods]);
@@ -221,6 +301,11 @@ export default function InvoiceablePatients(): React.ReactElement {
             filtersToPersist[key] = value;
           }
         }
+        // Preserve sort and hideZeroBalance params — they are managed separately from the form
+        if (searchParams.has(SP.sortField)) queryParams.set(SP.sortField, searchParams.get(SP.sortField)!);
+        if (searchParams.has(SP.sortDirection)) queryParams.set(SP.sortDirection, searchParams.get(SP.sortDirection)!);
+        if (searchParams.has(SP.hideZeroBalance))
+          queryParams.set(SP.hideZeroBalance, searchParams.get(SP.hideZeroBalance)!);
         setSearchParams(queryParams);
         if (Object.keys(filtersToPersist).length > 0) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
@@ -230,16 +315,21 @@ export default function InvoiceablePatients(): React.ReactElement {
       },
     });
     return () => callback();
-  }, [methods, navigate, setSearchParams]);
+  }, [methods, navigate, searchParams, setSearchParams]);
 
   useEffect(() => {
     const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
-    if (searchParams.size === 0 && persistedFilters != null) {
-      const filters = JSON.parse(persistedFilters);
+    if (searchParams.size === 0) {
       const queryParams = new URLSearchParams();
-      for (const key in filters) {
-        queryParams.set(key, filters[key]);
+      if (persistedFilters != null) {
+        const filters = JSON.parse(persistedFilters) as Record<string, string>;
+        for (const key in filters) {
+          if (key && filters[key]) queryParams.set(key, filters[key]);
+        }
       }
+      if (!queryParams.has(SP.sortField)) queryParams.set(SP.sortField, InvoiceSortFieldValues.finalizationDate);
+      if (!queryParams.has(SP.sortDirection)) queryParams.set(SP.sortDirection, InvoiceSortDirectionValues.desc);
+      if (!queryParams.has(SP.hideZeroBalance)) queryParams.set(SP.hideZeroBalance, 'true');
       setSearchParams(queryParams);
     }
   }, [searchParams, setSearchParams]);
@@ -261,9 +351,30 @@ export default function InvoiceablePatients(): React.ReactElement {
 
         <FormProvider {...methods}>
           <Paper>
-            <Stack direction="row" spacing={2} padding="8px">
-              <SelectInput name="status" label="Status" options={InvoiceTaskDisplayStatuses as unknown as string[]} />
-              <TextField {...methods.register('patient')} label="Patient id" sx={{ width: '100%' }} size="small" />
+            <Stack direction="row" spacing={2} padding="8px" alignItems="center" flexWrap="wrap">
+              <Box sx={{ width: '30%' }}>
+                <SelectInput name="status" label="Status" options={InvoiceTaskDisplayStatuses as unknown as string[]} />
+              </Box>
+              <TextField
+                {...methods.register('patient')}
+                label="Patient id"
+                sx={{ width: '30%', flex: 1 }}
+                size="small"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hideZeroBalanceSP}
+                    onChange={(e) => {
+                      searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
+                      searchParams.set(SP.page, '0');
+                      setSearchParams(searchParams);
+                    }}
+                  />
+                }
+                label="Hide $0 balances"
+                sx={{ whiteSpace: 'nowrap' }}
+              />
             </Stack>
           </Paper>
         </FormProvider>
@@ -277,38 +388,43 @@ export default function InvoiceablePatients(): React.ReactElement {
                   </Typography>
                 </TableCell>
                 <TableCell style={{ width: '150px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    DOB
-                  </Typography>
+                  <TableSortLabel
+                    active={sortFieldSP === InvoiceSortFieldValues.appointmentDate}
+                    direction={
+                      sortFieldSP === InvoiceSortFieldValues.appointmentDate
+                        ? sortDirectionSP
+                        : InvoiceSortDirectionValues.desc
+                    }
+                    onClick={() => setSortField(InvoiceSortFieldValues.appointmentDate)}
+                  >
+                    <Typography fontWeight="500" fontSize="14px">
+                      Date of Service
+                    </Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell style={{ width: '150px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Appointment Date
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '150px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Finalization Date
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '200px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Responsible Party
-                  </Typography>
+                  <TableSortLabel
+                    active={sortFieldSP === InvoiceSortFieldValues.finalizationDate}
+                    direction={
+                      sortFieldSP === InvoiceSortFieldValues.finalizationDate
+                        ? sortDirectionSP
+                        : InvoiceSortDirectionValues.desc
+                    }
+                    onClick={() => setSortField(InvoiceSortFieldValues.finalizationDate)}
+                  >
+                    <Typography fontWeight="500" fontSize="14px">
+                      Finalization Date
+                    </Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell style={{ width: '120px' }}>
                   <Typography fontWeight="500" fontSize="14px">
                     Amount
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: '150px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    RCM Claim id
-                  </Typography>
-                </TableCell>
                 <TableCell style={{ width: '100px' }}>
                   <Typography fontWeight="500" fontSize="14px">
-                    Status
+                    Invoice Status
                   </Typography>
                 </TableCell>
                 <TableCell style={{ width: '200px' }}>
@@ -321,14 +437,14 @@ export default function InvoiceablePatients(): React.ReactElement {
             <TableBody>
               {isInvoiceablePatientsLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
+                  <TableCell colSpan={6} align="center">
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : null}
               {!isInvoiceablePatientsLoading && (invoiceablePatients?.reports ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
+                  <TableCell colSpan={6} align="center">
                     <Typography variant="body2">No reports</Typography>
                   </TableCell>
                 </TableRow>
@@ -348,19 +464,67 @@ export default function InvoiceablePatients(): React.ReactElement {
                       ? 'Invoice id: ' + lastTaskOutput.message
                       : 'Error: ' + lastTaskOutput.message
                     : displayStatus;
+                  const maskedClaimId =
+                    report.claimId.length > 12
+                      ? `${report.claimId.slice(0, 6)}...${report.claimId.slice(-4)}`
+                      : report.claimId;
 
                   return (
                     <TableRow key={report.task.id}>
                       <TableCell>
-                        <Link
-                          to={`/patient/${report.patient.patientId}`}
-                          style={{ textDecoration: 'underline', color: 'inherit' }}
+                        <GenericToolTip
+                          customWidth={340}
+                          title={
+                            <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                  DOB
+                                </Typography>
+                                <Typography variant="body2">{report.patient.dob ?? '---'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                  Responsible Party
+                                </Typography>
+                                <Typography variant="body2">{report.responsibleParty.fullName ?? '---'}</Typography>
+                                <Typography variant="body2">
+                                  {report.responsibleParty.relationshipToPatient ?? '---'}
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                  RCM Claim ID
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                                    {maskedClaimId}
+                                  </Typography>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      void navigator.clipboard
+                                        .writeText(report.claimId)
+                                        .then(() => enqueueSnackbar('Copied to clipboard', { variant: 'success' }));
+                                    }}
+                                  >
+                                    <ContentCopyIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </Box>
+                            </Box>
+                          }
                         >
-                          <Typography variant="inherit">{report.patient.fullName}</Typography>
-                        </Link>{' '}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body1">{report.patient.dob}</Typography>
+                          <Box sx={{ display: 'inline-flex' }}>
+                            <Link
+                              to={`/patient/${report.patient.patientId}`}
+                              style={{ textDecoration: 'underline', color: 'inherit' }}
+                            >
+                              <Typography variant="inherit">{report.patient.fullName}</Typography>
+                            </Link>
+                          </Box>
+                        </GenericToolTip>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body1">{report.visitDate}</Typography>
@@ -371,33 +535,20 @@ export default function InvoiceablePatients(): React.ReactElement {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body1">
-                          {report.responsibleParty.fullName}, {report.responsibleParty.relationshipToPatient}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
                         <Typography variant="body1">${(report.amountInvoiceable / 100).toFixed(2)}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body1">
-                          {report.claimId.slice(0, 8)}...
-                          <Tooltip title="Copy claim id">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                void navigator.clipboard
-                                  .writeText(report.claimId)
-                                  .then(() => enqueueSnackbar('Copied to clipboard', { variant: 'success' }));
-                              }}
-                            >
-                              <ContentCopyIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={statusTooltipMessage}>
-                          <span>
+                        <Tooltip title={`${statusTooltipMessage} (click to copy)`}>
+                          <span
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void navigator.clipboard
+                                .writeText(statusTooltipMessage)
+                                .then(() => enqueueSnackbar('Status copied to clipboard', { variant: 'success' }));
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
                             <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
                           </span>
                         </Tooltip>
@@ -422,22 +573,56 @@ export default function InvoiceablePatients(): React.ReactElement {
                         >
                           Invoice
                         </Button>
+                        <Button
+                          sx={{ ml: 1 }}
+                          variant="contained"
+                          disabled={
+                            isUpdating || isSending || displayStatus === 'updating' || displayStatus === 'sending'
+                          }
+                          onClick={() => {
+                            setSelectedReportForStatement(report);
+                          }}
+                        >
+                          Statement
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
                 })}
             </TableBody>
           </Table>
-          <TablePagination
-            rowsPerPageOptions={[INVOICEABLE_PATIENTS_PAGE_SIZE]}
-            component="div"
-            count={invoiceablePatients?.totalCount ?? -1}
-            rowsPerPage={INVOICEABLE_PATIENTS_PAGE_SIZE}
-            page={pageSP}
-            onPageChange={(_e, newPageNumber) => {
-              setPage(newPageNumber);
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 2 }}>
+            <TablePagination
+              rowsPerPageOptions={[INVOICEABLE_PATIENTS_PAGE_SIZE]}
+              component="div"
+              count={invoiceablePatients?.totalCount ?? -1}
+              rowsPerPage={INVOICEABLE_PATIENTS_PAGE_SIZE}
+              page={pageSP}
+              onPageChange={(_e, newPageNumber) => {
+                setPage(newPageNumber);
+              }}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                Go to page
+              </Typography>
+              <TextField
+                size="small"
+                value={pageInputValue}
+                onChange={(e) => setPageInputValue(e.target.value)}
+                onKeyDown={handlePageJump}
+                onBlur={handlePageJump}
+                disabled={isInvoiceablePatientsLoading || totalPages <= 1}
+                inputProps={{
+                  style: { padding: '4px 8px', width: '35px', textAlign: 'center' },
+                  'aria-label': 'Go to page',
+                }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                of {totalPages}
+              </Typography>
+            </Box>
+          </Box>
         </Paper>
         <SendInvoiceToPatientDialog
           title="Send invoice"
@@ -448,6 +633,17 @@ export default function InvoiceablePatients(): React.ReactElement {
           submitButtonName="Send Invoice"
           onSubmit={sendInvoice}
           report={selectedReportToSend}
+        />
+        <SendStatementToPatientDialog
+          modalOpen={selectedReportForStatement !== undefined}
+          handleClose={() => {
+            setSelectedReportForStatement(undefined);
+          }}
+          onSubmit={() => {
+            // TODO: implement send statement
+            setSelectedReportForStatement(undefined);
+          }}
+          report={selectedReportForStatement}
         />
       </Box>
     </PageContainer>

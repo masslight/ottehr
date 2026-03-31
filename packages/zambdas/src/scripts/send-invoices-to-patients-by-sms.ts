@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import * as fs from 'fs';
 import Stripe from 'stripe';
-import { getAuth0Token, getRelatedPersonForPatient } from '../shared';
+import { getRelatedPersonForPatient } from 'utils';
+import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string): Promise<void> {

@@ -366,6 +366,26 @@ export function getHcpcsCodeFromMedication(medication: Medication): string | und
   return getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code;
 }
 
+export function getAllHcpcsCodesFromInHouseMedication(medication: Medication): string[] {
+  const resultCodes: string[] = [];
+  medication.code?.coding?.forEach((coding) => {
+    if (coding.system === CODE_SYSTEM_HCPCS && coding.code) {
+      resultCodes.push(coding.code);
+    }
+  });
+  return resultCodes;
+}
+
+export function getAllCptCodesFromInHouseMedication(medication: Medication): string[] {
+  const resultCodes: string[] = [];
+  medication.code?.coding?.forEach((coding) => {
+    if (coding.system === CODE_SYSTEM_CPT && coding.code) {
+      resultCodes.push(coding.code);
+    }
+  });
+  return resultCodes;
+}
+
 export function getDosageFromMA(
   medicationAdministration: MedicationAdministration
 ): { units: MedicationUnitOptions; dose: number } | undefined {

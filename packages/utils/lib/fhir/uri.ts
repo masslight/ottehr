@@ -58,7 +58,11 @@ interface SearchByUrlParams {
   [_SEARCH_BY_PROP_KEY]?: 'patient' | 'encounter';
 }
 
-export type SearchParams = (BaseSearchParams | AdvancedSearchParams) & SearchByUrlParams;
+interface SearchByEncounterIds {
+  encounterIds?: string[];
+}
+
+export type SearchParams = (BaseSearchParams | AdvancedSearchParams) & SearchByUrlParams & SearchByEncounterIds;
 
 export function addSearchParams(url: string, searchParams?: SearchParams): string {
   if (!searchParams) return url;

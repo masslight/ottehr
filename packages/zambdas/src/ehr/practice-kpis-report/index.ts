@@ -306,7 +306,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           { name: '_tag', value: OTTEHR_MODULE.IP }, // Only in-person appointments
           { name: '_include', value: 'Appointment:location' },
           { name: '_revinclude', value: 'Encounter:appointment' },
-          { name: '_elements', value: 'id,status,participant,appointmentType,start' },
+          {
+            name: '_elements',
+            value: [
+              'id',
+              'status',
+              'participant',
+              'appointmentType',
+              'start',
+              'Location.id',
+              'Location.name',
+              'Encounter.id',
+              'Encounter.status',
+              'Encounter.appointment',
+              'Encounter.participant',
+              'Encounter.statusHistory',
+              'Encounter.extension',
+            ].join(','),
+          },
           { name: '_count', value: count.toString() },
           { name: '_offset', value: offset.toString() },
         ],
@@ -582,8 +599,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       .filter((metrics) => metrics.visitCount > 0)
       .sort((a, b) => a.locationName.localeCompare(b.locationName));
 
+    const totalVisits = locationMetrics.map((metrics) => metrics.visitCount).reduce((prev, curr) => prev + curr, 0);
+
     const response: PracticeKpisReportZambdaOutput = {
-      message: `Found ${dischargedAppointments.length} discharged in-person visits across ${locationMetrics.length} locations`,
+      message: `Found ${totalVisits} discharged in-person visits across ${locationMetrics.length} locations`,
       locations: locationMetrics,
       dateRange,
     };

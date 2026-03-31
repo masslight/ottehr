@@ -3,6 +3,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { IconButton, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
+import { useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useMemo } from 'react';
@@ -27,6 +28,7 @@ export default function Procedures(): ReactElement {
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { isInPerson } = useAppFlags();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
+  const queryClient = useQueryClient();
   const aiProcedures = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.Procedures
   ) as ObservationTextFieldDTO[];
@@ -61,6 +63,12 @@ export default function Procedures(): ReactElement {
           {
             onSuccess: async () => {
               await refetchChartData();
+
+              void queryClient.invalidateQueries({
+                queryKey: ['procedures-for-tracking-board'],
+                refetchType: 'active',
+              });
+
               enqueueSnackbar('Procedure deleted successfully', { variant: 'success' });
             },
             onError: () => {
@@ -74,7 +82,7 @@ export default function Procedures(): ReactElement {
         return false;
       }
     },
-    [chartData?.procedures, deleteChartData, refetchChartData]
+    [chartData?.procedures, deleteChartData, refetchChartData, queryClient]
   );
 
   const { showDeleteProcedureDialog, DeleteProcedureDialog } = useDeleteProcedureDialog({

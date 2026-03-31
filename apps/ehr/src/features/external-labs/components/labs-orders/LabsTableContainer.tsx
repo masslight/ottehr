@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { JSXElementConstructor, ReactElement, useState } from 'react';
+import { ReactElement, useState } from 'react';
 import { submitLabOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -34,7 +34,6 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
     testItemName: string;
     testItemStatus: ExternalLabsStatus;
   }) => void;
-  DeleteOrderDialog: ReactElement<any, string | JSXElementConstructor<any>> | null;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
   requisitionNumber?: string; // optional because the result table is not grouped by requisition
   orderBundleNote?: string; // right now with the way results are organized this will not be viewable once results come in. not sure if thats a problem.
@@ -51,7 +50,6 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   allowSubmit,
   fetchLabOrders,
   showDeleteLabOrderDialog,
-  DeleteOrderDialog,
   handleRejectedAbn,
   requisitionNumber,
   orderBundleNote,
@@ -172,7 +170,6 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
             />
           </>
         </Box>
-        {DeleteOrderDialog}
       </>
       {error && (
         <Typography sx={{ textAlign: 'right', mt: 1 }} color="error">

@@ -48,7 +48,7 @@ export const ChiefComplaintField: FC = () => {
             });
           }}
           disabled={isChiefComplaintChartDataLoading}
-          label="Chief Complaint"
+          label="Additional Information"
           fullWidth
           multiline
           data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes}
@@ -69,7 +69,9 @@ interface ChiefComplaintFieldReadOnlyProps {
   label?: string;
 }
 
-export const ChiefComplaintFieldReadOnly: FC<ChiefComplaintFieldReadOnlyProps> = ({ label = 'Chief Complaint' }) => {
+export const ChiefComplaintFieldReadOnly: FC<ChiefComplaintFieldReadOnlyProps> = ({
+  label = 'Additional information',
+}) => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
       historyOfPresentIllness: { _tag: 'history-of-present-illness' },

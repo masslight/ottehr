@@ -3,7 +3,7 @@ import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useState } from 'react';
+import React, { ReactElement, useCallback, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
@@ -25,7 +25,7 @@ export enum ApptTab {
 interface AppointmentsTabProps {
   location: LocationWithWalkinSchedule | undefined;
   providers: string[] | undefined;
-  groups: string[] | undefined;
+  serviceCategories: string[] | undefined;
   preBookedAppointments: InPersonAppointmentInformation[];
   completedAppointments: InPersonAppointmentInformation[];
   cancelledAppointments: InPersonAppointmentInformation[];
@@ -40,7 +40,7 @@ interface AppointmentsTabProps {
 export default function AppointmentTabs({
   location,
   providers,
-  groups,
+  serviceCategories,
   preBookedAppointments,
   completedAppointments,
   cancelledAppointments,
@@ -66,14 +66,14 @@ export default function AppointmentTabs({
       setNow(DateTime.now());
     }
 
-    const timeInterval = setInterval(updateTime, 1000);
+    const timeInterval = setInterval(updateTime, 60000);
     // Call updateTime so we don't need to wait for it to be called
     updateTime();
 
     return () => clearInterval(timeInterval);
   }, []);
 
-  const selectLocationMsg = !location && providers?.length === 0 && groups?.length === 0 && (
+  const selectLocationMsg = !location && providers?.length === 0 && serviceCategories?.length === 0 && (
     <Grid container sx={{ width: '100%' }} padding={4}>
       <Grid item>
         <FmdBadOutlinedIcon
@@ -102,20 +102,23 @@ export default function AppointmentTabs({
     </Grid>
   );
 
-  const renderAppointmentTable = (appointments: InPersonAppointmentInformation[]): ReactElement => {
-    return (
-      <AppointmentTable
-        appointments={appointments}
-        orders={orders}
-        vitals={vitals}
-        location={location}
-        tab={value}
-        now={now}
-        updateAppointments={updateAppointments}
-        setEditingComment={setEditingComment}
-      />
-    );
-  };
+  const renderAppointmentTable = useCallback(
+    (appointments: InPersonAppointmentInformation[]): ReactElement => {
+      return (
+        <AppointmentTable
+          appointments={appointments}
+          orders={orders}
+          vitals={vitals}
+          location={location}
+          tab={value}
+          now={now}
+          updateAppointments={updateAppointments}
+          setEditingComment={setEditingComment}
+        />
+      );
+    },
+    [orders, vitals, location, value, now, updateAppointments, setEditingComment]
+  );
 
   return (
     <Box sx={{ width: '100%', marginTop: 3 }}>
@@ -135,7 +138,7 @@ export default function AppointmentTabs({
             />
             <Tab
               data-testid={dataTestIds.dashboard.inOfficeTab}
-              label={`In Office${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
+              label={`Active${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
               value={ApptTab['in-office']}
               sx={{ textTransform: 'none', fontWeight: 500 }}
             />

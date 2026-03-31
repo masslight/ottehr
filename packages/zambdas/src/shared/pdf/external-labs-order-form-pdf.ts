@@ -8,6 +8,7 @@ import {
   CoverageOrgRank,
   FHIR_IDENTIFIER_NPI,
   formatPhoneNumberDisplay,
+  formatZipcodeForDisplay,
   getFullestAvailableName,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LabPaymentMethod,
@@ -131,9 +132,9 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
 
     if (data.locationCity || data.locationState || data.locationZip) {
       pdfClient.drawTextSequential(
-        `${data.locationCity ? data.locationCity + ', ' : ''}${data.locationState ? data.locationState + ' ' : ''}${
-          data.locationZip || ''
-        }`.toUpperCase(),
+        `${data.locationCity ? data.locationCity + ', ' : ''}${
+          data.locationState ? data.locationState + ' ' : ''
+        }${formatZipcodeForDisplay(data.locationZip || '')}`.toUpperCase(),
         textStyles.text,
         {
           leftBound: xPosAfterImage,
@@ -394,7 +395,9 @@ export function getOrderFormDataConfig(
       ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
       : ORDER_ITEM_UNKNOWN,
     patientId: patient.id || ORDER_ITEM_UNKNOWN,
-    patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
+    patientAddress: patient.address?.[0]
+      ? formatZipcodeForDisplay(oystehr.fhir.formatAddress(patient.address[0]))
+      : ORDER_ITEM_UNKNOWN,
     patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
     todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
     orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
@@ -509,7 +512,12 @@ function drawInsuranceDetail(
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
   if (insuranceAddress) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Insurance Address:', insuranceAddress.toUpperCase());
+    pdfClient = drawFieldLineBoldHeader(
+      pdfClient,
+      textStyles,
+      'Insurance Address:',
+      formatZipcodeForDisplay(insuranceAddress.toUpperCase())
+    );
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
   if (insuranceSubNum) {
@@ -521,7 +529,7 @@ function drawInsuranceDetail(
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
   if (insuredAddress) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', insuredAddress);
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', formatZipcodeForDisplay(insuredAddress));
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 

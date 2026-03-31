@@ -2,7 +2,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   cleanAppointmentGraph,
   cleanupE2ELocations,
+  cleanupIntegrationTestAppointments,
   cleanupIntegrationTestLocations,
+  cleanupIntegrationTestPatients,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   getSecret,
   SecretsKeys,
@@ -20,8 +22,13 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
     }
     const oystehr = createOystehrClient(oystehrToken, input.secrets);
 
+    // Clean up E2E test resources (Playwright tests)
     await cleanAppointmentGraph({ system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code: '' }, oystehr);
     await cleanupE2ELocations(oystehr, `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|`);
+
+    // Clean up integration test resources (Vitest tests with OTTEHR_AUTOMATED_TEST tag)
+    await cleanupIntegrationTestAppointments(oystehr);
+    await cleanupIntegrationTestPatients(oystehr);
     await cleanupIntegrationTestLocations(oystehr);
 
     return {

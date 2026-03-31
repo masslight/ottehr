@@ -12,9 +12,10 @@ type Props = {
   required?: boolean;
   validate?: (value: string | undefined) => boolean | string;
   dataTestId?: string;
+  disabled?: boolean;
 };
 
-export const DateInput: React.FC<Props> = ({ name, label, required, validate, dataTestId }) => {
+export const DateInput: React.FC<Props> = ({ name, label, required, validate, dataTestId, disabled }) => {
   const { control } = useFormContext();
   return (
     <Controller
@@ -39,6 +40,7 @@ export const DateInput: React.FC<Props> = ({ name, label, required, validate, da
               }}
               value={field.value ? DateTime.fromISO(field.value) : null}
               onChange={(val) => field.onChange(val ? val.toISODate() : null)}
+              disabled={disabled}
             />
           </LocalizationProvider>
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

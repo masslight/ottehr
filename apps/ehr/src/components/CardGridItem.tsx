@@ -1,5 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Box } from '@mui/material';
+import { Box, CircularProgress, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
 import { DocumentInfo } from 'utils';
 
@@ -9,15 +9,30 @@ interface CardGridItemProps {
   fullCardPdf: DocumentInfo | undefined;
   aspectRatio: number;
   handleClick: () => void;
+  isLoading: boolean;
 }
 
-export default function CardGridItem({ card, aspectRatio, handleClick }: CardGridItemProps): ReactElement {
+export default function CardGridItem({ card, aspectRatio, handleClick, isLoading }: CardGridItemProps): ReactElement {
+  const theme = useTheme();
   return (
     <Box
-      onClick={() => {
-        handleClick();
+      role="button"
+      tabIndex={0}
+      aria-label={`View ${card.type} image`}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
       }}
-      sx={{ cursor: 'pointer', aspectRatio, overflow: 'hidden' }}
+      sx={{
+        cursor: 'pointer',
+        aspectRatio,
+        overflow: 'hidden',
+        position: 'relative',
+        '&:focus-visible': { outline: `2px dashed ${theme.palette.primary.main}`, outlineOffset: '2px' },
+      }}
       display="flex"
       justifyContent="center"
       alignItems="center"
@@ -30,6 +45,21 @@ export default function CardGridItem({ card, aspectRatio, handleClick }: CardGri
         alt={card.type}
         style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', aspectRatio }}
       />
+      {isLoading && (
+        <Box
+          sx={{
+            position: 'absolute',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: otherColors.cardBackground,
+            height: '100%',
+            width: '100%',
+          }}
+        >
+          <CircularProgress size={24} />
+        </Box>
+      )}
     </Box>
   );
 }

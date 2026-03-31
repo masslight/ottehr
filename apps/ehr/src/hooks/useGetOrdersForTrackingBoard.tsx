@@ -3,9 +3,11 @@ import { usePatientLabOrders } from 'src/features/external-labs/components/labs-
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
+import { useGetImmunizationOrders } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { OrdersForTrackingBoardTable } from 'utils';
 import { useGetErxOrders } from './useGetErxOrders';
+import { useGetProcedures } from './useGetProcedures';
 
 interface UseGetOrdersForTrackingBoardParams {
   encounterIds: string[];
@@ -48,6 +50,10 @@ export const useGetOrdersForTrackingBoard = (
 
   const erxOrdersQuery = useGetErxOrders({ encounterIds });
 
+  const proceduresQuery = useGetProcedures({ encounterIds });
+
+  const immunizationOrdersQuery = useGetImmunizationOrders({ encounterIds });
+
   const orders = useMemo(
     () => ({
       externalLabOrdersByAppointmentId: groupByAppointmentId(externalLabOrders?.labOrders),
@@ -56,6 +62,8 @@ export const useGetOrdersForTrackingBoard = (
       inHouseMedicationsByEncounterId: groupByEncounterId(medicationOrdersQuery.data?.orders),
       radiologyOrdersByAppointmentId: groupByAppointmentId(radiologyOrders),
       erxOrdersByEncounterId: groupByEncounterId(erxOrdersQuery.data?.orders),
+      proceduresByEncounterId: groupByEncounterId(proceduresQuery.data),
+      immunizationOrdersByEncounterId: groupByEncounterId(immunizationOrdersQuery.data?.orders),
     }),
     [
       externalLabOrders?.labOrders,
@@ -64,11 +72,13 @@ export const useGetOrdersForTrackingBoard = (
       medicationOrdersQuery.data?.orders,
       radiologyOrders,
       erxOrdersQuery.data?.orders,
+      proceduresQuery.data,
+      immunizationOrdersQuery.data,
     ]
   );
 
   const refetchOrders = async (): Promise<void> => {
-    await Promise.all([medicationOrdersQuery.refetch(), erxOrdersQuery.refetch()]);
+    await Promise.all([medicationOrdersQuery.refetch(), erxOrdersQuery.refetch(), proceduresQuery.refetch()]);
   };
 
   return {

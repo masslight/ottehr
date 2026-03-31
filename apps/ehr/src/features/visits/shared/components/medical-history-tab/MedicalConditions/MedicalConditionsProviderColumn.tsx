@@ -18,7 +18,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
+import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -30,7 +31,7 @@ import {
 } from '../../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
-import { SelectFromFavoritesButton } from '../SelectFromFavoritesButton';
+import { QuickPicksButton } from '../../QuickPicksButton';
 
 type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'display'> & { code: string | undefined };
 
@@ -256,6 +257,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
+  const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
 
@@ -301,14 +303,12 @@ const AddMedicalConditionField: FC = () => {
     }
   };
 
-  const handleFavoriteSelect = async (
-    favorite: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.favorites)[number]
-  ): Promise<void> => {
-    const favoriteAsIcdCode: IcdSearchResponseOptionalCode = {
-      code: favorite.code,
-      display: favorite.display,
+  const handleQuickPickSelect = async (quickPick: (typeof conditionQuickPicks)[number]): Promise<void> => {
+    const quickPickAsIcdCode: IcdSearchResponseOptionalCode = {
+      code: quickPick.code,
+      display: quickPick.display,
     };
-    await handleSelectOption(favoriteAsIcdCode);
+    await handleSelectOption(quickPickAsIcdCode);
   };
 
   if (isChartDataLoading) {
@@ -327,10 +327,13 @@ const AddMedicalConditionField: FC = () => {
         gap: 2,
       }}
     >
-      <SelectFromFavoritesButton
-        favorites={MEDICAL_HISTORY_CONFIG.medicalConditions.favorites}
-        getLabel={(favorite) => `${favorite.code ? `${favorite.code} ` : ''}${favorite.display}`}
-        onSelect={handleFavoriteSelect}
+      <QuickPicksButton
+        quickPicks={conditionQuickPicks}
+        getLabel={(quickPick) => {
+          const code = quickPick.code ? `${quickPick.code} ` : '';
+          return `${code}${quickPick.display}`;
+        }}
+        onSelect={handleQuickPickSelect}
         disabled={isChartDataLoading || isLoading}
       />
       <Controller

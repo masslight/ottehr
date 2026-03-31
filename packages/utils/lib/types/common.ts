@@ -516,13 +516,18 @@ type Appointment_Created_Task_Codes = 'create-appointment-confirmation-messages'
 type Send_Claim_Task_Codes = 'send-claim';
 type Task_Visit_Note_PDF_And_Email_Codes = 'visit-note-pdf-and-email';
 type Task_Patient_Payment_Candid_Sync_And_Receipt_Codes = 'patient-payment-candid-sync-and-receipt';
-
+type Task_Harvest_Paperwork_Codes = 'harvest-paperwork';
+type Task_Generate_Patient_Statement_Codes = 'generate-statement' | 'send-invoice-to-patient';
+type Task_Send_Patient_Statement_By_Mail_Codes = 'send-patient-statement-by-mail';
 type Task_Codes =
   | Appointment_Update_Task_Codes
   | Appointment_Created_Task_Codes
   | Send_Claim_Task_Codes
+  | Task_Generate_Patient_Statement_Codes
+  | Task_Send_Patient_Statement_By_Mail_Codes
   | Task_Visit_Note_PDF_And_Email_Codes
-  | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes;
+  | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes
+  | Task_Harvest_Paperwork_Codes;
 
 export const Task_Email_Communication_Url = 'urgent-care-email';
 export const Task_Text_Communication_Url = 'urgent-care-text';
@@ -533,6 +538,8 @@ export const Task_Claims_System_Url = 'https://fhir.ottehr.com/CodeSystem/claim-
 export const Task_Visit_Note_PDF_And_Email_Url = 'https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email';
 export const Task_Patient_Payment_Candid_Sync_And_Receipt_Url =
   'https://fhir.ottehr.com/CodeSystem/patient-payment-candid-sync-and-receipt';
+export const Task_Generate_Patient_Statement_Url = 'https://fhir.ottehr.com/CodeSystem/generate-patient-statement';
+export const Task_Send_Patient_Statement_By_Mail_Url = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail';
 
 type Task_System_Member =
   | typeof Task_Email_Communication_Url
@@ -543,6 +550,8 @@ type Task_System_Member =
   | typeof Task_Claims_System_Url
   | typeof Task_Visit_Note_PDF_And_Email_Url
   | typeof Task_Patient_Payment_Candid_Sync_And_Receipt_Url
+  | typeof Task_Generate_Patient_Statement_Url
+  | typeof Task_Send_Patient_Statement_By_Mail_Url
   | typeof OttehrTaskSystem;
 
 export type TaskCoding = {
@@ -558,7 +567,10 @@ type TaskId =
   | 'confirmationMessages'
   | 'sendClaim'
   | 'visitNotePDFAndEmail'
-  | 'patientPaymentCandidSyncAndReceipt';
+  | 'patientPaymentCandidSyncAndReceipt'
+  | 'harvestPaperwork'
+  | 'generatePatientStatement'
+  | 'sendPatientStatementByMail';
 type TaskIndicator = {
   [key in TaskId]: TaskCoding;
 };
@@ -596,7 +608,24 @@ export const TaskIndicator: TaskIndicator = {
     system: Task_Patient_Payment_Candid_Sync_And_Receipt_Url,
     code: 'patient-payment-candid-sync-and-receipt',
   },
+  harvestPaperwork: {
+    system: OttehrTaskSystem,
+    code: 'harvest-paperwork',
+  },
+  generatePatientStatement: {
+    system: Task_Generate_Patient_Statement_Url,
+    code: 'generate-statement',
+  },
+  sendPatientStatementByMail: {
+    system: Task_Send_Patient_Statement_By_Mail_Url,
+    code: 'send-patient-statement-by-mail',
+  },
 };
+
+export const TASK_INPUT_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/task-input-type';
+export enum TASK_INPUT_TYPE_CODES {
+  PAGE_INDEX = 'page-index',
+}
 
 export enum ServiceMode {
   'in-person' = 'in-person',

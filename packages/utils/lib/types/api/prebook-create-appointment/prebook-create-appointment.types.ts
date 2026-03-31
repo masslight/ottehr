@@ -1,6 +1,6 @@
 import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ServiceCategoryCode } from '../../../ottehr-config';
-import { ServiceMode, Timezone } from '../../common';
+import { CanonicalUrl, ServiceMode, Timezone } from '../../common';
 import { PatientInfo } from '../../data';
 import { ScheduleOwnerFhirResource } from '../schedules';
 
@@ -39,6 +39,8 @@ export interface CreateSlotParams {
   walkin?: boolean;
   postTelemedLabOnly?: boolean;
   originalBookingUrl?: string;
+  /** Optional questionnaire canonical URL to use for appointments booked on this slot */
+  questionnaireCanonical?: CanonicalUrl;
 }
 
 export interface GetSlotDetailsParams {

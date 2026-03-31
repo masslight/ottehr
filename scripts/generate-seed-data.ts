@@ -26,7 +26,11 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, getAppointmentGraphSearchParams } from 'utils';
+import {
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  getAppointmentGraphSearchParams,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+} from 'utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -83,19 +87,9 @@ async function main(): Promise<void> {
     ).unbundle()[0];
     const scheduleId = schedule?.id;
 
-    const { default: inPersonIntakeQuestionnaire } = await import(
-      '../config/oystehr/in-person-intake-questionnaire.json',
-      { assert: { type: 'json' } }
-    );
+    const questionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
 
-    const questionnaire = Object.values(inPersonIntakeQuestionnaire.fhirResources).find(
-      (q: any) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-inperson')
-    ) as any;
-
-    const questionnaireUrl = `${questionnaire.resource.url}|${questionnaire.resource.version}`;
+    const questionnaireUrl = `${questionnaire.url}|${questionnaire.version}`;
     const today = DateTime.now().toUTC().toFormat('yyyy-MM-dd');
 
     console.log('Converting to seed format with placeholders...');

@@ -1,4 +1,4 @@
-import { DiagnosisDTO, InHouseLabListDTO, LabListsDTO, OBSERVATION_CODES, Pagination } from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, InHouseLabListDTO, LabListsDTO, OBSERVATION_CODES, Pagination } from 'utils';
 
 export interface TestItemMethods {
   manual?: { device: string };
@@ -12,6 +12,13 @@ export interface QuantityRange {
   unit: string;
   precision?: number;
 }
+
+export const EntryMode = {
+  Initial: 'initial',
+  Edit: 'edit',
+} as const;
+
+export type EntryMode = (typeof EntryMode)[keyof typeof EntryMode];
 
 export type ObservationCode = (typeof OBSERVATION_CODES)[keyof typeof OBSERVATION_CODES];
 export interface LabComponentValueSetConfig {
@@ -71,14 +78,16 @@ export interface TestItem {
   methods: TestItemMethods;
   method: string;
   device: string;
-  cptCode: string[];
-  repeatable: boolean;
-  orderedAsRepeat: boolean;
+  cptCode: CPTCodeDTO[];
+  repeatable: boolean; // this test CAN be run as a repeat test
+  orderMode: 'repeat' | 'reflex' | 'standard';
   components: {
     // todo labs im not sure we ever have an instance where a test has both of these and i think we should assert that in this type
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
+  // reflexAlert is only defined IF results have been inputted that triggered the reflex test be run
+  // todo labs it might make more sense to break this up, have a "reflexTriggered" bool AND this alert can always be passed
   reflexAlert: { alert: string; testName: string; canonicalUrl: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
   adUrl: string;
   adVersion: string;
@@ -107,6 +116,7 @@ export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
   labDetails: TestItem;
   orderHistory: {
     status: TestStatus;
+    statusSubtitle: string | undefined;
     providerName: string;
     date: string;
   }[];
@@ -202,7 +212,7 @@ export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
 
 export type MarkAsCollectedData = {
   specimen: {
-    source: string;
+    source?: string;
     collectedBy: { id: string; name: string };
     collectionDate: string;
   };

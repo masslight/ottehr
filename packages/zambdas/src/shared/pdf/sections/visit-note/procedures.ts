@@ -79,7 +79,11 @@ export const createProceduresSection = <TData extends { procedures?: Procedures 
           procedure.bodySite != null ? 'Site/location: ' + procedure.bodySite : undefined
         );
         drawRegularText(client, styles, procedure.bodySide != null ? 'Side of body: ' + procedure.bodySide : undefined);
-        drawRegularText(client, styles, procedure.technique != null ? 'Technique: ' + procedure.technique : undefined);
+        drawRegularText(
+          client,
+          styles,
+          procedure.technique != null ? 'Technique: ' + procedure.technique.join(', ') : undefined
+        );
         drawRegularText(
           client,
           styles,

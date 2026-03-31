@@ -124,10 +124,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       getAllActiveProviders(oystehr),
       getRecentlyAssignedTasksMap(oystehr, DateTime.utc().minus({ hours: 1 })),
     ]);
-    console.log('--- Ready or unsigned: ' + JSON.stringify(readyOrUnsignedVisitPackages));
-    console.log('--- In progress: ' + JSON.stringify(assignedOrInProgressVisitPackages));
-    console.log('--- Active providers map: ' + JSON.stringify(activeProvidersMap));
-    console.log('--- Recently assigned tasks map: ' + JSON.stringify(recentlyAssignedTasksMap));
+    // these logs produce far too much detail so reducing them to counts
+    console.log('--- Ready or unsigned visits count: ' + Object.keys(readyOrUnsignedVisitPackages).length);
+    console.log('--- In progress visits count: ' + Object.keys(assignedOrInProgressVisitPackages).length);
+    console.log('--- Active providers count: ' + Object.keys(activeProvidersMap).length);
+    console.log('--- Recently assigned task ids: ' + Object.keys(recentlyAssignedTasksMap).join(', '));
 
     // Going through arrived or in-progress visits to determine busy practitioners that should not receive a notification
     Object.keys(assignedOrInProgressVisitPackages).forEach((appointmentId) => {
@@ -156,13 +157,13 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               (comm) =>
                 comm.status === 'preparation' &&
                 comm.recipient?.[0].reference &&
-                !busyPractitionerIds.has(comm.recipient?.[0].reference)
+                !busyPractitionerIds.has(comm.recipient?.[0].reference.split('/')[1])
             );
             postponedCommunications.forEach((communication) => {
-              const communicationPractitionerUri = communication.recipient![0].reference!;
-              const practitioner = activeProvidersMap[communicationPractitionerUri];
+              const communicationPractitionerId = communication.recipient![0].reference!.split('/')[1];
+              const practitioner = activeProvidersMap[communicationPractitionerId];
               const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
-              if (notificationSettings && notificationSettings.enabled) {
+              if (notificationSettings && notificationSettings.telemedNotificationsEnabled) {
                 const newStatus = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
                 updateCommunicationRequests.push(
                   getPatchBinary({
@@ -206,7 +207,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
 
                 // - if practitioner has notifications disabled - we don't create notification at all
-                if (notificationSettings?.enabled) {
+                if (notificationSettings?.telemedNotificationsEnabled) {
                   const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
 
                   let patientName: string | undefined = 'patient';
@@ -244,6 +245,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                       encounter: { reference: `Encounter/${encounter.id}` },
                       recipient: [{ reference: `Practitioner/${provider.id}` }],
                       payload: [{ contentString: message }],
+                      ...(appointment.start ? { note: [{ text: appointment.start }] } : {}),
                     },
                   };
                   createCommunicationRequests.push(request);
@@ -348,8 +350,14 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
 
-          if (notificationSettings?.enabled) {
+          if (notificationSettings?.taskNotificationsEnabled) {
             const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+
+            let title = task.description ?? `task ID ${task.id}`;
+            // workaround to have waiting room notifications sent without "new task" prefix
+            if (!title.endsWith('is ready to begin their virtual visit.')) {
+              title = 'A new task has been assigned to you: ' + title;
+            }
 
             const request: BatchInputPostRequest<Communication> = {
               method: 'POST',
@@ -370,7 +378,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 status: status,
                 basedOn: [{ reference: `Task/${task.id}` }],
                 recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-                payload: [{ contentString: `A new task has been assigned to you: ${task.description}` }],
+                payload: [{ contentString: title }],
               },
             };
 
@@ -408,7 +416,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         // create notification for practitioner that was assigned to this visit
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitionerResource);
         // rules of status described above
-        if (notificationSettings?.enabled) {
+        if (notificationSettings?.telemedNotificationsEnabled) {
           const unsignedChartsMessage = (length: number): string =>
             `You have ${length} unsigned charts on Ottehr. Please complete and sign ASAP. Thanks!`;
 
@@ -479,9 +487,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const { practitioner, communications } = sendSMSPractitionerCommunications[id];
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
         if (
-          (practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
-            notificationSettings?.method === ProviderNotificationMethod.phone) ||
-          notificationSettings?.method === ProviderNotificationMethod['phone and computer']
+          practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
+          (notificationSettings?.method === ProviderNotificationMethod.phone ||
+            notificationSettings?.method === ProviderNotificationMethod['phone and computer'])
         ) {
           communications.forEach((comm) => {
             if (comm.payload?.[0].contentString) {
@@ -742,7 +750,6 @@ const getAllActiveProviders = async (oystehr: Oystehr): Promise<ProvidersMap> =>
     `Fetched ${inactiveRoleMembers.length} Inactive and ${providerRoleMembers.length} Provider role members.`
   );
 
-  console.log(`provider roles members: ${JSON.stringify(providerRoleMembers)}`);
   // map for getting inactive users by user id
   const inactiveUsersMap = new Map(inactiveRoleMembers.map((user) => [user.id, user]));
   // map for getting users that have Provider role by user id

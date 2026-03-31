@@ -13,6 +13,7 @@ export enum DocumentType {
   CttConsentOld = 'Consent to Treat and Guarantee of Payment',
 }
 export interface DocumentInfo {
+  id: string;
   type: DocumentType;
   z3Url: string;
   presignedUrl: string | undefined;

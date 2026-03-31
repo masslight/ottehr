@@ -220,7 +220,9 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-const StyledButton = styled(Button)<{ isActive: string }>(({ theme, isActive: isActive }) => ({
+const StyledButton = styled(Button, {
+  shouldForwardProp: (prop) => prop !== 'isActive',
+})<{ isActive: string }>(({ theme, isActive }) => ({
   display: 'flex',
   width: '100%',
   height: '42px',

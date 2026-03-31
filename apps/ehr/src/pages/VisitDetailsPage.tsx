@@ -1,6 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
-import CircleIcon from '@mui/icons-material/Circle';
+import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
+import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -10,6 +12,7 @@ import {
   CircularProgress,
   FormControl,
   Grid,
+  IconButton,
   Link as MUILink,
   MenuItem,
   Paper,
@@ -28,13 +31,15 @@ import { Appointment, Attachment, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   createZ3Object,
+  deleteVisitFiles,
   generatePaperworkPdf,
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
+  getVisitFaxHistory,
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
@@ -45,6 +50,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { makeAbbreviation } from 'src/helpers/misc.helper';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
@@ -59,16 +65,14 @@ import {
   formatDateForDisplay,
   getCancellationReasonDisplay,
   getCoding,
-  getFirstName,
   getFullName,
   getInPersonVisitStatus,
-  getLastName,
-  getMiddleName,
   getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
+  GetVisitFaxHistoryOutput,
   isApiError,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -76,7 +80,6 @@ import {
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PatientAccountResponse,
-  ReasonForVisit,
   SERVICE_CATEGORY_SYSTEM,
   ServiceCategoryCode,
   ServiceMode,
@@ -104,6 +107,7 @@ import PatientPaymentList from '../components/PatientPaymentsList';
 import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { ChangeStatusDropdown } from '../features/visits/in-person/components/ChangeStatusDropdown';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
@@ -119,24 +123,16 @@ import {
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
-import { appointmentTypeLabels, fhirAppointmentTypeToVisitType, visitTypeToTelemedLabel } from '../types/types';
 import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
-
-interface EditNameParams {
-  first?: string;
-  middle?: string;
-  last?: string;
-  suffix?: string;
-}
 
 interface EditDOBParams {
   dob?: DateTime | null;
 }
 
 interface EditReasonForVisitParams {
-  reasonForVisit?: ReasonForVisit;
+  reasonForVisit?: string;
   additionalDetails?: string;
 }
 
@@ -153,17 +149,6 @@ type EditDialogConfig =
       type: 'closed';
       values: object;
       keyTitleMap: object;
-    }
-  | {
-      type: 'name';
-      values: EditNameParams;
-      keyTitleMap: {
-        first: 'First';
-        middle: 'Middle';
-        last: 'Last';
-        suffix: 'Suffix';
-      };
-      requiredKeys: string[];
     }
   | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' }; requiredKeys: string[] }
   | {
@@ -182,8 +167,6 @@ type EditDialogConfig =
 
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   switch (type) {
-    case 'name':
-      return "Please enter patient's name";
     case 'dob':
       return "Please enter patient's confirmed date of birth";
     case 'reason-for-visit':
@@ -205,7 +188,9 @@ const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({
 
 interface SavedCardItem {
   front: DocumentInfo | null;
+  frontId: string | null;
   back: DocumentInfo | null;
+  backId: string | null;
 }
 
 type SavedCardCategory = 'id' | 'primary-ins' | 'secondary-ins';
@@ -248,6 +233,8 @@ export default function VisitDetailsPage(): ReactElement {
 
   const queryClient = useQueryClient();
 
+  const navigate = useNavigate();
+
   // state variables
   const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
   const [errors, setErrors] = useState<{ hopError?: string }>({});
@@ -275,6 +262,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [scannerModalOpen, setScannerModalOpen] = useState<boolean>(false);
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
+  const [deletingFileId, setDeletingFile] = useState<string | null>(null);
   const user = useEvolveUser();
 
   const {
@@ -305,38 +293,48 @@ export default function VisitDetailsPage(): ReactElement {
       insuranceCards: [],
       insuranceCardsSecondary: [],
     };
-    const idCards: SavedCardItem = { front: null, back: null };
+    const idCards: SavedCardItem = { front: null, frontId: null, back: null, backId: null };
     const imageCarouselObjs: ImageCarouselObject[] = [];
     const primaryInsuranceCards: SavedCardItem = {
       front: null,
+      frontId: null,
       back: null,
+      backId: null,
     };
     const secondaryInsuranceCards: SavedCardItem = {
       front: null,
+      frontId: null,
       back: null,
+      backId: null,
     };
     insuranceCards.forEach((card) => {
       imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.InsuranceFront) {
         primaryInsuranceCards.front = card;
+        primaryInsuranceCards.frontId = card.id;
       } else if (card.type === DocumentType.InsuranceBack) {
         primaryInsuranceCards.back = card;
+        primaryInsuranceCards.backId = card.id;
       }
     });
     insuranceCardsSecondary.forEach((card) => {
       imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.InsuranceFrontSecondary) {
         secondaryInsuranceCards.front = card;
+        secondaryInsuranceCards.frontId = card.id;
       } else if (card.type === DocumentType.InsuranceBackSecondary) {
         secondaryInsuranceCards.back = card;
+        secondaryInsuranceCards.backId = card.id;
       }
     });
     photoIdCards.forEach((card) => {
       imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.PhotoIdFront) {
         idCards.front = card;
+        idCards.frontId = card.id;
       } else if (card.type === DocumentType.PhotoIdBack) {
         idCards.back = card;
+        idCards.backId = card.id;
       }
     });
     return {
@@ -352,6 +350,22 @@ export default function VisitDetailsPage(): ReactElement {
     if (index > -1) {
       setZoomedIdx(index);
       setPhotoZoom(true);
+    }
+  };
+
+  const handleDeleteClick = async (id: string | null): Promise<void> => {
+    if (!oystehrZambda || !id) return;
+
+    try {
+      setDeletingFile(id);
+      await deleteVisitFiles(oystehrZambda, { documentId: id, patientId: patientId ?? '' });
+      setDeletingFile(null);
+      enqueueSnackbar('File deleted successfully', { variant: 'success' });
+      await refetchFileData();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setDeletingFile(null);
+      enqueueSnackbar('Error deleting document', { variant: 'error' });
     }
   };
 
@@ -463,6 +477,19 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
 
+  const { data: faxData, isLoading: faxLoading } = useQuery({
+    queryKey: ['get-visit-fax-history', appointmentID],
+
+    queryFn: async (): Promise<GetVisitFaxHistoryOutput> => {
+      if (oystehrZambda && appointmentID) {
+        return getVisitFaxHistory(oystehrZambda, { appointmentId: appointmentID });
+      }
+      throw new Error('fhir client not defined or appointmentId not provided');
+    },
+
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
   const {
     data: patientBalancesData,
     isLoading: patientBalancesLoading,
@@ -512,23 +539,14 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
-  const { fullName, patientFirstName, patientMiddleName, patientLastName } = useMemo(() => {
+  const { fullName } = useMemo(() => {
     let fullName = '';
-    let patientFirstName: string | undefined;
-    let patientMiddleName: string | undefined;
-    let patientLastName: string | undefined;
 
     if (patient) {
       fullName = getFullName(patient);
-      patientFirstName = getFirstName(patient);
-      patientMiddleName = getMiddleName(patient);
-      patientLastName = getLastName(patient);
     }
     return {
       fullName,
-      patientFirstName,
-      patientMiddleName,
-      patientLastName,
     };
   }, [patient]);
 
@@ -551,11 +569,6 @@ export default function VisitDetailsPage(): ReactElement {
     },
     onSuccess: async () => {
       await refetchVisitDetails();
-      if (editDialogConfig.type === 'name') {
-        await getAndSetHistoricResources({ logs: true }).catch((error) => {
-          console.error('error getting activity logs after name update', error);
-        });
-      }
       setEditDialogConfig(CLOSED_EDIT_DIALOG);
       enqueueSnackbar('Patient information updated successfully', {
         variant: 'success',
@@ -571,12 +584,6 @@ export default function VisitDetailsPage(): ReactElement {
     if (editDialogConfig.type === 'dob') {
       bookingDetails = {
         confirmedDob: editDialogConfig.values.dob?.toISODate() ?? undefined,
-      };
-    } else if (editDialogConfig.type === 'name') {
-      bookingDetails = {
-        patientName: {
-          ...editDialogConfig.values,
-        },
       };
     } else if (editDialogConfig.type === 'nlg') {
       bookingDetails = {
@@ -596,7 +603,7 @@ export default function VisitDetailsPage(): ReactElement {
       appointmentId: appointmentID,
       bookingDetails,
     });
-    if (editDialogConfig.type === 'dob' || editDialogConfig.type === 'name') {
+    if (editDialogConfig.type === 'dob') {
       await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
     }
   };
@@ -682,20 +689,22 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const serviceCategoryLabel =
+    BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategory)?.display ??
+    serviceCategory ??
+    '';
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
   const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
-    if (!appointmentType) {
-      return '';
-    }
-
-    if (isInPerson) {
-      return appointmentTypeLabels[appointmentType] || '';
-    } else {
-      return visitTypeToTelemedLabel[fhirAppointmentTypeToVisitType[appointmentType]] || '';
-    }
+    return appointmentType === 'prebook'
+      ? 'Scheduled'
+      : appointmentType === 'walkin'
+      ? 'On Demand'
+      : appointmentType === 'posttelemed'
+      ? 'Post Telemed'
+      : '';
   };
 
   const { nameLastModified, dobLastModified } = useMemo(() => {
@@ -716,13 +725,14 @@ export default function VisitDetailsPage(): ReactElement {
         const history = await getAppointmentAndPatientHistory(appointment, oystehr);
         if (history) {
           if (logs) {
-            const activityLogs = formatActivityLogs(
+            const activityLogs = formatActivityLogs({
               appointment,
-              history.appointmentHistory,
-              history.patientHistory,
-              undefined,
-              locationTimeZone
-            );
+              appointmentHistory: history.appointmentHistory,
+              patientHistory: history.patientHistory,
+              faxesSent: faxData?.faxesSent,
+              paperworkStartedFlag: undefined,
+              timezone: locationTimeZone,
+            });
             setActivityLogs(activityLogs);
           }
           if (notes) {
@@ -733,17 +743,17 @@ export default function VisitDetailsPage(): ReactElement {
         setActivityLogsLoading(false);
       }
     },
-    [appointment, oystehr, locationTimeZone]
+    [appointment, oystehr, locationTimeZone, faxData?.faxesSent]
   );
 
   useEffect(() => {
-    if (!activityLogs && appointment && locationTimeZone && oystehr) {
+    if (!activityLogs && !faxLoading && appointment && locationTimeZone && oystehr) {
       getAndSetHistoricResources({ logs: true, notes: true }).catch((error) => {
         console.error('error getting activity logs', error);
         setActivityLogsLoading(false);
       });
     }
-  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources]);
+  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources, faxLoading]);
 
   useEffect(() => {
     if (appointment && encounter) {
@@ -920,7 +930,7 @@ export default function VisitDetailsPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <Grid item container xs={6} justifyContent="flex-end">
+              <Grid item container xs={6} justifyContent="flex-end" gap={1}>
                 <LoadingButton
                   variant="outlined"
                   sx={{
@@ -934,6 +944,28 @@ export default function VisitDetailsPage(): ReactElement {
                 >
                   Visit Details PDF
                 </LoadingButton>
+                {FEATURE_FLAGS.LEGACY_DATA_ENABLED && (
+                  <Button
+                    variant="outlined"
+                    sx={{ borderRadius: '20px', textTransform: 'none' }}
+                    disabled={!patient}
+                    onClick={() => {
+                      const patientLastName = patient?.name?.[0]?.family ?? '';
+                      const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
+                      const rawDob = patient?.birthDate ?? '';
+                      // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
+                      const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
+                      const params = new URLSearchParams({
+                        lastName: patientLastName,
+                        firstName: patientFirstName,
+                        dob,
+                      });
+                      navigate(`/legacy-data?${params.toString()}`);
+                    }}
+                  >
+                    Legacy Data
+                  </Button>
+                )}
               </Grid>
             </Grid>
             {/* page title row */}
@@ -941,23 +973,13 @@ export default function VisitDetailsPage(): ReactElement {
               {loading || activityLogsLoading || !patient ? (
                 <Skeleton aria-busy="true" width={200} height="" />
               ) : (
-                <>
-                  <PencilIconButton
-                    onClick={() =>
-                      setEditDialogConfig({
-                        type: 'name',
-                        values: {
-                          first: patientFirstName,
-                          middle: patientMiddleName,
-                          last: patientLastName,
-                        },
-                        keyTitleMap: { first: 'First', middle: 'Middle', last: 'Last', suffix: 'Suffix' },
-                        requiredKeys: ['first', 'last'],
-                      })
-                    }
-                    size="25px"
-                    sx={{ mr: '7px', padding: 0, alignSelf: 'center' }}
-                  />
+                <Box
+                  onClick={() => navigate(`/patient/${patientId}/info`)}
+                  sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
+                >
+                  <AssignmentIndOutlinedIcon
+                    sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
+                  ></AssignmentIndOutlinedIcon>
                   <Typography
                     variant="h2"
                     color="primary.dark"
@@ -965,19 +987,21 @@ export default function VisitDetailsPage(): ReactElement {
                   >
                     {fullName}
                   </Typography>
-                </>
+                </Box>
               )}
 
-              <CircleIcon
-                sx={{ color: 'primary.main', width: '10px', height: '10px', marginLeft: 2, alignSelf: 'center' }}
-              />
               {/* appointment start time as AM/PM and then date */}
               {loading || !appointment ? (
                 <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
               ) : (
                 <>
+                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
+                    {isInPerson ? 'In-Person' : 'Virtual'}
+                    {' | '}
+                    {makeAbbreviation(serviceCategoryLabel)}
+                  </Typography>
                   <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
-                    {getAppointmentType(appointmentType ?? '')}
+                    {getAppointmentType(appointmentType)}
                   </Typography>
                   <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
                     {appointmentTime}
@@ -1106,6 +1130,17 @@ export default function VisitDetailsPage(): ReactElement {
               <Grid item container sx={{ padding: '10px' }}>
                 <Paper sx={{ width: '100%' }}>
                   <Box padding={2}>
+                    <Grid container justifyContent="space-between" sx={{ p: '0 22px' }}>
+                      <Typography variant="h4" color="primary.dark">
+                        Cards & IDs
+                      </Typography>
+                      <RoundedButton
+                        to={`/patient/${patientId}/docs`}
+                        startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}
+                      >
+                        See All Patient Docs
+                      </RoundedButton>
+                    </Grid>
                     <Grid container item direction="row" alignItems="center" minHeight={cardSectionHeight}>
                       <CardCategoryGridItem
                         category="primary-ins"
@@ -1117,6 +1152,9 @@ export default function VisitDetailsPage(): ReactElement {
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                         uploadingFileType={uploadingFileType}
+                        handleDeleteClick={handleDeleteClick}
+                        isDeletingFront={deletingFileId === primaryInsuranceCards.frontId}
+                        isDeletingBack={deletingFileId === primaryInsuranceCards.backId}
                       />
                       <CardCategoryGridItem
                         category="secondary-ins"
@@ -1128,6 +1166,9 @@ export default function VisitDetailsPage(): ReactElement {
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                         uploadingFileType={uploadingFileType}
+                        handleDeleteClick={handleDeleteClick}
+                        isDeletingFront={deletingFileId === secondaryInsuranceCards.frontId}
+                        isDeletingBack={deletingFileId === secondaryInsuranceCards.backId}
                       />
                       <CardCategoryGridItem
                         category="id"
@@ -1139,6 +1180,9 @@ export default function VisitDetailsPage(): ReactElement {
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                         uploadingFileType={uploadingFileType}
+                        handleDeleteClick={handleDeleteClick}
+                        isDeletingFront={deletingFileId === idCards.frontId}
+                        isDeletingBack={deletingFileId === idCards.backId}
                       />
                     </Grid>
                   </Box>
@@ -1163,11 +1207,7 @@ export default function VisitDetailsPage(): ReactElement {
                                 "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
                               }
                             : {}),
-                          'Service category':
-                            BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategory)
-                              ?.display ??
-                            serviceCategory ??
-                            '',
+                          'Service category': serviceCategoryLabel,
                           'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
                           'Authorized non-legal guardian(s)': patient?.extension?.find(
                             (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
@@ -1627,6 +1667,9 @@ interface CardCategoryGridItemInput {
   uploadingFileType: UpdateVisitFilesInput['fileType'] | null;
   handleImageClick: (imageType: string) => void;
   handleOpenScanner: (fileType: UpdateVisitFilesInput['fileType']) => void;
+  handleDeleteClick: (id: string | null) => Promise<void>;
+  isDeletingFront: boolean;
+  isDeletingBack: boolean;
 }
 
 function parseFiletype(fileUrl: string): string {
@@ -1648,6 +1691,9 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   uploadingFileType,
   handleImageClick,
   handleOpenScanner,
+  handleDeleteClick,
+  isDeletingFront,
+  isDeletingBack,
 }) => {
   const title = (() => {
     if (category === 'primary-ins') {
@@ -1663,6 +1709,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   const ASPECT_RATIO = 1.57; // Standard aspect ratio for ID and insurance cards
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   const downloadDisabled = imagesLoading || (!item.front && !item.back);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<'front' | 'back' | null>(null);
 
   const itemIdentifier = (side: 'front' | 'back'): UpdateVisitFilesInput['fileType'] => {
     if (category === 'primary-ins') {
@@ -1758,37 +1805,82 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
         )}
       </Grid>
       <Grid item container direction="row" justifyContent={'center'} spacing={1}>
-        {Object.entries(item).map(([key, card]) =>
-          card ? (
-            <Grid item key={card.type} xs={5.5}>
-              <CardGridItem
-                card={card}
-                appointmentID={appointmentID}
-                fullCardPdf={fullCardPdf}
-                aspectRatio={ASPECT_RATIO}
-                handleClick={() => handleImageClick(card.type)}
-              />
-            </Grid>
-          ) : (
-            <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
-              <ImageUploader
-                fileName={itemIdentifier(key as 'front' | 'back')}
-                appointmentId={appointmentID!}
-                aspectRatio={ASPECT_RATIO}
-                disabled={imagesLoading}
-                isUploading={uploadingFileType === itemIdentifier(key as 'front' | 'back')}
-                onScanClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
-                submitAttachment={async (attachment: Attachment) => {
-                  await filesMutator.mutateAsync({
-                    appointmentId: appointmentID!,
-                    attachment,
-                    fileType: itemIdentifier(key as 'front' | 'back'),
-                  });
+        {Object.entries(item)
+          .filter(([key]) => key !== 'frontId' && key !== 'backId')
+          .map(([key, card]) =>
+            card ? (
+              <Grid
+                item
+                key={card.type}
+                xs={5.5}
+                position={'relative'}
+                sx={{
+                  '&:hover .card-cancel-icon, &:focus-within .card-cancel-icon': {
+                    visibility: 'visible',
+                  },
                 }}
-              />
-            </Grid>
-          )
-        )}
+              >
+                <CardGridItem
+                  card={card}
+                  appointmentID={appointmentID}
+                  fullCardPdf={fullCardPdf}
+                  aspectRatio={ASPECT_RATIO}
+                  handleClick={() => handleImageClick(card.type)}
+                  isLoading={key === 'front' ? isDeletingFront : isDeletingBack}
+                />
+                <IconButton
+                  className="card-cancel-icon"
+                  aria-label={`Delete ${key} card`}
+                  size="small"
+                  sx={{
+                    position: 'absolute',
+                    inset: '-4px -12px auto auto',
+                    color: theme.palette.error.dark,
+                    backgroundColor: theme.palette.background.paper,
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    '&:hover, &:focus-within': { backgroundColor: theme.palette.background.paper },
+                    padding: 0,
+                    visibility: 'hidden',
+                  }}
+                  onClick={() => setDeleteDialogOpen(key as 'front' | 'back')}
+                >
+                  <CancelIcon />
+                </IconButton>
+                <CustomDialog
+                  open={deleteDialogOpen === key}
+                  handleClose={() => setDeleteDialogOpen(null)}
+                  title="Confirm card deletion"
+                  description="Are you sure you want to delete this image?"
+                  closeButtonText="Cancel"
+                  confirmText="Delete"
+                  confirmLoading={key === 'front' ? isDeletingFront : isDeletingBack}
+                  handleConfirm={async () => {
+                    await handleDeleteClick(key === 'front' ? item.frontId : item.backId);
+                    setDeleteDialogOpen(null);
+                  }}
+                />
+              </Grid>
+            ) : (
+              <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
+                <ImageUploader
+                  fileName={itemIdentifier(key as 'front' | 'back')}
+                  appointmentId={appointmentID!}
+                  aspectRatio={ASPECT_RATIO}
+                  disabled={imagesLoading}
+                  isUploading={uploadingFileType === itemIdentifier(key as 'front' | 'back')}
+                  onScanClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
+                  submitAttachment={async (attachment: Attachment) => {
+                    await filesMutator.mutateAsync({
+                      appointmentId: appointmentID!,
+                      attachment,
+                      fileType: itemIdentifier(key as 'front' | 'back'),
+                    });
+                  }}
+                />
+              </Grid>
+            )
+          )}
       </Grid>
     </Grid>
   );

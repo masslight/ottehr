@@ -29,10 +29,6 @@
           "required": true,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
               "valueString": "section-contact-information shipping address-line1"
             }
@@ -45,10 +41,6 @@
           "required": false,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
               "valueString": "section-contact-information shipping address-line2"
             }
@@ -60,10 +52,6 @@
           "text": "City",
           "required": true,
           "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "s"
@@ -239,10 +227,6 @@
           ],
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "s"
             }
@@ -257,10 +241,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "ZIP"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -294,10 +274,6 @@
               "valueString": "Email"
             },
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
               "valueString": "section-patient shipping email"
             }
@@ -312,10 +288,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Phone Number"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -344,25 +316,13 @@
             {
               "valueString": "Mail"
             }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
           ]
         },
         {
           "linkId": "mobile-opt-in",
           "type": "boolean",
           "text": "Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "patient-will-be-18",
@@ -574,12 +534,6 @@
             {
               "valueString": "Decline to Specify"
             }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
           ]
         },
         {
@@ -606,12 +560,6 @@
             {
               "valueString": "Decline to Specify"
             }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
           ]
         },
         {
@@ -634,10 +582,6 @@
             }
           ],
           "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary",
               "valueString": "Pronoun responses are kept confidential in our system and are used to help us best respect how our patients wish to be addressed."
@@ -794,12 +738,6 @@
             {
               "valueString": "Other"
             }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
           ]
         },
         {
@@ -835,10 +773,6 @@
           "required": false,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "m"
             },
@@ -855,10 +789,6 @@
           "required": false,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "m"
             },
@@ -872,13 +802,7 @@
           "linkId": "pcp-practice",
           "type": "string",
           "text": "Practice name",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "pcp-address",
@@ -886,10 +810,6 @@
           "text": "Address",
           "required": false,
           "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
               "valueString": "Street address, City, State, ZIP"
@@ -909,10 +829,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Phone Number"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
@@ -942,61 +858,31 @@
               "linkId": "pharmacy-places-id",
               "type": "string",
               "text": "places id",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": false
             },
             {
               "linkId": "pharmacy-places-name",
               "type": "string",
               "text": "places name",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": false
             },
             {
               "linkId": "pharmacy-places-address",
               "type": "string",
               "text": "places address",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": false
             },
             {
               "linkId": "pharmacy-places-saved",
               "type": "boolean",
               "text": "places saved",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": false
             },
             {
               "linkId": "erx-pharmacy-id",
               "type": "string",
               "text": "erx pharmacy id",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": false
             }
           ],
           "text": "Pharmacy",
@@ -1168,10 +1054,6 @@
             }
           ],
           "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
               "valueString": "Radio"
@@ -2400,10 +2282,6 @@
                   ]
                 },
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                },
-                {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
                   "extension": [
                     {
@@ -2426,49 +2304,25 @@
               "linkId": "insurance-member-id-2",
               "type": "string",
               "text": "Member ID",
-              "required": true,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": true
             },
             {
               "linkId": "policy-holder-first-name-2",
               "type": "string",
               "text": "Policy holder's first name",
-              "required": true,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": true
             },
             {
               "linkId": "policy-holder-middle-name-2",
               "type": "string",
               "text": "Policy holder's middle name",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": false
             },
             {
               "linkId": "policy-holder-last-name-2",
               "type": "string",
               "text": "Policy holder's last name",
-              "required": true,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": true
             },
             {
               "linkId": "policy-holder-date-of-birth-2",
@@ -2479,10 +2333,6 @@
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                   "valueString": "DOB"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
                 }
               ]
             },
@@ -2501,25 +2351,13 @@
                 {
                   "valueString": "Intersex"
                 }
-              ],
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
               ]
             },
             {
               "linkId": "policy-holder-address-as-patient-2",
               "type": "boolean",
               "text": "Policy holder address is the same as patient's address",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
-              ]
+              "required": false
             },
             {
               "linkId": "policy-holder-address-2",
@@ -2837,12 +2675,6 @@
                 {
                   "valueString": "Other"
                 }
-              ],
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-                  "valueString": "hidden"
-                }
               ]
             },
             {
@@ -2955,10 +2787,6 @@
           ],
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
               "valueString": "Radio"
             }
@@ -3023,10 +2851,6 @@
                   }
                 }
               ]
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         }
@@ -3052,10 +2876,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Payment Validation"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         },
@@ -3121,12 +2941,6 @@
             },
             {
               "valueString": "Other"
-            }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         },
@@ -3648,37 +3462,19 @@
           "linkId": "employer-name",
           "type": "string",
           "text": "Employer Name",
-          "required": true,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": true
         },
         {
           "linkId": "employer-address",
           "type": "string",
           "text": "Employer Address",
-          "required": true,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": true
         },
         {
           "linkId": "employer-address-2",
           "type": "string",
           "text": "Address line 2 (optional)",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "employer-city",
@@ -3686,10 +3482,6 @@
           "text": "City",
           "required": true,
           "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "s"
@@ -3861,10 +3653,6 @@
           ],
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "s"
             }
@@ -3879,10 +3667,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "ZIP"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3902,10 +3686,6 @@
           "required": true,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "m"
             }
@@ -3918,10 +3698,6 @@
           "required": true,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
               "valueString": "m"
             }
@@ -3931,13 +3707,7 @@
           "linkId": "employer-contact-title",
           "type": "string",
           "text": "Title",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "employer-contact-email",
@@ -3948,10 +3718,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Email"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         },
@@ -3964,10 +3730,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Phone Number"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         },
@@ -3980,10 +3742,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Phone Number"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         }
@@ -4019,49 +3777,25 @@
             {
               "valueString": "Other"
             }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
           ]
         },
         {
           "linkId": "emergency-contact-first-name",
           "type": "string",
           "text": "Emergency contact first name",
-          "required": true,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": true
         },
         {
           "linkId": "emergency-contact-middle-name",
           "type": "string",
           "text": "Emergency contact middle name",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "emergency-contact-last-name",
           "type": "string",
           "text": "Emergency contact last name",
-          "required": true,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": true
         },
         {
           "linkId": "emergency-contact-number",
@@ -4074,10 +3808,6 @@
               "valueString": "Phone Number"
             },
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
               "valueString": "section-patient shipping tel"
             }
@@ -4087,13 +3817,7 @@
           "linkId": "emergency-contact-address-as-patient",
           "type": "boolean",
           "text": "Same as patient's address",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "emergency-contact-address",
@@ -4405,10 +4129,6 @@
             }
           ],
           "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
               "valueString": "Radio"
@@ -4828,10 +4548,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Medical History"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         }

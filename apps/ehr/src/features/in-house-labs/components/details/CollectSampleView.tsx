@@ -46,7 +46,6 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   onSubmit,
   setLoadingState,
 }) => {
-  console.log('Props', testDetails);
   const [showSampleCollection, setShowSampleCollection] = useState(true);
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');
@@ -450,7 +449,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
-                disabled={!sourceType || !collectedById || !date.isValid || isReadOnly}
+                disabled={!collectedById || !date.isValid || isReadOnly}
                 sx={{
                   borderRadius: '20px',
                   px: 3,

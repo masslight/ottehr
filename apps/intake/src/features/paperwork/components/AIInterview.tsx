@@ -82,7 +82,7 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
 
   return (
     <>
-      <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
+      <Box style={{ overflowY: 'auto', height: '540px' }}>
         <AiChatHistory
           questionnaireResponse={aiInterviewQuestionnaireResponse}
           aiLoading={loading}

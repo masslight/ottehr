@@ -1,9 +1,14 @@
 import {
   Autocomplete,
   Backdrop,
+  Button,
   Checkbox,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -21,13 +26,14 @@ import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
-import { keepPreviousData, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
@@ -37,6 +43,8 @@ import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   AISuggestionNotes,
@@ -50,9 +58,11 @@ import {
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
+  ProcedureQuickPickData,
   PROCEDURES_CONFIG,
   ProcedureSuggestion,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  RoleType,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
   TelemedAppointmentStatusEnum,
@@ -60,6 +70,7 @@ import {
 } from 'utils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import {
   useAiSuggestionNotes,
@@ -88,7 +99,7 @@ interface PageState {
   bodySite?: string;
   otherBodySite?: string;
   bodySide?: string;
-  technique?: string;
+  technique?: string[];
   suppliesUsed?: string[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
@@ -161,13 +172,16 @@ export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
   const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
+  const currentUser = useEvolveUser();
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
   const { chartData, setPartialChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { isInPerson } = useAppFlags();
   const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
+  const queryClient = useQueryClient();
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
   const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
@@ -194,6 +208,13 @@ export default function ProceduresNew(): ReactElement {
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
   const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
   const [suggestionNote, setSuggestionNote] = useState<AISuggestionNotes | null>(null);
+  const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
+  const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
+  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
+  const [quickPickName, setQuickPickName] = useState('');
+  const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
+  const [quickPickSaving, setQuickPickSaving] = useState(false);
+  const { quickPicks: mergedQuickPicks } = useMergedProcedureQuickPicks();
 
   const updateState = (stateMutator: (draft: PageState) => void): void => {
     setState((prev) => {
@@ -411,12 +432,88 @@ export default function ProceduresNew(): ReactElement {
           ],
         });
       }
+
+      void queryClient.invalidateQueries({
+        queryKey: ['procedures-for-tracking-board'],
+        refetchType: 'active',
+      });
+
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
       navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
     } catch {
       setSaveInProgress(false);
       enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
+    }
+  };
+
+  const openQuickPickDialog = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      const response = await getProcedureQuickPicks(oystehrZambda);
+      setExistingQuickPicks(response.quickPicks);
+    } catch (error) {
+      console.error('Failed to load existing quick picks:', error);
+      setExistingQuickPicks(mergedQuickPicks);
+    }
+    setQuickPickName('');
+    setQuickPickDialogOpen(true);
+  };
+
+  const buildQuickPickFromCurrentState = (): Omit<ProcedureQuickPickData, 'id'> => {
+    return {
+      name: quickPickName.trim(),
+      procedureType: selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code,
+      cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
+      diagnoses: state.diagnoses?.map((d) => ({ code: d.code, display: d.display })),
+      consentObtained: state.consentObtained,
+      performerType: state.performerType,
+      medicationUsed: state.medicationUsed,
+      bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
+      otherBodySite: state.bodySite === OTHER ? state.otherBodySite : undefined,
+      bodySide: state.bodySide,
+      technique: state.technique,
+      suppliesUsed: state.suppliesUsed,
+      otherSuppliesUsed: state.otherSuppliesUsed,
+      procedureDetails: state.procedureDetails,
+      specimenSent: state.specimenSent,
+      complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
+      otherComplications: state.complications === OTHER ? state.otherComplications : undefined,
+      patientResponse: state.patientResponse,
+      postInstructions: state.postInstructions,
+      otherPostInstructions: state.otherPostInstructions,
+      timeSpent: state.timeSpent,
+      documentedBy: state.documentedBy,
+    };
+  };
+
+  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
+    if (!quickPickName.trim()) {
+      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    if (!oystehrZambda) {
+      throw new Error('oystehrZambda was null');
+    }
+
+    setQuickPickSaving(true);
+    try {
+      const quickPickData = buildQuickPickFromCurrentState();
+
+      if (overwriteId) {
+        await updateProcedureQuickPick(oystehrZambda, overwriteId, quickPickData);
+        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
+      } else {
+        await createProcedureQuickPick(oystehrZambda, { quickPick: quickPickData });
+        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
+      }
+
+      setQuickPickDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save quick pick:', error);
+      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
+    } finally {
+      setQuickPickSaving(false);
     }
   };
 
@@ -712,6 +809,33 @@ export default function ProceduresNew(): ReactElement {
     setInitialFormStateSet(true);
   }, [methods, procedure]);
 
+  const onQuickPickSelect = (quickPick: ProcedureQuickPickData): void => {
+    updateState((state) => {
+      if (quickPick.procedureType) {
+        methods.reset({
+          ...formValues,
+          procedureType: selectOptions?.procedureTypes.find(
+            (procedureType) => procedureType.code === quickPick.procedureType
+          )?.name,
+        });
+      }
+      Object.entries(quickPick).forEach(([key, value]) => {
+        if (key !== 'name' && key !== 'procedureType') {
+          (state as any)[key] = value;
+        }
+      });
+      Object.entries(state).forEach(([key, _value]) => {
+        if ((quickPick as any)[key] == null) {
+          (state as any)[key] = undefined;
+        }
+      });
+    });
+  };
+
+  const selectedProcedureTypeCode = selectOptions?.procedureTypes?.find(
+    (procedureType) => procedureType.name === formValues.procedureType
+  )?.code;
+
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
@@ -736,6 +860,23 @@ export default function ProceduresNew(): ReactElement {
                 </Link>
               </Typography>
             </Box>
+
+            <QuickPicksButton
+              quickPicks={
+                !procedureId
+                  ? mergedQuickPicks.filter(
+                      (quickPick) =>
+                        selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
+                    )
+                  : []
+              }
+              getLabel={(quickPick) => quickPick.name}
+              onSelect={onQuickPickSelect}
+              showAddOption
+              isAdmin={isAdmin}
+              onAddOrUpdate={() => void openQuickPickDialog()}
+              searchable
+            />
 
             <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
@@ -825,7 +966,7 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.bodySide = value),
               dataTestIds.documentProcedurePage.sideOfBody
             )}
-            {dropdown(
+            {multiSelect(
               'Technique',
               selectOptions?.techniques,
               state.technique,
@@ -964,6 +1105,77 @@ export default function ProceduresNew(): ReactElement {
       <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
         <CircularProgress color="inherit" />
       </Backdrop>
+
+      {/* Add to Quick Picks Dialog */}
+      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add to Quick Picks</DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            freeSolo
+            options={existingQuickPicks.map((qp) => qp.name)}
+            value={quickPickName}
+            onChange={(_e, newValue) => setQuickPickName(newValue ?? '')}
+            onInputChange={(_e, newInputValue) => setQuickPickName(newInputValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Quick Pick Name"
+                fullWidth
+                sx={{ mt: 1 }}
+                autoFocus
+                placeholder="Enter a name or select an existing quick pick"
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setQuickPickDialogOpen(false)} disabled={quickPickSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!quickPickName.trim() || quickPickSaving}
+            onClick={() => {
+              const existing = existingQuickPicks.find(
+                (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
+              );
+              if (existing?.id) {
+                setOverwriteTarget(existing);
+                setConfirmOverwriteOpen(true);
+              } else {
+                void onSaveAsQuickPick();
+              }
+            }}
+          >
+            {quickPickSaving ? <CircularProgress size={20} /> : 'Save Quick Pick'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Overwrite Confirmation Dialog */}
+      <Dialog open={confirmOverwriteOpen} onClose={() => setConfirmOverwriteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Update Existing Quick Pick?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            A quick pick named &ldquo;{overwriteTarget?.name}&rdquo; already exists. Do you want to replace it with the
+            current procedure data?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmOverwriteOpen(false)}>Back</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setConfirmOverwriteOpen(false);
+              if (overwriteTarget?.id) {
+                void onSaveAsQuickPick(overwriteTarget.id);
+              }
+            }}
+          >
+            Replace
+          </Button>
+        </DialogActions>
+      </Dialog>
     </FormProvider>
   );
 }

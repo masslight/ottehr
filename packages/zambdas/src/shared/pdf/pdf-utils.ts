@@ -278,8 +278,13 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
     }
 
-    console.log(`Drawing at xPos: ${currXPos}. String to draw is ${text}`);
-    drawTextSequential(text, textStyle, { leftBound: currXPos, rightBound: pageRightBound });
+    if (bounds) {
+      console.log(`Drawing at xPos: ${leftBound}. String to draw is ${text}`);
+      drawTextSequential(text, textStyle, { leftBound, rightBound });
+    } else {
+      console.log(`Drawing at xPos: ${currXPos}. String to draw is ${text}`);
+      drawTextSequential(text, textStyle, { leftBound: currXPos, rightBound: pageRightBound });
+    }
 
     if (textStyle.newLineAfter) {
       console.log('>>>TextStyle included newline');

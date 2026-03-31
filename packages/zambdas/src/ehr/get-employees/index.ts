@@ -5,6 +5,8 @@ import { DateTime } from 'luxon';
 import {
   EmployeeDetails,
   GetEmployeesResponse,
+  getFirstName,
+  getLastName,
   getProviderNotificationSettingsForPractitioner,
   getResourcesFromBatchInlineRequests,
   getSecret,
@@ -125,6 +127,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
         });
       }
 
+      const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
       return {
         id: employee.id,
         profile: employee.profile,
@@ -134,12 +137,13 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
         isProvider: Boolean(providerMemberIds.includes(employee.id)),
         isCustomerSupport: Boolean(customerSupportMemberIds.includes(employee.id)),
         lastLogin: practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
-        firstName: practitioner?.name?.[0].given?.join(' ') ?? '',
-        lastName: practitioner?.name?.[0].family ?? '',
+        firstName: getFirstName(practitioner) ?? '',
+        lastName: getLastName(practitioner) ?? '',
         phoneNumber: phone ? standardizePhoneNumber(phone)! : '',
         licenses: licenses,
         seenPatientRecently: recentlyActivePractitioners.includes(employee.profile),
-        gettingAlerts: getProviderNotificationSettingsForPractitioner(practitioner)?.enabled || false,
+        gettingAlerts:
+          notificationSettings?.taskNotificationsEnabled || notificationSettings?.telemedNotificationsEnabled || false,
       };
     });
 

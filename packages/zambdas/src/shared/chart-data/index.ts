@@ -26,6 +26,9 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCIDENT_STATE_EXTENSION,
+  ACCIDENT_TYPE_SYSTEM,
+  AccidentDTO,
   ADDED_VIA_LAB_ORDER_SYSTEM,
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -66,10 +69,12 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
   ObservationBooleanFieldDTO,
+  ObservationDateFieldDTO,
   ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
+  patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
   PrescribedMedicationDTO,
   PRIVATE_EXTENSION_BASE_URL,
@@ -244,6 +249,8 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
   };
 }
 
+const PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE = 'Patient could not confirm dosage';
+
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
@@ -262,6 +269,9 @@ export function makeMedicationResource(
     effectiveDateTime: data.intakeInfo.date,
     informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
+    ...(data.intakeInfo.patientCouldNotConfirmDosage && {
+      note: [{ text: PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE }],
+    }),
     medicationCodeableConcept: {
       coding: [
         {
@@ -288,6 +298,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     intakeInfo: {
       dose: getMedicationDosage(medication, medication.meta?.tag?.[0].code || ''),
       date: medication.effectiveDateTime,
+      patientCouldNotConfirmDosage: medication.note?.[0]?.text === PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE || undefined,
     },
     status: ['active', 'completed'].includes(medication.status)
       ? (medication.status as 'active' | 'completed')
@@ -395,19 +406,11 @@ export function makeObservationResource(
     };
   }
 
-  if (isObservationTextFieldDTO(data)) {
-    if ('note' in data && data.note) {
-      return {
-        ...base,
-        valueString: data.value,
-        note: [{ text: data.note }],
-      };
-    } else {
-      return {
-        ...base,
-        valueString: data.value,
-      };
-    }
+  if (isObservationDateFieldDTO(data)) {
+    return {
+      ...base,
+      valueDateTime: data.value,
+    };
   }
 
   if (isObservationDateRangeFieldDTO(data)) {
@@ -422,11 +425,35 @@ export function makeObservationResource(
     };
   }
 
+  // isObservationTextFieldDTO must be last since it only checks for string value
+  // and date fields also have string values.
+  const textData = data as ObservationTextFieldDTO;
+  if (isObservationTextFieldDTO(data)) {
+    if ('note' in textData && textData.note) {
+      return {
+        ...base,
+        valueString: textData.value,
+        note: [{ text: textData.note }],
+      };
+    } else {
+      return {
+        ...base,
+        valueString: textData.value,
+      };
+    }
+  }
+
   throw new Error('Invalid ObservationDTO type');
 }
 
 function isObservationBooleanFieldDTO(data: ObservationDTO): data is ObservationBooleanFieldDTO {
   return typeof (data as ObservationBooleanFieldDTO).value === 'boolean';
+}
+
+function isObservationDateFieldDTO(data: ObservationDTO): data is ObservationDateFieldDTO {
+  if (typeof (data as ObservationDateFieldDTO).value !== 'string') return false;
+  const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === data.field);
+  return field?.type === 'date';
 }
 
 function isObservationTextFieldDTO(data: ObservationDTO): data is ObservationTextFieldDTO {
@@ -1118,6 +1145,18 @@ export function makeObservationDTO(observation: Observation): null | Observation
       field,
       value: observation.valueBoolean,
     } as ObservationBooleanFieldDTO;
+  } else if (typeof observation.valueDateTime === 'string') {
+    return {
+      resourceId: observation.id,
+      field,
+      value: observation.valueDateTime,
+    } as ObservationDateFieldDTO;
+  } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
+    return {
+      resourceId: observation.id,
+      field,
+      value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
+    } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
     return {
       resourceId: observation.id,
@@ -1126,12 +1165,6 @@ export function makeObservationDTO(observation: Observation): null | Observation
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
     } as ObservationTextFieldDTO;
-  } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
-    return {
-      resourceId: observation.id,
-      field,
-      value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
-    } as ObservationDateRangeFieldDTO;
   }
 
   console.error(`Invalid Observation field type: "${field}" ${JSON.stringify(observation)}`);
@@ -1141,9 +1174,11 @@ export function makeObservationDTO(observation: Observation): null | Observation
 export async function saveOrUpdateResource<Savable extends FhirResource>(
   resource: Savable,
   oystehr: Oystehr
-): Promise<Savable> {
-  if (resource.id === undefined) return oystehr.fhir.create(resource);
-  return oystehr.fhir.update(resource);
+): Promise<Omit<Savable, 'id'> & { id: string }> {
+  if (resource.id === undefined) {
+    return oystehr.fhir.create<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
+  }
+  return oystehr.fhir.update<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
 }
 
 export const chartDataResourceHasMetaTagByCode = (
@@ -1413,6 +1448,9 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
   // 6. Procedures
   data.procedures = makeProceduresDTOFromFhirResources(encounterResource, resources);
 
+  // 7. Accident
+  data.accident = makeAccidentDTOFromFhirResources(resources);
+
   return data;
 }
 
@@ -1567,6 +1605,7 @@ export function makeProceduresDTOFromFhirResources(
   return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
     return {
       resourceId: serviceRequests.id,
+      encounterId: serviceRequests.encounter?.reference?.split('/')[1],
       procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
       cptCodes: cptCodeProcedures
         .filter(
@@ -1592,7 +1631,9 @@ export function makeProceduresDTOFromFhirResources(
       medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
       bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
       bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
-      technique: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)?.valueString,
+      technique: getExtensions(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)
+        .map((extension) => extension.valueString)
+        .filter((value) => value != null),
       suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
       procedureDetails: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
       specimenSent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
@@ -1620,10 +1661,12 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.bodySide.url,
       valueString: procedure.bodySide,
     },
-    {
-      url: FHIR_EXTENSION.ServiceRequest.technique.url,
-      valueString: procedure.technique,
-    },
+    ...(procedure.technique?.map((technique) => {
+      return {
+        url: FHIR_EXTENSION.ServiceRequest.technique.url,
+        valueString: technique,
+      };
+    }) ?? []),
     {
       url: FHIR_EXTENSION.ServiceRequest.suppliesUsed.url,
       valueString: procedure.suppliesUsed,
@@ -1740,6 +1783,10 @@ function getExtension(resource: DomainResource, url: string): Extension | undefi
   return resource.extension?.find((extension) => extension.url === url);
 }
 
+function getExtensions(resource: DomainResource, url: string): Extension[] {
+  return resource.extension?.filter((extension) => extension.url === url) ?? [];
+}
+
 function getMedicationDosage(medication: MedicationStatement, medicationType: string): string | undefined {
   if (medicationType === 'in-house-medication') {
     const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
@@ -1764,3 +1811,52 @@ export function makeEncounterTaskResource(encounterId: string, coding: TaskCodin
     },
   };
 }
+
+export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): AccidentDTO | undefined {
+  const accidentCondition = resources.find(
+    (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
+  ) as Condition;
+  if (accidentCondition == null) {
+    return undefined;
+  }
+  return {
+    resourceId: accidentCondition.id,
+    type:
+      accidentCondition.code?.coding
+        ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
+        ?.map((coding) => coding.code as any) ?? [],
+    date: accidentCondition.onsetDateTime,
+    state: accidentCondition.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)?.valueString,
+  };
+}
+
+export const createAccidentCondition = (
+  accident: AccidentDTO,
+  encounterId: string,
+  patientId: string
+): BatchInputPutRequest<Condition> | BatchInputPostRequest<Condition> => {
+  return saveOrUpdateResourceRequest<Condition>({
+    resourceType: 'Condition',
+    id: accident.resourceId,
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    onsetDateTime: accident.date,
+    code: {
+      coding: accident.type.map((type) => {
+        return {
+          system: ACCIDENT_TYPE_SYSTEM,
+          code: type,
+        };
+      }),
+    },
+    extension: accident.state
+      ? [
+          {
+            url: ACCIDENT_STATE_EXTENSION,
+            valueString: accident.state,
+          },
+        ]
+      : undefined,
+    meta: getMetaWFieldName('accident'),
+  });
+};

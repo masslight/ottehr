@@ -16,6 +16,7 @@ import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import {
+  ATTORNEY_FIRM_EXTENSION_URL,
   genderMap,
   getFirstName,
   getLastName,
@@ -172,6 +173,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
       } else if (
         appointmentServiceCategory === 'workers-comp' &&
         VALUE_SETS.reasonForVisitOptionsWorkersComp.some((opt) => opt.value === reasonOption)
+      ) {
+        normalizedReasonForVisit = reasonOption;
+      } else if (
+        appointmentServiceCategory === 'pre-op' &&
+        VALUE_SETS.reasonForVisitOptionsPreOp?.some((opt) => opt.value === reasonOption)
       ) {
         normalizedReasonForVisit = reasonOption;
       } else if (VALUE_SETS.reasonForVisitOptions.some((opt) => opt.value === reasonOption)) {
@@ -1230,8 +1236,7 @@ const mapAttorneyToQuestionnaireResponseItems = (input: MapAttorneyItemsInput): 
 
   const hasAttorney = attorneyRelatedPerson ? HAS_ATTORNEY_OPTION : DOES_NOT_HAVE_ATTORNEY_OPTION;
 
-  const firmExtensionUrl = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
-  const firm = attorneyRelatedPerson?.extension?.find((ext) => ext.url === firmExtensionUrl)?.valueString;
+  const firm = attorneyRelatedPerson?.extension?.find((ext) => ext.url === ATTORNEY_FIRM_EXTENSION_URL)?.valueString;
 
   const firstName = attorneyRelatedPerson?.name?.[0]?.given?.[0];
   const lastName = attorneyRelatedPerson?.name?.[0]?.family;

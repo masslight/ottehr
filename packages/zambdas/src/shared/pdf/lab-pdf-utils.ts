@@ -208,7 +208,7 @@ export const drawFieldLineRight = (
   fieldName: string,
   fieldValue: string
 ): PdfClient => {
-  pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
+  pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 225);
   pdfClient.drawTextSequential(' ', textStyles.textBold);
   pdfClient.drawTextSequential(fieldValue, textStyles.textBold, {
     leftBound: pdfClient.getX(),
@@ -227,27 +227,53 @@ export const drawFourColumnText = (
   color?: Color
 ): PdfClient => {
   const fontSize = STANDARD_FONT_SIZE;
-  const fontStyleTemp = { fontSize: fontSize, color: color };
-  pdfClient.drawStartXPosSpecifiedText(
-    columnOne.name,
-    { ...(columnOne.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnOne.startXPos
-  );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnTwo.name,
-    { ...(columnTwo.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnTwo.startXPos
-  );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnThree.name,
-    { ...(columnThree.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnThree.startXPos
-  );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnFour.name,
-    { ...(columnFour.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnFour.startXPos
-  );
+
+  const baseStyle = { fontSize, color };
+
+  const startingY = pdfClient.getY();
+  const startingPageIndex = pdfClient.getCurrentPageIndex();
+
+  const columns = [
+    {
+      content: columnOne.name,
+      startXPos: columnOne.startXPos,
+      width: columnTwo.startXPos - columnOne.startXPos,
+      textStyle: {
+        ...(columnOne.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+    {
+      content: columnTwo.name,
+      startXPos: columnTwo.startXPos,
+      width: columnThree.startXPos - columnTwo.startXPos,
+      textStyle: {
+        ...(columnTwo.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+    {
+      content: columnThree.name,
+      startXPos: columnThree.startXPos,
+      width: columnFour.startXPos - columnThree.startXPos,
+      textStyle: {
+        ...(columnThree.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+    {
+      content: columnFour.name,
+      startXPos: columnFour.startXPos,
+      width: pdfClient.getRightBound() - columnFour.startXPos,
+      textStyle: {
+        ...(columnFour.isBold ? textStyles.textBold : textStyles.text),
+        ...baseStyle,
+      },
+    },
+  ];
+
+  pdfClient.drawVariableWidthColumns(columns, startingY, startingPageIndex);
+
   return pdfClient;
 };
 

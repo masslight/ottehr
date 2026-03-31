@@ -10,6 +10,7 @@ interface StatusColorConfig {
 interface InHouseLabsStatusChipProps {
   status: TestStatus | string;
   additionalStyling?: SxProps;
+  testId?: string;
 }
 
 export const getStatusColor = (status: string): StatusColorConfig => {
@@ -37,7 +38,11 @@ export const getStatusColor = (status: string): StatusColorConfig => {
   }
 };
 
-export const InHouseLabsStatusChip = ({ status, additionalStyling }: InHouseLabsStatusChipProps): ReactElement => {
+export const InHouseLabsStatusChip = ({
+  status,
+  additionalStyling,
+  testId,
+}: InHouseLabsStatusChipProps): ReactElement => {
   const getChipProps = (): ChipProps & { label: TestStatus } => {
     const colors = getStatusColor(status);
 
@@ -84,5 +89,5 @@ export const InHouseLabsStatusChip = ({ status, additionalStyling }: InHouseLabs
 
   const chipProps = getChipProps();
 
-  return <Chip size="small" {...chipProps} />;
+  return <Chip data-testid={testId} size="small" {...chipProps} />;
 };

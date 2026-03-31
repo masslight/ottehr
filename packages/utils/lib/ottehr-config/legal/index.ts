@@ -1,11 +1,8 @@
-import { z } from 'zod';
-import { LEGAL_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { mergeAndFreezeConfigObjects } from '../helpers';
-import { DisplayTextSchema, LinkDef, LinkDefSchema, TextWithLinkComposition } from '../types';
+import type { LegalConfig, LinkDef, TextWithLinkComposition } from 'config-types';
+import { LinkDefSchema } from 'config-types';
+import { deepFreezeObject } from '../../utils/objects';
 
-export type LegalConfigSchemaType = Record<string, TextWithLinkComposition>;
-
-const LEGAL_DEFAULTS = {
+const LEGAL_DATA: LegalConfig = {
   REVIEW_PAGE: [
     {
       keyPath: 'reviewAndSubmit.byProceeding',
@@ -51,17 +48,9 @@ const LEGAL_DEFAULTS = {
       tags: ['terms-and-conditions'],
     },
   ],
-} as const satisfies LegalConfigSchemaType;
+};
 
-const mergedLegalConfig = mergeAndFreezeConfigObjects(LEGAL_DEFAULTS, OVERRIDES);
-
-const textWithLinkCompositionSchema: z.ZodType<TextWithLinkComposition> = z.array(
-  z.union([DisplayTextSchema, LinkDefSchema])
-);
-
-const legalConfigSchema = z.record(z.string(), textWithLinkCompositionSchema);
-
-export const LEGAL_CONFIG = legalConfigSchema.parse(mergedLegalConfig);
+export const LEGAL_CONFIG = deepFreezeObject(LEGAL_DATA) as LegalConfig;
 
 export const getLegalCompositionForLocation = (locationKey: string): TextWithLinkComposition | undefined => {
   const legalComposition = LEGAL_CONFIG[locationKey];

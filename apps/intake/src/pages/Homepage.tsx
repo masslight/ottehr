@@ -5,16 +5,12 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
 import { Box, Button, Skeleton, Typography } from '@mui/material';
+import { HomepageOptions } from 'config-types';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import {
-  BOOKING_CONFIG,
-  BRANDING_CONFIG,
-  HomepageOptions,
-  ServiceMode,
-  shouldShowServiceCategorySelectionPage,
-} from 'utils';
+import { BOOKING_CONFIG, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
+import { getWelcomeTitle } from '../branding/welcomeTitle';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { otherColors } from '../IntakeThemeProvider';
@@ -27,8 +23,6 @@ import {
 } from '../telemed/features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
 import { useOystehrAPIClient } from '../telemed/utils';
-
-const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
 
 const Homepage = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();
@@ -80,12 +74,12 @@ const Homepage = (): JSX.Element => {
 
     if (shouldSelectServiceCategory) {
       const basePath = generatePath(intakeFlowPageRoute.SelectServiceCategoryWalkin.path, {
-        name: DEFAULT_WALKIN_LOCATION_NAME,
+        name: BOOKING_CONFIG.defaultWalkinLocationName!,
       });
       navigate(basePath);
     } else {
       const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
-        name: DEFAULT_WALKIN_LOCATION_NAME,
+        name: BOOKING_CONFIG.defaultWalkinLocationName!,
       });
 
       navigate(basePath);
@@ -153,13 +147,19 @@ const Homepage = (): JSX.Element => {
   };
 
   const { homepageOptions } = BOOKING_CONFIG;
-  const showScheduleVirtualOption = homepageOptions.includes(HomepageOptions.ScheduleVirtualVisit);
-  const showStartVirtualOption = homepageOptions.includes(HomepageOptions.StartVirtualVisit);
-  const showScheduleInPersonOption = homepageOptions.includes(HomepageOptions.ScheduleInPersonVisit);
-  const showStartInPersonOption = homepageOptions.includes(HomepageOptions.StartInPersonVisit as any);
+  const showScheduleVirtualOption = homepageOptions.some((opt) => opt.id === HomepageOptions.ScheduleVirtualVisit);
+  const showStartVirtualOption = homepageOptions.some((opt) => opt.id === HomepageOptions.StartVirtualVisit);
+  const showScheduleInPersonOption = homepageOptions.some((opt) => opt.id === HomepageOptions.ScheduleInPersonVisit);
+  const showStartInPersonOption = homepageOptions.some((opt) => opt.id === HomepageOptions.StartInPersonVisit);
+
+  // Get labels from config
+  const scheduleVirtualLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.ScheduleVirtualVisit)?.label;
+  const startVirtualLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.StartVirtualVisit)?.label;
+  const scheduleInPersonLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.ScheduleInPersonVisit)?.label;
+  const startInPersonLabel = homepageOptions.find((opt) => opt.id === HomepageOptions.StartInPersonVisit)?.label;
 
   return (
-    <CustomContainer title={`Welcome to ${BRANDING_CONFIG.projectName}`} description="" isFirstPage={true}>
+    <CustomContainer title={getWelcomeTitle()} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isAppointmentsFetching ? (
           <Skeleton
@@ -210,7 +210,7 @@ const Homepage = (): JSX.Element => {
 
             {showScheduleVirtualOption ? (
               <HomepageOption
-                title="Schedule a Virtual Visit"
+                title={scheduleVirtualLabel ?? 'Schedule a Virtual Visit'}
                 icon={<VideoCameraFrontOutlinedIcon />}
                 handleClick={handleScheduleVirtual}
                 dataTestId={dataTestIds.scheduleVirtualVisitButton}
@@ -218,7 +218,7 @@ const Homepage = (): JSX.Element => {
             ) : null}
             {showScheduleInPersonOption ? (
               <HomepageOption
-                title="Schedule an In-Person Visit"
+                title={scheduleInPersonLabel ?? 'Schedule an In-Person Visit'}
                 icon={<LocalHospitalOutlinedIcon />}
                 handleClick={handleInPerson}
                 dataTestId={dataTestIds.scheduleInPersonVisitButton}
@@ -226,7 +226,7 @@ const Homepage = (): JSX.Element => {
             ) : null}
             {showStartVirtualOption ? (
               <HomepageOption
-                title="Virtual Visit Check-In"
+                title={startVirtualLabel ?? 'Virtual Visit Check-In'}
                 icon={<VideoCameraFrontOutlinedIcon />}
                 handleClick={handleRequestVisit}
                 dataTestId={dataTestIds.startVirtualVisitButton}
@@ -235,7 +235,7 @@ const Homepage = (): JSX.Element => {
 
             {showStartInPersonOption ? (
               <HomepageOption
-                title="In-Person Check-In"
+                title={startInPersonLabel ?? 'In-Person Check-In'}
                 icon={<LocalHospitalOutlinedIcon />}
                 handleClick={handleWalkIn}
                 dataTestId={dataTestIds.startInPersonVisitButton}

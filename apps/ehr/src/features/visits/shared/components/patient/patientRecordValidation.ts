@@ -1,13 +1,7 @@
+import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem, FormFieldTrigger } from 'config-types';
 import { DateTime } from 'luxon';
 import { FieldError, RegisterOptions } from 'react-hook-form';
-import {
-  FormFieldsDisplayItem,
-  FormFieldsGroupItem,
-  FormFieldsInputItem,
-  FormFieldTrigger,
-  PATIENT_RECORD_CONFIG,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
+import { PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE, zipRegex } from 'utils';
 
 interface Trigger extends Omit<FormFieldTrigger, 'effect'> {
   effect: string;
@@ -209,8 +203,8 @@ export const generateFieldValidationRules = (
 
   if (item.dataType === 'ZIP') {
     rules.pattern = {
-      value: /^\d{5}(-\d{4})?$/,
-      message: 'Must be 5 digits',
+      value: zipRegex,
+      message: 'Must be 5 or 9 digits',
     };
   }
 

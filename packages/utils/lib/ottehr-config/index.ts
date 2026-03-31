@@ -1,5 +1,12 @@
-export * from './booking';
+// Note: Export order matters due to module initialization dependencies
+// Dependencies flow: value-sets -> branding -> consent-forms -> intake configs
+// The types barrel imports from branding, so branding must come before anything that imports from types
+export * from './value-sets';
 export * from './branding';
+export * from './consent-forms';
+export * from './screening-questions';
+export * from './shared-questionnaire';
+export * from './booking';
 export * from './examination';
 export * from './forms';
 export * from './intake-paperwork';
@@ -8,13 +15,10 @@ export * from './legal';
 export * from './locations';
 export * from './medical-history';
 export * from './patient-record';
+export * from './prompts';
 export * from './radiology';
-export * from './screening-questions';
 export * from './sendgrid';
-export * from './shared-questionnaire';
 export * from './texting';
-export * from './types';
-export * from './value-sets';
 export * from './vitals';
-export * from './consent-forms';
 export * from './procedures';
+export * from './provider';

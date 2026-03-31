@@ -134,6 +134,7 @@ const ChatModal = memo(
 
     const { isFetching: isMessagesFetching, refetch: refetchMessages } = useFetchChatMessagesQuery(
       timezone,
+      patientFromAppointment.id,
       numbersToSendTo,
       (messages) => {
         if (!messages) {
@@ -285,7 +286,7 @@ const ChatModal = memo(
                 data-testid={dataTestIds.telemedEhrFlow.chatModalDescription}
                 sx={{ fontWeight: 600, color: theme.palette.primary.dark }}
               >
-                {numbersToSendTo ? numbersToSendTo.join(',') : ''}
+                {numbersToSendTo ? numbersToSendTo.join(', ') : ''}
               </Typography>
               <IconButton
                 aria-label="Close"

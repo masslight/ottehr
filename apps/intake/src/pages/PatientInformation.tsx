@@ -64,8 +64,6 @@ export const PatientInfoCollection: FC = () => {
 
   const { allItems, questionnaireResponse: prepopulatedQuestionnaire } = questionnaireData || {};
 
-  console.log('questionnaireData', questionnaireData);
-
   // Clear sessionStorage when slotId changes to prevent stale data
   useEffect(() => {
     const activeSlotId = sessionStorage.getItem(ACTIVE_SLOT_ID_KEY);
@@ -129,6 +127,9 @@ export const PatientInfoCollection: FC = () => {
       paymentMethodStateInitializing: false,
       stripeSetupData: undefined,
       refetchPaymentMethods: () => {
+        throw new Error('Function not implemented.');
+      },
+      refetchSetupData: () => {
         throw new Error('Function not implemented.');
       },
     };
@@ -255,9 +256,6 @@ const PatientInformation = (): JSX.Element => {
     }
     return defaults;
   })();
-
-  // console.log('defaultValues', defaultValues);
-  // console.log('patientInfo', patientInfo);
 
   return (
     <>

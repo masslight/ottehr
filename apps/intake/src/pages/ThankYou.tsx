@@ -2,7 +2,6 @@ import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
-import { primaryIcon } from '@theme/icons';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
@@ -25,6 +24,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
+import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
 import { PageContainer } from '../components';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -237,7 +238,7 @@ const ThankYou = (): JSX.Element => {
         <Grid item>
           {showRegisterAnotherPatient && (
             <Link to={intakeFlowPageRoute.Homepage.path}>
-              <Button variant="outlined" onClick={clearState}>
+              <Button variant="outlined" color="secondary" onClick={clearState}>
                 {t('thanks.registerAnother')}
               </Button>
             </Link>
@@ -246,7 +247,9 @@ const ThankYou = (): JSX.Element => {
         {!paperworkCompleted && (
           <Grid item>
             <Link to={`/paperwork/${appointmentID}`} className="edit-paperwork-button">
-              <Button variant="contained">{t('thanks.proceedToPaperwork')}</Button>
+              <Button variant="contained" color="secondary">
+                {t('thanks.proceedToPaperwork')}
+              </Button>
             </Link>
           </Grid>
         )}
@@ -255,7 +258,9 @@ const ThankYou = (): JSX.Element => {
           appointmentData.appointment?.serviceMode === ServiceMode.virtual && (
             <Grid item>
               <Link to={`/waiting-room?appointment_id=${appointmentID}`}>
-                <Button variant="contained">{t('thanks.goToWaitingRoom')}</Button>
+                <Button variant="contained" color="secondary">
+                  {t('thanks.goToWaitingRoom')}
+                </Button>
               </Link>
             </Grid>
           )}
@@ -267,6 +272,8 @@ const ThankYou = (): JSX.Element => {
     console.log('rendering outlet...', pathname, visitBasePath, loading);
     return <Outlet context={{ ...outletContext }} />;
   }
+  const showPrimaryIconInSummary = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.THANK_YOU);
+  const primaryIconSize = getPrimaryIconSize();
 
   return (
     <PageContainer
@@ -277,10 +284,12 @@ const ThankYou = (): JSX.Element => {
         <>
           {visitType !== VisitType.WalkIn && <Divider />}
           <Grid container alignItems="center" marginTop={2} marginBottom={2}>
-            <Grid item xs={12} md={2.5}>
-              <img src={primaryIcon} alt={BRANDING_CONFIG.primaryIconAlt} width="80px" />
-            </Grid>
-            <Grid item xs={12} md={9.5}>
+            {showPrimaryIconInSummary && (
+              <Grid item xs={12} md={2.5}>
+                <img src={primaryIcon} alt={BRANDING_CONFIG.intake.primaryIconAlt} width={primaryIconSize} />
+              </Grid>
+            )}
+            <Grid item xs={12} md={showPrimaryIconInSummary ? 9.5 : 12}>
               <Typography variant="subtitle1" color="text.primary">
                 {t('thanks.body1')}
               </Typography>
@@ -313,7 +322,7 @@ const ThankYou = (): JSX.Element => {
               <Divider sx={{ marginBottom: 2 }} />
               {paperworkCompleted && !loading && (
                 <Link to={`/paperwork/${appointmentID}`}>
-                  <Button sx={{ marginRight: 2 }} startIcon={<CreateOutlinedIcon />}>
+                  <Button color="secondary" sx={{ marginRight: 2 }} startIcon={<CreateOutlinedIcon />}>
                     {t('thanks.editPaperwork')}
                   </Button>
                 </Link>
@@ -321,11 +330,13 @@ const ThankYou = (): JSX.Element => {
               {visitType !== VisitType.PostTelemed && !checkedIn && (
                 <>
                   <Link to={`/visit/${appointmentID}/reschedule`}>
-                    <Button startIcon={<EditCalendarOutlined />}>{t('appointments.modify')}</Button>
+                    <Button color="secondary" startIcon={<EditCalendarOutlined />}>
+                      {t('appointments.modify')}
+                    </Button>
                   </Link>
 
                   <Link to="cancel">
-                    <Button startIcon={<EventBusyOutlined />} sx={{ marginLeft: 2 }}>
+                    <Button color="secondary" startIcon={<EventBusyOutlined />} sx={{ marginLeft: 2 }}>
                       {t('thanks.cancel')}
                     </Button>
                   </Link>
@@ -359,7 +370,7 @@ const ThankYou = (): JSX.Element => {
               <Divider />
               {paperworkCompleted && !loading && (
                 <Link to={`/paperwork/${appointmentID}`}>
-                  <Button sx={{ marginRight: 2, marginTop: 2 }} startIcon={<CreateOutlinedIcon />}>
+                  <Button color="secondary" sx={{ marginRight: 2, marginTop: 2 }} startIcon={<CreateOutlinedIcon />}>
                     {t('thanks.editPaperwork')}
                   </Button>
                 </Link>

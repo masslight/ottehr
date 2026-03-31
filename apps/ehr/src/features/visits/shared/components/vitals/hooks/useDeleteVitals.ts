@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { VitalsObservationDTO } from 'utils';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
-import { UseDeleteVitals } from '../types';
+
+export type UseDeleteVitals = (props: { encounterId: string }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
 
 export const useDeleteVitals: UseDeleteVitals = ({ encounterId }) => {
   const apiClient = useOystehrAPIClient();

@@ -1,3 +1,4 @@
+export * from './attorneyInfo';
 export * from './consentFormsInfo';
 export * from './contactInfo';
 export * from './discharge-summary';

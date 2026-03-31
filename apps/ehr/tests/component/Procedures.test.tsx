@@ -1,5 +1,7 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { GetChartDataResponse, ProcedureDTO, TelemedAppointmentStatusEnum } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -141,12 +143,23 @@ describe('Procedures - Delete Procedure Tests', () => {
     mockUseParams.mockReturnValue({ id: 'appointment123' });
   });
 
-  const renderComponent = (): ReturnType<typeof render> => {
-    return render(
-      <BrowserRouter>
-        <Procedures />
-      </BrowserRouter>
+  const createWrapper = () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    return ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>{children}</BrowserRouter>
+      </QueryClientProvider>
     );
+  };
+
+  const renderComponent = (): ReturnType<typeof render> => {
+    return render(<Procedures />, { wrapper: createWrapper() });
   };
 
   it('displays active procedures (backend filters deleted ones)', () => {

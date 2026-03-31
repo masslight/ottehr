@@ -5,22 +5,12 @@ import {
   ErxSearchMedicationsResponse,
 } from '@oystehr/sdk';
 import { keepPreviousData, useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import {
-  Appointment,
-  Bundle,
-  Coding,
-  Encounter,
-  FhirResource,
-  InsurancePlan,
-  Medication,
-  Patient,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { Appointment, Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { icd10Search } from 'src/api/api';
-import { CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from 'src/constants';
+import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { extractReviewAndSignAppointmentData } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -30,9 +20,8 @@ import {
   APIError,
   BillingSuggestionInput,
   CancelMatchUnsolicitedResultTask,
+  CODE_SYSTEM_NDC,
   CPTSearchRequestParams,
-  createSmsModel,
-  filterResources,
   FinalizeUnsolicitedResultMatch,
   GetCreateInHouseLabOrderResourcesInput,
   GetCreateInHouseLabOrderResourcesOutput,
@@ -62,9 +51,7 @@ import {
   MeetingData,
   ProcedureDetail,
   PromiseReturnType,
-  relatedPersonAndCommunicationMaps,
   ReviewAndSignData,
-  TelemedAppointmentInformation,
   UpdateMedicationOrderInput,
   useErrorQuery,
   useSuccessQuery,
@@ -152,60 +139,6 @@ export const useGetDocumentReferences = (
   useSuccessQuery(queryResult.data, (data) => onSuccess?.(data as Bundle<FhirResource>));
 
   return queryResult;
-};
-
-export const useGetTelemedAppointmentWithSMSModel = (
-  {
-    appointmentId,
-    patientId,
-  }: {
-    appointmentId: string | undefined;
-    patientId: string | undefined;
-  },
-  onSuccess: (data: TelemedAppointmentInformation) => void
-): { data: TelemedAppointmentInformation | undefined; isFetching: boolean } => {
-  const { oystehr } = useApiClients();
-
-  const queryResult = useQuery({
-    queryKey: ['telemed-appointment-messaging', appointmentId],
-
-    queryFn: async () => {
-      if (oystehr && appointmentId) {
-        const appointmentResources = (
-          await oystehr.fhir.search<Appointment | Patient | RelatedPerson>({
-            resourceType: 'Appointment',
-            params: [
-              { name: '_id', value: appointmentId },
-              {
-                name: '_include',
-                value: 'Appointment:patient',
-              },
-              {
-                name: '_revinclude:iterate',
-                value: 'RelatedPerson:patient',
-              },
-            ],
-          })
-        ).unbundle();
-
-        const appointment = filterResources(appointmentResources, 'Appointment')[0];
-
-        const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(oystehr, appointmentResources);
-
-        const smsModel = createSmsModel(patientId!, allRelatedPersonMaps);
-
-        return { ...appointment, smsModel };
-      }
-      throw new Error('fhir client is not defined or appointmentId and patientId are not provided');
-    },
-
-    refetchInterval: CHAT_REFETCH_INTERVAL,
-    enabled: !!oystehr && !!appointmentId,
-  });
-
-  useSuccessQuery(queryResult.data, (data) => onSuccess?.(data as unknown as TelemedAppointmentInformation));
-
-  return queryResult as unknown as { data: TelemedAppointmentInformation | undefined; isFetching: boolean };
 };
 
 export const useGetMeetingData = (
@@ -595,7 +528,16 @@ export const useGetCPTHCPCSSearch = ({
           let combinedCodes = [...cptResponse.codes, ...hcpcsResponse.codes].filter(
             (codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code)
           );
-          combinedCodes = combinedCodes.sort((a, b) => a.code.localeCompare(b.code));
+
+          // Put the exact code first
+          combinedCodes = combinedCodes.sort((a, b) => {
+            const aExact = a.code.toLowerCase() === search.toLowerCase();
+            const bExact = b.code.toLowerCase() === search.toLowerCase();
+            if (aExact && !bExact) return -1;
+            if (!aExact && bExact) return 1;
+            return a.code.localeCompare(b.code);
+          });
+
           return { codes: combinedCodes };
         }
       }
@@ -955,7 +897,7 @@ export const useCreateUpdateMedicationOrder = () => {
 
 export const useGetMedicationOrders = (
   searchBy: GetMedicationOrdersInput['searchBy']
-): UseQueryResult<GetMedicationOrdersResponse | undefined, Error> => {
+): UseQueryResult<GetMedicationOrdersResponse | null, Error> => {
   const apiClient = useOystehrAPIClient();
 
   const encounterIdIsDefined = searchBy.field === 'encounterId' && searchBy.value;
@@ -969,7 +911,7 @@ export const useGetMedicationOrders = (
         if (encounterIdIsDefined || encounterIdsHasLen) {
           return await apiClient.getMedicationOrders({ searchBy });
         } else {
-          return;
+          return null;
         }
       }
       throw new Error('api client not defined');
@@ -984,11 +926,13 @@ export const useGetMedicationOrders = (
 type MedicationListData = {
   idToName: Record<string, string>;
   idToMedispanCode: Record<string, string>;
+  idToNdc: Record<string, string>;
 };
 
 const emptyMedicationListData: MedicationListData = {
   idToName: {},
   idToMedispanCode: {},
+  idToNdc: {},
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -998,6 +942,7 @@ export const useGetMedicationList = () => {
   const buildMedicationListData = (data: Medication[]): MedicationListData => {
     const idToName: Record<string, string> = {};
     const idToMedispanCode: Record<string, string> = {};
+    const idToNdc: Record<string, string> = {};
     for (const entry of data || []) {
       const identifier = entry.identifier?.find((id: Coding) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
       if (identifier?.value && entry.id) {
@@ -1009,8 +954,12 @@ export const useGetMedicationList = () => {
       if (medispanCoding?.code && entry.id) {
         idToMedispanCode[entry.id] = medispanCoding.code;
       }
+      const ndcCoding = entry.code?.coding?.find((c: Coding) => c.system === CODE_SYSTEM_NDC);
+      if (ndcCoding?.code && entry.id) {
+        idToNdc[entry.id] = ndcCoding.code;
+      }
     }
-    return { idToName, idToMedispanCode };
+    return { idToName, idToMedispanCode, idToNdc };
   };
 
   const queryResult = useQuery({
@@ -1022,7 +971,10 @@ export const useGetMedicationList = () => {
       }
       const data = await oystehr.fhir.search<Medication>({
         resourceType: 'Medication',
-        params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
+        params: [
+          { name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE },
+          { name: 'status:not', value: 'inactive' },
+        ],
       });
 
       return buildMedicationListData(data.unbundle());

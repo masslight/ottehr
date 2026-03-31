@@ -85,7 +85,7 @@ const AIInterview = (): JSX.Element => {
         </Stack>
       }
     >
-      <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
+      <Box style={{ overflowY: 'auto', height: '540px' }}>
         <AiChatHistory
           questionnaireResponse={questionnaireResponse}
           aiLoading={loading}

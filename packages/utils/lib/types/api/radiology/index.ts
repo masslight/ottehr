@@ -1,15 +1,19 @@
-import { Pagination, Task } from 'utils';
+import { CPTCodeDTO, Pagination, Task } from 'utils';
 
 export interface CreateRadiologyZambdaOrderInput {
   encounterId: string;
   diagnosisCode: string;
   cptCode: string;
+  lateralityModifier: { display: string; code: string } | undefined;
   stat: boolean;
   clinicalHistory: string;
+  studyName?: string;
+  consentObtained: boolean;
 }
 
 export interface CreateRadiologyZambdaOrderOutput {
   serviceRequestId: string;
+  cptCodesSaved: CPTCodeDTO[] | undefined;
 }
 
 export interface CancelRadiologyOrderZambdaInput {
@@ -55,8 +59,10 @@ export interface GetRadiologyOrderListZambdaOrder {
   preliminaryReport?: string;
   finalReport?: string;
   clinicalHistory?: string;
+  studyName?: string;
   history?: RadiologyOrderHistoryRow[];
   task?: Task;
+  consentObtained: boolean;
 }
 
 export type RadiologyOrderHistoryRow = {

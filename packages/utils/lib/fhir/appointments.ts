@@ -11,7 +11,6 @@ import {
   PAPERWORK_CONSENT_CODE_UNIQUE,
   PUBLIC_EXTENSION_BASE_URL,
   REASON_FOR_VISIT_SEPARATOR,
-  ReasonForVisit,
   SERVICE_CATEGORY_SYSTEM,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
@@ -196,14 +195,14 @@ export const getReasonForVisitFromAppointment = (appointment?: Appointment): str
 
 export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
   appointment?: Appointment
-): { reasonForVisit?: ReasonForVisit; additionalDetails?: string } => {
+): { reasonForVisit?: string; additionalDetails?: string } => {
   if (!appointment?.description) {
     return {};
   }
   const complaints = (appointment?.description ?? '').split(REASON_FOR_VISIT_SEPARATOR);
 
   return {
-    reasonForVisit: complaints[0]?.trim() as ReasonForVisit | undefined,
+    reasonForVisit: complaints[0]?.trim(),
     additionalDetails: complaints[1]
       ?.trim()
       .split(',')

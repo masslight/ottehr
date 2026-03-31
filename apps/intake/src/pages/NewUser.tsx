@@ -1,10 +1,10 @@
 import { Typography } from '@mui/material';
-import { primaryIcon } from '@theme/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
 import { BRANDING_CONFIG } from 'utils';
 import { BOOKING_SLOT_ID_PARAM, intakeFlowPageRoute } from '../App';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
@@ -39,9 +39,7 @@ const NewUser = (): JSX.Element => {
   return (
     <PageContainer
       title={t('newUser.title', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
-      img={primaryIcon}
-      imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={100}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.NEW_USER)}
     >
       <Typography variant="body1" className="user-description">
         {t('newUser.body')}

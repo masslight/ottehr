@@ -48,9 +48,26 @@ There are npm scripts for deploying to local, staging, and production, as well a
 - Install Terraform [as discussed above](#terraform)
 - Create an Oystehr project in the [Oystehr developer console](https://console.oystehr.com).
 - Create an M2M Client with full access rights in your Oystehr project; you can use the default M2M created during project setup.
+- Create an s3 bucket for your terraform state (example: ottehr-terraform-state)
 - Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
 - Configure your local Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)).
-- Configure your application variables ([`packages/zambda/.env/${env}.json`](/packages/zambdas/.env/local.template.json)).
+- Configure your application variables ([`packages/zambda/.env/${env}.json`](/packages/zambdas/.env/local.template.json)):
+    - AUTH0_CLIENT
+    - AUTH0_SECRET
+    - ENVIRONMENT
+    - PROJECT_ID
+    - PATIENT_APP_NAME
+    - EHR_APP_NAME
+    - lab-autolab-account-number - globally unique, can be for example `ottehr-local` and so on for every env 
+    - non-prod env: "lab-autolab-lab-id": "790b282d-77e9-4697-9f59-0cef8238033a"
+    - prod env: "lab-autolab-lab-id": "713d14ef-c30a-4b9a-a13a-4ad4648ff3ed"
+    - for prod case: first create project, convert it to live mode for Autolabs to work properly, and then run apply
+    - Set up Sendgrid API key
+    - Set up Anthropic API key
+    - Set up Sentry secrets and vars
+- Change env names in the terraform-setup script in deploy/packages.json for envs that you want to create
+
+
 
 All three of those configuration files have examples with the `.template` extension that you can copy to start.
 
@@ -67,6 +84,19 @@ npm run apply-local
 # from repository root
 npm run apps:start
 ```
+
+**After applying terraform**
+- Use created resources to determine variables to fill in in env.json in packages/zambdas/.env
+    - DEFAULT_BILLING_RESOURCE
+    - ORGANIZATION_ID
+- Use the created m2m client for e2e tests to get client and secret vars and put it into tests.{env}.json in ehr and intake env folders so e2e tests can run
+    - add those client and secret as AUTH0_CLIENT_TESTS and AUTH0_SECRET_TESTS to zambda env file and to /apps/{intake|ehr}/env/tests.{env}.json
+    - Create a new EHR app user in console with username e2euser@masslight.com and add TEXT_USERNAME="e2euser@masslight.com" and TEXT_PASSWORD="password_you_set" fields into /apps/{intake|ehr}/env/tests.{env}.json
+    -  Add PHONE_NUMBER, TEXT_USERNAME and TEXT_PASSWORD with username and a password to a ClickSend account so intake e2e tests can authorize
+
+All those steps can be done executing `npm run fill-env-with-created-resources-data.ts {env}` after apply in deploy folder, except setting phone, username and passwords, you will have to do it manually
+
+
 
 The rest of this section will discuss the configuration files in more depth.
 

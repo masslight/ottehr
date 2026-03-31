@@ -16,19 +16,19 @@ env:
 on:
   schedule:
     # Run daily at midnight UTC to refresh e2e, e2e2, and e2e3 caches
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to refresh cache for (leave empty to refresh all)'
+        description: "Environment to refresh cache for (leave empty to refresh all)"
         required: false
         type: choice
         options:
-          - ''
+          - ""
           - e2e
           - e2e2
           - e2e3
-        default: ''
+        default: ""
 
 jobs:
   login-e2e:
@@ -36,6 +36,9 @@ jobs:
     if: github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Log run info
         run: |
@@ -82,21 +85,16 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
+          ref: develop
+          path: "secrets"
 
-      - name: Setup environment
-        run: |
-          setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
-            mkdir -p "apps/$app/env"
-            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env"* "apps/$app/env/"
-          }
-      
-          for app in ehr intake; do
-            setup_env "$app"
-          done
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
@@ -122,19 +120,19 @@ jobs:
             console.log(`File ${path} does not exist`);
             process.exit(1);
           }
-          
+
           const data = JSON.parse(fs.readFileSync(path, "utf8"));
-          
+
           const hasAuth0Token = data.origins?.some(origin => 
             origin.localStorage && 
             origin.localStorage.some(item => item.name?.includes?.("auth0"))
           );
-          
+
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
           }
-          
+
           console.log("User.json validated successfully for e2e");
           '
 
@@ -171,6 +169,9 @@ jobs:
       (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e2' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Log run info
         run: |
@@ -217,21 +218,16 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
+          ref: develop
+          path: "secrets"
 
-      - name: Setup environment
-        run: |
-          setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
-            mkdir -p "apps/$app/env"
-            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env"* "apps/$app/env/"
-          }
-      
-          for app in ehr intake; do
-            setup_env "$app"
-          done
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
@@ -257,19 +253,19 @@ jobs:
             console.log(`File ${path} does not exist`);
             process.exit(1);
           }
-          
+
           const data = JSON.parse(fs.readFileSync(path, "utf8"));
-          
+
           const hasAuth0Token = data.origins?.some(origin => 
             origin.localStorage && 
             origin.localStorage.some(item => item.name?.includes?.("auth0"))
           );
-          
+
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
           }
-          
+
           console.log("User.json validated successfully for e2e2");
           '
 
@@ -306,6 +302,9 @@ jobs:
       (github.event.inputs.environment == '' || github.event.inputs.environment == 'e2e3' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Log run info
         run: |
@@ -352,21 +351,16 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
+          ref: develop
+          path: "secrets"
 
-      - name: Setup environment
-        run: |
-          setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
-            mkdir -p "apps/$app/env"
-            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
-            cp "secrets/$app/app/.env"* "apps/$app/env/"
-          }
-      
-          for app in ehr intake; do
-            setup_env "$app"
-          done
+      - name: Populate and validate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+          copy-test-config-files: true
+          aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
+          pull-generated-config-from-terraform-state: true
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
@@ -392,19 +386,19 @@ jobs:
             console.log(`File ${path} does not exist`);
             process.exit(1);
           }
-          
+
           const data = JSON.parse(fs.readFileSync(path, "utf8"));
-          
+
           const hasAuth0Token = data.origins?.some(origin => 
             origin.localStorage && 
             origin.localStorage.some(item => item.name?.includes?.("auth0"))
           );
-          
+
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
           }
-          
+
           console.log("User.json validated successfully for e2e3");
           '
 

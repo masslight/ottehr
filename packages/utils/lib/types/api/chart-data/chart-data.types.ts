@@ -69,6 +69,7 @@ export interface AllChartValues {
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
   reasonForVisit?: FreeTextNoteDTO;
+  accident?: AccidentDTO;
 }
 
 export type RequestedFields =
@@ -91,9 +92,11 @@ export type RequestedFields =
   | 'addendumNote'
   | 'medications'
   | 'inhouseMedications'
+  | 'procedures'
   | 'observations'
   | 'preferredPharmacies'
-  | 'reasonForVisit';
+  | 'reasonForVisit'
+  | 'accident';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -154,6 +157,7 @@ export interface MedicationDTO extends SaveableDTO {
 export interface MedicationIntakeInfo {
   date?: string;
   dose?: string;
+  patientCouldNotConfirmDosage?: boolean;
 }
 
 export interface PrescribedMedicationDTO extends SaveableDTO {
@@ -297,7 +301,7 @@ export type AiObservationDTO = {
 export interface CPTCodeDTO extends SaveableDTO {
   code: string;
   display: string;
-  modifier?: string[];
+  modifier?: { code: string; display: string }[];
 }
 
 export const clinicalImpressionDTOSchema = z.object({
@@ -497,6 +501,7 @@ export interface BillingSuggestionOutput {
 }
 
 export interface ProcedureDTO extends SaveableDTO {
+  encounterId?: string;
   procedureType?: string;
   cptCodes?: CPTCodeDTO[];
   diagnoses?: DiagnosisDTO[];
@@ -506,7 +511,7 @@ export interface ProcedureDTO extends SaveableDTO {
   medicationUsed?: string;
   bodySite?: string;
   bodySide?: string;
-  technique?: string;
+  technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
   specimenSent?: boolean;
@@ -516,4 +521,10 @@ export interface ProcedureDTO extends SaveableDTO {
   timeSpent?: string;
   documentedBy?: string;
   consentObtained?: boolean;
+}
+
+export interface AccidentDTO extends SaveableDTO {
+  type: string[];
+  date?: string;
+  state?: string;
 }

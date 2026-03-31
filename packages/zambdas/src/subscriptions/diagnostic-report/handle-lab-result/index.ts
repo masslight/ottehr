@@ -14,6 +14,7 @@ import {
   SecretsKeys,
   TaskAlertCode,
 } from 'utils';
+import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
 import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
@@ -103,7 +104,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const testName = getTestNameOrCodeFromDr(diagnosticReport);
     const labName = labOrg?.name ?? 'missing';
-    const patientName = patient ? getFullestAvailableName(patient) : 'missing';
+    const patientResource = patient ? patient : getContainedPatientFromDiagnosticReport(diagnosticReport);
+    const patientName = patientResource ? getFullestAvailableName(patientResource) : 'missing';
 
     const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
@@ -167,7 +169,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       title = `Review results for “${fullTestName}” for ${patientName}`;
     }
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
-      title = 'Match unsolicited test results';
+      title = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
+        patientName ? ` for ${patientName}` : ''
+      }`;
     }
     if (
       code === LAB_ORDER_TASK.code.reviewFinalResult ||

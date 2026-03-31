@@ -300,6 +300,7 @@ export const dataTestIds = {
     vitalsItem: 'vitals-item',
     hospitalizationContainer: 'hospitalization-container',
     alertIcon: 'WarningAmberOutlinedIcon',
+    cptCodes: 'cpt-codes-container',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
@@ -325,6 +326,7 @@ export const dataTestIds = {
     deleteButton: 'billing-container-delete-button',
     deleteCptCodeButton: (code: string) => `billing-container-delete-cpt-code-button-${code}`,
     cptCodeEntry: (code: string) => `cpt-code-entry-${code}`,
+    cptCodeContainer: 'additional-cpt-code-container',
   },
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
@@ -366,6 +368,7 @@ export const dataTestIds = {
   vitalsPage: {
     title: 'vitals-title',
     deleteVitalModal: 'delete-vital-modal',
+    addAllVitalsButton: 'vitals-page-add-all-button',
     temperatureInput: 'temperature-input',
     temperatureHeader: 'temperature-header',
     temperatureAddButton: 'temperature-add-button',
@@ -505,7 +508,9 @@ export const dataTestIds = {
   inHouseLabsPage: {
     title: 'in-house-labs-title',
     orderButton: 'order-button',
-    deleteButton: 'delete-button',
+    deleteButtonPrefix: 'delete-button-',
+    tableRowPrefix: 'in-house-lab-table-row-',
+    loading: 'in-house-labs-table-loading',
   },
   orderInHouseLabPage: {
     title: 'order-in-house-labs-title',
@@ -513,10 +518,13 @@ export const dataTestIds = {
     orderAndPrintLabelButton: 'order-and-print-label-button',
     testTypeField: 'test-type',
     testTypeList: 'test-type-list',
-    CPTCodeField: 'cpt-code',
+    CPTCodeFieldPrefix: 'cpt-code-',
     diagnosis: 'diagnosis',
     additionalDx: 'additionalDx',
     notes: 'in-house-labs-notes',
+    loading: 'in-house-lab-orders-loading',
+    runAsRepeatBtnPrefix: 'repeat-btn-',
+    error: 'order-in-house-lab-error',
   },
   collectSamplePage: {
     testName: 'test-name',
@@ -531,14 +539,25 @@ export const dataTestIds = {
     title: 'page-title',
     testName: 'test-name',
     status: 'order-status',
-    testResult: (result: string) => `test-result-${result.toLowerCase().replace(/\s+/g, '-')}`,
+    testResult: (result?: string) => {
+      const idPrefix = 'test-result';
+      return result ? `${idPrefix}-${result.toLowerCase().replace(/\s+/g, '-')}` : idPrefix;
+    },
     submitButton: 'submit-button',
+    resultEntryTable: {
+      numericPrefix: 'result-numeric-',
+    },
   },
-  finalResultPage: {
+  resultPage: {
     testName: 'test-name',
     dateAndStatus: 'order-date-status',
     resultsPDF: 'results-pdf',
     diagnose: 'diagnose',
+    repeatBtn: 'repeat-btn',
+    resultCard: 'result-card',
+    resultPageContainerPrefix: 'result-page-container-',
+    reflexAlert: 'reflex-alert',
+    orderReflexTestBtn: 'order-reflex-test-btn',
   },
   allergies: {
     allergiesPageTitle: 'allergies-title',
@@ -664,5 +683,32 @@ export const dataTestIds = {
     submitOrderButton: 'radiology-submit-order-button',
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
+  },
+
+  commonLabOrder: {
+    deleteDialogButton: 'delete-lab-order-dialog-btn',
+    labSets: {
+      launchModal: 'launch-lab-set-modal-btn',
+      selectionModal: 'lab-set-modal',
+      selectionBtnPrefix: 'lab-set-select-btn',
+    },
+  },
+
+  procedureCodes: {
+    addButton: 'procedure-codes-add-button',
+    searchInput: 'procedure-codes-search-input',
+    downloadCsvButton: 'procedure-codes-download-csv-button',
+    uploadCsvButton: 'procedure-codes-upload-csv-button',
+    codeInput: 'procedure-codes-code-input',
+    modifierInput: 'procedure-codes-modifier-input',
+    amountInput: 'procedure-codes-amount-input',
+    saveButton: 'procedure-codes-save-button',
+    cancelButton: 'procedure-codes-cancel-button',
+    uploadPreviewDialog: 'procedure-codes-upload-preview-dialog',
+    importDeltaButton: 'procedure-codes-import-delta-button',
+    replaceAllButton: 'procedure-codes-replace-all-button',
+    codeRow: (code: string) => `procedure-code-row-${code}`,
+    editButton: (code: string) => `procedure-code-edit-${code}`,
+    deleteButton: (code: string) => `procedure-code-delete-${code}`,
   },
 };

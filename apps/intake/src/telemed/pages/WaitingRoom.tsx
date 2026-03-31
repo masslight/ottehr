@@ -2,15 +2,15 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
-import { primaryIcon } from '@theme/icons';
 import { Duration } from 'luxon';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ottehrApi } from 'src/api';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
-import { AppointmentType, BRANDING_CONFIG, getSelectors } from 'utils';
+import { AppointmentType, getSelectors } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../../branding/primaryIconVisibility';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
 import { IntakeThemeContext } from '../../contexts';
 import { CallSettings, CancelVisitDialog } from '../components';
@@ -40,6 +40,7 @@ const WaitingRoom = (): JSX.Element => {
   const [isAppointmentJustCanceled, setIsAppointmentJustCanceled] = useState<boolean>(false);
   const [isCallSettingsOpen, setIsCallSettingsOpen] = useState(false);
   const [appointmentType, setAppointmentType] = useState<AppointmentType | undefined>(undefined);
+  const waitingRoomNotificationSent = useRef('');
 
   useEffect(() => {
     if (urlAppointmentID && urlAppointmentID !== persistedAppointmentId) {
@@ -50,8 +51,9 @@ const WaitingRoom = (): JSX.Element => {
   const currentAppointmentId = urlAppointmentID || persistedAppointmentId || '';
 
   useEffect(() => {
-    if (!currentAppointmentId || !zambdaClient) return;
+    if (!currentAppointmentId || !zambdaClient || waitingRoomNotificationSent.current === currentAppointmentId) return;
 
+    waitingRoomNotificationSent.current = currentAppointmentId;
     ottehrApi
       .createWaitingRoomNotification(
         {
@@ -107,9 +109,7 @@ const WaitingRoom = (): JSX.Element => {
   return (
     <CustomContainer
       title="Waiting room"
-      img={primaryIcon}
-      imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={80}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.TELEMED_WAITING_ROOM)}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
     >
       {appointmentType && appointmentType !== 'pre-booked' && (

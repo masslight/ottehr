@@ -1,6 +1,5 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
-import { primaryIcon } from '@theme/icons';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
@@ -10,6 +9,8 @@ import { BRANDING_CONFIG, PatientAppointmentDTO, ServiceMode, VALUE_SETS, VisitT
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
+import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { CustomLoadingButton } from '../components/CustomLoadingButton';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
@@ -354,6 +355,8 @@ const ChoosePatient = (): JSX.Element => {
   const onBack = (): void => {
     navigate(`/home`);
   };
+  const showPrimaryIconInBanner = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.CHOOSE_PATIENT_BANNER);
+  const primaryIconSize = getPrimaryIconSize();
 
   return (
     <PageContainer
@@ -361,9 +364,9 @@ const ChoosePatient = (): JSX.Element => {
       topOutsideCardComponent={
         visitType === VisitType.WalkIn && showCheckIn ? (
           <CardWithDescriptionAndLink
-            iconHeight={50}
-            icon={primaryIcon}
-            iconAlt={BRANDING_CONFIG.primaryIconAlt}
+            iconHeight={primaryIconSize}
+            icon={showPrimaryIconInBanner ? primaryIcon : undefined}
+            iconAlt={showPrimaryIconInBanner ? BRANDING_CONFIG.intake.primaryIconAlt : undefined}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}

@@ -1,8 +1,8 @@
 import { Avatar, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { secondaryIcon } from '@theme/icons';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
+import { secondaryIcon } from '../branding/assets';
 const MESSAGES_CONTAINER_ID = 'messages-container';
 
 export interface AiChatHistoryProps {

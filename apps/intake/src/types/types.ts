@@ -35,3 +35,20 @@ export interface FileUpload {
 }
 
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
+
+export const visitFileTypes = {
+  visitNote: 'visit-note',
+  dischargeSummary: 'discharge-summary',
+  statement: 'statement',
+  school: 'school',
+  work: 'work',
+  receipt: 'receipt',
+} as const;
+
+export type VisitFileType = (typeof visitFileTypes)[keyof typeof visitFileTypes];
+
+type FileInfo = {
+  presignedUrl?: string;
+};
+
+export type VisitFiles = Partial<Record<VisitFileType, FileInfo>>;

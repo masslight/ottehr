@@ -4,6 +4,8 @@ import {
   DiagnosticReport,
   DocumentReference,
   List,
+  Observation,
+  Patient,
   QuestionnaireResponse,
   Reference,
   ServiceRequest,
@@ -11,8 +13,8 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  LAB_LIST_CODE_CODING,
-  LAB_LIST_CODING_SYSTEM,
+  DR_UNSOLICITED_PATIENT_REF,
+  getLabListType,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
   LabListsDTO,
@@ -110,6 +112,30 @@ export const formatLabListDTOs = (labLists: List[]): LabListsDTO[] | undefined =
   return formattedListDTOs;
 };
 
+export const getContainedPatientFromDiagnosticReport = (diagnosticReport: DiagnosticReport): Patient | undefined => {
+  const containedPatient = diagnosticReport.contained?.find(
+    (resource) => resource.resourceType === 'Patient' && resource.id === DR_UNSOLICITED_PATIENT_REF
+  );
+
+  if (!containedPatient) return;
+
+  return containedPatient as Patient;
+};
+
+/**
+ * the function will return the subset of the array of observations passed that are contained in the diagnostic reports' results
+ * @param observations - array of observations
+ * @param diagnosticReports - array of diagnosticReports
+ */
+export const getObservationsForDiagnosticReportResults = (
+  allObservations: Observation[],
+  diagnosticReports: DiagnosticReport[]
+): Observation[] => {
+  const obsRefs = new Set(diagnosticReports.flatMap((dr) => dr.result?.map((r) => r.reference) ?? []));
+  const observations = allObservations.filter((obs) => obsRefs.has(`Observation/${obs.id}`));
+  return observations;
+};
+
 /**
  * parses data from external lab list entry items
  * @param lab the entry item from the list that represents the lab
@@ -137,18 +163,4 @@ const getLabListEntryFieldFromExtension = (
   }
 
   return fieldValue;
-};
-
-const getLabListType = (list: List): LabType.external | LabType.inHouse | undefined => {
-  const code = list.code?.coding?.find((c) => c.system === LAB_LIST_CODING_SYSTEM)?.code;
-  if (!code) return;
-
-  switch (code) {
-    case LAB_LIST_CODE_CODING.external.code:
-      return LabType.external;
-    case LAB_LIST_CODE_CODING.inHouse.code:
-      return LabType.inHouse;
-    default:
-      return;
-  }
 };

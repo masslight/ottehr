@@ -1,5 +1,5 @@
 import z from 'zod';
-import { isValidUUID } from '../../helpers';
+import { isValidUUID } from '../../validation';
 import { QAndQRResponse } from '../data';
 
 export const GetBookingQuestionnaireParamsSchema = z.object({

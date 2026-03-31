@@ -30,12 +30,12 @@ import ChatModal from 'src/features/chat/ChatModal';
 import { getInPersonVisitDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { useGetTelemedAppointmentWithSMSModel } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useAppTelemedLocalStore,
   useChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useGetTelemedAppointments } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { addSpacesAfterCommas } from 'src/helpers/formatString';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
@@ -43,6 +43,9 @@ import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue, getPatientName } from 'src/shared/utils';
 import {
   calculatePatientAge,
+  FhirAppointmentType,
+  formatDateToMDYWithTime,
+  getAppointmentServiceCategoryAbbreviation,
   getInsuranceNameFromCoverage,
   getQuestionnaireResponseByLinkId,
   getSupportPhoneFor,
@@ -52,6 +55,7 @@ import {
   PaymentVariant,
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
+  TelemedCallStatusesArr,
 } from 'utils';
 import { getTelemedQuickTexts } from '../../utils/appointments';
 import { getTelemedVisitDetailsUrl } from '../../utils/routing';
@@ -99,6 +103,18 @@ export const AppointmentSidePanel: FC = () => {
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
   const { allergies } = chartData || {};
   const formattedReasonForVisit = appointment?.description && addSpacesAfterCommas(appointment.description);
+  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const appointmentType = appointment
+    ? appointment.appointmentType?.text === FhirAppointmentType.prebook
+      ? 'Pre-Booked'
+      : 'On Demand'
+    : undefined;
+  const appointmentTime = formatDateToMDYWithTime(
+    appointment?.start ?? encounter?.period?.start,
+    DateTime.local().zoneName
+  )?.time;
+  const visitTypeAndCategory = [appointmentType, serviceCategory].filter(Boolean).join(' | ');
+  const visitTypeCategoryAndTime = [visitTypeAndCategory, appointmentTime].filter(Boolean).join('  ');
 
   const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
     ?.valueString;
@@ -128,15 +144,19 @@ export const AppointmentSidePanel: FC = () => {
     appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
     isCancellableStatus;
 
-  const { data: appointmentMessaging, isFetching } = useGetTelemedAppointmentWithSMSModel(
+  const { data: appointments, isFetching } = useGetTelemedAppointments(
     {
+      apiClient,
       appointmentId: appointment?.id,
-      patientId: patient?.id,
+      patientFilter: 'all-patients',
+      statusesFilter: TelemedCallStatusesArr,
     },
     (data) => {
-      setHasUnread(data.smsModel?.hasUnreadMessages || false);
+      setHasUnread(data?.appointments?.[0].smsModel?.hasUnreadMessages || false);
     }
   );
+
+  const appointmentMessaging = appointments?.appointments?.[0];
 
   const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
 
@@ -212,6 +232,18 @@ export const AppointmentSidePanel: FC = () => {
                   VID: {appointment.id}
                 </Typography>
               </Tooltip>
+            )}
+            {visitTypeCategoryAndTime && (
+              <Typography
+                sx={{
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+                variant="body2"
+              >
+                {visitTypeCategoryAndTime}
+              </Typography>
             )}
 
             <Tooltip title={paymentVariant}>

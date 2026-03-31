@@ -1,18 +1,6 @@
-import { EXAMINATION_OVERRIDES } from '../../../ottehr-config-overrides';
-import { ExamSchema, validateExamConfig } from './examination.schema';
+import { createSimpleHash, validateExamConfig } from '../../config-helpers/examination';
 import { InPersonExamConfig } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
-
-// Simple hash function for versioning (security not required)
-function createSimpleHash(data: string): string {
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(16).padStart(8, '0');
-}
 
 export const ExamConfig = {
   telemed: {
@@ -36,7 +24,7 @@ export enum ExamType {
 
 const DefaultExamConfig = Object.freeze(validateExamConfig(ExamConfig));
 
-export const ExamDef = (config?: unknown): ExamSchema => {
+export const ExamDef = (config?: unknown): ReturnType<typeof validateExamConfig> => {
   if (config) {
     return Object.freeze(validateExamConfig(config));
   }
@@ -44,6 +32,4 @@ export const ExamDef = (config?: unknown): ExamSchema => {
   return DefaultExamConfig;
 };
 
-export const examConfig = ExamDef(EXAMINATION_OVERRIDES);
-
-export * from './examination.schema';
+export const examConfig = ExamDef();

@@ -6,6 +6,7 @@ import {
   HealthcareService,
   Location,
   Patient,
+  Person,
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
@@ -127,6 +128,7 @@ export interface InPersonAppointmentInformation
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
   serviceCategory?: string;
+  location?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {
@@ -134,6 +136,7 @@ export interface TelemedAppointmentInformation extends Omit<AppointmentInformati
   telemedStatusHistory: TelemedStatusHistoryElement[];
   provider?: string[];
   group?: string[];
+  serviceCategory?: string;
 }
 
 export interface GetAppointmentsRequest {
@@ -154,6 +157,7 @@ export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = 
 export type PatientFilterType = 'my-patients' | 'all-patients';
 
 export interface GetTelemedAppointmentsInput {
+  appointmentId?: string;
   timeZone?: string;
   dateFilter?: string;
   usStatesFilter?: string[];
@@ -191,7 +195,8 @@ export type AppointmentRelatedResources =
   | QuestionnaireResponse
   | Practitioner
   | RelatedPerson
-  | HealthcareService;
+  | HealthcareService
+  | Person;
 
 export const PendingSupervisorApprovalInputSchema = z.object({
   encounterId: z.string().uuid(),

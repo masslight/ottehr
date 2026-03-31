@@ -32,7 +32,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { mergeEncounterAccounts } from '../../../subscriptions/questionnaire-response/sub-intake-harvest';
+import { mergeEncounterAccounts } from '../../shared/harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
@@ -87,9 +87,12 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   console.log('creating patch operations');
   const patientPatchOps = createMasterRecordPatchOperations(
-    items || [],
-    patientResource,
-    questionnaireForEnableWhenFiltering
+    {
+      questionnaireResponseItems: items || [],
+      sourceQuestionnaire: questionnaireForEnableWhenFiltering,
+      options: { filterByEnableWhen: true },
+    },
+    patientResource
   );
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));

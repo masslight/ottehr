@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MappedStatusChip } from 'src/components/MappedStatusChip';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
 import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
 import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
 import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
@@ -11,12 +12,16 @@ import {
   getErxUrl,
   getExternalLabOrderEditUrl,
   getExternalLabOrdersUrl,
+  getImmunizationMARUrl,
+  getImmunizationVaccineDetailsUrl,
   getInHouseLabOrderDetailsUrl,
   getInHouseLabsUrl,
   getInHouseMedicationDetailsUrl,
   getInHouseMedicationMARUrl,
   getNursingOrderDetailsUrl,
   getNursingOrdersUrl,
+  getProcedureDetailsUrl,
+  getProceduresUrl,
   getRadiologyOrderEditUrl,
   getRadiologyUrl,
 } from 'src/features/visits/in-person/routing/helpers';
@@ -50,7 +55,16 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   const ordersExistForAppointment = hasAtLeastOneOrder(orders);
   if (!ordersExistForAppointment) return null;
 
-  const { externalLabOrders, inHouseLabOrders, nursingOrders, inHouseMedications, radiologyOrders, erxOrders } = orders;
+  const {
+    externalLabOrders,
+    inHouseLabOrders,
+    nursingOrders,
+    inHouseMedications,
+    radiologyOrders,
+    erxOrders,
+    procedures,
+    immunizationOrders,
+  } = orders;
 
   const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
 
@@ -173,6 +187,48 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       })),
     };
     orderConfigs.push(ordersConfig);
+  }
+
+  if (procedures?.length) {
+    const proceduresConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Procedures'],
+      title: 'Procedures',
+      tableUrl: getProceduresUrl(appointment.id),
+      orders: procedures.map((procedure) => ({
+        fhirResourceId: procedure.resourceId ?? '',
+        itemDescription: procedure.procedureType ?? '',
+        detailPageUrl: procedure.resourceId
+          ? getProcedureDetailsUrl(appointment.id, procedure.resourceId)
+          : getProceduresUrl(appointment.id),
+        statusChip: <></>,
+      })),
+    };
+    orderConfigs.push(proceduresConfig);
+  }
+
+  if (immunizationOrders?.length) {
+    const config: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Immunization'],
+      title: 'Immunization',
+      tableUrl: getImmunizationMARUrl(appointment.id),
+      orders: immunizationOrders
+        .filter((order) => order.status !== 'cancelled')
+        .map((order) => {
+          const isPending = order.status === 'pending';
+          const targetUrl = isPending
+            ? `${getImmunizationVaccineDetailsUrl(appointment.id)}?scrollTo=${order.id}`
+            : `${getImmunizationMARUrl(appointment.id)}?scrollTo=${order.id}`;
+          return {
+            fhirResourceId: order.id ?? '',
+            itemDescription: order.details.medication.name,
+            detailPageUrl: targetUrl,
+            statusChip: <OrderStatusChip status={order.status} />,
+            unreadBadge: order.status === 'pending',
+          };
+        }),
+    };
+    config.unreadBadge = config.orders.find((order) => order.unreadBadge) != null;
+    if (config.orders.length > 0) orderConfigs.push(config);
   }
 
   return (

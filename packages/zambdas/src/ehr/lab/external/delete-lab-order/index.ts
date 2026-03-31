@@ -24,7 +24,6 @@ import {
   getLabOrderRelatedResources,
   makeCommunicationRequestForClinicalInfoNote,
   makeCommunicationRequestForOrderNote,
-  makeDeleteResourceRequest,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -44,15 +43,8 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
 
-    const {
-      serviceRequest,
-      questionnaireResponse,
-      tasks,
-      labConditions,
-      communications,
-      documentReferences,
-      diagnosticReports,
-    } = await getLabOrderRelatedResources(oystehr, validatedParameters);
+    const { serviceRequest, questionnaireResponse, tasks, communications, documentReferences, diagnosticReports } =
+      await getLabOrderRelatedResources(oystehr, validatedParameters);
 
     if (!serviceRequest) {
       return {
@@ -86,12 +78,6 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
         }
       });
     }
-
-    labConditions.forEach((condition) => {
-      if (condition.id) {
-        requests.push(makeDeleteResourceRequest('Condition', condition.id));
-      }
-    });
 
     const orderNoteCommunicationRequest = makeCommunicationRequestForOrderNote(
       communications?.orderLevelNotesByUser,

@@ -153,9 +153,13 @@ export default function PatientBalances({ patient, patientBalances, handleClose 
         <PaymentDialog
           open={paymentDialogOpen}
           patient={patient}
+          encounterId={selectedEncounter.encounterId}
           appointmentId={selectedEncounter.appointmentId}
           handleClose={refetchAndCloseDialog}
           isSubmitting={createNewPayment.isPending}
+          onTerminalPaymentSuccess={async () => {
+            await handleClose();
+          }}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
               patientId: patient.id ?? '',

@@ -2,13 +2,13 @@ import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material'
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
+import { EntryMode, InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
-import { FinalResultView } from '../components/details/FinalResultView';
-import { PerformTestView } from '../components/details/PerformTestView';
+import { InHouseLabResults } from '../components/details/InHouseLabResults';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
@@ -73,7 +73,13 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   if (loadingState === LoadingState.loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+      <Box
+        data-testid={dataTestIds.orderInHouseLabPage.loading}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="300px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -95,7 +101,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   }
 
   const apartOfRepeatTestSet = (() => {
-    return allTestDetails && allTestDetails.some((detail) => detail.labDetails.orderedAsRepeat);
+    return allTestDetails && allTestDetails.some((detail) => detail.labDetails.orderMode === 'repeat');
   })();
 
   const pageName = `${testDetails.testItemName}${apartOfRepeatTestSet ? ' + Repeat' : ''}`;
@@ -116,10 +122,22 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
               );
             case 'COLLECTED':
               return (
-                <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />
+                <InHouseLabResults
+                  testDetails={[testDetails]}
+                  onBack={handleBack}
+                  setLoadingState={setLoadingState}
+                  entryMode={EntryMode.Initial}
+                />
               );
             case 'FINAL':
-              return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
+              return (
+                <InHouseLabResults
+                  testDetails={allTestDetails}
+                  onBack={handleBack}
+                  setLoadingState={setLoadingState}
+                  entryMode={EntryMode.Edit}
+                />
+              );
             default:
               // temp for debugging
               return <p>Status could not be parsed: {testDetails.status}</p>;

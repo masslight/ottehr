@@ -49,7 +49,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets, smsNumbers, timezone } = validatedParameters;
+    const { patientId, timezone, secrets } = validatedParameters;
     console.groupEnd();
     if (!oystehrToken) {
       console.log('getting token');
@@ -59,30 +59,27 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
-    const uniqueNumbers = Array.from(new Set(smsNumbers));
-    const smsQuery = uniqueNumbers.map((number) => `${number}`).join(',');
-    console.log('smsQuery', smsQuery);
-    console.time('sms-query');
-    const allRecipients = (
-      await oystehr.fhir.search({
-        resourceType: 'RelatedPerson',
-        params: [{ name: 'telecom', value: smsQuery }],
-      })
-    )
-      .unbundle()
-      .map((recipient) => `RelatedPerson/${recipient.id}`);
-    console.timeEnd('sms-query');
-    console.log(
-      `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`
-    );
 
-    console.time('get_sent_and_received_messages');
+    const relatedResults = (
+      await oystehr.fhir.search<RelatedPerson>({
+        resourceType: 'RelatedPerson',
+        params: [{ name: 'patient', value: `Patient/${patientId}` }],
+      })
+    ).unbundle();
+
+    const relatedPersonRefs = relatedResults.filter((r) => r.id).map((r) => `RelatedPerson/${r.id}`);
+
+    if (relatedPersonRefs.length === 0) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify([]),
+      };
+    }
+
     const [sentMessages, receivedMessages] = await Promise.all([
-      // todo: use safe batch pattern here :(
-      getSentMessages(allRecipients, oystehr),
-      getReceivedMessages(allRecipients, oystehr),
+      getSentMessages(relatedPersonRefs, oystehr),
+      getReceivedMessages(relatedPersonRefs, oystehr),
     ]);
-    console.timeEnd('get_sent_and_received_messages');
 
     console.time('structure_conversation_data');
     const rpMap: Record<string, RelatedPerson> = {};
@@ -111,36 +108,30 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
       }
     });
 
-    console.log('sent messages found: ', sentCommunications.length);
+    const dedupedSentMessages = dedupeCommunications(sentCommunications);
+
+    console.log('sent messages found: ', dedupedSentMessages.length);
     console.log('received messages found: ', receivedCommunications.length);
 
-    const sentMessagesToReturn: ProtoConversationItem[] = sentCommunications.map((comm: Communication) => {
-      const content = getMessageFromComm(comm);
+    const sentItems: ProtoConversationItem[] = dedupedSentMessages.map((comm) => ({
+      id: comm.id ?? '',
+      content: getMessageFromComm(comm),
+      isRead: true,
+      sentWhen: comm.sent ?? '',
+      sender: getSenderNameFromComm(comm, senderMap),
+      isFromPatient: false,
+    }));
 
-      return {
-        id: comm.id ?? '',
-        content,
-        isRead: true,
-        sentWhen: comm.sent ?? '',
-        sender: getSenderNameFromComm(comm, senderMap),
-        isFromPatient: false,
-      };
-    });
+    const receivedItems: ProtoConversationItem[] = receivedCommunications.map((comm) => ({
+      id: comm.id ?? '',
+      content: getMessageFromComm(comm),
+      isRead: getMessageHasBeenRead(comm),
+      sentWhen: comm.sent ?? '',
+      sender: getPatientSenderNameFromComm(comm, rpMap, patientMap),
+      isFromPatient: true,
+    }));
 
-    const receivedMessagesToReturn: ProtoConversationItem[] = receivedCommunications.map((comm: Communication) => {
-      const content = getMessageFromComm(comm);
-      const sender = getPatientSenderNameFromComm(comm, rpMap, patientMap);
-      return {
-        id: comm.id ?? '',
-        content,
-        isRead: getMessageHasBeenRead(comm),
-        sentWhen: comm.sent ?? '',
-        sender,
-        isFromPatient: true,
-      };
-    });
-
-    const allMessages: ConversationItem[] = [...sentMessagesToReturn, ...receivedMessagesToReturn]
+    const allMessages: ConversationItem[] = [...sentItems, ...receivedItems]
       .sort((m1, m2) => {
         const time1 = DateTime.fromISO(m1.sentWhen);
         const time2 = DateTime.fromISO(m2.sentWhen);
@@ -158,6 +149,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
           { locale: 'en-us' }
         );
         const sentTime = dateTime.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' });
+
         return {
           id,
           content,
@@ -187,17 +179,14 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error('No request body provided');
   }
 
-  const secrets = input.secrets;
-  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const smsPhoneRegex = env === 'production' ? /^(\+1)\d{10}$/ : /^\+\d{1,3}\d{10}$/;
-  const { smsNumbers, timezone } = JSON.parse(input.body);
+  const { patientId, timezone } = JSON.parse(input.body);
 
-  if (smsNumbers === undefined || smsNumbers.length === 0) {
-    throw new Error('These fields are required: "smsNumbers"');
+  if (!patientId) {
+    throw new Error('Field "patientId" is required');
   }
 
-  if (timezone === undefined) {
-    throw new Error('These fields are required: "timezone"');
+  if (!timezone) {
+    throw new Error('Field "timezone" is required');
   }
 
   const now = DateTime.now().setZone(timezone);
@@ -205,24 +194,48 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error(`Field "timezone" is invalid ${now.invalidExplanation ?? ''}`);
   }
 
-  smsNumbers.forEach((smsNumber: any) => {
-    if (typeof smsNumber !== 'string') {
-      throw new Error('Field "smsNumbers" must be a list of strings');
-    }
-    if (!smsPhoneRegex.test(smsNumber)) {
-      throw new Error('smsNumber must be of the form "+1", followed by 10 digits');
-    }
-  });
-
   if (!input.secrets) {
     throw new Error('No secrets provided');
   }
 
   return {
-    smsNumbers: Array.from(new Set(smsNumbers)),
+    patientId,
     timezone,
     secrets: input.secrets,
   };
+}
+
+function dedupeCommunications(comms: Communication[], gapMs = 500): Communication[] {
+  const sorted = [...comms].sort((a, b) => {
+    const t1 = new Date(a.sent ?? 0).getTime();
+    const t2 = new Date(b.sent ?? 0).getTime();
+    return t1 - t2;
+  });
+
+  const groups = new Map<string, Communication[]>();
+
+  for (const c of sorted) {
+    const content = c.payload?.[0]?.contentString ?? '';
+    const sender = c.sender?.reference ?? 'unknown';
+    const key = `${content}_${sender}`;
+
+    const currentTime = new Date(c.sent ?? 0).getTime();
+
+    if (!groups.has(key)) {
+      groups.set(key, [c]);
+      continue;
+    }
+
+    const group = groups.get(key)!;
+    const last = group[group.length - 1];
+    const lastTime = new Date(last.sent ?? 0).getTime();
+
+    if (Math.abs(currentTime - lastTime) > gapMs) {
+      group.push(c);
+    }
+  }
+
+  return Array.from(groups.values()).flat();
 }
 
 const getPatientSenderNameFromComm = (
