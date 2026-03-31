@@ -37,7 +37,20 @@ export class InHouseLabsPage {
     // Wait for loading text to disappear (if it ever shows up)
     await loading.waitFor({ state: 'hidden' }).catch(() => {});
 
+    // no labs text will be present if there are no labs
+    const noLabsMessage = this.#page.getByTestId(dataTestIds.inHouseLabsPage.noLabsMessage);
+
+    if (await noLabsMessage.isVisible()) {
+      return 0;
+    }
+
+    // else there will be one or more rows visible
     const rows = this.#page.locator(`[data-testid^="${dataTestIds.inHouseLabsPage.tableRowPrefix}"]`);
+    await rows
+      .first()
+      .waitFor({ state: 'attached' })
+      .catch(() => {});
+
     return rows.count();
   }
 
@@ -53,10 +66,11 @@ export class InHouseLabsPage {
     await this.#page.getByTestId(dataTestIds.commonLabOrder.deleteDialogButton).waitFor({ state: 'visible' });
     await this.#page.getByTestId(dataTestIds.commonLabOrder.deleteDialogButton).click();
 
+    // wait for the "Delete Lab Order" modal to close before checking row count
+    await this.#page.getByTestId(dataTestIds.commonLabOrder.deleteDialog).waitFor({ state: 'hidden' });
+
     // confirm the test has been deleted
     const rowsAfter = await this.countTableRows();
-    if (rowsBefore !== rowsAfter + 1) {
-      throw new Error(`Row count mismatch: before=${rowsBefore}, after=${rowsAfter}`);
-    }
+    expect(rowsBefore - 1, `rowsBefore: ${rowsBefore}, rowsAfter: ${rowsAfter}`).toBe(rowsAfter);
   }
 }

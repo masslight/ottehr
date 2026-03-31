@@ -132,7 +132,13 @@ export const useDeleteCommonLabOrderDialog = ({
   }, [serviceRequestIdToDelete, testItemNameToDelete, deleteOrder, locales]);
 
   const DeleteOrderDialog = isDeleteDialogOpen ? (
-    <Dialog open={isDeleteDialogOpen} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
+    <Dialog
+      data-testid={dataTestIds.commonLabOrder.deleteDialog}
+      open={isDeleteDialogOpen}
+      onClose={closeDeleteDialog}
+      maxWidth="sm"
+      fullWidth
+    >
       <form
         style={{ padding: '10px' }}
         onSubmit={(e) => {
