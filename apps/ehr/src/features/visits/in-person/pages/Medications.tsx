@@ -51,26 +51,31 @@ export const Medications: React.FC<MedicationsProps> = () => {
   );
 
   const addMedicationToChart = useCallback(
-    (selection: ExternalMedicationSelection): void => {
+    async (selection: ExternalMedicationSelection): Promise<boolean> => {
       const medName = selection.medication.name;
       const strength = selection.medication.strength;
       const nameAlreadyHasStrength = strength && medName.toLowerCase().includes(strength.toLowerCase());
       const displayName = nameAlreadyHasStrength || !strength ? medName : `${medName} (${strength})`;
-      onSubmit({
-        name: displayName,
-        id: selection.medication.id?.toString(),
-        type: 'scheduled',
-        intakeInfo: {
-          dose: selection.dose ?? undefined,
-        },
-        status: 'active',
-      } as MedicationDTO)
-        .then((success) => {
-          if (success) {
-            void refetchHistory();
-          }
-        })
-        .catch(console.error);
+      try {
+        const success = await onSubmit({
+          name: displayName,
+          id: selection.medication.id?.toString(),
+          type: selection.type ?? 'scheduled',
+          intakeInfo: {
+            dose: selection.dose ?? undefined,
+            date: selection.date,
+            patientCouldNotConfirmDosage: selection.patientCouldNotConfirmDosage || undefined,
+          },
+          status: 'active',
+        } as MedicationDTO);
+        if (success) {
+          void refetchHistory();
+        }
+        return success;
+      } catch (e) {
+        console.error(e);
+        return false;
+      }
     },
     [onSubmit, refetchHistory]
   );
@@ -78,9 +83,7 @@ export const Medications: React.FC<MedicationsProps> = () => {
   const medicationData = {
     medications,
     isLoading: isMedicationsLoading,
-    onSubmit,
     onRemove,
-    refetchHistory,
   };
 
   if (isLoading || isChartDataLoading) return <Loader />;
@@ -100,7 +103,9 @@ export const Medications: React.FC<MedicationsProps> = () => {
         patientSide={
           <CurrentMedicationsPatientColumn chartedMedications={medications} onSelectMedication={addMedicationToChart} />
         }
-        providerSide={<CurrentMedicationsProviderColumn medicationData={medicationData} />}
+        providerSide={
+          <CurrentMedicationsProviderColumn medicationData={medicationData} onAddMedication={addMedicationToChart} />
+        }
       />
 
       <MedicationHistoryList />

@@ -28,6 +28,7 @@ import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
+import { ExternalMedicationSelection } from './ExternalRxSuggestions';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
@@ -40,17 +41,19 @@ interface CurrentMedicationsProviderColumnForm {
 export interface MedicationDataProps {
   medications: MedicationDTO[];
   isLoading: boolean;
-  onSubmit: (data: MedicationDTO) => Promise<boolean>;
   onRemove: (resourceId: string) => Promise<void>;
-  refetchHistory: () => void;
 }
 
 interface CurrentMedicationsProviderColumnProps {
   medicationData: MedicationDataProps;
+  onAddMedication: (selection: ExternalMedicationSelection) => Promise<boolean>;
 }
 
-export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColumnProps> = ({ medicationData }) => {
-  const { medications, isLoading, onSubmit, onRemove, refetchHistory } = medicationData;
+export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColumnProps> = ({
+  medicationData,
+  onAddMedication,
+}) => {
+  const { medications, isLoading, onRemove } = medicationData;
 
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
     defaultValues: {
@@ -91,17 +94,14 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
   );
 
   const handleFormSubmitted = async (data: CurrentMedicationsProviderColumnForm): Promise<void> => {
-    if (data) {
-      const success = await onSubmit({
-        name: `${data.medication?.name}${data.medication?.strength ? ` (${data.medication?.strength})` : ''}`,
-        id: data.medication?.id?.toString(),
+    if (data && data.medication) {
+      const success = await onAddMedication({
+        medication: data.medication,
+        dose: data.dose,
+        directions: null,
         type: data.type,
-        intakeInfo: {
-          date: data.date?.toUTC().toString(),
-          dose: data.dose ?? undefined,
-          patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage || undefined,
-        },
-        status: 'active',
+        date: data.date?.toUTC().toString(),
+        patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage,
       });
       if (success) {
         reset({
@@ -111,7 +111,6 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
           type: 'scheduled',
           patientCouldNotConfirmDosage: false,
         });
-        void refetchHistory();
       }
     }
   };

@@ -24,6 +24,9 @@ export interface ExternalMedicationSelection {
   medication: ExtractObjectType<ErxSearchMedicationsResponse>;
   dose: string | null;
   directions: string | null;
+  type?: MedicationDTO['type'];
+  date?: string;
+  patientCouldNotConfirmDosage?: boolean;
 }
 
 interface ExternalRxSuggestionsProps {
