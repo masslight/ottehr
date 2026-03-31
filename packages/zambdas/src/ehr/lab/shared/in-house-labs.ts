@@ -24,6 +24,7 @@ import {
   AdminLabComponentValueSetConfig,
   BaseComponent,
   CODE_SYSTEM_CPT,
+  CODE_SYSTEM_CPT_MODIFIER,
   CodeableConceptComponent,
   CodeableConceptComponentDisplayTypes,
   CptCodeInHouseLabDefinition,
@@ -474,7 +475,16 @@ const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefini
 
 const sanitizeForId = (str: string): string => {
   /* eslint-disable-next-line  no-useless-escape */
-  return str.replace(/[ ()\/\\]/g, '');
+  return str.replace(/[ ()\/\\]/g, '').replace(/,/g, '-');
+};
+
+// Don't want things like commas in code fields in case we ever try to do fhir searches and commas are meaningful
+const sanitizeForCode = (str: string): string => {
+  return str.replace(/,/g, '');
+};
+
+const sanitizeComma = (str: string): string => {
+  return str.replace(/,/g, '-');
 };
 
 const valueSetConfigDiff = (
@@ -692,7 +702,7 @@ const getComponentObservationDefinition = (
       throw new Error(`valueSet not defined on codeableConcept component ${componentName} ${JSON.stringify(item)}`);
     }
 
-    const validValuesFromConfig = item.valueSet.filter((value) => !value.isAbnormal);
+    const validValuesFromConfig = item.valueSet;
     const abnormalValuesFromConfig = item.valueSet.filter((value) => value.isAbnormal);
 
     const { valueSetId: validValueSetId, valueSet: validValueSet } = makeValueSet(
@@ -827,17 +837,66 @@ function getParticipant(
   return participant.length ? participant : undefined;
 }
 
-// ATHENA TODO: will want to determine the version not in this step most likely, but will need the url
-// ATHENA TODO: handle the annoying comma case -- need to sanitize again, maybe in sanitizeForId
+type SemVer = {
+  major: number;
+  minor: number;
+  patch: number;
+};
+
+type SemVerPart = 'major' | 'minor' | 'patch';
+
+function incrementSemVer(version: SemVer, part: SemVerPart): SemVer {
+  switch (part) {
+    case 'major':
+      return {
+        major: version.major + 1,
+        minor: 0,
+        patch: 0,
+      };
+    case 'minor':
+      return {
+        major: version.major,
+        minor: version.minor + 1,
+        patch: 0,
+      };
+    case 'patch':
+      return {
+        major: version.major,
+        minor: version.minor,
+        patch: version.patch + 1,
+      };
+  }
+}
+
+function parseSemVer(version: string): SemVer {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+
+  if (!match) {
+    throw new Error(`Invalid semver string: "${version}"`);
+  }
+
+  const [, major, minor, patch] = match;
+
+  return {
+    major: Number(major),
+    minor: Number(minor),
+    patch: Number(patch),
+  };
+}
+
+function semverToString(version: SemVer): string {
+  return `${version.major}.${version.minor}.${version.patch}`;
+}
+
 export const getInHouseLabTestUrlAndVersion = (
   item: AdminInHouseLabItemDefinition | ActivityDefinition,
   adUrlVersionMap: { [url: string]: string }
 ): { url: string; version: string } => {
   if (!item.name) throw new Error('Item must have a name');
-  const nameForUrl = item.name.split(' ').join('');
+  const nameForUrl = sanitizeComma(item.name.split(' ').join(''));
   const url = `${AD_CANONICAL_URL_BASE}/${nameForUrl}`;
   const curVersion = adUrlVersionMap[url];
-  const updatedVersion = curVersion ? parseInt(curVersion) + 1 : 1;
+  const updatedVersion = curVersion ? semverToString(incrementSemVer(parseSemVer(curVersion), 'patch')) : '1.0.0';
   return { url, version: updatedVersion.toString() };
 };
 
@@ -856,6 +915,8 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
     adUrlVersionMap
   );
 
+  const relatedArtifact = makeRelatedArtifact(testConfig);
+
   const activityDef: ActivityDefinition = {
     resourceType: 'ActivityDefinition',
     status: 'active',
@@ -864,7 +925,7 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
       coding: [
         {
           system: IN_HOUSE_TEST_CODE_SYSTEM,
-          code: testConfig.name,
+          code: sanitizeForCode(testConfig.name),
         },
         ...testConfig.cptCode.map((cptCode: CptCodeInHouseLabDefinition) => {
           return {
@@ -873,6 +934,11 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
             ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
           };
         }),
+        ...(testConfig.loincCode
+          ? testConfig.loincCode.map((loinc): Coding => {
+              return { system: 'http://loinc.org', code: loinc };
+            })
+          : []),
       ],
     },
     title: testConfig.name,
@@ -891,7 +957,7 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
         },
       ],
     },
-    relatedArtifact: makeRelatedArtifact(testConfig),
+    ...(relatedArtifact ? { relatedArtifact } : {}),
     extension: makeActivityExtension(testConfig),
   };
 
@@ -916,18 +982,27 @@ export function parseActivityDefinitionToAdminInHouseLabItemDef(ad: ActivityDefi
   const repeatTest = parseRepeatTest(ad);
   const reflexExtensions = parseReflexExtensions(ad);
   const parentArtifacts = parseRelatedArtifacts(ad);
+  const loincCode = parseLoincCodes(ad);
 
   const components = parseComponents(ad, reflexExtensions, parentArtifacts);
 
   return {
     name,
-    device: device,
-    methods,
+    ...(device ? { device: device } : {}),
+    ...(methods ? { methods } : {}),
     cptCode,
+    ...(loincCode ? { loincCode } : {}),
     repeatTest,
     components,
-    note: undefined,
+    // note: undefined, // we never define this anywhere
   };
+}
+
+function parseLoincCodes(resource: ActivityDefinition | ObservationDefinition): string[] | undefined {
+  return resource.code?.coding
+    ?.filter((c) => c.system === 'http://loinc.org')
+    .map((c) => c.code)
+    .filter((elm) => elm !== undefined);
 }
 
 function parseCptCodes(ad: ActivityDefinition): CptCodeInHouseLabDefinition[] {
@@ -937,17 +1012,20 @@ function parseCptCodes(ad: ActivityDefinition): CptCodeInHouseLabDefinition[] {
     .filter((c) => c.system === CODE_SYSTEM_CPT)
     .map((c) => ({
       code: c.code!,
-      modifier: c.extension ? parseCptModifierExtension(c.extension) : undefined,
+      ...(c.extension ? { modifier: parseCptModifierExtension(c.extension) } : {}),
     }));
 }
 
 function parseCptModifierExtension(ext: Extension[]): CptCodeInHouseLabDefinition['modifier'] {
   const cptModifierExt = ext.filter((e) => e.url === EXTENSION_URL_CPT_MODIFIER);
 
-  // assumption: we'll take the first one, and in fact there should only be one anyway
-  const modifiersCoding = cptModifierExt[0].valueCodeableConcept?.coding;
-  if (!modifiersCoding) return undefined;
-  const modifiers = modifiersCoding
+  const modifierCodings = cptModifierExt
+    .flatMap((ext) => ext.valueCodeableConcept?.coding)
+    .filter((coding): coding is Coding => coding !== undefined && coding.system === CODE_SYSTEM_CPT_MODIFIER);
+
+  if (!modifierCodings.length) return undefined;
+
+  const modifiers = modifierCodings
     ?.map((coding) => {
       if (coding.code && coding.display) return { code: coding.code as ProcedureModifier, display: coding.display };
       return undefined;
@@ -1087,10 +1165,18 @@ function parseSingleComponent(
   reflexLogic?: ReflexLogic,
   parentTestUrl?: string
 ): TestItemComponent {
+  let reflexLogicField: BaseComponent['reflexLogic'];
+
+  if (reflexLogic) {
+    reflexLogicField = reflexLogic;
+  } else if (parentTestUrl) {
+    reflexLogicField = { parentTestUrl };
+  }
+
   const base: BaseComponent = {
     componentName: obsDef.code?.text ?? '',
-    loincCode: obsDef.code?.coding?.filter((c) => c.system === 'http://loinc.org').map((c) => c.code!),
-    reflexLogic: reflexLogic ?? (parentTestUrl ? { parentTestUrl } : undefined),
+    loincCode: parseLoincCodes(obsDef),
+    ...(reflexLogicField ? { reflexLogic: reflexLogicField } : {}),
   };
 
   const dataType = obsDef.permittedDataType?.[0];
@@ -1143,18 +1229,26 @@ function parseCodeableConceptComponent(
   const allValues = toConfigValues(getValueSet(obsDef.validCodedValueSet));
 
   const abnormalValueSetCodeLookup = new Set(
-    ...toConfigValues(getValueSet(obsDef.abnormalCodedValueSet)).map((configValue) => configValue.code)
+    toConfigValues(getValueSet(obsDef.abnormalCodedValueSet)).map((configValue) => configValue.code)
   );
 
-  allValues.forEach((configValue) => {
-    if (abnormalValueSetCodeLookup.has(configValue.code)) configValue.isAbnormal = true;
-  });
+  const updatedValues = allValues.map(
+    (configValue): AdminLabComponentValueSetConfig => ({
+      ...configValue,
+      isAbnormal: abnormalValueSetCodeLookup.has(configValue.code),
+    })
+  );
+
+  const unit = obsDef.quantitativeDetails?.unit?.coding?.find(
+    (coding) => coding.system === IN_HOUSE_UNIT_OF_MEASURE_SYSTEM
+  )?.code;
 
   return {
     ...base,
     dataType: 'CodeableConcept',
-    valueSet: allValues,
+    valueSet: updatedValues,
     display: displayFromObsDef,
+    ...(unit ? { unit } : {}),
   };
 }
 
@@ -1162,20 +1256,26 @@ function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefiniti
   const interval = obsDef.qualifiedInterval?.[0];
   const low = interval?.range?.low?.value;
   const high = interval?.range?.high?.value;
-  const unit = obsDef.quantitativeDetails?.unit?.coding?.find(
+  const unitCoding = obsDef.quantitativeDetails?.unit?.coding?.find(
     (coding) => coding.system === IN_HOUSE_UNIT_OF_MEASURE_SYSTEM
-  )?.code;
+  );
 
-  if (low === undefined || high === undefined || unit === undefined)
-    throw new Error(`Unable to parse quantity component for obs def ${obsDef.id}`);
+  const unit = unitCoding?.code ?? '';
+  if (low === undefined || high === undefined)
+    throw new Error(
+      `Unable to parse quantity component for obs def ${obsDef.id}, this was the internal ${JSON.stringify(
+        interval
+      )} and the unit: ${unit}`
+    );
 
+  const precision = obsDef.quantitativeDetails?.decimalPrecision;
   return {
     ...base,
     dataType: 'Quantity',
     normalRange: {
       low,
       high,
-      precision: obsDef.quantitativeDetails?.decimalPrecision ?? 0, // defaulting to 0 for easy form rendering
+      ...(precision ? { precision } : {}),
       unit,
     },
     display: { type: 'Numeric', nullOption: false },
@@ -1183,7 +1283,6 @@ function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefiniti
 }
 
 function parseStringComponent(base: BaseComponent, obsDef: ObservationDefinition): StringComponent {
-  // ATHENA TODO: obsDef is never read, what gives?
   const parseValidations = (exts: Extension[] | undefined): Validation | undefined => {
     const validationExt = exts?.find((ext) => ext.url === OD_VALUE_VALIDATION_CONFIG.url);
     if (!validationExt) return undefined;

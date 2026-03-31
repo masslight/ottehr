@@ -324,9 +324,6 @@ export interface AdminInHouseLabItemDefinition {
   note?: string;
 }
 
-// ATHENA TODO:
-// Then start working on the form building
-
 export type InHouseLabAdminItemStatus = 'active' | 'retired';
 export interface InHouseLabsAdminListItem {
   name: string;
