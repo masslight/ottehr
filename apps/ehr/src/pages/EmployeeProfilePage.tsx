@@ -71,7 +71,7 @@ export default function EmployeeProfilePage(): JSX.Element {
     const isValidPhoneNumber = isPhoneNumberValid(phoneNumber);
     if (
       [ProviderNotificationMethod['phone'], ProviderNotificationMethod['phone and computer']].includes(
-        notificationSettings.method
+        notificationMethod
       ) &&
       (!phoneNumber || !isValidPhoneNumber)
     ) {

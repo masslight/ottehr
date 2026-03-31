@@ -9,11 +9,13 @@ import pdfmakeModule from 'pdfmake';
 import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
+  getExtension,
   getSecret,
   OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
   STATEMENT_CODE,
+  USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import {
   assertDefined,
@@ -49,6 +51,7 @@ const RUBIK_ITALIC_FONT_PATH = path.resolve(process.cwd(), 'assets', 'fonts', 'r
 interface GenerateStatementInputValidated {
   task: Task;
   encounterId: string;
+  userTimezone: string;
   secrets: Secrets;
 }
 
@@ -57,7 +60,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { task, encounterId, secrets } = validateInput(input);
+    const { task, encounterId, userTimezone, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -71,6 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const statementDetails = await getStatementDetails({
       encounterId,
       statementType: 'standard',
+      userTimezone,
       secrets,
       oystehr,
     });
@@ -209,6 +213,7 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
       id: taskId,
     },
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
+    userTimezone: getExtension(task, USER_TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York',
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
 }
@@ -286,7 +291,7 @@ function buildPdfDocumentDefinition(template: string, context: Record<string, un
   const parsedTemplate = JSON.parse(template) as unknown;
   const expandedTemplate = processTemplateNode(parsedTemplate, context);
   const expandedTemplateString = JSON.stringify(expandedTemplate);
-  const compiledTemplate = Handlebars.compile(expandedTemplateString)(context);
+  const compiledTemplate = Handlebars.compile(expandedTemplateString, { noEscape: true })(context);
   const documentDefinition = JSON.parse(compiledTemplate) as Record<string, unknown>;
   applyLayoutResolvers(documentDefinition);
   return documentDefinition;
@@ -343,7 +348,7 @@ function expandLoop(loopDirective: LoopDirective, context: Record<string, unknow
   return source
     .map((item) => {
       const rowTemplate = JSON.stringify(loopDirective.__row);
-      const compiledRow = Handlebars.compile(rowTemplate)(item as Record<string, unknown>);
+      const compiledRow = Handlebars.compile(rowTemplate, { noEscape: true })(item as Record<string, unknown>);
       const parsedRow = JSON.parse(compiledRow) as unknown;
       return processTemplateNode(parsedRow, context);
     })
