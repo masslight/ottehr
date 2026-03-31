@@ -51,7 +51,6 @@ export default function AppointmentTable({
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
-  const showTime = tab !== ApptTab.prebooked ? true : false;
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
 
@@ -103,7 +102,7 @@ export default function AppointmentTable({
       <Paper>
         <TableContainer sx={{ overflow: 'auto' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
           <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
-            <AppointmentTableHeader tab={tab} showTime={showTime} table="waiting-room" />
+            <AppointmentTableHeader tab={tab} table="waiting-room" />
             <TableBody>
               {tab === ApptTab['in-office'] ? (
                 <>
@@ -146,7 +145,6 @@ export default function AppointmentTable({
                             appointment={appointment}
                             location={location}
                             actionButtons={actionButtons}
-                            showTime={showTime}
                             now={now}
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
@@ -165,7 +163,6 @@ export default function AppointmentTable({
                       appointment={appointment}
                       location={location}
                       actionButtons={actionButtons}
-                      showTime={showTime}
                       now={now}
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
@@ -184,7 +181,7 @@ export default function AppointmentTable({
         <Paper sx={{ marginTop: '16px' }}>
           <TableContainer sx={{ overflow: 'auto' }}>
             <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
-              <AppointmentTableHeader tab={tab} showTime={showTime} table="in-exam" />
+              <AppointmentTableHeader tab={tab} table="in-exam" />
               <TableBody>
                 <TableRow>
                   <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08), px: 1.5 }} colSpan={11}>
@@ -222,7 +219,6 @@ export default function AppointmentTable({
                           appointment={appointment}
                           location={location}
                           actionButtons={actionButtons}
-                          showTime={showTime}
                           now={now}
                           vitals={vitalsForAppointment(appointment)}
                           updateAppointments={updateAppointments}

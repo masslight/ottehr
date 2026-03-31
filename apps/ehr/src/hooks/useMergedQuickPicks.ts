@@ -5,22 +5,27 @@ import {
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   getProcedureQuickPicks,
+  getRadiologyQuickPicks,
 } from 'src/api/api';
 import {
   AllergyQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
+  RadiologyQuickPickData,
 } from 'utils';
 import { useApiClients } from './useAppClients';
+
+interface UseFhirQuickPicksResult<T> {
+  quickPicks: T[];
+  loading: boolean;
+  refetch: () => Promise<void>;
+}
 
 /**
  * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
  */
-function useFhirQuickPicks<T>(fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>): {
-  quickPicks: T[];
-  loading: boolean;
-} {
+function useFhirQuickPicks<T>(fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>): UseFhirQuickPicksResult<T> {
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,33 +51,25 @@ function useFhirQuickPicks<T>(fetchFn: (oystehr: any) => Promise<{ quickPicks: T
     void doFetch();
   }, [doFetch]);
 
-  return { quickPicks, loading };
+  return { quickPicks, loading, refetch: doFetch };
 }
 
-export function useMergedProcedureQuickPicks(): {
-  quickPicks: ProcedureQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedProcedureQuickPicks(): UseFhirQuickPicksResult<ProcedureQuickPickData> {
   return useFhirQuickPicks(getProcedureQuickPicks);
 }
 
-export function useMergedAllergyQuickPicks(): {
-  quickPicks: AllergyQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedAllergyQuickPicks(): UseFhirQuickPicksResult<AllergyQuickPickData> {
   return useFhirQuickPicks(getAllergyQuickPicks);
 }
 
-export function useMergedMedicalConditionQuickPicks(): {
-  quickPicks: MedicalConditionQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedMedicalConditionQuickPicks(): UseFhirQuickPicksResult<MedicalConditionQuickPickData> {
   return useFhirQuickPicks(getMedicalConditionQuickPicks);
 }
 
-export function useMergedMedicationHistoryQuickPicks(): {
-  quickPicks: MedicationHistoryQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedMedicationHistoryQuickPicks(): UseFhirQuickPicksResult<MedicationHistoryQuickPickData> {
   return useFhirQuickPicks(getMedicationHistoryQuickPicks);
+}
+
+export function useMergedRadiologyQuickPicks(): UseFhirQuickPicksResult<RadiologyQuickPickData> {
+  return useFhirQuickPicks(getRadiologyQuickPicks);
 }
