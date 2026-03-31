@@ -1,7 +1,8 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
-import { parseAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import { useAiSuggestionApply } from 'src/features/visits/shared/hooks/useAiSuggestionApply';
+import { MappedItemData } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -19,57 +20,33 @@ export const HospitalizationPatientComponent: FC = () => {
     (observation) => observation.field === AiObservationField.HospitalizationsHistory
   ) as ObservationTextFieldDTO[];
 
-  const expandedContent = useMemo(() => {
-    if (!aiHospitalizations) return [];
-    return aiHospitalizations.flatMap((item) =>
-      parseAiValue(item.value, 'episodeOfCare').map((v) => ({
-        ...item,
-        value: v,
-      }))
-    );
-  }, [aiHospitalizations]);
-
-  const mappedSuggestions = useAiSuggestionMapping(aiHospitalizations, 'episodeOfCare');
   const { onSubmit, values: existingHospitalizations } = useChartDataArrayValue('episodeOfCare', undefined, {});
-  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set());
 
-  const effectiveAppliedIndices = useMemo(() => {
-    const indices = new Set(appliedIndices);
-    if (existingHospitalizations.length > 0 && mappedSuggestions.length > 0) {
-      mappedSuggestions.forEach((mapped, idx) => {
-        if (mapped.mappedData && mapped.mappedData.section === 'episodeOfCare') {
-          const data = mapped.mappedData;
-          const alreadyExists = existingHospitalizations.some(
-            (h) => h.display?.toLowerCase() === data.display.toLowerCase()
-          );
-          if (alreadyExists) indices.add(idx);
-        }
-      });
-    }
-    return indices;
-  }, [appliedIndices, existingHospitalizations, mappedSuggestions]);
-
-  const handleSuggestionClick = useCallback(
-    async (index: number) => {
-      const mapped = mappedSuggestions[index];
-      if (!mapped?.mappedData || mapped.mappedData.section !== 'episodeOfCare') return;
-
-      setAppliedIndices((prev) => new Set(prev).add(index));
-      try {
-        await onSubmit({
-          code: mapped.mappedData.code,
-          display: mapped.mappedData.display,
-        });
-      } catch {
-        setAppliedIndices((prev) => {
-          const next = new Set(prev);
-          next.delete(index);
-          return next;
-        });
-      }
+  const isAlreadyApplied = useCallback(
+    (mappedData: MappedItemData) => {
+      if (mappedData.section !== 'episodeOfCare') return false;
+      return existingHospitalizations.some((h) => h.display?.toLowerCase() === mappedData.display.toLowerCase());
     },
-    [mappedSuggestions, onSubmit]
+    [existingHospitalizations]
   );
+
+  const onApply = useCallback(
+    async (mappedData: MappedItemData) => {
+      if (mappedData.section !== 'episodeOfCare') return;
+      await onSubmit({
+        code: mappedData.code,
+        display: mappedData.display,
+      });
+    },
+    [onSubmit]
+  );
+
+  const { expandedContent, mappedSuggestions, effectiveAppliedIndices, handleSuggestionClick } = useAiSuggestionApply({
+    aiObservations: aiHospitalizations,
+    section: 'episodeOfCare',
+    isAlreadyApplied,
+    onApply,
+  });
 
   return (
     <Box

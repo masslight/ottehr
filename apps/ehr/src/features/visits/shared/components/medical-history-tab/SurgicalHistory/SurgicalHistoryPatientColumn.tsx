@@ -1,9 +1,10 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { parseAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import { useAiSuggestionApply } from 'src/features/visits/shared/hooks/useAiSuggestionApply';
+import { MappedItemData } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
@@ -22,57 +23,33 @@ export const SurgicalHistoryPatientColumn: FC = () => {
     (observation) => observation.field === AiObservationField.PastSurgicalHistory
   ) as ObservationTextFieldDTO[];
 
-  const expandedContent = useMemo(() => {
-    if (!aiPastSurgicalHistory) return [];
-    return aiPastSurgicalHistory.flatMap((item) =>
-      parseAiValue(item.value, 'surgicalHistory').map((v) => ({
-        ...item,
-        value: v,
-      }))
-    );
-  }, [aiPastSurgicalHistory]);
-
-  const mappedSuggestions = useAiSuggestionMapping(aiPastSurgicalHistory, 'surgicalHistory');
   const { onSubmit, values: existingSurgicalHistory } = useChartDataArrayValue('surgicalHistory', undefined, {});
-  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set());
 
-  const effectiveAppliedIndices = useMemo(() => {
-    const indices = new Set(appliedIndices);
-    if (existingSurgicalHistory.length > 0 && mappedSuggestions.length > 0) {
-      mappedSuggestions.forEach((mapped, idx) => {
-        if (mapped.mappedData && mapped.mappedData.section === 'surgicalHistory') {
-          const data = mapped.mappedData;
-          const alreadyExists = existingSurgicalHistory.some(
-            (s) => s.display?.toLowerCase() === data.display.toLowerCase()
-          );
-          if (alreadyExists) indices.add(idx);
-        }
-      });
-    }
-    return indices;
-  }, [appliedIndices, existingSurgicalHistory, mappedSuggestions]);
-
-  const handleSuggestionClick = useCallback(
-    async (index: number) => {
-      const mapped = mappedSuggestions[index];
-      if (!mapped?.mappedData || mapped.mappedData.section !== 'surgicalHistory') return;
-
-      setAppliedIndices((prev) => new Set(prev).add(index));
-      try {
-        await onSubmit({
-          code: mapped.mappedData.code,
-          display: mapped.mappedData.display,
-        });
-      } catch {
-        setAppliedIndices((prev) => {
-          const next = new Set(prev);
-          next.delete(index);
-          return next;
-        });
-      }
+  const isAlreadyApplied = useCallback(
+    (mappedData: MappedItemData) => {
+      if (mappedData.section !== 'surgicalHistory') return false;
+      return existingSurgicalHistory.some((s) => s.display?.toLowerCase() === mappedData.display.toLowerCase());
     },
-    [mappedSuggestions, onSubmit]
+    [existingSurgicalHistory]
   );
+
+  const onApply = useCallback(
+    async (mappedData: MappedItemData) => {
+      if (mappedData.section !== 'surgicalHistory') return;
+      await onSubmit({
+        code: mappedData.code,
+        display: mappedData.display,
+      });
+    },
+    [onSubmit]
+  );
+
+  const { expandedContent, mappedSuggestions, effectiveAppliedIndices, handleSuggestionClick } = useAiSuggestionApply({
+    aiObservations: aiPastSurgicalHistory,
+    section: 'surgicalHistory',
+    isAlreadyApplied,
+    onApply,
+  });
 
   return (
     <Box

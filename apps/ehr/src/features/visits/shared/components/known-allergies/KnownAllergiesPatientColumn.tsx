@@ -1,8 +1,9 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { FC, ReactElement, useCallback, useMemo, useState } from 'react';
+import { FC, ReactElement, useCallback } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { parseAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import { useAiSuggestionApply } from 'src/features/visits/shared/hooks/useAiSuggestionApply';
+import { MappedItemData } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
@@ -30,58 +31,35 @@ export const KnownAllergiesPatientColumn: FC = () => {
     'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson'
   );
 
-  const expandedContent = useMemo(() => {
-    if (!aiAllergies) return [];
-    return aiAllergies.flatMap((item) =>
-      parseAiValue(item.value, 'allergies').map((v) => ({
-        ...item,
-        value: v,
-      }))
-    );
-  }, [aiAllergies]);
-
-  const mappedSuggestions = useAiSuggestionMapping(aiAllergies, 'allergies');
   const { onSubmit, values: existingAllergies } = useChartDataArrayValue('allergies');
-  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set());
 
-  // Pre-populate applied indices for items already in chart
-  const effectiveAppliedIndices = useMemo(() => {
-    const indices = new Set(appliedIndices);
-    if (existingAllergies.length > 0 && mappedSuggestions.length > 0) {
-      mappedSuggestions.forEach((mapped, idx) => {
-        if (mapped.mappedData && mapped.mappedData.section === 'allergies') {
-          const data = mapped.mappedData;
-          const alreadyExists = existingAllergies.some((a) => a.name?.toLowerCase() === data.name.toLowerCase());
-          if (alreadyExists) indices.add(idx);
-        }
-      });
-    }
-    return indices;
-  }, [appliedIndices, existingAllergies, mappedSuggestions]);
-
-  const handleSuggestionClick = useCallback(
-    async (index: number) => {
-      const mapped = mappedSuggestions[index];
-      if (!mapped?.mappedData || mapped.mappedData.section !== 'allergies') return;
-
-      setAppliedIndices((prev) => new Set(prev).add(index));
-      try {
-        await onSubmit({
-          name: mapped.mappedData.name,
-          id: mapped.mappedData.id,
-          current: true,
-          lastUpdated: new Date().toISOString(),
-        });
-      } catch {
-        setAppliedIndices((prev) => {
-          const next = new Set(prev);
-          next.delete(index);
-          return next;
-        });
-      }
+  const isAlreadyApplied = useCallback(
+    (mappedData: MappedItemData) => {
+      if (mappedData.section !== 'allergies') return false;
+      return existingAllergies.some((a) => a.name?.toLowerCase() === mappedData.name.toLowerCase());
     },
-    [mappedSuggestions, onSubmit]
+    [existingAllergies]
   );
+
+  const onApply = useCallback(
+    async (mappedData: MappedItemData) => {
+      if (mappedData.section !== 'allergies') return;
+      await onSubmit({
+        name: mappedData.name,
+        id: mappedData.id,
+        current: true,
+        lastUpdated: new Date().toISOString(),
+      });
+    },
+    [onSubmit]
+  );
+
+  const { expandedContent, mappedSuggestions, effectiveAppliedIndices, handleSuggestionClick } = useAiSuggestionApply({
+    aiObservations: aiAllergies,
+    section: 'allergies',
+    isAlreadyApplied,
+    onApply,
+  });
 
   const renderAllergies = (): ReactElement | ReactElement[] => {
     if (isAppointmentLoading) {

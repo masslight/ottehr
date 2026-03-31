@@ -1,13 +1,13 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
+import { useAiSuggestionApply } from 'src/features/visits/shared/hooks/useAiSuggestionApply';
 import {
   extractDateFromValue,
   extractDoseFromValue,
-  parseAiValue,
-  useAiSuggestionMapping,
+  MappedItemData,
 } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAiSuggestionPrefillStore } from 'src/features/visits/shared/stores/aiSuggestionPrefill.store';
@@ -28,47 +28,31 @@ export const CurrentMedicationsPatientColumn: FC = () => {
     (observation) => observation.field === AiObservationField.MedicationsHistory
   ) as ObservationTextFieldDTO[];
 
-  const mappedSuggestions = useAiSuggestionMapping(aiMedicationsHistory, 'medications');
-  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set());
-
-  const effectiveAppliedIndices = useMemo(() => {
-    const indices = new Set(appliedIndices);
-    if (chartData?.medications && mappedSuggestions.length > 0) {
-      mappedSuggestions.forEach((mapped, idx) => {
-        if (mapped.mappedData && mapped.mappedData.section === 'medications') {
-          const data = mapped.mappedData;
-          const alreadyExists = chartData.medications?.some(
-            (m) => m.name?.toLowerCase().includes(data.name.toLowerCase())
-          );
-          if (alreadyExists) indices.add(idx);
-        }
-      });
-    }
-    return indices;
-  }, [appliedIndices, chartData?.medications, mappedSuggestions]);
-
-  const handleSuggestionClick = useCallback(
-    (index: number) => {
-      const mapped = mappedSuggestions[index];
-      if (!mapped?.mappedData || mapped.mappedData.section !== 'medications') return;
-
-      const { section: _section, ...medicationData } = mapped.mappedData;
-      const dose = extractDoseFromValue(mapped.originalValue);
-      const date = extractDateFromValue(mapped.originalValue);
-      setMedicationPrefill({ medication: medicationData, dose, date });
-      setAppliedIndices((prev) => new Set(prev).add(index));
+  const isAlreadyApplied = useCallback(
+    (mappedData: MappedItemData) => {
+      if (mappedData.section !== 'medications') return false;
+      return !!chartData?.medications?.some((m) => m.name?.toLowerCase().includes(mappedData.name.toLowerCase()));
     },
-    [mappedSuggestions, setMedicationPrefill]
+    [chartData?.medications]
   );
 
-  const expandedContent = useMemo(() => {
-    return aiMedicationsHistory.flatMap((item) =>
-      parseAiValue(item.value, 'medications').map((v) => ({
-        ...item,
-        value: v,
-      }))
-    );
-  }, [aiMedicationsHistory]);
+  const onApply = useCallback(
+    (_mappedData: MappedItemData, originalValue: string) => {
+      if (_mappedData.section !== 'medications') return;
+      const { section: _section, ...medicationData } = _mappedData;
+      const dose = extractDoseFromValue(originalValue);
+      const date = extractDateFromValue(originalValue);
+      setMedicationPrefill({ medication: medicationData, dose, date });
+    },
+    [setMedicationPrefill]
+  );
+
+  const { expandedContent, mappedSuggestions, effectiveAppliedIndices, handleSuggestionClick } = useAiSuggestionApply({
+    aiObservations: aiMedicationsHistory,
+    section: 'medications',
+    isAlreadyApplied,
+    onApply,
+  });
 
   return (
     <Box
