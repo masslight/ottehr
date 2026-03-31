@@ -1,8 +1,17 @@
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Extension, Location, Organization } from 'fhir/r4b';
-import { adminListInHouseLabs, bulkUpdateInsuranceStatus } from 'src/api/api';
+import {
+  adminAddInHouseLab,
+  adminGetInHouseLabConfig,
+  adminListInHouseLabs,
+  bulkUpdateInsuranceStatus,
+} from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  AdminAddInHouseLabInput,
+  AdminAddInHouseLabOutput,
+  AdminGetInHouseLabConfigInput,
+  AdminGetInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
@@ -248,8 +257,55 @@ export const useAdminListInHouseLabs = (userId: string): UseQueryResult<AdminLis
     },
     enabled: !!oystehrZambda && !!userId,
     // ATHENA TODO: decide if you want any of these
-    // staleTime: 0, // data is immediately stale
+    staleTime: 30_000, // 30 sec staletime
     // refetchOnMount: 'always', // refetch every mount
     // refetchOnWindowFocus: true, // refetch when you tab back
   });
 };
+
+export const useAdminAddInHouseLab = (): UseMutationResult<
+  AdminAddInHouseLabOutput,
+  Error,
+  AdminAddInHouseLabInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-add-in-house-lab'],
+    mutationFn: async (input: AdminAddInHouseLabInput) => {
+      console.log('mutation for add in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminAddInHouseLab(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, variables) => {
+      // invalidate so the list page re-loads correctly
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-in-house-labs-list', variables.userId],
+      });
+    },
+  });
+};
+
+export const useAdminGetInHouseLabConfig = (
+  input: AdminGetInHouseLabConfigInput
+): UseQueryResult<AdminGetInHouseLabConfigOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+  const { userId, activityDefinitionId } = input;
+
+  return useQuery({
+    queryKey: ['admin-get-in-house-lab-config', userId, activityDefinitionId],
+    queryFn: async () => {
+      return adminGetInHouseLabConfig(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda && !!userId,
+    // ATHENA TODO: decide if you want any of these
+    staleTime: 30_000, // 30 sec staletime
+    // refetchOnMount: 'always', // refetch every mount
+    // refetchOnWindowFocus: true, // refetch when you tab back
+  });
+};
+
+// on mutate for update, need to invalidate the list endpoint and the get config endpoint

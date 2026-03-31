@@ -1,8 +1,8 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import InHouseLabAdminPage from 'src/features/in-house-labs/components/admin/InHouseLabAdminPage';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';

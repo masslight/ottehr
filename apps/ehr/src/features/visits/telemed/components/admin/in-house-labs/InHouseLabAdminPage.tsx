@@ -65,7 +65,7 @@ export default function InHouseLabAdminPage(): ReactElement {
     <TableRow key={key}>
       <TableCell>
         <Link
-          to={`admin/in-house-labs/${item.activityDefinitionId}`}
+          to={`/admin/in-house-labs/${item.activityDefinitionId}`}
           style={{
             display: 'contents',
             color: theme.palette.primary.main,

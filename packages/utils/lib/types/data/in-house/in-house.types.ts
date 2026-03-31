@@ -244,6 +244,12 @@ export interface TestItemMethods {
   machine?: { device: string };
 }
 
+export const TEST_ITEM_METHOD_KEYS = [
+  'manual',
+  'analyzer',
+  'machine',
+] as const satisfies readonly (keyof TestItemMethods)[];
+
 /**
  * These types are for the Admin Config for In House Labs. There is some overlap with the DataEntry versions of these type
  * which are used to render the provider-facing test-result entry workflow forms.
@@ -251,7 +257,7 @@ export interface TestItemMethods {
  * labs todo: consolidate these types to some degree
  */
 
-interface ReflexLogic {
+export interface ReflexLogic {
   // you may want to generate the AD for the reflex test first to be sure they match
   // these need to match the reflex test activity definition
   testToRun: {
@@ -268,14 +274,18 @@ interface ReflexLogic {
 }
 export interface BaseComponent {
   componentName: string;
-  loincCode: string[];
+  loincCode?: string[];
   reflexLogic?: ReflexLogic | { parentTestUrl: string };
+}
+
+export interface AdminLabComponentValueSetConfig extends LabComponentValueSetConfig {
+  isAbnormal: boolean;
 }
 
 export interface CodeableConceptComponent extends BaseComponent {
   dataType: 'CodeableConcept';
-  valueSet: LabComponentValueSetConfig[];
-  abnormalValues: LabComponentValueSetConfig[];
+  valueSet: AdminLabComponentValueSetConfig[];
+  // abnormalValues: LabComponentValueSetConfig[];
   display: {
     type: 'Radio' | 'Select';
     nullOption: boolean;
@@ -283,17 +293,17 @@ export interface CodeableConceptComponent extends BaseComponent {
   unit?: string;
   quantitativeReference?: Record<string, string>;
 }
-interface QuantityComponent extends BaseComponent {
+export interface QuantityComponent extends BaseComponent {
   dataType: 'Quantity';
   normalRange: QuantityRange;
   display: {
     type: 'Numeric';
-    nullOption: boolean;
+    nullOption: boolean; // ATHENA TODO: we don't think this does anything...
   };
 }
 
 // labs todo: may want to add units or a reference range in the future
-interface StringComponent extends BaseComponent {
+export interface StringComponent extends BaseComponent {
   dataType: 'string';
   display: {
     type: 'Free Text';
@@ -301,25 +311,23 @@ interface StringComponent extends BaseComponent {
   };
 }
 
-type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
+export type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
 // This could almost have matched the CPTCodeDTO if not for the ProcedureModifier
-type CptCode = { code: string; modifier?: { code: ProcedureModifier; display: string }[] };
-export interface TestItem {
+export type CptCodeInHouseLabDefinition = { code: string; modifier?: { code: ProcedureModifier; display: string }[] };
+export interface AdminInHouseLabItemDefinition {
   name: string;
-  methods: TestItemMethods;
-  method: string;
-  device: string;
-  cptCode: CptCode[];
-  loincCode: string[];
+  methods?: TestItemMethods;
+  // method: string;
+  device?: string;
+  cptCode: CptCodeInHouseLabDefinition[];
+  loincCode?: string[];
   repeatTest: boolean;
   components: TestItemComponent[];
   note?: string;
 }
 
 // ATHENA TODO:
-// Define type for simple list Admin config ADs -- name, status, version, canonical url, id
-// Define zambda for the list page and get that working
 // Then start working on the form building
 
 export type InHouseLabAdminItemStatus = 'active' | 'retired';
@@ -337,4 +345,25 @@ export interface AdminListInHouseLabsInput {
 
 export interface AdminListInHouseLabsOutput {
   labs: InHouseLabsAdminListItem[];
+}
+
+export interface AdminAddInHouseLabInput {
+  userId: string;
+  data: AdminInHouseLabItemDefinition;
+}
+
+export interface AdminAddInHouseLabOutput {
+  activityDefinitionId: string;
+}
+export interface AdminGetInHouseLabConfigInput {
+  userId: string;
+  activityDefinitionId: string;
+}
+
+export interface AdminGetInHouseLabConfigOutput {
+  activityDefinitionId: string;
+  canonicalUrl: string;
+  version: string;
+  isLatest: boolean;
+  testConfig: AdminInHouseLabItemDefinition;
 }

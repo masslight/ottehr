@@ -1,4 +1,4 @@
-import { CodeableConcept } from 'fhir/r4b';
+import { CodeableConcept, Coding } from 'fhir/r4b';
 import { CPTCodeDTO } from '../../api';
 import { TestStatus } from './in-house.types';
 
@@ -93,6 +93,11 @@ export const IN_HOUSE_TEST_CODE_SYSTEM = 'http://ottehr.org/fhir/StructureDefini
 
 export const IN_HOUSE_PARTICIPANT_ROLE_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role';
+
+export const IN_HOUSE_DEVICE_PARTICIPANT_CODING: Coding = {
+  system: IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
+  code: 'device',
+};
 
 const IN_HOUSE_LAB_TAG_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes';
 export const IN_HOUSE_TAG_DEFINITION = {
@@ -206,3 +211,15 @@ export const REPEAT_TEST_CPT_CODE_MODIFIER: CPTCodeDTO = {
   code: '91',
   display: 'Repeat Clinical Diagnostic Laboratory Test',
 };
+
+export const DEFAULT_OBSERVATION_DEFINITION_CODING: Coding = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/default-observation-definition-code-coding',
+  code: 'default-code',
+};
+
+export const DEFAULT_ACTIVITY_DEFINITION_PARTICIPANT_ROLE_CODING: Coding = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/default-activity-definition-participant-role-coding',
+  code: 'default-code',
+};
+
+export const IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE = 'device';

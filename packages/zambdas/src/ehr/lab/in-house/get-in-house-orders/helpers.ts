@@ -42,9 +42,9 @@ import {
   buildOrderHistory,
   determineOrderStatus,
   fetchResultResourcesForRelatedServiceRequest,
+  getInHouseLabTestUrlAndVersionForADFromServiceRequest,
   getRelatedServiceRequests,
   getSpecimenDetails,
-  getUrlAndVersionForADFromServiceRequest,
   taskIsBasedOnServiceRequest,
 } from '../../shared/in-house-labs';
 import { fetchLabDocumentPresignedUrls, parseTimezoneForAppointmentSchedule } from '../../shared/labs';
@@ -631,7 +631,7 @@ export const findActivityDefinitionForServiceRequest = (
   serviceRequest: ServiceRequest,
   activityDefinitions: ActivityDefinition[]
 ): ActivityDefinition | undefined => {
-  const { url, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
+  const { url, version } = getInHouseLabTestUrlAndVersionForADFromServiceRequest(serviceRequest);
 
   return activityDefinitions.find((ad) => {
     const versionMatch = ad.version === version;
