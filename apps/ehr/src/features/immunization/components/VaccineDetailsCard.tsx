@@ -156,7 +156,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       units: values.details?.units,
       route: values.details?.route,
       location: values.details?.location,
-      associatedDx: values.details?.associatedDx,
       manufacturer: values.details?.manufacturer,
       instructions: values.details?.instructions,
       cvx: values.administrationDetails?.cvx,
