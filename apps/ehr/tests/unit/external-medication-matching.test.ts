@@ -1,85 +1,13 @@
-/**
- * Tests for external medication matching logic.
- *
- * The scoreMatch, findBestMatch, and normalizeStrength functions are private
- * to useExternalMedicationHistory. We re-implement the same logic here to
- * verify the matching algorithm in isolation.
- */
+import type { ErxSearchMedicationsResponse } from '@oystehr/sdk';
+import {
+  findBestMatch,
+  normalizeStrength,
+  scoreMatch,
+} from 'src/features/visits/shared/helpers/externalMedicationMatching';
+import type { ExtractObjectType } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { describe, expect, test } from 'vitest';
 
-// Re-implement the matching functions for testing (same logic as the hook)
-
-function normalizeStrength(strength: string | null | undefined): string {
-  if (!strength) return '';
-  return strength.toLowerCase().replace(/\s+/g, '');
-}
-
-interface SearchResult {
-  id: number;
-  name: string;
-  rxcui: number | null;
-  ndc: string | null;
-  strength: string;
-  isObsolete: boolean;
-  routedDoseFormDrugId: number;
-}
-
-function scoreMatch(candidate: SearchResult, externalName: string, externalStrength: string | null): number {
-  let score = 0;
-  const candidateNameLower = candidate.name.toLowerCase();
-  const externalNameLower = externalName.toLowerCase();
-
-  if (candidateNameLower === externalNameLower) {
-    score += 2;
-  } else if (candidateNameLower.includes(externalNameLower) || externalNameLower.includes(candidateNameLower)) {
-    score += 1;
-  }
-
-  const normExtStrength = normalizeStrength(externalStrength);
-  if (normExtStrength) {
-    const normCandStrength = normalizeStrength(candidate.strength);
-    if (normCandStrength === normExtStrength) {
-      score += 2;
-    } else if (normCandStrength.includes(normExtStrength) || normExtStrength.includes(normCandStrength)) {
-      score += 1;
-    }
-  }
-
-  return score;
-}
-
-function findBestMatch(
-  searchResponse: SearchResult[],
-  externalName: string,
-  externalStrength: string | null,
-  externalRxcui: number | null
-): { match: SearchResult | null; isExact: boolean } {
-  if (searchResponse.length === 0) return { match: null, isExact: false };
-
-  if (externalRxcui != null) {
-    const rxcuiMatch = searchResponse.find((med) => med.rxcui === externalRxcui);
-    if (rxcuiMatch) {
-      return { match: rxcuiMatch, isExact: true };
-    }
-  }
-
-  let bestCandidate: SearchResult | null = null;
-  let bestScore = -1;
-
-  for (const candidate of searchResponse) {
-    const score = scoreMatch(candidate, externalName, externalStrength);
-    if (score > bestScore) {
-      bestScore = score;
-      bestCandidate = candidate;
-    }
-  }
-
-  const isExact = externalStrength
-    ? bestScore >= 4
-    : bestScore >= 2 && bestCandidate?.name.toLowerCase() === externalName.toLowerCase();
-
-  return { match: bestCandidate, isExact };
-}
+type SearchResult = ExtractObjectType<ErxSearchMedicationsResponse>;
 
 const makeResult = (overrides: Partial<SearchResult> & { name: string }): SearchResult => ({
   id: 1,
@@ -110,24 +38,24 @@ describe('normalizeStrength', () => {
 // ── scoreMatch ───────────────────────────────────────────────────────────────
 
 describe('scoreMatch', () => {
-  test('exact name match scores 2', () => {
+  test('exact name match scores 4', () => {
     const candidate = makeResult({ name: 'Omeprazole' });
-    expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(2);
+    expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(4);
   });
 
   test('exact name match is case-insensitive', () => {
     const candidate = makeResult({ name: 'omeprazole' });
+    expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(4);
+  });
+
+  test('substring name match scores 2', () => {
+    const candidate = makeResult({ name: 'Omeprazole Magnesium Oral Capsule' });
     expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(2);
   });
 
-  test('substring name match scores 1', () => {
-    const candidate = makeResult({ name: 'Omeprazole Magnesium Oral Capsule' });
-    expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(1);
-  });
-
-  test('reverse substring name match scores 1', () => {
+  test('reverse substring name match scores 2', () => {
     const candidate = makeResult({ name: 'Omeprazole' });
-    expect(scoreMatch(candidate, 'Omeprazole Magnesium Oral Capsule', null)).toBe(1);
+    expect(scoreMatch(candidate, 'Omeprazole Magnesium Oral Capsule', null)).toBe(2);
   });
 
   test('no name match scores 0', () => {
@@ -135,24 +63,24 @@ describe('scoreMatch', () => {
     expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(0);
   });
 
-  test('exact name + exact strength scores 4', () => {
+  test('exact name + exact strength scores 6', () => {
     const candidate = makeResult({ name: 'Omeprazole', strength: '20 mg' });
-    expect(scoreMatch(candidate, 'Omeprazole', '20 mg')).toBe(4);
+    expect(scoreMatch(candidate, 'Omeprazole', '20 mg')).toBe(6);
   });
 
-  test('exact name + substring strength scores 3', () => {
+  test('exact name + substring strength scores 5', () => {
     const candidate = makeResult({ name: 'Omeprazole', strength: '20 MG Capsule' });
-    expect(scoreMatch(candidate, 'Omeprazole', '20 mg')).toBe(3);
+    expect(scoreMatch(candidate, 'Omeprazole', '20 mg')).toBe(5);
   });
 
   test('strength normalization handles whitespace differences', () => {
     const candidate = makeResult({ name: 'Metformin', strength: '500MG' });
-    expect(scoreMatch(candidate, 'Metformin', '500 mg')).toBe(4);
+    expect(scoreMatch(candidate, 'Metformin', '500 mg')).toBe(6);
   });
 
   test('null external strength skips strength scoring', () => {
     const candidate = makeResult({ name: 'Omeprazole', strength: '20 mg' });
-    expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(2);
+    expect(scoreMatch(candidate, 'Omeprazole', null)).toBe(4);
   });
 });
 
@@ -232,7 +160,6 @@ describe('findBestMatch', () => {
 // ── Chart filtering logic ────────────────────────────────────────────────────
 
 describe('chart medication filtering', () => {
-  // Re-implement the filtering logic from the hook
   function filterChartedMedications(externalNames: string[], chartedNames: string[]): string[] {
     const chartedLower = chartedNames.map((n) => n.toLowerCase().trim());
     return externalNames.filter((name) => {
