@@ -1,8 +1,7 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
-import React, { FC, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
-import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPTCodeDTO } from 'utils';
 import { useGetCPTHCPCSSearch } from '../../features/visits/shared/stores/appointment/appointment.queries';
 
@@ -13,25 +12,24 @@ interface CptCodesInputProps {
 }
 
 export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEditable }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { debounce } = useDebounce(800);
-  const { isFetching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
-  const searchOptions = data?.codes || [];
+  const [inputValue, setInputValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
 
-  const handleInputChange = (value: string): void => {
-    setSearchTerm(value);
-    debounce(() => {
-      setDebouncedSearchTerm(value);
-    });
-  };
+  const debouncedSetSearchQuery = useCallback((value: string) => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setSearchQuery(value), 800);
+  }, []);
+
+  const { isFetching, data } = useGetCPTHCPCSSearch({ search: searchQuery, type: 'both' });
+  const searchOptions = data?.codes || [];
 
   const handleAdd = (code: CPTCodeDTO | null): void => {
     if (!code) return;
     if (cptCodes.some((c) => c.code === code.code)) return;
     onChange([...cptCodes, { code: code.code, display: code.display }]);
-    setSearchTerm('');
-    setDebouncedSearchTerm('');
+    setInputValue('');
+    setSearchQuery('');
   };
 
   const handleRemove = (codeToRemove: string): void => {
@@ -51,12 +49,15 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEd
           options={searchOptions}
           filterOptions={(x) => x}
           loading={isFetching}
-          inputValue={searchTerm}
+          inputValue={inputValue}
           onInputChange={(_e, value, reason) => {
-            if (reason === 'input') handleInputChange(value);
+            if (reason === 'input') {
+              setInputValue(value);
+              debouncedSetSearchQuery(value);
+            }
             if (reason === 'clear') {
-              setSearchTerm('');
-              setDebouncedSearchTerm('');
+              setInputValue('');
+              setSearchQuery('');
             }
           }}
           onChange={(_e, value) => handleAdd(value)}
@@ -64,7 +65,7 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEd
           getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
           isOptionEqualToValue={(option, value) => option.code === value.code}
           noOptionsText={
-            debouncedSearchTerm && debouncedSearchTerm.length > 2 && searchOptions.length === 0
+            searchQuery && searchQuery.length > 2 && searchOptions.length === 0
               ? 'Nothing found'
               : 'Start typing to search'
           }

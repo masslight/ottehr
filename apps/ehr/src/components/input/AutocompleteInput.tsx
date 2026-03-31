@@ -61,15 +61,17 @@ export function AutocompleteInput<Value>({
             <Autocomplete<Value, false, false, boolean>
               value={field.value ?? null}
               options={optionsToUse}
-              getOptionKey={getOptionKey as any}
+              getOptionKey={getOptionKey as ((option: string | Value) => string | number) | undefined}
               noOptionsText={noOptionsText}
-              getOptionLabel={getOptionLabel as any}
-              isOptionEqualToValue={isOptionEqualToValue as any}
+              getOptionLabel={getOptionLabel as ((option: string | Value) => string) | undefined}
+              isOptionEqualToValue={
+                isOptionEqualToValue as ((option: string | Value, value: string | Value) => boolean) | undefined
+              }
               freeSolo={freeSolo}
-              onChange={(_e, option: any) => field.onChange(option ?? null)}
+              onChange={(_e, option) => field.onChange(option ?? null)}
               {...(freeSolo
                 ? {
-                    onInputChange: (_e: any, newValue: string, reason: string) => {
+                    onInputChange: (_e: React.SyntheticEvent, newValue: string, reason: string) => {
                       if (reason === 'input') {
                         field.onChange(newValue || null);
                       }
