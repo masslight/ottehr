@@ -44,7 +44,6 @@ import {
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
-  makeAbbreviation,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
