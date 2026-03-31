@@ -55,15 +55,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const firstName = getFirstName(patient);
   const lastName = getLastName(patient);
   const birthDate = patient.birthDate;
+  const gender = patient.gender;
+  const phone = patient.telecom?.find((t) => t.system === 'phone')?.value;
+  const address = patient.address?.[0];
 
-  if (!firstName || !lastName) {
-    console.log(`Patient ${patientId} missing name (first: ${firstName}, last: ${lastName}), skipping sync`);
-    return { statusCode: 200, body: `Patient ${patientId} missing required name` };
-  }
+  const missingFields: string[] = [];
+  if (!firstName || !lastName) missingFields.push('name');
+  if (!birthDate) missingFields.push('birthDate');
+  if (!gender) missingFields.push('gender');
+  if (!phone) missingFields.push('phone');
+  if (!address?.line?.[0] || !address?.city || !address?.state || !address?.postalCode) missingFields.push('address');
 
-  if (!birthDate) {
-    console.log(`Patient ${patientId} missing birthDate, skipping sync`);
-    return { statusCode: 200, body: `Patient ${patientId} missing required birthDate` };
+  if (missingFields.length > 0) {
+    console.log(`Patient ${patientId} missing required fields: ${missingFields.join(', ')}, skipping sync`);
+    return { statusCode: 200, body: `Patient ${patientId} missing required fields: ${missingFields.join(', ')}` };
   }
 
   // Check for height and weight observations on this encounter
@@ -105,6 +110,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     operations: [getPatchOperationForNewMetaTag(encounter, FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG)],
   });
   console.log(`Tagged encounter ${encounterId} with eRx sync tag`);
+  console.log(
+    `Successfully completed eRx patient sync and medication history fetch for patient ${patientId}, encounter ${encounterId}`
+  );
 
   return {
     statusCode: 200,
