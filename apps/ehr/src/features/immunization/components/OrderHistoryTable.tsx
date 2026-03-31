@@ -71,9 +71,6 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
     );
   }
 
-  const pendingOrders = orders.filter((order) => order.status === 'pending');
-  const completedOrders = orders.filter((order) => order.status !== 'pending');
-
   if (isLoading) {
     return (
       <TableContainer component={Paper} elevation={0}>
@@ -83,6 +80,9 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
       </TableContainer>
     );
   }
+
+  const pendingOrders = orders.filter((order) => order.status === 'pending');
+  const completedOrders = orders.filter((order) => order.status !== 'pending');
 
   return (
     <TableContainer component={Paper} elevation={0}>
