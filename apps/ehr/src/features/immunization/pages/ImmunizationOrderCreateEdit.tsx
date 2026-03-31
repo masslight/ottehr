@@ -76,11 +76,10 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       await cancelOrder({ orderId });
       navigate(getImmunizationMARUrl(appointmentId!));
     } catch {
+      setIsDeleteDialogOpen(false);
       enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
         variant: 'error',
       });
-    } finally {
-      setIsDeleteDialogOpen(false);
     }
   };
 
