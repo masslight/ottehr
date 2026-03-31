@@ -171,9 +171,8 @@ function mapMedicationAdministrationToImmunizationOrder(
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
             administeredDateTime: medicationAdministration.effectiveDateTime ?? '',
-            visGivenDate: medicationAdministration.extension?.find(
-              (e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
-            )?.valueDate,
+            visGivenDate: medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
+              ?.valueDate,
             emergencyContact: emergencyContactRelatedPerson
               ? {
                   fullName: emergencyContactRelatedPerson.name?.[0].text ?? '',
