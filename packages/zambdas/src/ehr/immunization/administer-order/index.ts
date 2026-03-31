@@ -90,7 +90,7 @@ async function administerImmunizationOrder(
     id: orderId,
   });
 
-  const allowedStatuses = ['in-progress', 'completed', 'stopped'];
+  const allowedStatuses = ['in-progress', 'completed', 'stopped', 'on-hold', 'not-done'];
   if (!allowedStatuses.includes(medicationAdministration.status)) {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
     throw new Error(`Can't administer order in "${currentStatus}" status`);
