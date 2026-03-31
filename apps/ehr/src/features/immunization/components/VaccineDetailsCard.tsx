@@ -372,8 +372,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     getOptionLabel={(option) =>
                       RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option
                     }
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                   />
                 </Grid>
@@ -381,8 +379,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.emergencyContact.fullName"
                     label="Full name"
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.fullName}
                   />
                 </Grid>
@@ -390,8 +386,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <PhoneInput
                     name="administrationDetails.emergencyContact.mobile"
                     label="Mobile"
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.mobile}
                   />
                 </Grid>
