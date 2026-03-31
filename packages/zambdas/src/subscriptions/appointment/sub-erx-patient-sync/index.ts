@@ -22,10 +22,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, secrets);
   console.log('Created M2M token and oystehr client');
 
-  // Fetch the encounter to check if already synced
-  const encounter = await oystehr.fhir.read<Encounter>({ resourceType: 'Encounter', id: encounterId });
+  // Fetch the encounter and patient in parallel
+  const [encounterBundle, patientBundle] = await Promise.all([
+    oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [{ name: '_id', value: encounterId }],
+    }),
+    oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [{ name: '_id', value: patientId }],
+    }),
+  ]);
+
+  const encounter = encounterBundle.entry?.[0]?.resource;
+  if (!encounter) {
+    throw new Error(`Encounter ${encounterId} not found`);
+  }
+
   const alreadySynced = encounter.meta?.tag?.some(
-    (tag) =>
+    (tag: { system?: string; code?: string }) =>
       tag.system === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.system && tag.code === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.code
   );
   if (alreadySynced) {
@@ -33,8 +48,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return { statusCode: 200, body: `Encounter ${encounterId} already synced` };
   }
 
-  // Fetch patient to verify required demographics
-  const patient = await oystehr.fhir.read<Patient>({ resourceType: 'Patient', id: patientId });
+  const patient = patientBundle.entry?.[0]?.resource;
+  if (!patient) {
+    throw new Error(`Patient ${patientId} not found`);
+  }
   const firstName = getFirstName(patient);
   const lastName = getLastName(patient);
   const birthDate = patient.birthDate;
