@@ -1,9 +1,10 @@
-import { Encounter } from 'fhir/r4b';
+import { Observation } from 'fhir/r4b';
 import { Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface ErxPatientSyncSubscriptionInput {
-  encounter: Encounter & { id: string };
+  observation: Observation & { id: string };
+  encounterId: string;
   patientId: string;
   secrets: Secrets;
 }
@@ -13,19 +14,24 @@ export function validateRequestParameters(input: ZambdaInput): ErxPatientSyncSub
     throw new Error('No request body provided');
   }
 
-  const encounter = JSON.parse(input.body) as Encounter;
+  const observation = JSON.parse(input.body) as Observation;
 
-  if (encounter.resourceType !== 'Encounter') {
-    throw new Error(`resource parsed should be an Encounter but was a ${encounter.resourceType}`);
+  if (observation.resourceType !== 'Observation') {
+    throw new Error(`resource parsed should be an Observation but was a ${observation.resourceType}`);
   }
 
-  if (!encounter.id) {
-    throw new Error("Encounter FHIR resource doesn't have an id.");
+  if (!observation.id) {
+    throw new Error("Observation FHIR resource doesn't have an id.");
   }
 
-  const patientId = encounter.subject?.reference?.split('/')[1];
+  const encounterId = observation.encounter?.reference?.split('/')[1];
+  if (!encounterId) {
+    throw new Error(`Encounter reference not found on observation ${observation.id}`);
+  }
+
+  const patientId = observation.subject?.reference?.split('/')[1];
   if (!patientId) {
-    throw new Error(`Patient reference not found on encounter ${encounter.id}`);
+    throw new Error(`Patient reference not found on observation ${observation.id}`);
   }
 
   if (!input.secrets) {
@@ -33,7 +39,8 @@ export function validateRequestParameters(input: ZambdaInput): ErxPatientSyncSub
   }
 
   return {
-    encounter: encounter as Encounter & { id: string },
+    observation: observation as Observation & { id: string },
+    encounterId,
     patientId,
     secrets: input.secrets,
   };

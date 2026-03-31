@@ -2032,13 +2032,17 @@
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "Sync patient with eRx service and warm medication history cache when encounter becomes in-progress",
-        "criteria": "Encounter?status=in-progress&_tag:not=encounter-erx-sync-status|ERX_PATIENT_SYNCED",
+        "reason": "Sync patient with eRx service when height or weight vitals are recorded",
+        "criteria": "Observation?code=29463-7,8302-2",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
         },
         "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "update"
