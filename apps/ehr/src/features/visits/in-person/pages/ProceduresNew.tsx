@@ -781,20 +781,14 @@ export default function ProceduresNew(): ReactElement {
           const selected = selectOptions?.procedureTypes.find(
             (procedureType) => procedureType.name === values.procedureType
           );
-          const newCodes: CPTCodeDTO[] = [];
-          if (selected?.cpt) {
-            newCodes.push({
-              code: selected.cpt.code,
-              display: selected.cpt.display,
-            });
+          const existing = state.cptCodes ?? [];
+          if (selected?.cpt && !existing.some((c) => c.code === selected.cpt!.code)) {
+            existing.push({ code: selected.cpt.code, display: selected.cpt.display });
           }
-          if (selected?.hcpcs) {
-            newCodes.push({
-              code: selected.hcpcs.code,
-              display: selected.hcpcs.display,
-            });
+          if (selected?.hcpcs && !existing.some((c) => c.code === selected.hcpcs!.code)) {
+            existing.push({ code: selected.hcpcs.code, display: selected.hcpcs.display });
           }
-          state.cptCodes = newCodes;
+          state.cptCodes = existing;
 
           if (selected) {
             Object.entries(PROCEDURES_CONFIG.prepopulation[selected.code] ?? []).forEach(([field, value]) => {
@@ -846,23 +840,17 @@ export default function ProceduresNew(): ReactElement {
   const onQuickPickSelectRef = useRef(onQuickPickSelect);
   onQuickPickSelectRef.current = onQuickPickSelect;
 
-  const selectedProcedureTypeCode = selectOptions?.procedureTypes?.find(
-    (procedureType) => procedureType.name === formValues.procedureType
-  )?.code;
-
   const commandPaletteItems = useMemo(
     () =>
       procedureId
         ? []
-        : mergedQuickPicks
-            .filter((qp) => selectedProcedureTypeCode == null || selectedProcedureTypeCode === qp.procedureType)
-            .map((qp) => ({
-              id: `procedure-${qp.id ?? qp.name}`,
-              label: qp.name,
-              category: 'Add Procedure',
-              onSelect: () => onQuickPickSelectRef.current(qp),
-            })),
-    [procedureId, selectedProcedureTypeCode, mergedQuickPicks]
+        : mergedQuickPicks.map((qp) => ({
+            id: `procedure-${qp.id ?? qp.name}`,
+            label: qp.name,
+            category: 'Add Procedure',
+            onSelect: () => onQuickPickSelectRef.current(qp),
+          })),
+    [procedureId, mergedQuickPicks]
   );
   useCommandPaletteSource('procedure-quick-picks', commandPaletteItems);
 
@@ -897,14 +885,7 @@ export default function ProceduresNew(): ReactElement {
             </Box>
 
             <QuickPicksButton
-              quickPicks={
-                !procedureId
-                  ? mergedQuickPicks.filter(
-                      (quickPick) =>
-                        selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
-                    )
-                  : []
-              }
+              quickPicks={!procedureId ? mergedQuickPicks : []}
               getLabel={(quickPick) => quickPick.name}
               onSelect={onQuickPickSelect}
               showAddOption
