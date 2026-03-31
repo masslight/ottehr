@@ -52,10 +52,9 @@ export const QuickPicksButton = <T,>({
     handleClose();
   };
 
+  const query = searchText.toLowerCase();
   const filteredQuickPicks =
-    searchable && searchText
-      ? quickPicks.filter((item) => getLabel(item).toLowerCase().includes(searchText.toLowerCase()))
-      : quickPicks;
+    searchable && query ? quickPicks.filter((item) => getLabel(item).toLowerCase().includes(query)) : quickPicks;
 
   const handleSearchKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'ArrowDown') {
@@ -157,7 +156,11 @@ export const QuickPicksButton = <T,>({
         )}
         {(showAddOption || searchable) && filteredQuickPicks.length > 0 && <Divider />}
         {filteredQuickPicks.map((item, index) => (
-          <MenuItem key={index} onClick={() => handleSelect(item)} selected={searchable && index === highlightedIndex}>
+          <MenuItem
+            key={getLabel(item)}
+            onClick={() => handleSelect(item)}
+            selected={searchable && index === highlightedIndex}
+          >
             {getLabel(item)}
           </MenuItem>
         ))}

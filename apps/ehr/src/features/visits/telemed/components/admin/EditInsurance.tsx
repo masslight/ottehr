@@ -3,6 +3,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  Chip,
   FormLabel,
   Grid,
   Paper,
@@ -11,15 +12,17 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Address, Identifier, Organization } from 'fhir/r4b';
+import { Address, ChargeItemDefinition, Identifier, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { INSURANCES_URL } from 'src/App';
+import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL, INSURANCES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
-import { FHIR_EXTENSION, INSURANCE_SETTINGS_MAP } from 'utils';
+import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
+import { useListFeeSchedulesQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
+import { CASE_RATE_CODE, FHIR_EXTENSION, INSURANCE_SETTINGS_MAP, RCM_TAG_SYSTEM } from 'utils';
 import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './admin.queries';
 
 // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
@@ -90,6 +93,60 @@ export default function EditInsurance(): JSX.Element {
   const isActive = insuranceDetails?.active ?? true;
 
   const [payerNameInputValue, setPayerNameInputValue] = useState('');
+
+  const { data: feeSchedules, isFetching: feeSchedulesFetching } = useListFeeSchedulesQuery();
+  const { data: chargeMasters, isFetching: chargeMastersFetching } = useListChargeMastersQuery();
+
+  const findApplicable = useCallback(
+    (items: ChargeItemDefinition[] | undefined, orgId: string | undefined): ChargeItemDefinition | null => {
+      if (!items || !orgId) return null;
+      const today = new Date().toISOString().split('T')[0];
+      const associated = items.filter(
+        (item) =>
+          item.status === 'active' &&
+          item.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${orgId}`)
+      );
+      const applicable = associated.filter((item) => !item.date || item.date <= today);
+      applicable.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+      return applicable[0] ?? null;
+    },
+    []
+  );
+
+  const applicableFeeSchedule = useMemo(
+    () => findApplicable(feeSchedules, insuranceId),
+    [findApplicable, feeSchedules, insuranceId]
+  );
+
+  const applicableChargeMaster = useMemo(() => {
+    if (!chargeMasters || !insuranceId) return { chargeMaster: null, source: null };
+
+    // 1. Payer-specific
+    const payerSpecific = findApplicable(chargeMasters, insuranceId);
+    if (payerSpecific) return { chargeMaster: payerSpecific, source: 'payer-specific' as const };
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // 2. Default-insurance fallback
+    const defaultCMs = chargeMasters.filter(
+      (cm) =>
+        cm.status === 'active' &&
+        cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'default-insurance')
+    );
+    const applicableDefaults = defaultCMs.filter((cm) => !cm.date || cm.date <= today);
+    applicableDefaults.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+    if (applicableDefaults[0]) return { chargeMaster: applicableDefaults[0], source: 'default-insurance' as const };
+
+    // 3. Self-pay fallback
+    const selfPayCMs = chargeMasters.filter(
+      (cm) => cm.status === 'active' && cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'self-pay')
+    );
+    const applicableSelfPay = selfPayCMs.filter((cm) => !cm.date || cm.date <= today);
+    applicableSelfPay.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+    if (applicableSelfPay[0]) return { chargeMaster: applicableSelfPay[0], source: 'self-pay' as const };
+
+    return { chargeMaster: null, source: null };
+  }, [chargeMasters, insuranceId, findApplicable]);
 
   const settingsMap = Object.fromEntries(
     Object.entries(INSURANCE_SETTINGS_MAP).map(([key, _]) => [key as keyof typeof INSURANCE_SETTINGS_MAP, false])
@@ -386,6 +443,149 @@ export default function EditInsurance(): JSX.Element {
                 </LoadingButton>
               </Paper>
             ))}
+          {!isNew && (
+            <Paper sx={{ padding: 3, marginTop: 3 }}>
+              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                Applicable Fee Schedule
+              </Typography>
+              <Typography variant="body1" marginTop={1}>
+                The most recent fee schedule associated with this payer with an effective date on or before today.
+              </Typography>
+              {feeSchedulesFetching ? (
+                <Skeleton height={80} sx={{ marginTop: -1 }} />
+              ) : !applicableFeeSchedule ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  No applicable fee schedule found for this insurance.
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    mt: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 1.5,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                  }}
+                >
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {applicableFeeSchedule.title}
+                      </Typography>
+                      {applicableFeeSchedule.meta?.tag?.some(
+                        (t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE
+                      ) ? (
+                        <Chip
+                          label="Case Rate"
+                          size="small"
+                          sx={{
+                            fontSize: '0.65rem',
+                            height: 20,
+                            backgroundColor: '#E65100',
+                            color: '#fff',
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          label="Fee-for-Service"
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontSize: '0.65rem',
+                            height: 20,
+                            borderColor: '#2E7D32',
+                            color: '#2E7D32',
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Effective: {applicableFeeSchedule.date ?? 'N/A'} ·{' '}
+                      {applicableFeeSchedule.propertyGroup?.length ?? 0} procedure codes
+                    </Typography>
+                  </Box>
+                  <Link to={`${FEE_SCHEDULES_URL}/${applicableFeeSchedule.id}`}>
+                    <Button size="small" sx={{ textTransform: 'none' }}>
+                      View
+                    </Button>
+                  </Link>
+                </Box>
+              )}
+            </Paper>
+          )}
+          {!isNew && (
+            <Paper sx={{ padding: 3, marginTop: 3 }}>
+              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                Applicable Charge Master
+              </Typography>
+              <Typography variant="body1" marginTop={1}>
+                The most recent charge master applicable to this payer, resolved by payer association then designation
+                fallback.
+              </Typography>
+              {chargeMastersFetching ? (
+                <Skeleton height={80} sx={{ marginTop: -1 }} />
+              ) : !applicableChargeMaster.chargeMaster ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  No applicable charge master found for this insurance.
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    mt: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 1.5,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                  }}
+                >
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {applicableChargeMaster.chargeMaster.title}
+                      </Typography>
+                      <Chip
+                        label={
+                          applicableChargeMaster.source === 'payer-specific'
+                            ? 'Payer-Specific'
+                            : applicableChargeMaster.source === 'default-insurance'
+                            ? 'Default Insurance'
+                            : 'Self-Pay'
+                        }
+                        size="small"
+                        sx={{
+                          fontSize: '0.65rem',
+                          height: 20,
+                          ...(applicableChargeMaster.source === 'payer-specific'
+                            ? {}
+                            : applicableChargeMaster.source === 'default-insurance'
+                            ? { backgroundColor: '#6A1B9A', color: '#fff' }
+                            : { backgroundColor: '#E91E90', color: '#fff' }),
+                        }}
+                        {...(applicableChargeMaster.source === 'payer-specific'
+                          ? { color: 'primary', variant: 'outlined' }
+                          : {})}
+                      />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Effective: {applicableChargeMaster.chargeMaster.date ?? 'N/A'} ·{' '}
+                      {applicableChargeMaster.chargeMaster.propertyGroup?.length ?? 0} procedure codes
+                    </Typography>
+                  </Box>
+                  <Link to={`${CHARGE_MASTERS_URL}/${applicableChargeMaster.chargeMaster.id}`}>
+                    <Button size="small" sx={{ textTransform: 'none' }}>
+                      View
+                    </Button>
+                  </Link>
+                </Box>
+              )}
+            </Paper>
+          )}
         </Grid>
       </Grid>
     </PageContainer>

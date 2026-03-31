@@ -154,6 +154,21 @@ const relatedPersonTests = (e2eResources: Resource[], integrationResources: Reso
     (resource) => resource.resourceType === 'RelatedPerson'
   ) as RelatedPerson[];
 
+  if (e2eRPs.length !== integrationRPs.length) {
+    console.log('=== RelatedPerson COUNT MISMATCH DIAGNOSTIC ===');
+    console.log(`e2e has ${e2eRPs.length}, integration has ${integrationRPs.length}`);
+    const summarize = (rp: RelatedPerson): string => {
+      const code = rp.relationship?.[0]?.coding?.[0]?.code ?? 'no-code';
+      const display = rp.relationship?.[0]?.coding?.[0]?.display ?? 'no-display';
+      const name = rp.name?.[0] ? `${rp.name[0].given?.join(' ')} ${rp.name[0].family}` : 'no-name';
+      return `id=${rp.id} code=${code} display=${display} name=${name}`;
+    };
+    console.log('e2e RelatedPersons:');
+    e2eRPs.forEach((rp, i) => console.log(`  [${i}] ${summarize(rp)}`));
+    console.log('integration RelatedPersons:');
+    integrationRPs.forEach((rp, i) => console.log(`  [${i}] ${summarize(rp)}`));
+    console.log('=== END DIAGNOSTIC ===');
+  }
   expect(e2eRPs.length).toEqual(integrationRPs.length);
 
   const e2eCleaned = e2eRPs.map((rp) => cleanRelatedPerson(rp));

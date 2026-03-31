@@ -1,7 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
 import Add from '@mui/icons-material/Add';
-import BlockIcon from '@mui/icons-material/Block';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
@@ -9,7 +7,6 @@ import {
   capitalize,
   Chip,
   Grid,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -23,10 +20,9 @@ import {
   useTheme,
 } from '@mui/material';
 import { Medication } from 'fhir/r4b';
-import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
+import { getInHouseMedications } from 'src/api/api';
 import Loading from 'src/components/Loading';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from 'src/hooks/useEvolveUser';
@@ -47,18 +43,16 @@ export default function MedicationsConfigurationPage(): ReactElement {
     },
     []
   );
-
-  const fetchMedications = useCallback(async (): Promise<void> => {
-    if (!oystehrZambda) {
-      return;
-    }
-    const medicationsTemp = await getInHouseMedications(oystehrZambda);
-    setMedications(medicationsTemp);
-  }, [oystehrZambda]);
-
   useEffect(() => {
+    async function fetchMedications(): Promise<void> {
+      if (!oystehrZambda) {
+        return;
+      }
+      const medicationsTemp = await getInHouseMedications(oystehrZambda);
+      setMedications(medicationsTemp);
+    }
     fetchMedications().catch((error) => console.log('Error fetching medications', error));
-  }, [fetchMedications]);
+  }, [oystehrZambda]);
 
   return (
     <Box sx={{ marginTop: 2 }}>
@@ -69,7 +63,6 @@ export default function MedicationsConfigurationPage(): ReactElement {
         rowsPerPage={pageState.rowsPerPage}
         searchText={pageState.searchText}
         onPageStateChange={handlePageStateChange}
-        onRefresh={fetchMedications}
       />
     </Box>
   );
@@ -82,7 +75,6 @@ interface MedicationsTableProps {
   rowsPerPage: number;
   searchText: string;
   onPageStateChange: (newPageState: { pageNumber?: number; rowsPerPage?: number; searchText?: string }) => void;
-  onRefresh: () => Promise<void>;
 }
 
 function MedicationsTable({
@@ -92,48 +84,40 @@ function MedicationsTable({
   rowsPerPage,
   searchText,
   onPageStateChange,
-  onRefresh,
 }: MedicationsTableProps): ReactElement {
   const theme = useTheme();
-  const { oystehrZambda } = useApiClients();
-  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
 
-  // Filter and sort: active first, then by name
+  // Filter the medications based on the search text
   const filteredMedications: Medication[] = useMemo(
     () =>
-      (
-        medications?.filter((medication: Medication) => {
-          const name = medication.identifier?.find(
-            (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-          )?.value;
-          return name?.toLowerCase().includes(searchText.toLowerCase());
-        }) || []
-      ).sort((a, b) => {
-        const statusA = a.status ?? 'active';
-        const statusB = b.status ?? 'active';
-        if (statusA === 'active' && statusB !== 'active') return -1;
-        if (statusA !== 'active' && statusB === 'active') return 1;
-        const nameA =
-          a.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value?.toLowerCase() ?? '';
-        const nameB =
-          b.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value?.toLowerCase() ?? '';
-        return nameA.localeCompare(nameB);
-      }),
+      medications?.filter((medication: Medication) => {
+        const name = medication.identifier?.find(
+          (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+        )?.value;
+        return name?.toLowerCase().includes(searchText.toLowerCase());
+      }) || [],
     [medications, searchText]
   );
 
+  // For pagination, only include the rows that are on the current page
   const pageMedications: Medication[] = useMemo(
-    () => filteredMedications.slice(pageNumber * rowsPerPage, (pageNumber + 1) * rowsPerPage),
+    () =>
+      filteredMedications.slice(
+        pageNumber * rowsPerPage, // skip over the rows from previous pages
+        (pageNumber + 1) * rowsPerPage // only show the rows from the current page
+      ),
     [filteredMedications, pageNumber, rowsPerPage]
   );
 
+  // Handle pagination
   const handleChangePage = useCallback(
-    (_event: unknown, newPageNumber: number): void => {
+    (event: unknown, newPageNumber: number): void => {
       onPageStateChange({ pageNumber: newPageNumber });
     },
     [onPageStateChange]
   );
 
+  // Handle changing the number of rows per page
   const handleChangeRowsPerPage = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
       onPageStateChange({ rowsPerPage: parseInt(event.target.value), pageNumber: 0 });
@@ -141,6 +125,7 @@ function MedicationsTable({
     [onPageStateChange]
   );
 
+  // Handle changing the search text
   const handleChangeSearchText = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
       onPageStateChange({ searchText: event.target.value, pageNumber: 0 });
@@ -148,28 +133,12 @@ function MedicationsTable({
     [onPageStateChange]
   );
 
-  const handleToggleStatus = async (medication: Medication): Promise<void> => {
-    if (!oystehrZambda || !medication.id) return;
-    const currentStatus = medication.status ?? 'active';
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    try {
-      await updateInHouseMedication(oystehrZambda, {
-        medicationID: medication.id,
-        status: newStatus,
-      });
-      enqueueSnackbar(`Medication ${newStatus === 'active' ? 'activated' : 'deactivated'}`, { variant: 'success' });
-      await onRefresh();
-    } catch (error) {
-      console.error('Failed to update medication status:', error);
-      enqueueSnackbar('Failed to update medication status', { variant: 'error' });
-    }
-  };
-
   return (
     <>
       <Paper sx={{ padding: 2 }}>
         <TableContainer>
           <Grid container direction="row" justifyContent="start" alignItems="center" marginTop={1}>
+            {/* Medication Name Search Box */}
             <Grid item xs={6}>
               <TextField
                 id="outlined-basic"
@@ -182,7 +151,7 @@ function MedicationsTable({
               />
             </Grid>
             <Grid item xs={3}>
-              {isAdmin ? (
+              {currentUser?.hasRole([RoleType.Administrator]) ? (
                 <Link to={`/admin/medications/add`}>
                   <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
                     Add medication
@@ -191,6 +160,7 @@ function MedicationsTable({
               ) : (
                 <Tooltip title="You must be an administrator to add new medications" placement="top">
                   <span>
+                    {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
                     <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />} disabled>
                       Add medication
                     </Button>
@@ -207,12 +177,12 @@ function MedicationsTable({
             </Grid>
           </Grid>
 
+          {/* Medications Table */}
           <Table sx={{ minWidth: 650 }} aria-label="medicationsTable">
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
-                <TableCell sx={{ width: '40%' }}>Name</TableCell>
-                <TableCell sx={{ width: '30%' }}>Status</TableCell>
-                {isAdmin && <TableCell sx={{ width: '30%' }}>Actions</TableCell>}
+                <TableCell sx={{ width: '25%' }}>Name</TableCell>
+                <TableCell sx={{ width: '25%' }}>Status</TableCell>
               </TableRow>
             </TableHead>
 
@@ -221,8 +191,10 @@ function MedicationsTable({
                 const name = medication.identifier?.find(
                   (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
                 )?.value;
-                const status = medication.status ?? 'active';
-                const isActive = status === 'active';
+                let status = medication.status;
+                if (status === undefined) {
+                  status = 'active';
+                }
 
                 return (
                   <TableRow key={medication.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
@@ -239,12 +211,12 @@ function MedicationsTable({
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={capitalize(status)}
+                        label={status ? capitalize(status) : 'Unknown'}
                         sx={{
-                          backgroundColor: isActive
-                            ? otherColors.employeeActiveChip
-                            : otherColors.employeeDeactivatedChip,
-                          color: isActive ? otherColors.employeeActiveText : otherColors.employeeDeactivatedText,
+                          backgroundColor:
+                            status === 'active' ? otherColors.employeeActiveChip : otherColors.employeeDeactivatedChip,
+                          color:
+                            status === 'active' ? otherColors.employeeActiveText : otherColors.employeeDeactivatedText,
                           borderRadius: '4px',
                           height: '17px',
                           '& .MuiChip-label': {
@@ -254,19 +226,6 @@ function MedicationsTable({
                         }}
                       />
                     </TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <Tooltip title={isActive ? 'Deactivate' : 'Activate'}>
-                          <IconButton
-                            size="small"
-                            onClick={() => void handleToggleStatus(medication)}
-                            sx={{ color: isActive ? theme.palette.error.main : theme.palette.success.main }}
-                          >
-                            {isActive ? <BlockIcon fontSize="small" /> : <CheckCircleOutlineIcon fontSize="small" />}
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    )}
                   </TableRow>
                 );
               })}

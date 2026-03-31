@@ -18,3 +18,26 @@ export const VisitDetailsInputValidatedSchema = VisitDetailsInputSchema.extend({
 });
 
 export type VisitDetailsInputValidated = z.infer<typeof VisitDetailsInputValidatedSchema>;
+
+export const GetVisitFaxHistoryInputSchema = z.object({
+  appointmentId: z.string().uuid(),
+});
+
+export type GetVisitFaxHistoryInput = z.infer<typeof GetVisitFaxHistoryInputSchema>;
+
+export const GetVisitFaxHistoryInputValidatedSchema = GetVisitFaxHistoryInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+
+export type GetVisitFaxHistoryInputValidated = z.infer<typeof GetVisitFaxHistoryInputValidatedSchema>;
+
+export interface GetVisitFaxHistoryOutput {
+  faxesSent: {
+    recipientNumber: string;
+    created: string;
+    sender: {
+      id: string;
+      display: string;
+    };
+  }[];
+}

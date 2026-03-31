@@ -47,6 +47,8 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     throw new Error('Study name must be a string');
   }
 
+  const normalizedStudyName = typeof studyName === 'string' ? studyName.trim() || undefined : undefined;
+
   if (typeof consentObtained !== 'boolean') {
     throw new Error('consentObtained');
   }
@@ -58,7 +60,7 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     encounter,
     stat,
     clinicalHistory,
-    studyName: typeof studyName === 'string' ? studyName : undefined,
+    studyName: normalizedStudyName,
     consentObtained,
   };
 };

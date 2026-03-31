@@ -3,6 +3,7 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -120,26 +121,19 @@ export default function PracticeKpis(): React.ReactElement {
   );
 
   useEffect(() => {
-    void fetchReport(dateFilter);
+    // Only auto-fetch for preset date filters (today, yesterday, etc.)
+    // Custom date/range selections require the user to click Refresh
+    if (dateFilter !== 'custom' && dateFilter !== 'customRange') {
+      void fetchReport(dateFilter);
+    }
   }, [dateFilter, fetchReport]);
-
-  // Trigger fetch when custom date changes
-  useEffect(() => {
-    if (dateFilter === 'custom') {
-      void fetchReport('custom');
-    }
-  }, [customDate, dateFilter, fetchReport]);
-
-  // Trigger fetch when custom date range changes
-  useEffect(() => {
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
-  }, [customStartDate, customEndDate, dateFilter, fetchReport]);
 
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
     setDateFilter(newFilter);
+    if (newFilter === 'custom' || newFilter === 'customRange') {
+      setReportData(null);
+    }
   };
 
   const handleCustomDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -544,6 +538,10 @@ export default function PracticeKpis(): React.ReactElement {
                   />
                 </>
               )}
+
+              <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
+                Refresh
+              </Button>
 
               <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
                 Showing: {getDateRangeLabel(dateFilter)}

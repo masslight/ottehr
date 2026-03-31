@@ -302,7 +302,7 @@ const parseResultsToOrder = (
   const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
 
   const clinicalHistory = extractOrderDetailValue(serviceRequest, 'clinical-history');
-  const studyName = extractOrderDetailValue(serviceRequest, 'study-name');
+  const studyName = extractOrderDetailValue(serviceRequest, 'requested-procedure-description');
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;

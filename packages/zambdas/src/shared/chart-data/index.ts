@@ -1175,8 +1175,10 @@ export async function saveOrUpdateResource<Savable extends FhirResource>(
   resource: Savable,
   oystehr: Oystehr
 ): Promise<Omit<Savable, 'id'> & { id: string }> {
-  if (resource.id === undefined) return oystehr.fhir.create<Savable>(resource);
-  return oystehr.fhir.update<Savable>(resource);
+  if (resource.id === undefined) {
+    return oystehr.fhir.create<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
+  }
+  return oystehr.fhir.update<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
 }
 
 export const chartDataResourceHasMetaTagByCode = (
