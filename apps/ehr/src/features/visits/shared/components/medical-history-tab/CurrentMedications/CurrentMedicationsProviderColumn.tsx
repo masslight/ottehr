@@ -58,7 +58,13 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const { medicationPrefill, clearMedicationPrefill } = useAiSuggestionPrefillStore();
   useEffect(() => {
     if (medicationPrefill) {
-      setValue('medication', medicationPrefill);
+      setValue('medication', medicationPrefill.medication);
+      if (medicationPrefill.dose) {
+        setValue('dose', medicationPrefill.dose);
+      }
+      if (medicationPrefill.date) {
+        setValue('date', medicationPrefill.date);
+      }
       clearMedicationPrefill();
     }
   }, [medicationPrefill, setValue, clearMedicationPrefill]);

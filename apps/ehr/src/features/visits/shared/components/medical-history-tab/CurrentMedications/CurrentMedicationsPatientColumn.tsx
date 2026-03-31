@@ -3,7 +3,12 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { splitAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import {
+  extractDateFromValue,
+  extractDoseFromValue,
+  parseAiValue,
+  useAiSuggestionMapping,
+} from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAiSuggestionPrefillStore } from 'src/features/visits/shared/stores/aiSuggestionPrefill.store';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
@@ -26,7 +31,6 @@ export const CurrentMedicationsPatientColumn: FC = () => {
   const mappedSuggestions = useAiSuggestionMapping(aiMedicationsHistory, 'medications');
   const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set());
 
-  // Pre-populate applied indices for medications already in chart
   const effectiveAppliedIndices = useMemo(() => {
     const indices = new Set(appliedIndices);
     if (chartData?.medications && mappedSuggestions.length > 0) {
@@ -49,7 +53,9 @@ export const CurrentMedicationsPatientColumn: FC = () => {
       if (!mapped?.mappedData || mapped.mappedData.section !== 'medications') return;
 
       const { section: _section, ...medicationData } = mapped.mappedData;
-      setMedicationPrefill(medicationData);
+      const dose = extractDoseFromValue(mapped.originalValue);
+      const date = extractDateFromValue(mapped.originalValue);
+      setMedicationPrefill({ medication: medicationData, dose, date });
       setAppliedIndices((prev) => new Set(prev).add(index));
     },
     [mappedSuggestions, setMedicationPrefill]
@@ -57,7 +63,7 @@ export const CurrentMedicationsPatientColumn: FC = () => {
 
   const expandedContent = useMemo(() => {
     return aiMedicationsHistory.flatMap((item) =>
-      splitAiValue(item.value).map((v) => ({
+      parseAiValue(item.value, 'medications').map((v) => ({
         ...item,
         value: v,
       }))

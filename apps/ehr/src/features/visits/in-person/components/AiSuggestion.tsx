@@ -133,15 +133,13 @@ export default function AiSuggestion({
               )}
               <Box
                 sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
                   position: 'relative',
                   pl: 1.5,
                   '&::before': {
                     content: '""',
                     position: 'absolute',
                     left: 4,
+                    top: 'calc(0.75em - 2px)',
                     width: 4,
                     height: 4,
                     borderRadius: '50%',
@@ -151,6 +149,7 @@ export default function AiSuggestion({
               >
                 <Typography
                   variant="body1"
+                  component="span"
                   onClick={isClickable ? () => onSuggestionClick(originalIndex) : undefined}
                   sx={
                     isClickable
@@ -168,16 +167,33 @@ export default function AiSuggestion({
                         }
                   }
                 >
-                  {item.value}
+                  {mapped?.searchDisplay ?? item.value}
                 </Typography>
-                {isLoading && <CircularProgress size={12} />}
+                {mapped?.searchDisplay && (
+                  <Typography variant="inherit" component="span">
+                    ({item.value})
+                  </Typography>
+                )}
+                {isLoading && <CircularProgress size={12} sx={{ ml: 0.5, verticalAlign: 'middle' }} />}
               </Box>
             </Box>
           );
         })}
         {hasClickableItems && hintArea && (
           <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-            Click on {hintArea} to apply to the note
+            Click on{' '}
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{
+                backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                borderRadius: '4px',
+                padding: '2px 6px',
+              }}
+            >
+              area
+            </Typography>{' '}
+            to apply to the note
           </Typography>
         )}
       </>

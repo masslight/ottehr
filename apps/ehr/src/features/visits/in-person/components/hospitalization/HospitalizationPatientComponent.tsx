@@ -1,7 +1,7 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
-import { splitAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import { parseAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -22,7 +22,7 @@ export const HospitalizationPatientComponent: FC = () => {
   const expandedContent = useMemo(() => {
     if (!aiHospitalizations) return [];
     return aiHospitalizations.flatMap((item) =>
-      splitAiValue(item.value).map((v) => ({
+      parseAiValue(item.value, 'episodeOfCare').map((v) => ({
         ...item,
         value: v,
       }))

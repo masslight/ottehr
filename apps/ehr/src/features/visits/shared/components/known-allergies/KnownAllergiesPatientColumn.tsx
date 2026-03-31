@@ -2,7 +2,7 @@ import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement, useCallback, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { splitAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import { parseAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
@@ -33,7 +33,7 @@ export const KnownAllergiesPatientColumn: FC = () => {
   const expandedContent = useMemo(() => {
     if (!aiAllergies) return [];
     return aiAllergies.flatMap((item) =>
-      splitAiValue(item.value).map((v) => ({
+      parseAiValue(item.value, 'allergies').map((v) => ({
         ...item,
         value: v,
       }))

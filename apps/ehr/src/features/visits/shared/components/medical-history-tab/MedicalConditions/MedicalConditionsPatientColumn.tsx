@@ -3,7 +3,7 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { splitAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
+import { parseAiValue, useAiSuggestionMapping } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
@@ -25,7 +25,7 @@ export const MedicalConditionsPatientColumn: FC = () => {
   const expandedContent = useMemo(() => {
     if (!aiPastMedicalHistory) return [];
     return aiPastMedicalHistory.flatMap((item) =>
-      splitAiValue(item.value).map((v) => ({
+      parseAiValue(item.value, 'conditions').map((v) => ({
         ...item,
         value: v,
       }))
