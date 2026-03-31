@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { makeCptCodeDisplay } from 'utils';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
@@ -8,7 +9,10 @@ export const CPTCodesContainer: FC = () => {
   const cptCodes = chartData?.cptCodes;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+    <Box
+      data-testid={dataTestIds.progressNotePage.cptCodes}
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+    >
       <Typography variant="h5" color="primary.dark">
         CPT codes
       </Typography>

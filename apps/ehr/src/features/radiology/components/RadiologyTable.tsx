@@ -19,7 +19,7 @@ import { RadiologyOrderLoading } from './RadiologyOrderLoading';
 import { RadiologyTableRow } from './RadiologyTableRow';
 import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
 
-export type RadiologyTableColumn = 'studyType' | 'dx' | 'ordered' | 'stat' | 'status' | 'actions';
+export type RadiologyTableColumn = 'studyType' | 'studyName' | 'dx' | 'ordered' | 'stat' | 'status' | 'actions';
 
 type RadiologyTableProps = {
   patientId?: string;
@@ -86,11 +86,13 @@ export const RadiologyTable = ({
   const getColumnWidth = (column: RadiologyTableColumn): string => {
     switch (column) {
       case 'studyType':
-        return '25%';
+        return '20%';
+      case 'studyName':
+        return '15%';
       case 'dx':
-        return '25%';
+        return '20%';
       case 'ordered':
-        return '25%';
+        return '20%';
       case 'stat':
         return '10%';
       case 'status':
@@ -106,6 +108,8 @@ export const RadiologyTable = ({
     switch (column) {
       case 'studyType':
         return 'Study type';
+      case 'studyName':
+        return 'Study name';
       case 'dx':
         return 'Dx';
       case 'ordered':

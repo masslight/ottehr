@@ -3,6 +3,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import {
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
   FormControl,
@@ -210,15 +211,12 @@ export default function RecentPatients(): React.ReactElement {
   );
 
   useEffect(() => {
-    void fetchReport(dateFilter);
-  }, [dateFilter, fetchReport]);
-
-  // Trigger fetch when custom date range changes
-  useEffect(() => {
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
+    // Only auto-fetch for preset date filters (today, yesterday, etc.)
+    // Custom date/range selections require the user to click Refresh
+    if (dateFilter !== 'custom' && dateFilter !== 'customRange') {
+      void fetchReport(dateFilter);
     }
-  }, [customStartDate, customEndDate, dateFilter, fetchReport]);
+  }, [dateFilter, fetchReport]);
 
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
@@ -457,6 +455,10 @@ export default function RecentPatients(): React.ReactElement {
                 ))}
             </Select>
           </FormControl>
+
+          <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
+            Refresh
+          </Button>
         </Box>
 
         {/* Error display */}

@@ -24,6 +24,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
@@ -102,7 +103,9 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   if (loading) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1">Loading In-house Lab Orders...</Typography>
+        <Typography data-testid={dataTestIds.inHouseLabsPage.loading} variant="body1">
+          Loading In-house Lab Orders...
+        </Typography>
       </Paper>
     );
   }

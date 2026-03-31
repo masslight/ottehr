@@ -35,6 +35,8 @@ export const RadiologyTableRow = ({
     switch (column) {
       case 'studyType':
         return <Typography variant="body2">{order.studyType}</Typography>;
+      case 'studyName':
+        return <Typography variant="body2">{order.studyName ?? '—'}</Typography>;
       case 'dx': {
         return <Typography variant="body2">{order.diagnosis}</Typography>;
       }

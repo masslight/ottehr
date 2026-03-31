@@ -15,7 +15,7 @@ export const userMe = async (token: string, secrets: Secrets | null): Promise<Us
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
   const oystehr = createOystehrClient(token, fhirAPI, projectAPI);
   const decodedToken = decodeJwt(token);
-  if (decodedToken.sub?.includes('@client') && getSecret(SecretsKeys.ENVIRONMENT, secrets) === 'local') {
+  if (decodedToken.sub?.includes('@client') && getSecret(SecretsKeys.ENVIRONMENT, secrets) !== 'production') {
     const m2mClient = await oystehr.m2m.me();
     const isMockProvider = m2mClient.description === M2MClientMockType.provider;
     return {
