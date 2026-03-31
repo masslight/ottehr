@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { MedicationDTO } from 'utils';
-import { findBestMatch } from '../helpers/externalMedicationMatching';
 import { ExtractObjectType } from '../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
@@ -36,24 +35,24 @@ export interface UseExternalMedicationHistoryResult {
 // Mock data for development/testing — remove when real eRx data is available
 const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
   {
-    id: 1001,
-    medicationId: 0,
+    id: 50001,
+    medicationId: 15237,
     ndc: null,
-    rxcui: null,
-    name: 'amLODIPine',
+    rxcui: 2047715,
+    name: 'amLODIPine Besylate-Celecoxib',
     route: 'Oral',
     doseForm: 'Tablet',
-    strength: '2.5 mg',
+    strength: '2.5-200 MG',
     dispenseUnit: 'Tablet',
     isBrandName: false,
-    genericName: 'amlodipine besylate',
+    genericName: 'amlodipine besylate-celecoxib',
     isOtc: false,
     refills: '3',
     daysSupply: 30,
     quantity: 30,
     classification: 'Calcium Channel Blocker',
     schedule: null,
-    directions: 'Take one tablet (2.5 mg) by mouth daily.',
+    directions: 'Take one tablet by mouth daily.',
     substitutionsAllowed: true,
     writtenDate: '2025-09-12',
     effectiveDate: '2025-09-12',
@@ -61,24 +60,24 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
     expirationDate: '2026-09-12',
   },
   {
-    id: 1002,
-    medicationId: 0,
+    id: 50002,
+    medicationId: 15238,
     ndc: null,
-    rxcui: null,
-    name: 'LisinoPRIL',
+    rxcui: 2047716,
+    name: 'amLODIPine Besylate-Celecoxib',
     route: 'Oral',
     doseForm: 'Tablet',
-    strength: '10 mg',
+    strength: '5-200 MG',
     dispenseUnit: 'Tablet',
     isBrandName: false,
-    genericName: 'lisinopril',
+    genericName: 'amlodipine besylate-celecoxib',
     isOtc: false,
     refills: '2',
     daysSupply: 30,
     quantity: 30,
-    classification: 'ACE Inhibitor',
+    classification: 'Calcium Channel Blocker',
     schedule: null,
-    directions: 'Take one tablet (10 mg) by mouth daily.',
+    directions: 'Take one tablet by mouth daily.',
     substitutionsAllowed: true,
     writtenDate: '2025-08-15',
     effectiveDate: '2025-08-15',
@@ -86,39 +85,14 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
     expirationDate: '2026-08-15',
   },
   {
-    id: 1003,
-    medicationId: 0,
-    ndc: null,
-    rxcui: null,
-    name: 'AtorvaSTATin',
+    id: 50003,
+    medicationId: 6693,
+    ndc: '72865024590',
+    rxcui: 966249,
+    name: 'Levothyroxine Sodium',
     route: 'Oral',
     doseForm: 'Tablet',
-    strength: '20 mg',
-    dispenseUnit: 'Tablet',
-    isBrandName: false,
-    genericName: 'atorvastatin calcium',
-    isOtc: false,
-    refills: '5',
-    daysSupply: 30,
-    quantity: 30,
-    classification: 'HMG-CoA Reductase Inhibitor',
-    schedule: null,
-    directions: 'Take one tablet (20 mg) by mouth every evening.',
-    substitutionsAllowed: true,
-    writtenDate: '2025-07-20',
-    effectiveDate: '2025-07-20',
-    lastFillDate: '2026-01-15',
-    expirationDate: '2026-07-20',
-  },
-  {
-    id: 1004,
-    medicationId: 0,
-    ndc: null,
-    rxcui: null,
-    name: 'Levothyroxine',
-    route: 'Oral',
-    doseForm: 'Tablet',
-    strength: '50 mcg',
+    strength: '175 MCG',
     dispenseUnit: 'Tablet',
     isBrandName: false,
     genericName: 'levothyroxine sodium',
@@ -128,7 +102,7 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
     quantity: 30,
     classification: 'Thyroid Agent',
     schedule: null,
-    directions: 'Take one tablet (50 mcg) by mouth daily on an empty stomach.',
+    directions: 'Take one tablet (175 mcg) by mouth daily on an empty stomach.',
     substitutionsAllowed: true,
     writtenDate: '2025-05-10',
     effectiveDate: '2025-05-10',
@@ -136,24 +110,24 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
     expirationDate: '2026-05-10',
   },
   {
-    id: 1005,
-    medicationId: 0,
-    ndc: null,
+    id: 50004,
+    medicationId: 6692,
+    ndc: '62991170903',
     rxcui: null,
-    name: 'MetFORMIN',
-    route: 'Oral',
-    doseForm: 'Tablet',
-    strength: '500 mg',
-    dispenseUnit: 'Tablet',
+    name: 'Levothyroxine Sodium',
+    route: null,
+    doseForm: 'Powder',
+    strength: null,
+    dispenseUnit: 'Gram',
     isBrandName: false,
-    genericName: 'metformin hydrochloride',
+    genericName: 'levothyroxine sodium',
     isOtc: false,
     refills: '1',
     daysSupply: 30,
-    quantity: 60,
-    classification: 'Biguanide',
+    quantity: 30,
+    classification: 'Thyroid Agent',
     schedule: null,
-    directions: 'Take one tablet (500 mg) by mouth twice daily with meals.',
+    directions: 'Use as directed.',
     substitutionsAllowed: true,
     writtenDate: '2025-06-18',
     effectiveDate: '2025-06-18',
@@ -161,79 +135,79 @@ const MOCK_EXTERNAL_HISTORY: ExternalHistoryItem[] = [
     expirationDate: '2026-06-18',
   },
   {
-    id: 1006,
-    medicationId: 0,
-    ndc: null,
-    rxcui: null,
-    name: 'Alendronate',
+    id: 50005,
+    medicationId: 22329,
+    ndc: '81964020415',
+    rxcui: 617322,
+    name: 'Amoxicillin-Pot Clavulanate',
     route: 'Oral',
-    doseForm: 'Tablet',
-    strength: '70 mg',
-    dispenseUnit: 'Tablet',
+    doseForm: 'Suspension Reconstituted',
+    strength: '250-62.5 MG/5ML',
+    dispenseUnit: 'Milliliter',
     isBrandName: false,
-    genericName: 'alendronate sodium',
+    genericName: 'amoxicillin-potassium clavulanate',
     isOtc: false,
-    refills: '3',
-    daysSupply: 28,
-    quantity: 4,
-    classification: 'Bisphosphonate',
+    refills: '0',
+    daysSupply: 10,
+    quantity: 150,
+    classification: 'Penicillin',
     schedule: null,
-    directions: 'Take one tablet (70 mg) by mouth once weekly.',
-    substitutionsAllowed: true,
-    writtenDate: '2025-09-30',
-    effectiveDate: '2025-09-30',
-    lastFillDate: '2025-12-28',
-    expirationDate: '2026-09-30',
-  },
-  {
-    id: 1007,
-    medicationId: 0,
-    ndc: null,
-    rxcui: null,
-    name: 'Omeprazole',
-    route: 'Oral',
-    doseForm: 'Capsule',
-    strength: '20 mg',
-    dispenseUnit: 'Capsule',
-    isBrandName: false,
-    genericName: 'omeprazole',
-    isOtc: false,
-    refills: '2',
-    daysSupply: 30,
-    quantity: 30,
-    classification: 'Proton Pump Inhibitor',
-    schedule: null,
-    directions: 'Take one capsule (20 mg) by mouth daily before breakfast.',
+    directions: 'Take 5 mL by mouth every 8 hours for 10 days.',
     substitutionsAllowed: true,
     writtenDate: '2025-10-05',
     effectiveDate: '2025-10-05',
-    lastFillDate: '2026-01-10',
+    lastFillDate: '2025-10-05',
     expirationDate: '2026-10-05',
   },
   {
-    id: 1008,
-    medicationId: 0,
+    id: 50006,
+    medicationId: 22328,
     ndc: null,
-    rxcui: null,
-    name: 'Acetaminophen',
+    rxcui: 1291986,
+    name: 'Amoxicill-Clarithro-Omeprazole',
     route: 'Oral',
-    doseForm: 'Tablet',
-    strength: '500 mg',
-    dispenseUnit: 'Tablet',
+    doseForm: 'Miscellaneous',
+    strength: '500-500-20 MG',
+    dispenseUnit: 'Kit',
     isBrandName: false,
-    genericName: 'acetaminophen',
-    isOtc: true,
+    genericName: 'amoxicillin-clarithromycin-omeprazole',
+    isOtc: false,
     refills: '0',
-    daysSupply: 30,
-    quantity: 120,
-    classification: 'Analgesic',
+    daysSupply: 14,
+    quantity: 1,
+    classification: 'Antibiotic Combination',
     schedule: null,
-    directions: 'Take one tablet (500 mg) by mouth every 6 hours as needed for pain.',
+    directions: 'Take as directed for 14 days.',
     substitutionsAllowed: true,
     writtenDate: '2025-11-12',
     effectiveDate: '2025-11-12',
-    lastFillDate: '2026-01-05',
+    lastFillDate: '2025-11-12',
     expirationDate: '2026-11-12',
+  },
+  {
+    id: 50007,
+    medicationId: 15239,
+    ndc: null,
+    rxcui: 2047717,
+    name: 'amLODIPine Besylate-Celecoxib',
+    route: 'Oral',
+    doseForm: 'Tablet',
+    strength: '10-200 MG',
+    dispenseUnit: 'Tablet',
+    isBrandName: false,
+    genericName: 'amlodipine besylate-celecoxib',
+    isOtc: false,
+    refills: '5',
+    daysSupply: 30,
+    quantity: 30,
+    classification: 'Calcium Channel Blocker',
+    schedule: null,
+    directions: 'Take one tablet by mouth daily.',
+    substitutionsAllowed: true,
+    writtenDate: '2025-07-20',
+    effectiveDate: '2025-07-20',
+    lastFillDate: '2026-01-15',
+    expirationDate: '2026-07-20',
   },
 ];
 
@@ -279,99 +253,63 @@ export const useExternalMedicationHistory = (
     },
   });
 
-  // Step 2: Search each unique medication name to check if recognized
-  // Track unique entries by name+strength for matching
-  const uniqueEntries = useMemo(() => {
+  // Step 2: Look up each unique medicationId to get the full medication object
+  const uniqueMedicationIds = useMemo(() => {
     if (!rawHistory) return [];
-    const seen = new Set<string>();
-    return rawHistory.filter((item) => {
-      const key = `${item.name}|${item.strength ?? ''}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const seen = new Set<number>();
+    return rawHistory
+      .map((item) => item.medicationId)
+      .filter((id) => {
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
   }, [rawHistory]);
 
-  const searchKey = useMemo(() => uniqueEntries.map((e) => `${e.name}|${e.strength ?? ''}`).join(','), [uniqueEntries]);
+  const lookupKey = useMemo(() => uniqueMedicationIds.join(','), [uniqueMedicationIds]);
 
-  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
-    queryKey: ['external-medication-search', searchKey],
+  const { data: medicationLookup, isLoading: isLookupLoading } = useQuery({
+    queryKey: ['external-medication-lookup', lookupKey],
     queryFn: async () => {
       if (!oystehr) throw new Error('API client not available');
-      const results = new Map<
-        string,
-        { match: ExtractObjectType<ErxSearchMedicationsResponse> | null; isExact: boolean }
-      >();
+      const results = new Map<number, ExtractObjectType<ErxSearchMedicationsResponse>>();
       await Promise.all(
-        uniqueEntries.map(async (entry) => {
-          const key = `${entry.name}|${entry.strength ?? ''}`;
+        uniqueMedicationIds.map(async (medicationId) => {
           try {
-            // Step 2a: Try direct ID lookups and name search in parallel
-            const toSearchResult = (
-              med: Awaited<ReturnType<typeof oystehr.erx.getMedication>>
-            ): ExtractObjectType<ErxSearchMedicationsResponse> => ({
-              id: med.id,
-              routedDoseFormDrugId: med.id,
-              name: med.name,
-              rxcui: med.rxcui ?? null,
-              ndc: med.ndc ?? null,
-              strength: med.strength ?? '',
-              isObsolete: med.isObsolete,
-            });
-
-            const [ndcResult, rxcuiResult, drugIdResult, searchResponse] = await Promise.all([
-              entry.ndc ? oystehr.erx.getMedication({ ndc: entry.ndc }).catch(() => null) : Promise.resolve(null),
-              entry.rxcui ? oystehr.erx.getMedication({ rxcui: entry.rxcui }).catch(() => null) : Promise.resolve(null),
-              entry.medicationId
-                ? oystehr.erx.getMedication({ drugId: entry.medicationId }).catch(() => null)
-                : Promise.resolve(null),
-              oystehr.erx.searchMedications({ name: entry.name }).catch(() => [] as ErxSearchMedicationsResponse),
-            ]);
-
-            // Prefer direct ID matches (exact), fall back to name search
-            const idMatch = ndcResult ?? rxcuiResult ?? drugIdResult;
-            if (idMatch) {
-              results.set(key, { match: toSearchResult(idMatch), isExact: true });
-              return;
+            const med = await oystehr.erx.getMedication({ drugId: medicationId });
+            if (med) {
+              results.set(medicationId, {
+                id: med.id,
+                routedDoseFormDrugId: med.id,
+                name: med.name,
+                rxcui: med.rxcui ?? null,
+                ndc: med.ndc ?? null,
+                strength: med.strength ?? '',
+                isObsolete: med.isObsolete,
+              });
             }
-
-            // Step 2b: Use name search results for fuzzy matching
-            const match = findBestMatch(searchResponse, entry.name, entry.strength, entry.rxcui);
-            results.set(key, match);
           } catch {
-            results.set(key, { match: null, isExact: false });
+            /* lookup failed for this medicationId */
           }
         })
       );
       return results;
     },
-    enabled: !!oystehr && uniqueEntries.length > 0,
+    enabled: !!oystehr && uniqueMedicationIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
   // Step 3: Filter out medications already on the chart and build final list
   const externalMedications = useMemo(() => {
-    if (!rawHistory || !searchResults) return [];
+    if (!rawHistory || !medicationLookup) return [];
 
-    // Build sets of charted medication IDs and names for efficient lookup
+    // Build set of charted medication IDs for exact matching
     const chartedIds = new Set(chartedMedications.map((med) => med.id).filter(Boolean));
-    const chartedNamesLower = chartedMedications.map((med) => med.name.toLowerCase().trim());
 
     return rawHistory
       .filter((item) => {
-        // Check by ID first — the matched medication ID is what gets saved to the chart
-        const matchKey = `${item.name}|${item.strength ?? ''}`;
-        const matchedMed = searchResults.get(matchKey);
-        if (matchedMed?.match?.id && chartedIds.has(String(matchedMed.match.id))) {
-          return false;
-        }
-
-        // Fall back to name substring matching
-        const externalName = item.name.toLowerCase().trim();
-        const alreadyCharted = chartedNamesLower.some(
-          (charted) => charted.includes(externalName) || externalName.includes(charted)
-        );
-        return !alreadyCharted;
+        const matched = item.medicationId ? medicationLookup.get(item.medicationId) : null;
+        return !(matched?.id && chartedIds.has(String(matched.id)));
       })
       .map(
         (item): ExternalMedication => ({
@@ -384,13 +322,13 @@ export const useExternalMedicationHistory = (
           lastFillDate: item.lastFillDate,
           refills: item.refills,
           quantity: item.quantity,
-          matchedMedication: searchResults.get(`${item.name}|${item.strength ?? ''}`)?.match ?? null,
-          isExactMatch: searchResults.get(`${item.name}|${item.strength ?? ''}`)?.isExact ?? false,
+          matchedMedication: (item.medicationId ? medicationLookup.get(item.medicationId) : null) ?? null,
+          isExactMatch: item.medicationId ? medicationLookup.has(item.medicationId) : false,
         })
       );
-  }, [rawHistory, searchResults, chartedMedications]);
+  }, [rawHistory, medicationLookup, chartedMedications]);
 
-  const isLoading = isHistoryLoading || (!!rawHistory && rawHistory.length > 0 && isSearchLoading);
+  const isLoading = isHistoryLoading || (!!rawHistory && rawHistory.length > 0 && isLookupLoading);
 
   return {
     isLoading,
