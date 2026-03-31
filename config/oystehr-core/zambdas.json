@@ -826,6 +826,7 @@
       "name": "sub-erx-patient-sync",
       "type": "subscription",
       "runtime": "nodejs22.x",
+      "timeout": "300",
       "src": "src/subscriptions/appointment/sub-erx-patient-sync/index",
       "zip": ".dist/zips/sub-erx-patient-sync.zip"
     },
