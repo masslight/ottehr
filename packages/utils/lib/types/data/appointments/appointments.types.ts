@@ -131,6 +131,7 @@ export interface InPersonAppointmentInformation
   location?: string;
   isFollowUp?: boolean;
   parentEncounterId?: string;
+  parentAppointmentId?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {

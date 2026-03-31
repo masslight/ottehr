@@ -28,7 +28,7 @@ import {
 import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -71,10 +71,11 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { mutate: saveChartData } = useSaveChartData();
-  const { encounter, appointment } = useAppointmentData();
+  const { encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
@@ -227,7 +228,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           });
         }
 
-        navigate(getRadiologyUrl(appointment?.id || ''));
+        navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
@@ -464,7 +465,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     variant="outlined"
                     sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                     onClick={() => {
-                      navigate(`/in-person/${appointment?.id}/radiology`);
+                      navigate(`/in-person/${appointmentIdFromUrl}/radiology`);
                     }}
                   >
                     Cancel

@@ -557,6 +557,8 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
+  const navAppointmentId = appointment.parentAppointmentId || appointment.id;
+  const followUpParams = appointment.isFollowUp ? `?encounterId=${encounterId}` : '';
 
   const handleStartIntakeButton = async (): Promise<void> => {
     setStartIntakeButtonLoading(true);
@@ -572,7 +574,7 @@ export default function AppointmentTableRow({
         },
         oystehrZambda
       );
-      navigate(`/in-person/${appointment.id}/patient-info`);
+      navigate(`/in-person/${navAppointmentId}/patient-info${followUpParams}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -599,7 +601,7 @@ export default function AppointmentTableRow({
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
+      navigate(`/in-person/${navAppointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}${followUpParams}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -997,7 +999,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1}>
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(`/visit/${appointment.id}`)}
+            onClick={() => navigate(`/visit/${navAppointmentId}${followUpParams}`)}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />

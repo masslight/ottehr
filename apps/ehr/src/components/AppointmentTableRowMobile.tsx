@@ -50,7 +50,12 @@ export default function AppointmentTableRowMobile({
       }}
     >
       <TableCell colSpan={9}>
-        <Link to={`/visit/${appointment.id}`} style={linkStyle}>
+        <Link
+          to={`/visit/${appointment.parentAppointmentId || appointment.id}${
+            appointment.isFollowUp ? `?encounterId=${appointment.encounterId}` : ''
+          }`}
+          style={linkStyle}
+        >
           <Grid container spacing={1}>
             <Grid item xs={12} justifyContent="space-between">
               <Grid

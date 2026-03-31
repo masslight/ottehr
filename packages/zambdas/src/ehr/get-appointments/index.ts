@@ -754,5 +754,10 @@ const makeAppointmentInformation = (
     location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? '']?.name,
     isFollowUp: !!encounter.partOf,
     parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),
+    parentAppointmentId: encounter.partOf
+      ? Object.entries(apptRefToEncounterMap)
+          .find(([, enc]) => `Encounter/${enc.id}` === encounter.partOf?.reference)?.[0]
+          ?.replace('Appointment/', '')
+      : undefined,
   };
 };
