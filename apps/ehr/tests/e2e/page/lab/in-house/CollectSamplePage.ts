@@ -1,5 +1,5 @@
 import { expect, Page } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { dataTestIds } from '../../../../../src/constants/data-test-ids';
 
 export class CollectSamplePage {
   #page: Page;

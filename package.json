@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.30.9",
+  "version": "1.30.10",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -91,6 +91,7 @@
     "ehr:e2e:staging": "ENV=staging tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:staging:ui": "ENV=staging tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:staging:smoke": "ENV=staging SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
+    "ehr:e2e:local:flaky": "tsx scripts/run-e2e.ts --app=ehr --specs-only --repeat-each=10",
     "ehr:generate-seed-data": "tsx scripts/run-e2e.ts --app=ehr --generate-seed-data",
     "ehr:build": "turbo build --filter=ehr-ui",
     "ehr:lint": "turbo lint --filter=ehr-ui...",

@@ -14,8 +14,7 @@ import {
 } from 'fhir/r4b';
 import {
   DR_UNSOLICITED_PATIENT_REF,
-  LAB_LIST_CODE_CODING,
-  LAB_LIST_CODING_SYSTEM,
+  getLabListType,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
   LabListsDTO,
@@ -164,18 +163,4 @@ const getLabListEntryFieldFromExtension = (
   }
 
   return fieldValue;
-};
-
-const getLabListType = (list: List): LabType.external | LabType.inHouse | undefined => {
-  const code = list.code?.coding?.find((c) => c.system === LAB_LIST_CODING_SYSTEM)?.code;
-  if (!code) return;
-
-  switch (code) {
-    case LAB_LIST_CODE_CODING.external.code:
-      return LabType.external;
-    case LAB_LIST_CODE_CODING.inHouse.code:
-      return LabType.inHouse;
-    default:
-      return;
-  }
 };

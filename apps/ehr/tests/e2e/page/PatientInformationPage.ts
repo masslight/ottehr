@@ -5,6 +5,7 @@ import { AddInsuranceDialog } from './patient-information/AddInsuranceDialog';
 import { PatientHeader } from './PatientHeader';
 
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
+const pharmacyFields = PATIENT_RECORD_CONFIG.FormFields.preferredPharmacy;
 
 export class PatientInformationPage {
   #page: Page;
@@ -228,9 +229,22 @@ export class PatientInformationPage {
   }
 
   async verifyPharmacySearchIsPresent(): Promise<void> {
-    // if no pharmacy data is saved for the patient, the search should show
+    // If no pharmacy data is saved for the patient, the search should show
     const searchField = this.#page.getByTestId(dataTestIds.patientInformationPage.pharmacySearch);
-    await expect(searchField).toBeVisible();
+    await expect(searchField, 'Pharmacy search field is visible').toBeVisible();
+
+    // Manual entry fields should NOT be present when search is visible
+    const manualPharmacyName = this.#page.locator(`#${pharmacyFields.items.name.key}`);
+    await expect(
+      manualPharmacyName,
+      'Manual pharmacy name field should not be visible while the pharmacy search field is present'
+    ).toBeHidden();
+
+    const manualPharmacyAddress = this.#page.locator(`#${pharmacyFields.items.address.key}`);
+    await expect(
+      manualPharmacyAddress,
+      'Manual pharmacy address field should not be visible while the pharmacy search field is present'
+    ).toBeHidden();
   }
 
   async clickToAddPharmacyManually(fieldKey: string): Promise<void> {

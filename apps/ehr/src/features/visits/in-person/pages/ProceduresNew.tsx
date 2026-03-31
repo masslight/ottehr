@@ -875,6 +875,7 @@ export default function ProceduresNew(): ReactElement {
               showAddOption
               isAdmin={isAdmin}
               onAddOrUpdate={() => void openQuickPickDialog()}
+              searchable
             />
 
             <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
