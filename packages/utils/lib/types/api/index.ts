@@ -35,6 +35,7 @@ export * from './patient-account';
 export * from './patient-instructions';
 export * from './patient-payment-types';
 export * from './practitioner.types';
+export * from './config';
 export * from './create-discharge-summary';
 export * from './prebook-create-appointment';
 export * from './print-chart-data';

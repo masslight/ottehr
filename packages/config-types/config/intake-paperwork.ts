@@ -56,6 +56,7 @@ export type HarvestStrategy =
   | 'master-record'
   | 'pharmacy'
   | 'account-coverage'
+  | 'payment-variant'
   | 'documents'
   | 'consent'
   | 'erx-contact';
@@ -69,8 +70,8 @@ export const pageHarvestStrategy: Record<string, HarvestStrategy[]> = {
   'patient-details-page': ['master-record'],
   'primary-care-physician-page': ['master-record'],
   'pharmacy-page': ['pharmacy'],
-  'payment-option-page': ['account-coverage', 'documents'],
-  'payment-option-occ-med-page': ['account-coverage'],
+  'payment-option-page': ['account-coverage', 'payment-variant', 'documents'],
+  'payment-option-occ-med-page': ['account-coverage', 'payment-variant'],
   'occupational-medicine-employer-information-page': ['account-coverage'],
   'responsible-party-page': ['account-coverage'],
   'employer-information-page': ['account-coverage'],

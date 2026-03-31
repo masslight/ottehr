@@ -42,10 +42,10 @@ describe('sub-harvest-paperwork-page integration', () => {
   }, DEFAULT_TIMEOUT);
 
   const createBaseResources = async (): Promise<{
-    patient: Patient;
-    appointment: Appointment;
-    encounter: Encounter;
-    relatedPerson: RelatedPerson;
+    patient: Patient & { id: string };
+    appointment: Appointment & { id: string };
+    encounter: Encounter & { id: string };
+    relatedPerson: RelatedPerson & { id: string };
   }> => {
     const patientFullUrl = `urn:uuid:${randomUUID()}`;
     const appointmentFullUrl = `urn:uuid:${randomUUID()}`;
@@ -128,18 +128,25 @@ describe('sub-harvest-paperwork-page integration', () => {
       { resourceType: 'Patient', id: patient.id }
     );
 
-    return { patient, appointment, encounter, relatedPerson };
+    return {
+      patient: patient as Patient & { id: string },
+      appointment: appointment as Appointment & { id: string },
+      encounter: encounter as Encounter & { id: string },
+      relatedPerson: relatedPerson as RelatedPerson & { id: string },
+    };
   };
 
   const buildContext = (
     qr: QuestionnaireResponse,
     pageLinkId: string,
-    patient: Patient,
-    encounter: Encounter,
-    appointment: Appointment
+    patient: Patient & { id: string },
+    encounter: Encounter & { id: string },
+    appointment: Appointment & { id: string }
   ): HarvestContext => ({
     qr,
     pageLinkId,
+    patchIndex: 0,
+    taskId: 'test-task-id',
     patient,
     encounter,
     appointment,
@@ -220,7 +227,8 @@ describe('sub-harvest-paperwork-page integration', () => {
       const ctx = buildContext(qr, 'payment-option-page', patient, encounter, appointment);
       const result = await executePageHarvest(ctx);
 
-      expect(result).toBe('account / coverage updated, documents created');
+      expect(result).toContain('account / coverage updated');
+      expect(result).toContain('documents created');
 
       // Verify that account resources were created for the patient
       const accounts = (
