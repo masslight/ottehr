@@ -80,7 +80,7 @@ export async function getImmunizationOrders(
       value: 'Patient/' + patientId,
     });
   }
-  if (encounterIds) {
+  if (encounterIds && encounterIds.length > 0) {
     params.push({
       name: 'context',
       value: encounterIds.map((encounterId) => 'Encounter/' + encounterId).join(','),

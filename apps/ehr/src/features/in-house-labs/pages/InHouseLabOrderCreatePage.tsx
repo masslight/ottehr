@@ -53,6 +53,7 @@ import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
+import { configCptCodeTestId, configRunAsRepeatBtnTestId } from '../utils/test-ids';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -384,12 +385,13 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                           {selectedTests.map((test) => (
                             <TableRow key={test.name}>
                               <TableCell>{test.name}</TableCell>
-                              <TableCell data-testid={dataTestIds.orderInHouseLabPage.CPTCodeField}>
+                              <TableCell data-testid={configCptCodeTestId(test.name)}>
                                 {formatCptCodesForCell(test.cptCode, test.orderMode)}
                               </TableCell>
                               <TableCell align="center">
                                 {test.repeatable && (
                                   <Checkbox
+                                    data-testid={configRunAsRepeatBtnTestId(test.name)}
                                     size="small"
                                     sx={{
                                       p: 0.5,
@@ -663,7 +665,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                   error.length > 0 &&
                   error.map((msg, idx) => (
                     <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                      <Typography sx={{ color: theme.palette.error.main }}>
+                      <Typography
+                        data-testid={dataTestIds.orderInHouseLabPage.error}
+                        sx={{ color: theme.palette.error.main }}
+                      >
                         {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
                       </Typography>
                     </Grid>
