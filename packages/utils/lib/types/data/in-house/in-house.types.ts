@@ -238,17 +238,13 @@ export interface QuantityRange {
   unit: string;
   precision?: number;
 }
-export interface TestItemMethods {
-  manual?: { device: string };
-  analyzer?: { device: string };
-  machine?: { device: string };
-}
 
-export const TEST_ITEM_METHOD_KEYS = [
-  'manual',
-  'analyzer',
-  'machine',
-] as const satisfies readonly (keyof TestItemMethods)[];
+export const TEST_ITEM_METHOD_KEYS = ['manual', 'analyzer', 'machine'] as const;
+export type TestItemMethodsKey = (typeof TEST_ITEM_METHOD_KEYS)[number];
+
+export type TestItemMethods = {
+  [K in TestItemMethodsKey]?: { device: string };
+};
 
 /**
  * These types are for the Admin Config for In House Labs. There is some overlap with the DataEntry versions of these type
@@ -282,12 +278,13 @@ export interface AdminLabComponentValueSetConfig extends LabComponentValueSetCon
   isAbnormal: boolean;
 }
 
+export type CodeableConceptComponentDisplayTypes = 'Radio' | 'Select';
 export interface CodeableConceptComponent extends BaseComponent {
   dataType: 'CodeableConcept';
   valueSet: AdminLabComponentValueSetConfig[];
   // abnormalValues: LabComponentValueSetConfig[];
   display: {
-    type: 'Radio' | 'Select';
+    type: CodeableConceptComponentDisplayTypes;
     nullOption: boolean;
   };
   unit?: string;

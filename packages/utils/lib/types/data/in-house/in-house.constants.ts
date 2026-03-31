@@ -115,7 +115,7 @@ export const IN_HOUSE_UNIT_OF_MEASURE_SYSTEM = 'http://unitsofmeasure.org/';
 export const IN_HOUSE_RESULTS_VALUESET_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet';
 
-const IN_HOUSE_LAB_OD_DISPLAY_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/valueset-display';
+export const IN_HOUSE_LAB_OD_DISPLAY_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/valueset-display';
 
 export type IN_HOUSE_LAB_DISPLAY_TYPES = 'Radio' | 'Select' | 'Numeric' | 'Free Text';
 export const OD_DISPLAY_CONFIG = {

@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { ProcedureModifier } from 'candidhealth/api';
 import {
   ActivityDefinition,
   CodeableConcept,
@@ -21,14 +22,18 @@ import {
 import {
   AdminInHouseLabItemDefinition,
   AdminLabComponentValueSetConfig,
-  // BaseComponent,
+  BaseComponent,
   CODE_SYSTEM_CPT,
   CodeableConceptComponent,
+  CodeableConceptComponentDisplayTypes,
   CptCodeInHouseLabDefinition,
   DEFAULT_OBSERVATION_DEFINITION_CODING,
+  EXTENSION_URL_CPT_MODIFIER,
   IN_HOUSE_DEVICE_PARTICIPANT_CODING,
   IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE,
+  IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
   IN_HOUSE_LAB_TASK,
   IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
   IN_HOUSE_RESULTS_VALUESET_SYSTEM,
@@ -43,6 +48,7 @@ import {
   QuantityComponent,
   REFLEX_ARTIFACT_DISPLAY,
   REFLEX_TEST_ALERT_URL,
+  REFLEX_TEST_CONDITION_LANGUAGES,
   REFLEX_TEST_CONDITION_URL,
   REFLEX_TEST_LOGIC_URL,
   REFLEX_TEST_TO_RUN_NAME_URL,
@@ -51,11 +57,13 @@ import {
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
-  // StringComponent,
-  // TEST_ITEM_METHOD_KEYS,
+  StringComponent,
+  TEST_ITEM_METHOD_KEYS,
   TestItemComponent,
-  // TestItemMethods,
+  TestItemMethods,
+  TestItemMethodsKey,
   TestStatus,
+  Validation,
 } from 'utils';
 import { makeCptModifierExtension } from '../../../shared';
 
@@ -574,6 +582,8 @@ const makeObsDefExtension = (item: TestItemComponent): Extension[] => {
   return extension;
 };
 
+// labs todo: this is brittle because you can't reliably walk it back to its corresponding component without relying
+// solely on ordering in the array (which could change). In the future consider adding the component name or some identifier
 const makeRelatedArtifact = (item: AdminInHouseLabItemDefinition): RelatedArtifact[] | undefined => {
   const parentTestUrls: string[] = [];
   item.components.forEach((component) => {
@@ -595,6 +605,8 @@ const makeRelatedArtifact = (item: AdminInHouseLabItemDefinition): RelatedArtifa
   return artifacts;
 };
 
+// labs todo: this is also brittle for the same reason -- can't reliably tie the reflex logic back to its corresponding component without
+// relying solely on index in the extension array. Should also consider adding a component name or some such
 const makeActivityExtension = (item: AdminInHouseLabItemDefinition): Extension[] | undefined => {
   const extension: Extension[] = [];
   if (item.repeatTest) {
@@ -895,210 +907,301 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
  *
  * **************************
  */
-export function parseActivityDefinitionToAdminInHouseLabItemDef(
-  _ad: ActivityDefinition
-): AdminInHouseLabItemDefinition {
-  return {} as AdminInHouseLabItemDefinition;
+export function parseActivityDefinitionToAdminInHouseLabItemDef(ad: ActivityDefinition): AdminInHouseLabItemDefinition {
+  const name = ad.name ?? ad.title ?? '';
 
-  // const name = ad.name ?? ad.title ?? '';
+  const cptCode = parseCptCodes(ad);
+  const methods = parseMethods(ad);
+  const device = parseDevice(ad);
+  const repeatTest = parseRepeatTest(ad);
+  const reflexExtensions = parseReflexExtensions(ad);
+  const parentArtifacts = parseRelatedArtifacts(ad);
 
-  // const cptCode = parseCptCodes(ad);
-  // const methods = parseMethods(ad);
-  // const device = parseDevice(ad);
-  // const repeatTest = parseRepeatTest(ad);
-  // const reflexExtensions = parseReflexExtensions(ad);
-  // const parentArtifacts = parseRelatedArtifacts(ad);
+  const components = parseComponents(ad, reflexExtensions, parentArtifacts);
 
-  // const components = parseComponents(ad, reflexExtensions, parentArtifacts);
-
-  // return {
-  //   name,
-  //   device: device,
-  //   methods,
-  //   cptCode,
-  //   repeatTest,
-  //   components,
-  //   note: undefined,
-  // };
+  return {
+    name,
+    device: device,
+    methods,
+    cptCode,
+    repeatTest,
+    components,
+    note: undefined,
+  };
 }
 
-// function parseCptCodes(ad: ActivityDefinition): CptCodeInHouseLabDefinition[] {
-//   const codings = ad.code?.coding ?? [];
+function parseCptCodes(ad: ActivityDefinition): CptCodeInHouseLabDefinition[] {
+  const codings = ad.code?.coding ?? [];
 
-//   return codings
-//     .filter((c) => c.system === CODE_SYSTEM_CPT)
-//     .map((c) => ({
-//       code: c.code!,
-//       modifier: c.extension ? parseCptModifierExtension(c.extension) : undefined,
-//     }));
-// }
+  return codings
+    .filter((c) => c.system === CODE_SYSTEM_CPT)
+    .map((c) => ({
+      code: c.code!,
+      modifier: c.extension ? parseCptModifierExtension(c.extension) : undefined,
+    }));
+}
 
-// function parseMethods(ad: ActivityDefinition): TestItemMethods | undefined {
-//   const participant = ad.participant?.find(
-//     (participant) => participant.type === IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE
-//   );
-//   if (!participant?.role?.coding) return;
+function parseCptModifierExtension(ext: Extension[]): CptCodeInHouseLabDefinition['modifier'] {
+  const cptModifierExt = ext.filter((e) => e.url === EXTENSION_URL_CPT_MODIFIER);
 
-//   const methods: TestItemMethods = {};
+  // assumption: we'll take the first one, and in fact there should only be one anyway
+  const modifiersCoding = cptModifierExt[0].valueCodeableConcept?.coding;
+  if (!modifiersCoding) return undefined;
+  const modifiers = modifiersCoding
+    ?.map((coding) => {
+      if (coding.code && coding.display) return { code: coding.code as ProcedureModifier, display: coding.display };
+      return undefined;
+    })
+    .filter((elm) => elm !== undefined);
 
-//   // ATHENA TODO: this is being overly generous -- we should only be grabing 'manual', 'analyzer' or 'machine'
-//   participant.role?.coding?.forEach((coding) => {
-//     if (TEST_ITEM_METHOD_KEYS.includes(coding.code))
-//       methods[coding.code] = {
-//         device: coding.display ?? '',
-//       };
-//   });
+  return modifiers;
+}
 
-//   return methods;
-// }
+function parseMethods(ad: ActivityDefinition): TestItemMethods | undefined {
+  const participant = ad.participant?.find(
+    (participant) => participant.type === IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE
+  );
+  if (!participant?.role?.coding) return;
 
-// function parseDevice(ad: ActivityDefinition): AdminInHouseLabItemDefinition['device'] {
-//   const deviceParticipant = ad.participant?.find(
-//     (participant) => participant.type === IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE
-//   );
-//   if (!deviceParticipant) return undefined;
+  function isTestItemMethodsKey(key: string): key is TestItemMethodsKey {
+    return TEST_ITEM_METHOD_KEYS.includes(key as TestItemMethodsKey);
+  }
 
-//   const device = deviceParticipant.role?.coding?.find(
-//     (coding) =>
-//       coding.system === IN_HOUSE_DEVICE_PARTICIPANT_CODING.system &&
-//       coding.code === IN_HOUSE_DEVICE_PARTICIPANT_CODING.code
-//   );
+  const methods: TestItemMethods = {};
 
-//   return device ? device.display : undefined;
-// }
+  participant.role?.coding?.forEach((coding) => {
+    if (coding.code && isTestItemMethodsKey(coding.code))
+      methods[coding.code] = {
+        device: coding.display ?? '',
+      };
+  });
 
-// function parseRepeatTest(ad: ActivityDefinition): boolean {
-//   return ad.extension?.some((ext) => ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url) ?? false;
-// }
+  return methods;
+}
 
-// function parseReflexExtensions(ad: ActivityDefinition): ReflexLogic[] {
-//   const reflexExts = ad.extension?.filter((ext) => ext.url === REFLEX_TEST_LOGIC_URL) ?? [];
+function parseDevice(ad: ActivityDefinition): AdminInHouseLabItemDefinition['device'] {
+  const deviceParticipant = ad.participant?.find(
+    (participant) => participant.type === IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE
+  );
+  if (!deviceParticipant) return undefined;
 
-//   return reflexExts.map((ext) => {
-//     const get = (url: string): Extension | undefined => ext.extension?.find((e) => e.url === url);
+  const device = deviceParticipant.role?.coding?.find(
+    (coding) =>
+      coding.system === IN_HOUSE_DEVICE_PARTICIPANT_CODING.system &&
+      coding.code === IN_HOUSE_DEVICE_PARTICIPANT_CODING.code
+  );
 
-//     return {
-//       testToRun: {
-//         testCanonicalUrl: get(REFLEX_TEST_TO_RUN_URL)?.valueCanonical!,
-//         testName: get(REFLEX_TEST_TO_RUN_NAME_URL)?.valueString!,
-//       },
-//       triggerAlert: get(REFLEX_TEST_ALERT_URL)?.valueString!,
-//       condition: {
-//         description: get(REFLEX_TEST_CONDITION_URL)?.valueExpression?.description ?? '',
-//         language: get(REFLEX_TEST_CONDITION_URL)?.valueExpression?.language!,
-//         expression: get(REFLEX_TEST_CONDITION_URL)?.valueExpression?.expression!,
-//       },
-//     };
-//   });
-// }
+  return device ? device.display : undefined;
+}
 
-// function parseRelatedArtifacts(ad: ActivityDefinition): string[] {
-//   return ad.relatedArtifact?.filter((ra) => ra.type === 'depends-on').map((ra) => ra.resource!) ?? [];
-// }
+function parseRepeatTest(ad: ActivityDefinition): boolean {
+  return (
+    ad.extension?.some(
+      (ext) =>
+        ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url &&
+        ext.valueString === REPEATABLE_TEXT_EXTENSION_CONFIG.valueString
+    ) ?? false
+  );
+}
 
-// function getObsDefByRef(ad: ActivityDefinition, ref: Reference): ObservationDefinition | undefined {
-//   const id = ref.reference?.replace('#', '');
-//   return ad.contained?.find((r) => r.resourceType === 'ObservationDefinition' && r.id === id) as
-//     | ObservationDefinition
-//     | undefined;
-// }
+function parseReflexExtensions(ad: ActivityDefinition): ReflexLogic[] {
+  const reflexExts = ad.extension?.filter((ext) => ext.url === REFLEX_TEST_LOGIC_URL);
+  if (!reflexExts?.length) return [];
 
-// function parseComponents(
-//   ad: ActivityDefinition,
-//   reflexExtensions: ReflexLogic[],
-//   parentArtifacts: string[]
-// ): TestItemComponent[] {
-//   const refs = ad.observationRequirement ?? [];
+  const reflexLogics = reflexExts.map((reflexExt): ReflexLogic => {
+    const getExtByUrlWithFail = (url: string): Extension => {
+      const expectedExtension = reflexExt.extension?.find((e) => e.url === url);
+      if (!expectedExtension) {
+        console.error(
+          `Error parsing reflex extensions for ActivityDefinition/${ad.id}. Could not find ${url} in ${JSON.stringify(
+            reflexExt
+          )}`
+        );
+        throw new Error(`Error parsing reflexLogic for ActivityDefinition/${ad.id}`);
+      }
+      return expectedExtension;
+    };
 
-//   return refs.map((ref, index) => {
-//     const obsDef = getObsDefByRef(ad, ref);
-//     if (!obsDef) throw new Error('Missing ObservationDefinition');
+    // labs todo: consider improving the error checking here when we implement admin in house v2 that handles reflex tests
+    // only did this language one because of type checks
 
-//     return parseSingleComponent(obsDef, ad, reflexExtensions[index], parentArtifacts[index]);
-//   });
-// }
+    const conditionExt = getExtByUrlWithFail(REFLEX_TEST_CONDITION_URL);
+    const expression = conditionExt.valueExpression;
 
-// function parseSingleComponent(
-//   obsDef: ObservationDefinition,
-//   ad: ActivityDefinition,
-//   reflexLogic?: ReflexLogic,
-//   parentTestUrl?: string
-// ): TestItemComponent {
-//   const base: BaseComponent = {
-//     componentName: obsDef.code?.text ?? '',
-//     loincCode: obsDef.code?.coding?.filter((c) => c.system === 'http://loinc.org').map((c) => c.code!),
-//     reflexLogic: reflexLogic ?? (parentTestUrl ? { parentTestUrl } : undefined),
-//   };
+    if (!expression?.language) {
+      throw new Error(`Missing language in reflex condition for ActivityDefinition/${ad.id}`);
+    }
 
-//   const dataType = obsDef.permittedDataType?.[0];
+    if (expression.language !== REFLEX_TEST_CONDITION_LANGUAGES.fhirPath) {
+      throw new Error(`Unsupported language "${expression.language}" in ActivityDefinition/${ad.id}`);
+    }
 
-//   if (dataType === 'CodeableConcept') {
-//     return parseCodeableConceptComponent(base, obsDef, ad);
-//   }
+    return {
+      testToRun: {
+        testCanonicalUrl: getExtByUrlWithFail(REFLEX_TEST_TO_RUN_URL).valueCanonical ?? '',
+        testName: getExtByUrlWithFail(REFLEX_TEST_TO_RUN_NAME_URL).valueString ?? '',
+      },
+      triggerAlert: getExtByUrlWithFail(REFLEX_TEST_ALERT_URL).valueString ?? '',
+      condition: {
+        description: getExtByUrlWithFail(REFLEX_TEST_CONDITION_URL).valueExpression?.description ?? '',
+        language: expression.language,
+        expression: getExtByUrlWithFail(REFLEX_TEST_CONDITION_URL).valueExpression?.expression ?? '',
+      },
+    };
+  });
 
-//   if (dataType === 'Quantity') {
-//     return parseQuantityComponent(base, obsDef);
-//   }
+  return reflexLogics;
+}
 
-//   if (dataType === 'string') {
-//     return parseStringComponent(base, obsDef);
-//   }
+function parseRelatedArtifacts(ad: ActivityDefinition): string[] {
+  return ad.relatedArtifact?.filter((ra) => ra.type === 'depends-on').map((ra) => ra.resource!) ?? [];
+}
 
-//   throw new Error(`Unknown dataType ${dataType}`);
-// }
+function getContainedObsDefByRef(ad: ActivityDefinition, ref: Reference): ObservationDefinition | undefined {
+  const id = ref.reference?.replace('#', '');
+  return ad.contained?.find(
+    (r): r is ObservationDefinition => r.resourceType === 'ObservationDefinition' && r.id === id
+  );
+}
 
-// function parseCodeableConceptComponent(
-//   base: BaseComponent,
-//   obsDef: ObservationDefinition,
-//   ad: ActivityDefinition
-// ): CodeableConceptComponent {
-//   const getValueSet = (ref?: Reference): ValueSet | undefined => {
-//     const id = ref?.reference?.replace('#', '');
-//     return ad.contained?.find((r): r is ValueSet => r.resourceType === 'ValueSet' && r.id === id);
-//   };
+function parseComponents(
+  ad: ActivityDefinition,
+  reflexExtensions: ReflexLogic[],
+  parentArtifacts: string[]
+): TestItemComponent[] {
+  const refs = ad.observationRequirement ?? [];
 
-//   const valid = getValueSet(obsDef.validCodedValueSet);
-//   const abnormal = getValueSet(obsDef.abnormalCodedValueSet);
+  return refs.map((ref, index) => {
+    const obsDef = getContainedObsDefByRef(ad, ref);
+    if (!obsDef) throw new Error('Missing ObservationDefinition');
 
-//   const toValues = (vs?: ValueSet, isAbnormal = false): AdminLabComponentValueSetConfig[] =>
-//     vs?.compose?.include?.[0]?.concept?.map((c) => ({
-//       code: c.code!,
-//       display: c.display!,
-//       isAbnormal,
-//     })) ?? [];
+    // labs todo: in the future we should try to make sure that a reflexLogic and a parentArtifact can reliably be tied back to its component
+    // without relying on index this way which is brittle
+    return parseSingleComponent(obsDef, ad, reflexExtensions[index], parentArtifacts[index]);
+  });
+}
 
-//   const valueSet = [...toValues(valid, false), ...toValues(abnormal, true)];
+function parseSingleComponent(
+  obsDef: ObservationDefinition,
+  ad: ActivityDefinition,
+  reflexLogic?: ReflexLogic,
+  parentTestUrl?: string
+): TestItemComponent {
+  const base: BaseComponent = {
+    componentName: obsDef.code?.text ?? '',
+    loincCode: obsDef.code?.coding?.filter((c) => c.system === 'http://loinc.org').map((c) => c.code!),
+    reflexLogic: reflexLogic ?? (parentTestUrl ? { parentTestUrl } : undefined),
+  };
 
-//   return {
-//     ...base,
-//     dataType: 'CodeableConcept',
-//     valueSet,
-//     display: { type: 'Select', nullOption: false }, // ATHENA TODO: The display type might also be radio, need to check this
-//   };
-// }
+  const dataType = obsDef.permittedDataType?.[0];
 
-// function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefinition): QuantityComponent {
-//   const interval = obsDef.qualifiedInterval?.[0];
+  if (dataType === 'CodeableConcept') {
+    return parseCodeableConceptComponent(base, obsDef, ad);
+  }
 
-//   return {
-//     ...base,
-//     dataType: 'Quantity',
-//     normalRange: {
-//       low: interval?.range?.low?.value,
-//       high: interval?.range?.high?.value,
-//       precision: obsDef.quantitativeDetails?.decimalPrecision ?? 0,
-//       unit: obsDef.quantitativeDetails?.unit?.coding?.[0]?.code,
-//     },
-//     display: { type: 'Numeric', nullOption: false },
-//   };
-// }
+  if (dataType === 'Quantity') {
+    return parseQuantityComponent(base, obsDef);
+  }
 
-// function parseStringComponent(base: BaseComponent, obsDef: ObservationDefinition): StringComponent {
-//   // ATHENA TODO: obsDef is never read, what gives?
+  if (dataType === 'string') {
+    return parseStringComponent(base, obsDef);
+  }
 
-//   return {
-//     ...base,
-//     dataType: 'string',
-//     display: { type: 'Free Text' },
-//   };
-// }
+  throw new Error(`Unknown dataType ${dataType}`);
+}
+
+function parseCodeableConceptComponent(
+  base: BaseComponent,
+  obsDef: ObservationDefinition,
+  ad: ActivityDefinition
+): CodeableConceptComponent {
+  const getValueSet = (ref?: Reference): ValueSet | undefined => {
+    const id = ref?.reference?.replace('#', '');
+    return ad.contained?.find((r): r is ValueSet => r.resourceType === 'ValueSet' && r.id === id);
+  };
+
+  // the display info is on the obsDef, not the valueSet itself
+  const displayExt = obsDef.extension?.find((ext) => ext.url === IN_HOUSE_LAB_OD_DISPLAY_SYSTEM);
+  const nullOptionExt = obsDef.extension?.find((ext) => ext.url === IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM);
+
+  if (!displayExt || !displayExt.valueString) throw new Error(`Error parsing component display for ${obsDef.id}`);
+
+  const displayFromObsDef: CodeableConceptComponent['display'] = {
+    type: displayExt.valueString as CodeableConceptComponentDisplayTypes,
+    nullOption: nullOptionExt !== undefined,
+  };
+
+  const toConfigValues = (vs?: ValueSet, isAbnormal = false): AdminLabComponentValueSetConfig[] =>
+    vs?.compose?.include?.[0]?.concept?.map((c) => ({
+      code: c.code,
+      display: c.display || c.code, // we assign it this way when we're making it too
+      isAbnormal,
+    })) ?? [];
+
+  // all values whether abnormal or normal go into the component's validCodedValueSet -- we can then figure out the abnormal ones from there
+  // and this should also match the ordering from the original component config
+  const allValues = toConfigValues(getValueSet(obsDef.validCodedValueSet));
+
+  const abnormalValueSetCodeLookup = new Set(
+    ...toConfigValues(getValueSet(obsDef.abnormalCodedValueSet)).map((configValue) => configValue.code)
+  );
+
+  allValues.forEach((configValue) => {
+    if (abnormalValueSetCodeLookup.has(configValue.code)) configValue.isAbnormal = true;
+  });
+
+  return {
+    ...base,
+    dataType: 'CodeableConcept',
+    valueSet: allValues,
+    display: displayFromObsDef,
+  };
+}
+
+function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefinition): QuantityComponent {
+  const interval = obsDef.qualifiedInterval?.[0];
+  const low = interval?.range?.low?.value;
+  const high = interval?.range?.high?.value;
+  const unit = obsDef.quantitativeDetails?.unit?.coding?.find(
+    (coding) => coding.system === IN_HOUSE_UNIT_OF_MEASURE_SYSTEM
+  )?.code;
+
+  if (low === undefined || high === undefined || unit === undefined)
+    throw new Error(`Unable to parse quantity component for obs def ${obsDef.id}`);
+
+  return {
+    ...base,
+    dataType: 'Quantity',
+    normalRange: {
+      low,
+      high,
+      precision: obsDef.quantitativeDetails?.decimalPrecision ?? 0, // defaulting to 0 for easy form rendering
+      unit,
+    },
+    display: { type: 'Numeric', nullOption: false },
+  };
+}
+
+function parseStringComponent(base: BaseComponent, obsDef: ObservationDefinition): StringComponent {
+  // ATHENA TODO: obsDef is never read, what gives?
+  const parseValidations = (exts: Extension[] | undefined): Validation | undefined => {
+    const validationExt = exts?.find((ext) => ext.url === OD_VALUE_VALIDATION_CONFIG.url);
+    if (!validationExt) return undefined;
+
+    if (!validationExt.valueCoding || validationExt.valueCoding.code === undefined)
+      throw new Error(`Unable to parse free text component validation for obs def ${obsDef.id}`);
+
+    return {
+      format: {
+        value: validationExt.valueCoding.code,
+        display: validationExt.valueCoding.display,
+      },
+    };
+  };
+
+  return {
+    ...base,
+    dataType: 'string',
+    display: { type: 'Free Text', validations: parseValidations(obsDef.extension) },
+  };
+}
