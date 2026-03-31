@@ -47,14 +47,14 @@ export function AutocompleteInput<Value>({
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => {
-        const optionsToUse = options ?? [];
+        let optionsToUse = options ?? [];
         if (
           field.value &&
           !options?.find((option) =>
             isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
           )
         ) {
-          optionsToUse?.push(field.value);
+          optionsToUse = [...optionsToUse, field.value];
         }
         return (
           <Box sx={{ width: '100%' }}>
@@ -82,7 +82,7 @@ export function AutocompleteInput<Value>({
                 <TextField
                   {...params}
                   label={label + (required ? '*' : '')}
-                  placeholder={`Select ${label}`}
+                  placeholder={label}
                   inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                   error={error != null}
                   size="small"
