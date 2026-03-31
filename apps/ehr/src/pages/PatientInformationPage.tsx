@@ -458,10 +458,27 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
               />
               <Box sx={{ display: 'flex', gap: 3 }}>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <AboutPatientContainer isLoading={isFetching || submitQR.isPending} />
-                  <ContactContainer isLoading={isFetching || submitQR.isPending} />
-                  <PatientDetailsContainer patient={patient} isLoading={isFetching || submitQR.isPending} />
-                  <PrimaryCareContainer isLoading={isFetching || submitQR.isPending} />
+                  <AboutPatientContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <ContactContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <PatientDetailsContainer
+                    patient={patient}
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <PrimaryCareContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
                 </Box>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <InsuranceSection
@@ -472,12 +489,36 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     onRemoveCoverage={handleRemoveCoverage}
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
-                  <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <OccupationalMedicineEmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <AttorneyInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
-                  <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
+                  <ResponsibleInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <EmployerInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <OccupationalMedicineEmployerInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <AttorneyInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <EmergencyContactContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <PharmacyContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
                 </Box>
               </Box>
             </Box>

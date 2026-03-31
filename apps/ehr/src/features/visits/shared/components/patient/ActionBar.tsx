@@ -63,7 +63,7 @@ export const ActionBar: FC<ActionBarProps> = ({
         disabled={submitDisabled}
         onClick={handleSave}
       >
-        Save changes
+        Save All
       </LoadingButton>
     </Box>
   );
