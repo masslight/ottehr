@@ -1,5 +1,5 @@
 import { Stack, Typography } from '@mui/material';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { MedicationDTO } from 'utils';
 import { Loader } from '../../shared/components/Loader';
@@ -8,11 +8,13 @@ import { CurrentMedicationsPatientColumn } from '../../shared/components/medical
 import { CurrentMedicationsProviderColumn } from '../../shared/components/medical-history-tab/CurrentMedications/CurrentMedicationsProviderColumn';
 import { ExternalMedicationSelection } from '../../shared/components/medical-history-tab/CurrentMedications/ExternalRxSuggestions';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { useChartDataArrayValue } from '../../shared/hooks/useChartDataArrayValue';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
 import { AskMedicationsAlert } from '../components/medications/AskMedicationsAlert';
 import { MedicationsNotes } from '../components/medications/MedicationsNotes';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
+import { useMedicationHistory } from '../hooks/useMedicationHistory';
 interface MedicationsProps {
   appointmentID?: string;
 }
@@ -30,13 +32,56 @@ export const Medications: React.FC<MedicationsProps> = () => {
 
   const { interactionMode } = useInPersonNavigationContext();
 
-  // Bridge between patient column (External RX) and provider column (form)
-  const selectMedicationRef = useRef<((selection: ExternalMedicationSelection) => void) | null>(null);
-  const [chartedMedications, setChartedMedications] = useState<MedicationDTO[]>([]);
+  const { refetchHistory } = useMedicationHistory();
 
-  const handleExternalMedSelect = useCallback((selection: ExternalMedicationSelection) => {
-    selectMedicationRef.current?.(selection);
-  }, []);
+  const {
+    isLoading: isMedicationsLoading,
+    onSubmit,
+    onRemove,
+    values: medications,
+  } = useChartDataArrayValue(
+    'medications',
+    undefined,
+    {
+      _sort: '-_lastUpdated',
+      _include: 'MedicationStatement:source',
+      status: { type: 'token', value: 'active' },
+    },
+    refetchHistory
+  );
+
+  const addMedicationToChart = useCallback(
+    (selection: ExternalMedicationSelection): void => {
+      const medName = selection.medication.name;
+      const strength = selection.medication.strength;
+      const nameAlreadyHasStrength = strength && medName.toLowerCase().includes(strength.toLowerCase());
+      const displayName = nameAlreadyHasStrength || !strength ? medName : `${medName} (${strength})`;
+      onSubmit({
+        name: displayName,
+        id: selection.medication.id?.toString(),
+        type: 'scheduled',
+        intakeInfo: {
+          dose: selection.dose ?? undefined,
+        },
+        status: 'active',
+      } as MedicationDTO)
+        .then((success) => {
+          if (success) {
+            void refetchHistory();
+          }
+        })
+        .catch(console.error);
+    },
+    [onSubmit, refetchHistory]
+  );
+
+  const medicationData = {
+    medications,
+    isLoading: isMedicationsLoading,
+    onSubmit,
+    onRemove,
+    refetchHistory,
+  };
 
   if (isLoading || isChartDataLoading) return <Loader />;
   if (error?.message) return <Typography>Error: {error.message}</Typography>;
@@ -53,17 +98,9 @@ export const Medications: React.FC<MedicationsProps> = () => {
       <AskMedicationsAlert />
       <MedicalHistoryDoubleCard
         patientSide={
-          <CurrentMedicationsPatientColumn
-            chartedMedications={chartedMedications}
-            onSelectMedication={handleExternalMedSelect}
-          />
+          <CurrentMedicationsPatientColumn chartedMedications={medications} onSelectMedication={addMedicationToChart} />
         }
-        providerSide={
-          <CurrentMedicationsProviderColumn
-            onSelectMedicationRef={selectMedicationRef}
-            onMedicationsChange={setChartedMedications}
-          />
-        }
+        providerSide={<CurrentMedicationsProviderColumn medicationData={medicationData} />}
       />
 
       <MedicationHistoryList />

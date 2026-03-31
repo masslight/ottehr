@@ -17,20 +17,17 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { MedicationDTO } from 'utils';
-import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
-import { ExternalMedicationSelection } from './ExternalRxSuggestions';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
@@ -40,15 +37,21 @@ interface CurrentMedicationsProviderColumnForm {
   patientCouldNotConfirmDosage: boolean;
 }
 
-interface CurrentMedicationsProviderColumnProps {
-  onSelectMedicationRef?: React.MutableRefObject<((selection: ExternalMedicationSelection) => void) | null>;
-  onMedicationsChange?: (medications: MedicationDTO[]) => void;
+export interface MedicationDataProps {
+  medications: MedicationDTO[];
+  isLoading: boolean;
+  onSubmit: (data: MedicationDTO) => Promise<boolean>;
+  onRemove: (resourceId: string) => Promise<void>;
+  refetchHistory: () => void;
 }
 
-export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColumnProps> = ({
-  onSelectMedicationRef,
-  onMedicationsChange,
-}) => {
+interface CurrentMedicationsProviderColumnProps {
+  medicationData: MedicationDataProps;
+}
+
+export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColumnProps> = ({ medicationData }) => {
+  const { medications, isLoading, onSubmit, onRemove, refetchHistory } = medicationData;
+
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
     defaultValues: {
       medication: null,
@@ -62,60 +65,6 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { control, reset, handleSubmit, setValue } = methods;
-
-  const { refetchHistory } = useMedicationHistory();
-
-  const {
-    isLoading,
-    onSubmit,
-    onRemove,
-    values: medications,
-  } = useChartDataArrayValue(
-    'medications',
-    undefined,
-    {
-      _sort: '-_lastUpdated',
-      _include: 'MedicationStatement:source',
-      status: { type: 'token', value: 'active' },
-    },
-    refetchHistory
-  );
-
-  // Expose a callback so the patient column can directly add external meds to the chart
-  useEffect(() => {
-    if (onSelectMedicationRef) {
-      onSelectMedicationRef.current = (selection) => {
-        void (async () => {
-          const medName = selection.medication.name;
-          const strength = selection.medication.strength;
-          const nameAlreadyHasStrength = strength && medName.toLowerCase().includes(strength.toLowerCase());
-          const displayName = nameAlreadyHasStrength || !strength ? medName : `${medName} (${strength})`;
-          const success = await onSubmit({
-            name: displayName,
-            id: selection.medication.id?.toString(),
-            type: 'scheduled',
-            intakeInfo: {
-              dose: selection.dose ?? undefined,
-            },
-            status: 'active',
-          });
-          if (success) {
-            void refetchHistory();
-          }
-        })();
-      };
-    }
-    return () => {
-      if (onSelectMedicationRef) {
-        onSelectMedicationRef.current = null;
-      }
-    };
-  }, [onSelectMedicationRef, onSubmit, refetchHistory]);
-
-  // Report current medications to parent for External Rx filtering
-  useEffect(() => {
-    onMedicationsChange?.(medications);
-  }, [medications, onMedicationsChange]);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
