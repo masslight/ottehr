@@ -32,6 +32,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
+import { makeAbbreviation } from 'src/helpers/misc.helper';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
@@ -1029,10 +1030,4 @@ export default function AppointmentTableRow({
       )}
     </TableRow>
   );
-}
-
-function makeAbbreviation(str: string): string {
-  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
 }
