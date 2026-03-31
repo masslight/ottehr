@@ -30,7 +30,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -215,7 +215,6 @@ export default function ProceduresNew(): ReactElement {
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
   const { quickPicks: mergedQuickPicks } = useMergedProcedureQuickPicks();
-  const applyingQuickPickRef = useRef(false);
 
   const updateState = (stateMutator: (draft: PageState) => void): void => {
     setState((prev) => {
@@ -776,25 +775,18 @@ export default function ProceduresNew(): ReactElement {
         values: true,
       },
       callback: ({ values }) => {
-        if (applyingQuickPickRef.current) return;
         updateState((state) => {
           const selected = selectOptions?.procedureTypes.find(
             (procedureType) => procedureType.name === values.procedureType
           );
-          const newCodes: CPTCodeDTO[] = [];
-          if (selected?.cpt) {
-            newCodes.push({
-              code: selected.cpt.code,
-              display: selected.cpt.display,
-            });
+          const existing = state.cptCodes ?? [];
+          if (selected?.cpt && !existing.some((c) => c.code === selected.cpt!.code)) {
+            existing.push({ code: selected.cpt.code, display: selected.cpt.display });
           }
-          if (selected?.hcpcs) {
-            newCodes.push({
-              code: selected.hcpcs.code,
-              display: selected.hcpcs.display,
-            });
+          if (selected?.hcpcs && !existing.some((c) => c.code === selected.hcpcs!.code)) {
+            existing.push({ code: selected.hcpcs.code, display: selected.hcpcs.display });
           }
-          state.cptCodes = newCodes;
+          state.cptCodes = existing;
 
           if (selected) {
             Object.entries(PROCEDURES_CONFIG.prepopulation[selected.code] ?? []).forEach(([field, value]) => {
@@ -821,7 +813,6 @@ export default function ProceduresNew(): ReactElement {
   }, [methods, procedure]);
 
   const onQuickPickSelect = (quickPick: ProcedureQuickPickData): void => {
-    applyingQuickPickRef.current = true;
     updateState((state) => {
       if (quickPick.procedureType) {
         methods.reset({
@@ -842,10 +833,6 @@ export default function ProceduresNew(): ReactElement {
         }
       });
     });
-    // Allow the subscribe callback to run again after quick pick is applied
-    setTimeout(() => {
-      applyingQuickPickRef.current = false;
-    }, 0);
   };
 
   return (
