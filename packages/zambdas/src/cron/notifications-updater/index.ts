@@ -220,7 +220,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                     const providerTimezone = provider.extension?.find((ext) => ext.url === USER_TIMEZONE_EXTENSION_URL)
                       ?.valueString;
                     appointmentTime = DateTime.fromISO(appointment.start)
-                      .setZone(providerTimezone ?? 'America/New_York')
+                      .setZone(
+                        Intl.supportedValuesOf('timeZone').includes(providerTimezone || '')
+                          ? providerTimezone
+                          : 'America/New_York'
+                      )
                       .toFormat('h:mm a');
                   }
                   const message =
