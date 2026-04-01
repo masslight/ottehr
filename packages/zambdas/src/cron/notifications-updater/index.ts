@@ -33,6 +33,7 @@ import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
+  USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
@@ -216,7 +217,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                   }
                   let appointmentTime: string | undefined;
                   if (appointment.start) {
-                    appointmentTime = DateTime.fromISO(appointment.start).toFormat('h:mm a');
+                    const providerTimezone = provider.extension?.find((ext) => ext.url === USER_TIMEZONE_EXTENSION_URL)
+                      ?.valueString;
+                    appointmentTime = DateTime.fromISO(appointment.start)
+                      .setZone(providerTimezone ?? 'America/New_York')
+                      .toFormat('h:mm a');
                   }
                   const message =
                     patientName && appointmentTime
@@ -245,7 +250,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                       encounter: { reference: `Encounter/${encounter.id}` },
                       recipient: [{ reference: `Practitioner/${provider.id}` }],
                       payload: [{ contentString: message }],
-                      ...(appointment.start ? { note: [{ text: appointment.start }] } : {}),
                     },
                   };
                   createCommunicationRequests.push(request);

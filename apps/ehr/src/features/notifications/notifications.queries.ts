@@ -1,7 +1,6 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Extension, FhirResource } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   AppointmentProviderNotificationTypes,
   getPatchBinary,
@@ -74,32 +73,6 @@ export const useGetProviderNotifications = (
         const encounterID = communicationResource.encounter?.reference?.replace('Encounter/', '');
         const encounter = encounterResources.find((encounterTemp) => encounterID === encounterTemp.id);
         const appointmentID = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
-
-        let timeInThisTimezone = '';
-        if (communicationResource.note?.[0].text) {
-          timeInThisTimezone = DateTime.fromISO(communicationResource.note[0].text)
-            .setZone(DateTime.local().zoneName)
-            .toFormat('h:mm a');
-        }
-        communicationResource.payload = communicationResource.payload?.map((payloadItem) => {
-          const contentString = payloadItem.contentString;
-          // looking for `Virtual visit with ${patientName} at ${appointmentTime}` but not "Virtual visit with patient soon"
-          if (
-            contentString?.startsWith('Virtual visit with ') &&
-            !contentString.endsWith('patient soon') &&
-            timeInThisTimezone
-          ) {
-            // we save time in utc in the back end without knowing which provider in which timezone will receive it
-            // so we convert and replace it here
-            const time = contentString.split('at ')[1];
-            const newMessage = contentString.replace(time, timeInThisTimezone);
-            return {
-              ...payloadItem,
-              contentString: newMessage,
-            };
-          }
-          return payloadItem;
-        });
 
         const notification: ProviderNotification = {
           appointmentID: appointmentID || '',
