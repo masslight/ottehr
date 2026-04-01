@@ -2152,7 +2152,7 @@
               {
                 "linkId": "insurance-card-back",
                 "type": "attachment",
-                "text": "Back side of the insurance card",
+                "text": "Back side of the insurance card (optional)",
                 "required": false,
                 "enableWhen": [
                   {
@@ -2704,7 +2704,7 @@
                   {
                     "linkId": "insurance-card-back-2",
                     "type": "attachment",
-                    "text": "Back side of the insurance card",
+                    "text": "Back side of the insurance card (optional)",
                     "required": false,
                     "extension": [
                       {

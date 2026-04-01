@@ -872,7 +872,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         },
         insuranceCardBack: {
           key: 'insurance-card-back',
-          label: 'Back side of the insurance card',
+          label: 'Back side of the insurance card (optional)',
           type: 'attachment',
           attachmentText: 'Take a picture of the **back side** of your card and upload it here',
           dataType: 'Image',
@@ -1084,7 +1084,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
             insuranceCardBack: {
               key: 'insurance-card-back-2',
-              label: 'Back side of the insurance card',
+              label: 'Back side of the insurance card (optional)',
               type: 'attachment',
               attachmentText: 'Take a picture of the **back side** of your card and upload it here',
               dataType: 'Image',
