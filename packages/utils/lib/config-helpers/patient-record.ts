@@ -2,6 +2,7 @@ import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, Questionna
 import { getTaxID } from '../fhir/helpers';
 import type { PrePopulationFromPatientRecordInput } from '../helpers';
 import { makeAnswer, makePrepopulatedItemsFromPatientRecord } from '../helpers';
+import { PATIENT_RECORD_CONFIG } from '../ottehr-config/patient-record';
 import type { ServiceMode } from '../types';
 
 export interface AppointmentContext {
@@ -68,7 +69,10 @@ export const prepopulateLogicalFields = (
 
 export const prepopulatePatientRecordItems = (
   input: PrePopulationFromPatientRecordInputWithContext,
-  formConfig: PatientRecordFormConfig
+  formConfig: PatientRecordFormConfig = {
+    hiddenFields: (PATIENT_RECORD_CONFIG as any).FormFields?.patientSummary?.hiddenFields,
+    requiredFields: (PATIENT_RECORD_CONFIG as any).FormFields?.patientSummary?.requiredFields,
+  }
 ): QuestionnaireResponseItem[] => {
   if (!input) {
     return [];

@@ -179,6 +179,7 @@ async function createHarvestTaskIfNeeded(
   await oystehr.fhir.create<Task>({
     resourceType: 'Task',
     status: 'requested',
+    authoredOn: new Date().toISOString(),
     code: {
       coding: [{ ...TaskIndicator.harvestPaperwork }],
     },

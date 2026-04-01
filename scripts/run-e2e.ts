@@ -14,6 +14,10 @@ const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === '
 const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
 const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
+const repeatEachArg = process.argv.find((arg) => arg.startsWith('--repeat-each='));
+const repeatEach = repeatEachArg ? parseInt(repeatEachArg.split('=')[1], 10) : undefined;
+const grepArg = process.argv.find((arg) => arg.startsWith('--grep='));
+const grepPattern = grepArg ? grepArg.split('=').slice(1).join('=') : undefined;
 const supportedApps = ['ehr', 'intake'] as const;
 
 const ports = {
@@ -242,6 +246,14 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       playwrightArgs.push('--grep', '@smoke');
     }
 
+    if (grepPattern) {
+      playwrightArgs.push('--grep', grepPattern);
+    }
+
+    if (repeatEach) {
+      playwrightArgs.push('--repeat-each', String(repeatEach));
+    }
+
     return spawn('env-cmd', ['-f', `./env/tests.${ENV}.json`, 'npx', 'playwright', ...playwrightArgs], {
       shell: true,
       stdio: 'inherit',
@@ -268,6 +280,14 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
 
   if (SMOKE_TEST === 'true' && testType !== 'login') {
     extraArgs.push('--grep', '@smoke');
+  }
+
+  if (grepPattern && testType !== 'login') {
+    extraArgs.push('--grep', grepPattern);
+  }
+
+  if (repeatEach && testType !== 'login') {
+    extraArgs.push('--repeat-each', String(repeatEach));
   }
 
   // Build the playwright args as an environment variable for turbo to pass through

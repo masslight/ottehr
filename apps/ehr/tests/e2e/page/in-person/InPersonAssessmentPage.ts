@@ -39,6 +39,14 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
     expect(value).toContain(code);
   }
 
+  async verifyExactCptCodeDisplayIsShown(cptCodeDisplay: string): Promise<void> {
+    const container = this.#page.getByTestId(dataTestIds.billingContainer.cptCodeContainer);
+    await expect(
+      container.getByText(cptCodeDisplay, { exact: true }),
+      `checking ${cptCodeDisplay} is visible`
+    ).toBeVisible();
+  }
+
   async verifyCptCodeAbsent(code: string): Promise<void> {
     const value = await this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code));
     await expect(value).toBeHidden();

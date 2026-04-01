@@ -172,13 +172,19 @@ const ConfirmDateOfBirthForm: FC<ConfirmDateOfBirthFormProps> = ({
               <Button
                 variant="outlined"
                 onClick={wrongDateOfBirthModal.onSubmit}
-                color="primary"
+                color="secondary"
                 size="large"
                 type="submit"
               >
                 {wrongDateOfBirthModal.buttonText}
               </Button>
-              <Button variant="contained" onClick={() => setOpenModal(false)} size="large" type="button">
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => setOpenModal(false)}
+                size="large"
+                type="button"
+              >
                 {t('confirmDob.notConfirmed.tryAgain')}
               </Button>
             </Box>
