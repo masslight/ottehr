@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
 import {
@@ -277,17 +277,39 @@ export async function getChartData(
     }
   }
 
+  // Determine if we need to check whether the patient is new
+  const shouldFetchPatientHasPreviousVisits = !requestedFields || 'patientHasPreviousVisits' in requestedFields;
+
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
-  let result: Bundle<FhirResource> | undefined;
-  try {
-    result = await oystehr.fhir.batch<FhirResource>({
-      requests: chartDataRequests,
-    });
-  } catch (error) {
-    console.log('Error fetching chart data...', error, JSON.stringify(error));
-    throw new Error(`Unable to retrieve chart data for patient with ID ${patient.id}`);
-  }
+
+  // Run batch and patientHasPreviousVisits query in parallel
+  const [batchResult, appointmentCountResult] = await Promise.all([
+    oystehr.fhir
+      .batch<FhirResource>({
+        requests: chartDataRequests,
+      })
+      .catch((error) => {
+        console.log('Error fetching chart data...', error, JSON.stringify(error));
+        throw new Error(`Unable to retrieve chart data for patient with ID ${patient.id}`);
+      }),
+    shouldFetchPatientHasPreviousVisits
+      ? oystehr.fhir
+          .search<FhirResource>({
+            resourceType: 'Appointment',
+            params: [
+              { name: 'actor', value: `Patient/${patient.id}` },
+              { name: '_summary', value: 'count' },
+            ],
+          })
+          .catch((error) => {
+            console.log('Error fetching appointment count for patient...', error);
+            return undefined;
+          })
+      : Promise.resolve(undefined),
+  ]);
+
+  const result = batchResult;
   console.log('Retrieved chart data...');
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
@@ -327,6 +349,13 @@ export async function getChartData(
       chartDataResult.chartData.aiChat.providers = practitioners;
     }
   }
+  // Set patientHasPreviousVisits based on appointment count
+  if (appointmentCountResult !== undefined) {
+    const appointmentCount = appointmentCountResult.total ?? 0;
+    // More than 1 appointment means the patient has previous visits (current appointment is one of them)
+    chartDataResult.chartData.patientHasPreviousVisits = appointmentCount > 1;
+  }
+
   console.timeEnd('check');
 
   return {

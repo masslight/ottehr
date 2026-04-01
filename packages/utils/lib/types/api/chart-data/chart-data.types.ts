@@ -96,7 +96,8 @@ export type RequestedFields =
   | 'observations'
   | 'preferredPharmacies'
   | 'reasonForVisit'
-  | 'accident';
+  | 'accident'
+  | 'patientHasPreviousVisits';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 

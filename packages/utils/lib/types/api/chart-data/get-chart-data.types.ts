@@ -9,6 +9,7 @@ export interface GetChartDataRequest {
 
 export interface GetChartDataResponse extends AllChartValues {
   patientId: string;
+  patientHasPreviousVisits?: boolean;
   schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[];
   practitioners?: Practitioner[];
   preferredPharmacies?: PharmacyDTO[];
