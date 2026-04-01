@@ -311,6 +311,16 @@ function shouldSkipMapping(text: string): boolean {
 export function parseAiValue(value: string, section: AiSuggestionSection): string[] {
   if (!value) return [];
 
+  // New format: JSON-serialized array from the updated AI prompt
+  if (value.startsWith('[')) {
+    try {
+      return (JSON.parse(value) as unknown[]).map((item) => String(item).trim()).filter(Boolean);
+    } catch (error) {
+      console.warn('Failed to parse AI suggestion JSON, falling back to legacy parsing:', error);
+    }
+  }
+
+  // Legacy format: free-text prose from old observations
   const items = splitSentences(value)
     .filter((s) => isRelevantForSection(s, section))
     .map(cleanSentence)
@@ -438,6 +448,10 @@ export function extractDateFromValue(value: string): DateTime | undefined {
       formats: ["yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss"],
     },
     { pattern: /\b(\d{4}-\d{2}-\d{2})\b/, formats: ['yyyy-MM-dd'] },
+    {
+      pattern: /\b(\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2})\b/,
+      formats: ['M/d/yyyy H:mm', 'MM/dd/yyyy HH:mm'],
+    },
     { pattern: /\b(\d{1,2}\/\d{1,2}\/\d{4})\b/, formats: ['M/d/yyyy', 'MM/dd/yyyy'] },
   ];
 

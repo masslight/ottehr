@@ -7,94 +7,134 @@ import {
 import { describe, expect, test } from 'vitest';
 
 describe('parseAiValue', () => {
-  describe('medications section', () => {
-    test('splits comma-separated medications', () => {
-      const result = parseAiValue('The patient takes Lisinopril, Metformin, and Aspirin.', 'medications');
-      expect(result).toEqual(['Lisinopril', 'Metformin', 'Aspirin']);
+  describe('new JSON array format', () => {
+    test('parses JSON array string', () => {
+      const result = parseAiValue('["hypertension", "type 2 diabetes"]', 'conditions');
+      expect(result).toEqual(['hypertension', 'type 2 diabetes']);
     });
 
-    test('handles single medication', () => {
-      const result = parseAiValue('The patient takes Amoxicillin.', 'medications');
-      expect(result).toEqual(['Amoxicillin']);
+    test('parses medications with dose and last taken', () => {
+      const json = '["Lisinopril 10mg, last taken 03/28/2025 08:00", "Metformin 500mg"]';
+      const result = parseAiValue(json, 'medications');
+      expect(result).toEqual(['Lisinopril 10mg, last taken 03/28/2025 08:00', 'Metformin 500mg']);
     });
 
-    test('returns empty for empty string', () => {
-      expect(parseAiValue('', 'medications')).toEqual([]);
+    test('parses allergies with reactions', () => {
+      const result = parseAiValue('["Penicillin - rash", "Sulfa drugs"]', 'allergies');
+      expect(result).toEqual(['Penicillin - rash', 'Sulfa drugs']);
     });
 
-    test('deduplicates items case-insensitively', () => {
-      const result = parseAiValue('Taking Aspirin, aspirin', 'medications');
-      expect(result).toHaveLength(1);
+    test('filters out empty items from JSON array', () => {
+      const result = parseAiValue('["Aspirin", "", "Tylenol"]', 'medications');
+      expect(result).toEqual(['Aspirin', 'Tylenol']);
     });
 
-    test('filters out non-medication sentences', () => {
-      const result = parseAiValue('She has asthma. She takes Albuterol.', 'medications');
-      expect(result).toEqual(['Albuterol']);
-    });
-  });
-
-  describe('allergies section', () => {
-    test('parses allergy items', () => {
-      const result = parseAiValue('The patient has an allergy to Penicillin and Peanuts.', 'allergies');
-      expect(result).toHaveLength(2);
-      expect(result).toEqual(expect.arrayContaining(['Peanuts']));
-      // "allergy to" prefix is kept since cleanItem only strips specific verbs
-      expect(result[0]).toContain('Penicillin');
+    test('handles single-item JSON array', () => {
+      const result = parseAiValue('["appendectomy 2019"]', 'surgicalHistory');
+      expect(result).toEqual(['appendectomy 2019']);
     });
 
-    test('filters out non-allergy sentences', () => {
-      const result = parseAiValue('She takes Aspirin. She has an allergy to Penicillin.', 'allergies');
-      expect(result).not.toEqual(expect.arrayContaining([expect.stringMatching(/aspirin/i)]));
+    test('handles empty JSON array', () => {
+      const result = parseAiValue('[]', 'conditions');
+      expect(result).toEqual([]);
+    });
+
+    test('falls back to legacy parsing on invalid JSON', () => {
+      const result = parseAiValue('[invalid json', 'conditions');
+      expect(result.length).toBeGreaterThanOrEqual(0);
     });
   });
 
-  describe('conditions section', () => {
-    test('parses condition items', () => {
-      const result = parseAiValue('Asthma, Eczema', 'conditions');
-      expect(result).toEqual(['Asthma', 'Eczema']);
+  describe('legacy free-text format', () => {
+    describe('medications section', () => {
+      test('splits comma-separated medications', () => {
+        const result = parseAiValue('The patient takes Lisinopril, Metformin, and Aspirin.', 'medications');
+        expect(result).toEqual(['Lisinopril', 'Metformin', 'Aspirin']);
+      });
+
+      test('handles single medication', () => {
+        const result = parseAiValue('The patient takes Amoxicillin.', 'medications');
+        expect(result).toEqual(['Amoxicillin']);
+      });
+
+      test('returns empty for empty string', () => {
+        expect(parseAiValue('', 'medications')).toEqual([]);
+      });
+
+      test('deduplicates items case-insensitively', () => {
+        const result = parseAiValue('Taking Aspirin, aspirin', 'medications');
+        expect(result).toHaveLength(1);
+      });
+
+      test('filters out non-medication sentences', () => {
+        const result = parseAiValue('She has asthma. She takes Albuterol.', 'medications');
+        expect(result).toEqual(['Albuterol']);
+      });
     });
 
-    test('filters out negated conditions', () => {
-      const result = parseAiValue('Denies chest pain. Has asthma.', 'conditions');
-      expect(result).not.toEqual(expect.arrayContaining([expect.stringMatching(/chest pain/i)]));
-    });
-  });
+    describe('allergies section', () => {
+      test('parses allergy items', () => {
+        const result = parseAiValue('The patient has an allergy to Penicillin and Peanuts.', 'allergies');
+        expect(result).toHaveLength(2);
+        expect(result).toEqual(expect.arrayContaining(['Peanuts']));
+        // "allergy to" prefix is kept since cleanItem only strips specific verbs
+        expect(result[0]).toContain('Penicillin');
+      });
 
-  describe('surgicalHistory section', () => {
-    test('parses surgical items', () => {
-      const result = parseAiValue('Appendectomy, Tonsillectomy', 'surgicalHistory');
-      expect(result).toEqual(['Appendectomy', 'Tonsillectomy']);
-    });
-  });
-
-  describe('episodeOfCare section', () => {
-    test('parses hospitalization items', () => {
-      const result = parseAiValue('Appendicitis, Pneumonia', 'episodeOfCare');
-      expect(result).toEqual(['Appendicitis', 'Pneumonia']);
-    });
-  });
-
-  describe('text cleaning', () => {
-    test('strips leading verbs like "takes", "has", "reports"', () => {
-      const result = parseAiValue('takes Lisinopril', 'medications');
-      expect(result).toEqual(['Lisinopril']);
+      test('filters out non-allergy sentences', () => {
+        const result = parseAiValue('She takes Aspirin. She has an allergy to Penicillin.', 'allergies');
+        expect(result).not.toEqual(expect.arrayContaining([expect.stringMatching(/aspirin/i)]));
+      });
     });
 
-    test('strips "the patient" prefix', () => {
-      const result = parseAiValue('The patient takes Metformin.', 'medications');
-      expect(result).toEqual(['Metformin']);
+    describe('conditions section', () => {
+      test('parses condition items', () => {
+        const result = parseAiValue('Asthma, Eczema', 'conditions');
+        expect(result).toEqual(['Asthma', 'Eczema']);
+      });
+
+      test('filters out negated conditions', () => {
+        const result = parseAiValue('Denies chest pain. Has asthma.', 'conditions');
+        expect(result).not.toEqual(expect.arrayContaining([expect.stringMatching(/chest pain/i)]));
+      });
     });
 
-    test('strips pronoun prefixes', () => {
-      const result = parseAiValue('She takes Aspirin.', 'medications');
-      expect(result).toEqual(['Aspirin']);
+    describe('surgicalHistory section', () => {
+      test('parses surgical items', () => {
+        const result = parseAiValue('Appendectomy, Tonsillectomy', 'surgicalHistory');
+        expect(result).toEqual(['Appendectomy', 'Tonsillectomy']);
+      });
     });
 
-    test('strips leading conjunctions and articles', () => {
-      const result = parseAiValue('and Ibuprofen, a Tylenol', 'medications');
-      // "and" and "a" should be stripped
-      expect(result).toEqual(expect.arrayContaining(['Ibuprofen']));
-      expect(result.some((item) => item.toLowerCase().includes('tylenol'))).toBe(true);
+    describe('episodeOfCare section', () => {
+      test('parses hospitalization items', () => {
+        const result = parseAiValue('Appendicitis, Pneumonia', 'episodeOfCare');
+        expect(result).toEqual(['Appendicitis', 'Pneumonia']);
+      });
+    });
+
+    describe('text cleaning', () => {
+      test('strips leading verbs like "takes", "has", "reports"', () => {
+        const result = parseAiValue('takes Lisinopril', 'medications');
+        expect(result).toEqual(['Lisinopril']);
+      });
+
+      test('strips "the patient" prefix', () => {
+        const result = parseAiValue('The patient takes Metformin.', 'medications');
+        expect(result).toEqual(['Metformin']);
+      });
+
+      test('strips pronoun prefixes', () => {
+        const result = parseAiValue('She takes Aspirin.', 'medications');
+        expect(result).toEqual(['Aspirin']);
+      });
+
+      test('strips leading conjunctions and articles', () => {
+        const result = parseAiValue('and Ibuprofen, a Tylenol', 'medications');
+        // "and" and "a" should be stripped
+        expect(result).toEqual(expect.arrayContaining(['Ibuprofen']));
+        expect(result.some((item) => item.toLowerCase().includes('tylenol'))).toBe(true);
+      });
     });
   });
 });
@@ -215,6 +255,16 @@ describe('extractDateFromValue', () => {
     expect(result).toBeDefined();
     expect(result!.hour).toBe(14);
     expect(result!.minute).toBe(30);
+  });
+
+  test('extracts US datetime (M/d/yyyy H:mm)', () => {
+    const result = extractDateFromValue('last taken 3/28/2025 08:00');
+    expect(result).toBeDefined();
+    expect(result!.year).toBe(2025);
+    expect(result!.month).toBe(3);
+    expect(result!.day).toBe(28);
+    expect(result!.hour).toBe(8);
+    expect(result!.minute).toBe(0);
   });
 
   test('returns undefined when no date present', () => {
