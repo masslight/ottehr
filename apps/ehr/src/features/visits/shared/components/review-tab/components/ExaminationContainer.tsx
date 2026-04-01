@@ -122,6 +122,88 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
         }
 
         case 'modal-exam': {
+          // Check if this is part of an L/R pair by looking for base observation
+          const baseKey = fieldName.replace(/-[lr]$/, '');
+          const isLeftKey = fieldName.endsWith('-l');
+          const isRightKey = fieldName.endsWith('-r');
+          const isPairedKey = isLeftKey || isRightKey;
+
+          if (isPairedKey && isRightKey) {
+            // Skip right key — it's handled when processing the left key
+            break;
+          }
+
+          if (isPairedKey && isLeftKey) {
+            const rightKey = baseKey + '-r';
+            const baseLabel = component.label.replace(/\s+L$/, '');
+            const baseObservation = examObservations[baseKey];
+            const leftObservation = examObservations[fieldName];
+            const rightObservation = examObservations[rightKey];
+
+            // Generic parent observation (no laterality)
+            if (baseObservation?.value === true && !leftObservation?.value && !rightObservation?.value) {
+              items.push({
+                field: baseKey,
+                label: baseLabel,
+                abnormal: section === 'abnormal',
+              });
+              break;
+            }
+
+            const leftComponents = leftObservation?.components?.filter((c) => c.value) ?? [];
+            const rightComponents = rightObservation?.components?.filter((c) => c.value) ?? [];
+
+            if (leftComponents.length > 0 || rightComponents.length > 0) {
+              const consolidateSide = (components: typeof leftComponents): string => {
+                const grouped = new Map<string, string[]>();
+                components.forEach((c) => {
+                  const colonIdx = c.label.indexOf(': ');
+                  if (colonIdx > 0) {
+                    const group = c.label.substring(0, colonIdx);
+                    const item = c.label.substring(colonIdx + 2);
+                    const existing = grouped.get(group);
+                    if (existing) existing.push(item);
+                    else grouped.set(group, [item]);
+                  } else {
+                    const existing = grouped.get('');
+                    if (existing) existing.push(c.label);
+                    else grouped.set('', [c.label]);
+                  }
+                });
+                return Array.from(grouped.entries())
+                  .map(([group, items]) => (group ? `${group}: ${items.join(', ')}` : items.join(', ')))
+                  .join('; ');
+              };
+              const parts: string[] = [];
+              if (leftComponents.length > 0) {
+                parts.push(`L: ${consolidateSide(leftComponents)}`);
+              }
+              if (rightComponents.length > 0) {
+                parts.push(`R: ${consolidateSide(rightComponents)}`);
+              }
+              const hasAnyAbnormal = [...leftComponents, ...rightComponents].some((c) => c.abnormal !== false);
+              items.push({
+                field: baseKey,
+                label: `${baseLabel} ${parts.join(', ')}`,
+                abnormal: hasAnyAbnormal,
+              });
+            } else {
+              // Parent checked with no sub-items on either side
+              if (leftObservation?.value === true || rightObservation?.value === true) {
+                const sideParts: string[] = [];
+                if (leftObservation?.value) sideParts.push('L');
+                if (rightObservation?.value) sideParts.push('R');
+                items.push({
+                  field: baseKey,
+                  label: `${baseLabel} ${sideParts.join(', ')}`,
+                  abnormal: section === 'abnormal',
+                });
+              }
+            }
+            break;
+          }
+
+          // Non-paired modal-exam (e.g., Common skin findings)
           const observation = examObservations[fieldName];
           if (observation && observation.value === true) {
             if (observation.components && observation.components.length > 0) {
@@ -174,6 +256,9 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
     Object.entries(components).forEach(([key, component]) => {
       if (component.type === 'checkbox' || component.type === 'modal-exam') {
         knownFields.add(key);
+        // For L/R paired modals, also add the base key
+        const baseKey = key.replace(/-[lr]$/, '');
+        if (baseKey !== key) knownFields.add(baseKey);
       } else if (component.type === 'text') {
         knownFields.add(key);
       } else if (component.type === 'dropdown') {

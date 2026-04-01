@@ -14,6 +14,7 @@ import {
   TableCell,
   TableContainer,
   TableRow,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -96,7 +97,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
   const toggleComponent = useCallback(
     (optionKey: string, label: string, checked: boolean) => {
       const desc = descriptionMap[optionKey];
-      const fullLabel = desc ? `${label}, ${desc}` : label;
+      const fullLabel = desc ?? label;
       const isAbnormal = abnormalMap[optionKey] ?? true;
       setDraftComponents((prev) => {
         const current = prev ?? field.components ?? [];
@@ -177,7 +178,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
       {allOptions.map(({ key, groupLabel, label, description, abnormal: optAbnormal }) => {
         if (!componentMap[key]) return null;
         const isAbn = optAbnormal ?? true;
-        const displayText = description ? `${label}, ${description}` : `${groupLabel}: ${label}`;
+        const displayText = description ?? `${groupLabel}: ${label}`;
         return (
           <Typography
             key={key}
@@ -212,6 +213,11 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
             <Close />
           </IconButton>
         </DialogTitle>
+        {Object.keys(descriptionMap).length > 0 && (
+          <Typography variant="body2" sx={{ px: 3, py: 1, color: 'text.secondary', fontStyle: 'italic' }}>
+            Selecting a diagnosis will populate appropriate exam findings. Hover to view.
+          </Typography>
+        )}
         <DialogContent sx={{ p: 0 }}>
           <TableContainer component={Paper} elevation={0} sx={{ border }}>
             <Table
@@ -258,39 +264,53 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
                             </Typography>
                             {Object.entries(group.options).map(([optionKey, option]) => {
                               const optAbnormal = option.abnormal ?? true;
+                              const noteText = option.description ?? option.label;
                               return (
-                                <FormControlLabel
+                                <Tooltip
                                   key={optionKey}
-                                  sx={{ m: 0, mr: 1.5 }}
-                                  control={
-                                    <Checkbox
-                                      size="small"
-                                      disabled={isLoading}
-                                      sx={{
-                                        '&.Mui-checked': {
-                                          color: isLoading
-                                            ? undefined
-                                            : optAbnormal
-                                            ? theme.palette.error.main
-                                            : theme.palette.success.main,
-                                        },
-                                        p: 0.5,
-                                      }}
-                                      checked={componentMap[optionKey] ?? false}
-                                      onChange={(e) =>
-                                        toggleComponent(optionKey, `${group.label}: ${option.label}`, e.target.checked)
-                                      }
-                                    />
-                                  }
-                                  label={
-                                    <Typography
-                                      fontSize={14}
-                                      fontWeight={componentMap[optionKey] && optAbnormal ? 600 : 400}
-                                    >
-                                      {option.label}
-                                    </Typography>
-                                  }
-                                />
+                                  title={noteText}
+                                  placement="top"
+                                  arrow
+                                  slotProps={{
+                                    popper: { modifiers: [{ name: 'offset', options: { offset: [0, -8] } }] },
+                                  }}
+                                >
+                                  <FormControlLabel
+                                    sx={{ m: 0, mr: 1.5 }}
+                                    control={
+                                      <Checkbox
+                                        size="small"
+                                        disabled={isLoading}
+                                        sx={{
+                                          '&.Mui-checked': {
+                                            color: isLoading
+                                              ? undefined
+                                              : optAbnormal
+                                              ? theme.palette.error.main
+                                              : theme.palette.success.main,
+                                          },
+                                          p: 0.5,
+                                        }}
+                                        checked={componentMap[optionKey] ?? false}
+                                        onChange={(e) =>
+                                          toggleComponent(
+                                            optionKey,
+                                            `${group.label}: ${option.label}`,
+                                            e.target.checked
+                                          )
+                                        }
+                                      />
+                                    }
+                                    label={
+                                      <Typography
+                                        fontSize={14}
+                                        fontWeight={componentMap[optionKey] && optAbnormal ? 600 : 400}
+                                      >
+                                        {option.label}
+                                      </Typography>
+                                    }
+                                  />
+                                </Tooltip>
                               );
                             })}
                           </Box>

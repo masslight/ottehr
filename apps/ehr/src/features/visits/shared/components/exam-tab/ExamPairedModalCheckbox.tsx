@@ -26,6 +26,7 @@ import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type ExamPairedModalCheckboxProps = {
   label: string;
+  baseName: string;
   leftName: string;
   rightName: string;
   leftConfig: ExamCardModalExamComponent;
@@ -74,6 +75,7 @@ function useSideState(name: string) {
 
 export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
   label,
+  baseName,
   leftName,
   rightName,
   leftConfig,
@@ -84,6 +86,7 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
   const theme = useTheme();
   const border = '1px solid rgba(224, 224, 224, 1)';
 
+  const base = useSideState(baseName);
   const left = useSideState(leftName);
   const right = useSideState(rightName);
 
@@ -143,14 +146,15 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
   }, [draftRight, right.field.components]);
 
   const hasAnySelected = left.hasAnySelected || right.hasAnySelected;
-  const isChecked = left.field.value === true || right.field.value === true || hasAnySelected;
+  const isChecked =
+    base.field.value === true || left.field.value === true || right.field.value === true || hasAnySelected;
 
   const toggleComponent = useCallback(
     (side: 'left' | 'right', optionKey: string, optionLabel: string, checked: boolean) => {
       const descMap = side === 'left' ? leftDescMap : rightDescMap;
       const abnMap = side === 'left' ? leftAbnormalMap : rightAbnormalMap;
       const desc = descMap[optionKey];
-      const fullLabel = desc ? `${optionLabel}, ${desc}` : optionLabel;
+      const fullLabel = desc ?? optionLabel;
       const isAbnormal = abnMap[optionKey] ?? true;
       const setter = side === 'left' ? setDraftLeft : setDraftRight;
       const fieldComponents = side === 'left' ? left.field.components : right.field.components;
@@ -183,39 +187,49 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
     const dR = draftRight;
     const leftField = left.field;
     const rightField = right.field;
+    const baseField = base.field;
 
     setOpen(false);
     setDraftLeft(null);
     setDraftRight(null);
 
+    const leftHasSelections = dL?.some((c) => c.value) ?? false;
+    const rightHasSelections = dR?.some((c) => c.value) ?? false;
+
+    // If any lateralized items are selected, remove the generic parent observation
+    if ((leftHasSelections || rightHasSelections) && baseField.resourceId) {
+      base.deleteField(baseField);
+    }
+
     if (dL) {
-      const hasSelections = dL.some((c) => c.value);
-      if (hasSelections) {
+      if (leftHasSelections) {
         left.update({ ...leftField, value: true, components: dL });
       } else if (leftField.resourceId) {
         left.update({ ...leftField, value: false, components: [] });
       }
-      // If no selections and no resourceId, nothing to do — field was never saved
     }
 
     if (dR) {
-      const hasSelections = dR.some((c) => c.value);
-      if (hasSelections) {
+      if (rightHasSelections) {
         right.update({ ...rightField, value: true, components: dR });
       } else if (rightField.resourceId) {
         right.update({ ...rightField, value: false, components: [] });
       }
-      // If no selections and no resourceId, nothing to do — field was never saved
     }
-  }, [draftLeft, draftRight, left, right]);
+
+    // If all lateralized items were removed, also clear the base observation
+    if (!leftHasSelections && !rightHasSelections && baseField.resourceId) {
+      base.deleteField(baseField);
+    }
+  }, [draftLeft, draftRight, left, right, base]);
 
   const onCheckboxChange = (value: boolean): void => {
     if (value) {
-      left.update({ ...left.field, value: true });
-      right.update({ ...right.field, value: true });
+      base.update({ ...base.field, value: true });
     } else if (hasAnySelected) {
       handleOpenModal();
     } else {
+      if (base.field.resourceId) base.deleteField(base.field);
       if (left.field.resourceId) left.deleteField(left.field);
       if (right.field.resourceId) right.deleteField(right.field);
     }
@@ -232,21 +246,38 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
           abnormal={abnormal}
           checked={isChecked}
           onChange={onCheckboxChange}
-          disabled={left.isLoading || right.isLoading}
+          disabled={base.isLoading || left.isLoading || right.isLoading}
         />
         <IconButton onClick={handleOpenModal} size="small" sx={{ ml: 0.5, p: 0.25 }}>
           <EditOutlined sx={{ fontSize: 16, color: theme.palette.text.secondary }} />
         </IconButton>
       </Box>
 
-      {/* Show selected items from both sides */}
-      {leftOptions.map(({ key, groupLabel, label: optLabel, description, abnormal: optAbn }) => {
-        if (!left.componentMap[key]) return null;
-        const isAbn = optAbn ?? true;
-        const displayText = description ? `${optLabel}, ${description}` : `${groupLabel}: ${optLabel}`;
-        return (
+      {/* Show selected items consolidated by side and group */}
+      {(['left', 'right'] as const).map((side) => {
+        const sideOptions = side === 'left' ? leftOptions : rightOptions;
+        const sideMap = side === 'left' ? left.componentMap : right.componentMap;
+        const sideLabel = side === 'left' ? 'L' : 'R';
+        const selected = sideOptions.filter(({ key }) => sideMap[key]);
+        if (selected.length === 0) return null;
+
+        // Group by groupLabel
+        const grouped = new Map<string, { labels: string[]; abnormal: boolean }>();
+        selected.forEach(({ groupLabel, label: optLabel, description, abnormal: optAbn }) => {
+          const displayText = description ?? optLabel;
+          const existing = grouped.get(groupLabel);
+          const isAbn = optAbn ?? true;
+          if (existing) {
+            existing.labels.push(displayText);
+            if (isAbn) existing.abnormal = true;
+          } else {
+            grouped.set(groupLabel, { labels: [displayText], abnormal: isAbn });
+          }
+        });
+
+        return Array.from(grouped.entries()).map(([groupLabel, { labels, abnormal: isAbn }]) => (
           <Typography
-            key={key}
+            key={`${side}-${groupLabel}`}
             variant="body2"
             sx={{
               pl: 3,
@@ -255,28 +286,9 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
               fontWeight: isAbn ? 600 : 400,
             }}
           >
-            L: {displayText}
+            ✓ {sideLabel}: {groupLabel}: {labels.join(', ')}
           </Typography>
-        );
-      })}
-      {rightOptions.map(({ key, groupLabel, label: optLabel, description, abnormal: optAbn }) => {
-        if (!right.componentMap[key]) return null;
-        const isAbn = optAbn ?? true;
-        const displayText = description ? `${optLabel}, ${description}` : `${groupLabel}: ${optLabel}`;
-        return (
-          <Typography
-            key={key}
-            variant="body2"
-            sx={{
-              pl: 3,
-              fontSize: '0.8rem',
-              color: isAbn ? theme.palette.error.main : theme.palette.success.main,
-              fontWeight: isAbn ? 600 : 400,
-            }}
-          >
-            R: {displayText}
-          </Typography>
-        );
+        ));
       })}
 
       <Dialog open={open} onClose={handleCloseModal} maxWidth="lg" fullWidth>

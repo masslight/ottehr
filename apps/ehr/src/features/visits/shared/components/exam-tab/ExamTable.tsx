@@ -161,6 +161,7 @@ const ExamTableCellComponent: FC<{
             <Box key={`modal-combined-${i}`} data-testid={`exam-component-paired-modal-${leftKey.replace(/-l$/, '')}`}>
               <ExamPairedModalCheckbox
                 label={baseLabel}
+                baseName={leftKey.replace(/-l$/, '')}
                 leftName={leftKey}
                 rightName={rightKey}
                 leftConfig={leftElem}
