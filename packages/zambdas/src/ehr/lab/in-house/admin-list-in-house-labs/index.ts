@@ -51,7 +51,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    if (!checkUserHasProvidedRoles(oystehr, userId, [RoleType.Administrator])) {
+    const userHasCorrectRoles = await checkUserHasProvidedRoles(oystehr, userId, [RoleType.Administrator]);
+    if (!userHasCorrectRoles) {
       throw ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR();
     }
 
