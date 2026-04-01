@@ -48,8 +48,7 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
 
   const renderQuestionAnswer = (field: any): React.ReactElement => {
     const answer = getQuestionnaireAnswer(field.fhirField);
-    const isLoading =
-      isAppointmentLoading || (isSeenInLastThreeYearsField(field.fhirField) ? chartDataLoading : false);
+    const isLoading = isAppointmentLoading || (isSeenInLastThreeYearsField(field.fhirField) ? chartDataLoading : false);
 
     return (
       <AdditionalQuestionView
