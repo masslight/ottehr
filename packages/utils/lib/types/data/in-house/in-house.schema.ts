@@ -131,7 +131,7 @@ export const AdminInHouseLabItemDefinitionSchema = z.object({
   cptCode: z.array(CptCodeInHouseLabDefinitionSchema).min(1, 'Definition must contain at least one CPT Code'),
   loincCode: z
     .array(nonEmptyString('LOINC must be non-empty if provided'))
-    .min(1, 'At least on LOINCE code required when provided')
+    .min(1, 'At least on LOINC code required when provided')
     .optional(),
   repeatTest: z.boolean(),
   components: z.array(TestItemComponentSchema).min(1, 'Test must contain at least one component'),

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminInHouseLabItemDefinition, APIError } from 'utils';
+import { ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES, AdminInHouseLabItemDefinition, APIError } from 'utils';
 import { useAdminAddInHouseLab } from '../admin.queries';
 import AdminInHouseLabform from './AdminInHouseLabForm';
 
@@ -17,28 +17,9 @@ export default function AdminAddInHouseLab(): ReactElement {
   const currentUserId = currentUser?.id ?? '';
   const [submitError, setSubmitError] = useState<OystehrSdkError | APIError | undefined>(undefined);
 
-  // explicitly defining the optional parameters as undefined for clarity
-  const defaultValues: AdminInHouseLabItemDefinition = {
-    name: '',
-    device: undefined,
-    cptCode: [{ code: '' }],
-    loincCode: undefined,
-    repeatTest: false,
-    components: [
-      {
-        dataType: 'string',
-        componentName: '',
-        loincCode: undefined,
-        display: { type: 'Free Text' },
-      },
-    ],
-    note: undefined,
-  };
-
   const onSubmit = useCallback(
     async (formData: AdminInHouseLabItemDefinition) => {
-      console.log('oh hai you called submit from the add in house lab page');
-      console.log('>>> this is your submitted formData', formData);
+      console.log('submitted formData', formData);
 
       try {
         const result = await addInHouseLabMutateAsync({
@@ -73,7 +54,7 @@ export default function AdminAddInHouseLab(): ReactElement {
           />
           <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
             <AdminInHouseLabform
-              defaultValues={defaultValues}
+              defaultValues={ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES}
               formMode="add"
               onSubmit={onSubmit}
               isSubmitting={isSubmitting}

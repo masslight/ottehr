@@ -1,94 +1,215 @@
-import { Grid, Paper } from '@mui/material';
+import { LoadingButton } from '@mui/lab';
+import { Box, CircularProgress, FormHelperText, FormLabel, Grid, Paper, Typography, useTheme } from '@mui/material';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
-import { ReactElement, useCallback, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminInHouseLabItemDefinition, APIError } from 'utils';
-import { useAdminAddInHouseLab } from '../admin.queries';
+import {
+  ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES,
+  AdminInHouseLabItemDefinition,
+  APIError,
+  InHouseLabAdminItemStatus,
+} from 'utils';
+import { useAdminGetInHouseLabConfig, useAdminUpdateInHouseLab } from '../admin.queries';
 import AdminInHouseLabform from './AdminInHouseLabForm';
 
 export default function AdminInHouseLabDetails(): ReactElement {
-  const activityDefinitionId = useParams();
-  console.log('This is the activityDefinitionId from params', activityDefinitionId);
-
-  // const { mutateAsync: addInHouseLabMutateAsync, isLoading } = useAdminAddInHouseLab();
-  // ATHENA TODO: change this to the edit mutation
-  const { mutateAsync: addInHouseLabMutateAsync, isPending: isSubmitting } = useAdminAddInHouseLab();
+  const { activityDefinitionId } = useParams();
+  const navigate = useNavigate();
   const currentUser = useEvolveUser();
   const currentUserId = currentUser?.id ?? '';
+
+  const { mutateAsync: updateInHouseLabMutateAsync, isPending: isSubmitting } = useAdminUpdateInHouseLab(
+    activityDefinitionId ?? ''
+  );
+  const {
+    data: existingData,
+    isPending,
+    isError: isFetchDataError,
+    status,
+  } = useAdminGetInHouseLabConfig({
+    userId: currentUserId,
+    activityDefinitionId: activityDefinitionId as string,
+  });
+
+  useEffect(() => {
+    if (status === 'error') enqueueSnackbar('Failed to fetch in-house lab data', { variant: 'error' });
+  }, [status]);
+
   const [submitError, setSubmitError] = useState<OystehrSdkError | APIError | undefined>(undefined);
 
-  // ATHENA TODO: this value should come from the existing data, which will be another hook
-  // explicitly defining the optional parameters as undefined for clarity
+  // labs TODO: to consider we should check if the ad that loads is the latest and only do editable things if it is
+  // this would prevent the edge case of people navigating to an old AD url
 
-  // ATHENA TODO: we should check if the ad that loads is the latest and only do editable things if it is
-  const defaultValues: AdminInHouseLabItemDefinition = {
-    name: '',
-    device: undefined,
-    cptCode: [{ code: '' }],
-    loincCode: undefined,
-    repeatTest: false,
-    components: [
-      {
-        dataType: 'string',
-        componentName: '',
-        loincCode: undefined,
-        display: { type: 'Free Text' },
-      },
-    ],
-    note: undefined,
-  };
+  const dataToRender = existingData?.testConfig ?? ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES;
+  console.log('dataToRender', dataToRender);
 
-  const onSubmit = useCallback(
+  const onEditSubmit = useCallback(
     async (formData: AdminInHouseLabItemDefinition) => {
-      console.log('oh hai you called submit from the add in house lab page');
-      console.log('>>> this is your submitted formData', formData);
+      console.log('submitted formData', formData);
+      if (!existingData) return;
 
       try {
-        // ATHENA TODO: edit this to be the edit mutation
-        const result = await addInHouseLabMutateAsync({
-          data: formData,
+        const result = await updateInHouseLabMutateAsync({
+          data: {
+            updateType: 'edit',
+            data: {
+              newData: formData,
+              activityDefinitionIdToRetire: existingData.activityDefinitionId,
+              canonicalUrl: existingData.canonicalUrl,
+              versionToRetire: existingData.version,
+            },
+          },
           userId: currentUserId,
         });
 
-        console.log('this is the result after adding in house lab', result);
+        console.log('this is the result after editing in house lab', result);
         setSubmitError(undefined);
+
+        // since we get back a brand new ActivityDefinition, we navigate to that page now
+        // note we clear the history so user can't go "back" to an outdated ActivityDefinition
+        navigate(`/admin/in-house-labs/${result.activityDefinitionId}`, { replace: true });
       } catch (err: unknown) {
-        console.error('add in house lab failed', err);
+        console.error('edit in house lab failed', err);
         setSubmitError(err as OystehrSdkError | APIError);
       }
     },
-    [addInHouseLabMutateAsync, currentUserId]
+    [updateInHouseLabMutateAsync, navigate, currentUserId, existingData]
   );
+
+  const onUpdateStatusSubmit = useCallback(async () => {
+    if (!existingData) return;
+
+    try {
+      const result = await updateInHouseLabMutateAsync({
+        data: {
+          updateType: 'toggle-status',
+          data: {
+            activityDefinitionId: existingData.activityDefinitionId,
+          },
+        },
+        userId: currentUserId,
+      });
+
+      console.log('this is the result after toggling status in house lab', result);
+      setSubmitError(undefined);
+    } catch (err: unknown) {
+      console.error('toggle status in house lab failed', err);
+      setSubmitError(err as OystehrSdkError | APIError);
+    }
+  }, [updateInHouseLabMutateAsync, existingData, currentUserId]);
 
   return (
     <PageContainer tabTitle={'In-House Lab Details'}>
-      {/* ATHENA TODO: some nice loading screen situation here */}
-      <Grid container direction="row" alignItems="center" justifyContent="center">
-        <Grid item maxWidth={'584px'} width={'100%'}>
-          <CustomBreadcrumbs
-            chain={[
-              { link: '/admin', children: 'Admin' },
-              { link: '/admin/in-house-labs', children: 'In-House Labs' },
-              {
-                link: '#',
-                children: 'In-House Lab Details',
-              },
-            ]}
-          />
-          <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
-            <AdminInHouseLabform
-              defaultValues={defaultValues}
-              formMode="edit"
-              onSubmit={onSubmit}
-              isSubmitting={isSubmitting}
-              submitError={submitError}
+      <>
+        <Grid container direction="row" alignItems="center" justifyContent="center">
+          <Grid item maxWidth={'584px'} width={'100%'}>
+            <CustomBreadcrumbs
+              chain={[
+                { link: '/admin', children: 'Admin' },
+                { link: '/admin/in-house-labs', children: 'In-House Labs' },
+                {
+                  link: '#',
+                  children: 'In-House Lab Details',
+                },
+              ]}
             />
-          </Paper>
+            <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
+              {isPending ? (
+                <Box display="flex" justifyContent="center" alignItems="center" py={3}>
+                  <CircularProgress />
+                </Box>
+              ) : isFetchDataError ? (
+                <Typography>An error has occurred</Typography>
+              ) : (
+                <AdminInHouseLabform
+                  defaultValues={dataToRender}
+                  formMode="edit"
+                  onSubmit={onEditSubmit}
+                  isSubmitting={isSubmitting}
+                  submitError={submitError}
+                />
+              )}
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+        <Grid container direction="row" alignItems="center" justifyContent="center">
+          <Grid item maxWidth={'584px'} width={'100%'}>
+            {!isPending && existingData && (
+              <ToggleStatusSection
+                testItemStatus={existingData?.activityDefinitionStatus}
+                onSubmit={onUpdateStatusSubmit}
+                isSubmitting={isSubmitting}
+                submitError={submitError}
+              />
+            )}
+          </Grid>
+        </Grid>
+      </>
     </PageContainer>
+  );
+}
+
+interface ToggleStatusSectionProps {
+  testItemStatus: InHouseLabAdminItemStatus;
+  onSubmit: () => Promise<void>;
+  isSubmitting?: boolean;
+  submitError?: OystehrSdkError | APIError;
+}
+function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
+  const theme = useTheme();
+  const { testItemStatus, onSubmit, isSubmitting, submitError } = props;
+  const isActive = testItemStatus === 'active';
+  const formVerb = isActive ? 'Deactivate' : 'Activate';
+  const formLabel = `${formVerb} In-House Test`;
+  const formBodyText = isActive
+    ? 'When you deactivate this in-house lab, providers will not be able to order it. Historical results are unaffected.'
+    : 'Activating this in-house labs will allow providers to order it';
+
+  return (
+    <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
+      <form
+        onSubmit={async (event) => {
+          event.preventDefault();
+          await onSubmit();
+        }}
+      >
+        <Box sx={{ marginBottom: 3 }}>
+          <FormLabel
+            sx={{
+              ...theme.typography.h4,
+              color: theme.palette.primary.dark,
+              mb: 2,
+              fontWeight: '600 !important',
+              display: 'block',
+            }}
+          >
+            {formLabel}
+          </FormLabel>
+          <Typography
+            sx={{
+              ...theme.typography.body1,
+              marginBottom: 3,
+            }}
+          >
+            {formBodyText}
+          </Typography>
+          <LoadingButton
+            type="submit"
+            variant="contained"
+            loading={isSubmitting}
+            color={isActive ? 'error' : 'primary'}
+          >
+            {formVerb}
+          </LoadingButton>
+          {submitError && (
+            <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
+          )}
+        </Box>
+      </form>
+    </Paper>
   );
 }

@@ -1,6 +1,7 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ActivityDefinition } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import { ActivityDefinition, Provenance } from 'fhir/r4b';
 import {
   ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR,
   ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR,
@@ -18,6 +19,7 @@ import {
   checkOrCreateM2MClientToken,
   checkUserHasProvidedRoles,
   createOystehrClient,
+  parseCreatedResourcesBundle,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -25,6 +27,7 @@ import {
 import {
   convertAdminInHouseLabItemDefinitionToActivityDefinition,
   getInHouseLabTestUrlAndVersion,
+  makeAdminProvenanceResourceRequest,
 } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -71,6 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const draftActivityDefConfig = convertAdminInHouseLabItemDefinitionToActivityDefinition(data);
 
     // assign the new version string and the latest tag
+    const finalActivityDefinitionFullurl = `urn:uuid:${randomUUID()}`;
     const finalActivityDefConfig: ActivityDefinition = {
       ...draftActivityDefConfig,
       version: '1.0.0',
@@ -82,7 +86,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('This is the new activityDef config: ', JSON.stringify(finalActivityDefConfig));
 
-    const adWriteResult = await oystehr.fhir.create<ActivityDefinition>(finalActivityDefConfig);
+    const createActivityDefinitionPostRequest: BatchInputPostRequest<ActivityDefinition> = {
+      method: 'POST',
+      url: '/ActivityDefinition',
+      fullUrl: finalActivityDefinitionFullurl,
+      resource: finalActivityDefConfig,
+    };
+
+    const requests: BatchInputRequest<ActivityDefinition | Provenance>[] = [
+      createActivityDefinitionPostRequest,
+      makeAdminProvenanceResourceRequest([finalActivityDefinitionFullurl], userId, 'ADD'),
+    ];
+
+    const transactionResult = await oystehr.fhir.transaction<ActivityDefinition | Provenance>({ requests });
+    console.log('this was the transactionResult', JSON.stringify(transactionResult));
+
+    const adWriteResult = parseCreatedResourcesBundle(transactionResult).find(
+      (res): res is ActivityDefinition => res.resourceType === 'ActivityDefinition'
+    );
+    if (!adWriteResult || !adWriteResult.id)
+      throw new Error('New ActivityDefinition not in the transaction result or id is undefined');
 
     const response: AdminAddInHouseLabOutput = { activityDefinitionId: adWriteResult.id || '' };
 

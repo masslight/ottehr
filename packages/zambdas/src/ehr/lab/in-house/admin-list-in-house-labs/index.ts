@@ -106,9 +106,6 @@ const getAdminInHouseLabItemList = async (oystehr: Oystehr): Promise<InHouseLabs
   const activityDefinitions = [...activeActivityDefinitions, ...latestRetiredActivityDefinitions];
   console.log(`All ActivityDefinitions for admin: ${JSON.stringify(activityDefinitions.map((ad) => ad.id))}`);
 
-  // ATHENA TODO: do we need to validate we don't have a whole bunch of repeated canonical urls at given versions?
-  // I would expect only one of each canonical url...
-
   const urlAndVersionExist = (ad: ActivityDefinition): ad is ActivityDefinition & { url: string; version: string } => {
     return !!ad.version && !!ad.url;
   };

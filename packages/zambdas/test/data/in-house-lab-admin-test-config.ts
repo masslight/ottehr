@@ -88,7 +88,7 @@ export const adminTestItemConfigs: Record<string, AdminInHouseLabItemDefinition>
         normalRange: {
           low: 1.005,
           high: 1.03,
-          unit: '', // specific gravity has no unit // ATHENA TODO: not sure how this will get handled so leaving
+          unit: '', // specific gravity has no unit
           precision: 3,
         },
         display: {

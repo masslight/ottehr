@@ -1713,6 +1713,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/admin-get-in-house-lab-config/index",
       "zip": ".dist/zips/admin-get-in-house-lab-config.zip"
+    },
+    "ADMIN_UPDATE_IN_HOUSE_LAB": {
+      "name": "admin-update-in-house-lab",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
+      "zip": ".dist/zips/admin-update-in-house-lab.zip"
     }
   },
   "fhirResources": {

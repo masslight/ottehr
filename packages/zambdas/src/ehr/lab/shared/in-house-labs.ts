@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { ProcedureModifier } from 'candidhealth/api';
 import {
   ActivityDefinition,
@@ -19,7 +19,9 @@ import {
   Task,
   ValueSet,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
+  AdminInHouseLabConfigOutput,
   AdminInHouseLabItemDefinition,
   AdminLabComponentValueSetConfig,
   BaseComponent,
@@ -32,6 +34,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   IN_HOUSE_DEVICE_PARTICIPANT_CODING,
   IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE,
+  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
@@ -845,7 +848,7 @@ type SemVer = {
 
 type SemVerPart = 'major' | 'minor' | 'patch';
 
-function incrementSemVer(version: SemVer, part: SemVerPart): SemVer {
+export function incrementSemVer(version: SemVer, part: SemVerPart): SemVer {
   switch (part) {
     case 'major':
       return {
@@ -868,7 +871,7 @@ function incrementSemVer(version: SemVer, part: SemVerPart): SemVer {
   }
 }
 
-function parseSemVer(version: string): SemVer {
+export function parseSemVer(version: string): SemVer {
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
 
   if (!match) {
@@ -884,7 +887,7 @@ function parseSemVer(version: string): SemVer {
   };
 }
 
-function semverToString(version: SemVer): string {
+export function semverToString(version: SemVer): string {
   return `${version.major}.${version.minor}.${version.patch}`;
 }
 
@@ -991,7 +994,7 @@ export function parseActivityDefinitionToAdminInHouseLabItemDef(ad: ActivityDefi
     ...(device ? { device: device } : {}),
     ...(methods ? { methods } : {}),
     cptCode,
-    ...(loincCode ? { loincCode } : {}),
+    ...(loincCode && loincCode.length ? { loincCode } : {}),
     repeatTest,
     components,
     // note: undefined, // we never define this anywhere
@@ -1173,9 +1176,10 @@ function parseSingleComponent(
     reflexLogicField = { parentTestUrl };
   }
 
+  const loincCode = parseLoincCodes(obsDef);
   const base: BaseComponent = {
     componentName: obsDef.code?.text ?? '',
-    loincCode: parseLoincCodes(obsDef),
+    ...(loincCode && loincCode.length ? { loincCode } : {}),
     ...(reflexLogicField ? { reflexLogic: reflexLogicField } : {}),
   };
 
@@ -1302,5 +1306,79 @@ function parseStringComponent(base: BaseComponent, obsDef: ObservationDefinition
     ...base,
     dataType: 'string',
     display: { type: 'Free Text', validations: parseValidations(obsDef.extension) },
+  };
+}
+
+export const makeAdminInHouseLabConfigOutput = (
+  activityDefinition: ActivityDefinition
+): AdminInHouseLabConfigOutput => {
+  const activityDefinitionId = activityDefinition.id ?? '';
+
+  const isLatest =
+    activityDefinition.meta?.tag?.some(
+      (tag) =>
+        tag.system === IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system && tag.code === IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code
+    ) || false;
+
+  const testConfig = parseActivityDefinitionToAdminInHouseLabItemDef(activityDefinition);
+  const canonicalUrl = activityDefinition.url;
+  if (!canonicalUrl) {
+    console.error(`ActivityDefinition/${activityDefinitionId} missing canonical url`);
+    throw new Error('Misconfigured ActivityDefinition is missing its url');
+  }
+  const version = activityDefinition.version;
+  if (!version) {
+    console.error(`ActivityDefinition/${activityDefinitionId} missing version`);
+    throw new Error('Misconfigured ActivityDefinition is missing its version');
+  }
+
+  const output: AdminInHouseLabConfigOutput = {
+    activityDefinitionId: activityDefinition.id || '',
+    activityDefinitionStatus: activityDefinition.status === 'active' ? 'active' : 'retired',
+    canonicalUrl,
+    version,
+    isLatest,
+    testConfig,
+  };
+
+  return output;
+};
+
+export function makeAdminProvenanceResourceRequest(
+  targetRefStrings: string[],
+  currentUserId: string,
+  provenanceType: 'ADD' | 'EDIT' | 'TOGGLE-STATUS'
+): BatchInputPostRequest<Provenance> {
+  const getProvenanceType = (): Coding => {
+    switch (provenanceType) {
+      case 'ADD':
+        return PROVENANCE_ACTIVITY_CODING_ENTITY.adminCreate;
+      case 'EDIT':
+        return PROVENANCE_ACTIVITY_CODING_ENTITY.adminEdit;
+      case 'TOGGLE-STATUS':
+        return PROVENANCE_ACTIVITY_CODING_ENTITY.adminUpdateStatus;
+    }
+  };
+
+  const provenanceFhir: Provenance = {
+    resourceType: 'Provenance',
+    target: targetRefStrings.map((target): Reference => {
+      return { reference: target };
+    }),
+    recorded: DateTime.now().toISO(),
+    agent: [
+      {
+        who: { reference: `Practitioner/${currentUserId}` },
+      },
+    ],
+    activity: {
+      coding: [getProvenanceType()],
+    },
+  };
+
+  return {
+    method: 'POST',
+    url: '/Provenance',
+    resource: provenanceFhir,
   };
 }

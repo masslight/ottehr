@@ -135,13 +135,22 @@ const DEFAULT_COMPONENT_DATATYPE: ComponentDataType = 'string';
 type TestComponentFormItemProps = FieldArrayListItemProps<'components'>;
 
 function TestComponentFormItem(props: TestComponentFormItemProps): ReactElement {
-  const { index: componentIndex, remove: removeComponent, theme } = props;
+  const { index: componentIndex, remove: removeComponent, theme, fieldData: componentData } = props;
   const { control, setValue, formState, getValues } = useFormContext<AdminInHouseLabItemDefinition>();
   const { errors } = formState;
 
   const defaultHeaderLabel = 'New Component';
-  const [sectionHeaderLabel, setSectionHeaderLabel] = useState(defaultHeaderLabel);
-  const [selectedComponentType, setSelectedComponentType] = useState<ComponentDataType>(DEFAULT_COMPONENT_DATATYPE);
+  const makeFullHeaderLabel = (headerName: string, componentType: ComponentDataType): string =>
+    `${headerName}: ${COMPONENT_TYPE_CONFIG[componentType].label}`;
+
+  const [sectionHeaderLabel, setSectionHeaderLabel] = useState(
+    componentData && componentData.componentName
+      ? makeFullHeaderLabel(componentData.componentName, componentData.dataType)
+      : defaultHeaderLabel
+  );
+  const [selectedComponentType, setSelectedComponentType] = useState<ComponentDataType>(
+    componentData.dataType || DEFAULT_COMPONENT_DATATYPE
+  );
 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -222,7 +231,7 @@ function TestComponentFormItem(props: TestComponentFormItemProps): ReactElement 
                           setSectionHeaderLabel((): string => {
                             switch (true) {
                               case !!newValue && !!selectedComponentType:
-                                return `${newValue}: ${COMPONENT_TYPE_CONFIG[selectedComponentType].label}`;
+                                return makeFullHeaderLabel(newValue, selectedComponentType);
                               case !!selectedComponentType:
                                 return COMPONENT_TYPE_CONFIG[selectedComponentType].label;
                               default:

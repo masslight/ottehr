@@ -1,6 +1,6 @@
 import { CodeableConcept, Coding } from 'fhir/r4b';
 import { CPTCodeDTO } from '../../api';
-import { TestStatus } from './in-house.types';
+import { AdminInHouseLabItemDefinition, TestStatus } from './in-house.types';
 
 export enum PageName {
   collectSample,
@@ -223,3 +223,21 @@ export const DEFAULT_ACTIVITY_DEFINITION_PARTICIPANT_ROLE_CODING: Coding = {
 };
 
 export const IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE = 'device';
+
+// explicitly defining the optional parameters as undefined for clarity
+export const ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES: AdminInHouseLabItemDefinition = {
+  name: '',
+  device: undefined,
+  cptCode: [{ code: '' }],
+  loincCode: undefined,
+  repeatTest: false,
+  components: [
+    {
+      dataType: 'string',
+      componentName: '',
+      loincCode: undefined,
+      display: { type: 'Free Text' },
+    },
+  ],
+  note: undefined,
+};

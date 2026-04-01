@@ -3,10 +3,8 @@ import { ActivityDefinition } from 'fhir/r4b';
 import {
   ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR,
   AdminGetInHouseLabConfigInput,
-  AdminGetInHouseLabConfigOutput,
   APIErrorCode,
   getSecret,
-  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   isApiError,
   RoleType,
   Secrets,
@@ -20,7 +18,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { parseActivityDefinitionToAdminInHouseLabItemDef } from '../../shared/in-house-labs';
+import { makeAdminInHouseLabConfigOutput } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -53,42 +51,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR();
     }
 
-    // get the activitydefinition by id
-    // determine if it's the latest
-    // convert to the proper config
-
-    // ATHENA TODO: test what happens if this gets a bogus AD id
     const activityDefinition = await oystehr.fhir.get<ActivityDefinition>({
       resourceType: 'ActivityDefinition',
       id: activityDefinitionId,
     });
 
-    const isLatest =
-      activityDefinition.meta?.tag?.some(
-        (tag) =>
-          tag.system === IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system &&
-          tag.code === IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code
-      ) || false;
-
-    const testConfig = parseActivityDefinitionToAdminInHouseLabItemDef(activityDefinition);
-    const canonicalUrl = activityDefinition.url;
-    if (!canonicalUrl) {
-      console.error(`ActivityDefinition/${activityDefinitionId} missing canonical url`);
-      throw new Error('Misconfigured ActivityDefinition is missing its url');
-    }
-    const version = activityDefinition.version;
-    if (!version) {
-      console.error(`ActivityDefinition/${activityDefinitionId} missing version`);
-      throw new Error('Misconfigured ActivityDefinition is missing its version');
-    }
-
-    const response: AdminGetInHouseLabConfigOutput = {
-      activityDefinitionId: activityDefinition.id || '',
-      canonicalUrl,
-      version,
-      isLatest,
-      testConfig,
-    };
+    const response = makeAdminInHouseLabConfigOutput(activityDefinition);
 
     return {
       statusCode: 200,

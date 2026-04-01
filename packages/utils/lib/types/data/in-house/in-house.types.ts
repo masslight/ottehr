@@ -124,9 +124,6 @@ export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
   currentUserFullName: string;
   resultsPDFUrl: string | undefined;
   labDetails: DataEntryTestItem;
-  // ATHENA TODO: this is what it could have been
-  // testItemFormConfig: TestItemFormConfig; //i.e. TestItem
-  // labDetails: TestResult;
   orderHistory: {
     status: TestStatus;
     statusSubtitle: string | undefined;
@@ -295,7 +292,7 @@ export interface QuantityComponent extends BaseComponent {
   normalRange: QuantityRange;
   display: {
     type: 'Numeric';
-    nullOption: boolean; // ATHENA TODO: we don't think this does anything...
+    nullOption: boolean; // labs todo: we don't think this does anything...
   };
 }
 
@@ -354,10 +351,33 @@ export interface AdminGetInHouseLabConfigInput {
   activityDefinitionId: string;
 }
 
-export interface AdminGetInHouseLabConfigOutput {
+export interface AdminInHouseLabConfigOutput {
   activityDefinitionId: string;
+  activityDefinitionStatus: InHouseLabAdminItemStatus;
   canonicalUrl: string;
   version: string;
   isLatest: boolean;
   testConfig: AdminInHouseLabItemDefinition;
+}
+
+export type AdminUpdateInHouseLabStatus = {
+  updateType: 'toggle-status';
+  data: {
+    activityDefinitionId: string;
+  };
+};
+
+export type AdminEditInHouseLab = {
+  updateType: 'edit';
+  data: {
+    activityDefinitionIdToRetire: string;
+    canonicalUrl: string;
+    versionToRetire: string;
+    newData: AdminInHouseLabItemDefinition;
+  };
+};
+
+export interface AdminUpdateInHouseLabInput {
+  userId: string;
+  data: AdminUpdateInHouseLabStatus | AdminEditInHouseLab;
 }

@@ -1,9 +1,11 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Extension, Location, Organization } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
   adminGetInHouseLabConfig,
   adminListInHouseLabs,
+  adminUpdateInHouseLab,
   bulkUpdateInsuranceStatus,
 } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -11,11 +13,14 @@ import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
   AdminGetInHouseLabConfigInput,
-  AdminGetInHouseLabConfigOutput,
+  AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
+  AdminUpdateInHouseLabInput,
+  APIError,
   BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
   INSURANCE_SETTINGS_MAP,
+  isApiError,
   isLocationVirtual,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
@@ -256,10 +261,7 @@ export const useAdminListInHouseLabs = (userId: string): UseQueryResult<AdminLis
       return adminListInHouseLabs(oystehrZambda!, { userId });
     },
     enabled: !!oystehrZambda && !!userId,
-    // ATHENA TODO: decide if you want any of these
     staleTime: 30_000, // 30 sec staletime
-    // refetchOnMount: 'always', // refetch every mount
-    // refetchOnWindowFocus: true, // refetch when you tab back
   });
 };
 
@@ -286,12 +288,20 @@ export const useAdminAddInHouseLab = (): UseMutationResult<
         queryKey: ['admin-in-house-labs-list', variables.userId],
       });
     },
+    onError: (error: any) => {
+      if (isApiError(error)) {
+        const message = (error as APIError).message;
+        enqueueSnackbar(message, { variant: 'error' });
+      } else {
+        enqueueSnackbar('Something went wrong! In-house lab could not be created.', { variant: 'error' });
+      }
+    },
   });
 };
 
 export const useAdminGetInHouseLabConfig = (
   input: AdminGetInHouseLabConfigInput
-): UseQueryResult<AdminGetInHouseLabConfigOutput, Error> => {
+): UseQueryResult<AdminInHouseLabConfigOutput, Error> => {
   const { oystehrZambda } = useApiClients();
   const { userId, activityDefinitionId } = input;
 
@@ -301,11 +311,46 @@ export const useAdminGetInHouseLabConfig = (
       return adminGetInHouseLabConfig(oystehrZambda!, input);
     },
     enabled: !!oystehrZambda && !!userId,
-    // ATHENA TODO: decide if you want any of these
     staleTime: 30_000, // 30 sec staletime
-    // refetchOnMount: 'always', // refetch every mount
-    // refetchOnWindowFocus: true, // refetch when you tab back
+    refetchOnMount: 'always', // refetch every mount
+    refetchOnWindowFocus: true, // refetch when you tab back
   });
 };
 
 // on mutate for update, need to invalidate the list endpoint and the get config endpoint
+export const useAdminUpdateInHouseLab = (
+  mutatingActivityDefinitionId: string
+): UseMutationResult<AdminInHouseLabConfigOutput, Error, AdminUpdateInHouseLabInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-in-house-lab', mutatingActivityDefinitionId],
+    mutationFn: async (input: AdminUpdateInHouseLabInput) => {
+      console.log('mutation for update in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminUpdateInHouseLab(oystehrZambda!, input);
+    },
+    onSuccess: async (data, variables) => {
+      // invalidate so the list page and get-page re-loads correctly
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['admin-in-house-labs-list', variables.userId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['admin-get-in-house-lab-config', variables.userId, data.activityDefinitionId],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      if (isApiError(error)) {
+        const message = (error as APIError).message;
+        enqueueSnackbar(message, { variant: 'error' });
+      } else {
+        enqueueSnackbar('Something went wrong! In-house lab update could not be made.', { variant: 'error' });
+      }
+    },
+  });
+};

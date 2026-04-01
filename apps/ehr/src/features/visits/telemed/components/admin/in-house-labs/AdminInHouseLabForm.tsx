@@ -43,6 +43,7 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
   console.log('>>>hasFormErrors', hasFormErrors);
 
   const formLabel = formMode === 'add' ? 'Add New In-House Lab' : 'Edit In-House Lab';
+  const submitButtonText = formMode === 'add' ? 'Submit' : 'Save changes';
 
   return (
     <FormProvider {...methods}>
@@ -143,7 +144,7 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
 
         <SubSection label={''} theme={theme}>
           <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
-            Submit
+            {submitButtonText}
           </LoadingButton>
           {submitError && (
             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>

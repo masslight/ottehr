@@ -2,7 +2,7 @@ import { Add, Close, ErrorOutline } from '@mui/icons-material';
 import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Theme } from '@mui/material';
 import { ProcedureModifier } from 'candidhealth/api';
 import { Coding } from 'fhir/r4b';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
@@ -49,7 +49,7 @@ export default function CPTCodeList(props: CPTCodeListProps): ReactElement {
 type CPTCodeFormItemProps = FieldArrayListItemProps<'cptCode'>;
 
 function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
-  const { index: cptIndex, remove: removeCpt, theme } = props;
+  const { index: cptIndex, remove: removeCpt, theme, fieldData: cptCode } = props;
   const { control, formState } = useFormContext<AdminInHouseLabItemDefinition>();
   const { errors } = formState;
 
@@ -58,7 +58,7 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(cptCode.code || '');
   const { debounce } = useDebounce(800);
 
   const debouncedHandleInputChange = (data: string): void => {
@@ -68,7 +68,7 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
   };
 
   const { isFetching: isSearching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
-  const cptSearchOptions = data?.codes || [];
+  const cptSearchOptions = useMemo(() => data?.codes || [], [data]);
 
   const cptModifierOptions: ProcedureModifier[] = Object.values(ProcedureModifier);
 
@@ -80,6 +80,24 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
 
   const componentErrors = errors.cptCode?.[cptIndex];
   const hasComponentError = !!componentErrors;
+
+  // the use effects are to make sure the cpt code renders pre-populated correctly when there's a value, and for the section header
+  useEffect(() => {
+    setDebouncedSearchTerm(cptCode.code);
+  }, [cptCode]);
+
+  useEffect(() => {
+    if (!cptCode.code) return; // no value to display
+
+    const matchedOption = cptSearchOptions.find((opt) => opt.code === cptCode.code);
+
+    if (matchedOption) {
+      setSectionHeaderLabel(getSelectedOptionLabel(matchedOption));
+    } else {
+      // fallback to default if not found in options
+      setSectionHeaderLabel(defaultHeaderLabel);
+    }
+  }, [cptSearchOptions, cptCode.code]);
 
   return (
     <Box sx={{ marginBottom: 2 }}>
