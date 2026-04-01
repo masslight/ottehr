@@ -20,10 +20,8 @@ import { DateTime } from 'luxon';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { MedicationDTO } from 'utils';
-import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useAiSuggestionPrefillStore } from '../../../stores/aiSuggestionPrefill.store';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
@@ -31,6 +29,7 @@ import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
+import { ExternalMedicationSelection } from './ExternalRxSuggestions';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
@@ -40,7 +39,23 @@ interface CurrentMedicationsProviderColumnForm {
   patientCouldNotConfirmDosage: boolean;
 }
 
-export const CurrentMedicationsProviderColumn: FC = () => {
+export interface MedicationDataProps {
+  medications: MedicationDTO[];
+  isLoading: boolean;
+  onRemove: (resourceId: string) => Promise<void>;
+}
+
+interface CurrentMedicationsProviderColumnProps {
+  medicationData: MedicationDataProps;
+  onAddMedication: (selection: ExternalMedicationSelection) => Promise<boolean>;
+}
+
+export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColumnProps> = ({
+  medicationData,
+  onAddMedication,
+}) => {
+  const { medications, isLoading, onRemove } = medicationData;
+
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
     defaultValues: {
       medication: null,
@@ -69,24 +84,6 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     }
   }, [medicationPrefill, setValue, clearMedicationPrefill]);
 
-  const { refetchHistory } = useMedicationHistory();
-
-  const {
-    isLoading,
-    onSubmit,
-    onRemove,
-    values: medications,
-  } = useChartDataArrayValue(
-    'medications',
-    undefined,
-    {
-      _sort: '-_lastUpdated',
-      _include: 'MedicationStatement:source',
-      status: { type: 'token', value: 'active' },
-    },
-    refetchHistory
-  );
-
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
@@ -112,17 +109,14 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   );
 
   const handleFormSubmitted = async (data: CurrentMedicationsProviderColumnForm): Promise<void> => {
-    if (data) {
-      const success = await onSubmit({
-        name: `${data.medication?.name}${data.medication?.strength ? ` (${data.medication?.strength})` : ''}`,
-        id: data.medication?.id?.toString(),
+    if (data && data.medication) {
+      const success = await onAddMedication({
+        medication: data.medication,
+        dose: data.dose,
+        directions: null,
         type: data.type,
-        intakeInfo: {
-          date: data.date?.toUTC().toString(),
-          dose: data.dose ?? undefined,
-          patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage || undefined,
-        },
-        status: 'active',
+        date: data.date?.toUTC().toString(),
+        patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage,
       });
       if (success) {
         reset({
@@ -132,7 +126,6 @@ export const CurrentMedicationsProviderColumn: FC = () => {
           type: 'scheduled',
           patientCouldNotConfirmDosage: false,
         });
-        void refetchHistory();
       }
     }
   };

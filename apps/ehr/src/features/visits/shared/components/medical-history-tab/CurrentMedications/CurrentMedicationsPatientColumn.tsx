@@ -11,10 +11,19 @@ import {
 } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAiSuggestionPrefillStore } from 'src/features/visits/shared/stores/aiSuggestionPrefill.store';
-import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, getQuestionnaireResponseByLinkId, MedicationDTO, ObservationTextFieldDTO } from 'utils';
 import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
+import { ExternalMedicationSelection, ExternalRxSuggestions } from './ExternalRxSuggestions';
 
-export const CurrentMedicationsPatientColumn: FC = () => {
+interface CurrentMedicationsPatientColumnProps {
+  chartedMedications?: MedicationDTO[];
+  onSelectMedication?: (selection: ExternalMedicationSelection) => void;
+}
+
+export const CurrentMedicationsPatientColumn: FC<CurrentMedicationsPatientColumnProps> = ({
+  chartedMedications = [],
+  onSelectMedication,
+}) => {
   const theme = useTheme();
   const { questionnaireResponse, isAppointmentLoading } = useAppointmentData();
   const { chartData } = useChartData();
@@ -89,6 +98,8 @@ export const CurrentMedicationsPatientColumn: FC = () => {
           />
         </>
       )}
+      <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
+      <ExternalRxSuggestions chartedMedications={chartedMedications} onSelectMedication={onSelectMedication} />
     </Box>
   );
 };
