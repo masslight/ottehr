@@ -8,15 +8,12 @@ export const CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM =
 const CREATE_EMPLOYER_ZAMBDA_ID = 'create-employer';
 const LIST_EMPLOYERS_ZAMBDA_ID = 'list-employers';
 const UPDATE_EMPLOYER_ZAMBDA_ID = 'update-employer';
-const ACTIVATE_EMPLOYER_ZAMBDA_ID = 'activate-employer';
-const DEACTIVATE_EMPLOYER_ZAMBDA_ID = 'deactivate-employer';
 
 export interface EmployerAddressInput {
   line?: string[];
   city?: string;
   state?: string;
   postalCode?: string;
-  zipPlus4?: string;
   country?: string;
 }
 
@@ -51,10 +48,6 @@ export interface UpdateEmployerInput {
   contact?: EmployerContactInput;
 }
 
-export interface EmployerStatusInput {
-  employerId: string;
-}
-
 export const createEmployer = async (oystehr: Oystehr, parameters: CreateEmployerInput): Promise<Organization> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -84,32 +77,6 @@ export const updateEmployer = async (oystehr: Oystehr, parameters: UpdateEmploye
   try {
     const response = await oystehr.zambda.execute({
       id: UPDATE_EMPLOYER_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const activateEmployer = async (oystehr: Oystehr, parameters: EmployerStatusInput): Promise<Organization> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: ACTIVATE_EMPLOYER_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const deactivateEmployer = async (oystehr: Oystehr, parameters: EmployerStatusInput): Promise<Organization> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: DEACTIVATE_EMPLOYER_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

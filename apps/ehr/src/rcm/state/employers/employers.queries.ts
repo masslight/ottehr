@@ -2,11 +2,8 @@ import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanst
 import { Organization } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  activateEmployer,
   createEmployer,
   CreateEmployerInput,
-  deactivateEmployer,
-  EmployerStatusInput,
   listEmployers,
   updateEmployer,
   UpdateEmployerInput,
@@ -45,30 +42,6 @@ export const useUpdateEmployerMutation = (): UseMutationResult<Organization, Err
     mutationFn: async (data: UpdateEmployerInput) => {
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
       return updateEmployer(oystehrZambda, data);
-    },
-  });
-};
-
-export const useActivateEmployerMutation = (): UseMutationResult<Organization, Error, EmployerStatusInput> => {
-  const { oystehrZambda } = useApiClients();
-
-  return useMutation({
-    mutationKey: ['activate-employer'],
-    mutationFn: async (data: EmployerStatusInput) => {
-      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
-      return activateEmployer(oystehrZambda, data);
-    },
-  });
-};
-
-export const useDeactivateEmployerMutation = (): UseMutationResult<Organization, Error, EmployerStatusInput> => {
-  const { oystehrZambda } = useApiClients();
-
-  return useMutation({
-    mutationKey: ['deactivate-employer'],
-    mutationFn: async (data: EmployerStatusInput) => {
-      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
-      return deactivateEmployer(oystehrZambda, data);
     },
   });
 };

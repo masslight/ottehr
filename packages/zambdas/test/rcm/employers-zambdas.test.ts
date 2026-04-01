@@ -17,9 +17,9 @@ const mockOystehrClient = {
 };
 
 const mockCreateCandidClientIfConfigured = vi.fn();
-const mockSyncCreateCandidEmployerPayer = vi.fn();
-const mockSyncUpdateCandidEmployerPayer = vi.fn();
-const mockSyncToggleCandidEmployerPayer = vi.fn();
+const mockCreateCandidEmployerPayer = vi.fn();
+const mockUpdateCandidEmployerPayer = vi.fn();
+const mockToggleCandidEmployerPayer = vi.fn();
 
 vi.mock('../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -33,21 +33,15 @@ vi.mock('../../src/shared', async (importOriginal) => {
 
 vi.mock('../../src/rcm/employers/candid-sync', () => ({
   createCandidClientIfConfigured: mockCreateCandidClientIfConfigured,
-  syncCreateCandidEmployerPayer: mockSyncCreateCandidEmployerPayer,
-  syncUpdateCandidEmployerPayer: mockSyncUpdateCandidEmployerPayer,
-  syncToggleCandidEmployerPayer: mockSyncToggleCandidEmployerPayer,
+  createCandidEmployerPayer: mockCreateCandidEmployerPayer,
+  updateCandidEmployerPayer: mockUpdateCandidEmployerPayer,
+  toggleCandidEmployerPayer: mockToggleCandidEmployerPayer,
 }));
 
 const { index: createEmployerHandler } = (await import('../../src/rcm/employers/create-employer/index')) as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
 const { index: updateEmployerHandler } = (await import('../../src/rcm/employers/update-employer/index')) as {
-  index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-};
-const { index: activateEmployerHandler } = (await import('../../src/rcm/employers/activate-employer/index')) as {
-  index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-};
-const { index: deactivateEmployerHandler } = (await import('../../src/rcm/employers/deactivate-employer/index')) as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
 const { index: listEmployersHandler } = (await import('../../src/rcm/employers/list-employers/index')) as {
@@ -66,10 +60,12 @@ const employerType = [
   },
 ];
 
+const EMPLOYER_ID = '00000000-0000-0000-0000-000000000001';
+
 function makeEmployer(overrides?: Partial<Organization>): Organization {
   return {
     resourceType: 'Organization',
-    id: 'org-1',
+    id: EMPLOYER_ID,
     name: 'Wayne Enterprises',
     active: true,
     type: employerType,
@@ -98,13 +94,13 @@ describe('RCM employer zambdas', () => {
     mockOystehrClient.fhir.create.mockResolvedValue(created);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
     mockCreateCandidClientIfConfigured.mockReturnValue({});
-    mockSyncCreateCandidEmployerPayer.mockResolvedValue('candid-payer-1');
+    mockCreateCandidEmployerPayer.mockResolvedValue('candid-payer-1');
 
     const result = await createEmployerHandler(makeInput({ name: 'Wayne Enterprises' }));
 
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.create).toHaveBeenCalledTimes(1);
-    expect(mockSyncCreateCandidEmployerPayer).toHaveBeenCalledWith(
+    expect(mockCreateCandidEmployerPayer).toHaveBeenCalledWith(
       {},
       'Wayne Enterprises',
       'Occupational Medicine',
@@ -121,7 +117,7 @@ describe('RCM employer zambdas', () => {
     const result = await createEmployerHandler(makeInput({ name: 'Wayne Enterprises' }));
 
     expect(result.statusCode).toBe(200);
-    expect(mockSyncCreateCandidEmployerPayer).not.toHaveBeenCalled();
+    expect(mockCreateCandidEmployerPayer).not.toHaveBeenCalled();
     expect(mockOystehrClient.fhir.update).not.toHaveBeenCalled();
   });
 
@@ -135,19 +131,23 @@ describe('RCM employer zambdas', () => {
         },
       ],
     });
-    const updated = makeEmployer({ name: 'Wayne Ent', type: [{ ...employerType[0], text: 'Occupational Medicine' }] });
+    const updated = makeEmployer({
+      name: 'Wayne Ent',
+      type: [{ ...employerType[0], text: 'Occupational Medicine' }],
+      identifier: existing.identifier,
+    });
 
     mockOystehrClient.fhir.get.mockResolvedValue(existing);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
     mockCreateCandidClientIfConfigured.mockReturnValue({});
 
     const result = await updateEmployerHandler(
-      makeInput({ employerId: existing.id, name: 'Wayne Ent', category: 'Occupational Medicine' })
+      makeInput({ employerId: EMPLOYER_ID, name: 'Wayne Ent', category: 'Occupational Medicine' })
     );
 
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.update).toHaveBeenCalledTimes(1);
-    expect(mockSyncUpdateCandidEmployerPayer).toHaveBeenCalledWith(
+    expect(mockUpdateCandidEmployerPayer).toHaveBeenCalledWith(
       {},
       'candid-payer-1',
       'Wayne Ent',
@@ -156,7 +156,7 @@ describe('RCM employer zambdas', () => {
     );
   });
 
-  it('activate-employer toggles active true in FHIR and Candid', async () => {
+  it('update-employer toggles active true in FHIR and Candid', async () => {
     const existing = makeEmployer({
       active: false,
       meta: { versionId: '7' },
@@ -167,23 +167,26 @@ describe('RCM employer zambdas', () => {
         },
       ],
     });
-    const updated = makeEmployer({ active: true });
+    const updated = makeEmployer({
+      active: true,
+      identifier: existing.identifier,
+    });
 
     mockOystehrClient.fhir.get.mockResolvedValue(existing);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
     mockCreateCandidClientIfConfigured.mockReturnValue({});
 
-    const result = await activateEmployerHandler(makeInput({ employerId: 'org-1' }));
+    const result = await updateEmployerHandler(makeInput({ employerId: EMPLOYER_ID, active: true }));
 
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.update).toHaveBeenCalledWith(
       expect.objectContaining({ active: true }),
       expect.objectContaining({ optimisticLockingVersionId: '7' })
     );
-    expect(mockSyncToggleCandidEmployerPayer).toHaveBeenCalledWith({}, 'candid-payer-2', true);
+    expect(mockToggleCandidEmployerPayer).toHaveBeenCalledWith({}, 'candid-payer-2', true);
   });
 
-  it('deactivate-employer toggles active false in FHIR and Candid', async () => {
+  it('update-employer toggles active false in FHIR and Candid', async () => {
     const existing = makeEmployer({
       active: true,
       meta: { versionId: '8' },
@@ -194,32 +197,28 @@ describe('RCM employer zambdas', () => {
         },
       ],
     });
-    const updated = makeEmployer({ active: false });
+    const updated = makeEmployer({
+      active: false,
+      identifier: existing.identifier,
+    });
 
     mockOystehrClient.fhir.get.mockResolvedValue(existing);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
     mockCreateCandidClientIfConfigured.mockReturnValue({});
 
-    const result = await deactivateEmployerHandler(makeInput({ employerId: 'org-1' }));
+    const result = await updateEmployerHandler(makeInput({ employerId: EMPLOYER_ID, active: false }));
 
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.update).toHaveBeenCalledWith(
       expect.objectContaining({ active: false }),
       expect.objectContaining({ optimisticLockingVersionId: '8' })
     );
-    expect(mockSyncToggleCandidEmployerPayer).toHaveBeenCalledWith({}, 'candid-payer-3', false);
+    expect(mockToggleCandidEmployerPayer).toHaveBeenCalledWith({}, 'candid-payer-3', false);
   });
 
-  it('list-employers returns only occupational medicine employers', async () => {
-    const nonEmployer = {
-      resourceType: 'Organization',
-      id: 'org-non-employer',
-      name: 'Regular Clinic',
-      type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/organization-type', code: 'prov' }] }],
-    } as Organization;
-
+  it('list-employers returns all organizations from search results', async () => {
     mockOystehrClient.fhir.search.mockResolvedValue({
-      unbundle: () => [makeEmployer(), nonEmployer],
+      unbundle: () => [makeEmployer()],
     });
 
     const result = await listEmployersHandler({ headers: null, body: JSON.stringify({}), secrets: null });

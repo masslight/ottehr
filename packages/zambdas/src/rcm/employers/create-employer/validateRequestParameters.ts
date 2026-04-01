@@ -23,6 +23,14 @@ export function validateRequestParameters(input: ZambdaInput): CreateEmployerPar
     throw MISSING_REQUIRED_PARAMETERS(['name']);
   }
 
+  if (typeof name !== 'string' || !name.trim()) {
+    throw INVALID_INPUT_ERROR('"name" must be a non-empty string');
+  }
+
+  if (category !== undefined && (typeof category !== 'string' || !category.trim())) {
+    throw INVALID_INPUT_ERROR('"category" must be a non-empty string when provided');
+  }
+
   if (identifier && !identifier.value) {
     throw INVALID_INPUT_ERROR('"identifier.value" is required when identifier is provided');
   }

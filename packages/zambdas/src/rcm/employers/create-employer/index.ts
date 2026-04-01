@@ -8,7 +8,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { createCandidClientIfConfigured, syncCreateCandidEmployerPayer } from '../candid-sync';
+import { createCandidClientIfConfigured, createCandidEmployerPayer } from '../candid-sync';
 import {
   buildEmployerType,
   normalizeAddress,
@@ -44,7 +44,7 @@ export const index = wrapHandler('create-employer', async (input: ZambdaInput): 
     // Step 2: Sync to Candid (best-effort — errors are logged, not re-thrown)
     const candid = createCandidClientIfConfigured(secrets);
     if (candid) {
-      const candidPayerId = await syncCreateCandidEmployerPayer(candid, name, categoryText, organization.address);
+      const candidPayerId = await createCandidEmployerPayer(candid, name, categoryText, organization.address);
       if (candidPayerId) {
         // Step 3: Persist the Candid payer ID back into the Organization identifier
         organization = await oystehr.fhir.update<Organization>({

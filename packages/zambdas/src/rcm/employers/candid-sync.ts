@@ -40,14 +40,26 @@ export function createCandidClientIfConfigured(secrets: Secrets | null): CandidA
     console.log('[candid-sync] CANDID_CLIENT_ID is not set — skipping Candid sync');
     return null;
   }
+
+  const candidClientSecret = getOptionalSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets);
+  const candidEnv = getOptionalSecret(SecretsKeys.CANDID_ENV, secrets);
+
+  if (!candidClientSecret?.length || !candidEnv?.length) {
+    console.log('[candid-sync] CANDID_CLIENT_SECRET or CANDID_ENV is not set — skipping Candid sync');
+    return null;
+  }
+
   return createCandidApiClient(secrets);
 }
 
 /**
  * Creates a new non-insurance payer in Candid and returns its UUID.
- * Returns undefined if the call fails (error is logged but not re-thrown).
+ * Errors are logged but not re-thrown so the FHIR Organization is still created
+ * even if Candid is unreachable; the caller surfaces missing Candid ID as a warning.
+ * The goal is to support employer lists with or without RCM. In the future, an RCM sync
+ * feature may be needed.
  */
-export async function syncCreateCandidEmployerPayer(
+export async function createCandidEmployerPayer(
   candid: CandidApiClient,
   name: string,
   category: string,
@@ -79,7 +91,7 @@ export async function syncCreateCandidEmployerPayer(
  * Updates category (and re-affirms description="Employer") on an existing Candid payer.
  * Errors are logged but not re-thrown so FHIR state is never rolled back.
  */
-export async function syncUpdateCandidEmployerPayer(
+export async function updateCandidEmployerPayer(
   candid: CandidApiClient,
   candidPayerId: string,
   name: string,
@@ -115,7 +127,7 @@ export async function syncUpdateCandidEmployerPayer(
  * Activates or deactivates an existing Candid non-insurance payer.
  * Errors are logged but not re-thrown so FHIR state is never rolled back.
  */
-export async function syncToggleCandidEmployerPayer(
+export async function toggleCandidEmployerPayer(
   candid: CandidApiClient,
   candidPayerId: string,
   enabled: boolean

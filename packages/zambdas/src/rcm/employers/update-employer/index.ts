@@ -8,7 +8,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { createCandidClientIfConfigured, syncUpdateCandidEmployerPayer } from '../candid-sync';
+import { createCandidClientIfConfigured, toggleCandidEmployerPayer, updateCandidEmployerPayer } from '../candid-sync';
 import {
   buildEmployerType,
   getCandidPayerIdFromOrganization,
@@ -60,17 +60,23 @@ export const index = wrapHandler('update-employer', async (input: ZambdaInput): 
     // Sync to Candid if the organization has a Candid payer ID (best-effort)
     const candid = createCandidClientIfConfigured(secrets);
     if (candid) {
-      const candidPayerId = getCandidPayerIdFromOrganization(existing);
+      const candidPayerId = getCandidPayerIdFromOrganization(updated);
       if (candidPayerId) {
-        await syncUpdateCandidEmployerPayer(
+        await updateCandidEmployerPayer(
           candid,
           candidPayerId,
           updated.name ?? existing.name ?? '',
           updatedCategory,
           updated.address
         );
+
+        // If active status changed, toggle enablement in Candid as well
+        const activeChanged = active !== undefined && active !== existing.active;
+        if (activeChanged) {
+          await toggleCandidEmployerPayer(candid, candidPayerId, active);
+        }
       } else {
-        console.log(`[update-employer] No Candid payer ID on Organization ${employerId} — skipping Candid update`);
+        console.log(`[update-employer] No Candid payer ID on Organization ${employerId} — skipping Candid sync`);
       }
     }
 

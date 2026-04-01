@@ -8,7 +8,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { EMPLOYER_ORG_TYPE_CODE, EMPLOYER_ORG_TYPE_SYSTEM, isEmployerOrganization } from '../helpers';
+import { EMPLOYER_ORG_TYPE_CODE, EMPLOYER_ORG_TYPE_SYSTEM } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -29,7 +29,7 @@ export const index = wrapHandler('list-employers', async (input: ZambdaInput): P
       ],
     });
 
-    const employers = results.unbundle().filter(isEmployerOrganization);
+    const employers = results.unbundle();
 
     return {
       statusCode: 200,

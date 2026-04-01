@@ -23,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Organization } from 'fhir/r4b';
-import React, { ReactElement } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { useEmployersQuery } from 'src/rcm/state/employers';
 import EmployerDialog from './EmployerDialog';
@@ -34,21 +34,18 @@ enum EmployerActiveStatus {
 }
 
 export default function EmployersTab(): ReactElement {
-  const [rowsPerPage, setRowsPerPage] = React.useState(10);
-  const [pageNumber, setPageNumber] = React.useState(0);
-  const [searchText, setSearchText] = React.useState('');
-  const [activeFilter, setActiveFilter] = React.useState<EmployerActiveStatus | ''>(EmployerActiveStatus.active);
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [selectedEmployer, setSelectedEmployer] = React.useState<Organization | null>(null);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [pageNumber, setPageNumber] = useState(0);
+  const [searchText, setSearchText] = useState('');
+  const [activeFilter, setActiveFilter] = useState<EmployerActiveStatus | ''>(EmployerActiveStatus.active);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedEmployer, setSelectedEmployer] = useState<Organization | null>(null);
 
   const { data, isLoading, isFetching } = useEmployersQuery();
 
-  const employers = React.useMemo(
-    () => (data || []).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
-    [data]
-  );
+  const employers = useMemo(() => [...(data || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '')), [data]);
 
-  const filteredEmployers = React.useMemo(() => {
+  const filteredEmployers = useMemo(() => {
     return employers.filter((employer) => {
       const isActive = employer.active !== false;
       if (activeFilter === EmployerActiveStatus.active && !isActive) return false;
@@ -58,12 +55,12 @@ export default function EmployersTab(): ReactElement {
     });
   }, [activeFilter, employers, searchText]);
 
-  const currentPageEmployers = React.useMemo(
+  const currentPageEmployers = useMemo(
     () => filteredEmployers.slice(pageNumber * rowsPerPage, (pageNumber + 1) * rowsPerPage),
     [filteredEmployers, pageNumber, rowsPerPage]
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (filteredEmployers.length === 0 || pageNumber * rowsPerPage >= filteredEmployers.length) {
       setPageNumber(0);
     }

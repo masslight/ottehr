@@ -1,4 +1,4 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { INVALID_INPUT_ERROR, isValidUUID, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 import { EmployerAddressInput, EmployerContactInput, EmployerIdentifierInput } from '../helpers';
 
@@ -22,6 +22,18 @@ export function validateRequestParameters(input: ZambdaInput): UpdateEmployerPar
 
   if (!employerId) {
     throw MISSING_REQUIRED_PARAMETERS(['employerId']);
+  }
+
+  if (typeof employerId !== 'string' || !isValidUUID(employerId)) {
+    throw INVALID_INPUT_ERROR('"employerId" must be a valid UUID');
+  }
+
+  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    throw INVALID_INPUT_ERROR('"name" must be a non-empty string when provided');
+  }
+
+  if (category !== undefined && (typeof category !== 'string' || !category.trim())) {
+    throw INVALID_INPUT_ERROR('"category" must be a non-empty string when provided');
   }
 
   if (identifier && !identifier.value) {

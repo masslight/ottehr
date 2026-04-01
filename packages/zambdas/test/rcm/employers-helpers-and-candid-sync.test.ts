@@ -15,9 +15,9 @@ vi.mock('utils', async (importOriginal) => {
 
 const {
   createCandidClientIfConfigured,
-  syncCreateCandidEmployerPayer,
-  syncUpdateCandidEmployerPayer,
-  syncToggleCandidEmployerPayer,
+  createCandidEmployerPayer,
+  updateCandidEmployerPayer,
+  toggleCandidEmployerPayer,
 } = await import('../../src/rcm/employers/candid-sync');
 
 const {
@@ -116,12 +116,7 @@ describe('RCM candid-sync', () => {
     createSpy.mockResolvedValue({ ok: true, body: { nonInsurancePayerId: 'payer-abc' } });
 
     const addresses: Address[] = [{ line: ['100 Main St'], city: 'Austin', state: 'TX', postalCode: '73301-9999' }];
-    const result = await syncCreateCandidEmployerPayer(
-      candidClient,
-      'Test Employer',
-      'Occupational Medicine',
-      addresses
-    );
+    const result = await createCandidEmployerPayer(candidClient, 'Test Employer', 'Occupational Medicine', addresses);
 
     expect(result).toBe('payer-abc');
     expect(createSpy).toHaveBeenCalledWith(
@@ -134,7 +129,7 @@ describe('RCM candid-sync', () => {
   });
 
   it('updates payer with address remove when no address values are provided', async () => {
-    await syncUpdateCandidEmployerPayer(candidClient, 'payer-1', 'Test Employer', 'Occupational Medicine', []);
+    await updateCandidEmployerPayer(candidClient, 'payer-1', 'Test Employer', 'Occupational Medicine', []);
 
     expect(updateSpy).toHaveBeenCalledWith(
       expect.anything(),
@@ -146,7 +141,7 @@ describe('RCM candid-sync', () => {
   });
 
   it('toggles payer enablement', async () => {
-    await syncToggleCandidEmployerPayer(candidClient, 'payer-2', false);
+    await toggleCandidEmployerPayer(candidClient, 'payer-2', false);
     expect(toggleSpy).toHaveBeenCalledWith(expect.anything(), { enabled: false });
   });
 });

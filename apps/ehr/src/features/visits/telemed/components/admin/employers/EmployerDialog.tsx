@@ -24,13 +24,13 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import React from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import {
   CreateEmployerInput,
-  useActivateEmployerMutation,
+  UpdateEmployerInput,
   useCreateEmployerMutation,
-  useDeactivateEmployerMutation,
   useUpdateEmployerMutation,
 } from 'src/rcm/state/employers';
 import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
@@ -43,8 +43,7 @@ type EmployerFormState = {
   addressLine2: string;
   city: string;
   state: string;
-  zip: string;
-  zipPlus4: string;
+  postalCode: string;
   phone: string;
   fax: string;
   email: string;
@@ -59,8 +58,7 @@ const INITIAL_EMPLOYER_FORM: EmployerFormState = {
   addressLine2: '',
   city: '',
   state: '',
-  zip: '',
-  zipPlus4: '',
+  postalCode: '',
   phone: '',
   fax: '',
   email: '',
@@ -77,24 +75,32 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   const queryClient = useQueryClient();
   const createEmployerMutation = useCreateEmployerMutation();
   const updateEmployerMutation = useUpdateEmployerMutation();
-  const activateEmployerMutation = useActivateEmployerMutation();
-  const deactivateEmployerMutation = useDeactivateEmployerMutation();
-  const [form, setForm] = React.useState<EmployerFormState>(INITIAL_EMPLOYER_FORM);
-  const [addressExpanded, setAddressExpanded] = React.useState(false);
-  const [contactExpanded, setContactExpanded] = React.useState(false);
-  const [copiedOttehrId, setCopiedOttehrId] = React.useState(false);
-  const [copiedCandidId, setCopiedCandidId] = React.useState(false);
-  const initialFormRef = React.useRef<EmployerFormState>(INITIAL_EMPLOYER_FORM);
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { isDirty, errors },
+  } = useForm<EmployerFormState>({
+    defaultValues: INITIAL_EMPLOYER_FORM,
+  });
+  const form = watch();
+
+  const [addressExpanded, setAddressExpanded] = useState(false);
+  const [contactExpanded, setContactExpanded] = useState(false);
+  const [copiedOttehrId, setCopiedOttehrId] = useState(false);
+  const [copiedCandidId, setCopiedCandidId] = useState(false);
   const isEditMode = Boolean(employer);
   const candidId = employer?.identifier?.find((id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM)
     ?.value;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) return;
 
     if (!employer) {
-      setForm(INITIAL_EMPLOYER_FORM);
-      initialFormRef.current = INITIAL_EMPLOYER_FORM;
+      reset(INITIAL_EMPLOYER_FORM);
       setAddressExpanded(false);
       setContactExpanded(false);
       setCopiedOttehrId(false);
@@ -103,31 +109,26 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
     }
 
     const primaryAddress = employer.address?.[0];
-    const postalCode = (primaryAddress?.postalCode || '').trim();
-    const [zip = '', zipPlus4 = ''] = postalCode.split('-');
     const telecom = employer.telecom || [];
     const notesExtension = employer.extension?.find(
       (ext) => ext.url === 'https://extensions.ottehr.com/fhir/StructureDefinition/employer-notes'
     );
     const notes = notesExtension?.valueString || '';
 
-    const loadedForm: EmployerFormState = {
+    reset({
       name: employer.name || '',
-      category: (employer.type?.[0]?.text as 'Occupational Medicine') || 'Occupational Medicine',
+      category: 'Occupational Medicine',
       active: employer.active !== false,
       addressLine1: primaryAddress?.line?.[0] || '',
       addressLine2: primaryAddress?.line?.[1] || '',
       city: primaryAddress?.city || '',
       state: primaryAddress?.state || '',
-      zip,
-      zipPlus4,
+      postalCode: (primaryAddress?.postalCode || '').trim(),
       phone: telecom.find((item) => item.system === 'phone')?.value || '',
       fax: telecom.find((item) => item.system === 'fax')?.value || '',
       email: telecom.find((item) => item.system === 'email')?.value || '',
       notes,
-    };
-    setForm(loadedForm);
-    initialFormRef.current = loadedForm;
+    });
 
     setAddressExpanded(
       Boolean(
@@ -137,16 +138,16 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
     setContactExpanded(Boolean(telecom.length || notes));
     setCopiedOttehrId(false);
     setCopiedCandidId(false);
-  }, [open, employer]);
+  }, [open, employer, reset]);
 
-  const resetAndClose = (): void => {
-    setForm(INITIAL_EMPLOYER_FORM);
+  const resetAndClose = useCallback((): void => {
+    reset(INITIAL_EMPLOYER_FORM);
     setAddressExpanded(false);
     setContactExpanded(false);
     setCopiedOttehrId(false);
     setCopiedCandidId(false);
     onClose();
-  };
+  }, [reset, onClose]);
 
   const handleCopyEmployerId = async (): Promise<void> => {
     if (!employer?.id) return;
@@ -165,53 +166,39 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   };
 
   const isSubmitting = createEmployerMutation.isPending || updateEmployerMutation.isPending;
-  const isStatusUpdating = activateEmployerMutation.isPending || deactivateEmployerMutation.isPending;
   const pillButtonSx = { borderRadius: 999, textTransform: 'none' };
 
-  const hasFormChanges = isEditMode
-    ? (Object.keys(initialFormRef.current) as (keyof EmployerFormState)[]).some(
-        (key) => key !== 'active' && form[key] !== initialFormRef.current[key]
-      )
-    : false;
-
-  const handleSubmit = async (): Promise<void> => {
-    if (isEditMode && !hasFormChanges) {
+  const onSubmit = async (data: EmployerFormState): Promise<void> => {
+    if (isEditMode && !isDirty) {
       resetAndClose();
       return;
     }
 
-    const trimmedName = form.name.trim();
-    if (!trimmedName) {
-      enqueueSnackbar('Employer name is required', { variant: 'error' });
-      return;
-    }
+    const trimmedName = data.name.trim();
 
-    const addressLine1 = form.addressLine1.trim();
-    const addressLine2 = form.addressLine2.trim();
-    const city = form.city.trim();
-    const state = form.state.trim();
-    const zip = form.zip.trim();
-    const zipPlus4 = form.zipPlus4.trim();
-    const formattedPostalCode = zip ? `${zip}${zipPlus4 ? `-${zipPlus4}` : ''}` : '';
+    const addressLine1 = data.addressLine1.trim();
+    const addressLine2 = data.addressLine2.trim();
+    const city = data.city.trim();
+    const state = data.state.trim();
+    const postalCode = data.postalCode.trim();
 
-    const hasAddress = Boolean(addressLine1 || addressLine2 || city || state || formattedPostalCode);
-    const phone = form.phone.trim();
-    const fax = form.fax.trim();
-    const email = form.email.trim();
-    const notes = form.notes.trim();
+    const hasAddress = Boolean(addressLine1 || addressLine2 || city || state || postalCode);
+    const phone = data.phone.trim();
+    const fax = data.fax.trim();
+    const email = data.email.trim();
+    const notes = data.notes.trim();
     const hasContact = Boolean(phone || fax || email || notes);
 
     const payload: CreateEmployerInput = {
       name: trimmedName,
-      active: form.active,
-      category: form.category,
+      active: data.active,
+      category: data.category,
       address: hasAddress
         ? {
             line: [addressLine1, addressLine2].filter(Boolean),
             city: city || undefined,
             state: state || undefined,
-            postalCode: formattedPostalCode || undefined,
-            zipPlus4: zipPlus4 || undefined,
+            postalCode: postalCode || undefined,
           }
         : undefined,
       contact: hasContact
@@ -232,7 +219,8 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
         return;
       }
 
-      savedEmployer = await updateEmployerMutation.mutateAsync({ employerId: employer.id, ...payload });
+      const updatePayload: UpdateEmployerInput = { employerId: employer.id, ...payload };
+      savedEmployer = await updateEmployerMutation.mutateAsync(updatePayload);
     } else {
       savedEmployer = await createEmployerMutation.mutateAsync(payload);
     }
@@ -257,15 +245,10 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   const handleToggleActivation = async (): Promise<void> => {
     if (!employer?.id) return;
 
-    if (form.active) {
-      await deactivateEmployerMutation.mutateAsync({ employerId: employer.id });
-      enqueueSnackbar('Employer deactivated', { variant: 'success' });
-      setForm((prev) => ({ ...prev, active: false }));
-    } else {
-      await activateEmployerMutation.mutateAsync({ employerId: employer.id });
-      enqueueSnackbar('Employer activated', { variant: 'success' });
-      setForm((prev) => ({ ...prev, active: true }));
-    }
+    const newActive = !form.active;
+    await updateEmployerMutation.mutateAsync({ employerId: employer.id, active: newActive });
+    enqueueSnackbar(newActive ? 'Employer activated' : 'Employer deactivated', { variant: 'success' });
+    reset({ ...form, active: newActive });
 
     await queryClient.invalidateQueries({ queryKey: ['employers'] });
   };
@@ -291,27 +274,32 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               label="Employer name"
               fullWidth
               size="small"
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+              required
+              error={!!errors.name}
+              helperText={errors.name?.message ?? ''}
+              {...register('name', {
+                required: 'Employer name is required',
+                validate: (v) => !!v.trim() || 'Employer name is required',
+              })}
             />
           </Grid>
           <Grid item xs={12}>
             <FormControl fullWidth margin="dense">
               <InputLabel id="add-employer-category">Category</InputLabel>
-              <Select
-                labelId="add-employer-category"
-                value={form.category}
-                input={<OutlinedInput label="Category" />}
-                size="small"
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    category: e.target.value as 'Occupational Medicine',
-                  }))
-                }
-              >
-                <MenuItem value="Occupational Medicine">Occupational Medicine</MenuItem>
-              </Select>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    labelId="add-employer-category"
+                    input={<OutlinedInput label="Category" />}
+                    size="small"
+                    {...field}
+                  >
+                    <MenuItem value="Occupational Medicine">Occupational Medicine</MenuItem>
+                  </Select>
+                )}
+              />
             </FormControl>
           </Grid>
 
@@ -337,8 +325,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
                       label="Address line 1"
                       fullWidth
                       size="small"
-                      value={form.addressLine1}
-                      onChange={(e) => setForm((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                      {...register('addressLine1')}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -347,48 +334,23 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
                       label="Address line 2"
                       fullWidth
                       size="small"
-                      value={form.addressLine2}
-                      onChange={(e) => setForm((prev) => ({ ...prev, addressLine2: e.target.value }))}
+                      {...register('addressLine2')}
                     />
                   </Grid>
                   <Grid item xs={12} sm={5}>
-                    <TextField
-                      margin="dense"
-                      label="City"
-                      fullWidth
-                      size="small"
-                      value={form.city}
-                      onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
-                    />
+                    <TextField margin="dense" label="City" fullWidth size="small" {...register('city')} />
                   </Grid>
                   <Grid item xs={6} sm={3}>
-                    <TextField
-                      margin="dense"
-                      label="State"
-                      fullWidth
-                      size="small"
-                      value={form.state}
-                      onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))}
-                    />
+                    <TextField margin="dense" label="State" fullWidth size="small" {...register('state')} />
                   </Grid>
-                  <Grid item xs={6} sm={2}>
+                  <Grid item xs={6} sm={4}>
                     <TextField
                       margin="dense"
-                      label="ZIP"
+                      label="Postal code"
                       fullWidth
                       size="small"
-                      value={form.zip}
-                      onChange={(e) => setForm((prev) => ({ ...prev, zip: e.target.value }))}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={2}>
-                    <TextField
-                      margin="dense"
-                      label="ZIP+4"
-                      fullWidth
-                      size="small"
-                      value={form.zipPlus4}
-                      onChange={(e) => setForm((prev) => ({ ...prev, zipPlus4: e.target.value }))}
+                      placeholder="12345 or 12345-6789"
+                      {...register('postalCode')}
                     />
                   </Grid>
                 </Grid>
@@ -413,34 +375,13 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               <AccordionDetails sx={{ p: 0 }}>
                 <Grid container spacing={0.5}>
                   <Grid item xs={12} sm={4}>
-                    <TextField
-                      margin="dense"
-                      label="Phone"
-                      fullWidth
-                      size="small"
-                      value={form.phone}
-                      onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    />
+                    <TextField margin="dense" label="Phone" fullWidth size="small" {...register('phone')} />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <TextField
-                      margin="dense"
-                      label="Fax"
-                      fullWidth
-                      size="small"
-                      value={form.fax}
-                      onChange={(e) => setForm((prev) => ({ ...prev, fax: e.target.value }))}
-                    />
+                    <TextField margin="dense" label="Fax" fullWidth size="small" {...register('fax')} />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <TextField
-                      margin="dense"
-                      label="Email"
-                      fullWidth
-                      size="small"
-                      value={form.email}
-                      onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                    />
+                    <TextField margin="dense" label="Email" fullWidth size="small" {...register('email')} />
                   </Grid>
                   <Grid item xs={12}>
                     <TextField
@@ -450,8 +391,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
                       multiline
                       minRows={2}
                       size="small"
-                      value={form.notes}
-                      onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                      {...register('notes')}
                     />
                   </Grid>
                 </Grid>
@@ -586,7 +526,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               size="small"
               variant="outlined"
               onClick={() => void handleToggleActivation()}
-              disabled={isStatusUpdating}
+              disabled={isSubmitting}
               sx={{
                 ...pillButtonSx,
                 ...(form.active
@@ -605,8 +545,13 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               {form.active ? 'Deactivate' : 'Activate'}
             </Button>
           )}
-          <Button onClick={() => void handleSubmit()} variant="contained" disabled={isSubmitting} sx={pillButtonSx}>
-            {isEditMode ? (hasFormChanges ? 'Save' : 'Done') : 'Add'}
+          <Button
+            onClick={() => void handleSubmit(onSubmit)()}
+            variant="contained"
+            disabled={isSubmitting}
+            sx={pillButtonSx}
+          >
+            {isEditMode ? (isDirty ? 'Save' : 'Done') : 'Add'}
           </Button>
         </Box>
       </DialogActions>
