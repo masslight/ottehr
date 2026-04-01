@@ -37,7 +37,7 @@ export default function EmployersTab(): ReactElement {
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [pageNumber, setPageNumber] = React.useState(0);
   const [searchText, setSearchText] = React.useState('');
-  const [activeFilter, setActiveFilter] = React.useState<EmployerActiveStatus | ''>('');
+  const [activeFilter, setActiveFilter] = React.useState<EmployerActiveStatus | ''>(EmployerActiveStatus.active);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [selectedEmployer, setSelectedEmployer] = React.useState<Organization | null>(null);
 

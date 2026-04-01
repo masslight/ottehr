@@ -84,6 +84,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   const [contactExpanded, setContactExpanded] = React.useState(false);
   const [copiedOttehrId, setCopiedOttehrId] = React.useState(false);
   const [copiedCandidId, setCopiedCandidId] = React.useState(false);
+  const initialFormRef = React.useRef<EmployerFormState>(INITIAL_EMPLOYER_FORM);
   const isEditMode = Boolean(employer);
   const candidId = employer?.identifier?.find((id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM)
     ?.value;
@@ -93,6 +94,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
 
     if (!employer) {
       setForm(INITIAL_EMPLOYER_FORM);
+      initialFormRef.current = INITIAL_EMPLOYER_FORM;
       setAddressExpanded(false);
       setContactExpanded(false);
       setCopiedOttehrId(false);
@@ -109,7 +111,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
     );
     const notes = notesExtension?.valueString || '';
 
-    setForm({
+    const loadedForm: EmployerFormState = {
       name: employer.name || '',
       category: (employer.type?.[0]?.text as 'Occupational Medicine') || 'Occupational Medicine',
       active: employer.active !== false,
@@ -123,7 +125,9 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
       fax: telecom.find((item) => item.system === 'fax')?.value || '',
       email: telecom.find((item) => item.system === 'email')?.value || '',
       notes,
-    });
+    };
+    setForm(loadedForm);
+    initialFormRef.current = loadedForm;
 
     setAddressExpanded(
       Boolean(
@@ -160,7 +164,22 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
     window.setTimeout(() => setCopiedCandidId(false), 2000);
   };
 
+  const isSubmitting = createEmployerMutation.isPending || updateEmployerMutation.isPending;
+  const isStatusUpdating = activateEmployerMutation.isPending || deactivateEmployerMutation.isPending;
+  const pillButtonSx = { borderRadius: 999, textTransform: 'none' };
+
+  const hasFormChanges = isEditMode
+    ? (Object.keys(initialFormRef.current) as (keyof EmployerFormState)[]).some(
+        (key) => key !== 'active' && form[key] !== initialFormRef.current[key]
+      )
+    : false;
+
   const handleSubmit = async (): Promise<void> => {
+    if (isEditMode && !hasFormChanges) {
+      resetAndClose();
+      return;
+    }
+
     const trimmedName = form.name.trim();
     if (!trimmedName) {
       enqueueSnackbar('Employer name is required', { variant: 'error' });
@@ -235,10 +254,6 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
     resetAndClose();
   };
 
-  const isSubmitting = createEmployerMutation.isPending || updateEmployerMutation.isPending;
-  const isStatusUpdating = activateEmployerMutation.isPending || deactivateEmployerMutation.isPending;
-  const pillButtonSx = { borderRadius: 999, textTransform: 'none' };
-
   const handleToggleActivation = async (): Promise<void> => {
     if (!employer?.id) return;
 
@@ -256,7 +271,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   };
 
   return (
-    <Dialog open={open} onClose={resetAndClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={resetAndClose} maxWidth="sm" fullWidth sx={{ '.MuiPaper-root': { padding: 2 } }}>
       <DialogTitle
         variant="h4"
         color="primary.dark"
@@ -280,7 +295,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
             />
           </Grid>
-          <Grid item xs={12} sm={isEditMode && employer?.id ? 6 : 12}>
+          <Grid item xs={12}>
             <FormControl fullWidth margin="dense">
               <InputLabel id="add-employer-category">Category</InputLabel>
               <Select
@@ -300,162 +315,22 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
             </FormControl>
           </Grid>
 
-          {isEditMode && employer?.id && (
-            <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'center' }}>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => void handleToggleActivation()}
-                disabled={isStatusUpdating}
-                sx={{
-                  ...pillButtonSx,
-                  ...(form.active
-                    ? {
-                        color: 'error.main',
-                        borderColor: 'error.main',
-                        '&:hover': {
-                          borderColor: 'error.main',
-                          backgroundColor: 'error.light',
-                          color: 'error.dark',
-                        },
-                      }
-                    : {}),
-                }}
-              >
-                {form.active ? 'Deactivate' : 'Activate'}
-              </Button>
-            </Grid>
-          )}
-
-          {isEditMode && employer?.id && (
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  backgroundColor: 'grey.100',
-                  borderRadius: 1,
-                  px: 1,
-                  py: 0.5,
-                  gap: 0.25,
-                }}
-              >
-                {/* Ottehr ID row */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 26 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                    Ottehr ID:
-                  </Typography>
-                  <Tooltip title={copiedOttehrId ? 'Copied' : 'Copy ID'}>
-                    <Box
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => void handleCopyEmployerId()}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          void handleCopyEmployerId();
-                        }
-                      }}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        cursor: 'pointer',
-                        minWidth: 0,
-                        color: 'text.secondary',
-                        '&:hover': { opacity: 0.85 },
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontFamily: 'monospace',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          color: 'text.secondary',
-                        }}
-                      >
-                        {employer.id}
-                      </Typography>
-                      {copiedOttehrId ? (
-                        <CheckIcon color="success" sx={{ fontSize: 14 }} />
-                      ) : (
-                        <ContentCopyIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                      )}
-                    </Box>
-                  </Tooltip>
-                </Box>
-
-                {/* Candid ID row */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 22 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                    Candid ID:
-                  </Typography>
-                  {candidId ? (
-                    <Tooltip title={copiedCandidId ? 'Copied' : 'Copy ID'}>
-                      <Box
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => void handleCopyCandidId()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            void handleCopyCandidId();
-                          }
-                        }}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          cursor: 'pointer',
-                          minWidth: 0,
-                          color: 'text.secondary',
-                          '&:hover': { opacity: 0.85 },
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontFamily: 'monospace',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            color: 'text.secondary',
-                          }}
-                        >
-                          {candidId}
-                        </Typography>
-                        {copiedCandidId ? (
-                          <CheckIcon color="success" sx={{ fontSize: 14 }} />
-                        ) : (
-                          <ContentCopyIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                        )}
-                      </Box>
-                    </Tooltip>
-                  ) : (
-                    <Typography variant="caption" color="error.main" sx={{ fontWeight: 500 }}>
-                      Candid Sync Failed
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            </Grid>
-          )}
-
           <Grid item xs={12}>
             <Accordion
               disableGutters
               elevation={0}
               expanded={addressExpanded}
               onChange={(_, expanded) => setAddressExpanded(expanded)}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '0px' }}
             >
-              <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon fontSize="small" />}
+                sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '0px' } }}
+              >
                 <Typography variant="subtitle2">Address (optional)</Typography>
               </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={1.5}>
+              <AccordionDetails sx={{ p: 0 }}>
+                <Grid container spacing={0.5}>
                   <Grid item xs={12} sm={6}>
                     <TextField
                       margin="dense"
@@ -527,13 +402,16 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               elevation={0}
               expanded={contactExpanded}
               onChange={(_, expanded) => setContactExpanded(expanded)}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '2px' }}
             >
-              <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon fontSize="small" />}
+                sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '2px' } }}
+              >
                 <Typography variant="subtitle2">Contact Details (optional)</Typography>
               </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={1.5}>
+              <AccordionDetails sx={{ p: 0 }}>
+                <Grid container spacing={0.5}>
                   <Grid item xs={12} sm={4}>
                     <TextField
                       margin="dense"
@@ -582,13 +460,155 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
           </Grid>
         </Grid>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={resetAndClose} disabled={isSubmitting} variant="outlined" sx={{ ...pillButtonSx, mr: 'auto' }}>
+      {isEditMode && employer?.id && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'grey.100',
+            borderRadius: 1,
+            mx: 3,
+            mb: 2,
+            px: 1,
+            py: 0.5,
+            gap: 0.25,
+            fontSize: '0.7rem',
+          }}
+        >
+          {/* Ottehr ID row */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 26 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+              Ottehr ID:
+            </Typography>
+            <Tooltip title={copiedOttehrId ? 'Copied' : 'Copy ID'}>
+              <Box
+                role="button"
+                tabIndex={0}
+                onClick={() => void handleCopyEmployerId()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void handleCopyEmployerId();
+                  }
+                }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  cursor: 'pointer',
+                  minWidth: 0,
+                  color: 'text.secondary',
+                  '&:hover': { opacity: 0.85 },
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontFamily: 'monospace',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    color: 'text.secondary',
+                  }}
+                >
+                  {employer.id}
+                </Typography>
+                {copiedOttehrId ? (
+                  <CheckIcon color="success" sx={{ fontSize: 14 }} />
+                ) : (
+                  <ContentCopyIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                )}
+              </Box>
+            </Tooltip>
+          </Box>
+
+          {/* Candid ID row */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 22 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+              Candid ID:
+            </Typography>
+            {candidId ? (
+              <Tooltip title={copiedCandidId ? 'Copied' : 'Copy ID'}>
+                <Box
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => void handleCopyCandidId()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      void handleCopyCandidId();
+                    }
+                  }}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    cursor: 'pointer',
+                    minWidth: 0,
+                    color: 'text.secondary',
+                    '&:hover': { opacity: 0.85 },
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontFamily: 'monospace',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      color: 'text.secondary',
+                    }}
+                  >
+                    {candidId}
+                  </Typography>
+                  {copiedCandidId ? (
+                    <CheckIcon color="success" sx={{ fontSize: 14 }} />
+                  ) : (
+                    <ContentCopyIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                  )}
+                </Box>
+              </Tooltip>
+            ) : (
+              <Typography variant="caption" color="error.main" sx={{ fontWeight: 500 }}>
+                Candid Sync Failed
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
+      <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
+        <Button onClick={resetAndClose} disabled={isSubmitting} variant="outlined" sx={pillButtonSx}>
           Cancel
         </Button>
-        <Button onClick={() => void handleSubmit()} variant="contained" disabled={isSubmitting} sx={pillButtonSx}>
-          {isEditMode ? 'Save' : 'Add'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {isEditMode && employer?.id && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => void handleToggleActivation()}
+              disabled={isStatusUpdating}
+              sx={{
+                ...pillButtonSx,
+                ...(form.active
+                  ? {
+                      color: 'error.main',
+                      borderColor: 'error.main',
+                      '&:hover': {
+                        borderColor: 'error.main',
+                        backgroundColor: 'error.light',
+                        color: 'error.dark',
+                      },
+                    }
+                  : {}),
+              }}
+            >
+              {form.active ? 'Deactivate' : 'Activate'}
+            </Button>
+          )}
+          <Button onClick={() => void handleSubmit()} variant="contained" disabled={isSubmitting} sx={pillButtonSx}>
+            {isEditMode ? (hasFormChanges ? 'Save' : 'Done') : 'Add'}
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

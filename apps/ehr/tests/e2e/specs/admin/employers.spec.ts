@@ -93,7 +93,7 @@ test.describe('Billing Employers Admin', () => {
   });
 
   test('close dialog returns to employers table', async () => {
-    await dialog.clickCancel();
+    await dialog.clickDone();
     await dialog.waitForClosed();
     await employersPage.verifyEmployerVisible(EMPLOYER_NAME);
   });

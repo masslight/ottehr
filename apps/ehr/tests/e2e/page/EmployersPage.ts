@@ -80,6 +80,10 @@ export class EmployerDialogPage {
     await this.page.getByRole('button', { name: 'Save' }).click();
   }
 
+  async clickDone(): Promise<void> {
+    await this.page.getByRole('button', { name: 'Done' }).click();
+  }
+
   async clickCancel(): Promise<void> {
     await this.page.getByRole('button', { name: 'Cancel' }).click();
   }
