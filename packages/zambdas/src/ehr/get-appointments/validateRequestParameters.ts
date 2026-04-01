@@ -48,16 +48,16 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
     providerIDs = body.providerIDs;
   }
 
-  // Safely extract and validate groupIDs (optional string array)
-  let groupIDs: string[] | undefined;
-  if (body.groupIDs !== undefined) {
-    if (!Array.isArray(body.groupIDs)) {
-      throw new Error('groupIDs must be an array if provided');
+  // Safely extract and validate serviceCategories (optional string array)
+  let serviceCategories: string[] | undefined;
+  if (body.serviceCategories !== undefined) {
+    if (!Array.isArray(body.serviceCategories)) {
+      throw new Error('serviceCategories must be an array if provided');
     }
-    if (!body.groupIDs.every((id): id is string => typeof id === 'string')) {
-      throw new Error('All groupIDs must be strings');
+    if (!body.serviceCategories.every((val): val is string => typeof val === 'string')) {
+      throw new Error('All serviceCategories must be strings');
     }
-    groupIDs = body.groupIDs;
+    serviceCategories = body.serviceCategories;
   }
 
   // Safely extract and validate visitType (required string array)
@@ -70,8 +70,8 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
   const visitType = body.visitType;
 
   // Validate business logic constraints
-  if (locationID === undefined && providerIDs === undefined && groupIDs === undefined) {
-    throw new Error('Either "locationID" or "providerIDs" or "groupIDs" is required');
+  if (locationID === undefined && providerIDs === undefined && serviceCategories === undefined) {
+    throw new Error('Either "locationID" or "providerIDs" or "serviceCategories" is required');
   }
 
   const supervisorApprovalEnabled =
@@ -81,7 +81,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
     searchDate,
     locationID,
     providerIDs,
-    groupIDs,
+    serviceCategories,
     visitType,
     supervisorApprovalEnabled,
     secrets: input.secrets,

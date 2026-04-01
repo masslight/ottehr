@@ -15,6 +15,7 @@ import {
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
   getSecret,
+  IN_HOUSE_LAB_ERROR,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
   SecretsKeys,
@@ -125,13 +126,14 @@ const getInHouseLabOrderRelatedResources = async (
 
     if (diagnosticReport || documentReference)
       console.log(
-        `Found DiagnosticReport or DocRef to delete: DiagnosticReport/${diagnosticReport.id} or DocumentReference/${documentReference.id}`
+        `Found DiagnosticReport or DocRef to delete: DiagnosticReport/${diagnosticReport?.id} or DocumentReference/${documentReference?.id}`
       );
 
     if (serviceRequest && !canDeleteInHouseLabOrder(serviceRequest)) {
-      const errorMessage = `Cannot delete in-house lab order; ServiceRequest has status: ${serviceRequest.status}. Only draft, active, or completed orders can be deleted.`;
-      console.error(errorMessage);
-      throw new Error(errorMessage);
+      console.log(
+        `Cannot delete in-house lab order; ServiceRequest has status: ${serviceRequest.status}. Only draft, active, or completed orders can be deleted.`
+      );
+      throw IN_HOUSE_LAB_ERROR('This lab may already be deleted, please refresh the page.');
     }
 
     return {

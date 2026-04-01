@@ -2,6 +2,7 @@ import { TextField, useTheme } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import InputMask from 'src/components/InputMask';
 import { TestItemComponent } from 'utils';
+import { configNumericResultEntryTestId } from '../../utils/test-ids';
 
 interface ResultEntryNumericInputProps {
   testItemComponent: TestItemComponent;
@@ -42,6 +43,7 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
       defaultValue=""
       render={({ field }) => (
         <TextField
+          data-testid={configNumericResultEntryTestId(testItemComponent.componentName)}
           disabled={!!disabled}
           {...field}
           onChange={(e) => {

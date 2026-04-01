@@ -128,7 +128,7 @@ export const WalkinLanding: FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
               <Link to={PROJECT_WEBSITE} aria-label={`${BRANDING_CONFIG.projectName} website`} target="_blank">
-                <Button variant="contained" color="primary" data-testid="loading-button">
+                <Button variant="contained" color="secondary" data-testid="loading-button">
                   {t('welcome.goToWebsite', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
                 </Button>
               </Link>

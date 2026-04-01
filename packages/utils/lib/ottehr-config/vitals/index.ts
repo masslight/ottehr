@@ -1,33 +1,6 @@
 import * as z from 'zod';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
-// Re-export config contract types from config-helpers/vitals (already aliased there)
-export {
-  VitalsAgeSchema,
-  VitalsAgeUnitSchema,
-  VitalsConstraintTypeSchema,
-  VitalAlertCriticalitySchema,
-  VitalBloodPressureComponentSchema,
-  VitalTypeSchema,
-  VitalVisionComponentSchema,
-  type VitalsAge,
-  type VitalsAgeUnit,
-  type VitalsAlertConstraint,
-  type VitalsAlertThreshold,
-  type VitalsBaseConstraint,
-  type VitalsConstraintType,
-  type VitalsAlertCriticalityType,
-  type VitalBloodPressureComponent,
-  type VitalType,
-  type VitalVisionComponent,
-  type VitalsBloodPressure,
-  type VitalsConfig,
-  type VitalsObjectType,
-  type VitalsVision,
-  type VitalsWeight,
-  type VitalsWithComponents,
-} from '../../config-helpers/vitals';
-
 export const VitalsConfigData = {
   'vital-temperature': {
     alertThresholds: [

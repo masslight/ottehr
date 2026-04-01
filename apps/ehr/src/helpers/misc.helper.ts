@@ -28,3 +28,9 @@ export function cleanupProperties(object: any): any | undefined {
   }
   return result;
 }
+
+export function makeAbbreviation(str: string): string {
+  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
+    return previousValue + currentValue.charAt(0).toUpperCase();
+  }, '');
+}
