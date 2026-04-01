@@ -1279,7 +1279,7 @@ function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefiniti
     normalRange: {
       low,
       high,
-      ...(precision ? { precision } : {}),
+      ...(precision !== undefined ? { precision } : {}),
       unit,
     },
     display: { type: 'Numeric', nullOption: false },

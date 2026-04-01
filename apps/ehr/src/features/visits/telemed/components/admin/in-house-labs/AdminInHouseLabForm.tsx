@@ -38,16 +38,14 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
     resolver: zodResolver(AdminInHouseLabItemDefinitionSchema),
   });
   const formErrors = methods.formState.errors;
-  console.log('>>>formErrors', formErrors);
   const hasFormErrors = Object.keys(formErrors).length > 0;
-  console.log('>>>hasFormErrors', hasFormErrors);
 
   const formLabel = formMode === 'add' ? 'Add New In-House Lab' : 'Edit In-House Lab';
   const submitButtonText = formMode === 'add' ? 'Submit' : 'Save changes';
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)}>
+      <form onSubmit={methods.handleSubmit(onSubmit)} noValidate>
         <FormLabel
           sx={{
             ...theme.typography.h4,
