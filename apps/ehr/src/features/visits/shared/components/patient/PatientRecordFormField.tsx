@@ -1,6 +1,5 @@
 import { Autocomplete, Checkbox, FormControlLabel, Link, TextField, useTheme } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem } from 'config-types';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -8,7 +7,14 @@ import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { dedupeObjectsByKey, isRemovableField, QuestionnaireItemGroupType } from 'utils';
+import {
+  dedupeObjectsByKey,
+  FormFieldsDisplayItem,
+  FormFieldsGroupItem,
+  FormFieldsInputItem,
+  isRemovableField,
+  QuestionnaireItemGroupType,
+} from 'utils';
 import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
@@ -66,8 +72,10 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
   const stashedValueRef = useRef<any>(null);
 
+  const triggerState = dynamicPopulation?.triggerState ?? 'disabled';
+
   useEffect(() => {
-    if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && isDisabled) {
+    if (dynamicPopulation && triggerState === 'disabled' && isDisabled) {
       const currentValue = getValues(item.key);
 
       // Only update if the source value is different from current value
@@ -75,13 +83,13 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
         stashedValueRef.current = currentValue;
         setValue(item.key, sourceFieldValue, { shouldDirty: true });
       }
-    } else if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && !isDisabled) {
+    } else if (dynamicPopulation && triggerState === 'disabled' && !isDisabled) {
       if (stashedValueRef.current !== null) {
         setValue(item.key, stashedValueRef.current, { shouldDirty: true });
         stashedValueRef.current = null;
       }
     }
-  }, [sourceFieldValue, isDisabled, dynamicPopulation, item.key, setValue, getValues]);
+  }, [sourceFieldValue, isDisabled, dynamicPopulation, triggerState, item.key, setValue, getValues]);
 
   if (isDisabled && disabledDisplay === 'hidden') {
     return null;
