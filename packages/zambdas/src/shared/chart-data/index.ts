@@ -81,6 +81,8 @@ import {
   PROCEDURE_TYPE_SYSTEM,
   ProcedureDTO,
   ProviderChartDataFieldsNames,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_ID,
   removeOperation,
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_CODE,
@@ -691,6 +693,7 @@ export function makeServiceRequestResource({
   performerType,
   note,
   nothingToEatOrDrink,
+  refusalOfEmsTransport,
 }: {
   resourceId: string | undefined;
   encounterId: string;
@@ -702,7 +705,23 @@ export function makeServiceRequestResource({
   performerType?: CodeableConcept;
   note?: string;
   [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
+  [REFUSAL_OF_EMS_TRANSPORT_FIELD]?: boolean;
 }): ServiceRequest {
+  const extensions = [];
+
+  if (nothingToEatOrDrink === true) {
+    extensions.push({
+      url: NOTHING_TO_EAT_OR_DRINK_ID,
+      valueBoolean: true,
+    });
+  }
+
+  if (refusalOfEmsTransport === true) {
+    extensions.push({
+      url: REFUSAL_OF_EMS_TRANSPORT_ID,
+      valueBoolean: true,
+    });
+  }
   return {
     id: resourceId,
     resourceType: 'ServiceRequest',
@@ -729,10 +748,7 @@ export function makeServiceRequestResource({
       : undefined,
     code,
     meta: fillMeta(metaName, metaName),
-    extension:
-      nothingToEatOrDrink === true
-        ? [{ url: NOTHING_TO_EAT_OR_DRINK_ID, valueBoolean: nothingToEatOrDrink }]
-        : undefined,
+    extension: extensions.length > 0 ? extensions : undefined,
   };
 }
 
@@ -781,6 +797,9 @@ export function makeDispositionDTO(
     followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
       (ext) => ext.url === NOTHING_TO_EAT_OR_DRINK_ID && ext.valueBoolean === true
+    ),
+    [REFUSAL_OF_EMS_TRANSPORT_FIELD]: followUp.extension?.some(
+      (ext) => ext.url === REFUSAL_OF_EMS_TRANSPORT_ID && ext.valueBoolean === true
     ),
   };
 }
@@ -1535,6 +1554,7 @@ export const createDispositionServiceRequest = ({
       followUpIn: followUpDaysInMinutes,
       orderDetail,
       [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition[NOTHING_TO_EAT_OR_DRINK_FIELD],
+      [REFUSAL_OF_EMS_TRANSPORT_FIELD]: disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD],
     })
   );
 };

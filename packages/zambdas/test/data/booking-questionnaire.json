@@ -227,6 +227,50 @@
           ]
         },
         {
+          "linkId": "return-patient-check",
+          "type": "choice",
+          "text": "Have you been to Ottehr in the past 3 years?",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "Yes"
+            },
+            {
+              "valueString": "No"
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "existing-patient-id",
+              "operator": "exists",
+              "answerBoolean": false
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "existing-patient-id"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "exists"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueBoolean": false
+                }
+              ]
+            }
+          ]
+        },
+        {
           "linkId": "reason-for-visit",
           "type": "choice",
           "text": "Reason for visit",
