@@ -58,7 +58,7 @@ export const ApplyTemplate: React.FC = () => {
   const queryClient = useQueryClient();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const currentUser = useEvolveUser();
-  const isAdmin = currentUser?.hasRole?.([RoleType.Administrator]) ?? false;
+  const isAdmin = currentUser?.hasRole?.([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   // Load templates using custom react-query hook
   const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
@@ -285,8 +285,12 @@ export const ApplyTemplate: React.FC = () => {
               color: theme.palette.text.primary,
             }}
           >
-            Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template? Applying
-            the template will override the content in the following sections: Exam, MDM, Dx, Patient Instructions, ROS.
+            Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template?
+            <br />
+            <br />
+            <strong>Overwritten:</strong> Exam, MDM, Patient Instructions, E&amp;M Code
+            <br />
+            <strong>Appended:</strong> HPI, ROS, ICD-10 Diagnoses, CPT Codes
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>

@@ -2,7 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, List, Observation, Procedure, Resource } from 'fhir/r4b';
 import {
+  ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
+  chartDataTagSystem,
   examConfig,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
@@ -180,37 +182,32 @@ const performEffect = async (
 
   // Parse HPI note
   const hpiCondition = contained.find(
-    (r) =>
-      r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint')
+    (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('chief-complaint'))
   ) as Condition | undefined;
   const hpiNote = hpiCondition?.note?.[0]?.text ?? null;
 
   // Parse MOI note
   const moiCondition = contained.find(
-    (r) =>
-      r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/mechanism-of-injury')
+    (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('mechanism-of-injury'))
   ) as Condition | undefined;
   const moiNote = moiCondition?.note?.[0]?.text ?? null;
 
   // Parse ROS note
-  const rosCondition = contained.find(
-    (r) => r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/ros')
-  ) as Condition | undefined;
+  const rosCondition = contained.find((r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('ros'))) as
+    | Condition
+    | undefined;
   const rosNote = rosCondition?.note?.[0]?.text ?? null;
 
   // Parse exam findings
   const examObservations = contained.filter(
-    (r) =>
-      r.resourceType === 'Observation' &&
-      hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field')
+    (r) => r.resourceType === 'Observation' && hasTag(r, chartDataTagSystem('exam-observation-field'))
   ) as Observation[];
 
   const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
   const fieldLabels = buildFieldLabels(examTypeConfig.components);
 
   const examFindings: ExamFinding[] = examObservations.map((obs) => {
-    const fieldCode =
-      getTagCode(obs, 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field') ?? 'unknown';
+    const fieldCode = getTagCode(obs, chartDataTagSystem('exam-observation-field')) ?? 'unknown';
     const isAbnormal = abnormalFieldCodes.has(fieldCode);
     const note = obs.note?.[0]?.text ?? '';
     const label = fieldLabels.get(fieldCode) ?? obs.code?.text ?? fieldCode;
@@ -219,9 +216,7 @@ const performEffect = async (
 
   // Parse MDM
   const mdmResource = contained.find(
-    (r) =>
-      r.resourceType === 'ClinicalImpression' &&
-      hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision')
+    (r) => r.resourceType === 'ClinicalImpression' && hasTag(r, chartDataTagSystem('medical-decision'))
   ) as ClinicalImpression | undefined;
   const mdm = mdmResource?.summary ?? null;
 
@@ -242,15 +237,13 @@ const performEffect = async (
 
   // Parse patient instructions
   const instructionResource = contained.find(
-    (r) =>
-      r.resourceType === 'Communication' &&
-      hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction')
+    (r) => r.resourceType === 'Communication' && hasTag(r, chartDataTagSystem('patient-instruction'))
   ) as Communication | undefined;
   const patientInstructions = instructionResource?.payload?.[0]?.contentString ?? null;
 
   // Parse CPT codes
   const cptProcedures = contained.filter(
-    (r) => r.resourceType === 'Procedure' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code')
+    (r) => r.resourceType === 'Procedure' && hasTag(r, chartDataTagSystem('cpt-code'))
   ) as Procedure[];
 
   const cptCodes: CodeInfo[] = cptProcedures.map((proc) => {
@@ -263,7 +256,7 @@ const performEffect = async (
 
   // Parse E&M code
   const emProcedure = contained.find(
-    (r) => r.resourceType === 'Procedure' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code')
+    (r) => r.resourceType === 'Procedure' && hasTag(r, chartDataTagSystem('em-code'))
   ) as Procedure | undefined;
 
   const emCode: CodeInfo | null = emProcedure
@@ -275,7 +268,7 @@ const performEffect = async (
 
   // Parse accident / condition related to
   const accidentCondition = contained.find(
-    (r) => r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/accident')
+    (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('accident'))
   ) as Condition | undefined;
 
   const accident: AccidentInfo | null = accidentCondition
@@ -287,9 +280,7 @@ const performEffect = async (
         otherAccident:
           accidentCondition.code?.coding?.some((c) => c.system === ACCIDENT_TYPE_SYSTEM && c.code === 'OA') ?? false,
         date: accidentCondition.onsetDateTime ?? undefined,
-        state: accidentCondition.extension?.find(
-          (ext) => ext.url === 'https://fhir.ottehr.com/r4/Extension/accident-state'
-        )?.valueString,
+        state: accidentCondition.extension?.find((ext) => ext.url === ACCIDENT_STATE_EXTENSION)?.valueString,
       }
     : null;
 
