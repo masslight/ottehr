@@ -1634,23 +1634,26 @@ export function makeAbbreviation(str: string): string {
   }, '');
 }
 
-export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | undefined {
+export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
   if (!serviceCategory) return undefined;
 
   const normalizedServiceCategory = serviceCategory
     .trim()
     .toLowerCase()
     .replace(/[^a-z]/g, '');
-  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC'> = {
+  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC' | 'PO'> = {
     urgentcare: 'UC',
     occupationalmedicine: 'OM',
     workerscomp: 'WC',
+    preop: 'PO',
   };
 
   return serviceCategoryMap[normalizedServiceCategory];
 }
 
-export function getAppointmentServiceCategoryAbbreviation(appointment?: Appointment): 'UC' | 'OM' | 'WC' | undefined {
+export function getAppointmentServiceCategoryAbbreviation(
+  appointment?: Appointment
+): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
   const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
   return getServiceCategoryAbbreviation(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
 }
