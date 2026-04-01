@@ -27,7 +27,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, Fragment, ReactElement, useEffect, useMemo, useState } from 'react';
+import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -196,6 +196,7 @@ export default function PatientPaymentList({
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
   const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean>(false);
   const [cardOnFileKnown, setCardOnFileKnown] = useState<boolean>(false);
+  const [cardOnFileRefreshCounter, setCardOnFileRefreshCounter] = useState(0);
 
   const {
     data: encounter,
@@ -395,6 +396,15 @@ export default function PatientPaymentList({
   const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
   const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
 
+  const refreshCardOnFileIndicator = useCallback(() => {
+    setCardOnFileRefreshCounter((prev) => prev + 1);
+  }, []);
+
+  const handlePaymentDialogClose = useCallback(() => {
+    setPaymentDialogOpen(false);
+    refreshCardOnFileIndicator();
+  }, [refreshCardOnFileIndicator]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -489,7 +499,7 @@ export default function PatientPaymentList({
     return () => {
       cancelled = true;
     };
-  }, [oystehrZambda, patient?.id, appointment?.id]);
+  }, [oystehrZambda, patient?.id, appointment?.id, cardOnFileRefreshCounter]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -575,6 +585,11 @@ export default function PatientPaymentList({
     },
     onSuccess: async () => {
       await refetchPaymentList();
+
+      // Close as soon as the payment is visible; receipt creation can continue in background.
+      setPaymentDialogOpen(false);
+      refreshCardOnFileIndicator();
+
       const waitForReceipt = async (): Promise<void> => {
         let receipt: DocumentReference | null = null;
         const maxTries = 15;
@@ -591,9 +606,7 @@ export default function PatientPaymentList({
         }
       };
 
-      await waitForReceipt();
-
-      setPaymentDialogOpen(false);
+      void waitForReceipt();
     },
     retry: 0,
   });
@@ -734,7 +747,9 @@ export default function PatientPaymentList({
       </Box>
       <ToggleButtonGroup
         exclusive
+        color="primary"
         value={paymentVariant ?? null}
+        aria-label="Select payer for claim"
         onChange={async (_e, newValue) => {
           if (newValue !== null && encounter) {
             await updateEncounter.mutateAsync(
@@ -743,82 +758,48 @@ export default function PatientPaymentList({
           }
         }}
         sx={{
-          mt: 2,
+          mt: 1,
+          borderRadius: 2,
           backgroundColor: theme.palette.grey[200],
-          borderRadius: '8px',
-          padding: '3px',
+          p: 0.25,
+          overflow: 'hidden',
           gap: 0,
           '& .MuiToggleButtonGroup-grouped': {
-            border: 'none',
-            '&:not(:first-of-type)': { borderRadius: '6px', marginLeft: '2px' },
-            '&:first-of-type': { borderRadius: '6px' },
+            border: 0,
+            borderRadius: 1,
+            px: 2.5,
+            py: 0.9,
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            color: theme.palette.text.secondary,
+            backgroundColor: 'transparent',
+            '&.Mui-selected': {
+              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
+              '&:hover': {
+                backgroundColor: theme.palette.primary.dark,
+              },
+            },
+            '&:hover': {
+              backgroundColor: theme.palette.action.hover,
+            },
+          },
+          '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+            borderLeft: `1px solid ${theme.palette.divider}`,
           },
         }}
       >
         {isUrgentCare ? (
-          <ToggleButton
-            disabled={updateEncounter.isPending || isEncounterRefetching}
-            value={PaymentVariant.insurance}
-            sx={{
-              px: 3,
-              py: 0.75,
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '14px',
-              color: theme.palette.text.secondary,
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.common.white,
-                color: theme.palette.primary.main,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                '&:hover': { backgroundColor: theme.palette.common.white },
-              },
-              '&:hover': { backgroundColor: 'transparent' },
-            }}
-          >
+          <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.insurance}>
             Insurance
           </ToggleButton>
         ) : null}
-        <ToggleButton
-          disabled={updateEncounter.isPending || isEncounterRefetching}
-          value={PaymentVariant.selfPay}
-          sx={{
-            px: 3,
-            py: 0.75,
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '14px',
-            color: theme.palette.text.secondary,
-            '&.Mui-selected': {
-              backgroundColor: theme.palette.common.white,
-              color: theme.palette.primary.main,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-              '&:hover': { backgroundColor: theme.palette.common.white },
-            },
-            '&:hover': { backgroundColor: 'transparent' },
-          }}
-        >
+        <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.selfPay}>
           Self Pay
         </ToggleButton>
         {isOccupationalMedicine || isWorkmansComp ? (
-          <ToggleButton
-            disabled={updateEncounter.isPending || isEncounterRefetching}
-            value={PaymentVariant.employer}
-            sx={{
-              px: 3,
-              py: 0.75,
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '14px',
-              color: theme.palette.text.secondary,
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.common.white,
-                color: theme.palette.primary.main,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                '&:hover': { backgroundColor: theme.palette.common.white },
-              },
-              '&:hover': { backgroundColor: 'transparent' },
-            }}
-          >
+          <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.employer}>
             Employer
           </ToggleButton>
         ) : null}
@@ -1570,10 +1551,11 @@ export default function PatientPaymentList({
           patient={patient}
           encounterId={encounterId}
           appointmentId={appointment?.id}
-          handleClose={() => setPaymentDialogOpen(false)}
+          handleClose={handlePaymentDialogClose}
           isSubmitting={createNewPayment.isPending}
           onTerminalPaymentSuccess={async () => {
             await refetchPaymentList();
+            refreshCardOnFileIndicator();
           }}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
