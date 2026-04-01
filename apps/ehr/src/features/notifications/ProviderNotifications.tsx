@@ -21,6 +21,7 @@ type ProviderNotificationDisplay = {
   isUnread: boolean;
   link?: string;
   sent: string;
+  timestamp?: string;
 };
 
 export const ProviderNotifications: FC = memo(() => {
@@ -58,10 +59,14 @@ export const ProviderNotifications: FC = memo(() => {
           sent: notification.communication.sent
             ? DateTime.fromISO(notification.communication.sent).toRelative()!
             : 'N/A',
+          timestamp: notification.communication.sent,
           link: notification.appointmentID ? `/telemed/appointments/${notification.appointmentID}` : undefined,
         };
       }) || []
-    ).sort((a, b) => (a.sent && b.sent && DateTime.fromISO(a.sent) > DateTime.fromISO(b.sent) ? -1 : 0));
+    ).sort((a, b) => {
+      if (!a.timestamp || !b.timestamp) return 0;
+      return b.timestamp.localeCompare(a.timestamp);
+    });
   }, [notificationsData]);
 
   const hasUnread = notifications.some((notification) => notification.isUnread);
