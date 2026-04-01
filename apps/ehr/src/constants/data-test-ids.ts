@@ -511,6 +511,7 @@ export const dataTestIds = {
     deleteButtonPrefix: 'delete-button-',
     tableRowPrefix: 'in-house-lab-table-row-',
     loading: 'in-house-labs-table-loading',
+    noLabsMessage: 'in-house-labs-table-no-labs-text',
   },
   orderInHouseLabPage: {
     title: 'order-in-house-labs-title',
@@ -686,6 +687,7 @@ export const dataTestIds = {
   },
 
   commonLabOrder: {
+    deleteDialog: 'delete-lab-order-dialog',
     deleteDialogButton: 'delete-lab-order-dialog-btn',
     labSets: {
       launchModal: 'launch-lab-set-modal-btn',

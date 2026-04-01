@@ -11,6 +11,8 @@ const FEATURE_FLAGS_DATA = {
   formsEnabled: false,
   legacyDataEnabled: false,
   mailingPaperStatementsEnabled: false,
+  legacyPatientFollowupsEnabled: false,
+  skipSendingVisitNoteToPatientPortalEnabled: false,
   sendgridEnabled: false,
 };
 

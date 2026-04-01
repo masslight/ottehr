@@ -675,6 +675,9 @@ test.describe('In-house labs page', async () => {
         expect(resultCount, `confirming both the parent and child results are present on the final result page`).toBe(
           2
         );
+
+        // also confirm the order reflex test button is gone
+        await finalResultPage.orderReflexButtonIsHidden();
       });
     });
   });

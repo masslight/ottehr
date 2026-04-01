@@ -1,11 +1,19 @@
 import { aiIcon } from '@ehrTheme/icons';
 import { InfoOutlined } from '@mui/icons-material';
-import { Box, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
+import { MappedSuggestion } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetChartDataResponse, ObservationTextFieldDTO, ProcedureSuggestion } from 'utils';
+
+export interface AiSuggestionAction {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}
 
 export interface AiSuggestionProps {
   title: string;
@@ -14,6 +22,11 @@ export interface AiSuggestionProps {
   procedureSuggestions?: ProcedureSuggestion[];
   loading?: boolean;
   hideHeader?: boolean;
+  action?: AiSuggestionAction;
+  mappedSuggestions?: MappedSuggestion[];
+  onSuggestionClick?: (index: number) => void;
+  appliedIndices?: Set<number>;
+  hintArea?: string;
 }
 
 export default function AiSuggestion({
@@ -23,6 +36,11 @@ export default function AiSuggestion({
   procedureSuggestions,
   loading,
   hideHeader,
+  action,
+  mappedSuggestions,
+  onSuggestionClick,
+  appliedIndices,
+  hintArea,
 }: AiSuggestionProps): React.ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
@@ -33,6 +51,42 @@ export default function AiSuggestion({
   ): DocumentReference | undefined {
     return documentReferences.find((document) => document.id === observation.derivedFrom?.split('/')[1]);
   }
+
+  function buildKey(item: ObservationTextFieldDTO, index: number): string {
+    return `${item.derivedFrom ?? 'no-ref'}|${item.value}|${index}`;
+  }
+
+  const normalizedContent = useMemo(() => {
+    if (!content) return [];
+
+    return content.map((item, index) => ({
+      item,
+      key: buildKey(item, index),
+      originalIndex: index,
+    }));
+  }, [content]);
+
+  const sortedContent = useMemo(() => {
+    const documents = chartData?.aiChat?.documents ?? [];
+
+    return [...normalizedContent].sort((a, b) => {
+      const docA = getDocumentReferenceSource(a.item, documents);
+      const docB = getDocumentReferenceSource(b.item, documents);
+
+      if (!docA?.date || !docB?.date) return 0;
+
+      return new Date(docA.date).getTime() - new Date(docB.date).getTime();
+    });
+  }, [normalizedContent, chartData?.aiChat?.documents]);
+
+  const hasClickableItems = useMemo(() => {
+    if (!mappedSuggestions || !onSuggestionClick) return false;
+
+    return normalizedContent.some(({ originalIndex }) => {
+      const mapped = mappedSuggestions[originalIndex];
+      return mapped?.mappedData && !appliedIndices?.has(originalIndex);
+    });
+  }, [mappedSuggestions, onSuggestionClick, normalizedContent, appliedIndices]);
 
   function SuggestionsItem(): React.ReactElement {
     if (procedureSuggestions) {
@@ -55,36 +109,93 @@ export default function AiSuggestion({
     }
     return (
       <>
-        {content
-          ?.sort((a, b) => {
-            if (!chartData?.aiChat?.documents) {
-              return 0;
-            }
-            const documentSourceA = getDocumentReferenceSource(a, chartData.aiChat.documents);
-            const documentSourceB = getDocumentReferenceSource(b, chartData.aiChat.documents);
-            if (!documentSourceA || !documentSourceA.date) {
-              return 0;
-            }
-            if (!documentSourceB || !documentSourceB.date) {
-              return 0;
-            }
-            return new Date(documentSourceA.date).getTime() - new Date(documentSourceB.date).getTime();
-          })
-          .map((item) => {
-            const documentSource = chartData?.aiChat?.documents
-              ? getDocumentReferenceSource(item, chartData.aiChat.documents)
+        {sortedContent.map(({ item, key, originalIndex }, arrayIndex) => {
+          const mapped = mappedSuggestions?.[originalIndex];
+          const isClickable = mapped?.mappedData && !appliedIndices?.has(originalIndex) && onSuggestionClick;
+          const isLoading = mapped?.isLoading;
+
+          const documents = chartData?.aiChat?.documents ?? [];
+          const documentSource = documents.length ? getDocumentReferenceSource(item, documents) : undefined;
+          const prevDocumentSource =
+            arrayIndex > 0 && documents.length
+              ? getDocumentReferenceSource(sortedContent[arrayIndex - 1].item, documents)
               : undefined;
-            return (
-              <Box sx={{ paddingBottom: '15px' }}>
+          const showSource = documentSource?.id !== prevDocumentSource?.id;
+
+          return (
+            <Box key={key} sx={{ paddingBottom: '1px' }}>
+              {showSource && (
                 <Typography variant="body2" style={{ color: theme.palette.secondary.light }}>
                   {documentSource
                     ? getSource(documentSource, oystehr, chartData?.aiChat?.providers)
                     : 'source is unknown'}
                 </Typography>
-                <Typography variant="body1">{item.value}</Typography>
+              )}
+              <Box
+                sx={{
+                  position: 'relative',
+                  pl: 1.5,
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 4,
+                    top: 'calc(0.75em - 2px)',
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    backgroundColor: 'currentColor',
+                  },
+                }}
+              >
+                <Typography
+                  variant="body1"
+                  component="span"
+                  onClick={isClickable ? () => onSuggestionClick(originalIndex) : undefined}
+                  sx={
+                    isClickable
+                      ? {
+                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                          borderRadius: '4px',
+                          padding: '2px 6px',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'rgba(25, 118, 210, 0.16)',
+                          },
+                        }
+                      : {
+                          padding: '2px 6px',
+                        }
+                  }
+                >
+                  {mapped?.searchDisplay ?? item.value}
+                </Typography>
+                {mapped?.searchDisplay && (
+                  <Typography variant="inherit" component="span">
+                    ({item.value})
+                  </Typography>
+                )}
+                {isLoading && <CircularProgress size={12} sx={{ ml: 0.5, verticalAlign: 'middle' }} />}
               </Box>
-            );
-          })}
+            </Box>
+          );
+        })}
+        {hasClickableItems && hintArea && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            Click on{' '}
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{
+                backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                borderRadius: '4px',
+                padding: '2px 6px',
+              }}
+            >
+              area
+            </Typography>{' '}
+            to apply to the note
+          </Typography>
+        )}
       </>
     );
   }
@@ -132,6 +243,17 @@ export default function AiSuggestion({
           {loading && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
         </Container>
         <SuggestionsItem />
+        {action && (
+          <Button
+            size="small"
+            startIcon={action.icon}
+            disabled={action.disabled}
+            onClick={action.onClick}
+            sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+          >
+            {action.label}
+          </Button>
+        )}
       </Container>
     </Box>
   );

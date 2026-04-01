@@ -38,7 +38,7 @@ type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'd
 export const MedicalConditionsProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const conditions = sortByRecencyAndStatus(chartData?.conditions ?? []);
   const length = conditions.length;
 
@@ -65,7 +65,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
         </Box>
       )}
 
-      {conditions.length === 0 && isReadOnly && !isChartDataLoading && !featureFlags.isInPerson && (
+      {conditions.length === 0 && isReadOnly && !isChartDataLoading && !appFlags.isInPerson && (
         <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
       )}
 
@@ -97,7 +97,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
@@ -195,18 +195,18 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
-            color: (theme) => (!value.current && featureFlags.isInPerson ? theme.palette.text.secondary : undefined),
+            color: (theme) => (!value.current && appFlags.isInPerson ? theme.palette.text.secondary : undefined),
           }}
         >
           {value.code} {value.display}
-          {featureFlags.isInPerson &&
+          {appFlags.isInPerson &&
             isReadOnly &&
             ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
         </Typography>
 
         {!isReadOnly && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {featureFlags.isInPerson && (
+            {appFlags.isInPerson && (
               <FormControlLabel
                 control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
                 label={value.current ? 'Current' : 'Inactive now'}
@@ -230,7 +230,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
         )}
       </Box>
 
-      {!value.current && !isReadOnly && featureFlags.isInPerson && (
+      {!value.current && !isReadOnly && appFlags.isInPerson && (
         <TextField
           value={note}
           onChange={(e) => {
