@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExternalLabsStatus } from 'utils';
 
 interface UseDeleteCommonLabOrderDialogProps {
@@ -18,7 +19,7 @@ interface UseDeleteCommonLabOrderDialogProps {
   }: {
     serviceRequestId: string;
     testItemName: string;
-  }) => Promise<boolean>;
+  }) => Promise<{ success: boolean; errorMsg?: string }>;
   locales?: typeof defaultLocalesConstants;
 }
 
@@ -109,15 +110,17 @@ export const useDeleteCommonLabOrderDialog = ({
     setIsDeleting(true);
 
     try {
-      const success = await deleteOrder({
+      const response = await deleteOrder({
         serviceRequestId: serviceRequestIdToDelete,
         testItemName: testItemNameToDelete,
       });
 
-      if (success) {
+      if (response.success) {
         setIsDeleteDialogOpen(false);
       } else {
-        setDeleteError(locales.failedToDeleteLabOrder);
+        let errorMsg = locales.failedToDeleteLabOrder;
+        if (response.errorMsg) errorMsg += `: ${response.errorMsg}`;
+        setDeleteError(errorMsg);
       }
     } catch (err) {
       console.error(locales.errorConfirmingDelete, err);
@@ -129,7 +132,13 @@ export const useDeleteCommonLabOrderDialog = ({
   }, [serviceRequestIdToDelete, testItemNameToDelete, deleteOrder, locales]);
 
   const DeleteOrderDialog = isDeleteDialogOpen ? (
-    <Dialog open={isDeleteDialogOpen} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
+    <Dialog
+      data-testid={dataTestIds.commonLabOrder.deleteDialog}
+      open={isDeleteDialogOpen}
+      onClose={closeDeleteDialog}
+      maxWidth="sm"
+      fullWidth
+    >
       <form
         style={{ padding: '10px' }}
         onSubmit={(e) => {
@@ -161,6 +170,7 @@ export const useDeleteCommonLabOrderDialog = ({
             {locales.deleteOrderDialogKeepButton}
           </Button>
           <Button
+            data-testid={dataTestIds.commonLabOrder.deleteDialogButton}
             type="submit"
             variant="contained"
             color="error"

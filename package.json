@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.30.5",
+  "version": "1.30.16",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -91,6 +91,7 @@
     "ehr:e2e:staging": "ENV=staging tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:staging:ui": "ENV=staging tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:staging:smoke": "ENV=staging SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
+    "ehr:e2e:local:flaky": "tsx scripts/run-e2e.ts --app=ehr --specs-only --repeat-each=10",
     "ehr:generate-seed-data": "tsx scripts/run-e2e.ts --app=ehr --generate-seed-data",
     "ehr:build": "turbo build --filter=ehr-ui",
     "ehr:lint": "turbo lint --filter=ehr-ui...",
@@ -129,7 +130,7 @@
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^6.18.6",
-    "@oystehr/sdk": "^4.2.6",
+    "@oystehr/sdk": "^4.3.3",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sendgrid/mail": "^8.1.6",
     "@sentry/aws-serverless": "^8.26.0",

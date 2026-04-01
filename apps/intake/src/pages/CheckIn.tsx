@@ -195,7 +195,9 @@ const CheckIn = (): JSX.Element => {
               {showRegisterAnotherPatient && (
                 <Grid item xs={12} md={6} textAlign={{ xs: 'center', md: 'start' }} justifyContent="start">
                   <Link to={'/home'} className="register-button">
-                    <Button variant="outlined">{t('appointments.registerAnother')}</Button>
+                    <Button variant="outlined" color="secondary">
+                      {t('appointments.registerAnother')}
+                    </Button>
                   </Link>
                 </Grid>
               )}

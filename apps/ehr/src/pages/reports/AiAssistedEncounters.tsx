@@ -202,7 +202,7 @@ const useAiAssistedEncounters = (
         return DateTime.fromISO(bTime).toMillis() - DateTime.fromISO(aTime).toMillis();
       });
     },
-    enabled: Boolean(oystehrZambda),
+    enabled: Boolean(oystehrZambda && dateRange !== 'custom' && dateRange !== 'customRange'),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });

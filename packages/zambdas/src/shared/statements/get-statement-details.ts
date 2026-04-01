@@ -62,6 +62,7 @@ interface StatementLineDetails {
 interface GetStatementDetailsInput {
   encounterId: string;
   statementType: StatementType;
+  userTimezone?: string;
   secrets: Secrets;
   oystehr: Oystehr;
 }
@@ -312,9 +313,10 @@ function createStatementDetails(
   const patientName = patient.name?.[0];
   const guarantorName = guarantorResource.name?.[0];
   const guarantorAddress = guarantorResource.address?.[0];
+  console.log('Timezone for test: ', JSON.stringify(input.userTimezone));
   const { date: visitDate = '', time: visitTime = '' } = formatDateToMDYWithTime(
     appointment?.start,
-    'America/New_York'
+    input.userTimezone ?? 'America/New_York'
   ) ?? { date: '', time: '' };
 
   const today = DateTime.now();
