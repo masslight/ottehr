@@ -56,7 +56,8 @@ type SpecialTestsBuilder = (k: (suffix: string) => string) => Record<string, Mod
 function createExtremityModalExam(
   partKey: string,
   partLabel: string,
-  specialTestsBuilder?: SpecialTestsBuilder
+  specialTestsBuilder?: SpecialTestsBuilder,
+  inspectionPrefixBuilder?: (k: (suffix: string) => string) => Record<string, ModalExamGroup>
 ): {
   label: string;
   defaultValue: boolean;
@@ -64,10 +65,12 @@ function createExtremityModalExam(
   sections: Record<string, ModalExamSection>;
 } {
   const k = (suffix: string): string => `${partKey}-${suffix}`;
+  const prefixGroups = inspectionPrefixBuilder ? inspectionPrefixBuilder(k) : {};
   const sections: Record<string, ModalExamSection> = {
     inspection: {
       label: 'Inspection',
       groups: {
+        ...prefixGroups,
         appearance: {
           label: 'Appearance',
           options: {
@@ -378,7 +381,7 @@ const handWristSpecialTests: SpecialTestsBuilder = (k) => ({
   },
 });
 
-const fingerSpecialTests: SpecialTestsBuilder = (k) => ({
+const fingerInspectionPrefix: (k: (suffix: string) => string) => Record<string, ModalExamGroup> = (k) => ({
   'fingers-affected': {
     label: 'Finger(s) affected',
     options: {
@@ -389,6 +392,9 @@ const fingerSpecialTests: SpecialTestsBuilder = (k) => ({
       [k('finger-little')]: opt('Little'),
     },
   },
+});
+
+const fingerSpecialTests: SpecialTestsBuilder = (k) => ({
   'dip-tenderness': {
     label: 'DIP tenderness',
     options: {
@@ -1234,6 +1240,7 @@ export const InPersonExamConfig = {
           defaultValue: false,
           type: 'checkbox',
         },
+        'dental-caries': { label: 'Dental caries', defaultValue: false, type: 'checkbox' },
       },
       comment: { 'oral-comment': { label: 'Oral comment', type: 'text' } },
     },
@@ -1904,7 +1911,7 @@ export const InPersonExamConfig = {
       },
       abnormal: {
         'holosystolic-murmur-best-at-lusb': {
-          label: 'I-II/VI holosystolic murmur best at LUSB',
+          label: 'I-II/VI holosystolic murmur best at LLSB',
           defaultValue: false,
           type: 'checkbox',
         },
@@ -2350,8 +2357,8 @@ export const InPersonExamConfig = {
         'elbow-r': createExtremityModalExam('elbow-r', 'Elbow R', elbowSpecialTests),
         'hand-wrist-l': createExtremityModalExam('hand-wrist-l', 'Hand/Wrist L', handWristSpecialTests),
         'hand-wrist-r': createExtremityModalExam('hand-wrist-r', 'Hand/Wrist R', handWristSpecialTests),
-        'fingers-l': createExtremityModalExam('fingers-l', 'Fingers L', fingerSpecialTests),
-        'fingers-r': createExtremityModalExam('fingers-r', 'Fingers R', fingerSpecialTests),
+        'fingers-l': createExtremityModalExam('fingers-l', 'Fingers L', fingerSpecialTests, fingerInspectionPrefix),
+        'fingers-r': createExtremityModalExam('fingers-r', 'Fingers R', fingerSpecialTests, fingerInspectionPrefix),
         'hip-l': createExtremityModalExam('hip-l', 'Hip L', hipSpecialTests),
         'hip-r': createExtremityModalExam('hip-r', 'Hip R', hipSpecialTests),
         'knee-l': createExtremityModalExam('knee-l', 'Knee L', kneeSpecialTests),
