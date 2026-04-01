@@ -49,6 +49,8 @@ export interface ExamCardCheckboxComponent extends ExamComponentWithCode {
   label: string;
   defaultValue: boolean;
   type: 'checkbox';
+  /** When true, only display if the field already has saved data. Used for deprecated fields. */
+  legacy?: boolean;
 }
 
 /**
@@ -251,6 +253,7 @@ export const ExamCardCheckboxComponentSchema: z.ZodType<ExamCardCheckboxComponen
   label: z.string().min(1, 'Label is required'),
   defaultValue: z.boolean(),
   type: z.literal('checkbox'),
+  legacy: z.boolean().optional(),
   code: ExamCodeableConceptSchema.optional(),
   bodySite: ExamCodeableConceptSchema.optional(),
 });

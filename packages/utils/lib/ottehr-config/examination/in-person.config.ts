@@ -310,7 +310,7 @@ const elbowSpecialTests: SpecialTestsBuilder = (k) => ({
   },
 });
 
-const wristSpecialTests: SpecialTestsBuilder = (k) => ({
+const handWristSpecialTests: SpecialTestsBuilder = (k) => ({
   'snuffbox-tenderness': {
     label: 'Anatomical snuffbox tenderness',
     options: {
@@ -346,139 +346,6 @@ const wristSpecialTests: SpecialTestsBuilder = (k) => ({
       [k('grip-reduced')]: opt('Reduced'),
     },
   },
-  'finger-rom': {
-    label: 'Finger ROM',
-    options: {
-      [k('finger-rom-full')]: opt('Full'),
-      [k('finger-rom-limited')]: opt('Limited'),
-    },
-  },
-});
-
-const handFingerSpecialTests: SpecialTestsBuilder = (k) => ({
-  'fingers-affected': {
-    label: 'Finger(s) affected',
-    options: {
-      [k('finger-thumb')]: opt('Thumb'),
-      [k('finger-index')]: opt('Index'),
-      [k('finger-middle')]: opt('Middle'),
-      [k('finger-ring')]: opt('Ring'),
-      [k('finger-little')]: opt('Little'),
-    },
-  },
-  'dip-tenderness': {
-    label: 'DIP tenderness',
-    options: {
-      [k('dip-tenderness-none')]: opt('None'),
-      [k('dip-tenderness-present')]: opt('Present'),
-    },
-  },
-  'pip-tenderness': {
-    label: 'PIP tenderness',
-    options: {
-      [k('pip-tenderness-none')]: opt('None'),
-      [k('pip-tenderness-present')]: opt('Present'),
-    },
-  },
-  'mcp-tenderness': {
-    label: 'MCP tenderness',
-    options: {
-      [k('mcp-tenderness-none')]: opt('None'),
-      [k('mcp-tenderness-present')]: opt('Present'),
-    },
-  },
-  'dip-swelling': {
-    label: 'DIP swelling',
-    options: {
-      [k('dip-swelling-none')]: opt('None'),
-      [k('dip-swelling-present')]: opt('Present'),
-    },
-  },
-  'pip-swelling': {
-    label: 'PIP swelling',
-    options: {
-      [k('pip-swelling-none')]: opt('None'),
-      [k('pip-swelling-present')]: opt('Present'),
-    },
-  },
-  'mcp-swelling': {
-    label: 'MCP swelling',
-    options: {
-      [k('mcp-swelling-none')]: opt('None'),
-      [k('mcp-swelling-present')]: opt('Present'),
-    },
-  },
-  'dip-rom': {
-    label: 'DIP ROM',
-    options: {
-      [k('dip-rom-full')]: opt('Full'),
-      [k('dip-rom-limited')]: opt('Limited'),
-      [k('dip-rom-unable')]: opt('Unable'),
-    },
-  },
-  'pip-rom': {
-    label: 'PIP ROM',
-    options: {
-      [k('pip-rom-full')]: opt('Full'),
-      [k('pip-rom-limited')]: opt('Limited'),
-      [k('pip-rom-unable')]: opt('Unable'),
-    },
-  },
-  'mcp-rom': {
-    label: 'MCP ROM',
-    options: {
-      [k('mcp-rom-full')]: opt('Full'),
-      [k('mcp-rom-limited')]: opt('Limited'),
-      [k('mcp-rom-unable')]: opt('Unable'),
-    },
-  },
-  'dip-stability': {
-    label: 'DIP stability',
-    options: {
-      [k('dip-stability-stable')]: opt('Stable'),
-      [k('dip-stability-lax-radial')]: opt('Lax \u2014 Radial'),
-      [k('dip-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
-    },
-  },
-  'pip-stability': {
-    label: 'PIP stability',
-    options: {
-      [k('pip-stability-stable')]: opt('Stable'),
-      [k('pip-stability-lax-radial')]: opt('Lax \u2014 Radial'),
-      [k('pip-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
-    },
-  },
-  'mcp-stability': {
-    label: 'MCP stability',
-    options: {
-      [k('mcp-stability-stable')]: opt('Stable'),
-      [k('mcp-stability-lax-radial')]: opt('Lax \u2014 Radial'),
-      [k('mcp-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
-    },
-  },
-  'dip-deformity': {
-    label: 'DIP deformity',
-    options: {
-      [k('dip-deformity-none')]: opt('None'),
-      [k('dip-deformity-mallet')]: opt('Mallet'),
-      [k('dip-deformity-boutonniere')]: opt('Boutonni\u00e8re'),
-    },
-  },
-  'pip-deformity': {
-    label: 'PIP deformity',
-    options: {
-      [k('pip-deformity-none')]: opt('None'),
-      [k('pip-deformity-mallet')]: opt('Mallet'),
-      [k('pip-deformity-boutonniere')]: opt('Boutonni\u00e8re'),
-    },
-  },
-  'mcp-deformity': {
-    label: 'MCP deformity',
-    options: {
-      [k('mcp-deformity-none')]: opt('None'),
-      [k('mcp-deformity-dislocation')]: opt('Dislocation'),
-    },
-  },
   'extensor-tendon': {
     label: 'Extensor tendon integrity',
     options: {
@@ -507,6 +374,132 @@ const handFingerSpecialTests: SpecialTestsBuilder = (k) => ({
     options: {
       [k('trephination-no')]: opt('No'),
       [k('trephination-yes')]: opt('Yes'),
+    },
+  },
+});
+
+const fingerSpecialTests: SpecialTestsBuilder = (k) => ({
+  'fingers-affected': {
+    label: 'Finger(s) affected',
+    options: {
+      [k('finger-thumb')]: opt('Thumb'),
+      [k('finger-index')]: opt('Index'),
+      [k('finger-middle')]: opt('Middle'),
+      [k('finger-ring')]: opt('Ring'),
+      [k('finger-little')]: opt('Little'),
+    },
+  },
+  'dip-tenderness': {
+    label: 'DIP tenderness',
+    options: {
+      [k('dip-tenderness-none')]: opt('None'),
+      [k('dip-tenderness-present')]: opt('Present'),
+    },
+  },
+  'dip-swelling': {
+    label: 'DIP swelling',
+    options: {
+      [k('dip-swelling-none')]: opt('None'),
+      [k('dip-swelling-present')]: opt('Present'),
+    },
+  },
+  'dip-rom': {
+    label: 'DIP ROM',
+    options: {
+      [k('dip-rom-full')]: opt('Full'),
+      [k('dip-rom-limited')]: opt('Limited'),
+      [k('dip-rom-unable')]: opt('Unable'),
+    },
+  },
+  'dip-stability': {
+    label: 'DIP stability',
+    options: {
+      [k('dip-stability-stable')]: opt('Stable'),
+      [k('dip-stability-lax-radial')]: opt('Lax \u2014 Radial'),
+      [k('dip-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
+    },
+  },
+  'dip-deformity': {
+    label: 'DIP deformity',
+    options: {
+      [k('dip-deformity-none')]: opt('None'),
+      [k('dip-deformity-mallet')]: opt('Mallet'),
+      [k('dip-deformity-boutonniere')]: opt('Boutonni\u00e8re'),
+    },
+  },
+  'pip-tenderness': {
+    label: 'PIP tenderness',
+    options: {
+      [k('pip-tenderness-none')]: opt('None'),
+      [k('pip-tenderness-present')]: opt('Present'),
+    },
+  },
+  'pip-swelling': {
+    label: 'PIP swelling',
+    options: {
+      [k('pip-swelling-none')]: opt('None'),
+      [k('pip-swelling-present')]: opt('Present'),
+    },
+  },
+  'pip-rom': {
+    label: 'PIP ROM',
+    options: {
+      [k('pip-rom-full')]: opt('Full'),
+      [k('pip-rom-limited')]: opt('Limited'),
+      [k('pip-rom-unable')]: opt('Unable'),
+    },
+  },
+  'pip-stability': {
+    label: 'PIP stability',
+    options: {
+      [k('pip-stability-stable')]: opt('Stable'),
+      [k('pip-stability-lax-radial')]: opt('Lax \u2014 Radial'),
+      [k('pip-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
+    },
+  },
+  'pip-deformity': {
+    label: 'PIP deformity',
+    options: {
+      [k('pip-deformity-none')]: opt('None'),
+      [k('pip-deformity-mallet')]: opt('Mallet'),
+      [k('pip-deformity-boutonniere')]: opt('Boutonni\u00e8re'),
+    },
+  },
+  'mcp-tenderness': {
+    label: 'MCP tenderness',
+    options: {
+      [k('mcp-tenderness-none')]: opt('None'),
+      [k('mcp-tenderness-present')]: opt('Present'),
+    },
+  },
+  'mcp-swelling': {
+    label: 'MCP swelling',
+    options: {
+      [k('mcp-swelling-none')]: opt('None'),
+      [k('mcp-swelling-present')]: opt('Present'),
+    },
+  },
+  'mcp-rom': {
+    label: 'MCP ROM',
+    options: {
+      [k('mcp-rom-full')]: opt('Full'),
+      [k('mcp-rom-limited')]: opt('Limited'),
+      [k('mcp-rom-unable')]: opt('Unable'),
+    },
+  },
+  'mcp-stability': {
+    label: 'MCP stability',
+    options: {
+      [k('mcp-stability-stable')]: opt('Stable'),
+      [k('mcp-stability-lax-radial')]: opt('Lax \u2014 Radial'),
+      [k('mcp-stability-lax-ulnar')]: opt('Lax \u2014 Ulnar'),
+    },
+  },
+  'mcp-deformity': {
+    label: 'MCP deformity',
+    options: {
+      [k('mcp-deformity-none')]: opt('None'),
+      [k('mcp-deformity-dislocation')]: opt('Dislocation'),
     },
   },
 });
@@ -1512,6 +1505,62 @@ export const InPersonExamConfig = {
             },
           },
         },
+        'skin-location': {
+          label: 'Location',
+          defaultValue: false,
+          type: 'modal-exam' as const,
+          sections: {
+            location: {
+              label: 'Location(s)',
+              groups: {
+                'head-neck': {
+                  label: 'Head & Neck',
+                  options: {
+                    'skin-loc-scalp': opt('Scalp'),
+                    'skin-loc-face': opt('Face'),
+                    'skin-loc-ears': opt('Ears'),
+                    'skin-loc-lips-perioral': opt('Lips/perioral'),
+                    'skin-loc-neck': opt('Neck'),
+                    'skin-loc-mucous-membranes': opt('Mucous membranes'),
+                  },
+                },
+                trunk: {
+                  label: 'Trunk',
+                  options: {
+                    'skin-loc-chest': opt('Chest'),
+                    'skin-loc-abdomen': opt('Abdomen'),
+                    'skin-loc-back': opt('Back'),
+                    'skin-loc-flank': opt('Flank'),
+                    'skin-loc-groin': opt('Groin'),
+                    'skin-loc-genitalia': opt('Genitalia'),
+                  },
+                },
+                'upper-extremity': {
+                  label: 'Upper Extremity',
+                  options: {
+                    'skin-loc-shoulder': opt('Shoulder'),
+                    'skin-loc-upper-arm': opt('Upper arm'),
+                    'skin-loc-elbow': opt('Elbow'),
+                    'skin-loc-forearm': opt('Forearm'),
+                    'skin-loc-wrist': opt('Wrist'),
+                    'skin-loc-hand-fingers': opt('Hand/fingers'),
+                  },
+                },
+                'lower-extremity': {
+                  label: 'Lower Extremity',
+                  options: {
+                    'skin-loc-hip-buttock': opt('Hip/buttock'),
+                    'skin-loc-thigh': opt('Thigh'),
+                    'skin-loc-knee': opt('Knee'),
+                    'skin-loc-lower-leg': opt('Lower leg'),
+                    'skin-loc-ankle': opt('Ankle'),
+                    'skin-loc-foot-toes': opt('Foot/toes'),
+                  },
+                },
+              },
+            },
+          },
+        },
         'skin-lesion-characteristics': {
           label: 'Lesion characteristics',
           defaultValue: false,
@@ -1828,62 +1877,6 @@ export const InPersonExamConfig = {
                     'skin-side-l': opt('L'),
                     'skin-side-bilateral': opt('Bilateral'),
                     'skin-side-midline': opt('Midline'),
-                  },
-                },
-              },
-            },
-          },
-        },
-        'skin-location': {
-          label: 'Location',
-          defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
-            location: {
-              label: 'Location(s)',
-              groups: {
-                'head-neck': {
-                  label: 'Head & Neck',
-                  options: {
-                    'skin-loc-scalp': opt('Scalp'),
-                    'skin-loc-face': opt('Face'),
-                    'skin-loc-ears': opt('Ears'),
-                    'skin-loc-lips-perioral': opt('Lips/perioral'),
-                    'skin-loc-neck': opt('Neck'),
-                    'skin-loc-mucous-membranes': opt('Mucous membranes'),
-                  },
-                },
-                trunk: {
-                  label: 'Trunk',
-                  options: {
-                    'skin-loc-chest': opt('Chest'),
-                    'skin-loc-abdomen': opt('Abdomen'),
-                    'skin-loc-back': opt('Back'),
-                    'skin-loc-flank': opt('Flank'),
-                    'skin-loc-groin': opt('Groin'),
-                    'skin-loc-genitalia': opt('Genitalia'),
-                  },
-                },
-                'upper-extremity': {
-                  label: 'Upper Extremity',
-                  options: {
-                    'skin-loc-shoulder': opt('Shoulder'),
-                    'skin-loc-upper-arm': opt('Upper arm'),
-                    'skin-loc-elbow': opt('Elbow'),
-                    'skin-loc-forearm': opt('Forearm'),
-                    'skin-loc-wrist': opt('Wrist'),
-                    'skin-loc-hand-fingers': opt('Hand/fingers'),
-                  },
-                },
-                'lower-extremity': {
-                  label: 'Lower Extremity',
-                  options: {
-                    'skin-loc-hip-buttock': opt('Hip/buttock'),
-                    'skin-loc-thigh': opt('Thigh'),
-                    'skin-loc-knee': opt('Knee'),
-                    'skin-loc-lower-leg': opt('Lower leg'),
-                    'skin-loc-ankle': opt('Ankle'),
-                    'skin-loc-foot-toes': opt('Foot/toes'),
                   },
                 },
               },
@@ -2338,21 +2331,27 @@ export const InPersonExamConfig = {
           label: 'Swelling, tenderness, decreased ROM',
           defaultValue: false,
           type: 'checkbox',
+          legacy: true,
         },
         'limping-refusal-to-bear-weight': {
           label: 'Limping, refusal to bear weight',
           defaultValue: false,
           type: 'checkbox',
         },
-        'point-tenderness-over-bone': { label: 'Point tenderness over bone', defaultValue: false, type: 'checkbox' },
+        'point-tenderness-over-bone': {
+          label: 'Point tenderness over bone',
+          defaultValue: false,
+          type: 'checkbox',
+          legacy: true,
+        },
         'shoulder-l': createExtremityModalExam('shoulder-l', 'Shoulder L', shoulderSpecialTests),
         'shoulder-r': createExtremityModalExam('shoulder-r', 'Shoulder R', shoulderSpecialTests),
         'elbow-l': createExtremityModalExam('elbow-l', 'Elbow L', elbowSpecialTests),
         'elbow-r': createExtremityModalExam('elbow-r', 'Elbow R', elbowSpecialTests),
-        'wrist-l': createExtremityModalExam('wrist-l', 'Wrist L', wristSpecialTests),
-        'wrist-r': createExtremityModalExam('wrist-r', 'Wrist R', wristSpecialTests),
-        'hand-fingers-l': createExtremityModalExam('hand-fingers-l', 'Hand/fingers L', handFingerSpecialTests),
-        'hand-fingers-r': createExtremityModalExam('hand-fingers-r', 'Hand/fingers R', handFingerSpecialTests),
+        'hand-wrist-l': createExtremityModalExam('hand-wrist-l', 'Hand/Wrist L', handWristSpecialTests),
+        'hand-wrist-r': createExtremityModalExam('hand-wrist-r', 'Hand/Wrist R', handWristSpecialTests),
+        'fingers-l': createExtremityModalExam('fingers-l', 'Fingers L', fingerSpecialTests),
+        'fingers-r': createExtremityModalExam('fingers-r', 'Fingers R', fingerSpecialTests),
         'hip-l': createExtremityModalExam('hip-l', 'Hip L', hipSpecialTests),
         'hip-r': createExtremityModalExam('hip-r', 'Hip R', hipSpecialTests),
         'knee-l': createExtremityModalExam('knee-l', 'Knee L', kneeSpecialTests),
@@ -2445,7 +2444,16 @@ export const InPersonExamConfig = {
         },
       },
       abnormal: {
-        'scrotal-edema-swelling': { label: 'Scrotal edema / swelling', defaultValue: false, type: 'checkbox' },
+        'right-side-scrotal-edema-swelling': {
+          label: 'Right side - scrotal edema / swelling',
+          defaultValue: false,
+          type: 'checkbox',
+        },
+        'left-side-scrotal-edema-swelling': {
+          label: 'Left side - scrotal edema / swelling',
+          defaultValue: false,
+          type: 'checkbox',
+        },
         'right-side-absent-cremasteric-reflex': {
           label: 'Right side - absent cremasteric reflex',
           defaultValue: false,
@@ -2456,7 +2464,8 @@ export const InPersonExamConfig = {
           defaultValue: false,
           type: 'checkbox',
         },
-        hernia: { label: 'Hernia', defaultValue: false, type: 'checkbox' },
+        'right-side-hernia': { label: 'Right side - hernia', defaultValue: false, type: 'checkbox' },
+        'left-side-hernia': { label: 'Left side - hernia', defaultValue: false, type: 'checkbox' },
       },
       comment: { 'gu-male-comment': { label: 'GU (Male) comment', type: 'text' } },
     },
@@ -2490,7 +2499,12 @@ export const InPersonExamConfig = {
       normal: {
         'normal-external-rectal-exam': { label: 'Normal external rectal exam', defaultValue: false, type: 'checkbox' },
       },
-      abnormal: {},
+      abnormal: {
+        'external-hemorrhoids': { label: 'External hemorrhoids', defaultValue: false, type: 'checkbox' },
+        'skin-tags': { label: 'Skin tags', defaultValue: false, type: 'checkbox' },
+        'anal-fissure': { label: 'Anal fissure', defaultValue: false, type: 'checkbox' },
+        'perianal-abscess': { label: 'Perianal abscess', defaultValue: false, type: 'checkbox' },
+      },
       comment: { 'rectal-comment': { label: 'Rectal comment', type: 'text' } },
     },
   },

@@ -187,7 +187,7 @@ const ExamTableCellComponent: FC<{
     if (element.type === 'checkbox') {
       return (
         <Box key={key} data-testid={`exam-component-checkbox-${key}`}>
-          <ControlledExamCheckbox name={key} label={element.label} abnormal={abnormal} />
+          <ControlledExamCheckbox name={key} label={element.label} abnormal={abnormal} legacy={element.legacy} />
         </Box>
       );
     } else if (element.type === 'text') {
