@@ -4,6 +4,7 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { FC, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { LabListsDTO } from 'utils';
 
 type LabSetsProps = {
@@ -35,6 +36,7 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
   return (
     <>
       <Box
+        data-testid={dataTestIds.commonLabOrder.labSets.launchModal}
         sx={{ display: 'flex', p: '16px 8px', cursor: 'pointer' }}
         gap={1}
         color="primary.main"
@@ -43,7 +45,13 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
         <FormatListBulletedIcon />
         <Typography fontWeight="500">Lab Sets</Typography>
       </Box>
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
+      <Dialog
+        data-testid={dataTestIds.commonLabOrder.labSets.selectionModal}
+        open={open}
+        onClose={() => setOpen(false)}
+        fullWidth
+        maxWidth="md"
+      >
         <DialogTitle
           sx={{
             display: 'flex',
@@ -87,6 +95,7 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
                 </Grid>
                 <Grid item xs={3} sx={{ textAlign: 'right' }}>
                   <LoadingButton
+                    data-testid={`${dataTestIds.commonLabOrder.labSets.selectionModal}-${set.listId}`}
                     loading={loadingId === set.listId}
                     variant="contained"
                     sx={{ borderRadius: '100px', p: '8px 22px', textTransform: 'none' }}

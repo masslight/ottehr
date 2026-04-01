@@ -829,6 +829,14 @@
       "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
       "zip": ".dist/zips/appointment-chart-data-prefilling.zip"
     },
+    "SUB-ERX-PATIENT-SYNC": {
+      "name": "sub-erx-patient-sync",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/subscriptions/appointment/sub-erx-patient-sync/index",
+      "zip": ".dist/zips/sub-erx-patient-sync.zip"
+    },
     "SUB-CANCELLATION-EMAIL": {
       "name": "sub-cancellation-email",
       "type": "subscription",
@@ -2043,6 +2051,28 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-REFRESH-INVOICE-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_PATIENT_SYNC_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Sync patient with eRx service when height or weight vitals are recorded",
+        "criteria": "Observation?code=29463-7,8302-2",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
         },
         "extension": [
           {
