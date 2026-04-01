@@ -576,7 +576,7 @@ export default function PatientPaymentList({
 
   const createNewPayment = useMutation({
     mutationFn: async (input: PostPatientPaymentInput) => {
-      if (!oystehrZambda) return;
+      if (!oystehrZambda) throw new Error('Oystehr client is not available');
 
       await oystehrZambda.zambda.execute({
         id: 'patient-payments-post',
@@ -606,7 +606,7 @@ export default function PatientPaymentList({
         }
       };
 
-      void waitForReceipt();
+      void waitForReceipt().catch((err) => console.error('Receipt polling failed', err));
     },
     retry: 0,
   });
@@ -1555,7 +1555,6 @@ export default function PatientPaymentList({
           isSubmitting={createNewPayment.isPending}
           onTerminalPaymentSuccess={async () => {
             await refetchPaymentList();
-            refreshCardOnFileIndicator();
           }}
           submitPayment={async (data: CashOrCardPayment) => {
             const postInput: PostPatientPaymentInput = {
