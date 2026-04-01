@@ -7,7 +7,15 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { RadiologyTable, RadiologyTableColumn } from '../components/RadiologyTable';
 
-const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'stat', 'status', 'actions'];
+const radiologyColumns: RadiologyTableColumn[] = [
+  'studyType',
+  'studyName',
+  'dx',
+  'ordered',
+  'stat',
+  'status',
+  'actions',
+];
 
 export const RadiologyOrdersListPage: React.FC = () => {
   const navigate = useNavigate();

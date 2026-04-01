@@ -1174,9 +1174,11 @@ export function makeObservationDTO(observation: Observation): null | Observation
 export async function saveOrUpdateResource<Savable extends FhirResource>(
   resource: Savable,
   oystehr: Oystehr
-): Promise<Savable> {
-  if (resource.id === undefined) return oystehr.fhir.create(resource);
-  return oystehr.fhir.update(resource);
+): Promise<Omit<Savable, 'id'> & { id: string }> {
+  if (resource.id === undefined) {
+    return oystehr.fhir.create<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
+  }
+  return oystehr.fhir.update<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
 }
 
 export const chartDataResourceHasMetaTagByCode = (

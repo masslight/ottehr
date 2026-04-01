@@ -27,6 +27,8 @@ export const index = wrapTaskHandler('sub-harvest-paperwork-page', async (input,
   const ctx: HarvestContext = {
     qr,
     pageLinkId,
+    patchIndex,
+    taskId: task.id!,
     patient,
     encounter,
     appointment,
@@ -61,14 +63,16 @@ export function extractQrId(task: Task): string {
   return ref.replace('QuestionnaireResponse/', '');
 }
 
+type WithId<T> = T & { id: string };
+
 async function fetchResources(
   qrId: string,
   oystehr: Oystehr
 ): Promise<{
   qr: QuestionnaireResponse;
-  patient: Patient;
-  encounter: Encounter;
-  appointment: Appointment;
+  patient: WithId<Patient>;
+  encounter: WithId<Encounter>;
+  appointment: WithId<Appointment>;
   location: Location | undefined;
 }> {
   const resources = (
@@ -95,7 +99,14 @@ async function fetchResources(
   if (!patient?.id) throw new Error('Patient not found');
   if (!appointment?.id) throw new Error('Appointment not found');
 
-  return { qr, patient, encounter, appointment, location };
+  // id existence is guaranteed by the checks above
+  return {
+    qr,
+    patient: patient as WithId<Patient>,
+    encounter: encounter as WithId<Encounter>,
+    appointment: appointment as WithId<Appointment>,
+    location,
+  };
 }
 
 async function fetchQuestionnaire(qr: QuestionnaireResponse, oystehr: Oystehr): Promise<Questionnaire | undefined> {

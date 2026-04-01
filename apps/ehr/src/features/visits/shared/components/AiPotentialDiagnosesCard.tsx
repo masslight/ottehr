@@ -100,7 +100,8 @@ export const AiPotentialDiagnosesCard: FC = () => {
 
       let newPatient = undefined;
       const newPatientFromChart = chartData?.observations?.find(
-        (observation) => observation.field === 'seen-in-last-three-years'
+        (observation) =>
+          observation.field === 'seen-in-last-three-years' || observation.field === 'seen-in-last-3-years'
       );
       const newPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
         (tag) =>

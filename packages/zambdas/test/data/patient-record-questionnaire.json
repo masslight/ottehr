@@ -3004,6 +3004,12 @@
             "operator": "=",
             "answerBoolean": true
           }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
         ]
       },
       {
@@ -3016,6 +3022,12 @@
             "question": "pharmacy-page-manual-entry",
             "operator": "=",
             "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
           }
         ]
       }

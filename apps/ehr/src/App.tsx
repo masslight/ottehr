@@ -22,6 +22,7 @@ import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
+import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
 import { useApiClients } from './hooks/useAppClients';
@@ -31,6 +32,8 @@ import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import { AdminPage } from './pages/AdminPage';
 import AppointmentsPage from './pages/Appointments';
+import AddMedicationPage from './pages/configuration/AddMedicationPage';
+import UpdateMedicationPage from './pages/configuration/UpdateMedicationPage';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import GroupPage from './pages/GroupPage';
@@ -40,6 +43,7 @@ import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
+import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
@@ -78,7 +82,11 @@ const TelemedAppointmentPageLazy = lazy(async () => {
 });
 
 export const INSURANCES_URL = '/admin/insurances';
+export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
+export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
+export const BILLING_URL = '/admin/billing';
+export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -214,8 +222,11 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
                   <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
@@ -223,8 +234,13 @@ function App(): ReactElement {
                   <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
                   <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
+                  <Route path="/admin/medications/add" element={<AddMedicationPage />} />
+                  <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                  <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
+                  <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
+                  <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"
@@ -259,7 +275,9 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/patients" element={<PatientsPage />} />
 
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />

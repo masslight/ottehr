@@ -1,16 +1,24 @@
 import type { PaperworkConfig, ResolvedConsentFormConfig } from 'config-types';
 import { camelCase } from 'lodash-es';
+import { INTAKE_PAPERWORK_CONFIG } from '../ottehr-config/intake-paperwork';
 
 /**
  * Check if a field is hidden in any section of the given paperwork config.
  */
-export const checkFieldHidden = (config: PaperworkConfig, fieldKey: string): boolean => {
+export const checkFieldHidden = (fieldKey: string, config: PaperworkConfig = INTAKE_PAPERWORK_CONFIG): boolean => {
   return Object.values(config.FormFields)
     .flatMap((section: any) => section.hiddenFields || [])
     .includes(fieldKey);
 };
 
-export const getIntakeFormPageSubtitle = (pageLinkId: string, patientName: string): string => {
+export const getIntakeFormPageSubtitle = (
+  pageLinkId: string,
+  patientName: string,
+  config: PaperworkConfig = INTAKE_PAPERWORK_CONFIG
+): string => {
+  if (config.getIntakeFormPageSubtitle) {
+    return config.getIntakeFormPageSubtitle(pageLinkId, patientName);
+  }
   if (pageLinkId === 'photo-id-page') {
     return `Adult Guardian for ${patientName}`;
   }

@@ -80,12 +80,6 @@ export const getFhirAppointmentTypeForVisitType = (
   }
 };
 
-export const fhirAppointmentTypeToVisitType: { [type in FhirAppointmentType]: VisitType } = {
-  prebook: VisitType.PreBook,
-  walkin: VisitType.WalkIn,
-  posttelemed: VisitType.PostTelemed,
-};
-
 export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type HourOfDay =
   | 0

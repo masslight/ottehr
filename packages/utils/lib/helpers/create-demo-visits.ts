@@ -306,7 +306,16 @@ export const createSampleAppointments = async ({
           });
 
           if (!createAppointmentResponse.ok) {
-            throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
+            let responseBody: string;
+            const text = await createAppointmentResponse.text();
+            try {
+              responseBody = JSON.stringify(JSON.parse(text), null, 2);
+            } catch {
+              responseBody = text;
+            }
+            throw new Error(
+              `Failed to create appointment. Status: ${createAppointmentResponse.status}\nResponse body: ${responseBody}`
+            );
           }
 
           console.log(`Appointment ${i + 1} created successfully.`);

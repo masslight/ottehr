@@ -26,22 +26,6 @@ export const getAllResourcesFromFhir = async (
     resourceType: 'Appointment',
     params: [
       {
-        name: '_tag',
-        value: OTTEHR_MODULE.TM,
-      },
-      {
-        name: 'status',
-        value: appointmentStatusesToSearchWith.join(','),
-      },
-      {
-        name: '_has:Encounter:appointment:status',
-        value: encounterStatusesToSearchWith.join(','),
-      },
-      {
-        name: '_sort',
-        value: 'date',
-      },
-      {
         name: '_include',
         value: 'Appointment:patient',
       },
@@ -69,36 +53,56 @@ export const getAllResourcesFromFhir = async (
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
-      ...(searchDate
-        ? [
-            {
-              name: 'date',
-              value: `ge${searchDate.startOf('day').toISO()}`,
-            },
-            {
-              name: 'date',
-              value: `le${searchDate.endOf('day').toISO()}`,
-            },
-          ]
-        : []),
-      ...(locationIds.length > 0
-        ? [
-            {
-              name: 'location',
-              value: joinLocationsIdsForFhirSearch(locationIds),
-            },
-          ]
-        : []),
-      ...(appointmentId
-        ? [
-            {
-              name: '_id',
-              value: appointmentId,
-            },
-          ]
-        : []),
+      {
+        name: '_sort',
+        value: 'date',
+      },
     ],
   };
+
+  if (fhirSearchParams.params) {
+    if (appointmentId != null) {
+      fhirSearchParams.params.push({
+        name: '_id',
+        value: appointmentId,
+      });
+    } else {
+      fhirSearchParams.params.push(
+        {
+          name: '_tag',
+          value: OTTEHR_MODULE.TM,
+        },
+        {
+          name: 'status',
+          value: appointmentStatusesToSearchWith.join(','),
+        },
+        {
+          name: '_has:Encounter:appointment:status',
+          value: encounterStatusesToSearchWith.join(','),
+        },
+        ...(searchDate
+          ? [
+              {
+                name: 'date',
+                value: `ge${searchDate.startOf('day').toISO()}`,
+              },
+              {
+                name: 'date',
+                value: `le${searchDate.endOf('day').toISO()}`,
+              },
+            ]
+          : []),
+        ...(locationIds.length > 0
+          ? [
+              {
+                name: 'location',
+                value: joinLocationsIdsForFhirSearch(locationIds),
+              },
+            ]
+          : [])
+      );
+    }
+  }
 
   return (await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100)).filter(
     (resource) => isNonPaperworkQuestionnaireResponse(resource) === false
