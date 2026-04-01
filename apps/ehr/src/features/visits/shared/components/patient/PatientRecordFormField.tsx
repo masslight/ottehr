@@ -366,12 +366,23 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
       name={item.key}
       control={control}
       render={({ field: { value }, fieldState: { error } }) => {
+        // If the currently selected value is not in the active options list,
+        // include it with an "(inactive)" suffix so it remains visible.
+        const options = (() => {
+          const base = answerOptions ?? [];
+          if (!value?.reference) return base;
+          const isInList = base.some((opt) => opt.reference === value.reference);
+          if (isInList) return base;
+          const inactiveLabel = value.display ? `${value.display} (inactive)` : value.reference;
+          return [...base, { ...value, display: inactiveLabel } as Reference];
+        })();
+
         const selectedOption = value?.reference
-          ? answerOptions?.find((option) => option.reference === value.reference)
+          ? options.find((option) => option.reference === value.reference)
           : undefined;
         return (
           <Autocomplete
-            options={answerOptions ?? []}
+            options={options}
             loading={isLoading || isRefetching}
             id={id}
             loadingText={'Loading...'}
