@@ -2,6 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { BundleEntry, Condition, Encounter, List, Patient } from 'fhir/r4b';
 import {
+  AdminCreateTemplateInput,
+  AdminCreateTemplateOutput,
   chartDataTagSystem,
   examConfig,
   ExamType,
@@ -14,7 +16,7 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { AdminCreateTemplateInput, validateRequestParameters } from './validateRequestParameters';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -45,7 +47,7 @@ export const index = wrapHandler(
 const performEffect = async (
   validatedInput: AdminCreateTemplateInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr
-): Promise<{ templateName: string; templateId: string }> => {
+): Promise<AdminCreateTemplateOutput> => {
   const { encounterId, templateName, examType } = validatedInput;
 
   // Fetch encounter with all related clinical resources

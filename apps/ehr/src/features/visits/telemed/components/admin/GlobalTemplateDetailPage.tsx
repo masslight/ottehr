@@ -27,48 +27,7 @@ import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-
-interface ExamFinding {
-  fieldName: string;
-  label: string;
-  isAbnormal: boolean;
-  note: string;
-}
-
-interface DiagnosisInfo {
-  code: string;
-  display: string;
-}
-
-interface CodeInfo {
-  code: string;
-  display: string;
-}
-
-interface TemplateDetailData {
-  templateName: string;
-  templateId: string;
-  examVersion: string;
-  isCurrentVersion: boolean;
-  sections: {
-    hpiNote: string | null;
-    moiNote: string | null;
-    rosNote: string | null;
-    examFindings: ExamFinding[];
-    mdm: string | null;
-    diagnoses: DiagnosisInfo[];
-    patientInstructions: string | null;
-    cptCodes: CodeInfo[];
-    emCode: CodeInfo | null;
-    accident: {
-      autoAccident: boolean;
-      employment: boolean;
-      otherAccident: boolean;
-      date?: string;
-      state?: string;
-    } | null;
-  };
-}
+import { AdminGetTemplateDetailOutput } from 'utils';
 
 function renderMarkdown(text: string): ReactElement {
   // Convert markdown task lists and basic formatting to HTML-like rendering
@@ -81,7 +40,9 @@ function renderMarkdown(text: string): ReactElement {
       }}
     >
       {lines.map((line, i) => {
+        // Match markdown checked checkbox: "- [x] item" or "* [x] item" (case-insensitive)
         const checkedMatch = line.match(/^[-*]\s*\[x\]\s*(.*)/i);
+        // Match markdown unchecked checkbox: "- [ ] item" or "* [ ] item"
         const uncheckedMatch = line.match(/^[-*]\s*\[\s*\]\s*(.*)/);
         if (checkedMatch) {
           return (
@@ -152,13 +113,13 @@ export default function GlobalTemplateDetailPage(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const { data, isLoading, error } = useQuery<TemplateDetailData, Error>({
+  const { data, isLoading, error } = useQuery<AdminGetTemplateDetailOutput, Error>({
     queryKey: ['template-detail', templateId],
     queryFn: async () => {
       if (!oystehrZambda || !templateId) {
         throw new Error('API client or template ID not available');
       }
-      return (await getTemplateDetail(oystehrZambda, { templateId })) as unknown as TemplateDetailData;
+      return await getTemplateDetail(oystehrZambda, { templateId });
     },
     enabled: !!oystehrZambda && !!templateId,
     staleTime: QUERY_STALE_TIME,

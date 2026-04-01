@@ -1,9 +1,5 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { AdminGetTemplateDetailInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
-
-export interface AdminGetTemplateDetailInput {
-  templateId: string;
-}
 
 export function validateRequestParameters(
   input: ZambdaInput

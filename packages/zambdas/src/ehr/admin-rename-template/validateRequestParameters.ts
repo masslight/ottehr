@@ -1,10 +1,5 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { AdminRenameTemplateInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
-
-export interface AdminRenameTemplateInput {
-  templateId: string;
-  newName: string;
-}
 
 export function validateRequestParameters(input: ZambdaInput): AdminRenameTemplateInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

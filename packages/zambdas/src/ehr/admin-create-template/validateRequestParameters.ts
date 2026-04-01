@@ -1,11 +1,5 @@
-import { ExamType, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { AdminCreateTemplateInput, ExamType, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
-
-export interface AdminCreateTemplateInput {
-  encounterId: string;
-  templateName: string;
-  examType: ExamType;
-}
 
 export function validateRequestParameters(input: ZambdaInput): AdminCreateTemplateInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
