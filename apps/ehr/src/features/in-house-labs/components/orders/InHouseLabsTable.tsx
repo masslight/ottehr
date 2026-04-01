@@ -270,7 +270,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
 
         {!Array.isArray(labOrders) || labOrders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" gutterBottom>
+            <Typography data-testid={dataTestIds.inHouseLabsPage.noLabsMessage} variant="body1" gutterBottom>
               No In-house Lab Orders to display
             </Typography>
             {onCreateOrder && (

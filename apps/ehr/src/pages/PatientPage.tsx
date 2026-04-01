@@ -26,7 +26,11 @@ import PageContainer from '../layout/PageContainer';
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
-  const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
+  const defaultTab = location.state?.defaultTab;
+  const isLegacyPatientFollowupsEnabled = FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED;
+  const [tab, setTab] = useState(
+    !isLegacyPatientFollowupsEnabled && defaultTab === 'followups' ? 'encounters' : defaultTab || 'encounters'
+  );
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
 
   const { loading, patient } = useGetPatient(id);
@@ -129,14 +133,16 @@ export default function PatientPage(): JSX.Element {
                     </Typography>
                   }
                 />
-                <Tab
-                  value="followups"
-                  label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                      Patient Follow-ups
-                    </Typography>
-                  }
-                />
+                {isLegacyPatientFollowupsEnabled && (
+                  <Tab
+                    value="followups"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                        Patient Follow-ups
+                      </Typography>
+                    }
+                  />
+                )}
                 {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
                   <Tab
                     value="labs"
@@ -175,9 +181,11 @@ export default function PatientPage(): JSX.Element {
                 latestVisitDate={latestAppointment?.dateTime ?? null}
               />
             </TabPanel>
-            <TabPanel value="followups" sx={{ p: 0 }}>
-              <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
-            </TabPanel>
+            {isLegacyPatientFollowupsEnabled && (
+              <TabPanel value="followups" sx={{ p: 0 }}>
+                <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
+              </TabPanel>
+            )}
             {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
               <TabPanel value="labs" sx={{ p: 0 }}>
                 <PatientLabsTab patientId={id || ''} />
