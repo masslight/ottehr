@@ -165,8 +165,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
       body: JSON.stringify(response),
     };
-  } catch (error: any) {
-    throw error;
   } finally {
     logIt(`handler() end`);
   }

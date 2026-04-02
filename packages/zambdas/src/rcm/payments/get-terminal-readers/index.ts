@@ -50,7 +50,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {
-
     if (
       error instanceof Error &&
       'type' in error &&

@@ -157,12 +157,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const userToken = isInvitedParticipant ? oystehrToken : jwt;
-  const joinCallResponse = await joinTelemedMeeting(
-    projectApiURL,
-    userToken,
-    videoEncounter.id,
-    isInvitedParticipant
-  );
+  const joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
 
   return lambdaResponse(200, joinCallResponse);
 });
