@@ -1,4 +1,4 @@
-import { TestItem } from 'utils';
+import { DataEntryTestItem } from 'utils';
 
 export type SelectableOption = {
   testId: string;
@@ -21,12 +21,12 @@ export type MockReflexResultConfig = Record<string, MockResults>;
 
 export type MockReflexTestConfig = {
   parent: {
-    test: TestItem;
+    test: DataEntryTestItem;
     alert: string; // pulling this out of the AD so its easily accessible to check the UI for it later
     results: MockReflexResultConfig;
   };
   child: {
-    test: TestItem;
+    test: DataEntryTestItem;
     results: MockReflexResultConfig;
   };
 };
