@@ -22,6 +22,7 @@ import {
   getSecret,
   getTelemedVisitStatus,
   OTTEHR_MODULE,
+  OttehrTaskSystem,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
@@ -34,6 +35,7 @@ import {
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
   USER_TIMEZONE_EXTENSION_URL,
+  VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
@@ -360,8 +362,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
           if (notificationSettings?.taskNotificationsEnabled) {
             let title = task.description ?? `task ID ${task.id}`;
-            // workaround to have waiting room notifications sent without "new task" prefix
-            const isWaitingRoomNotification = title.endsWith('is ready to begin their virtual visit.');
+            const isWaitingRoomNotification = task.code?.coding?.some(
+              (coding) =>
+                coding.system === OttehrTaskSystem && coding.code === VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE
+            );
             if (!isWaitingRoomNotification) {
               title = 'A new task has been assigned to you: ' + title;
             }
