@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
+import { BundleEntry, Condition, Encounter, List, Patient } from 'fhir/r4b';
 import {
+  AdminCreateTemplateInput,
+  AdminCreateTemplateOutput,
+  chartDataTagSystem,
   examConfig,
   ExamType,
   getSecret,
@@ -13,7 +16,7 @@ import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { findHolderList } from '../shared/template-helpers';
-import { AdminCreateTemplateInput, validateRequestParameters } from './validateRequestParameters';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -44,7 +47,7 @@ export const index = wrapHandler(
 const performEffect = async (
   validatedInput: AdminCreateTemplateInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr
-): Promise<{ templateName: string; templateId: string }> => {
+): Promise<AdminCreateTemplateOutput> => {
   const { encounterId, templateName, examType } = validatedInput;
 
   // Fetch encounter with all related clinical resources
@@ -131,7 +134,32 @@ const performEffect = async (
     return !isDuplicate;
   });
 
-  console.log('Count of resources after deduplication:', encounterBundle.entry.length);
+  // Filter to only resources relevant to template sections
+  const TEMPLATE_TAG_SYSTEMS = new Set([
+    chartDataTagSystem('chief-complaint'),
+    chartDataTagSystem('mechanism-of-injury'),
+    chartDataTagSystem('ros'),
+    chartDataTagSystem('exam-observation-field'),
+    chartDataTagSystem('medical-decision'),
+    chartDataTagSystem('patient-instruction'),
+    chartDataTagSystem('cpt-code'),
+    chartDataTagSystem('em-code'),
+  ]);
+
+  encounterBundle.entry = encounterBundle.entry.filter((entry) => {
+    if (!entry.resource || entry.resource.resourceType === 'Encounter') return true;
+    // Keep ICD-10 Conditions (Assessment / Diagnoses)
+    if (
+      entry.resource.resourceType === 'Condition' &&
+      (entry.resource as Condition).code?.coding?.some((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+    ) {
+      return true;
+    }
+    // Keep resources with a template-relevant meta tag
+    return entry.resource.meta?.tag?.some((tag) => tag.system && TEMPLATE_TAG_SYSTEMS.has(tag.system));
+  });
+
+  console.log('Count of resources after filtering to template-relevant:', encounterBundle.entry.length);
 
   for (const entry of encounterBundle.entry) {
     if (!entry.resource) continue;
@@ -212,13 +240,16 @@ const performEffect = async (
 
   if (holderList) {
     const updatedEntries = [...(holderList.entry ?? []), { item: { reference: `List/${createdList.id}` } }];
-    await oystehr.fhir.update<List>({
-      ...holderList,
-      entry: updatedEntries,
-    });
+    await oystehr.fhir.update<List>(
+      {
+        ...holderList,
+        entry: updatedEntries,
+      },
+      { optimisticLockingVersionId: holderList.meta?.versionId }
+    );
     console.log('Added template to holder list');
   } else {
-    console.warn('No global templates holder list found — template created but not linked to holder');
+    throw new Error('No global templates holder list found — cannot link template');
   }
 
   return {

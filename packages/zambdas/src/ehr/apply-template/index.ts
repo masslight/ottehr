@@ -8,6 +8,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
 import {
   ApplyTemplateZambdaInput,
+  chartDataTagSystem,
   chunkThings,
   getSecret,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
@@ -190,12 +191,12 @@ const makeDeleteRequests = async (
     (resource) =>
       resource.meta?.tag?.some(
         (tag) =>
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' ||
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision' ||
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction' ||
+          tag.system === chartDataTagSystem('exam-observation-field') ||
+          tag.system === chartDataTagSystem('medical-decision') ||
+          tag.system === chartDataTagSystem('patient-instruction') ||
           // E&M code is replaced (one per visit); CPT codes are additive (like ICD diagnoses)
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code'
-        // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
+          tag.system === chartDataTagSystem('em-code')
+        // tag.system === chartDataTagSystem('chief-complaint')
       )
   );
 
@@ -239,15 +240,11 @@ const makeCreateRequests = (
 
   // We will patch the HPI to append content if it already exists.
   const existingHpiCondition = encounterBundle.find(
-    (resource) =>
-      resource.meta?.tag?.some(
-        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
-      )
+    (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('chief-complaint'))
   );
 
   const existingRosCondition = encounterBundle.find(
-    (resource) =>
-      resource.meta?.tag?.some((tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/ros')
+    (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('ros'))
   );
 
   const templateEncounterDiagnoses = templateList.contained?.find((r) => r.resourceType === 'Encounter')?.diagnosis;
@@ -264,21 +261,14 @@ const makeCreateRequests = (
 
     // For Chief Complaint, if there is an existing HPI Condition, instead of creating, we will patch so skip.
     if (
-      containedResource.meta?.tag?.some(
-        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
-      ) &&
+      containedResource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('chief-complaint')) &&
       existingHpiCondition
     ) {
       templateHpiCondition = containedResource as Condition;
       continue;
     }
 
-    if (
-      containedResource.meta?.tag?.some(
-        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/ros'
-      ) &&
-      existingRosCondition
-    ) {
+    if (containedResource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('ros')) && existingRosCondition) {
       templateRosCondition = containedResource as Condition;
       continue;
     }

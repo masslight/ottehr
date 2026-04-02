@@ -27,7 +27,7 @@ import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-import { TemplateDetailOutput } from 'utils';
+import { AdminGetTemplateDetailOutput } from 'utils';
 
 function renderMarkdown(text: string): ReactElement {
   // Convert markdown task lists and basic formatting to HTML-like rendering
@@ -40,7 +40,9 @@ function renderMarkdown(text: string): ReactElement {
       }}
     >
       {lines.map((line, i) => {
+        // Match markdown checked checkbox: "- [x] item" or "* [x] item" (case-insensitive)
         const checkedMatch = line.match(/^[-*]\s*\[x\]\s*(.*)/i);
+        // Match markdown unchecked checkbox: "- [ ] item" or "* [ ] item"
         const uncheckedMatch = line.match(/^[-*]\s*\[\s*\]\s*(.*)/);
         if (checkedMatch) {
           return (
@@ -111,13 +113,13 @@ export default function GlobalTemplateDetailPage(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const { data, isLoading, error } = useQuery<TemplateDetailOutput, Error>({
+  const { data, isLoading, error } = useQuery<AdminGetTemplateDetailOutput, Error>({
     queryKey: ['template-detail', templateId],
     queryFn: async () => {
       if (!oystehrZambda || !templateId) {
         throw new Error('API client or template ID not available');
       }
-      return (await getTemplateDetail(oystehrZambda, { templateId })) as unknown as TemplateDetailOutput;
+      return await getTemplateDetail(oystehrZambda, { templateId });
     },
     enabled: !!oystehrZambda && !!templateId,
     staleTime: QUERY_STALE_TIME,

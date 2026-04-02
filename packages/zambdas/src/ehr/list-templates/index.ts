@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
+  chunkThings,
   examConfig,
   ExamType,
   getSecret,
@@ -49,7 +50,11 @@ const performEffect = async (
   // Find the holder list
   const holderList = await findHolderList(oystehr);
 
-  if (!holderList || !holderList.entry?.length) {
+  if (!holderList) {
+    throw new Error('Global templates holder list not found — this should never happen');
+  }
+
+  if (!holderList.entry?.length) {
     return { templates: [] };
   }
 
@@ -64,16 +69,22 @@ const performEffect = async (
     return { templates: [] };
   }
 
-  // Fetch all template Lists by their IDs
-  const filteredTemplates = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: '_id', value: templateIds.join(',') },
-        { name: '_count', value: '200' },
-      ],
-    })
-  ).unbundle();
+  // Fetch all template Lists by their IDs in parallel groups of 50
+  const idChunks = chunkThings(templateIds, 50);
+  const chunkResults = await Promise.all(
+    idChunks.map((chunk) =>
+      oystehr.fhir
+        .search<List>({
+          resourceType: 'List',
+          params: [
+            { name: '_id', value: chunk.join(',') },
+            { name: '_count', value: '50' },
+          ],
+        })
+        .then((result) => result.unbundle())
+    )
+  );
+  const filteredTemplates = chunkResults.flat();
 
   const codeSystem =
     examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;

@@ -69,6 +69,12 @@ vi.mock('src/constants', () => ({
   QUERY_STALE_TIME: 5 * 60 * 1000,
 }));
 
+vi.mock('src/hooks/useEvolveUser', () => ({
+  default: () => ({
+    hasRole: () => true,
+  }),
+}));
+
 // ============================================================================
 // IMPORTS (must come after vi.mock calls)
 // ============================================================================

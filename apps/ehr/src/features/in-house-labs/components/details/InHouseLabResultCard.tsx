@@ -42,16 +42,12 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const defaultValues = useMemo(() => {
-    const radioResultMap = testDetails.labDetails.components.radioComponents.reduce((acc: any, item) => {
-      if (item.result?.entry) acc[item.observationDefinitionId] = item.result.entry;
-      return acc;
-    }, {});
-    const tableResultMap = testDetails.labDetails.components.groupedComponents.reduce((acc: any, item) => {
-      if (item.result?.entry) acc[item.observationDefinitionId] = item.result.entry;
-      return acc;
-    }, {});
-
-    return { ...radioResultMap, ...tableResultMap };
+    if (testDetails.labDetails.components.type !== 'empty') {
+      return testDetails.labDetails.components.components.reduce((acc: any, item) => {
+        if (item.result?.entry) acc[item.observationDefinitionId] = item.result.entry;
+        return acc;
+      }, {});
+    }
   }, [testDetails]);
 
   const methods = useForm<ResultEntryInput>({
@@ -101,6 +97,18 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
 
   const isButtonDisabled = !isValid || isReadOnly || (entryMode === EntryMode.Edit && !isDirty);
 
+  const renderResultComponents = (): JSX.Element[] => {
+    if (testDetails.labDetails.components.type === 'radio') {
+      return testDetails.labDetails.components.components.map((component, idx) => {
+        return (
+          <ResultEntryRadioButton key={`radio-btn-${idx}-${component.componentName}`} testItemComponent={component} />
+        );
+      });
+    } else if (testDetails.labDetails.components.type === 'grouped') {
+      return [<ResultEntryTable testItemComponents={testDetails.labDetails.components.components} />];
+    } else return [];
+  };
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(handleResultEntrySubmit)}>
@@ -127,18 +135,7 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
               </Box>
             </Box>
 
-            {testDetails.labDetails.components.radioComponents.map((component, idx) => {
-              return (
-                <ResultEntryRadioButton
-                  key={`radio-btn-${idx}-${component.componentName}`}
-                  testItemComponent={component}
-                />
-              );
-            })}
-
-            {testDetails.labDetails.components.groupedComponents.length > 0 && (
-              <ResultEntryTable testItemComponents={testDetails.labDetails.components.groupedComponents} />
-            )}
+            {renderResultComponents()}
 
             {testDetails.labDetails.reflexAlert && (
               <Box

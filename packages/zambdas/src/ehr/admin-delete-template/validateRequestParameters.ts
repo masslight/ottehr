@@ -1,9 +1,5 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { AdminDeleteTemplateInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
-
-export interface AdminDeleteTemplateInput {
-  templateId: string;
-}
 
 export function validateRequestParameters(input: ZambdaInput): AdminDeleteTemplateInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
