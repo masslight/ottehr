@@ -16,6 +16,9 @@ import {
 import { useAdminGetInHouseLabConfig, useAdminUpdateInHouseLab } from '../admin.queries';
 import AdminInHouseLabform from './AdminInHouseLabForm';
 
+const disableEditsMessage =
+  'You are viewing an old version of this test. Please return to the list and select the current version to make edits';
+
 export default function AdminInHouseLabDetails(): ReactElement {
   const { activityDefinitionId } = useParams();
   const navigate = useNavigate();
@@ -45,6 +48,8 @@ export default function AdminInHouseLabDetails(): ReactElement {
 
   const dataToRender = existingData?.testConfig ?? ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES;
   console.log('dataToRender', dataToRender);
+
+  const disableEdits = existingData ? !existingData.isLatest : false;
 
   const onEditSubmit = useCallback(
     async (formData: AdminInHouseLabItemDefinition) => {
@@ -130,6 +135,8 @@ export default function AdminInHouseLabDetails(): ReactElement {
                   onSubmit={onEditSubmit}
                   isSubmitting={isSubmitting}
                   submitError={submitError}
+                  disableEdits={disableEdits}
+                  disableEditsMessage={disableEditsMessage}
                 />
               )}
             </Paper>
@@ -143,6 +150,8 @@ export default function AdminInHouseLabDetails(): ReactElement {
                 onSubmit={onUpdateStatusSubmit}
                 isSubmitting={isSubmitting}
                 submitError={submitError}
+                disableEdits={disableEdits}
+                disableEditsMessage={disableEditsMessage}
               />
             )}
           </Grid>
@@ -157,10 +166,12 @@ interface ToggleStatusSectionProps {
   onSubmit: () => Promise<void>;
   isSubmitting?: boolean;
   submitError?: OystehrSdkError | APIError;
+  disableEdits: boolean;
+  disableEditsMessage?: string;
 }
 function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
   const theme = useTheme();
-  const { testItemStatus, onSubmit, isSubmitting, submitError } = props;
+  const { testItemStatus, onSubmit, isSubmitting, submitError, disableEdits, disableEditsMessage } = props;
   const isActive = testItemStatus === 'active';
   const formVerb = isActive ? 'Deactivate' : 'Activate';
   const formLabel = `${formVerb} In-House Test`;
@@ -200,11 +211,17 @@ function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
             variant="contained"
             loading={isSubmitting}
             color={isActive ? 'error' : 'primary'}
+            disabled={disableEdits}
           >
             {formVerb}
           </LoadingButton>
           {submitError && (
             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
+          )}
+          {disableEdits && (
+            <FormHelperText sx={{ color: theme.palette.error.main }}>
+              {disableEditsMessage ? disableEditsMessage : 'Edits are disabled'}
+            </FormHelperText>
           )}
         </Box>
       </form>

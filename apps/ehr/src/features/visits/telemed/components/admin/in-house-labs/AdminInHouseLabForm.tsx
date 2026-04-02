@@ -27,10 +27,12 @@ export interface AdminInHouseLabFormProps {
   onSubmit: (data: AdminInHouseLabItemDefinition) => void;
   isSubmitting?: boolean;
   submitError?: OystehrSdkError | APIError;
+  disableEdits?: boolean;
+  disableEditsMessage?: string;
 }
 
 export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): ReactElement {
-  const { defaultValues, formMode, onSubmit, isSubmitting, submitError } = props;
+  const { defaultValues, formMode, onSubmit, isSubmitting, submitError, disableEdits, disableEditsMessage } = props;
 
   const theme = useTheme();
   const methods = useForm<AdminInHouseLabItemDefinition>({
@@ -140,7 +142,7 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
         </SubSection>
 
         <SubSection label={''} theme={theme}>
-          <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
+          <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={disableEdits}>
             {submitButtonText}
           </LoadingButton>
           {submitError && (
@@ -149,6 +151,11 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
         </SubSection>
 
         {hasFormErrors && <FormHelperText sx={{ color: theme.palette.error.main }}>Please fix errors</FormHelperText>}
+        {disableEdits && (
+          <FormHelperText sx={{ color: theme.palette.error.main }}>
+            {disableEditsMessage ? disableEditsMessage : 'Edits are disabled'}
+          </FormHelperText>
+        )}
       </form>
     </FormProvider>
   );
