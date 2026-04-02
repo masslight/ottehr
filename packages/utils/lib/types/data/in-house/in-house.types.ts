@@ -1,4 +1,4 @@
-import { ProcedureModifier } from 'candidhealth/api';
+import { ProcedureModifier } from 'candidhealth/api/index.js';
 import {
   CPTCodeDTO,
   DiagnosisDTO,

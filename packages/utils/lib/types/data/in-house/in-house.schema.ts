@@ -1,4 +1,4 @@
-import { ProcedureModifier } from 'candidhealth/api';
+import { ProcedureModifier } from 'candidhealth/api/index.js';
 import { z } from 'zod';
 import { REFLEX_TEST_CONDITION_LANGUAGES } from './in-house.constants';
 
