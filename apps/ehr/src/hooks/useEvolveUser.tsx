@@ -8,11 +8,13 @@ import {
   BRANDING_CONFIG,
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
+  getPatchOperationToUpdateExtension,
   getPractitionerNPIIdentifier,
   initialsFromName,
   RoleType,
   SyncUserResponse,
   User,
+  USER_TIMEZONE_EXTENSION_URL,
   useSuccessQuery,
 } from 'utils';
 import { create } from 'zustand';
@@ -84,12 +86,28 @@ export default function useEvolveUser(): EvolveUser | undefined {
   useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {
       _practitionerLoginUpdateStarted = true;
-      void mutatePractitionerAsync([
+
+      const patchOps: Operation[] = [
         getPatchOperationForNewMetaTag(profile!, {
           system: 'last-login',
           code: DateTime.now().toISO() ?? 'Unknown',
         }),
-      ]).catch(console.error);
+      ];
+
+      // Save the browser timezone on the Practitioner resource so backend
+      // notifications (e.g. SMS) can format times in the provider's local timezone.
+      const browserTimezone = DateTime.local().zoneName;
+      if (browserTimezone) {
+        const timezonePatchOp = getPatchOperationToUpdateExtension(profile!, {
+          url: USER_TIMEZONE_EXTENSION_URL,
+          valueString: browserTimezone,
+        });
+        if (timezonePatchOp) {
+          patchOps.push(timezonePatchOp);
+        }
+      }
+
+      void mutatePractitionerAsync(patchOps).catch(console.error);
     }
   }, [oystehr, isPractitionerLastLoginBeingUpdated, mutatePractitionerAsync, profile, user]);
 

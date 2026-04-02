@@ -34,6 +34,7 @@ import {
   ABNORMAL_RESULT_DR_TAG,
   activityDefinitionIsReflexTest,
   checkIfReflexIsTriggered,
+  EntryMode,
   extractAbnormalValueSetValues,
   extractQuantityRange,
   getAttendingPractitionerId,
@@ -214,7 +215,7 @@ const getInHouseLabResultResources = async (
   schedule: Schedule;
   relatedServiceRequests: ServiceRequest[] | undefined;
   existingDiagnosticReport: DiagnosticReport | undefined;
-  resultEntryMode: 'initial' | 'edit';
+  resultEntryMode: EntryMode;
 }> => {
   const labOrderResources = (
     await oystehr.fhir.search<
@@ -305,7 +306,7 @@ const getInHouseLabResultResources = async (
   const serviceRequest = serviceRequests.find((sr) => sr.id === serviceRequestId);
   let existingDiagnosticReport: DiagnosticReport | undefined;
 
-  let resultEntryMode: 'initial' | 'edit' = 'initial';
+  let resultEntryMode: EntryMode = EntryMode.Initial;
   if (serviceRequest?.status === 'completed' && diagnosticReports.length > 0) {
     console.log(
       'result entry mode has been flagged as edit since the service request is completed and a diagnostic report already exists'
@@ -329,7 +330,7 @@ const getInHouseLabResultResources = async (
       );
     }
 
-    resultEntryMode = 'edit';
+    resultEntryMode = EntryMode.Edit;
   } else {
     console.log(`result entry mode has been flagged as initial, related ServiceRequest/${serviceRequest?.id}`);
   }
@@ -342,7 +343,7 @@ const getInHouseLabResultResources = async (
 
   let inputResultTask: Task | undefined;
 
-  if (resultEntryMode === 'initial') {
+  if (resultEntryMode === EntryMode.Initial) {
     console.log('These are the inputResultTasks', JSON.stringify(inputResultTasks));
     if (inputResultTasks.length !== 1) {
       console.log('inputResultTasks', inputResultTasks);
@@ -434,7 +435,7 @@ const makeResultEntryRequests = (
   attendingPractitioner: PractitionerConfig,
   relatedServiceRequests: ServiceRequest[] | undefined,
   existingDiagnosticReport: DiagnosticReport | undefined,
-  resultEntryMode: 'initial' | 'edit'
+  resultEntryMode: EntryMode
 ): BatchInputRequest<FhirResource>[] => {
   const requests: BatchInputRequest<FhirResource>[] = [];
   const serviceRequestPatchOperations: Operation[] = [];
@@ -448,7 +449,7 @@ const makeResultEntryRequests = (
   requests.push(provenancePostRequest);
 
   // we do work in the resource fetch to make sure there is always a input result task ready to be completed when the result entry mode is initial
-  if (resultEntryMode === 'initial' && irtTask) {
+  if (resultEntryMode === EntryMode.Initial && irtTask) {
     serviceRequestPatchOperations.push({
       path: '/status',
       op: 'replace',
@@ -825,7 +826,7 @@ const makeProvenancePostRequest = (
   serviceRequestId: string,
   curUser: PractitionerConfig,
   attendingPractitioner: PractitionerConfig,
-  resultEntryMode: 'initial' | 'edit'
+  resultEntryMode: EntryMode
 ): { provenancePostRequest: BatchInputPostRequest<Provenance>; provenanceFullUrl: string } => {
   const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
   const provenanceConfig: Provenance = {
@@ -837,7 +838,7 @@ const makeProvenancePostRequest = (
     ],
     activity: {
       coding: [
-        resultEntryMode === 'initial'
+        resultEntryMode === EntryMode.Initial
           ? PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults
           : PROVENANCE_ACTIVITY_CODING_ENTITY.editResults,
       ],

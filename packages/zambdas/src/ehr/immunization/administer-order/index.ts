@@ -237,6 +237,13 @@ export function validateRequestParameters(
 
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
+  if (administrationDetails) {
+    if (administrationDetails.mvx) administrationDetails.mvx = administrationDetails.mvx.trim();
+    if (administrationDetails.cvx) administrationDetails.cvx = administrationDetails.cvx.trim();
+    if (administrationDetails.ndc) administrationDetails.ndc = administrationDetails.ndc.trim();
+    if (administrationDetails.cpt) administrationDetails.cpt = administrationDetails.cpt.trim();
+  }
+
   return {
     orderId,
     type,
