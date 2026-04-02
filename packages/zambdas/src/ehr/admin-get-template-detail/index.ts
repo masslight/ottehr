@@ -58,31 +58,29 @@ function getTagCode(resource: Resource, tagSystem: string): string | undefined {
 function buildAbnormalFieldCodes(config: Record<string, any>): Set<string> {
   const abnormalCodes = new Set<string>();
 
-  function collectAbnormalCodes(obj: Record<string, any>): void {
-    for (const [key, value] of Object.entries(obj)) {
-      if (key === 'abnormal' && typeof value === 'object') {
-        collectFieldCodes(value, abnormalCodes);
-      } else if (typeof value === 'object' && value !== null && 'components' in value) {
-        collectAbnormalCodes(value.components);
+  function collectFromComponents(components: Record<string, any>, codes: Set<string>): void {
+    for (const [key, value] of Object.entries(components)) {
+      if (typeof value !== 'object' || value === null) continue;
+      const type = value.type;
+      if (type === 'checkbox' || type === 'modal-exam' || type === 'text') {
+        codes.add(key);
+      } else if (type === 'dropdown' && value.components) {
+        Object.keys(value.components).forEach((k: string) => codes.add(k));
+      } else if (type === 'multi-select' && value.options) {
+        Object.keys(value.options).forEach((k: string) => codes.add(k));
+      } else if (type === 'form' && value.components) {
+        Object.keys(value.components).forEach((k: string) => codes.add(k));
+      } else if (type === 'column' && value.components) {
+        collectFromComponents(value.components, codes);
       }
     }
   }
 
-  function collectFieldCodes(obj: Record<string, any>, codes: Set<string>): void {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        if ('type' in value && value.type === 'checkbox') {
-          codes.add(key);
-        } else if ('components' in value) {
-          collectFieldCodes(value.components, codes);
-        } else if ('type' in value && value.type === 'column') {
-          collectFieldCodes(value.components, codes);
-        }
-      }
+  Object.values(config).forEach((section: any) => {
+    if (section?.components?.abnormal) {
+      collectFromComponents(section.components.abnormal, abnormalCodes);
     }
-  }
-
-  collectAbnormalCodes(config);
+  });
   return abnormalCodes;
 }
 
@@ -90,20 +88,37 @@ function buildAbnormalFieldCodes(config: Record<string, any>): Set<string> {
 function buildFieldLabels(config: Record<string, any>): Map<string, string> {
   const labels = new Map<string, string>();
 
-  function collect(obj: Record<string, any>): void {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        if ('label' in value && 'type' in value && (value.type === 'checkbox' || value.type === 'text')) {
-          labels.set(key, value.label as string);
+  function collectFromComponents(components: Record<string, any>): void {
+    for (const [key, value] of Object.entries(components)) {
+      if (typeof value !== 'object' || value === null) continue;
+      const type = value.type;
+      if ((type === 'checkbox' || type === 'modal-exam' || type === 'text') && 'label' in value) {
+        labels.set(key, value.label as string);
+      } else if (type === 'dropdown' && value.components) {
+        if ('label' in value) labels.set(key, value.label as string);
+        for (const [optKey, opt] of Object.entries(value.components as Record<string, any>)) {
+          if (opt && 'label' in opt) labels.set(optKey, `${value.label}: ${opt.label}`);
         }
-        if ('components' in value) {
-          collect(value.components);
+      } else if (type === 'multi-select' && value.options) {
+        if ('label' in value) labels.set(key, value.label as string);
+        for (const [optKey, opt] of Object.entries(value.options as Record<string, any>)) {
+          if (opt && 'label' in opt) labels.set(optKey, `${value.label}: ${opt.label}`);
         }
+      } else if (type === 'form' && value.components) {
+        for (const [elemKey, elem] of Object.entries(value.components as Record<string, any>)) {
+          if (elem && 'label' in elem) labels.set(elemKey, `${value.label}: ${elem.label}`);
+          else labels.set(elemKey, `${value.label}: ${elemKey}`);
+        }
+      } else if (type === 'column' && value.components) {
+        collectFromComponents(value.components);
       }
     }
   }
 
-  collect(config);
+  Object.values(config).forEach((section: any) => {
+    if (section?.components?.normal) collectFromComponents(section.components.normal);
+    if (section?.components?.abnormal) collectFromComponents(section.components.abnormal);
+  });
   return labels;
 }
 
