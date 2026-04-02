@@ -5,9 +5,13 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
-import { AllStates } from 'utils';
+import { AllStates, getAppointmentServiceCategoryAbbreviation } from 'utils';
 import { useChartFields } from './shared/hooks/useChartFields';
-import { useDeleteChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
+import {
+  useAppointmentData,
+  useDeleteChartData,
+  useSaveChartData,
+} from './shared/stores/appointment/appointment.store';
 
 interface Props {
   readOnly: boolean;
@@ -22,6 +26,9 @@ interface FormData {
 }
 
 export const AccidentField: FC<Props> = ({ readOnly }) => {
+  const { appointment } = useAppointmentData();
+  const isWorkersComp = getAppointmentServiceCategoryAbbreviation(appointment) === 'WC';
+
   const {
     data: chartDataFields,
     refetch,
@@ -47,12 +54,12 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
   useEffect(() => {
     methods.reset({
       autoAccident: chartDataFields?.accident?.type?.includes('AA') ?? false,
-      employmentAccident: chartDataFields?.accident?.type?.includes('EM') ?? false,
+      employmentAccident: chartDataFields?.accident?.type?.includes('EM') ?? (isWorkersComp ? true : false),
       otherAccident: chartDataFields?.accident?.type?.includes('OA') ?? false,
       date: chartDataFields?.accident?.date,
       state: chartDataFields?.accident?.state,
     });
-  }, [chartDataFields, methods]);
+  }, [chartDataFields, methods, isWorkersComp]);
 
   useEffect(() => {
     const callback = methods.subscribe({
