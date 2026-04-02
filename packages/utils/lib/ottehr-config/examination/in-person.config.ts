@@ -1246,7 +1246,7 @@ export const InPersonExamConfig = {
     },
   },
   neck: {
-    label: 'Neck, Thyroid',
+    label: 'Neck',
     components: {
       normal: {
         'normal-appearance-of-neck': { label: 'Normal appearance of neck', defaultValue: true, type: 'checkbox' },
