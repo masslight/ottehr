@@ -177,62 +177,10 @@ function buildEmPreviewRates(feeSchedule: ChargeItemDefinition | null | undefine
   return rates;
 }
 
-const getBooleanFlag = (candidate: unknown): boolean | undefined => {
-  if (typeof candidate === 'boolean') {
-    return candidate;
-  }
-  return undefined;
-};
-
 const deriveCardOnFileStatus = (output: unknown): boolean => {
-  if (!output || typeof output !== 'object') {
-    return false;
-  }
-
+  if (!output || typeof output !== 'object') return false;
   const response = output as Record<string, unknown>;
-  if (!Array.isArray(response.cards)) {
-    return false;
-  }
-
-  const allCards = response.cards as unknown[];
-  if (allCards.length === 0) {
-    return false;
-  }
-
-  let hasAnyDefaultFlag = false;
-  let hasDefaultOrPrimary = false;
-
-  allCards.forEach((card) => {
-    if (!card || typeof card !== 'object') {
-      return;
-    }
-
-    const cardObj = card as Record<string, unknown>;
-    const possibleFlags = [
-      cardObj.default,
-      cardObj.isDefault,
-      cardObj.is_default,
-      cardObj.primary,
-      cardObj.isPrimary,
-      cardObj.is_primary,
-    ];
-
-    possibleFlags.forEach((flag) => {
-      const boolFlag = getBooleanFlag(flag);
-      if (boolFlag !== undefined) {
-        hasAnyDefaultFlag = true;
-        if (boolFlag) {
-          hasDefaultOrPrimary = true;
-        }
-      }
-    });
-  });
-
-  if (hasAnyDefaultFlag) {
-    return hasDefaultOrPrimary;
-  }
-
-  return true;
+  return Array.isArray(response.cards) && response.cards.length > 0;
 };
 
 export default function PatientPaymentList({
@@ -472,7 +420,7 @@ export default function PatientPaymentList({
     if (oystehrZambda && patient?.id) {
       void refetchCardOnFile();
     }
-  }, [oystehrZambda, patient, refetchCardOnFile]);
+  }, [oystehrZambda, patient?.id, refetchCardOnFile]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
