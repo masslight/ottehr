@@ -81,7 +81,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../external/get-lab-orders/helpers';
-import { getUrlAndVersionForADFromServiceRequest } from './in-house-labs';
+import { getInHouseLabTestUrlAndVersionForADFromServiceRequest } from './in-house-labs';
 
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
@@ -546,7 +546,7 @@ const fetchActivityDefinitions = async (
     const canonical = sr.instantiatesCanonical[0];
     if (!canonicalUrls.has(canonical)) {
       try {
-        canonicalUrls.set(canonical, getUrlAndVersionForADFromServiceRequest(sr));
+        canonicalUrls.set(canonical, getInHouseLabTestUrlAndVersionForADFromServiceRequest(sr));
       } catch {
         // skip if parsing fails
       }
