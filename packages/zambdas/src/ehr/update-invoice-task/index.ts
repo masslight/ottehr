@@ -8,12 +8,7 @@ import {
   parseInvoiceTaskInput,
   USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

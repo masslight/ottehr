@@ -1,15 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  BillingSuggestionOutput,
-  fixAndParseJsonObjectFromString,
-  PROVIDER_CONFIG,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, PROVIDER_CONFIG } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
