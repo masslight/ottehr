@@ -23,6 +23,7 @@ import {
   CPTCodeDTO,
   createCancellationTagOperations,
   ExamObservationDTO,
+  FHIR_RESOURCE_IS_GONE,
   getPatchBinary,
   MedicalConditionDTO,
   MedicationDTO,
