@@ -47,7 +47,7 @@ import {
   SPECIMEN_CODING_CONFIG,
   WORKERS_COMP_SERVICE_REQUEST_CATEGORY,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
@@ -67,111 +67,106 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler('create-lab-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const {
+    dx,
+    encounter, // why do we send the whole encounter? can probably just do the id and grab the resource later
+    orderableItems,
+    psc,
+    secrets,
+    orderingLocation: modifiedOrderingLocation,
+    selectedPaymentMethod,
+    clinicalInfoNoteByUser,
+  } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
+  let curUserPractitionerId: string | undefined;
   try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const {
-      dx,
-      encounter, // why do we send the whole encounter? can probably just do the id and grab the resource later
-      orderableItems,
-      psc,
-      secrets,
-      orderingLocation: modifiedOrderingLocation,
-      selectedPaymentMethod,
-      clinicalInfoNoteByUser,
-    } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-
-    const userToken = input.headers.Authorization.replace('Bearer ', '');
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    let curUserPractitionerId: string | undefined;
-    try {
-      curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    } catch {
-      throw EXTERNAL_LAB_ERROR(
-        'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
-      );
-    }
-    const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: curUserPractitionerId,
-    });
-
-    console.log('>>> this is the encounter,', JSON.stringify(encounter, undefined, 2));
-    const attendingPractitionerId = getAttendingPractitionerId(encounter);
-
-    if (!attendingPractitionerId) {
-      // this should never happen since theres also a validation on the front end that you cannot submit without one
-      throw EXTERNAL_LAB_ERROR(
-        'Resource configuration error - this encounter does not have an attending practitioner linked'
-      );
-    }
-
-    const clientOrgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
-
-    const testsGroupedByLabGuid = groupTestsByLabGuid(orderableItems);
-
-    // create lab order requests will come in for the same patient, encounter, psc flag, location
-    // the only potential difference is the lab that will perform the test
-    const commonResources = {
-      encounter,
-      psc,
-      selectedPaymentMethod,
-      oystehr,
-      modifiedOrderingLocation,
-      clientOrgId,
-    };
-
-    const resourceRequestPromises = Object.entries(testsGroupedByLabGuid).map(async ([labGuid, testData]) => {
-      // get the fhir resources for this requsition which are grouped by lab
-      // (there are some other factors that go into requisition grouping like payment type and psc status but those are will never differ at this point)
-      const resources = await getCreateOrderResources({ ...commonResources, labName: testData.labName, labGuid });
-
-      const requisitionNumber = resources.existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
-
-      validateLabOrgAndOrderingLocationAndGetAccountNumber(resources.labOrganization, resources.orderingLocation);
-
-      const orderableItems = testData.tests;
-
-      const requestsForRequsition = orderableItems.map((orderableItem) => {
-        const requestsForThisTest = formatAllResourceRequests(orderableItem, {
-          ...resources,
-          requisitionNumber,
-          encounter,
-          dx,
-          psc,
-          attendingPractitionerId,
-          clinicalInfoNoteByUser,
-          selectedPaymentMethod,
-          currentUserPractitioner,
-        });
-        return requestsForThisTest;
-      });
-
-      return requestsForRequsition.flat();
-    });
-
-    const resourceRequests = await Promise.all(resourceRequestPromises);
-
-    const requests = resourceRequests.flat();
-
-    console.log('making transaction request', JSON.stringify(requests));
-    await oystehr.fhir.transaction({ requests });
-
-    const response: CreateLabOrderZambdaOutput = {};
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
+    curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  } catch {
+    throw EXTERNAL_LAB_ERROR(
+      'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
+    );
   }
+  const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: curUserPractitionerId,
+  });
+
+  console.log('>>> this is the encounter,', JSON.stringify(encounter, undefined, 2));
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
+
+  if (!attendingPractitionerId) {
+    // this should never happen since theres also a validation on the front end that you cannot submit without one
+    throw EXTERNAL_LAB_ERROR(
+      'Resource configuration error - this encounter does not have an attending practitioner linked'
+    );
+  }
+
+  const clientOrgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+
+  const testsGroupedByLabGuid = groupTestsByLabGuid(orderableItems);
+
+  // create lab order requests will come in for the same patient, encounter, psc flag, location
+  // the only potential difference is the lab that will perform the test
+  const commonResources = {
+    encounter,
+    psc,
+    selectedPaymentMethod,
+    oystehr,
+    modifiedOrderingLocation,
+    clientOrgId,
+  };
+
+  const resourceRequestPromises = Object.entries(testsGroupedByLabGuid).map(async ([labGuid, testData]) => {
+    // get the fhir resources for this requsition which are grouped by lab
+    // (there are some other factors that go into requisition grouping like payment type and psc status but those are will never differ at this point)
+    const resources = await getCreateOrderResources({ ...commonResources, labName: testData.labName, labGuid });
+
+    const requisitionNumber = resources.existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
+
+    validateLabOrgAndOrderingLocationAndGetAccountNumber(resources.labOrganization, resources.orderingLocation);
+
+    const orderableItems = testData.tests;
+
+    const requestsForRequsition = orderableItems.map((orderableItem) => {
+      const requestsForThisTest = formatAllResourceRequests(orderableItem, {
+        ...resources,
+        requisitionNumber,
+        encounter,
+        dx,
+        psc,
+        attendingPractitionerId,
+        clinicalInfoNoteByUser,
+        selectedPaymentMethod,
+        currentUserPractitioner,
+      });
+      return requestsForThisTest;
+    });
+
+    return requestsForRequsition.flat();
+  });
+
+  const resourceRequests = await Promise.all(resourceRequestPromises);
+
+  const requests = resourceRequests.flat();
+
+  console.log('making transaction request', JSON.stringify(requests));
+  await oystehr.fhir.transaction({ requests });
+
+  const response: CreateLabOrderZambdaOutput = {};
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const formatAllResourceRequests = (

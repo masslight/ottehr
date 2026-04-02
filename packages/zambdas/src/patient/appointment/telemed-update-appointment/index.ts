@@ -19,7 +19,6 @@ import {
   createUpdateUserRelatedResources,
   creatingPatientUpdateRequest,
   getUser,
-  topLevelCatch,
   userHasAccessToPatient,
   wrapHandler,
   ZambdaInput,
@@ -33,18 +32,13 @@ let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const validatedParameters = validateUpdateAppointmentParams(input);
+  const validatedParameters = validateUpdateAppointmentParams(input);
 
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
+  oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
 
-    const response = await performEffect({ input, params: validatedParameters });
+  const response = await performEffect({ input, params: validatedParameters });
 
-    return response;
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-appointment', error, ENVIRONMENT);
-  }
+  return response;
 });
 
 interface PerformEffectInputProps {

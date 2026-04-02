@@ -1,13 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { wrapHandler, ZambdaInput } from '../../shared';
 
 export const index = wrapHandler('failing-endpoint', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    throw new Error('Test zambda error');
-  } catch (error) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('failing-endpoint', error, ENVIRONMENT);
-  }
+  throw new Error('Test zambda error');
 });
