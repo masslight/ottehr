@@ -1,8 +1,11 @@
+export type EncounterStatusFilter = 'incomplete' | 'complete';
+
 export interface IncompleteEncountersReportZambdaInput {
   dateRange: {
     start: string; // ISO date string
     end: string; // ISO date string
   };
+  encounterStatus?: EncounterStatusFilter; // defaults to 'incomplete'
 }
 
 export interface IncompleteEncounterItem {

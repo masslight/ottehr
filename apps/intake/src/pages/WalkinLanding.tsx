@@ -16,7 +16,8 @@ import {
 } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
-import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
+import { getWelcomeTitle } from '../branding/welcomeTitle';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
@@ -58,12 +59,10 @@ export const WalkinLanding: FC = () => {
 
   return (
     <PageContainer
-      title={somethingIsLoadingInSomeWay ? 'Loading...' : `Welcome to ${BRANDING_CONFIG.projectName} `}
+      title={somethingIsLoadingInSomeWay ? 'Loading...' : getWelcomeTitle()}
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
-      img={primaryIcon}
-      imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={120}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.WALKIN_LANDING)}
     >
       {!somethingIsLoadingInSomeWay && data ? (
         data.walkinOpen ? (
@@ -129,7 +128,7 @@ export const WalkinLanding: FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
               <Link to={PROJECT_WEBSITE} aria-label={`${BRANDING_CONFIG.projectName} website`} target="_blank">
-                <Button variant="contained" color="primary" data-testid="loading-button">
+                <Button variant="contained" color="secondary" data-testid="loading-button">
                   {t('welcome.goToWebsite', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
                 </Button>
               </Link>

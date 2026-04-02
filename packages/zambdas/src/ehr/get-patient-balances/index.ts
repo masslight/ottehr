@@ -3,12 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
+import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   lambdaResponse,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -27,9 +28,9 @@ type EncounterIdMap = Map<
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
+const CANDID_BATCH_SIZE = 3;
+
 const ZAMBDA_NAME = 'get-patient-balances';
-// https://docs.joincandidhealth.com/introduction/getting-started#rate-limiting rate limited to 1000/10s
-const CANDID_API_CONCURRENCY_LIMIT = 10;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -49,8 +50,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
     return lambdaResponse(200, response);
   } catch (error: any) {
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets);
     console.log('Error: ', JSON.stringify(error.message));
-    return lambdaResponse(500, { error: error.message });
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 
@@ -86,8 +88,12 @@ export async function performEffect(
     const candidId = encounter.identifier?.find(
       (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM && identifier.value != null
     )?.value;
-    if (!appointmentId || !encounterDate || !candidId) {
-      throw new Error(`Encounter is missing appointmentId, encounterDate, or candidId: ${encounter.id}`);
+    if (!appointmentId || !encounterDate) {
+      throw new Error(`Encounter is missing appointmentId or encounterDate: ${encounter.id}`);
+    }
+    if (!candidId) {
+      console.warn(`Encounter ${encounter.id} is missing Candid ID, skipping...`);
+      return;
     }
     encounterDataMap.set(encounter.id!, {
       encounterDate,
@@ -183,14 +189,17 @@ async function getAllCandidEncounters(
   encounterIdMap: EncounterIdMap
 ): Promise<APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[]> {
   const candidIds = Array.from(encounterIdMap.values()).map(({ candidId }) => candidId);
-  const chunkedCandidIds = chunkThings(candidIds, CANDID_API_CONCURRENCY_LIMIT);
+  console.log(`Fetching ${candidIds.length} encounters from Candid`);
   const candidEncounters: APIResponse<CandidApi.encounters.v4.Encounter, CandidApi.encounters.v4.get.Error._Unknown>[] =
     [];
-  for (const chunk of chunkedCandidIds) {
-    const currentCandidEncounters = await Promise.all(
-      chunk.map((candidId) => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
+  const currentCandidEncounters = chunkThings(candidIds, CANDID_BATCH_SIZE);
+  for (const batch of currentCandidEncounters) {
+    const batchResults = await Promise.all(
+      batch.map((candidId) =>
+        retryWithBackoff(() => candidApiClient.encounters.v4.get(CandidApi.EncounterId(candidId)))
+      )
     );
-    candidEncounters.push(...currentCandidEncounters);
+    candidEncounters.push(...batchResults);
   }
   console.log(`Fetched ${candidEncounters.length} Candid encounters`);
   return candidEncounters;
@@ -224,14 +233,15 @@ async function getAllCandidClaims(
   claimIdMap: Map<string, string>
 ): Promise<APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[]> {
   const claimIds = Array.from(claimIdMap.keys());
-  const chunkedClaimIds = chunkThings(claimIds, CANDID_API_CONCURRENCY_LIMIT);
+  console.log(`Fetching ${claimIds.length} claims from Candid`);
   const claims: APIResponse<CandidApi.patientAr.v1.InvoiceItemizationResponse, CandidApi.patientAr.v1.itemize.Error>[] =
     [];
-  for (const chunk of chunkedClaimIds) {
-    const currentClaims = await Promise.all(
-      chunk.map((claimId) => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId)))
+  const currentClaims = chunkThings(claimIds, CANDID_BATCH_SIZE);
+  for (const batch of currentClaims) {
+    const batchResults = await Promise.all(
+      batch.map((claimId) => retryWithBackoff(() => candidApiClient.patientAr.v1.itemize(CandidApi.ClaimId(claimId))))
     );
-    claims.push(...currentClaims);
+    claims.push(...batchResults);
   }
   console.log(`Fetched ${claims.length} claims`);
   return claims;
@@ -279,4 +289,31 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
   });
 
   return pendingPayments.reduce((acc, amount) => acc + amount, 0);
+}
+
+async function retryWithBackoff<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 4,
+  baseDelayMs = 200
+): Promise<APIResponse<T, E>> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fn();
+      if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
+        return response;
+    } catch (error: any) {
+      if (attempt === maxRetries) throw error;
+      const isTooManyRequests =
+        error?.body?.errorName === 'TooManyRequestsError' ||
+        error?.message?.includes('Too many requests') ||
+        error?.statusCode === 429;
+      if (!isTooManyRequests) throw error;
+    }
+    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+    console.warn(
+      `Candid API request rate limited, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  return fn();
 }

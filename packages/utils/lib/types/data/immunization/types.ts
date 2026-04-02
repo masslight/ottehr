@@ -46,6 +46,7 @@ export interface ImmunizationOrder {
   reason?: string;
   details: ImmunizationOrderDetails;
   administrationDetails?: ImmunizationOrderAdministrationDetails;
+  encounterId: string;
 }
 
 export type InputImmunizationOrderDetails = Omit<ImmunizationOrderDetails, 'orderedDateTime'>;
@@ -63,7 +64,7 @@ export interface CreateUpdateImmunizationOrderResponse {
 export interface GetImmunizationOrdersRequest {
   orderId?: string;
   patientId?: string;
-  encounterId?: string;
+  encounterIds?: string[];
 }
 
 export interface GetImmunizationOrdersResponse {

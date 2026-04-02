@@ -175,6 +175,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         VALUE_SETS.reasonForVisitOptionsWorkersComp.some((opt) => opt.value === reasonOption)
       ) {
         normalizedReasonForVisit = reasonOption;
+      } else if (
+        appointmentServiceCategory === 'pre-op' &&
+        VALUE_SETS.reasonForVisitOptionsPreOp?.some((opt) => opt.value === reasonOption)
+      ) {
+        normalizedReasonForVisit = reasonOption;
       } else if (VALUE_SETS.reasonForVisitOptions.some((opt) => opt.value === reasonOption)) {
         normalizedReasonForVisit = reasonOption;
       }

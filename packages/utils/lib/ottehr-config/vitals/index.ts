@@ -1,35 +1,7 @@
 import * as z from 'zod';
-import { VITALS_OVERRIDES } from '../../../ottehr-config-overrides';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
-// Re-export config contract types from config-types
-export {
-  AgeSchema as VitalsAgeSchema,
-  AgeUnitSchema as VitalsAgeUnitSchema,
-  ConstraintTypeSchema as VitalsConstraintTypeSchema,
-  VitalAlertCriticalitySchema,
-  VitalBloodPressureComponentSchema,
-  VitalTypeSchema,
-  VitalVisionComponentSchema,
-  type Age as VitalsAge,
-  type AgeUnit as VitalsAgeUnit,
-  type AlertConstraint as VitalsAlertConstraint,
-  type AlertThreshold as VitalsAlertThreshold,
-  type BaseConstraint as VitalsBaseConstraint,
-  type ConstraintType as VitalsConstraintType,
-  type VitalAlertCriticality as VitalsAlertCriticalityType,
-  type VitalBloodPressureComponent,
-  type VitalType,
-  type VitalVisionComponent,
-  type VitalsBloodPressure,
-  type VitalsConfig,
-  type VitalsObject as VitalsObjectType,
-  type VitalsVision,
-  type VitalsWeight,
-  type VitalsWithComponents,
-} from 'config-types';
-
-const VitalsConfig = {
+export const VitalsConfigData = {
   'vital-temperature': {
     alertThresholds: [
       {
@@ -585,6 +557,17 @@ const AgeSchema = z.object({
   unit: z.enum(['years', 'months', 'days']),
   value: z.number().int().nonnegative(),
 });
+
+function ageToDays(age: z.infer<typeof AgeSchema>): number {
+  switch (age.unit) {
+    case 'years':
+      return age.value * 365;
+    case 'months':
+      return age.value * 30;
+    case 'days':
+      return age.value;
+  }
+}
 const BaseConstraintSchema = z.object({
   type: z.enum(['min', 'max']),
   units: z.string().optional(),
@@ -651,7 +634,7 @@ const AlertThresholdSchema = z
   .refine(
     (data) => {
       if (data.minAge && data.maxAge) {
-        return data.minAge.value <= data.maxAge.value;
+        return ageToDays(data.minAge) <= ageToDays(data.maxAge);
       }
       return true;
     },
@@ -703,7 +686,7 @@ export const VitalsMap = z.object({
   'vital-vision': VitalsVisionSchema.optional(),
 });
 
-export const DefaultVitalsConfig = Object.freeze(VitalsMap.parse(VitalsConfig));
+export const DefaultVitalsConfig = Object.freeze(VitalsMap.parse(VitalsConfigData));
 
 export type VitalsSchema = z.infer<typeof VitalsMap>;
 
@@ -718,4 +701,4 @@ export type AlertThreshold = z.infer<typeof AlertThresholdSchema>;
 
 export type AlertRule = ReturnType<typeof ConstraintSchema.parse>;
 
-export const vitalsConfig = VitalsDef(VITALS_OVERRIDES);
+export const vitalsConfig = VitalsDef();

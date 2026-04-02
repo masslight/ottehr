@@ -2,9 +2,9 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useNavigate } from 'react-router-dom';
-import { BRANDING_CONFIG } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
-import { primaryIcon } from '../../branding/assets';
+import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../../branding/primaryIconVisibility';
+import { getWelcomeTitle } from '../../branding/welcomeTitle';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
@@ -17,10 +17,8 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
 
   return (
     <CustomContainer
-      title={`Welcome to ${BRANDING_CONFIG.projectName}`}
-      img={primaryIcon}
-      imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={100}
+      title={getWelcomeTitle()}
+      {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.TELEMED_WELCOME)}
       isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}
     >

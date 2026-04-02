@@ -59,10 +59,11 @@ export default function AddSchedulePage(): ReactElement {
     }
     const resource = await oystehr.fhir.create<Location | Practitioner | HealthcareService>(resourceData);
     setLoading(false);
+
     if (scheduleType === 'group') {
-      navigate(`/group/id/${resource.id}`);
+      navigate(`/admin/group/id/${resource.id}`);
     } else {
-      navigate(`/schedule/new/${scheduleType}/${resource.id}`);
+      navigate(`/admin/schedule/new/${scheduleType}/${resource.id}`);
     }
   }
 
@@ -73,7 +74,8 @@ export default function AddSchedulePage(): ReactElement {
           {/* Breadcrumbs */}
           <CustomBreadcrumbs
             chain={[
-              { link: '/schedules', children: 'Schedules' },
+              { link: '/admin', children: 'Admin' },
+              { link: '/admin/schedules', children: 'Schedules' },
               { link: '#', children: `Add ${scheduleType}` },
             ]}
           />

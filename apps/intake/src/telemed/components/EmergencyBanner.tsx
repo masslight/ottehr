@@ -13,7 +13,7 @@ export const EmergencyBanner: FC = () => {
         alignItems: 'center',
         gap: 2.5,
         borderRadius: 2,
-        backgroundColor: otherColors.purple,
+        backgroundColor: otherColors.emergencyBanner,
         p: 2,
         mt: 3,
         [theme.breakpoints.down('md')]: { mx: 2 },

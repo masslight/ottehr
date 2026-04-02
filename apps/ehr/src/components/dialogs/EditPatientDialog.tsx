@@ -210,7 +210,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
   const statesDropdownOptions: string[] = [...possibleUsStates.map((usState) => usState)];
   const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
   const emailErrorMessage = 'Email is not valid';
-  const zipCodeErrorMessage = 'ZIP Code must be 5 numbers';
+  const zipCodeErrorMessage = 'ZIP Code must be 5 or 9 numbers';
 
   useEffect(() => {
     setValue('dateOfBirth', patient?.birthDate ? DateTime.fromISO(patient?.birthDate) : null);
@@ -590,32 +590,29 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
             <Grid item xs={12} sm={4} md={4}>
               <FormControl fullWidth required>
                 <Controller
-                  name={'zipCode'}
+                  name="zipCode"
                   control={control}
-                  render={({ field: { value } }) => (
-                    <TextField
-                      sx={{
-                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                          display: 'none',
-                        },
-                        '& input[type=number]': {
-                          MozAppearance: 'textfield',
-                        },
-                      }}
+                  render={({ field: { value, onChange } }) => (
+                    <PatternFormat
+                      customInput={TextField}
                       label="ZIP"
-                      type="number"
-                      value={value}
+                      value={value || ''}
+                      format="#####-####"
+                      placeholder="#####-####"
                       variant="outlined"
-                      error={!!formState.errors.zipCode}
-                      helperText={formState.errors.zipCode ? zipCodeErrorMessage : ''}
                       fullWidth
                       required
-                      onChange={(event) => {
-                        const enteredZipCode = event.target.value;
-                        resetField('zipCode');
-                        setValue('zipCode', enteredZipCode);
-                        if (!isValidZipCode(enteredZipCode)) {
-                          setFormError('zipCode', { message: zipCodeErrorMessage });
+                      error={!!formState.errors.zipCode}
+                      helperText={formState.errors.zipCode ? zipCodeErrorMessage : ''}
+                      onValueChange={(values, sourceInfo) => {
+                        if (sourceInfo.source === 'event') {
+                          const digits = values.value;
+
+                          onChange(digits); // let RHF update normally
+
+                          if (!isValidZipCode(digits)) {
+                            setFormError('zipCode', { message: zipCodeErrorMessage });
+                          }
                         }
                       }}
                     />

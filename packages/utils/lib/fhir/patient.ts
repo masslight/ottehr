@@ -17,7 +17,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { removePrefix } from '../helpers';
+import { formatZipcodeForDisplay, removePrefix } from '../helpers';
 import {
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -25,6 +25,8 @@ import {
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
+  PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
+  PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
   RelatedPersonMaps,
@@ -296,16 +298,22 @@ export function getPatientLastName(patient: Patient): string | undefined {
   return getLastName(patient);
 }
 
-export function getFirstName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual.name?.[0]?.given?.[0];
+export function getFirstName(
+  individual: Patient | Practitioner | RelatedPerson | Person | undefined
+): string | undefined {
+  return individual?.name?.[0]?.given?.[0];
 }
 
-export function getMiddleName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual.name?.[0].given?.[1];
+export function getMiddleName(
+  individual: Patient | Practitioner | RelatedPerson | Person | undefined
+): string | undefined {
+  return individual?.name?.[0].given?.[1];
 }
 
-export function getLastName(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
-  return individual.name?.[0]?.family;
+export function getLastName(
+  individual: Patient | Practitioner | RelatedPerson | Person | undefined
+): string | undefined {
+  return individual?.name?.[0]?.family;
 }
 
 export function getNickname(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
@@ -575,7 +583,7 @@ export const getPatientAddress = (
   const country = address?.[0]?.city;
   const addressLine = address?.[0]?.line?.[0];
   const addressLine2 = address?.[0]?.line?.[1];
-  const postalCode = address?.[0]?.postalCode;
+  const postalCode = address?.[0].postalCode ? formatZipcodeForDisplay(address?.[0].postalCode) : undefined;
   const state = address?.[0]?.state;
 
   const cityStateZIP = [city, state, postalCode].filter((value) => !!value).join(', ');
@@ -692,12 +700,31 @@ export const getProviderNotificationSettingsForPractitioner = (
   const notificationValue = notifyExtension?.extension?.find(
     (extension) => extension.url === PROVIDER_NOTIFICATION_METHOD_URL
   )?.valueString as ProviderNotificationMethod;
+
+  /** @deprecated */
   const notificationsEnabled =
     notifyExtension?.extension?.find((extension) => extension.url === PROVIDER_NOTIFICATIONS_ENABLED_URL)
       ?.valueBoolean === true;
+  const taskNotificationsExtension = notifyExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL
+  );
+  const telemedNotificationsExtension = notifyExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL
+  );
+  const taskNotificationsEnabled =
+    taskNotificationsExtension !== undefined ? taskNotificationsExtension.valueBoolean === true : notificationsEnabled;
+  const telemedNotificationsEnabled =
+    telemedNotificationsExtension !== undefined
+      ? telemedNotificationsExtension.valueBoolean === true
+      : notificationsEnabled;
+
+  const phoneNumber = getSMSNumberForIndividual(practitioner);
+
   return {
-    enabled: notificationsEnabled,
     method: notificationValue,
+    taskNotificationsEnabled,
+    telemedNotificationsEnabled,
+    phoneNumber,
   };
 };
 

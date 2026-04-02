@@ -87,10 +87,19 @@ export type { LegalConfig } from './legal';
 export {
   LocationItemSchema,
   SupportScheduleGroupSchema,
-  SupportDisplaySchema,
+  SupportDialogRowSchema,
+  SupportDialogSectionSchema,
+  SupportDialogSchema,
   LocationConfigSchema,
 } from './locations';
-export type { LocationItem, SupportScheduleGroup, SupportDisplay, LocationConfig } from './locations';
+export type {
+  LocationItem,
+  SupportScheduleGroup,
+  SupportDialogRow,
+  SupportDialogSection,
+  SupportDialog,
+  LocationConfig,
+} from './locations';
 
 // Branding config types
 export {
@@ -98,6 +107,7 @@ export {
   EmailConfigSchema,
   LogoConfigSchema,
   IntakeAssetsSchema,
+  IntakePrimaryIconVisibilitySchema,
   IntakeThemePaletteSchema,
   IntakeThemeOtherColorsSchema,
   IntakeThemeSchema,
@@ -109,6 +119,7 @@ export type {
   EmailConfig,
   LogoConfig,
   IntakeAssets,
+  IntakePrimaryIconVisibility,
   IntakeThemePalette,
   IntakeThemeOtherColors,
   IntakeTheme,
@@ -242,14 +253,14 @@ export type {
 export {
   MedicalConditionQuickPickSchema,
   AllergyQuickPickSchema,
-  MedicationQuickPickSchema,
+  MedicationHistoryQuickPickSchema,
   InHouseMedicationQuickPickSchema,
   MedicalHistoryConfigSchema,
 } from './medical-history';
 export type {
   MedicalConditionQuickPick,
   AllergyQuickPick,
-  MedicationQuickPick,
+  MedicationHistoryQuickPick,
   InHouseMedicationQuickPick,
   MedicalConditionsSection,
   AllergiesSection,

@@ -16,6 +16,7 @@ import {
   RcmTaskCodings,
   SecretsKeys,
   TEXTING_CONFIG,
+  ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
@@ -56,11 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('encounters without a task: ', packagesToCreate.length);
 
-    const promises: Promise<void>[] = [];
-    packagesToCreate.forEach((encounter) => {
-      promises.push(createTaskForEncounter(oystehr, encounter));
-    });
-    await Promise.all(promises);
+    await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg)));
 
     return {
       statusCode: 200,
@@ -103,8 +100,11 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
   try {
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
+
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
+
     const prefilledInvoiceInfo = await getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents);
+
     console.log(
       `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
     );
@@ -117,14 +117,31 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
       code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
       for: { reference: `Patient/${patientId}` },
-      authoredOn: DateTime.now().toISO(),
+      authoredOn: prefilledInvoiceInfo.finalizationDate ?? DateTime.now().toISO(),
+      ...(encounter.period?.start
+        ? { executionPeriod: { start: encounter.period.start, end: encounter.period.start } }
+        : {}),
+      ...(amountCents === 0 ? { businessStatus: ZERO_BALANCE_BUSINESS_STATUS } : {}),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
+    console.log('Creating task:', JSON.stringify(task));
+
     const created = await oystehr.fhir.create(task);
+
     console.log('Created task: ', created.id);
   } catch (error) {
-    captureException(error);
+    console.error(
+      `Failed to create task for encounter ${encounterPkg.encounter.id}, claim ${encounterPkg.claim.claimId}:`,
+      error
+    );
+
+    captureException(error, {
+      tags: {
+        claimId: encounterPkg.claim.claimId,
+        encounterId: encounterPkg.encounter.id,
+      },
+    });
   }
 }
 
@@ -172,11 +189,11 @@ export async function getEncountersWithoutTaskFhir(
       });
     }
   });
-  console.log('Getting amounts for encounters and filtering zero amounts:');
-  return await populateAmountInPackagesAndFilterZeroAmount(candid, result);
+  console.log('Getting amounts for encounters and populating packages with patient balances:');
+  return await populateAmountInPackages(candid, result);
 }
 
-export async function populateAmountInPackagesAndFilterZeroAmount(
+export async function populateAmountInPackages(
   candid: CandidApiClient,
   packages: Omit<EncounterPackage, 'amountCents'>[]
 ): Promise<EncounterPackage[]> {
@@ -184,23 +201,49 @@ export async function populateAmountInPackagesAndFilterZeroAmount(
   const itemizationResponse = await Promise.all(itemizationPromises);
 
   const resultPackages: EncounterPackage[] = [];
-  itemizationResponse.forEach((res) => {
-    if (res && res.ok && res.body) {
-      const itemization = res.body as InvoiceItemizationResponse;
-      const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
-      if (
-        itemization.claimId &&
-        itemization.patientBalanceCents &&
-        itemization.patientBalanceCents > 0 &&
-        incomingPkg
-      ) {
-        resultPackages.push({
-          ...incomingPkg,
-          amountCents: itemization.patientBalanceCents,
-        });
-      }
+  itemizationResponse.forEach((res, idx) => {
+    if (!res || !res.ok || !res.body) {
+      const pkg = packages[idx];
+      const claimId = pkg?.claim.claimId;
+      const error = new Error(`Candid itemization failed for claim ${claimId}`);
+
+      console.error(error.message, JSON.stringify(res, null, 2));
+
+      captureException(error, {
+        tags: {
+          claimId,
+          encounterId: pkg?.encounter.id,
+        },
+      });
+      return;
     }
+
+    const itemization = res.body as InvoiceItemizationResponse;
+
+    if (!itemization.claimId) {
+      console.warn(`Itemization response is missing claimId, skipping`);
+      return;
+    }
+
+    const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
+
+    if (!incomingPkg) {
+      console.warn(`No matching package found for itemization claimId: ${itemization.claimId}`);
+      return;
+    }
+
+    if (!itemization.patientBalanceCents && itemization.patientBalanceCents !== 0) {
+      console.warn(`patientBalanceCents is missing for claim ${itemization.claimId}, skipping`);
+      return;
+    }
+
+    console.log(`Itemization for claim ${itemization.claimId}: patientBalanceCents=${itemization.patientBalanceCents}`);
+    resultPackages.push({
+      ...incomingPkg,
+      amountCents: itemization.patientBalanceCents,
+    });
   });
+
   return resultPackages;
 }
 

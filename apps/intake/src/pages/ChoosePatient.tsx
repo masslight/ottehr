@@ -10,6 +10,7 @@ import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
 import { primaryIcon } from '../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { CustomLoadingButton } from '../components/CustomLoadingButton';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
@@ -354,6 +355,8 @@ const ChoosePatient = (): JSX.Element => {
   const onBack = (): void => {
     navigate(`/home`);
   };
+  const showPrimaryIconInBanner = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.CHOOSE_PATIENT_BANNER);
+  const primaryIconSize = getPrimaryIconSize();
 
   return (
     <PageContainer
@@ -361,9 +364,9 @@ const ChoosePatient = (): JSX.Element => {
       topOutsideCardComponent={
         visitType === VisitType.WalkIn && showCheckIn ? (
           <CardWithDescriptionAndLink
-            iconHeight={50}
-            icon={primaryIcon}
-            iconAlt={BRANDING_CONFIG.primaryIconAlt}
+            iconHeight={primaryIconSize}
+            icon={showPrimaryIconInBanner ? primaryIcon : undefined}
+            iconAlt={showPrimaryIconInBanner ? BRANDING_CONFIG.intake.primaryIconAlt : undefined}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}
